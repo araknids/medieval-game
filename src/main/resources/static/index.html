@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <title>Medieval Game</title>
+  <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+
+  <!-- TELA DE LOGIN -->
+  <div id="login-screen">
+    <div class="auth-box">
+      <h1>⚔ Medieval Game</h1>
+
+      <div id="login-form">
+        <h2>Entrar</h2>
+        <input id="login-username" type="text" placeholder="Usuário">
+        <input id="login-password" type="password" placeholder="Senha">
+        <button onclick="login()">Entrar</button>
+        <p class="link" onclick="showRegister()">Não tem conta? Cadastre-se</p>
+      </div>
+
+      <div id="register-form" style="display:none">
+        <h2>Criar Conta</h2>
+        <input id="reg-username" type="text" placeholder="Usuário">
+        <input id="reg-email" type="email" placeholder="E-mail">
+        <input id="reg-password" type="password" placeholder="Senha (min 6)">
+        <input id="reg-warrior-name" type="text" placeholder="Nome do guerreiro">
+        <button onclick="register()">Criar Conta</button>
+        <p class="link" onclick="showLogin()">Já tem conta? Entrar</p>
+      </div>
+
+      <p id="auth-error" class="error"></p>
+    </div>
+  </div>
+
+  <!-- TELA DO JOGO -->
+  <div id="game-screen" style="display:none">
+
+    <header>
+      <span class="hdr-title">⚔ Medieval Game</span>
+      <span>Olá, <strong id="hdr-username"></strong></span>
+      <span>💰 <strong id="hdr-gold"></strong></span>
+      <span>🏆 <strong id="hdr-rank"></strong> pts</span>
+      <button class="btn-small" onclick="logout()">Sair</button>
+    </header>
+
+    <div class="game-layout">
+
+      <!-- PAINEL ESQUERDO: GUERREIRO -->
+      <aside id="warrior-panel">
+        <h2>Guerreiro</h2>
+        <div id="warrior-card">Carregando...</div>
+      </aside>
+
+      <!-- CONTEÚDO PRINCIPAL -->
+      <main>
+
+        <!-- NAV DE LOCAIS -->
+        <nav class="location-nav">
+          <button id="loc-tavern"    class="loc-btn active" onclick="goTo('tavern')">🍺 Taverna</button>
+          <button id="loc-inventory" class="loc-btn"        onclick="goTo('inventory')">👤 Personagem</button>
+          <button id="loc-commerce"  class="loc-btn"        onclick="goTo('commerce')">🛒 Comércio</button>
+          <button id="loc-arena"     class="loc-btn"        onclick="goTo('arena')">⚔ Arena</button>
+        </nav>
+
+        <!-- TAVERNA -->
+        <section id="loc-panel-tavern">
+          <div class="loc-header">
+            <h2>Taverna</h2>
+            <p class="loc-desc">Pegue missões e envie seu guerreiro para combate.</p>
+          </div>
+
+          <!-- Lista de missões (estado normal) -->
+          <div id="tavern-normal">
+            <div class="tabs">
+              <button id="tab-available" class="tab active" onclick="switchQuestTab('available')">Missões</button>
+              <button id="tab-active"    class="tab"        onclick="switchQuestTab('active')">Ativas</button>
+            </div>
+            <div id="panel-available"><div id="quest-types-list">Carregando...</div></div>
+            <div id="panel-active" style="display:none"><div id="active-quests-list">Carregando...</div></div>
+          </div>
+
+          <!-- Progresso da missão (estado em missão) -->
+          <div id="tavern-progress" style="display:none">
+            <div id="qp-content"></div>
+          </div>
+        </section>
+
+        <!-- PERSONAGEM -->
+        <section id="loc-panel-inventory" style="display:none">
+          <div class="loc-header">
+            <h2>Personagem</h2>
+          </div>
+
+          <!-- Atributos -->
+          <div id="attributes-panel"></div>
+
+          <!-- Equipamentos -->
+          <div id="equipment-slots"></div>
+          <h3 class="bag-title">Mochila</h3>
+          <div id="bag-items"></div>
+        </section>
+
+        <!-- COMÉRCIO -->
+        <section id="loc-panel-commerce" style="display:none">
+          <div class="loc-header">
+            <h2>Comércio</h2>
+            <p class="loc-desc">Compre e venda equipamentos.</p>
+          </div>
+          <div class="tabs">
+            <button id="tab-shop" class="tab active" onclick="switchCommerceTab('shop')">Comprar</button>
+            <button id="tab-sell" class="tab"        onclick="switchCommerceTab('sell')">Vender</button>
+          </div>
+          <div id="panel-shop"><div id="shop-list">Carregando...</div></div>
+          <div id="panel-sell" style="display:none"><div id="sell-list">Carregando...</div></div>
+        </section>
+
+        <!-- ARENA -->
+        <section id="loc-panel-arena" style="display:none">
+          <div class="loc-header">
+            <h2>Arena</h2>
+            <p class="loc-desc">Desafie outros guerreiros e suba no ranking.</p>
+          </div>
+          <div class="tabs">
+            <button id="tab-rank"  class="tab active" onclick="switchArenaTab('rank')">Ranking</button>
+            <button id="tab-fight" class="tab"        onclick="switchArenaTab('fight')">Batalha</button>
+          </div>
+          <div id="panel-rank"><div id="rank-list">Carregando...</div></div>
+          <div id="panel-fight" style="display:none">
+            <div id="fight-area">Carregando...</div>
+          </div>
+        </section>
+
+      </main>
+    </div>
+
+    <div id="game-message"></div>
+  </div>
+
+  <script src="/app.js"></script>
+</body>
+</html>
