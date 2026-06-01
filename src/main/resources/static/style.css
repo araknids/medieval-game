@@ -292,6 +292,12 @@ section {
 .shop-item-info h3 { font-size: 0.88rem; }
 .shop-item-info .shop-stats { font-size: 0.76rem; color: #aaa; margin-top: 0.15rem; }
 .shop-price { color: #c9a84c; font-weight: bold; font-size: 0.88rem; margin: 0 0.8rem; white-space: nowrap; }
+.shop-card-sold { opacity: 0.6; }
+.btn-bought {
+  padding: 0.3rem 0.8rem; background: #1a4a2e; color: #4caf82;
+  border: 1px solid #4caf82; border-radius: 4px;
+  font-family: inherit; font-size: 0.8rem; cursor: not-allowed;
+}
 .btn-buy {
   padding: 0.3rem 0.8rem; background: #c9a84c; color: #1a1a2e;
   border: none; border-radius: 4px; cursor: pointer;

@@ -3,7 +3,9 @@ package com.medieval.game.service;
 import com.medieval.game.enums.ItemType;
 import com.medieval.game.model.InventoryItem;
 import com.medieval.game.model.Player;
+import com.medieval.game.model.ShopPurchase;
 import com.medieval.game.repository.InventoryItemRepository;
+import com.medieval.game.repository.ShopPurchaseRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -11,12 +13,14 @@ import org.springframework.transaction.annotation.Transactional;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Random;
+import java.util.Set;
 
 @Service
 @RequiredArgsConstructor
 public class ShopService {
 
     private final InventoryItemRepository inventoryRepository;
+    private final ShopPurchaseRepository  purchaseRepository;
     private final PlayerService playerService;
 
     private static final long ROTATION_SECONDS = 6 * 60 * 60; // 6 horas
@@ -157,10 +161,11 @@ public class ShopService {
         return QUOTES[(int)((currentRotationId() + 3) % QUOTES.length)];
     }
 
-    // ── Gera os itens da rotação atual ──
-    public List<ShopItem> getItems() {
+    // ── Gera os itens da rotação atual com status de compra por jogador ──
+    public List<ShopItem> getItems(Player player) {
         long rotationId = currentRotationId();
         Random rng = new Random(rotationId);
+        Set<Integer> bought = purchaseRepository.purchasedSlots(player, rotationId);
         List<ShopItem> items = new ArrayList<>();
 
         for (int slot = 0; slot < SHOP_SIZE; slot++) {
@@ -177,7 +182,8 @@ public class ShopService {
                 (int)       template[3],
                 (int)       template[4],
                 rarity,
-                (int)       template[5]
+                (int)       template[5],
+                bought.contains(slot)
             ));
         }
         return items;
@@ -201,13 +207,26 @@ public class ShopService {
             Object[] template = pool[rng.nextInt(pool.length)];
             if (i == slot) {
                 item = new ShopItem(shopItemId, (String) template[0], (ItemType) template[1],
-                        (int) template[2], (int) template[3], (int) template[4], rarity, (int) template[5]);
+                        (int) template[2], (int) template[3], (int) template[4], rarity, (int) template[5], false);
             }
         }
 
         if (item == null) throw new IllegalStateException("Item não encontrado");
 
+        // Bloqueia compra duplicada
+        Set<Integer> bought = purchaseRepository.purchasedSlots(player, rotationId);
+        if (bought.contains(slot)) {
+            throw new IllegalStateException("Você já comprou este item nesta rotação");
+        }
+
         playerService.spendGold(player, item.price());
+
+        // Registra a compra
+        ShopPurchase purchase = new ShopPurchase();
+        purchase.setPlayer(player);
+        purchase.setRotationId(rotationId);
+        purchase.setSlotIndex(slot);
+        purchaseRepository.save(purchase);
 
         InventoryItem inv = new InventoryItem();
         inv.setPlayer(player);
@@ -240,7 +259,8 @@ public class ShopService {
     }
 
     public record ShopItem(long id, String name, ItemType type,
-                           int atk, int def, int hp, int rarity, int price) {
+                           int atk, int def, int hp, int rarity, int price,
+                           boolean purchased) {
         public String rarityName() {
             return switch (rarity) {
                 case 2 -> "Incomum"; case 3 -> "Raro"; case 4 -> "Épico"; default -> "Comum";

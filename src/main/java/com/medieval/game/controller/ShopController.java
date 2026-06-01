@@ -16,22 +16,25 @@ import java.util.Map;
 @RequiredArgsConstructor
 public class ShopController {
 
-    private final ShopService  shopService;
+    private final ShopService   shopService;
     private final PlayerService playerService;
 
     @GetMapping
-    public ResponseEntity<?> getShop() {
-        var items = shopService.getItems().stream().map(i -> Map.of(
-                "id",           i.id(),
-                "name",         i.name(),
-                "type",         i.type().name(),
-                "typeDisplay",  i.type().displayName,
-                "attackBonus",  i.atk(),
-                "defenseBonus", i.def(),
-                "healthBonus",  i.hp(),
-                "rarity",       i.rarity(),
-                "rarityName",   i.rarityName(),
-                "price",        i.price()
+    public ResponseEntity<?> getShop(Authentication auth) {
+        Player player = playerService.findById((Long) auth.getPrincipal());
+
+        var items = shopService.getItems(player).stream().map(i -> Map.ofEntries(
+                Map.entry("id",           i.id()),
+                Map.entry("name",         i.name()),
+                Map.entry("type",         i.type().name()),
+                Map.entry("typeDisplay",  i.type().displayName),
+                Map.entry("attackBonus",  i.atk()),
+                Map.entry("defenseBonus", i.def()),
+                Map.entry("healthBonus",  i.hp()),
+                Map.entry("rarity",       i.rarity()),
+                Map.entry("rarityName",   i.rarityName()),
+                Map.entry("price",        i.price()),
+                Map.entry("purchased",    i.purchased())
         )).toList();
 
         return ResponseEntity.ok(Map.of(
@@ -46,8 +49,8 @@ public class ShopController {
     @PostMapping("/buy/{shopItemId}")
     public ResponseEntity<?> buy(@PathVariable long shopItemId, Authentication auth) {
         try {
-            Player       player = playerService.findById((Long) auth.getPrincipal());
-            InventoryItem item  = shopService.buy(player, shopItemId);
+            Player        player = playerService.findById((Long) auth.getPrincipal());
+            InventoryItem item   = shopService.buy(player, shopItemId);
             return ResponseEntity.ok(Map.of(
                     "message", item.getName() + " comprado com sucesso!",
                     "gold",    player.getGold(),

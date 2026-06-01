@@ -419,13 +419,16 @@ async function loadShop() {
       ${items.map(i => {
         const stats = statsText(i);
         return `
-          <div class="shop-card">
+          <div class="shop-card ${i.purchased ? 'shop-card-sold' : ''}">
             <div class="shop-item-info">
               <h3 class="rarity-${i.rarity}">${i.name}</h3>
               <div class="shop-stats">${i.typeDisplay} · ${i.rarityName} · ${stats}</div>
             </div>
             <span class="shop-price">💰 ${i.price}</span>
-            <button class="btn-buy" onclick="buyItem(${i.id})">Comprar</button>
+            ${i.purchased
+              ? `<button class="btn-bought" disabled>✓ Comprado</button>`
+              : `<button class="btn-buy" onclick="buyItem(${i.id})">Comprar</button>`
+            }
           </div>`;
       }).join('')}
     </div>`;
@@ -457,6 +460,7 @@ async function buyItem(shopItemId) {
   if (data.error) { showMessage(data.error, true); return; }
   showMessage(data.message);
   loadWarrior();
+  loadShop(); // recarrega para marcar item como comprado
 }
 
 // ── COMÉRCIO: inventário ──
