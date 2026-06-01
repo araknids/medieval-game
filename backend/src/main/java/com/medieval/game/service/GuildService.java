@@ -25,7 +25,7 @@ public class GuildService {
     // ── Criar guilda ──────────────────────────────────────────────────────────
     @Transactional
     public Guild create(Player player, String name, String description) {
-        if (player.getGuild() != null)
+        if (playerRepository.findGuildByPlayerId(player.getId()).isPresent())
             throw new IllegalStateException("Você já pertence a uma guilda.");
         if (guildRepository.existsByName(name))
             throw new IllegalArgumentException("Nome de guilda já existe.");
@@ -49,7 +49,7 @@ public class GuildService {
     // ── Entrar na guilda ──────────────────────────────────────────────────────
     @Transactional
     public Guild join(Player player, Long guildId) {
-        if (player.getGuild() != null)
+        if (playerRepository.findGuildByPlayerId(player.getId()).isPresent())
             throw new IllegalStateException("Você já pertence a uma guilda. Saia primeiro.");
 
         Guild guild = guildRepository.findById(guildId)
@@ -168,8 +168,7 @@ public class GuildService {
 
     // Carrega guild do banco evitando lazy proxy (open-in-view=false)
     public Guild loadGuild(Player player) {
-        if (player.getGuild() == null) return null;
-        return guildRepository.findById(player.getGuild().getId()).orElse(null);
+        return playerRepository.findGuildByPlayerId(player.getId()).orElse(null);
     }
 
     public List<Guild> listAll() {
@@ -187,12 +186,11 @@ public class GuildService {
     }
 
     // ── Helpers ───────────────────────────────────────────────────────────────
+
+    // Usa query direta para evitar proxy lazy com open-in-view=false
     private Guild requireGuild(Player player) {
-        if (player.getGuild() == null)
-            throw new IllegalStateException("Você não pertence a nenhuma guilda.");
-        // recarrega para garantir dados atualizados
-        return guildRepository.findById(player.getGuild().getId())
-                .orElseThrow(() -> new IllegalStateException("Guilda não encontrada."));
+        return playerRepository.findGuildByPlayerId(player.getId())
+                .orElseThrow(() -> new IllegalStateException("Você não pertence a nenhuma guilda."));
     }
 
     private void requireLeader(Player player, Guild guild) {
