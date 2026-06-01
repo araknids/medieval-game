@@ -43,7 +43,10 @@ public class Warrior {
     private int availablePoints = 0;
 
     // Sistema de trabalho — separado do combate
+    @Column(columnDefinition = "integer default 1")
     private int  workLevel      = 1;
+
+    @Column(columnDefinition = "bigint default 0")
     private long workExperience = 0;
 
     private boolean onMission = false;
