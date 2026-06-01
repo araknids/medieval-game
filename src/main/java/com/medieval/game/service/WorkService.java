@@ -102,7 +102,7 @@ public class WorkService {
             throw new IllegalStateException("Trabalho em andamento. Faltam ~" + mins + " minutos");
         }
 
-        player.setGold(player.getGold() + session.getGoldReward());
+        player.addBronzeAmount(session.getGoldReward());
         playerRepository.save(player);
 
         // Adiciona XP à profissão específica
@@ -142,7 +142,7 @@ public class WorkService {
             long goldEarned = Math.round(session.getGoldReward() * hoursCompleted / (double) session.getHours());
             int  xpEarned   = (int)(session.getXpReward()        * hoursCompleted / (double) session.getHours());
 
-            player.setGold(player.getGold() + goldEarned);
+            player.addBronzeAmount(goldEarned);
             playerRepository.save(player);
 
             WorkProfession profession = getProfession(player, session.getWorkType());

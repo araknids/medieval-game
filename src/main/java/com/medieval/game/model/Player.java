@@ -42,6 +42,14 @@ public class Player {
         return bronze + silver * 100L + gold * 10_000L;
     }
 
+    // Adiciona bronze e auto-converte sem depender de service
+    public void addBronzeAmount(long amount) {
+        long total = totalBronze() + amount;
+        this.gold   = total / 10_000L;
+        this.silver = (total % 10_000L) / 100L;
+        this.bronze = total % 100L;
+    }
+
     private int rankPoints  = 1000;
     private int arenaWins   = 0;
     private int arenaLosses = 0;

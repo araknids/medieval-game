@@ -71,7 +71,7 @@ public class InventoryService {
         if (item.isEquipped()) {
             throw new IllegalStateException("Desequipe o item antes de vender");
         }
-        player.setGold(player.getGold() + item.getSellPrice());
+        player.addBronzeAmount(item.getSellPrice()); // sell price é em bronze
         playerRepository.save(player);
         inventoryRepository.delete(item);
         return item;
