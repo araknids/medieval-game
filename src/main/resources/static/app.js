@@ -45,6 +45,62 @@ function fmtBronze(totalBronze) {
   return formatCurrency(bronze, silver, gold);
 }
 
+// ── Renderização do log de batalha ──
+function renderBattleLog(lines) {
+  return lines.map(line => {
+    if (line.startsWith('HP:'))         return `<span class="log-hp">${line}</span>`;
+    if (line.includes('❤'))            return `<span class="log-hp">${line}</span>`;
+    if (line.includes('🏆'))            return `<span class="log-win">${line}</span>`;
+    if (line.includes('esquiva') || line.includes('desvia') || line.includes('bloqueia') ||
+        line.includes('rola') || line.includes('para o impacto'))
+                                        return `<span class="log-evade">${line}</span>`;
+    if (line.includes('───'))           return `<span class="log-separator">${line}</span>`;
+    if (line.startsWith('—'))           return `<span class="log-round">${line}</span>`;
+    return `<span class="log-hit">${line}</span>`;
+  }).join('\n');
+}
+
+// ── Narrativas das missões ──
+const QUEST_NARRATIVES = {
+  PATROL: [
+    'Seu guerreiro patrulhou os arredores, mantendo a paz e afugentando bandoleiros.',
+    'Uma ronda tranquila pelos arredores da cidade. A noite foi calma.',
+    'O guerreiro cruzou cada rua com atenção, garantindo a segurança da região.',
+  ],
+  DUNGEON: [
+    'As trevas da masmorra foram varridas com determinação. Inimigos caíram pelo caminho.',
+    'Batalhas nas profundezas ecoaram pelas cavernas. O guerreiro saiu vitorioso.',
+    'Criaturas sombrias tentaram barrar o caminho, mas foram derrotadas uma a uma.',
+  ],
+  RAID: [
+    'O raid foi intenso — múltiplos inimigos foram derrotados em combate aberto.',
+    'Sangue e glória: o raid foi um sucesso retumbante.',
+    'Liderando o ataque, o guerreiro deixou um rastro de vitórias no campo.',
+  ],
+  BOSS_HUNT: [
+    'O chefe rugiu ameaçadoramente, mas caiu diante da determinação do guerreiro.',
+    'Uma batalha épica que ficará marcada na memória. O chefe foi abatido.',
+    'Após um confronto lendário, o chefe foi finalmente derrotado.',
+  ],
+};
+
+const DROP_NARRATIVES = [
+  'Ao vasculhar os destroços do inimigo, encontrou algo brilhante entre a sujeira...',
+  'Num canto esquecido da masmorra, havia um item abandonado há anos...',
+  'A vitória trouxe uma surpresa inesperada escondida nos pertences do inimigo...',
+  'Entre os escombros da batalha, um reflexo chamou atenção do guerreiro...',
+  'Com cuidado, examinou o corpo do inimigo e encontrou algo valioso...',
+];
+
+function questNarrative(questType) {
+  const key = questType?.toUpperCase().replace(' ', '_') ||
+    (questType?.includes('Patrulha') ? 'PATROL' :
+     questType?.includes('Masmorra') ? 'DUNGEON' :
+     questType?.includes('Raid') ? 'RAID' : 'BOSS_HUNT');
+  const arr = QUEST_NARRATIVES[key] || QUEST_NARRATIVES.PATROL;
+  return arr[Math.floor(Math.random() * arr.length)];
+}
+
 function showMessage(text, isError = false, isDrop = false) {
   const el = document.getElementById('game-message');
   el.textContent = text;
@@ -419,7 +475,15 @@ async function collectReward(questId) {
       ].filter(Boolean).join(' ');
       line += `\n✨ ${d.name} (${stats})`;
     }
-    card.innerHTML = `<div class="collect-result">${line.replace('\n', '<br>')}</div>`;
+    const narrative = questNarrative(data.questType || '');
+    const dropNarrative = data.droppedItem
+      ? DROP_NARRATIVES[Math.floor(Math.random() * DROP_NARRATIVES.length)]
+      : '';
+    card.innerHTML = `<div class="collect-result">
+      <p style="color:#888;font-size:.76rem;font-style:italic;margin-bottom:.2rem">${narrative}</p>
+      ${line.replace('\n', '<br>')}
+      ${dropNarrative ? `<p style="color:#c97ddb;font-size:.76rem;margin-top:.2rem;font-style:italic">${dropNarrative}</p>` : ''}
+    </div>`;
   }
 
   setTimeout(async () => {
@@ -1287,12 +1351,7 @@ function showTowerResult(result) {
   document.getElementById('tower-lobby').style.display  = 'none';
   document.getElementById('tower-result').style.display = 'block';
 
-  const logHtml = result.log.map(line => {
-    if (line.includes('vence'))   return `<span class="log-win">${line}</span>`;
-    if (line.includes('esquiva')) return `<span class="log-evade">${line}</span>`;
-    if (line.includes('───'))     return `<span class="log-separator">${line}</span>`;
-    return `<span class="log-hit">${line}</span>`;
-  }).join('\n');
+  const logHtml = renderBattleLog(result.log);
 
   const title   = result.won ? `🏆 Andar ${result.floor} Completado!` : `💀 Derrotado no Andar ${result.floor}`;
   const color   = result.won ? '#4caf82' : '#cf6679';
@@ -1433,17 +1492,14 @@ async function collectFight(matchId) {
   const data = await api('POST', `/api/arena/${matchId}/collect`);
   if (data.error) { showMessage(data.error, true); return; }
 
-  const result = data.won ? '🏆 Vitória!' : '💀 Derrota';
-  const log = (data.log || []).map(line => {
-    if (line.includes('vence'))   return `<span class="log-win">${line}</span>`;
-    if (line.includes('esquiva')) return `<span class="log-evade">${line}</span>`;
-    if (line.includes('───'))     return `<span class="log-separator">${line}</span>`;
-    return `<span class="log-hit">${line}</span>`;
-  }).join('\n');
+  const result = data.won
+    ? `🏆 Vitória contra ${data.opponent}!`
+    : `💀 Derrota para ${data.opponent}`;
+  const log = renderBattleLog(data.log || []);
 
   document.getElementById('fight-area').innerHTML = `
     <div class="fight-box">
-      <h3>${result} vs ${data.opponent}</h3>
+      <h3>${result}</h3>
       <p style="font-size:.82rem;color:#aaa;margin-bottom:.5rem">
         ${data.won ? '+' : ''}${data.rankChange} pontos de rank &nbsp;·&nbsp; ${fmtBronze(data.goldEarned)}
       </p>

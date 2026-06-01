@@ -481,9 +481,11 @@ section {
   white-space: pre-wrap;
 }
 .log-separator { color: #444; }
-.log-win  { color: #c9a84c; font-weight: bold; }
-.log-evade{ color: #5b9bd5; }
-.log-hit  { color: #e0d5c5; }
+.log-win   { color: #c9a84c; font-weight: bold; }
+.log-evade { color: #5b9bd5; font-style: italic; }
+.log-hit   { color: #e0d5c5; }
+.log-hp    { color: #cf6679; font-weight: bold; }
+.log-round { color: #888; font-size: .78rem; margin-top: .2rem; }
 
 /* ── MENSAGEM ── */
 #game-message {

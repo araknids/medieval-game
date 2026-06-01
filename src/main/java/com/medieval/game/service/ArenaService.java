@@ -14,7 +14,6 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import java.util.Random;
@@ -28,6 +27,7 @@ public class ArenaService {
     private final WarriorRepository    warriorRepository;
     private final InventoryService     inventoryService;
     private final PlayerService        playerService;
+    private final BattleSimulator      battleSimulator;
 
     @Value("${app.dev.instant-complete:false}")
     private boolean instantComplete;
@@ -78,12 +78,15 @@ public class ArenaService {
         // Simula a batalha
         String challengerName = cWarrior.getName();
 
-        List<String> log = simulate(
+        List<String> log = battleSimulator.simulate(
                 challengerName, cStats[0], cStats[1], cStats[2], cStats[3],
                 opponentName, oStats[0], oStats[1], oStats[2], oStats[3]
         );
 
-        boolean challengerWon = log.get(log.size() - 1).contains(challengerName);
+        // A tag WINNER: é a última linha — parseia para verificar vencedor
+        String winnerTag = log.get(log.size() - 1);
+        boolean challengerWon = winnerTag.contains("WINNER:" + challengerName);
+        log.remove(log.size() - 1); // remove a tag interna
         long goldReward  = challengerWon ? 200 : 50; // bronze
         int  rankChange  = challengerWon ? (opponent != null ? 25 : 15) : (opponent != null ? -15 : -5);
 
@@ -183,42 +186,4 @@ public class ArenaService {
         return new int[]{ 12 + r.nextInt(8), 8 + r.nextInt(6), 90 + r.nextInt(40), 10 };
     }
 
-    private List<String> simulate(String cName, int cAtk, int cDef, int cHp, int cEvasion,
-                                  String oName, int oAtk, int oDef, int oHp, int oEvasion) {
-        List<String> log = new ArrayList<>();
-        Random rng = new Random();
-        int cCurrentHp = cHp;
-        int oCurrentHp = oHp;
-
-        log.add("⚔ " + cName + " vs " + oName + " — A batalha começa!");
-        log.add("─────────────────────────");
-
-        for (int round = 1; round <= 30 && cCurrentHp > 0 && oCurrentHp > 0; round++) {
-            log.add("Rodada " + round);
-
-            // Desafiante ataca — evasão do oponente
-            if (rng.nextInt(100) < oEvasion) {
-                log.add("  " + oName + " esquiva!");
-            } else {
-                int dmg = Math.max(1, cAtk - rng.nextInt(Math.max(1, oDef / 2 + 1)));
-                oCurrentHp -= dmg;
-                log.add("  " + cName + " ataca por " + dmg + " → " + oName + " HP: " + Math.max(0, oCurrentHp));
-            }
-            if (oCurrentHp <= 0) break;
-
-            // Oponente ataca — evasão do desafiante
-            if (rng.nextInt(100) < cEvasion) {
-                log.add("  " + cName + " esquiva!");
-            } else {
-                int dmg = Math.max(1, oAtk - rng.nextInt(Math.max(1, cDef / 2 + 1)));
-                cCurrentHp -= dmg;
-                log.add("  " + oName + " ataca por " + dmg + " → " + cName + " HP: " + Math.max(0, cCurrentHp));
-            }
-        }
-
-        log.add("─────────────────────────");
-        boolean cWon = cCurrentHp > oCurrentHp;
-        log.add("🏆 " + (cWon ? cName : oName) + " vence!");
-        return log;
-    }
 }

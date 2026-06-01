@@ -7,19 +7,18 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
-import java.util.Random;
 
 @Service
 @RequiredArgsConstructor
 public class TowerService {
 
-    private final TowerRunRepository   towerRunRepository;
-    private final WarriorRepository    warriorRepository;
+    private final TowerRunRepository      towerRunRepository;
+    private final WarriorRepository       warriorRepository;
     private final InventoryItemRepository inventoryRepository;
-    private final PlayerRepository     playerRepository;
+    private final PlayerRepository        playerRepository;
+    private final BattleSimulator         battleSimulator;
 
     private static final int STAMINA_COST = 25;
 
@@ -124,12 +123,14 @@ public class TowerService {
         int wHp  = warrior.getTotalBaseHealth()  + equipped.stream().mapToInt(InventoryItem::getHealthBonus).sum();
         int wEva = warrior.getEvasionChance();
 
-        List<String> log = simulate(
+        List<String> log = battleSimulator.simulate(
             warrior.getName(), wAtk, wDef, wHp, wEva,
             boss.name(), boss.attack(), boss.defense(), boss.health(), boss.evasion()
         );
 
-        boolean won = log.get(log.size() - 1).contains(warrior.getName());
+        String winnerTag = log.get(log.size() - 1);
+        boolean won = winnerTag.contains("WINNER:" + warrior.getName());
+        log.remove(log.size() - 1);
 
         long bronzeEarned = 0;
         long expEarned    = 0;
@@ -182,43 +183,4 @@ public class TowerService {
         });
     }
 
-    // ── Simulação de combate ──
-    private List<String> simulate(String wName, int wAtk, int wDef, int wHp, int wEva,
-                                   String bName, int bAtk, int bDef, int bHp, int bEva) {
-        List<String> log = new ArrayList<>();
-        Random rng = new Random();
-        int wCurrentHp = wHp;
-        int bCurrentHp = bHp;
-
-        log.add("⚔ " + wName + " enfrenta " + bName + "!");
-        log.add("─────────────────────────");
-
-        for (int round = 1; round <= 40 && wCurrentHp > 0 && bCurrentHp > 0; round++) {
-            log.add("Rodada " + round);
-
-            // Guerreiro ataca boss
-            if (rng.nextInt(100) < bEva) {
-                log.add("  " + bName + " esquiva!");
-            } else {
-                int dmg = Math.max(1, wAtk - rng.nextInt(Math.max(1, bDef / 2 + 1)));
-                bCurrentHp -= dmg;
-                log.add("  " + wName + " ataca por " + dmg + " → " + bName + " HP: " + Math.max(0, bCurrentHp));
-            }
-            if (bCurrentHp <= 0) break;
-
-            // Boss ataca guerreiro
-            if (rng.nextInt(100) < wEva) {
-                log.add("  " + wName + " esquiva!");
-            } else {
-                int dmg = Math.max(1, bAtk - rng.nextInt(Math.max(1, wDef / 2 + 1)));
-                wCurrentHp -= dmg;
-                log.add("  " + bName + " ataca por " + dmg + " → " + wName + " HP: " + Math.max(0, wCurrentHp));
-            }
-        }
-
-        log.add("─────────────────────────");
-        boolean wWon = wCurrentHp > bCurrentHp;
-        log.add("🏆 " + (wWon ? wName : bName) + " vence!");
-        return log;
-    }
 }
