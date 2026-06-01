@@ -1684,10 +1684,11 @@ function showTowerFloor(state) {
 }
 
 async function enterTower() {
-  const data = await api('POST', '/api/tower/enter');
-  if (data.error) { showMessage(data.error, true); return; }
+  const enter = await api('POST', '/api/tower/enter');
+  if (enter.error) { showMessage(enter.error, true); return; }
   await loadWarrior();
-  showTowerFloor(data);
+  // Luta automaticamente ao entrar
+  await fightTower();
 }
 
 async function fightTower() {
@@ -1729,11 +1730,8 @@ function showTowerResult(result) {
 }
 
 async function nextFloor() {
-  const data = await api('GET', '/api/tower/current');
-  if (!data.active) { await closeTowerResult(); return; }
-  showTowerFloor(data);
-  document.getElementById('tower-result').style.display = 'none';
-  document.getElementById('tower-floor').style.display  = 'block';
+  // Avança para o próximo andar e luta automaticamente
+  await fightTower();
 }
 
 async function exitTower() {
