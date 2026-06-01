@@ -29,19 +29,9 @@ public class WarriorController {
     public ResponseEntity<WarriorResponse> getMyWarrior(Authentication auth) {
         Player  player  = playerService.findById((Long) auth.getPrincipal());
         Warrior warrior = warriorService.getWarrior(player);
-
-        List<InventoryItem> equipped = inventoryService.getInventory(player)
-                .stream().filter(InventoryItem::isEquipped).toList();
-
-        int bonusAtk = equipped.stream().mapToInt(InventoryItem::getAttackBonus).sum();
-        int bonusDef = equipped.stream().mapToInt(InventoryItem::getDefenseBonus).sum();
-        int bonusHp  = equipped.stream().mapToInt(InventoryItem::getHealthBonus).sum();
-
-        return ResponseEntity.ok(WarriorResponse.from(warrior, bonusAtk, bonusDef, bonusHp,
-                player.getCalculatedStamina(), player.getMinutesToFullStamina(), player));
+        return ResponseEntity.ok(buildResponse(warrior, player));
     }
 
-    // Lista atributos disponíveis (para o frontend montar a tela)
     @GetMapping("/attributes")
     public ResponseEntity<?> getAttributes() {
         var list = Arrays.stream(Attribute.values()).map(a -> Map.of(
@@ -53,24 +43,48 @@ public class WarriorController {
         return ResponseEntity.ok(list);
     }
 
-    // Gasta 1 ponto em um atributo (irreversível)
     @PostMapping("/attributes/{attribute}")
     public ResponseEntity<?> spendPoint(@PathVariable Attribute attribute, Authentication auth) {
         try {
             Player  player  = playerService.findById((Long) auth.getPrincipal());
             Warrior warrior = warriorService.spendPoint(player, attribute);
-
-            List<InventoryItem> equipped = inventoryService.getInventory(player)
-                    .stream().filter(InventoryItem::isEquipped).toList();
-            int bonusAtk = equipped.stream().mapToInt(InventoryItem::getAttackBonus).sum();
-            int bonusDef = equipped.stream().mapToInt(InventoryItem::getDefenseBonus).sum();
-            int bonusHp  = equipped.stream().mapToInt(InventoryItem::getHealthBonus).sum();
-
-            return ResponseEntity.ok(WarriorResponse.from(warrior, bonusAtk, bonusDef, bonusHp,
-                    player.getCalculatedStamina(), player.getMinutesToFullStamina(), player));
+            return ResponseEntity.ok(buildResponse(warrior, player));
         } catch (IllegalStateException e) {
             return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
         }
+    }
+
+    // ── Helper ──
+
+    private WarriorResponse buildResponse(Warrior warrior, Player player) {
+        List<InventoryItem> equipped = inventoryService.getInventory(player)
+                .stream().filter(InventoryItem::isEquipped).toList();
+
+        int bonusAtk = equipped.stream().mapToInt(InventoryItem::getAttackBonus).sum();
+        int bonusDef = equipped.stream().mapToInt(InventoryItem::getDefenseBonus).sum();
+        int bonusHp  = equipped.stream().mapToInt(InventoryItem::getHealthBonus).sum();
+
+        // Normaliza a moeda: silver pode ter > 100 por migração ou seeds diretas
+        long total   = player.getBronze() + player.getSilver() * 100L + player.getGold() * 10_000L;
+        long gold    = total / 10_000L;
+        long silver  = (total % 10_000L) / 100L;
+        long bronze  = total % 100L;
+
+        return new WarriorResponse(
+                warrior.getId(), warrior.getName(), warrior.getWarriorClass().displayName,
+                warrior.getLevel(), warrior.getExperience(), warrior.expNeededForNextLevel(),
+                warrior.getTotalBaseAttack(),  warrior.getTotalBaseDefense(),  warrior.getTotalBaseHealth(),
+                bonusAtk,                       bonusDef,                       bonusHp,
+                warrior.getTotalBaseAttack()  + bonusAtk,
+                warrior.getTotalBaseDefense() + bonusDef,
+                warrior.getTotalBaseHealth()  + bonusHp,
+                warrior.getStrength(), warrior.getDexterity(), warrior.getConstitution(), warrior.getLuck(),
+                warrior.getAvailablePoints(), warrior.getEvasionChance(),
+                player.getCalculatedStamina(), player.getMinutesToFullStamina(),
+                bronze, silver, gold,
+                player.getRankPoints(),
+                warrior.isOnMission()
+        );
     }
 
     record WarriorResponse(Long id, String name, String warriorClass, int level,
@@ -83,24 +97,5 @@ public class WarriorController {
                            int stamina, long minutesToFullStamina,
                            long bronze, long silver, long gold,
                            int rankPoints,
-                           boolean onMission) {
-        static WarriorResponse from(Warrior w, int bonusAtk, int bonusDef, int bonusHp,
-                                    int stamina, long minsToFull, Player player) {
-            return new WarriorResponse(
-                    w.getId(), w.getName(), w.getWarriorClass().displayName,
-                    w.getLevel(), w.getExperience(), w.expNeededForNextLevel(),
-                    w.getTotalBaseAttack(),  w.getTotalBaseDefense(),  w.getTotalBaseHealth(),
-                    bonusAtk,                bonusDef,                  bonusHp,
-                    w.getTotalBaseAttack()  + bonusAtk,
-                    w.getTotalBaseDefense() + bonusDef,
-                    w.getTotalBaseHealth()  + bonusHp,
-                    w.getStrength(), w.getDexterity(), w.getConstitution(), w.getLuck(),
-                    w.getAvailablePoints(), w.getEvasionChance(),
-                    stamina, minsToFull,
-                    player.getBronze(), player.getSilver(), player.getGold(),
-                    player.getRankPoints(),
-                    w.isOnMission()
-            );
-        }
-    }
+                           boolean onMission) {}
 }
