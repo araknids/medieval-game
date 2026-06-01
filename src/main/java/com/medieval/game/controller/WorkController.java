@@ -47,19 +47,19 @@ public class WorkController {
             int    bonusPct     = (int) Math.round((bonus - 1.0) * 100);
             boolean available   = profLevel >= wt.minWorkLevel && !busy;
 
-            return Map.of(
-                "id",                  wt.name(),
-                "displayName",         wt.displayName,
-                "description",         wt.description,
-                "goldPerHour",         wt.goldPerHour,
-                "minWorkLevel",        wt.minWorkLevel,
-                "xpPerHour",           wt.xpPerHour,
-                "profLevel",           profLevel,
-                "profXp",              profXp,
-                "profXpNeeded",        profXpNeeded,
-                "bonusPct",            bonusPct,
-                "available",           available,
-                "goldPerHourWithBonus",(long) Math.round(wt.goldPerHour * bonus)
+            return Map.ofEntries(
+                Map.entry("id",                   wt.name()),
+                Map.entry("displayName",          wt.displayName),
+                Map.entry("description",          wt.description),
+                Map.entry("goldPerHour",          wt.goldPerHour),
+                Map.entry("minWorkLevel",         wt.minWorkLevel),
+                Map.entry("xpPerHour",            wt.xpPerHour),
+                Map.entry("profLevel",            profLevel),
+                Map.entry("profXp",               profXp),
+                Map.entry("profXpNeeded",         profXpNeeded),
+                Map.entry("bonusPct",             bonusPct),
+                Map.entry("available",            available),
+                Map.entry("goldPerHourWithBonus", (long) Math.round(wt.goldPerHour * bonus))
             );
         }).toList();
 
