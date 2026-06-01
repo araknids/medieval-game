@@ -162,10 +162,6 @@ async function loadWarrior() {
       <span class="label">Estamina</span>
       <span class="value ${stamina < 30 ? 'stamina-low' : ''}">${stamina}/100${staminaInfo}</span>
     </div>
-    <div class="warrior-stat-row">
-      <span class="label">Trabalho Lv.</span>
-      <span class="value">${warrior.workLevel ?? 1}</span>
-    </div>
     <span class="status-badge ${busy ? 'status-busy' : 'status-available'}">
       ${busy ? '⚔ Ocupado' : '✓ Disponível'}
     </span>`;
@@ -631,32 +627,25 @@ async function showWorkJobList() {
   const bonusPct = Math.round((warrior?.workLevel - 1 ?? 0) * 5);
 
   document.getElementById('work-job-list').innerHTML = `
-    <div class="work-level-bar">
-      <div class="wl-header">
-        <span>Nível de Trabalho: <strong>${wl}</strong></span>
-        ${bonusPct > 0 ? `<span class="wl-bonus">+${bonusPct}% gold/hora</span>` : ''}
-      </div>
-      <div class="xp-bar-bg"><div class="xp-bar-fill" style="width:${wPct}%"></div></div>
-      <div class="xp-label">XP ${wxp} / ${wExpNeeded}</div>
-    </div>
-
     <div class="work-jobs-grid">
       ${jobs.map(job => {
-        const locked    = !job.available && warrior?.workLevel < job.minWorkLevel;
+        const locked    = !job.available && job.profLevel < job.minWorkLevel;
         const busy      = warrior?.onMission && !locked;
         const disabled  = locked || busy;
+        const xpPct     = Math.floor((job.profXp / job.profXpNeeded) * 100);
 
         return `
           <div class="work-job-card ${locked ? 'locked' : ''}">
             <div class="wj-header">
               <span class="wj-name">${job.displayName}</span>
-              ${locked ? `<span class="wj-lock">🔒 Nível ${job.minWorkLevel}</span>` : ''}
+              <span class="wj-prof-level">Lv.${job.profLevel}${job.bonusPct > 0 ? ` <span class="wl-bonus">+${job.bonusPct}%</span>` : ''}</span>
             </div>
+            <div class="xp-bar-bg" style="margin-bottom:.4rem"><div class="xp-bar-fill" style="width:${xpPct}%"></div></div>
             <p class="wj-desc">${job.description}</p>
             <div class="wj-stats">
               <span>💰 ${job.goldPerHourWithBonus}/h</span>
               <span>⭐ ${job.xpPerHour} xp/h</span>
-              ${job.minWorkLevel > 0 ? `<span class="wj-req">Nível ${job.minWorkLevel}+</span>` : ''}
+              ${locked ? `<span class="wj-req">🔒 Lv.${job.minWorkLevel} necessário</span>` : ''}
             </div>
             ${!locked ? `
               <div class="wj-hours">

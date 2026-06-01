@@ -3,10 +3,11 @@ package com.medieval.game.service;
 import com.medieval.game.enums.WorkStatus;
 import com.medieval.game.enums.WorkType;
 import com.medieval.game.model.Player;
-import com.medieval.game.model.Warrior;
+import com.medieval.game.model.WorkProfession;
 import com.medieval.game.model.WorkSession;
 import com.medieval.game.repository.PlayerRepository;
 import com.medieval.game.repository.WarriorRepository;
+import com.medieval.game.repository.WorkProfessionRepository;
 import com.medieval.game.repository.WorkSessionRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
@@ -20,12 +21,24 @@ import java.util.Optional;
 @RequiredArgsConstructor
 public class WorkService {
 
-    private final WorkSessionRepository workRepository;
-    private final WarriorRepository     warriorRepository;
-    private final PlayerRepository      playerRepository;
+    private final WorkSessionRepository    workRepository;
+    private final WorkProfessionRepository professionRepository;
+    private final WarriorRepository        warriorRepository;
+    private final PlayerRepository         playerRepository;
 
     @Value("${app.dev.instant-complete:false}")
     private boolean instantComplete;
+
+    // Retorna ou cria o registro de profissão para o jogador
+    public WorkProfession getProfession(Player player, WorkType workType) {
+        return professionRepository.findByPlayerAndWorkType(player, workType)
+                .orElseGet(() -> {
+                    WorkProfession p = new WorkProfession();
+                    p.setPlayer(player);
+                    p.setWorkType(workType);
+                    return professionRepository.save(p);
+                });
+    }
 
     public Optional<WorkSession> getCurrentSession(Player player) {
         return workRepository.findByPlayerAndStatus(player, WorkStatus.IN_PROGRESS);
@@ -37,25 +50,30 @@ public class WorkService {
             throw new IllegalArgumentException("Horas devem ser entre 1 e 12");
         }
 
-        Warrior warrior = warriorRepository.findByPlayer(player)
-                .orElseThrow(() -> new IllegalStateException("Guerreiro não encontrado"));
+        warriorRepository.findByPlayer(player).ifPresent(w -> {
+            if (w.isOnMission()) throw new IllegalStateException("Seu guerreiro já está ocupado");
+        });
 
-        if (warrior.isOnMission()) {
-            throw new IllegalStateException("Seu guerreiro já está ocupado");
+        if (workRepository.findByPlayerAndStatus(player, WorkStatus.IN_PROGRESS).isPresent()) {
+            throw new IllegalStateException("Você já está trabalhando");
         }
-        if (warrior.getWorkLevel() < workType.minWorkLevel) {
+
+        // Valida nível mínimo da profissão
+        WorkProfession profession = getProfession(player, workType);
+        if (profession.getLevel() < workType.minWorkLevel) {
             throw new IllegalStateException(
-                "Nível de trabalho insuficiente. Necessário: " + workType.minWorkLevel
-                + ", seu nível: " + warrior.getWorkLevel()
+                "Nível " + workType.displayName + " insuficiente. " +
+                "Necessário: " + workType.minWorkLevel + ", seu nível: " + profession.getLevel()
             );
         }
 
-        // Gold com bônus do nível de trabalho
-        long goldReward = Math.round(workType.goldPerHour * hours * warrior.workGoldBonus());
+        long goldReward = Math.round(workType.goldPerHour * hours * profession.goldBonus());
         int  xpReward   = workType.xpPerHour * hours;
 
-        warrior.setOnMission(true);
-        warriorRepository.save(warrior);
+        warriorRepository.findByPlayer(player).ifPresent(w -> {
+            w.setOnMission(true);
+            warriorRepository.save(w);
+        });
 
         WorkSession session = new WorkSession();
         session.setPlayer(player);
@@ -71,21 +89,54 @@ public class WorkService {
     }
 
     @Transactional
+    public WorkSession collectWork(Player player, Long sessionId) {
+        WorkSession session = workRepository.findById(sessionId)
+                .orElseThrow(() -> new IllegalArgumentException("Sessão não encontrada"));
+
+        if (!session.getPlayer().getId().equals(player.getId()))
+            throw new IllegalStateException("Esta sessão não é sua");
+        if (session.getStatus() == WorkStatus.COLLECTED)
+            throw new IllegalStateException("Recompensa já coletada");
+        if (!session.isReadyToCollect()) {
+            long mins = java.time.Duration.between(LocalDateTime.now(), session.getFinishesAt()).toMinutes();
+            throw new IllegalStateException("Trabalho em andamento. Faltam ~" + mins + " minutos");
+        }
+
+        player.setGold(player.getGold() + session.getGoldReward());
+        playerRepository.save(player);
+
+        // Adiciona XP à profissão específica
+        WorkProfession profession = getProfession(player, session.getWorkType());
+        profession.setExperience(profession.getExperience() + session.getXpReward());
+        while (profession.getExperience() >= profession.expNeededForNextLevel()) {
+            profession.setExperience(profession.getExperience() - profession.expNeededForNextLevel());
+            profession.setLevel(profession.getLevel() + 1);
+        }
+        professionRepository.save(profession);
+
+        warriorRepository.findByPlayer(player).ifPresent(w -> {
+            w.setOnMission(false);
+            warriorRepository.save(w);
+        });
+
+        session.setStatus(WorkStatus.COLLECTED);
+        return workRepository.save(session);
+    }
+
+    @Transactional
     public WorkSession cancelWork(Player player, Long sessionId) {
         WorkSession session = workRepository.findById(sessionId)
-                .orElseThrow(() -> new IllegalArgumentException("Sessão de trabalho não encontrada"));
+                .orElseThrow(() -> new IllegalArgumentException("Sessão não encontrada"));
 
-        if (!session.getPlayer().getId().equals(player.getId())) {
+        if (!session.getPlayer().getId().equals(player.getId()))
             throw new IllegalStateException("Esta sessão não é sua");
-        }
-        if (session.getStatus() != WorkStatus.IN_PROGRESS) {
+        if (session.getStatus() != WorkStatus.IN_PROGRESS)
             throw new IllegalStateException("Trabalho já finalizado");
-        }
 
-        // Calcula horas completas trabalhadas
-        long hoursCompleted = java.time.Duration.between(
-                session.getStartedAt(), LocalDateTime.now()).toHours();
-        hoursCompleted = Math.min(hoursCompleted, session.getHours());
+        long hoursCompleted = Math.min(
+            java.time.Duration.between(session.getStartedAt(), LocalDateTime.now()).toHours(),
+            session.getHours()
+        );
 
         if (hoursCompleted > 0) {
             long goldEarned = Math.round(session.getGoldReward() * hoursCompleted / (double) session.getHours());
@@ -94,67 +145,27 @@ public class WorkService {
             player.setGold(player.getGold() + goldEarned);
             playerRepository.save(player);
 
-            final long finalHours = hoursCompleted;
-            warriorRepository.findByPlayer(player).ifPresent(warrior -> {
-                warrior.setWorkExperience(warrior.getWorkExperience() + xpEarned);
-                while (warrior.getWorkExperience() >= warrior.workExpNeededForNextLevel()) {
-                    warrior.setWorkExperience(warrior.getWorkExperience() - warrior.workExpNeededForNextLevel());
-                    warrior.setWorkLevel(warrior.getWorkLevel() + 1);
-                }
-                warrior.setOnMission(false);
-                warriorRepository.save(warrior);
-            });
+            WorkProfession profession = getProfession(player, session.getWorkType());
+            profession.setExperience(profession.getExperience() + xpEarned);
+            while (profession.getExperience() >= profession.expNeededForNextLevel()) {
+                profession.setExperience(profession.getExperience() - profession.expNeededForNextLevel());
+                profession.setLevel(profession.getLevel() + 1);
+            }
+            professionRepository.save(profession);
 
             session.setGoldReward(goldEarned);
             session.setXpReward(xpEarned);
         } else {
-            // Menos de 1h — libera sem pagar nada
-            warriorRepository.findByPlayer(player).ifPresent(w -> {
-                w.setOnMission(false);
-                warriorRepository.save(w);
-            });
             session.setGoldReward(0);
             session.setXpReward(0);
         }
 
-        session.setStatus(WorkStatus.CANCELLED);
-        return workRepository.save(session);
-    }
-
-    @Transactional
-    public WorkSession collectWork(Player player, Long sessionId) {
-        WorkSession session = workRepository.findById(sessionId)
-                .orElseThrow(() -> new IllegalArgumentException("Sessão de trabalho não encontrada"));
-
-        if (!session.getPlayer().getId().equals(player.getId())) {
-            throw new IllegalStateException("Esta sessão não é sua");
-        }
-        if (session.getStatus() == WorkStatus.COLLECTED) {
-            throw new IllegalStateException("Recompensa já coletada");
-        }
-        if (!session.isReadyToCollect()) {
-            long minutesLeft = java.time.Duration.between(
-                    LocalDateTime.now(), session.getFinishesAt()).toMinutes();
-            throw new IllegalStateException("Trabalho ainda em andamento. Faltam ~" + minutesLeft + " minutos");
-        }
-
-        // Paga o gold
-        player.setGold(player.getGold() + session.getGoldReward());
-        playerRepository.save(player);
-
-        // Adiciona XP de trabalho ao guerreiro
-        warriorRepository.findByPlayer(player).ifPresent(warrior -> {
-            warrior.setWorkExperience(warrior.getWorkExperience() + session.getXpReward());
-            // Level up de trabalho
-            while (warrior.getWorkExperience() >= warrior.workExpNeededForNextLevel()) {
-                warrior.setWorkExperience(warrior.getWorkExperience() - warrior.workExpNeededForNextLevel());
-                warrior.setWorkLevel(warrior.getWorkLevel() + 1);
-            }
-            warrior.setOnMission(false);
-            warriorRepository.save(warrior);
+        warriorRepository.findByPlayer(player).ifPresent(w -> {
+            w.setOnMission(false);
+            warriorRepository.save(w);
         });
 
-        session.setStatus(WorkStatus.COLLECTED);
+        session.setStatus(WorkStatus.CANCELLED);
         return workRepository.save(session);
     }
 }

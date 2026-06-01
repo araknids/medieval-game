@@ -42,13 +42,6 @@ public class Warrior {
 
     private int availablePoints = 0;
 
-    // Sistema de trabalho — separado do combate
-    @Column(columnDefinition = "integer default 1")
-    private int  workLevel      = 1;
-
-    @Column(columnDefinition = "bigint default 0")
-    private long workExperience = 0;
-
     private boolean onMission = false;
 
     public void levelUp() {
@@ -61,16 +54,6 @@ public class Warrior {
 
     public long expNeededForNextLevel() {
         return (long) level * 100;
-    }
-
-    // XP necessária para o próximo nível de trabalho: 50, 100, 150, 200...
-    public long workExpNeededForNextLevel() {
-        return 50L * workLevel;
-    }
-
-    // Bônus de gold por hora de trabalho (+5% por nível acima do 1)
-    public double workGoldBonus() {
-        return 1.0 + (workLevel - 1) * 0.05;
     }
 
     // Stats totais (base + atributos, sem bônus de item)

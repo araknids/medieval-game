@@ -2,7 +2,7 @@ package com.medieval.game.controller;
 
 import com.medieval.game.enums.WorkType;
 import com.medieval.game.model.Player;
-import com.medieval.game.model.Warrior;
+import com.medieval.game.model.WorkProfession;
 import com.medieval.game.model.WorkSession;
 import com.medieval.game.repository.WarriorRepository;
 import com.medieval.game.service.PlayerService;
@@ -32,29 +32,40 @@ public class WorkController {
     private final PlayerService     playerService;
     private final WarriorRepository warriorRepository;
 
-    // Lista todos os empregos com status de disponibilidade
     @GetMapping("/jobs")
     public ResponseEntity<List<?>> getJobs(Authentication auth) {
-        Player  player  = getPlayer(auth);
-        Warrior warrior = warriorRepository.findByPlayer(player).orElse(null);
-        int workLevel   = warrior != null ? warrior.getWorkLevel() : 1;
-        double bonus    = warrior != null ? warrior.workGoldBonus() : 1.0;
-        boolean busy    = warrior != null && warrior.isOnMission();
+        Player  player = getPlayer(auth);
+        boolean busy   = warriorRepository.findByPlayer(player)
+                .map(w -> w.isOnMission()).orElse(false);
 
-        var jobs = Arrays.stream(WorkType.values()).map(wt -> Map.of(
-                "id",           wt.name(),
-                "displayName",  wt.displayName,
-                "description",  wt.description,
-                "goldPerHour",  wt.goldPerHour,
-                "minWorkLevel", wt.minWorkLevel,
-                "xpPerHour",    wt.xpPerHour,
-                "available",    workLevel >= wt.minWorkLevel && !busy,
-                "goldPerHourWithBonus", (long) Math.round(wt.goldPerHour * bonus)
-        )).toList();
+        var jobs = Arrays.stream(WorkType.values()).map(wt -> {
+            WorkProfession prof = workService.getProfession(player, wt);
+            int    profLevel    = prof.getLevel();
+            long   profXp       = prof.getExperience();
+            long   profXpNeeded = prof.expNeededForNextLevel();
+            double bonus        = prof.goldBonus();
+            int    bonusPct     = (int) Math.round((bonus - 1.0) * 100);
+            boolean available   = profLevel >= wt.minWorkLevel && !busy;
+
+            return Map.of(
+                "id",                  wt.name(),
+                "displayName",         wt.displayName,
+                "description",         wt.description,
+                "goldPerHour",         wt.goldPerHour,
+                "minWorkLevel",        wt.minWorkLevel,
+                "xpPerHour",           wt.xpPerHour,
+                "profLevel",           profLevel,
+                "profXp",              profXp,
+                "profXpNeeded",        profXpNeeded,
+                "bonusPct",            bonusPct,
+                "available",           available,
+                "goldPerHourWithBonus",(long) Math.round(wt.goldPerHour * bonus)
+            );
+        }).toList();
+
         return ResponseEntity.ok(jobs);
     }
 
-    // Sessão de trabalho ativa
     @GetMapping("/current")
     public ResponseEntity<?> getCurrent(Authentication auth) {
         Player player = getPlayer(auth);
@@ -63,7 +74,6 @@ public class WorkController {
         return ResponseEntity.ok(WorkResponse.from(session.get()));
     }
 
-    // Começa a trabalhar
     @PostMapping("/start")
     public ResponseEntity<?> startWork(@Valid @RequestBody StartWorkRequest req, Authentication auth) {
         try {
@@ -75,7 +85,6 @@ public class WorkController {
         }
     }
 
-    // Cancela trabalho (recebe proporcional às horas completas)
     @PostMapping("/{id}/cancel")
     public ResponseEntity<?> cancel(@PathVariable Long id, Authentication auth) {
         try {
@@ -91,7 +100,6 @@ public class WorkController {
         }
     }
 
-    // Coleta recompensa
     @PostMapping("/{id}/collect")
     public ResponseEntity<?> collect(@PathVariable Long id, Authentication auth) {
         try {

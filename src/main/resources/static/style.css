@@ -200,9 +200,10 @@ section {
 }
 .work-job-card.locked { opacity: 0.55; }
 
-.wj-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.3rem; }
-.wj-name   { color: #c9a84c; font-weight: bold; font-size: 0.92rem; }
-.wj-lock   { color: #888; font-size: 0.75rem; }
+.wj-header      { display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.3rem; }
+.wj-name        { color: #c9a84c; font-weight: bold; font-size: 0.92rem; }
+.wj-lock        { color: #888; font-size: 0.75rem; }
+.wj-prof-level  { color: #5b9bd5; font-size: 0.78rem; font-weight: bold; }
 .wj-desc   { color: #888; font-size: 0.78rem; margin-bottom: 0.5rem; }
 .wj-stats  { display: flex; gap: 1rem; font-size: 0.8rem; color: #aaa; margin-bottom: 0.6rem; }
 .wj-req    { color: #c97ddb; }
