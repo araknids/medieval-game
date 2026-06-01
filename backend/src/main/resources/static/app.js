@@ -271,7 +271,7 @@ async function loadWarrior() {
 
 // ── Navegação de locais ──
 function goTo(loc) {
-  ['tavern','inventory','commerce','temple','zones','skills','work','tower','arena'].forEach(l => {
+  ['tavern','inventory','commerce','temple','zones','skills','work','tower','arena','guild'].forEach(l => {
     document.getElementById('loc-panel-' + l).style.display = l === loc ? 'block' : 'none';
     document.getElementById('loc-' + l).classList.toggle('active', l === loc);
   });
@@ -283,6 +283,7 @@ function goTo(loc) {
   if (loc === 'commerce') { loadShop(); }
   if (loc === 'inventory'){ renderAttributes(); loadInventory(); }
   if (loc === 'work')     { loadWork(); }
+  if (loc === 'guild')    { loadGuild(); }
 }
 
 // ── TAVERNA: missões ──
@@ -1904,4 +1905,209 @@ if (resetTokenParam) {
 } else {
   document.getElementById('login-screen').style.display = 'flex';
   showLogin();
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// GUILDA
+// ═══════════════════════════════════════════════════════════════════
+
+async function loadGuild() {
+  const el = document.getElementById('guild-content');
+  el.innerHTML = '<p>Carregando...</p>';
+  try {
+    const data = await api('GET', '/api/guild');
+    if (data.inGuild) {
+      renderGuildPanel(data);
+    } else {
+      renderNoGuildPanel();
+    }
+  } catch(e) {
+    el.innerHTML = '<p style="color:red">Erro ao carregar guilda.</p>';
+  }
+}
+
+function renderGuildPanel(g) {
+  const el = document.getElementById('guild-content');
+  const levelUpBtn = g.isLeader
+    ? `<button onclick="guildLevelUp()" style="margin-top:8px">⬆ Subir Nível (${g.levelUpCost} gold)</button>`
+    : '';
+  const disbandBtn = g.isLeader
+    ? `<button onclick="guildDisband()" style="background:#8b0000;margin-top:8px">💀 Dissolver Guilda</button>`
+    : `<button onclick="guildLeave()" style="background:#555;margin-top:8px">🚪 Sair da Guilda</button>`;
+
+  const memberRows = g.members.map(m => {
+    const badge  = m.isLeader ? ' 👑' : '';
+    const kickBtn = g.isLeader && !m.isMe && !m.isLeader
+      ? `<button onclick="guildKick(${m.playerId})" style="font-size:11px;padding:2px 6px;background:#8b0000">Expulsar</button>`
+      : '';
+    const transferBtn = g.isLeader && !m.isMe
+      ? `<button onclick="guildTransfer(${m.playerId})" style="font-size:11px;padding:2px 6px;background:#555">Liderança</button>`
+      : '';
+    return `<tr>
+      <td>${m.warriorName}${badge}${m.isMe ? ' <em>(você)</em>' : ''}</td>
+      <td style="text-align:right">${kickBtn} ${transferBtn}</td>
+    </tr>`;
+  }).join('');
+
+  el.innerHTML = `
+    <div style="background:#1a1a2e;border:1px solid #444;border-radius:8px;padding:16px;margin-bottom:12px">
+      <h3 style="margin:0 0 4px">${g.name} <span style="font-size:12px;color:#aaa">Nv.${g.level}</span></h3>
+      <p style="color:#aaa;margin:0 0 8px;font-size:13px">${g.description || 'Sem descrição.'}</p>
+      <div style="display:flex;gap:24px;font-size:13px">
+        <span>👑 Gold da guilda: <strong>${g.gold}</strong></span>
+        <span>👥 Membros: <strong>${g.members.length}/${g.maxMembers}</strong></span>
+      </div>
+      ${levelUpBtn}
+    </div>
+
+    <h4 style="margin:0 0 8px">Membros</h4>
+    <table style="width:100%;border-collapse:collapse;font-size:13px">
+      ${memberRows}
+    </table>
+
+    <div style="margin-top:16px;display:flex;gap:8px;flex-wrap:wrap">
+      <input id="donate-amount" type="number" min="1" placeholder="Bronze para doar"
+        style="width:160px;padding:6px;background:#111;color:#eee;border:1px solid #555;border-radius:4px">
+      <button onclick="guildDonate()">💰 Doar</button>
+      ${disbandBtn}
+    </div>
+    <div id="guild-msg" style="margin-top:8px;min-height:20px"></div>
+  `;
+}
+
+async function renderNoGuildPanel() {
+  const el = document.getElementById('guild-content');
+  let listHtml = '<p>Carregando guildas...</p>';
+  try {
+    const guilds = await api('GET', '/api/guild/list');
+    if (guilds.length === 0) {
+      listHtml = '<p style="color:#aaa">Nenhuma guilda criada ainda. Seja o primeiro!</p>';
+    } else {
+      listHtml = guilds.map(g => `
+        <div style="background:#1a1a2e;border:1px solid #444;border-radius:6px;padding:10px;margin-bottom:8px;display:flex;justify-content:space-between;align-items:center">
+          <div>
+            <strong>${g.name}</strong> <span style="font-size:11px;color:#aaa">Nv.${g.level}</span><br>
+            <span style="font-size:12px;color:#888">${g.description || ''}</span><br>
+            <span style="font-size:12px">👥 ${g.members}/${g.maxMembers}</span>
+          </div>
+          <button onclick="guildJoin(${g.id})" ${g.members >= g.maxMembers ? 'disabled' : ''}>
+            ${g.members >= g.maxMembers ? 'Cheia' : 'Entrar'}
+          </button>
+        </div>
+      `).join('');
+    }
+  } catch(e) {
+    listHtml = '<p style="color:red">Erro ao carregar lista.</p>';
+  }
+
+  el.innerHTML = `
+    <p style="color:#aaa;font-size:13px">Você não pertence a nenhuma guilda.</p>
+
+    <div style="background:#1a1a2e;border:1px solid #444;border-radius:8px;padding:14px;margin-bottom:16px">
+      <h4 style="margin:0 0 10px">Criar nova guilda <span style="font-size:12px;color:#aaa">(custa 100 bronze)</span></h4>
+      <input id="guild-name"  type="text" placeholder="Nome (3-30 chars)" maxlength="30"
+        style="width:100%;padding:7px;background:#111;color:#eee;border:1px solid #555;border-radius:4px;margin-bottom:6px;box-sizing:border-box">
+      <input id="guild-desc"  type="text" placeholder="Descrição (opcional)" maxlength="120"
+        style="width:100%;padding:7px;background:#111;color:#eee;border:1px solid #555;border-radius:4px;margin-bottom:8px;box-sizing:border-box">
+      <button onclick="guildCreate()">🛡 Criar Guilda</button>
+    </div>
+
+    <h4 style="margin:0 0 8px">Guildas existentes</h4>
+    ${listHtml}
+    <div id="guild-msg" style="margin-top:8px;min-height:20px"></div>
+  `;
+}
+
+function guildMsg(text, ok = true) {
+  const el = document.getElementById('guild-msg');
+  if (el) el.innerHTML = `<span style="color:${ok ? '#4caf50' : '#f44336'}">${text}</span>`;
+}
+
+async function guildCreate() {
+  const name = document.getElementById('guild-name').value.trim();
+  const desc = document.getElementById('guild-desc').value.trim();
+  try {
+    await api('POST', '/api/guild', { name, description: desc });
+    guildMsg('Guilda criada!');
+    await loadGuild();
+    await updateHeader();
+  } catch(e) {
+    guildMsg(e.message || 'Erro ao criar guilda.', false);
+  }
+}
+
+async function guildJoin(id) {
+  try {
+    await api('POST', `/api/guild/join/${id}`);
+    guildMsg('Você entrou na guilda!');
+    await loadGuild();
+  } catch(e) {
+    guildMsg(e.message || 'Erro ao entrar.', false);
+  }
+}
+
+async function guildLeave() {
+  if (!confirm('Sair da guilda?')) return;
+  try {
+    await api('POST', '/api/guild/leave');
+    await loadGuild();
+  } catch(e) {
+    guildMsg(e.message || 'Erro ao sair.', false);
+  }
+}
+
+async function guildDisband() {
+  if (!confirm('Dissolver a guilda? Todos os membros serão removidos.')) return;
+  try {
+    await api('DELETE', '/api/guild');
+    await loadGuild();
+  } catch(e) {
+    guildMsg(e.message || 'Erro ao dissolver.', false);
+  }
+}
+
+async function guildKick(playerId) {
+  if (!confirm('Expulsar este membro?')) return;
+  try {
+    await api('POST', `/api/guild/kick/${playerId}`);
+    guildMsg('Membro expulso.');
+    await loadGuild();
+  } catch(e) {
+    guildMsg(e.message || 'Erro ao expulsar.', false);
+  }
+}
+
+async function guildTransfer(playerId) {
+  if (!confirm('Transferir liderança para este membro?')) return;
+  try {
+    await api('POST', `/api/guild/transfer/${playerId}`);
+    guildMsg('Liderança transferida.');
+    await loadGuild();
+  } catch(e) {
+    guildMsg(e.message || 'Erro ao transferir.', false);
+  }
+}
+
+async function guildDonate() {
+  const amount = parseInt(document.getElementById('donate-amount').value);
+  if (!amount || amount <= 0) { guildMsg('Informe um valor válido.', false); return; }
+  try {
+    const r = await api('POST', '/api/guild/donate', { amount });
+    guildMsg(`Doação feita! Gold da guilda: ${r.guildGold}`);
+    await loadGuild();
+    await updateHeader();
+  } catch(e) {
+    guildMsg(e.message || 'Erro ao doar.', false);
+  }
+}
+
+async function guildLevelUp() {
+  if (!confirm('Gastar gold da guilda para subir de nível?')) return;
+  try {
+    const r = await api('POST', '/api/guild/levelup');
+    guildMsg(r.message);
+    await loadGuild();
+  } catch(e) {
+    guildMsg(e.message || 'Erro ao subir nível.', false);
+  }
 }

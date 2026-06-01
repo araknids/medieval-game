@@ -350,11 +350,40 @@ Enviado via Brevo HTTP API (não SMTP, evita bloqueios de hosting):
 
 ---
 
-## 20. Funcionalidades Futuras Planejadas
+## 20. Guildas
+
+### Criação
+- Custa **100 bronze** para criar
+- Nome único, 3-30 caracteres
+- Criador torna-se líder automaticamente
+
+### Mecânica de Membros
+- Capacidade: `10 + level × 5` (nível 1 = 15 membros)
+- Entrar: qualquer jogador sem guilda pode entrar se houver vaga
+- Sair: membro sai livremente; líder só sai se for o único membro (dissolve) ou transferir liderança
+
+### Ações do Líder
+- **Expulsar membro**: remove qualquer membro da guilda
+- **Transferir liderança**: passa o cargo para outro membro
+- **Subir nível**: gasta gold da guilda (`level × 1000`)
+- **Dissolver**: remove todos os membros e apaga a guilda
+
+### Economia da Guilda
+- Membros podem **doar bronze** → convertido em gold da guilda
+- Gold da guilda usado para subir nível
+- Custo de nível: nível atual × 1.000 gold
+
+### Ranking
+- Guildas listadas por nível desc, depois gold desc
+
+---
+
+## 21. Funcionalidades Futuras Planejadas
 
 - [ ] Cliente Godot (Steam)
 - [ ] Mercado entre jogadores (integração Steam Marketplace)
-- [ ] Sistema de Guildas completo
+- [ ] Masmorra em grupo (requer guilda)
+- [ ] Dominação de Castelo (requer guilda)
 - [ ] 4ª moeda VIP
 - [ ] Mais classes de guerreiro
 - [ ] Mais zonas e biomas

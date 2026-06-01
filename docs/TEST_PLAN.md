@@ -2682,4 +2682,46 @@ GET /api/arena/rank
 
 ---
 
-*Documento gerado automaticamente por agente em 2026-06-01. Versão baseada em `FEATURES.md`, `USE_CASES.md` e `CLAUDE.md`. Total: 104 casos de teste (TC-001 a TC-035 unitários; TC-051 a TC-104 integração).*
+---
+
+## Testes de Integração — Guildas (TC-105 a TC-116)
+
+### TC-105: GET /api/guild sem guilda → inGuild:false
+**Tipo:** Integração | **Classe:** GuildIntegrationTest
+
+### TC-106: POST /api/guild → cria guilda com isLeader:true e 1 membro
+**Tipo:** Integração | **Pré:** 100 bronze disponível (50 prata inicial)
+
+### TC-107: POST /api/guild nome duplicado → 400
+**Tipo:** Integração | **Pré:** Guilda com mesmo nome já existe
+
+### TC-108: POST /api/guild estando em guilda → 400
+**Tipo:** Integração
+
+### TC-109: GET /api/guild/list → retorna array com campos name e level
+**Tipo:** Integração
+
+### TC-110: POST /api/guild/join/{id} segundo player → inGuild:true, 2 membros
+**Tipo:** Integração
+
+### TC-111: POST /api/guild/join já em guilda → 400
+**Tipo:** Integração
+
+### TC-112: POST /api/guild/leave membro → inGuild:false
+**Tipo:** Integração
+
+### TC-113: POST /api/guild/leave líder com membros → 400
+**Tipo:** Integração
+
+### TC-114: POST /api/guild/kick/{id} → membro expulso
+**Tipo:** Integração | **Pré:** Executado pelo líder
+
+### TC-115: POST /api/guild/donate → guildGold aumenta
+**Tipo:** Integração
+
+### TC-116: DELETE /api/guild → guilda dissolvida, inGuild:false
+**Tipo:** Integração | **Pré:** Executado pelo líder
+
+---
+
+*Atualizado em 2026-06-01. Total: 116 casos de teste (TC-001 a TC-035 unitários; TC-051 a TC-116 integração).*

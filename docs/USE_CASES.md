@@ -1276,4 +1276,122 @@
 
 ---
 
-*Documento gerado automaticamente por agente. Versão baseada em `FEATURES.md` e `CLAUDE.md` em 2026-06-01.*
+---
+
+## Sistema de Guildas
+
+### UC-48: Criar Guilda
+**Ator:** Jogador sem guilda  
+**Pré-condições:** Jogador autenticado, sem guilda, com ≥ 100 bronze.
+
+**Fluxo Principal:**
+1. Jogador informa nome (3-30 chars) e descrição opcional.
+2. Sistema valida nome único e saldo.
+3. Sistema debita 100 bronze, cria a guilda e define o jogador como líder.
+4. Sistema retorna dados da guilda com `isLeader: true`.
+
+**Fluxo Alternativo:**
+- Nome duplicado ou saldo insuficiente → 400 com mensagem de erro.
+
+**Pós-condições:** Guilda criada, jogador associado como líder.  
+**Regras:** Nome único; custo 100 bronze; criador é o líder.
+
+---
+
+### UC-49: Entrar em Guilda
+**Ator:** Jogador sem guilda  
+**Pré-condições:** Jogador sem guilda; guilda com vagas disponíveis.
+
+**Fluxo Principal:**
+1. Jogador visualiza lista de guildas.
+2. Jogador clica em "Entrar" em uma guilda com vaga.
+3. Sistema associa o jogador à guilda.
+
+**Fluxo Alternativo:**
+- Jogador já em guilda ou guilda cheia → 400.
+
+**Pós-condições:** Jogador é membro da guilda.
+
+---
+
+### UC-50: Sair da Guilda
+**Ator:** Membro (não-líder)  
+**Pré-condições:** Jogador é membro de uma guilda e não é o líder.
+
+**Fluxo Principal:**
+1. Jogador clica em "Sair da Guilda".
+2. Sistema remove a associação.
+
+**Fluxo Alternativo:**
+- Líder com outros membros → 400 (deve transferir ou dissolver).
+- Líder único → dissolve automaticamente.
+
+**Pós-condições:** Jogador sem guilda.
+
+---
+
+### UC-51: Expulsar Membro (Líder)
+**Ator:** Líder da guilda  
+**Pré-condições:** Jogador é líder; alvo é membro da mesma guilda.
+
+**Fluxo Principal:**
+1. Líder clica em "Expulsar" ao lado de um membro.
+2. Sistema confirma e remove o membro.
+
+**Fluxo Alternativo:**
+- Tentar expulsar a si mesmo → 400.
+
+**Pós-condições:** Membro removido da guilda.
+
+---
+
+### UC-52: Transferir Liderança
+**Ator:** Líder da guilda  
+**Pré-condições:** Alvo é membro da mesma guilda.
+
+**Fluxo Principal:**
+1. Líder seleciona membro e clica em "Transferir Liderança".
+2. Sistema atualiza `leaderId` da guilda.
+
+**Pós-condições:** Novo líder definido; líder anterior vira membro comum.
+
+---
+
+### UC-53: Doar Bronze para Guilda
+**Ator:** Membro da guilda  
+**Pré-condições:** Jogador em guilda, com bronze suficiente.
+
+**Fluxo Principal:**
+1. Membro informa quantidade de bronze.
+2. Sistema debita do jogador e adiciona ao gold da guilda.
+
+**Pós-condições:** Gold da guilda aumentado; saldo do jogador reduzido.
+
+---
+
+### UC-54: Subir Nível da Guilda (Líder)
+**Ator:** Líder da guilda  
+**Pré-condições:** Gold da guilda ≥ `level × 1000`.
+
+**Fluxo Principal:**
+1. Líder clica em "Subir Nível".
+2. Sistema debita gold da guilda e incrementa o nível.
+3. Capacidade máxima de membros aumenta em 5.
+
+**Pós-condições:** Nível da guilda incrementado.
+
+---
+
+### UC-55: Dissolver Guilda (Líder)
+**Ator:** Líder da guilda  
+**Pré-condições:** Jogador é líder.
+
+**Fluxo Principal:**
+1. Líder confirma dissolução.
+2. Sistema remove todos os membros e apaga a guilda.
+
+**Pós-condições:** Guilda inexistente; todos os membros sem guilda.
+
+---
+
+*Atualizado em 2026-06-01 com sistema de guildas (UC-48 a UC-55).*
