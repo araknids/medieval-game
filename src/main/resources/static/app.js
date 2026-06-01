@@ -258,10 +258,11 @@ async function loadWarrior() {
 
 // ── Navegação de locais ──
 function goTo(loc) {
-  ['tavern','inventory','commerce','skills','work','tower','arena'].forEach(l => {
+  ['tavern','inventory','commerce','zones','skills','work','tower','arena'].forEach(l => {
     document.getElementById('loc-panel-' + l).style.display = l === loc ? 'block' : 'none';
     document.getElementById('loc-' + l).classList.toggle('active', l === loc);
   });
+  if (loc === 'zones')    { loadZones(); }
   if (loc === 'skills')   { loadSkillsTab(); }
   if (loc === 'tower')    { loadTower(); }
   if (loc === 'arena')    { loadRank(); loadCurrentFight(); }
@@ -746,6 +747,219 @@ async function unequipItem(itemId) {
   if (data.error) { showMessage(data.error, true); return; }
   showMessage(`${data.name} desequipado.`);
   await Promise.all([loadWarrior(), loadInventory()]);
+}
+
+// ── EXPEDIÇÕES / ZONAS ──
+
+const ZONE_COLORS = { SAFE:'#4caf82', PVP:'#c9a84c', HIGH_RISK:'#cf6679' };
+const ZONE_ICONS  = { SAFE:'🌿', PVP:'⚔', HIGH_RISK:'💀' };
+
+async function loadZones() {
+  const [zones, current] = await Promise.all([
+    api('GET', '/api/zones'),
+    api('GET', '/api/zones/current'),
+  ]);
+  renderZones(zones, current);
+}
+
+function renderZones(zones, current) {
+  const el = document.getElementById('zones-content');
+  const warriorLevel = warrior?.level ?? 1;
+  const busy = warrior?.onMission ?? false;
+
+  if (current.active) {
+    renderZoneActive(current);
+    return;
+  }
+
+  const zonesHtml = zones.map(z => {
+    const locked    = warriorLevel < z.minLevel;
+    const color     = ZONE_COLORS[z.id] || '#888';
+    const icon      = ZONE_ICONS[z.id]  || '🗺';
+    const pvp       = z.encounterChancePerHour > 0;
+    const durations = [30, 60, 120, 240, 360, 720];
+
+    return `
+      <div class="zone-card ${locked ? 'locked' : ''}" style="border-color:${color}20">
+        <div class="zone-header">
+          <span class="zone-name" style="color:${color}">${icon} ${z.displayName}</span>
+          ${locked ? `<span class="wj-lock">🔒 Lv.${z.minLevel}</span>` : ''}
+          ${pvp ? `<span class="zone-pvp-badge">⚔ PvP</span>` : ''}
+        </div>
+        <p class="zone-desc">${z.description}</p>
+        <div class="zone-stats">
+          <span>×${z.multiplier} recursos</span>
+          ${pvp ? `<span class="stamina-low">⚠ ${z.encounterChancePerHour}%/h ataque</span>` : ''}
+        </div>
+        ${!locked ? `
+          <div class="zone-roles">
+            <div class="zone-role-section">
+              <div class="sk-title" style="margin-bottom:.4rem">🎣 Coletar (Pesca)</div>
+              <div class="sk-duration-btns">
+                ${durations.map(d => `
+                  <button class="btn-hour" ${busy ? 'disabled' : ''}
+                          onclick="enterZone('${z.id}','GATHERING','FISHING',${d})">
+                    ${d >= 60 ? d/60+'h' : d+'m'}
+                  </button>`).join('')}
+              </div>
+            </div>
+            <div class="zone-role-section" style="margin-top:.5rem">
+              <div class="sk-title" style="margin-bottom:.4rem">⛏ Coletar (Mineração)</div>
+              <div class="sk-duration-btns">
+                ${durations.map(d => `
+                  <button class="btn-hour" ${busy ? 'disabled' : ''}
+                          onclick="enterZone('${z.id}','GATHERING','MINING',${d})">
+                    ${d >= 60 ? d/60+'h' : d+'m'}
+                  </button>`).join('')}
+              </div>
+            </div>
+            ${pvp ? `
+            <div class="zone-role-section" style="margin-top:.5rem">
+              <div class="sk-title" style="margin-bottom:.4rem">🗡 Caçar (Hunter)</div>
+              <div class="sk-duration-btns">
+                ${[60,120,180,360].map(d => `
+                  <button class="btn-hour" ${busy ? 'disabled' : ''}
+                          onclick="enterZone('${z.id}','HUNTING',null,${d})">
+                    ${d/60}h
+                  </button>`).join('')}
+              </div>
+            </div>` : ''}
+          </div>` : ''}
+      </div>`;
+  }).join('');
+
+  el.innerHTML = zonesHtml;
+}
+
+function renderZoneActive(state) {
+  const el    = document.getElementById('zones-content');
+  const color = ZONE_COLORS[state.zone] || '#888';
+  const icon  = ZONE_ICONS[state.zone]  || '🗺';
+  const role  = state.role === 'HUNTING' ? '🗡 Caçando' :
+                state.skillType === 'FISHING' ? '🎣 Pescando' : '⛏ Minerando';
+
+  let timerSecs = state.secondsRemaining ?? 0;
+  clearInterval(window._zoneTimer);
+
+  const timerHtml = () => timerSecs > 0
+    ? formatTime(timerSecs)
+    : '<span class="done">Pronto!</span>';
+
+  el.innerHTML = `
+    <div class="zone-card" style="border-color:${color}50">
+      <div class="zone-header">
+        <span class="zone-name" style="color:${color}">${icon} ${state.zoneName}</span>
+        <span style="color:#888;font-size:.8rem">${role}</span>
+      </div>
+      <div class="qp-timer" id="zone-timer" style="font-size:2rem">${timerHtml()}</div>
+      <p style="color:#888;font-size:.78rem;margin:.4rem 0">
+        ${state.attacked && !state.survived
+          ? `⚠ Você foi atacado por <strong>${state.attackerName}</strong> durante a expedição!`
+          : state.attacked
+          ? `Você sobreviveu a um ataque de <strong>${state.attackerName}</strong>!`
+          : ''}
+      </p>
+      <div style="display:flex;gap:.5rem;margin-top:.6rem;flex-wrap:wrap">
+        <button class="btn-collect" id="zone-collect-btn"
+                ${state.readyToCollect ? '' : 'disabled'}
+                onclick="collectZone(${state.id})">
+          ${state.readyToCollect ? '🎒 Coletar' : 'Em expedição...'}
+        </button>
+        ${!state.readyToCollect ? `
+          <button class="btn-cancel-work" onclick="cancelZone(${state.id})">Cancelar</button>
+        ` : ''}
+      </div>
+    </div>`;
+
+  if (timerSecs > 0) {
+    window._zoneTimer = setInterval(() => {
+      timerSecs--;
+      const t = document.getElementById('zone-timer');
+      const b = document.getElementById('zone-collect-btn');
+      if (!t) { clearInterval(window._zoneTimer); return; }
+      if (timerSecs <= 0) {
+        t.innerHTML = '<span class="done">Pronto!</span>';
+        if (b) { b.disabled = false; b.textContent = '🎒 Coletar'; }
+        clearInterval(window._zoneTimer);
+      } else {
+        t.textContent = formatTime(timerSecs);
+      }
+    }, 1000);
+  }
+}
+
+async function enterZone(zoneId, role, skillType, durationMinutes) {
+  const body = { zone: zoneId, role, durationMinutes };
+  if (skillType) body.skillType = skillType;
+  const data = await api('POST', '/api/zones/enter', body);
+  if (data.error) { showMessage(data.error, true); return; }
+  await loadWarrior();
+  renderZoneActive(data);
+}
+
+async function collectZone(activityId) {
+  const data = await api('POST', `/api/zones/${activityId}/collect`);
+  if (data.error) { showMessage(data.error, true); return; }
+
+  clearInterval(window._zoneTimer);
+  await loadWarrior();
+
+  // Mostra resultado
+  const el = document.getElementById('zones-content');
+  const survived  = data.survived;
+  const attacked  = data.wasAttacked;
+
+  let resultHtml = '';
+  if (attacked && !survived) {
+    const logHtml = renderBattleLog(data.battleLog || []);
+    resultHtml = `
+      <div class="tower-result-box" style="border-color:#cf6679">
+        <div class="tower-result-title" style="color:#cf6679">💀 Você foi derrotado!</div>
+        <p style="color:#888;font-size:.82rem;margin:.4rem 0">
+          Atacado por: <strong>${data.attackerName}</strong><br>
+          Bronze perdido: ${fmtBronze(data.bronzeLost)}
+          ${data.lostItemName ? `<br>Item perdido: <span style="color:#c97ddb">${data.lostItemName}</span>` : ''}
+        </p>
+        <div class="battle-log" style="max-height:200px">${logHtml}</div>
+        <button class="btn-send" onclick="loadZones()" style="margin-top:.8rem">Voltar</button>
+      </div>`;
+  } else {
+    const dropsHtml = data.drops.map(d =>
+      `${RESOURCE_ICONS[d.type]||'?'} ${d.displayName} ×${d.quantity}`
+    ).join('  ') || 'Nada coletado';
+
+    let attackMsg = '';
+    if (attacked && survived) {
+      const logHtml = renderBattleLog(data.battleLog || []);
+      attackMsg = `
+        <div style="margin:.5rem 0;padding:.5rem;background:#1a0a0a;border-radius:5px;border:1px solid #8b1a1a">
+          <p style="color:#c9a84c;font-size:.8rem;margin-bottom:.3rem">⚔ Você foi atacado mas sobreviveu!</p>
+          <div class="battle-log" style="max-height:150px">${logHtml}</div>
+        </div>`;
+    }
+
+    resultHtml = `
+      <div class="tower-result-box">
+        <div class="tower-result-title" style="color:#4caf82">✅ Expedição Concluída!</div>
+        ${attackMsg}
+        <div style="font-size:.85rem;margin:.5rem 0">${dropsHtml}</div>
+        ${data.xpGained > 0 ? `<span class="cr-exp">+${data.xpGained} XP skill</span>` : ''}
+        <button class="btn-send" onclick="loadZones()" style="margin-top:.8rem">Nova Expedição</button>
+      </div>`;
+
+    // Atualiza recursos
+    resourcesData = await api('GET', '/api/gathering/resources');
+  }
+
+  el.innerHTML = resultHtml;
+}
+
+async function cancelZone(activityId) {
+  if (!confirm('Cancelar expedição? Você perde todos os recursos coletados.')) return;
+  const data = await api('POST', `/api/zones/${activityId}/cancel`);
+  if (data.error) { showMessage(data.error, true); return; }
+  await loadWarrior();
+  loadZones();
 }
 
 // ── HABILIDADES (Pesca / Mineração / Forja) ──

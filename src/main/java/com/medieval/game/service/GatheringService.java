@@ -181,7 +181,12 @@ public class GatheringService {
         return newStamina;
     }
 
-    // ── Geração de drops ──
+    // ── Geração de drops (público para ZoneService) ──
+
+    /** Retorna drops sem persistir — usado pela ZoneService */
+    public List<ResourceDrop> collectGatheringDropsOnly(SkillType skillType, int level, int durationMinutes) {
+        return rollDrops(skillType, level, durationMinutes);
+    }
 
     private List<ResourceDrop> rollDrops(SkillType skill, int level, int duration) {
         Random rng = new Random();

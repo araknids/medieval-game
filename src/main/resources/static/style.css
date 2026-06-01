@@ -189,6 +189,20 @@ section {
   padding: 0.4rem 0;
 }
 
+/* ── EXPEDIÇÕES / ZONAS ── */
+.zone-card {
+  background: #0f3460; border: 1px solid #2a2a4a;
+  border-radius: 8px; padding: .9rem; margin-bottom: .7rem;
+}
+.zone-card.locked { opacity: .5; }
+.zone-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: .3rem; }
+.zone-name   { font-weight: bold; font-size: .95rem; }
+.zone-desc   { color: #888; font-size: .78rem; margin-bottom: .5rem; }
+.zone-stats  { display: flex; gap: .8rem; font-size: .78rem; color: #aaa; margin-bottom: .6rem; }
+.zone-pvp-badge { color: #cf6679; font-size: .72rem; border: 1px solid #cf6679; border-radius: 10px; padding: .1rem .4rem; }
+.zone-roles       { border-top: 1px solid #2a2a4a; padding-top: .6rem; }
+.zone-role-section { }
+
 /* ── HABILIDADES ── */
 .sk-section {
   background: #0f3460; border: 1px solid #2a2a4a;
