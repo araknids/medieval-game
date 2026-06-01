@@ -53,6 +53,7 @@ public class Player {
     private int rankPoints    = 1000;
     private int arenaWins     = 0;
     private int arenaLosses   = 0;
+    @Column(columnDefinition = "integer default 0")
     private int towerBestFloor = 0; // melhor andar já alcançado na Torre Infernal
 
     private int currentStamina = 100;
