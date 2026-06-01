@@ -2026,88 +2026,64 @@ function guildMsg(text, ok = true) {
 async function guildCreate() {
   const name = document.getElementById('guild-name').value.trim();
   const desc = document.getElementById('guild-desc').value.trim();
-  try {
-    await api('POST', '/api/guild', { name, description: desc });
-    guildMsg('Guilda criada!');
-    await loadGuild();
-    await updateHeader();
-  } catch(e) {
-    guildMsg(e.message || 'Erro ao criar guilda.', false);
-  }
+  const r = await api('POST', '/api/guild', { name, description: desc });
+  if (r.error) { guildMsg(r.error, false); return; }
+  guildMsg('Guild created!');
+  await loadGuild();
+  loadWarrior();
 }
 
 async function guildJoin(id) {
-  try {
-    await api('POST', `/api/guild/join/${id}`);
-    guildMsg('Você entrou na guilda!');
-    await loadGuild();
-  } catch(e) {
-    guildMsg(e.message || 'Erro ao entrar.', false);
-  }
+  const r = await api('POST', `/api/guild/join/${id}`);
+  if (r.error) { guildMsg(r.error, false); return; }
+  guildMsg('You joined the guild!');
+  await loadGuild();
 }
 
 async function guildLeave() {
-  if (!confirm('Sair da guilda?')) return;
-  try {
-    await api('POST', '/api/guild/leave');
-    await loadGuild();
-  } catch(e) {
-    guildMsg(e.message || 'Erro ao sair.', false);
-  }
+  if (!confirm('Leave the guild?')) return;
+  const r = await api('POST', '/api/guild/leave');
+  if (r.error) { guildMsg(r.error, false); return; }
+  await loadGuild();
 }
 
 async function guildDisband() {
-  if (!confirm('Dissolver a guilda? Todos os membros serão removidos.')) return;
-  try {
-    await api('DELETE', '/api/guild');
-    await loadGuild();
-  } catch(e) {
-    guildMsg(e.message || 'Erro ao dissolver.', false);
-  }
+  if (!confirm('Disband the guild? All members will be removed.')) return;
+  const r = await api('DELETE', '/api/guild');
+  if (r.error) { guildMsg(r.error, false); return; }
+  await loadGuild();
 }
 
 async function guildKick(playerId) {
-  if (!confirm('Expulsar este membro?')) return;
-  try {
-    await api('POST', `/api/guild/kick/${playerId}`);
-    guildMsg('Membro expulso.');
-    await loadGuild();
-  } catch(e) {
-    guildMsg(e.message || 'Erro ao expulsar.', false);
-  }
+  if (!confirm('Kick this member?')) return;
+  const r = await api('POST', `/api/guild/kick/${playerId}`);
+  if (r.error) { guildMsg(r.error, false); return; }
+  guildMsg('Member kicked.');
+  await loadGuild();
 }
 
 async function guildTransfer(playerId) {
-  if (!confirm('Transferir liderança para este membro?')) return;
-  try {
-    await api('POST', `/api/guild/transfer/${playerId}`);
-    guildMsg('Liderança transferida.');
-    await loadGuild();
-  } catch(e) {
-    guildMsg(e.message || 'Erro ao transferir.', false);
-  }
+  if (!confirm('Transfer leadership to this member?')) return;
+  const r = await api('POST', `/api/guild/transfer/${playerId}`);
+  if (r.error) { guildMsg(r.error, false); return; }
+  guildMsg('Leadership transferred.');
+  await loadGuild();
 }
 
 async function guildDonate() {
   const amount = parseInt(document.getElementById('donate-amount').value);
-  if (!amount || amount <= 0) { guildMsg('Informe um valor válido.', false); return; }
-  try {
-    const r = await api('POST', '/api/guild/donate', { amount });
-    guildMsg(`Doação feita! Gold da guilda: ${r.guildGold}`);
-    await loadGuild();
-    await updateHeader();
-  } catch(e) {
-    guildMsg(e.message || 'Erro ao doar.', false);
-  }
+  if (!amount || amount <= 0) { guildMsg('Enter a valid amount.', false); return; }
+  const r = await api('POST', '/api/guild/donate', { amount });
+  if (r.error) { guildMsg(r.error, false); return; }
+  guildMsg(`Donated! Guild gold: ${r.guildGold}`);
+  await loadGuild();
+  loadWarrior();
 }
 
 async function guildLevelUp() {
-  if (!confirm('Gastar gold da guilda para subir de nível?')) return;
-  try {
-    const r = await api('POST', '/api/guild/levelup');
-    guildMsg(r.message);
-    await loadGuild();
-  } catch(e) {
-    guildMsg(e.message || 'Erro ao subir nível.', false);
-  }
+  if (!confirm('Spend guild gold to level up?')) return;
+  const r = await api('POST', '/api/guild/levelup');
+  if (r.error) { guildMsg(r.error, false); return; }
+  guildMsg(r.message);
+  await loadGuild();
 }
