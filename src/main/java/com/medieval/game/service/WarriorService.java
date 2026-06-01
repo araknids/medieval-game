@@ -44,6 +44,16 @@ public class WarriorService {
         warriorRepository.save(warrior);
     }
 
+    /** Libera o guerreiro se não houver nenhuma sessão ativa (emergência de suporte) */
+    @Transactional
+    public boolean freeIfStuck(Player player) {
+        Warrior warrior = getWarrior(player);
+        if (!warrior.isOnMission()) return false;
+        warrior.setOnMission(false);
+        warriorRepository.save(warrior);
+        return true;
+    }
+
     @Transactional
     public Warrior spendPoint(Player player, Attribute attribute) {
         Warrior warrior = getWarrior(player);

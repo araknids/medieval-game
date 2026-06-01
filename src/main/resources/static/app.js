@@ -194,7 +194,10 @@ async function loadWarrior() {
     </div>
     <span class="status-badge ${busy ? 'status-busy' : 'status-available'}">
       ${busy ? '⚔ Ocupado' : '✓ Disponível'}
-    </span>`;
+    </span>
+    ${busy ? `<button class="btn-cancel-work" onclick="freeWarrior()" style="margin-top:.4rem;font-size:.72rem">
+      🔓 Liberar (se travado)
+    </button>` : ''}`;
 }
 
 // ── Navegação de locais ──
@@ -982,6 +985,14 @@ async function craftGem(fragmentType) {
   showMessage(data.message);
   resourcesData = await api('GET', '/api/gathering/resources');
   renderSmithing();
+}
+
+async function freeWarrior() {
+  if (!confirm('Liberar guerreiro? Só use isso se ele estiver travado sem nenhuma missão ativa.')) return;
+  const data = await api('POST', '/api/warrior/free');
+  if (data.error) { showMessage(data.error, true); return; }
+  showMessage(data.message || 'Guerreiro liberado!');
+  await loadWarrior();
 }
 
 async function socketGem(itemId, gemType) {

@@ -34,6 +34,15 @@ public class WarriorController {
         return ResponseEntity.ok(buildResponse(warrior, player));
     }
 
+    /** Libera o guerreiro travado sem sessão ativa */
+    @PostMapping("/free")
+    public ResponseEntity<?> freeWarrior(Authentication auth) {
+        Player player = playerService.findById((Long) auth.getPrincipal());
+        boolean freed = warriorService.freeIfStuck(player);
+        if (!freed) return ResponseEntity.ok(Map.of("message", "Guerreiro já estava livre."));
+        return ResponseEntity.ok(buildResponse(warriorService.getWarrior(player), player));
+    }
+
     @GetMapping("/attributes")
     public ResponseEntity<?> getAttributes() {
         var list = Arrays.stream(Attribute.values()).map(a -> Map.of(
