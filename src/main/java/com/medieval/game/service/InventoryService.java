@@ -17,6 +17,7 @@ public class InventoryService {
 
     private final InventoryItemRepository inventoryRepository;
     private final PlayerRepository        playerRepository;
+    private final ItemLoreGenerator       loreGenerator;
 
     public List<InventoryItem> getInventory(Player player) {
         return inventoryRepository.findAllByPlayer(player);
@@ -79,19 +80,27 @@ public class InventoryService {
 
     @Transactional
     public void giveStarterItems(Player player) {
-        // sell price em bronze
-        make(player, "Elmo de Ferro",       ItemType.HELMET,   0, 2, 10, 1, 20);
-        make(player, "Armadura de Couro",   ItemType.ARMOR,    0, 3, 15, 1, 20);
-        make(player, "Espada de Ferro",     ItemType.WEAPON,   4, 0,  0, 1, 20);
-        make(player, "Escudo de Madeira",   ItemType.SHIELD,   0, 3,  0, 1, 20);
-        make(player, "Botas de Couro",      ItemType.BOOTS,    0, 1,  5, 1, 20);
-        make(player, "Luvas de Couro",      ItemType.GLOVES,   1, 1,  0, 1, 20);
-        make(player, "Calça de Couro",      ItemType.PANTS,    0, 2,  8, 1, 20);
+        String origin = loreGenerator.originStarter();
+        java.util.Random rng = new java.util.Random();
+        make(player, "Elmo de Ferro",     ItemType.HELMET, 0, 2, 10, 1, 20, loreGenerator.generateLore(1, ItemType.HELMET, rng), origin);
+        make(player, "Armadura de Couro", ItemType.ARMOR,  0, 3, 15, 1, 20, loreGenerator.generateLore(1, ItemType.ARMOR,  rng), origin);
+        make(player, "Espada de Ferro",   ItemType.WEAPON, 4, 0,  0, 1, 20, loreGenerator.generateLore(1, ItemType.WEAPON, rng), origin);
+        make(player, "Escudo de Madeira", ItemType.SHIELD, 0, 3,  0, 1, 20, loreGenerator.generateLore(1, ItemType.SHIELD, rng), origin);
+        make(player, "Botas de Couro",    ItemType.BOOTS,  0, 1,  5, 1, 20, loreGenerator.generateLore(1, ItemType.BOOTS,  rng), origin);
+        make(player, "Luvas de Couro",    ItemType.GLOVES, 1, 1,  0, 1, 20, loreGenerator.generateLore(1, ItemType.GLOVES, rng), origin);
+        make(player, "Calça de Couro",    ItemType.PANTS,  0, 2,  8, 1, 20, loreGenerator.generateLore(1, ItemType.PANTS,  rng), origin);
     }
 
     @Transactional
     public InventoryItem make(Player player, String name, ItemType type,
                               int atk, int def, int hp, int rarity, long sellPrice) {
+        return make(player, name, type, atk, def, hp, rarity, sellPrice, null, null);
+    }
+
+    @Transactional
+    public InventoryItem make(Player player, String name, ItemType type,
+                              int atk, int def, int hp, int rarity, long sellPrice,
+                              String description, String origin) {
         InventoryItem item = new InventoryItem();
         item.setPlayer(player);
         item.setName(name);
@@ -101,6 +110,8 @@ public class InventoryService {
         item.setHealthBonus(hp);
         item.setRarity(rarity);
         item.setSellPrice(sellPrice);
+        item.setDescription(description);
+        item.setOrigin(origin);
         return inventoryRepository.save(item);
     }
 }

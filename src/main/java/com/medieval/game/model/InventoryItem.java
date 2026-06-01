@@ -43,4 +43,9 @@ public class InventoryItem {
 
     @Column(columnDefinition = "boolean default false")
     private boolean guarded = false; // protegido pelo Templo
+
+    @Column(columnDefinition = "TEXT")
+    private String description; // lore do item
+
+    private String origin; // onde foi encontrado
 }

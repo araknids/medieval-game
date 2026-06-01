@@ -20,6 +20,7 @@ public class SmithingService {
     private final InventoryItemRepository inventoryRepository;
     private final SocketedGemRepository   gemRepository;
     private final PlayerService           playerService;
+    private final ItemLoreGenerator       loreGenerator;
 
     // ── Gem bonuses ──
     public record GemBonus(int atk, int def, int hp) {
@@ -125,6 +126,9 @@ public class SmithingService {
         if (recipe.name().toLowerCase().contains("armadura")) {
             item.setType(com.medieval.game.enums.ItemType.ARMOR);
         }
+
+        item.setDescription(loreGenerator.generateLore(recipe.rarity(), item.getType(), new java.util.Random()));
+        item.setOrigin(loreGenerator.originFromSmithing());
 
         int xp = recipe.smithingLevel() * 10;
         gatheringService.addSkillXp(smithing, xp);

@@ -24,6 +24,7 @@ public class QuestService {
     private final PlayerService         playerService;
     private final WarriorService        warriorService;
     private final InventoryService      inventoryService;
+    private final ItemLoreGenerator     loreGenerator;
 
     @Value("${app.dev.instant-complete:false}")
     private boolean instantComplete;
@@ -139,10 +140,10 @@ public class QuestService {
             case BOSS_HUNT -> rng.nextBoolean() ? 3 : 4;
         };
 
-        return generateItem(player, rarity, rng);
+        return generateItem(player, rarity, rng, type.displayName);
     }
 
-    private InventoryItem generateItem(Player player, int rarity, Random rng) {
+    private InventoryItem generateItem(Player player, int rarity, Random rng, String questName) {
         ItemType type = ItemType.values()[rng.nextInt(ItemType.values().length)];
 
         // Stats escalam com raridade
@@ -167,8 +168,10 @@ public class QuestService {
             case 2 -> 150; case 3 -> 400; case 4 -> 1000; default -> 25;
         };
 
-        return inventoryService.make(player, itemName(type, rarity, rng), type,
-                atk, def, hp, rarity, sellPrice);
+        String name   = itemName(type, rarity, rng);
+        String lore   = loreGenerator.generateLore(rarity, type, rng);
+        String origin = loreGenerator.originFromQuest(questName);
+        return inventoryService.make(player, name, type, atk, def, hp, rarity, sellPrice, lore, origin);
     }
 
     private String itemName(ItemType type, int rarity, Random rng) {

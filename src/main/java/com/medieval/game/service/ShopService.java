@@ -21,7 +21,8 @@ public class ShopService {
 
     private final InventoryItemRepository inventoryRepository;
     private final ShopPurchaseRepository  purchaseRepository;
-    private final PlayerService playerService;
+    private final PlayerService           playerService;
+    private final ItemLoreGenerator       loreGenerator;
 
     private static final long ROTATION_SECONDS = 6 * 60 * 60; // 6 horas
     private static final int SHOP_SIZE = 10;
@@ -237,6 +238,8 @@ public class ShopService {
         inv.setHealthBonus(item.hp());
         inv.setRarity(item.rarity());
         inv.setSellPrice(item.price() / 2);
+        inv.setDescription(loreGenerator.generateLore(item.rarity(), item.type(), rng));
+        inv.setOrigin(loreGenerator.originFromShop("Mercador Viajante"));
         return inventoryRepository.save(inv);
     }
 

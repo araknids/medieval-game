@@ -425,6 +425,8 @@ section {
 .bag-item-name  { color: #e0d5c5; font-weight: bold; }
 .bag-item-type  { color: #888; font-size: 0.72rem; }
 .bag-item-stats { color: #aaa; font-size: 0.72rem; }
+.item-lore   { color: #888; font-size: .72rem; font-style: italic; margin-top: .1rem; }
+.item-origin { color: #5b9bd5; font-size: .68rem; margin-top: .05rem; }
 .rarity-1 { color: #aaa; } .rarity-2 { color: #4caf82; }
 .rarity-3 { color: #5b9bd5; } .rarity-4 { color: #c97ddb; }
 .btn-equip {

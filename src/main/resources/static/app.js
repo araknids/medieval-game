@@ -678,14 +678,18 @@ async function loadInventory() {
   const bagEl = document.getElementById('bag-items');
   if (!bag.length) { bagEl.innerHTML = '<p style="color:#555;font-size:.8rem">Mochila vazia.</p>'; return; }
   bagEl.innerHTML = bag.map(item => `
-    <div class="bag-item">
-      <div>
-        <div class="bag-item-name rarity-${item.rarity}">${item.name}</div>
-        <div class="bag-item-type">${item.typeDisplay} · ${item.rarityName}</div>
-        <div class="bag-item-stats">${statsText(item)}</div>
-        ${item.sockets > 0 ? renderSockets(item) : ''}
+    <div class="bag-item" style="flex-direction:column;align-items:flex-start;gap:.3rem">
+      <div style="display:flex;justify-content:space-between;width:100%;align-items:center">
+        <div>
+          <div class="bag-item-name rarity-${item.rarity}">${item.name}</div>
+          <div class="bag-item-type">${item.typeDisplay} · ${item.rarityName}</div>
+          <div class="bag-item-stats">${statsText(item)}</div>
+          ${item.sockets > 0 ? renderSockets(item) : ''}
+        </div>
+        <button class="btn-equip" onclick="equipItem(${item.id})">Equipar</button>
       </div>
-      <button class="btn-equip" onclick="equipItem(${item.id})">Equipar</button>
+      ${item.description ? `<p class="item-lore">"${item.description}"</p>` : ''}
+      ${item.origin ? `<p class="item-origin">📍 ${item.origin}</p>` : ''}
     </div>`).join('');
 }
 
