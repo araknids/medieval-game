@@ -1,27 +1,31 @@
 package com.medieval.game.service;
 
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.mail.SimpleMailMessage;
-import org.springframework.mail.javamail.JavaMailSender;
+import org.springframework.http.*;
 import org.springframework.stereotype.Service;
+import org.springframework.web.client.RestTemplate;
+
+import java.util.List;
+import java.util.Map;
 
 @Slf4j
 @Service
-@RequiredArgsConstructor
 public class EmailService {
-
-    private final JavaMailSender mailSender;
 
     @Value("${app.mail.enabled:false}")
     private boolean mailEnabled;
 
+    @Value("${app.resend.api-key:}")
+    private String resendApiKey;
+
+    @Value("${app.resend.from:Medieval Game <onboarding@resend.dev>}")
+    private String fromAddress;
+
     @Value("${app.base-url:http://localhost:8080}")
     private String baseUrl;
 
-    @Value("${spring.mail.username:}")
-    private String fromAddress;
+    private final RestTemplate restTemplate = new RestTemplate();
 
     public void sendWelcomeEmail(String to, String username, String warriorName) {
         String subject = "⚔ Bem-vindo ao Medieval Game!";
@@ -51,25 +55,33 @@ public class EmailService {
         send(to, subject, body);
     }
 
-    private void send(String to, String subject, String body) {
+    private void send(String to, String subject, String text) {
         if (!mailEnabled) {
-            log.info("=== [DEV] EMAIL NÃO ENVIADO ===");
+            log.info("=== [DEV] EMAIL (não enviado) ===");
             log.info("Para: {}", to);
             log.info("Assunto: {}", subject);
-            log.info("Corpo:\n{}", body);
-            log.info("================================");
+            log.info("Mensagem:\n{}", text);
+            log.info("=================================");
             return;
         }
+
         try {
-            SimpleMailMessage message = new SimpleMailMessage();
-            message.setFrom(fromAddress);
-            message.setTo(to);
-            message.setSubject(subject);
-            message.setText(body);
-            mailSender.send(message);
-            log.info("Email enviado para {}", to);
+            HttpHeaders headers = new HttpHeaders();
+            headers.setBearerAuth(resendApiKey);
+            headers.setContentType(MediaType.APPLICATION_JSON);
+
+            Map<String, Object> payload = Map.of(
+                "from",    fromAddress,
+                "to",      List.of(to),
+                "subject", subject,
+                "text",    text
+            );
+
+            HttpEntity<Map<String, Object>> request = new HttpEntity<>(payload, headers);
+            restTemplate.postForObject("https://api.resend.com/emails", request, String.class);
+            log.info("Email enviado via Resend para {}", to);
         } catch (Exception e) {
-            log.error("Erro ao enviar email para {}: {}", to, e.getMessage());
+            log.error("Erro ao enviar email via Resend para {}: {}", to, e.getMessage());
         }
     }
 }
