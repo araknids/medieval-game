@@ -165,6 +165,13 @@ public class GuildService {
     }
 
     // ── Consultas ─────────────────────────────────────────────────────────────
+
+    // Carrega guild do banco evitando lazy proxy (open-in-view=false)
+    public Guild loadGuild(Player player) {
+        if (player.getGuild() == null) return null;
+        return guildRepository.findById(player.getGuild().getId()).orElse(null);
+    }
+
     public List<Guild> listAll() {
         return guildRepository.findAllByOrderByLevelDescGoldDesc();
     }

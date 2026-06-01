@@ -24,16 +24,18 @@ public class GuildController {
     @GetMapping
     public ResponseEntity<?> getMyGuild(Authentication auth) {
         Player player = getPlayer(auth);
-        if (player.getGuild() == null)
+        Guild guild = guildService.loadGuild(player);
+        if (guild == null)
             return ResponseEntity.ok(Map.of("inGuild", false));
-        return ResponseEntity.ok(toDetail(player));
+        return ResponseEntity.ok(toDetail(player, guild));
     }
 
     // ── Listar todas as guildas ───────────────────────────────────────────────
     @GetMapping("/list")
     public ResponseEntity<?> list(Authentication auth) {
         Player player = getPlayer(auth);
-        Long myGuildId = player.getGuild() != null ? player.getGuild().getId() : null;
+        Guild myGuild = guildService.loadGuild(player);
+        Long myGuildId = myGuild != null ? myGuild.getId() : null;
 
         List<?> guilds = guildService.listAll().stream().map(g -> {
             int members = guildService.members(g).size();
@@ -69,10 +71,8 @@ public class GuildController {
     public ResponseEntity<?> join(@PathVariable Long guildId, Authentication auth) {
         try {
             Player player = getPlayer(auth);
-            guildService.join(player, guildId);
-            // recarrega player com guild atualizada
-            Player updated = playerService.findById(player.getId());
-            return ResponseEntity.ok(toDetail(updated));
+            Guild guild = guildService.join(player, guildId);
+            return ResponseEntity.ok(toDetail(player, guild));
         } catch (IllegalArgumentException | IllegalStateException e) {
             return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
         }
@@ -157,11 +157,6 @@ public class GuildController {
     // ── Helpers ───────────────────────────────────────────────────────────────
     private Player getPlayer(Authentication auth) {
         return playerService.findById((Long) auth.getPrincipal());
-    }
-
-    private Map<String, Object> toDetail(Player player) {
-        Guild guild = player.getGuild();
-        return toDetail(player, guild);
     }
 
     private Map<String, Object> toDetail(Player player, Guild guild) {
