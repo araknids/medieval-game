@@ -92,8 +92,15 @@ public class TowerService {
         warrior.setOnMission(true);
         warriorRepository.save(warrior);
 
+        // Começa do andar seguinte ao melhor já completado (checkpoint)
+        int startFloor = player.getTowerBestFloor() > 0
+                ? player.getTowerBestFloor() + 1
+                : 1;
+
         TowerRun run = new TowerRun();
         run.setPlayer(player);
+        run.setCurrentFloor(startFloor);
+        run.setHighestFloor(player.getTowerBestFloor()); // já completados anteriormente
         return towerRunRepository.save(run);
     }
 
