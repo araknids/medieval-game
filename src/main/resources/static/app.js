@@ -1108,6 +1108,14 @@ let gatheringTimer = null;
 const FISH_DURATIONS = [5, 10, 20, 30, 40];
 const MINE_DURATIONS = [10, 20, 30, 45, 60];
 
+const FISH_DESCRIPTIONS = {
+  SMALL_FISH:     '+10 estamina',
+  SALMON:         '+25 estamina',
+  TUNA:           '+40 estamina',
+  SHARK:          '+60 estamina',
+  LEGENDARY_FISH: '+80 estamina + buff temporário de XP',
+};
+
 const RESOURCE_ICONS = {
   SMALL_FISH:'🐟', SALMON:'🐠', TUNA:'🐡', SHARK:'🦈', LEGENDARY_FISH:'🐉',
   COPPER_ORE:'🟤', IRON_ORE:'⬛', SILVER_ORE:'⬜', GOLD_ORE:'🟡', MITHRIL_ORE:'🔷',
@@ -1177,7 +1185,10 @@ function renderFishing() {
       <div class="sk-title">Peixes</div>
       ${fish.map(r => `
         <div class="sk-resource-row">
-          <span>${RESOURCE_ICONS[r.type] || '?'} ${r.displayName} ×${r.quantity}</span>
+          <div>
+            <span>${RESOURCE_ICONS[r.type] || '?'} ${r.displayName} ×${r.quantity}</span>
+            <span style="color:#4caf82;font-size:.72rem;margin-left:.5rem">${FISH_DESCRIPTIONS[r.type] || ''}</span>
+          </div>
           <button class="btn-equip" onclick="consumeFish('${r.type}')">Consumir</button>
         </div>`).join('')}
     </div>` : ''}`;
@@ -1327,7 +1338,12 @@ function renderBag() {
     html += `<div class="sk-section"><div class="sk-title">${label}</div>`;
     html += items.map(r => `
       <div class="sk-resource-row">
-        <span>${RESOURCE_ICONS[r.type]||'?'} ${r.displayName} ×${r.quantity}</span>
+        <div>
+          <span>${RESOURCE_ICONS[r.type]||'?'} ${r.displayName} ×${r.quantity}</span>
+          ${cat === 'FISH' && FISH_DESCRIPTIONS[r.type]
+            ? `<span style="color:#4caf82;font-size:.72rem;margin-left:.5rem">${FISH_DESCRIPTIONS[r.type]}</span>`
+            : ''}
+        </div>
         ${cat === 'FISH' ? `<button class="btn-equip" onclick="consumeFish('${r.type}')">Consumir</button>` : ''}
       </div>`).join('');
     html += '</div>';
