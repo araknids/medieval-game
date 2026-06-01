@@ -1,0 +1,37 @@
+name: CI — Testes Automaticos
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+    branches: [main, master]
+
+jobs:
+  test:
+    name: Unit + Integration Tests
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout codigo
+        uses: actions/checkout@v4
+
+      - name: Configurar Java 17
+        uses: actions/setup-java@v4
+        with:
+          java-version: "17"
+          distribution: "temurin"
+          cache: maven
+
+      - name: Rodar todos os testes
+        run: mvn test --batch-mode
+        env:
+          SPRING_PROFILES_ACTIVE: dev
+
+      - name: Publicar relatorio de testes
+        if: always()
+        uses: dorny/test-reporter@v1
+        with:
+          name: Resultados JUnit
+          path: target/surefire-reports/*.xml
+          reporter: java-junit
+          fail-on-error: true
