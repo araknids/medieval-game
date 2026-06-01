@@ -82,6 +82,7 @@ public class WarriorController {
                            int availablePoints, int evasionChance,
                            int stamina, long minutesToFullStamina,
                            long gold, int rankPoints,
+                           int workLevel, long workExperience, long workExpNeeded,
                            boolean onMission) {
         static WarriorResponse from(Warrior w, int bonusAtk, int bonusDef, int bonusHp,
                                     int stamina, long minsToFull, Player player) {
@@ -97,6 +98,7 @@ public class WarriorController {
                     w.getAvailablePoints(), w.getEvasionChance(),
                     stamina, minsToFull,
                     player.getGold(), player.getRankPoints(),
+                    w.getWorkLevel(), w.getWorkExperience(), w.workExpNeededForNextLevel(),
                     w.isOnMission()
             );
         }

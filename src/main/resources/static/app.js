@@ -134,6 +134,10 @@ async function loadWarrior() {
       <span class="label">Estamina</span>
       <span class="value ${stamina < 30 ? 'stamina-low' : ''}">${stamina}/100${staminaInfo}</span>
     </div>
+    <div class="warrior-stat-row">
+      <span class="label">Trabalho Lv.</span>
+      <span class="value">${warrior.workLevel ?? 1}</span>
+    </div>
     <span class="status-badge ${busy ? 'status-busy' : 'status-available'}">
       ${busy ? '⚔ Ocupado' : '✓ Disponível'}
     </span>`;
@@ -141,13 +145,14 @@ async function loadWarrior() {
 
 // ── Navegação de locais ──
 function goTo(loc) {
-  ['tavern','inventory','commerce','arena'].forEach(l => {
+  ['tavern','inventory','commerce','work','arena'].forEach(l => {
     document.getElementById('loc-panel-' + l).style.display = l === loc ? 'block' : 'none';
     document.getElementById('loc-' + l).classList.toggle('active', l === loc);
   });
   if (loc === 'arena')    { loadRank(); loadCurrentFight(); }
   if (loc === 'commerce') { loadShop(); }
   if (loc === 'inventory'){ renderAttributes(); loadInventory(); }
+  if (loc === 'work')     { loadWork(); }
 }
 
 // ── TAVERNA: missões ──
@@ -531,6 +536,160 @@ async function unequipItem(itemId) {
   if (data.error) { showMessage(data.error, true); return; }
   showMessage(`${data.name} desequipado.`);
   await Promise.all([loadWarrior(), loadInventory()]);
+}
+
+// ── TRABALHO ──
+let workTimerInterval = null;
+
+async function loadWork() {
+  const current = await api('GET', '/api/work/current');
+  if (current.id) {
+    openWorkProgress(current);
+  } else {
+    showWorkJobList();
+  }
+}
+
+async function showWorkJobList() {
+  document.getElementById('work-progress').style.display = 'none';
+  document.getElementById('work-normal').style.display   = 'block';
+
+  const jobs = await api('GET', '/api/work/jobs');
+  if (!Array.isArray(jobs)) return;
+
+  const wl = warrior?.workLevel ?? 1;
+  const wxp = warrior?.workExperience ?? 0;
+  const wExpNeeded = warrior?.workExpNeeded ?? 50;
+  const wPct = Math.floor((wxp / wExpNeeded) * 100);
+  const bonusPct = Math.round((warrior?.workLevel - 1 ?? 0) * 5);
+
+  document.getElementById('work-job-list').innerHTML = `
+    <div class="work-level-bar">
+      <div class="wl-header">
+        <span>Nível de Trabalho: <strong>${wl}</strong></span>
+        ${bonusPct > 0 ? `<span class="wl-bonus">+${bonusPct}% gold/hora</span>` : ''}
+      </div>
+      <div class="xp-bar-bg"><div class="xp-bar-fill" style="width:${wPct}%"></div></div>
+      <div class="xp-label">XP ${wxp} / ${wExpNeeded}</div>
+    </div>
+
+    <div class="work-jobs-grid">
+      ${jobs.map(job => {
+        const locked    = !job.available && warrior?.workLevel < job.minWorkLevel;
+        const busy      = warrior?.onMission && !locked;
+        const disabled  = locked || busy;
+
+        return `
+          <div class="work-job-card ${locked ? 'locked' : ''}">
+            <div class="wj-header">
+              <span class="wj-name">${job.displayName}</span>
+              ${locked ? `<span class="wj-lock">🔒 Nível ${job.minWorkLevel}</span>` : ''}
+            </div>
+            <p class="wj-desc">${job.description}</p>
+            <div class="wj-stats">
+              <span>💰 ${job.goldPerHourWithBonus}/h</span>
+              <span>⭐ ${job.xpPerHour} xp/h</span>
+              ${job.minWorkLevel > 0 ? `<span class="wj-req">Nível ${job.minWorkLevel}+</span>` : ''}
+            </div>
+            ${!locked ? `
+              <div class="wj-hours">
+                <span>Horas:</span>
+                <div class="hours-btns">
+                  ${[1,2,4,6,8,12].map(h => `
+                    <button class="btn-hour" onclick="startWork('${job.id}', ${h})" ${disabled ? 'disabled' : ''}>
+                      ${h}h
+                      <span class="hour-gold">${Math.round(job.goldPerHourWithBonus * h)} 💰</span>
+                    </button>
+                  `).join('')}
+                </div>
+              </div>
+            ` : ''}
+          </div>`;
+      }).join('')}
+    </div>`;
+}
+
+async function startWork(workType, hours) {
+  const data = await api('POST', '/api/work/start', { workType, hours });
+  if (data.error) { showMessage(data.error, true); return; }
+  await loadWarrior();
+  openWorkProgress(data);
+}
+
+function openWorkProgress(session) {
+  document.getElementById('work-normal').style.display   = 'none';
+  document.getElementById('work-progress').style.display = 'block';
+  renderWorkProgress(session);
+}
+
+function renderWorkProgress(session) {
+  clearInterval(workTimerInterval);
+  const done = session.secondsRemaining <= 0;
+
+  document.getElementById('work-progress-content').innerHTML = `
+    <div class="qp-box">
+      <div class="qp-quest-name">${session.jobName}</div>
+      <p style="color:#888;font-size:.82rem;margin-bottom:.6rem">${session.description}</p>
+      <div class="wj-stats" style="margin-bottom:.8rem">
+        <span>💰 ${session.goldReward} ouro</span>
+        <span>⭐ ${session.xpReward} xp de trabalho</span>
+        <span>⏱ ${session.hours}h</span>
+      </div>
+      <div class="qp-timer ${done ? 'done' : ''}" id="work-timer">
+        ${done ? 'Concluído!' : formatTime(session.secondsRemaining)}
+      </div>
+      <button class="btn-collect qp-collect-btn" id="work-btn"
+              ${done ? '' : 'disabled'}
+              onclick="collectWork(${session.id})">
+        ${done ? '💰 Coletar' : 'Trabalhando...'}
+      </button>
+    </div>`;
+
+  if (!done) {
+    let secs = session.secondsRemaining;
+    workTimerInterval = setInterval(() => {
+      secs--;
+      const t = document.getElementById('work-timer');
+      const b = document.getElementById('work-btn');
+      if (!t) { clearInterval(workTimerInterval); return; }
+      if (secs <= 0) {
+        t.textContent = 'Concluído!';
+        t.classList.add('done');
+        b.disabled = false;
+        b.textContent = '💰 Coletar';
+        clearInterval(workTimerInterval);
+      } else {
+        t.textContent = formatTime(secs);
+      }
+    }, 1000);
+  }
+}
+
+async function collectWork(sessionId) {
+  const data = await api('POST', `/api/work/${sessionId}/collect`);
+  if (data.error) { showMessage(data.error, true); return; }
+
+  document.getElementById('work-progress-content').innerHTML = `
+    <div class="qp-box">
+      <div class="qp-quest-name">Trabalho Concluído!</div>
+      <div class="qp-result-row">
+        <span class="cr-gold">+${data.goldEarned} ouro</span>
+        <span class="cr-exp">+${data.xpEarned} xp trabalho</span>
+      </div>
+      <p style="color:#888;font-size:.8rem;margin:.5rem 0">${data.jobName}</p>
+      <button class="btn-send qp-collect-btn" onclick="closeWork()" style="margin-top:.8rem">
+        Voltar aos Empregos
+      </button>
+    </div>`;
+
+  await loadWarrior();
+}
+
+async function closeWork() {
+  clearInterval(workTimerInterval);
+  document.getElementById('work-progress').style.display = 'none';
+  document.getElementById('work-normal').style.display   = 'block';
+  await showWorkJobList();
 }
 
 // ── ARENA ──
