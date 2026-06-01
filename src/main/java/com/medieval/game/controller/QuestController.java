@@ -33,7 +33,7 @@ public class QuestController {
                 "id", qt.name(),
                 "displayName", qt.displayName,
                 "durationMinutes", qt.durationMinutes,
-                "goldReward", qt.goldReward,
+                "goldReward", qt.bronzeReward,
                 "expReward", qt.expReward,
                 "staminaCost", qt.staminaCost
         )).toList();
