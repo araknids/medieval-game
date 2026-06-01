@@ -81,9 +81,11 @@ public class QuestService {
         playerService.addGold(player, quest.getGoldReward());
         warriorService.addExperience(quest.getWarrior(), quest.getExpReward());
 
-        Warrior warrior = quest.getWarrior();
-        warrior.setOnMission(false);
-        warriorRepository.save(warrior);
+        // Carrega o guerreiro diretamente pelo player para garantir instância gerenciada
+        warriorRepository.findByPlayer(player).ifPresent(w -> {
+            w.setOnMission(false);
+            warriorRepository.save(w);
+        });
 
         quest.setStatus(QuestStatus.COLLECTED);
         questRepository.save(quest);
