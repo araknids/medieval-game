@@ -281,6 +281,15 @@ function closeQuestProgress() {
   loadActiveQuests();
 }
 
+async function abandonQuest(questId) {
+  if (!confirm('Abandonar a missão? Você não receberá nenhuma recompensa.')) return;
+  const data = await api('POST', `/api/quests/${questId}/abandon`);
+  if (data.error) { showMessage(data.error, true); return; }
+  showMessage('Missão abandonada.');
+  closeQuestProgress();
+  await loadWarrior();
+}
+
 function renderQuestProgress(quest) {
   const done = quest.secondsRemaining <= 0;
   document.getElementById('qp-content').innerHTML = `
@@ -297,6 +306,10 @@ function renderQuestProgress(quest) {
               onclick="collectFromProgress(${quest.id})">
         ${done ? '🎁 Coletar' : 'Aguardando...'}
       </button>
+      ${!done ? `
+      <button class="btn-cancel-work" onclick="abandonQuest(${quest.id})" style="margin-top:.5rem">
+        Abandonar (não recebe nada)
+      </button>` : ''}
     </div>`;
 
   if (!done) {

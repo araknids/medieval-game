@@ -9,5 +9,6 @@ import java.util.List;
 
 public interface ActiveQuestRepository extends JpaRepository<ActiveQuest, Long> {
     List<ActiveQuest> findAllByPlayerAndStatusNot(Player player, QuestStatus status);
+    List<ActiveQuest> findAllByPlayerAndStatusNotIn(Player player, java.util.List<QuestStatus> statuses);
     List<ActiveQuest> findAllByPlayer(Player player);
 }

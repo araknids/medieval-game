@@ -61,6 +61,18 @@ public class QuestController {
         }
     }
 
+    // Abandona missão — perde tudo, guerreiro liberado imediatamente
+    @PostMapping("/{questId}/abandon")
+    public ResponseEntity<?> abandonQuest(@PathVariable Long questId, Authentication auth) {
+        try {
+            Player player = getPlayer(auth);
+            questService.abandonQuest(player, questId);
+            return ResponseEntity.ok(Map.of("message", "Missão abandonada."));
+        } catch (IllegalArgumentException | IllegalStateException e) {
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+        }
+    }
+
     // Coleta recompensa de missão concluída
     @PostMapping("/{questId}/collect")
     public ResponseEntity<?> collectReward(@PathVariable Long questId, Authentication auth) {

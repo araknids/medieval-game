@@ -59,7 +59,29 @@ public class QuestService {
     }
 
     public List<ActiveQuest> getActiveQuests(Player player) {
-        return questRepository.findAllByPlayerAndStatusNot(player, QuestStatus.COLLECTED);
+        return questRepository.findAllByPlayerAndStatusNotIn(player,
+                java.util.List.of(QuestStatus.COLLECTED, QuestStatus.ABANDONED));
+    }
+
+    @Transactional
+    public void abandonQuest(Player player, Long questId) {
+        ActiveQuest quest = questRepository.findById(questId)
+                .orElseThrow(() -> new IllegalArgumentException("Missão não encontrada"));
+
+        if (!quest.getPlayer().getId().equals(player.getId())) {
+            throw new IllegalStateException("Esta missão não é sua");
+        }
+        if (quest.getStatus() != QuestStatus.IN_PROGRESS) {
+            throw new IllegalStateException("Missão não pode ser abandonada");
+        }
+
+        warriorRepository.findByPlayer(player).ifPresent(w -> {
+            w.setOnMission(false);
+            warriorRepository.save(w);
+        });
+
+        quest.setStatus(QuestStatus.ABANDONED);
+        questRepository.save(quest);
     }
 
     @Transactional
