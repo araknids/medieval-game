@@ -75,6 +75,22 @@ public class WorkController {
         }
     }
 
+    // Cancela trabalho (recebe proporcional às horas completas)
+    @PostMapping("/{id}/cancel")
+    public ResponseEntity<?> cancel(@PathVariable Long id, Authentication auth) {
+        try {
+            Player      player  = getPlayer(auth);
+            WorkSession session = workService.cancelWork(player, id);
+            return ResponseEntity.ok(Map.of(
+                    "goldEarned", session.getGoldReward(),
+                    "xpEarned",   session.getXpReward(),
+                    "cancelled",  true
+            ));
+        } catch (IllegalArgumentException | IllegalStateException e) {
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+        }
+    }
+
     // Coleta recompensa
     @PostMapping("/{id}/collect")
     public ResponseEntity<?> collect(@PathVariable Long id, Authentication auth) {

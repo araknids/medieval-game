@@ -223,6 +223,14 @@ section {
 .btn-hour:disabled { opacity: 0.4; cursor: not-allowed; }
 .hour-gold { font-size: 0.68rem; color: #4caf82; margin-top: 0.1rem; }
 
+.btn-cancel-work {
+  padding: 0.3rem 0.8rem;
+  background: transparent; border: 1px solid #555;
+  color: #888; border-radius: 4px; cursor: pointer;
+  font-family: inherit; font-size: 0.8rem; display: block; width: 100%;
+}
+.btn-cancel-work:hover { border-color: #cf6679; color: #cf6679; }
+
 /* ── TELA DE PROGRESSO DE MISSÃO ── */
 .qp-box {
   background: #0f3460;

@@ -643,6 +643,10 @@ function renderWorkProgress(session) {
               onclick="collectWork(${session.id})">
         ${done ? '💰 Coletar' : 'Trabalhando...'}
       </button>
+      ${!done ? `
+      <button class="btn-cancel-work" onclick="cancelWork(${session.id})" style="margin-top:.5rem">
+        Cancelar (recebe horas completas)
+      </button>` : ''}
     </div>`;
 
   if (!done) {
@@ -677,6 +681,35 @@ async function collectWork(sessionId) {
         <span class="cr-exp">+${data.xpEarned} xp trabalho</span>
       </div>
       <p style="color:#888;font-size:.8rem;margin:.5rem 0">${data.jobName}</p>
+      <button class="btn-send qp-collect-btn" onclick="closeWork()" style="margin-top:.8rem">
+        Voltar aos Empregos
+      </button>
+    </div>`;
+
+  await loadWarrior();
+}
+
+async function cancelWork(sessionId) {
+  if (!confirm('Cancelar o trabalho? Você recebe apenas o gold das horas completas.')) return;
+
+  const data = await api('POST', `/api/work/${sessionId}/cancel`);
+  if (data.error) { showMessage(data.error, true); return; }
+
+  clearInterval(workTimerInterval);
+
+  const msg = data.goldEarned > 0
+    ? `Trabalho cancelado. +${data.goldEarned} ouro e +${data.xpEarned} xp pelas horas completas.`
+    : 'Trabalho cancelado. Nenhuma hora completa — nada recebido.';
+
+  document.getElementById('work-progress-content').innerHTML = `
+    <div class="qp-box">
+      <div class="qp-quest-name">Trabalho Cancelado</div>
+      <div class="qp-result-row">
+        ${data.goldEarned > 0
+          ? `<span class="cr-gold">+${data.goldEarned} ouro</span>
+             <span class="cr-exp">+${data.xpEarned} xp trabalho</span>`
+          : `<span style="color:#888">Nenhuma hora completa</span>`}
+      </div>
       <button class="btn-send qp-collect-btn" onclick="closeWork()" style="margin-top:.8rem">
         Voltar aos Empregos
       </button>

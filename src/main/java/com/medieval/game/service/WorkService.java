@@ -71,6 +71,57 @@ public class WorkService {
     }
 
     @Transactional
+    public WorkSession cancelWork(Player player, Long sessionId) {
+        WorkSession session = workRepository.findById(sessionId)
+                .orElseThrow(() -> new IllegalArgumentException("Sessão de trabalho não encontrada"));
+
+        if (!session.getPlayer().getId().equals(player.getId())) {
+            throw new IllegalStateException("Esta sessão não é sua");
+        }
+        if (session.getStatus() != WorkStatus.IN_PROGRESS) {
+            throw new IllegalStateException("Trabalho já finalizado");
+        }
+
+        // Calcula horas completas trabalhadas
+        long hoursCompleted = java.time.Duration.between(
+                session.getStartedAt(), LocalDateTime.now()).toHours();
+        hoursCompleted = Math.min(hoursCompleted, session.getHours());
+
+        if (hoursCompleted > 0) {
+            long goldEarned = Math.round(session.getGoldReward() * hoursCompleted / (double) session.getHours());
+            int  xpEarned   = (int)(session.getXpReward()        * hoursCompleted / (double) session.getHours());
+
+            player.setGold(player.getGold() + goldEarned);
+            playerRepository.save(player);
+
+            final long finalHours = hoursCompleted;
+            warriorRepository.findByPlayer(player).ifPresent(warrior -> {
+                warrior.setWorkExperience(warrior.getWorkExperience() + xpEarned);
+                while (warrior.getWorkExperience() >= warrior.workExpNeededForNextLevel()) {
+                    warrior.setWorkExperience(warrior.getWorkExperience() - warrior.workExpNeededForNextLevel());
+                    warrior.setWorkLevel(warrior.getWorkLevel() + 1);
+                }
+                warrior.setOnMission(false);
+                warriorRepository.save(warrior);
+            });
+
+            session.setGoldReward(goldEarned);
+            session.setXpReward(xpEarned);
+        } else {
+            // Menos de 1h — libera sem pagar nada
+            warriorRepository.findByPlayer(player).ifPresent(w -> {
+                w.setOnMission(false);
+                warriorRepository.save(w);
+            });
+            session.setGoldReward(0);
+            session.setXpReward(0);
+        }
+
+        session.setStatus(WorkStatus.CANCELLED);
+        return workRepository.save(session);
+    }
+
+    @Transactional
     public WorkSession collectWork(Player player, Long sessionId) {
         WorkSession session = workRepository.findById(sessionId)
                 .orElseThrow(() -> new IllegalArgumentException("Sessão de trabalho não encontrada"));
