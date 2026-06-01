@@ -36,7 +36,8 @@ public class ZoneController {
             "description", z.description,
             "minLevel",    z.minLevel,
             "multiplier",  z.multiplier,
-            "encounterChancePerHour", z.encounterChancePerHour
+            "encounterChancePerHour",    z.encounterChancePerHour,
+            "npcEncounterChancePerHour", z.npcEncounterChancePerHour
         )).toList();
         return ResponseEntity.ok(zones);
     }

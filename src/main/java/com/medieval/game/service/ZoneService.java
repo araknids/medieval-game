@@ -240,57 +240,111 @@ public class ZoneService {
                      String attackerName, List<String> battleLog) {}
 
     private PvpResult resolveEncounters(Player player, ZoneActivity activity) {
-        Zone   zone     = activity.getZone();
-        int    hours    = activity.getDurationMinutes() / 60;
-        Random rng      = new Random();
+        Zone   zone  = activity.getZone();
+        int    hours = Math.max(1, activity.getDurationMinutes() / 60);
+        Random rng   = new Random();
 
-        // Calcula quantos encontros podem ocorrer
-        for (int h = 0; h < Math.max(1, hours); h++) {
-            int roll = rng.nextInt(100);
-            if (roll < zone.encounterChancePerHour) {
-                // Encontro PvP!
-                Warrior defender = warriorRepository.findByPlayer(player).orElse(null);
-                if (defender == null) continue;
+        Warrior defender = warriorRepository.findByPlayer(player).orElse(null);
+        if (defender == null) return new PvpResult(false, true, 0, null, List.of());
 
-                // Busca um hunter ativo na zona ou gera NPC
+        int[] defStats = getWarriorStats(defender, player);
+
+        for (int h = 0; h < hours; h++) {
+
+            // ── Encontro com player (PvP) ──
+            if (zone.encounterChancePerHour > 0 && rng.nextInt(100) < zone.encounterChancePerHour) {
                 Warrior attacker = findHunterInZone(zone, player, rng);
-                String attackerName = attacker != null ? attacker.getName() : npcHunterName(rng);
-                int[] atkStats = attacker != null ? getWarriorStats(attacker, player) : npcStats(rng);
-                int[] defStats = getWarriorStats(defender, player);
+                if (attacker != null) {
+                    int[] atkStats = getWarriorStats(attacker, attacker.getPlayer());
+                    String atkName = attacker.getName();
+
+                    List<String> log = battleSimulator.simulate(
+                            atkName,         atkStats[0], atkStats[1], atkStats[2], atkStats[3],
+                            defender.getName(), defStats[0], defStats[1], defStats[2], defStats[3]);
+
+                    boolean defWon = removeWinnerTag(log, defender.getName());
+
+                    if (!defWon) {
+                        long bronzeLost = applyDefeatPenalty(player, attacker.getPlayer());
+                        return new PvpResult(true, false, bronzeLost, atkName + " (jogador)", log);
+                    }
+                    return new PvpResult(true, true, 0, atkName + " (jogador)", log);
+                }
+            }
+
+            // ── Encontro com NPC ──
+            if (rng.nextInt(100) < zone.npcEncounterChancePerHour) {
+                int npcLevel = defender.getLevel() + rng.nextInt(4); // até +3
+                String npcName = npcName(zone, rng);
+                int[] npcStats = npcStatsByLevel(npcLevel, rng);
 
                 List<String> log = battleSimulator.simulate(
-                        attackerName, atkStats[0], atkStats[1], atkStats[2], atkStats[3],
+                        npcName,           npcStats[0], npcStats[1], npcStats[2], npcStats[3],
                         defender.getName(), defStats[0], defStats[1], defStats[2], defStats[3]);
 
-                String lastLine = log.get(log.size() - 1);
-                boolean defenderWon = lastLine.contains("WINNER:" + defender.getName());
-                log.remove(log.size() - 1); // remove tag interna
+                boolean defWon = removeWinnerTag(log, defender.getName());
 
-                if (!defenderWon) {
-                    // Gatherer foi derrotado
-                    long bronzeLost = Math.round(player.totalBronze() * 0.15); // perde 15% do bronze
-                    if (bronzeLost > 0) {
-                        player.addBronzeAmount(-bronzeLost);
-                        playerRepository.save(player);
-                    }
-
-                    // Hunter recebe 50% do que foi perdido
-                    if (attacker != null) {
-                        Player hunterPlayer = attacker.getPlayer();
-                        if (hunterPlayer != null) {
-                            hunterPlayer.addBronzeAmount(bronzeLost / 2);
-                            playerRepository.save(hunterPlayer);
-                        }
-                    }
-
-                    return new PvpResult(true, false, bronzeLost, attackerName, log);
+                if (!defWon) {
+                    long bronzeLost = applyDefeatPenalty(player, null);
+                    return new PvpResult(true, false, bronzeLost, npcName, log);
                 }
-                // Defensor ganhou — continua a expedição, mas registra o encontro
-                return new PvpResult(true, true, 0, attackerName, log);
+                return new PvpResult(true, true, 0, npcName, log);
             }
         }
 
         return new PvpResult(false, true, 0, null, List.of());
+    }
+
+    /** Remove a tag WINNER: do final do log e retorna se o defender venceu */
+    private boolean removeWinnerTag(List<String> log, String defenderName) {
+        if (log.isEmpty()) return true;
+        String last = log.get(log.size() - 1);
+        boolean defWon = last.contains("WINNER:" + defenderName);
+        log.remove(log.size() - 1);
+        return defWon;
+    }
+
+    /** Aplica penalidade de derrota: perde 15% bronze; hunter (se player) ganha 50% do perdido */
+    private long applyDefeatPenalty(Player player, Player hunter) {
+        long bronzeLost = Math.round(player.totalBronze() * 0.15);
+        if (bronzeLost > 0) {
+            player.addBronzeAmount(-bronzeLost);
+            playerRepository.save(player);
+            if (hunter != null) {
+                hunter.addBronzeAmount(bronzeLost / 2);
+                playerRepository.save(hunter);
+            }
+        }
+        return bronzeLost;
+    }
+
+    // ── Geração de NPCs ──
+
+    private static final String[][] NPC_NAMES = {
+        // SAFE
+        {"Lobo Selvagem", "Bandoleiro", "Saqueador da Estrada", "Urso Enfurecido", "Javali Gigante"},
+        // PVP
+        {"Mercenário Corrupto", "Orc Guerreiro", "Cavaleiro Renegado", "Golem de Pedra", "Troll da Montanha"},
+        // HIGH_RISK
+        {"Demônio Menor", "Lich das Trevas", "Dragão Jovem", "Campeão Infernal", "Espectro da Morte"},
+    };
+
+    private String npcName(Zone zone, Random rng) {
+        String[] pool = switch (zone) {
+            case SAFE      -> NPC_NAMES[0];
+            case PVP       -> NPC_NAMES[1];
+            case HIGH_RISK -> NPC_NAMES[2];
+        };
+        return pool[rng.nextInt(pool.length)];
+    }
+
+    /** Stats do NPC baseados no nível (até +3 do guerreiro) */
+    private int[] npcStatsByLevel(int level, Random rng) {
+        int atk = 4 + level * 3 + rng.nextInt(4);
+        int def = 2 + level * 2 + rng.nextInt(3);
+        int hp  = 70 + level * 20 + rng.nextInt(30);
+        int eva = Math.min(8 + level, 25);
+        return new int[]{atk, def, hp, eva};
     }
 
     private Warrior findHunterInZone(Zone zone, Player exclude, Random rng) {
@@ -310,13 +364,9 @@ public class ZoneService {
         return new int[]{atk, def, hp, w.getEvasionChance()};
     }
 
-    private int[] npcStats(Random rng) {
-        return new int[]{8 + rng.nextInt(12), 5 + rng.nextInt(8), 80 + rng.nextInt(60), 10};
-    }
-
+    // Método legado mantido para compatibilidade
     private String npcHunterName(Random rng) {
-        String[] names = {"Ladrão das Sombras","Mercenário Solitário","Assassino da Guilda",
-                          "Caçador de Recompensas","Bandoleiro das Estradas"};
+        String[] names = {"Ladrão das Sombras","Mercenário Solitário","Caçador de Recompensas"};
         return names[rng.nextInt(names.length)];
     }
 

@@ -789,7 +789,8 @@ function renderZones(zones, current) {
         <p class="zone-desc">${z.description}</p>
         <div class="zone-stats">
           <span>×${z.multiplier} recursos</span>
-          ${pvp ? `<span class="stamina-low">⚠ ${z.encounterChancePerHour}%/h ataque</span>` : ''}
+          ${z.npcEncounterChancePerHour > 0 ? `<span style="color:#c9a84c">🐉 ${z.npcEncounterChancePerHour}%/h NPC</span>` : ''}
+          ${pvp ? `<span class="stamina-low">⚔ ${z.encounterChancePerHour}%/h PvP</span>` : ''}
         </div>
         ${!locked ? `
           <div class="zone-roles">
