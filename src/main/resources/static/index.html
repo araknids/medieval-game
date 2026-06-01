@@ -77,6 +77,7 @@
           <button id="loc-inventory" class="loc-btn"        onclick="goTo('inventory')">👤 Personagem</button>
           <button id="loc-commerce"  class="loc-btn"        onclick="goTo('commerce')">🛒 Comércio</button>
           <button id="loc-work"      class="loc-btn"        onclick="goTo('work')">⚒ Trabalho</button>
+          <button id="loc-tower"     class="loc-btn"        onclick="goTo('tower')">🏰 Torre</button>
           <button id="loc-arena"     class="loc-btn"        onclick="goTo('arena')">⚔ Arena</button>
         </nav>
 
@@ -147,6 +148,29 @@
           <!-- Progresso do trabalho -->
           <div id="work-progress" style="display:none">
             <div id="work-progress-content"></div>
+          </div>
+        </section>
+
+        <!-- TORRE INFERNAL -->
+        <section id="loc-panel-tower" style="display:none">
+          <div class="loc-header">
+            <h2>🏰 Torre Infernal</h2>
+            <p class="loc-desc">Desça pelos andares e enfrente chefes cada vez mais poderosos.</p>
+          </div>
+
+          <!-- Lobby (ranking + entrar) -->
+          <div id="tower-lobby">
+            <div id="tower-ranking-panel"></div>
+          </div>
+
+          <!-- Dentro da torre -->
+          <div id="tower-floor" style="display:none">
+            <div id="tower-floor-content"></div>
+          </div>
+
+          <!-- Resultado do combate -->
+          <div id="tower-result" style="display:none">
+            <div id="tower-result-content"></div>
           </div>
         </section>
 

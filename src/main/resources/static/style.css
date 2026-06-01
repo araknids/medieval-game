@@ -381,6 +381,35 @@ section {
 }
 .btn-unequip:hover { border-color: #cf6679; color: #cf6679; }
 
+/* ── TORRE INFERNAL ── */
+.tower-enter-box {
+  background: #0f3460; border: 1px solid #8b1a1a;
+  border-radius: 8px; padding: 1rem; margin-bottom: 1rem;
+}
+.tower-enter-title { color: #cf6679; font-weight: bold; font-size: 1rem; margin-bottom: .3rem; }
+
+.tower-floor-box {
+  background: #0f3460; border: 1px solid #8b1a1a;
+  border-radius: 8px; padding: 1rem;
+}
+.tower-floor-num   { color: #cf6679; font-size: 1.2rem; font-weight: bold; margin-bottom: .4rem; }
+.tower-cleared     { color: #4caf82; font-size: .78rem; margin-bottom: .6rem; }
+
+.tower-boss-card {
+  background: #1a0a0a; border: 1px solid #8b1a1a;
+  border-radius: 6px; padding: .8rem; margin: .6rem 0;
+}
+.tower-boss-name  { color: #cf6679; font-weight: bold; font-size: 1rem; margin-bottom: .4rem; }
+.tower-boss-stats { display: flex; gap: .8rem; flex-wrap: wrap; font-size: .8rem; color: #aaa; margin-bottom: .4rem; }
+.tower-rewards-preview { font-size: .78rem; color: #888; }
+
+.tower-result-box {
+  background: #0f3460; border: 1px solid #2a2a4a;
+  border-radius: 8px; padding: 1rem;
+}
+.tower-result-title   { font-size: 1.1rem; font-weight: bold; margin-bottom: .5rem; }
+.tower-result-rewards { font-size: 1rem; margin-bottom: .5rem; }
+
 /* ── ARENA ── */
 .rank-table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
 .rank-table th { color: #888; text-align: left; padding: 0.4rem 0.6rem; border-bottom: 1px solid #2a2a4a; font-weight: normal; font-size: 0.75rem; text-transform: uppercase; }

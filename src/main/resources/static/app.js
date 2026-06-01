@@ -195,10 +195,11 @@ async function loadWarrior() {
 
 // ── Navegação de locais ──
 function goTo(loc) {
-  ['tavern','inventory','commerce','work','arena'].forEach(l => {
+  ['tavern','inventory','commerce','work','tower','arena'].forEach(l => {
     document.getElementById('loc-panel-' + l).style.display = l === loc ? 'block' : 'none';
     document.getElementById('loc-' + l).classList.toggle('active', l === loc);
   });
+  if (loc === 'tower')    { loadTower(); }
   if (loc === 'arena')    { loadRank(); loadCurrentFight(); }
   if (loc === 'commerce') { loadShop(); }
   if (loc === 'inventory'){ renderAttributes(); loadInventory(); }
@@ -822,6 +823,162 @@ async function closeWork() {
   document.getElementById('work-progress').style.display = 'none';
   document.getElementById('work-normal').style.display   = 'block';
   await showWorkJobList();
+}
+
+// ── TORRE INFERNAL ──
+
+async function loadTower() {
+  const current = await api('GET', '/api/tower/current');
+  if (current.active) {
+    showTowerFloor(current);
+  } else {
+    await showTowerLobby();
+  }
+}
+
+async function showTowerLobby() {
+  document.getElementById('tower-lobby').style.display  = 'block';
+  document.getElementById('tower-floor').style.display  = 'none';
+  document.getElementById('tower-result').style.display = 'none';
+
+  const ranking = await api('GET', '/api/tower/ranking');
+  const stamina = warrior?.stamina ?? 0;
+  const busy    = warrior?.onMission ?? false;
+  const noStamina = stamina < 25;
+
+  const rankHtml = ranking.length === 0
+    ? '<p style="color:#888;font-size:.82rem">Nenhum guerreiro chegou lá ainda.</p>'
+    : `<table class="rank-table">
+        <thead><tr><th>#</th><th>Guerreiro</th><th>Andar</th></tr></thead>
+        <tbody>
+          ${ranking.map((r, i) => `
+            <tr class="${r.warriorName === warrior?.name ? 'me' : ''}">
+              <td class="rank-pos">${i + 1}</td>
+              <td class="rank-name">${r.warriorName}</td>
+              <td class="rank-pts">🏰 ${r.bestFloor}</td>
+            </tr>`).join('')}
+        </tbody>
+      </table>`;
+
+  document.getElementById('tower-ranking-panel').innerHTML = `
+    <div class="tower-enter-box">
+      <div class="tower-enter-title">Entrar na Torre</div>
+      <p style="color:#888;font-size:.82rem;margin:.4rem 0">
+        Custo: <span class="stamina-cost">⚡ 25 estamina</span>
+        &nbsp;·&nbsp; Sua estamina: <strong>${stamina}/100</strong>
+      </p>
+      <p style="color:#888;font-size:.8rem;margin-bottom:.8rem">
+        Lute andar por andar. Se perder, é expulso. Chegue o mais longe possível!
+      </p>
+      <button class="btn-fight"
+              ${busy || noStamina ? 'disabled style="opacity:.5;cursor:not-allowed"' : ''}
+              onclick="enterTower()">
+        ${busy ? '⚔ Guerreiro ocupado' : noStamina ? '⚡ Sem estamina' : '🏰 Entrar na Torre'}
+      </button>
+    </div>
+    <h3 style="color:#c9a84c;margin:1rem 0 .5rem;font-size:.85rem;text-transform:uppercase;letter-spacing:.05em">
+      Ranking — Melhores Andares
+    </h3>
+    ${rankHtml}`;
+}
+
+function showTowerFloor(state) {
+  document.getElementById('tower-lobby').style.display  = 'none';
+  document.getElementById('tower-result').style.display = 'none';
+  document.getElementById('tower-floor').style.display  = 'block';
+
+  document.getElementById('tower-floor-content').innerHTML = `
+    <div class="tower-floor-box">
+      <div class="tower-floor-num">🏰 Andar ${state.currentFloor}</div>
+      ${state.highestFloor > 0 ? `<div class="tower-cleared">✓ Último andar completado: ${state.highestFloor}</div>` : ''}
+      <div class="tower-boss-card">
+        <div class="tower-boss-name">${state.bossName}</div>
+        <div class="tower-boss-stats">
+          <span>❤ ${state.bossHp} HP</span>
+          <span>⚔ ${state.bossAtk} ATK</span>
+          <span>🛡 ${state.bossDef} DEF</span>
+          <span>💨 ${state.bossEvasion}% evasão</span>
+        </div>
+        <div class="tower-rewards-preview">
+          Recompensa: ${fmtBronze(state.currentFloor * 40)} · ⭐ ${state.currentFloor * 20} exp
+        </div>
+      </div>
+      <div style="display:flex;gap:.5rem;margin-top:.8rem">
+        <button class="btn-fight" onclick="fightTower()">⚔ Lutar</button>
+        <button class="btn-cancel-work" onclick="exitTower()">Sair da Torre</button>
+      </div>
+    </div>`;
+}
+
+async function enterTower() {
+  const data = await api('POST', '/api/tower/enter');
+  if (data.error) { showMessage(data.error, true); return; }
+  await loadWarrior();
+  showTowerFloor(data);
+}
+
+async function fightTower() {
+  const data = await api('POST', '/api/tower/fight');
+  if (data.error) { showMessage(data.error, true); return; }
+  await loadWarrior();
+  showTowerResult(data);
+}
+
+function showTowerResult(result) {
+  document.getElementById('tower-floor').style.display  = 'none';
+  document.getElementById('tower-lobby').style.display  = 'none';
+  document.getElementById('tower-result').style.display = 'block';
+
+  const logHtml = result.log.map(line => {
+    if (line.includes('vence'))   return `<span class="log-win">${line}</span>`;
+    if (line.includes('esquiva')) return `<span class="log-evade">${line}</span>`;
+    if (line.includes('───'))     return `<span class="log-separator">${line}</span>`;
+    return `<span class="log-hit">${line}</span>`;
+  }).join('\n');
+
+  const title   = result.won ? `🏆 Andar ${result.floor} Completado!` : `💀 Derrotado no Andar ${result.floor}`;
+  const color   = result.won ? '#4caf82' : '#cf6679';
+
+  let actions = '';
+  if (result.won && !result.runOver) {
+    actions = `
+      <button class="btn-fight" onclick="nextFloor()" style="margin-right:.5rem">Próximo Andar →</button>
+      <button class="btn-cancel-work" onclick="exitTower()">Sair com os ganhos</button>`;
+  } else {
+    actions = `<button class="btn-send" onclick="closeTowerResult()">Fechar</button>`;
+  }
+
+  document.getElementById('tower-result-content').innerHTML = `
+    <div class="tower-result-box">
+      <div class="tower-result-title" style="color:${color}">${title}</div>
+      ${result.won ? `
+        <div class="tower-result-rewards">
+          ${fmtBronze(result.bronzeEarned)} &nbsp; ⭐ ${result.expEarned} exp
+        </div>` : ''}
+      <div class="battle-log" style="margin:.6rem 0">${logHtml}</div>
+      <div style="display:flex;gap:.5rem;flex-wrap:wrap">${actions}</div>
+    </div>`;
+}
+
+async function nextFloor() {
+  const data = await api('GET', '/api/tower/current');
+  if (!data.active) { await closeTowerResult(); return; }
+  showTowerFloor(data);
+  document.getElementById('tower-result').style.display = 'none';
+  document.getElementById('tower-floor').style.display  = 'block';
+}
+
+async function exitTower() {
+  if (!confirm('Sair da torre? Você mantém os ganhos dos andares já completados.')) return;
+  const data = await api('POST', '/api/tower/exit');
+  if (data.error) { showMessage(data.error, true); return; }
+  await loadWarrior();
+  await closeTowerResult();
+}
+
+async function closeTowerResult() {
+  document.getElementById('tower-result').style.display = 'none';
+  await showTowerLobby();
 }
 
 // ── ARENA ──
