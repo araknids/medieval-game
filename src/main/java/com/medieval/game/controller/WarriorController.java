@@ -81,7 +81,8 @@ public class WarriorController {
                            int strength, int dexterity, int constitution, int luck,
                            int availablePoints, int evasionChance,
                            int stamina, long minutesToFullStamina,
-                           long gold, int rankPoints,
+                           long bronze, long silver, long gold,
+                           int rankPoints,
                            boolean onMission) {
         static WarriorResponse from(Warrior w, int bonusAtk, int bonusDef, int bonusHp,
                                     int stamina, long minsToFull, Player player) {
@@ -96,7 +97,8 @@ public class WarriorController {
                     w.getStrength(), w.getDexterity(), w.getConstitution(), w.getLuck(),
                     w.getAvailablePoints(), w.getEvasionChance(),
                     stamina, minsToFull,
-                    player.getGold(), player.getRankPoints(),
+                    player.getBronze(), player.getSilver(), player.getGold(),
+                    player.getRankPoints(),
                     w.isOnMission()
             );
         }

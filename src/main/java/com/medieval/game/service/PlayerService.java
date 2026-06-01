@@ -45,22 +45,56 @@ public class PlayerService {
         return passwordEncoder.matches(rawPassword, player.getPasswordHash());
     }
 
+    // ── Sistema de 3 moedas (100 bronze = 1 prata, 100 prata = 1 ouro) ──
+
+    /** Adiciona bronze e auto-converte para prata/ouro se necessário */
     @Transactional
-    public void addGold(Player player, long amount) {
-        player.setGold(player.getGold() + amount);
+    public void addBronze(Player player, long amount) {
+        long totalBronze = player.getBronze() + amount;
+        long silverGained = totalBronze / 100;
+        player.setBronze(totalBronze % 100);
+        if (silverGained > 0) addSilverInternal(player, silverGained);
         playerRepository.save(player);
     }
 
+    /** Adiciona prata e auto-converte para ouro se necessário */
     @Transactional
-    public void spendGold(Player player, long amount) {
-        if (player.getGold() < amount) {
-            throw new IllegalStateException("Ouro insuficiente");
+    public void addSilver(Player player, long amount) {
+        addSilverInternal(player, amount);
+        playerRepository.save(player);
+    }
+
+    private void addSilverInternal(Player player, long amount) {
+        long totalSilver = player.getSilver() + amount;
+        player.setGold(player.getGold() + totalSilver / 100);
+        player.setSilver(totalSilver % 100);
+    }
+
+    /** Gasta um valor em bronze (decompõe automaticamente prata/ouro se necessário) */
+    @Transactional
+    public void spendBronze(Player player, long bronzeAmount) {
+        if (player.totalBronze() < bronzeAmount) {
+            throw new IllegalStateException("Moedas insuficientes");
         }
-        player.setGold(player.getGold() - amount);
+        long remaining = player.totalBronze() - bronzeAmount;
+        player.setGold(remaining / 10_000L);
+        remaining %= 10_000L;
+        player.setSilver(remaining / 100L);
+        player.setBronze(remaining % 100L);
         playerRepository.save(player);
     }
 
-    // Consome estamina — salva o valor atual calculado menos o custo
+    // Mantidos por compatibilidade (usam bronze internamente)
+    @Transactional
+    public void addGold(Player player, long bronzeAmount) {
+        addBronze(player, bronzeAmount);
+    }
+
+    @Transactional
+    public void spendGold(Player player, long bronzeAmount) {
+        spendBronze(player, bronzeAmount);
+    }
+
     @Transactional
     public void consumeStamina(Player player, int cost) {
         int current = player.getCalculatedStamina();

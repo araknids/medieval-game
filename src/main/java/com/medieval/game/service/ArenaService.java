@@ -84,7 +84,7 @@ public class ArenaService {
         );
 
         boolean challengerWon = log.get(log.size() - 1).contains(challengerName);
-        long goldReward  = challengerWon ? 200 : 50;
+        long goldReward  = challengerWon ? 200 : 50; // bronze
         int  rankChange  = challengerWon ? (opponent != null ? 25 : 15) : (opponent != null ? -15 : -5);
 
         ArenaMatch match = new ArenaMatch();

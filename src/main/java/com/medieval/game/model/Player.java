@@ -5,8 +5,8 @@ import jakarta.persistence.*;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
-import java.time.LocalDateTime;
 import java.time.Duration;
+import java.time.LocalDateTime;
 
 @Entity
 @Table(name = "players")
@@ -27,7 +27,20 @@ public class Player {
     @Column(nullable = false)
     private String passwordHash;
 
-    private long gold = 500;
+    // Sistema de 3 moedas: 100 bronze = 1 prata, 100 prata = 1 ouro
+    @Column(columnDefinition = "bigint default 0")
+    private long bronze = 0;
+
+    @Column(columnDefinition = "bigint default 50")
+    private long silver = 50; // novos jogadores começam com 50 prata
+
+    @Column(columnDefinition = "bigint default 0")
+    private long gold   = 0;
+
+    // Total em bronze para comparações
+    public long totalBronze() {
+        return bronze + silver * 100L + gold * 10_000L;
+    }
 
     private int rankPoints  = 1000;
     private int arenaWins   = 0;
@@ -38,15 +51,12 @@ public class Player {
     @Column(nullable = false)
     private LocalDateTime staminaUpdatedAt = LocalDateTime.now();
 
-    // Calcula estamina atual considerando regeneração passiva
-    // 100 de estamina em 120 minutos (2 horas)
     public int getCalculatedStamina() {
         long minutes = Duration.between(staminaUpdatedAt, LocalDateTime.now()).toMinutes();
         int regen = (int) (minutes * 100.0 / 120.0);
         return Math.min(100, currentStamina + regen);
     }
 
-    // Minutos restantes para estamina cheia (0 se já está cheia)
     public long getMinutesToFullStamina() {
         int stamina = getCalculatedStamina();
         if (stamina >= 100) return 0;

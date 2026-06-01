@@ -90,6 +90,11 @@ aside#warrior-panel h2 {
 }
 .warrior-stat-row .label { color: #888; }
 .warrior-stat-row .value { color: #e0d5c5; }
+/* ── Moedas ── */
+.c-gold   { color: #c9a84c; font-weight: bold; }
+.c-silver { color: #c0c0c0; font-weight: bold; }
+.c-bronze { color: #cd7f32; font-weight: bold; }
+
 .stat-bonus    { color: #4caf82; font-size: 0.78rem; margin: 0 0.2rem; }
 .stamina-low   { color: #cf6679; }
 .stamina-regen { color: #888; font-size: 0.72rem; }

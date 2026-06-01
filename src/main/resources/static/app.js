@@ -20,6 +20,31 @@ async function api(method, path, body) {
   return res.json();
 }
 
+// ── Sistema de 3 moedas ──
+// Formata um valor em bronze para exibição com ícones coloridos
+function formatCurrency(bronze, silver, gold) {
+  const parts = [];
+  if (gold   > 0) parts.push(`<span class="c-gold">${gold}🥇</span>`);
+  if (silver > 0) parts.push(`<span class="c-silver">${silver}🥈</span>`);
+  if (bronze > 0 || parts.length === 0) parts.push(`<span class="c-bronze">${bronze}🟤</span>`);
+  return parts.join(' ');
+}
+
+// Converte total em bronze para { bronze, silver, gold }
+function decompose(totalBronze) {
+  totalBronze = Math.max(0, Math.floor(totalBronze));
+  const gold   = Math.floor(totalBronze / 10000);
+  const silver = Math.floor((totalBronze % 10000) / 100);
+  const bronze = totalBronze % 100;
+  return { bronze, silver, gold };
+}
+
+// Formata a partir de um total em bronze
+function fmtBronze(totalBronze) {
+  const { bronze, silver, gold } = decompose(totalBronze);
+  return formatCurrency(bronze, silver, gold);
+}
+
 function showMessage(text, isError = false, isDrop = false) {
   const el = document.getElementById('game-message');
   el.textContent = text;
@@ -138,7 +163,8 @@ async function loadWarrior() {
   warrior = data;
 
   document.getElementById('hdr-username').textContent = warrior.name;
-  document.getElementById('hdr-gold').textContent = (warrior.gold ?? '–') + ' ouro';
+  document.getElementById('hdr-currency').innerHTML =
+    formatCurrency(warrior.bronze ?? 0, warrior.silver ?? 0, warrior.gold ?? 0);
   document.getElementById('hdr-rank').textContent = (warrior.rankPoints ?? '–') + ' pts';
 
   const xpPct = Math.floor((warrior.experience / warrior.expNeeded) * 100);
@@ -206,7 +232,7 @@ function renderQuestTypes() {
       <h3>${q.displayName}</h3>
       <div class="quest-rewards">
         <span>⏱ ${q.durationMinutes} min</span>
-        <span>💰 ${q.goldReward}</span>
+        <span>${fmtBronze(q.goldReward)}</span>
         <span>⭐ ${q.expReward} exp</span>
         <span class="stamina-cost">⚡ ${q.staminaCost}</span>
       </div>
@@ -235,7 +261,7 @@ async function loadActiveQuests() {
         </span>
       </div>
       <div class="quest-rewards">
-        <span>💰 ${q.goldReward} ouro</span>
+        <span>${fmtBronze(q.goldReward)}</span>
         <span>⭐ ${q.expReward} exp</span>
       </div>
       <button class="btn-collect" id="btn-collect-${q.id}" ${q.secondsRemaining > 0 ? 'disabled' : ''} onclick="collectReward(${q.id})">
@@ -296,7 +322,7 @@ function renderQuestProgress(quest) {
     <div class="qp-box">
       <div class="qp-quest-name">${quest.questType}</div>
       <div class="qp-rewards-preview">
-        💰 ${quest.goldReward} ouro &nbsp;&nbsp; ⭐ ${quest.expReward} exp
+        ${fmtBronze(quest.goldReward)} &nbsp;&nbsp; ⭐ ${quest.expReward} exp
       </div>
       <div class="qp-timer ${done ? 'done' : ''}" id="qp-timer">
         ${done ? 'Completo!' : formatTime(quest.secondsRemaining)}
@@ -338,7 +364,7 @@ async function collectFromProgress(questId) {
 
   let rewardsHtml = `
     <div class="qp-result-row">
-      <span class="cr-gold">+${data.goldEarned} ouro</span>
+      <span class="cr-gold">${fmtBronze(data.goldEarned)}</span>
       <span class="cr-exp">+${data.expReward ?? data.expEarned} exp</span>
     </div>`;
 
@@ -374,7 +400,7 @@ async function collectReward(questId) {
 
   const card = document.getElementById(`quest-card-${questId}`);
   if (card) {
-    let line = `+${data.goldEarned} ouro   +${data.expEarned} exp`;
+    let line = `${fmtBronze(data.goldEarned)}   +${data.expEarned} exp`;
     if (data.droppedItem) {
       const d = data.droppedItem;
       const stats = [
@@ -437,7 +463,7 @@ async function loadShop() {
               <h3 class="rarity-${i.rarity}">${i.name}</h3>
               <div class="shop-stats">${i.typeDisplay} · ${i.rarityName} · ${stats}</div>
             </div>
-            <span class="shop-price">💰 ${i.price}</span>
+            <span class="shop-price">${fmtBronze(i.price)}</span>
             ${i.purchased
               ? `<button class="btn-bought" disabled>✓ Comprado</button>`
               : `<button class="btn-buy" onclick="buyItem(${i.id})">Comprar</button>`
@@ -463,7 +489,7 @@ async function loadShop() {
 async function sellItem(itemId) {
   const data = await api('POST', `/api/inventory/${itemId}/sell`);
   if (data.error) { showMessage(data.error, true); return; }
-  showMessage(`${data.message} +${data.goldEarned} ouro`);
+  showMessage(`${data.message} ${fmtBronze(data.goldEarned)}`);
   loadSellList();
   loadWarrior();
 }
@@ -592,7 +618,7 @@ async function loadSellList() {
         <h3 class="rarity-${item.rarity}">${item.name}</h3>
         <div class="shop-stats">${item.typeDisplay} · ${statsText(item)}</div>
       </div>
-      <span class="shop-price">💰 ${item.sellPrice}</span>
+      <span class="shop-price">${fmtBronze(item.sellPrice)}</span>
       <button class="btn-buy" onclick="sellItem(${item.id})">Vender</button>
     </div>`).join('');
 }
@@ -660,7 +686,7 @@ async function showWorkJobList() {
             <div class="xp-bar-bg" style="margin-bottom:.4rem"><div class="xp-bar-fill" style="width:${xpPct}%"></div></div>
             <p class="wj-desc">${job.description}</p>
             <div class="wj-stats">
-              <span>💰 ${job.goldPerHourWithBonus}/h</span>
+              <span>${fmtBronze(job.goldPerHourWithBonus)}/h</span>
               <span>⭐ ${job.xpPerHour} xp/h</span>
               ${locked ? `<span class="wj-req">🔒 Lv.${job.minWorkLevel} necessário</span>` : ''}
             </div>
@@ -671,7 +697,7 @@ async function showWorkJobList() {
                   ${[1,2,4,6,8,12].map(h => `
                     <button class="btn-hour" onclick="startWork('${job.id}', ${h})" ${disabled ? 'disabled' : ''}>
                       ${h}h
-                      <span class="hour-gold">${Math.round(job.goldPerHourWithBonus * h)} 💰</span>
+                      <span class="hour-gold">${fmtBronze(Math.round(job.goldPerHourWithBonus * h))}</span>
                     </button>
                   `).join('')}
                 </div>
@@ -704,7 +730,7 @@ function renderWorkProgress(session) {
       <div class="qp-quest-name">${session.jobName}</div>
       <p style="color:#888;font-size:.82rem;margin-bottom:.6rem">${session.description}</p>
       <div class="wj-stats" style="margin-bottom:.8rem">
-        <span>💰 ${session.goldReward} ouro</span>
+        <span>${fmtBronze(session.goldReward)}</span>
         <span>⭐ ${session.xpReward} xp de trabalho</span>
         <span>⏱ ${session.hours}h</span>
       </div>
@@ -750,7 +776,7 @@ async function collectWork(sessionId) {
     <div class="qp-box">
       <div class="qp-quest-name">Trabalho Concluído!</div>
       <div class="qp-result-row">
-        <span class="cr-gold">+${data.goldEarned} ouro</span>
+        <span class="cr-gold">${fmtBronze(data.goldEarned)}</span>
         <span class="cr-exp">+${data.xpEarned} xp trabalho</span>
       </div>
       <p style="color:#888;font-size:.8rem;margin:.5rem 0">${data.jobName}</p>
@@ -771,7 +797,7 @@ async function cancelWork(sessionId) {
   clearInterval(workTimerInterval);
 
   const msg = data.goldEarned > 0
-    ? `Trabalho cancelado. +${data.goldEarned} ouro e +${data.xpEarned} xp pelas horas completas.`
+    ? `Trabalho cancelado. ${fmtBronze(data.goldEarned)} e +${data.xpEarned} xp pelas horas completas.`
     : 'Trabalho cancelado. Nenhuma hora completa — nada recebido.';
 
   document.getElementById('work-progress-content').innerHTML = `
@@ -779,7 +805,7 @@ async function cancelWork(sessionId) {
       <div class="qp-quest-name">Trabalho Cancelado</div>
       <div class="qp-result-row">
         ${data.goldEarned > 0
-          ? `<span class="cr-gold">+${data.goldEarned} ouro</span>
+          ? `<span class="cr-gold">${fmtBronze(data.goldEarned)}</span>
              <span class="cr-exp">+${data.xpEarned} xp trabalho</span>`
           : `<span style="color:#888">Nenhuma hora completa</span>`}
       </div>
@@ -846,7 +872,7 @@ function renderFightArea(data) {
           Custo: <span class="stamina-cost">⚡ 25 estamina</span> &nbsp;·&nbsp; Sua estamina: <strong>${stamina}/100</strong>
         </p>
         <p style="color:#888;font-size:.83rem;margin-bottom:.8rem">
-          Batalha dura 1 minuto. Vitória: +25 rank, +200 ouro.
+          Batalha dura 1 minuto. Vitória: +25 rank, ${fmtBronze(200)}.
         </p>
         <button class="btn-fight" ${noStamina ? 'disabled style="opacity:.5;cursor:not-allowed"' : ''} onclick="startFight()">
           ${noStamina ? '⚡ Sem estamina' : '⚔ Lutar'}
@@ -904,7 +930,7 @@ async function collectFight(matchId) {
     <div class="fight-box">
       <h3>${result} vs ${data.opponent}</h3>
       <p style="font-size:.82rem;color:#aaa;margin-bottom:.5rem">
-        ${data.won ? '+' : ''}${data.rankChange} pontos de rank &nbsp;·&nbsp; +${data.goldEarned} ouro
+        ${data.won ? '+' : ''}${data.rankChange} pontos de rank &nbsp;·&nbsp; ${fmtBronze(data.goldEarned)}
       </p>
     </div>
     <div class="battle-log">${log}</div>

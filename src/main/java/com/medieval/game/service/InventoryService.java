@@ -79,13 +79,14 @@ public class InventoryService {
 
     @Transactional
     public void giveStarterItems(Player player) {
-        make(player, "Elmo de Ferro",       ItemType.HELMET,   0, 2, 10, 1, 25);
-        make(player, "Armadura de Couro",   ItemType.ARMOR,    0, 3, 15, 1, 25);
-        make(player, "Espada de Ferro",     ItemType.WEAPON,   4, 0,  0, 1, 25);
-        make(player, "Escudo de Madeira",   ItemType.SHIELD,   0, 3,  0, 1, 25);
-        make(player, "Botas de Couro",      ItemType.BOOTS,    0, 1,  5, 1, 25);
-        make(player, "Luvas de Couro",      ItemType.GLOVES,   1, 1,  0, 1, 25);
-        make(player, "Calça de Couro",      ItemType.PANTS,    0, 2,  8, 1, 25);
+        // sell price em bronze
+        make(player, "Elmo de Ferro",       ItemType.HELMET,   0, 2, 10, 1, 20);
+        make(player, "Armadura de Couro",   ItemType.ARMOR,    0, 3, 15, 1, 20);
+        make(player, "Espada de Ferro",     ItemType.WEAPON,   4, 0,  0, 1, 20);
+        make(player, "Escudo de Madeira",   ItemType.SHIELD,   0, 3,  0, 1, 20);
+        make(player, "Botas de Couro",      ItemType.BOOTS,    0, 1,  5, 1, 20);
+        make(player, "Luvas de Couro",      ItemType.GLOVES,   1, 1,  0, 1, 20);
+        make(player, "Calça de Couro",      ItemType.PANTS,    0, 2,  8, 1, 20);
     }
 
     @Transactional

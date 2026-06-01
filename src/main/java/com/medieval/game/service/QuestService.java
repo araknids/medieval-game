@@ -52,7 +52,7 @@ public class QuestService {
         quest.setCompletesAt(instantComplete
                 ? LocalDateTime.now()
                 : LocalDateTime.now().plusMinutes(questType.durationMinutes));
-        quest.setGoldReward(questType.goldReward);
+        quest.setGoldReward(questType.bronzeReward);
         quest.setExpReward(questType.expReward);
         quest.setStatus(QuestStatus.IN_PROGRESS);
         return questRepository.save(quest);
