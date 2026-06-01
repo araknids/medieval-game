@@ -2,8 +2,12 @@ package com.medieval.game.controller;
 
 import com.medieval.game.config.JwtUtil;
 import com.medieval.game.enums.WarriorClass;
+import com.medieval.game.model.PasswordResetToken;
 import com.medieval.game.model.Player;
 import com.medieval.game.model.Warrior;
+import com.medieval.game.repository.PasswordResetTokenRepository;
+import com.medieval.game.repository.PlayerRepository;
+import com.medieval.game.service.EmailService;
 import com.medieval.game.service.InventoryService;
 import com.medieval.game.service.PlayerService;
 import com.medieval.game.service.WarriorService;
@@ -13,35 +17,44 @@ import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.web.bind.annotation.*;
 
+import java.time.LocalDateTime;
 import java.util.Map;
+import java.util.Optional;
+import java.util.UUID;
 
 @RestController
 @RequestMapping("/api/auth")
 @RequiredArgsConstructor
 public class AuthController {
 
-    private final PlayerService playerService;
-    private final WarriorService warriorService;
-    private final InventoryService inventoryService;
-    private final JwtUtil jwtUtil;
+    private final PlayerService               playerService;
+    private final WarriorService              warriorService;
+    private final InventoryService            inventoryService;
+    private final EmailService                emailService;
+    private final JwtUtil                     jwtUtil;
+    private final PasswordResetTokenRepository resetTokenRepository;
+    private final PlayerRepository            playerRepository;
+    private final PasswordEncoder             passwordEncoder;
 
     @PostMapping("/register")
     public ResponseEntity<?> register(@Valid @RequestBody RegisterRequest req) {
         try {
-            Player player = playerService.register(req.username(), req.email(), req.password());
+            Player  player  = playerService.register(req.username(), req.email(), req.password());
             Warrior warrior = warriorService.create(player, req.warriorName(), WarriorClass.WARRIOR);
             inventoryService.giveStarterItems(player);
+            emailService.sendWelcomeEmail(player.getEmail(), player.getUsername(), warrior.getName());
             String token = jwtUtil.generateToken(player.getId(), player.getUsername());
             return ResponseEntity.ok(Map.of(
-                    "token", token,
+                    "token",    token,
                     "playerId", player.getId(),
                     "username", player.getUsername(),
-                    "gold", player.getGold(),
-                    "warrior", Map.of(
-                            "id", warrior.getId(),
-                            "name", warrior.getName(),
+                    "gold",     player.getGold(),
+                    "warrior",  Map.of(
+                            "id",    warrior.getId(),
+                            "name",  warrior.getName(),
                             "class", warrior.getWarriorClass().displayName
                     )
             ));
@@ -53,20 +66,20 @@ public class AuthController {
     @PostMapping("/login")
     public ResponseEntity<?> login(@Valid @RequestBody LoginRequest req) {
         try {
-            Player player = playerService.findByUsername(req.username());
+            Player  player  = playerService.findByUsername(req.username());
             if (!playerService.checkPassword(player, req.password())) {
                 return ResponseEntity.status(401).body(Map.of("error", "Senha incorreta"));
             }
             Warrior warrior = warriorService.getWarrior(player);
-            String token = jwtUtil.generateToken(player.getId(), player.getUsername());
+            String  token   = jwtUtil.generateToken(player.getId(), player.getUsername());
             return ResponseEntity.ok(Map.of(
-                    "token", token,
+                    "token",    token,
                     "playerId", player.getId(),
                     "username", player.getUsername(),
-                    "gold", player.getGold(),
-                    "warrior", Map.of(
-                            "id", warrior.getId(),
-                            "name", warrior.getName(),
+                    "gold",     player.getGold(),
+                    "warrior",  Map.of(
+                            "id",    warrior.getId(),
+                            "name",  warrior.getName(),
                             "class", warrior.getWarriorClass().displayName,
                             "level", warrior.getLevel()
                     )
@@ -74,6 +87,55 @@ public class AuthController {
         } catch (IllegalArgumentException e) {
             return ResponseEntity.status(401).body(Map.of("error", "Usuário não encontrado"));
         }
+    }
+
+    @PostMapping("/forgot-password")
+    public ResponseEntity<?> forgotPassword(@RequestBody Map<String, String> body) {
+        String email = body.get("email");
+        if (email == null || email.isBlank()) {
+            return ResponseEntity.badRequest().body(Map.of("error", "Informe o email"));
+        }
+
+        Optional<Player> playerOpt = playerRepository.findByEmail(email.trim().toLowerCase());
+        // Retorna sempre a mesma mensagem para não revelar se o email existe
+        if (playerOpt.isPresent()) {
+            Player player = playerOpt.get();
+            PasswordResetToken reset = new PasswordResetToken();
+            reset.setToken(UUID.randomUUID().toString());
+            reset.setPlayer(player);
+            reset.setExpiresAt(LocalDateTime.now().plusMinutes(30));
+            resetTokenRepository.save(reset);
+            emailService.sendPasswordResetEmail(player.getEmail(), reset.getToken());
+        }
+
+        return ResponseEntity.ok(Map.of("message",
+                "Se esse email estiver cadastrado, você receberá as instruções em breve."));
+    }
+
+    @PostMapping("/reset-password")
+    public ResponseEntity<?> resetPassword(@RequestBody Map<String, String> body) {
+        String token       = body.get("token");
+        String newPassword = body.get("password");
+
+        if (token == null || newPassword == null || newPassword.length() < 6) {
+            return ResponseEntity.badRequest().body(Map.of("error", "Token ou senha inválidos"));
+        }
+
+        PasswordResetToken reset = resetTokenRepository.findByToken(token)
+                .orElse(null);
+
+        if (reset == null || reset.isUsed() || reset.isExpired()) {
+            return ResponseEntity.badRequest().body(Map.of("error", "Link inválido ou expirado"));
+        }
+
+        Player player = reset.getPlayer();
+        player.setPasswordHash(passwordEncoder.encode(newPassword));
+        playerRepository.save(player);
+
+        reset.setUsed(true);
+        resetTokenRepository.save(reset);
+
+        return ResponseEntity.ok(Map.of("message", "Senha alterada com sucesso! Faça login."));
     }
 
     record RegisterRequest(

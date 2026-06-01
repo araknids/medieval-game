@@ -48,13 +48,41 @@ function statRow(label, base, bonus, total) {
 }
 
 // ── Auth ──
-function showRegister() {
-  document.getElementById('login-form').style.display = 'none';
-  document.getElementById('register-form').style.display = 'block';
+const ALL_AUTH_FORMS = ['login-form', 'register-form', 'forgot-form', 'reset-form'];
+function showAuthForm(id) {
+  ALL_AUTH_FORMS.forEach(f => document.getElementById(f).style.display = 'none');
+  document.getElementById(id).style.display = 'block';
+  document.getElementById('auth-error').textContent = '';
 }
-function showLogin() {
-  document.getElementById('register-form').style.display = 'none';
-  document.getElementById('login-form').style.display = 'block';
+
+function showRegister()       { showAuthForm('register-form'); }
+function showLogin()          { showAuthForm('login-form'); }
+function showForgotPassword() { showAuthForm('forgot-form'); }
+
+async function forgotPassword() {
+  const email = document.getElementById('forgot-email').value.trim();
+  const data  = await api('POST', '/api/auth/forgot-password', { email });
+  if (data.error) { document.getElementById('auth-error').textContent = data.error; return; }
+  document.getElementById('auth-error').style.color = '#4caf82';
+  document.getElementById('auth-error').textContent = data.message;
+}
+
+async function resetPassword() {
+  const password  = document.getElementById('reset-password').value;
+  const password2 = document.getElementById('reset-password2').value;
+  if (password !== password2) {
+    document.getElementById('auth-error').textContent = 'As senhas não coincidem';
+    return;
+  }
+  const token = new URLSearchParams(window.location.search).get('reset');
+  const data  = await api('POST', '/api/auth/reset-password', { token, password });
+  if (data.error) { document.getElementById('auth-error').textContent = data.error; return; }
+  document.getElementById('auth-error').style.color = '#4caf82';
+  document.getElementById('auth-error').textContent = data.message;
+  setTimeout(() => {
+    window.history.replaceState({}, '', '/');
+    showLogin();
+  }, 2000);
 }
 
 async function login() {
@@ -854,7 +882,11 @@ function resetFight() {
 }
 
 // ── Init ──
-if (token) {
+const resetTokenParam = new URLSearchParams(window.location.search).get('reset');
+if (resetTokenParam) {
+  document.getElementById('login-screen').style.display = 'flex';
+  showAuthForm('reset-form');
+} else if (token) {
   api('GET', '/api/warrior').then(data => {
     if (data.error) { logout(); return; }
     warrior = data;
@@ -864,4 +896,5 @@ if (token) {
   });
 } else {
   document.getElementById('login-screen').style.display = 'flex';
+  showLogin();
 }

@@ -18,6 +18,21 @@
         <input id="login-password" type="password" placeholder="Senha">
         <button onclick="login()">Entrar</button>
         <p class="link" onclick="showRegister()">Não tem conta? Cadastre-se</p>
+        <p class="link" onclick="showForgotPassword()" style="font-size:.78rem;color:#666">Esqueceu a senha?</p>
+      </div>
+
+      <div id="forgot-form" style="display:none">
+        <h2>Recuperar Senha</h2>
+        <input id="forgot-email" type="email" placeholder="Seu e-mail cadastrado">
+        <button onclick="forgotPassword()">Enviar link</button>
+        <p class="link" onclick="showLogin()">Voltar ao login</p>
+      </div>
+
+      <div id="reset-form" style="display:none">
+        <h2>Nova Senha</h2>
+        <input id="reset-password" type="password" placeholder="Nova senha (min 6)">
+        <input id="reset-password2" type="password" placeholder="Confirme a nova senha">
+        <button onclick="resetPassword()">Salvar senha</button>
       </div>
 
       <div id="register-form" style="display:none">
