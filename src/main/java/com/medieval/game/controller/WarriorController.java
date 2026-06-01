@@ -6,6 +6,7 @@ import com.medieval.game.model.Player;
 import com.medieval.game.model.Warrior;
 import com.medieval.game.service.InventoryService;
 import com.medieval.game.service.PlayerService;
+import com.medieval.game.service.SmithingService;
 import com.medieval.game.service.WarriorService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
@@ -24,6 +25,7 @@ public class WarriorController {
     private final WarriorService    warriorService;
     private final PlayerService     playerService;
     private final InventoryService  inventoryService;
+    private final SmithingService   smithingService;
 
     @GetMapping
     public ResponseEntity<WarriorResponse> getMyWarrior(Authentication auth) {
@@ -63,6 +65,14 @@ public class WarriorController {
         int bonusAtk = equipped.stream().mapToInt(InventoryItem::getAttackBonus).sum();
         int bonusDef = equipped.stream().mapToInt(InventoryItem::getDefenseBonus).sum();
         int bonusHp  = equipped.stream().mapToInt(InventoryItem::getHealthBonus).sum();
+
+        // Soma bônus das joias encaixadas nos itens equipados
+        for (InventoryItem item : equipped) {
+            SmithingService.GemBonus gem = smithingService.totalGemBonus(item);
+            bonusAtk += gem.atk();
+            bonusDef += gem.def();
+            bonusHp  += gem.hp();
+        }
 
         // Normaliza a moeda: silver pode ter > 100 por migração ou seeds diretas
         long total   = player.getBronze() + player.getSilver() * 100L + player.getGold() * 10_000L;

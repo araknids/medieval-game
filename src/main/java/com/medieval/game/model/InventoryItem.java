@@ -36,4 +36,8 @@ public class InventoryItem {
     private long sellPrice = 0;
 
     private boolean equipped = false;
+
+    // Número de sockets disponíveis neste item (0-3)
+    @Column(columnDefinition = "integer default 0")
+    private int sockets = 0;
 }

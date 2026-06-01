@@ -161,6 +161,10 @@ async function loadWarrior() {
   const data = await api('GET', '/api/warrior');
   if (data.error) return;
   warrior = data;
+  // Atualiza skills se já foram carregadas
+  if (skillsData.length === 0 && token) {
+    api('GET', '/api/gathering/skills').then(s => { if (Array.isArray(s)) skillsData = s; });
+  }
 
   document.getElementById('hdr-username').textContent = warrior.name;
   document.getElementById('hdr-currency').innerHTML =
@@ -195,10 +199,11 @@ async function loadWarrior() {
 
 // ── Navegação de locais ──
 function goTo(loc) {
-  ['tavern','inventory','commerce','work','tower','arena'].forEach(l => {
+  ['tavern','inventory','commerce','skills','work','tower','arena'].forEach(l => {
     document.getElementById('loc-panel-' + l).style.display = l === loc ? 'block' : 'none';
     document.getElementById('loc-' + l).classList.toggle('active', l === loc);
   });
+  if (loc === 'skills')   { loadSkillsTab(); }
   if (loc === 'tower')    { loadTower(); }
   if (loc === 'arena')    { loadRank(); loadCurrentFight(); }
   if (loc === 'commerce') { loadShop(); }
@@ -596,6 +601,7 @@ async function loadInventory() {
         <div class="bag-item-name rarity-${item.rarity}">${item.name}</div>
         <div class="bag-item-type">${item.typeDisplay} · ${item.rarityName}</div>
         <div class="bag-item-stats">${statsText(item)}</div>
+        ${item.sockets > 0 ? renderSockets(item) : ''}
       </div>
       <button class="btn-equip" onclick="equipItem(${item.id})">Equipar</button>
     </div>`).join('');
@@ -624,6 +630,36 @@ async function loadSellList() {
     </div>`).join('');
 }
 
+// Mostra sockets do item (com joias se tiver)
+function renderSockets(item) {
+  const gems = item.gems || [];
+  const GEM_ICONS = {RUBY:'🔴',SAPPHIRE:'🔵',EMERALD:'💚',DIAMOND:'💎',AMETHYST:'🟣'};
+  let slots = '';
+  for (let i = 0; i < item.sockets; i++) {
+    const gem = gems.find(g => g.slot === i);
+    if (gem) {
+      slots += `<span class="socket-slot filled" title="${gem.gemName}">${GEM_ICONS[gem.gem]||'💠'}</span>`;
+    } else {
+      // Socket vazio — mostra opções de joias disponíveis
+      const available = resourcesData.filter(r => r.category === 'GEM' && r.quantity > 0);
+      if (available.length > 0) {
+        const opts = available.map(g =>
+          `<option value="${g.type}">${GEM_ICONS[g.type]||'💠'} ${g.displayName}</option>`
+        ).join('');
+        slots += `
+          <span class="socket-slot empty" title="Socket vazio">
+            <select onchange="socketGem(${item.id}, this.value)" style="background:transparent;border:none;color:#888;font-size:.65rem;width:20px;cursor:pointer">
+              <option value="">+</option>${opts}
+            </select>
+          </span>`;
+      } else {
+        slots += `<span class="socket-slot empty" title="Socket vazio (sem joias)">◯</span>`;
+      }
+    }
+  }
+  return `<div class="item-sockets" style="margin-top:.2rem">${slots}</div>`;
+}
+
 function statsText(item) {
   const parts = [];
   if (item.attackBonus  > 0) parts.push(`+${item.attackBonus} ATK`);
@@ -643,6 +679,317 @@ async function unequipItem(itemId) {
   if (data.error) { showMessage(data.error, true); return; }
   showMessage(`${data.name} desequipado.`);
   await Promise.all([loadWarrior(), loadInventory()]);
+}
+
+// ── HABILIDADES (Pesca / Mineração / Forja) ──
+
+let skillsData     = [];
+let resourcesData  = [];
+let gatheringState = null;
+let gatheringTimer = null;
+const FISH_DURATIONS = [5, 10, 20, 30, 40];
+const MINE_DURATIONS = [10, 20, 30, 45, 60];
+
+const RESOURCE_ICONS = {
+  SMALL_FISH:'🐟', SALMON:'🐠', TUNA:'🐡', SHARK:'🦈', LEGENDARY_FISH:'🐉',
+  COPPER_ORE:'🟤', IRON_ORE:'⬛', SILVER_ORE:'⬜', GOLD_ORE:'🟡', MITHRIL_ORE:'🔷',
+  RUBY_FRAGMENT:'💠', SAPPHIRE_FRAGMENT:'🔹', EMERALD_FRAGMENT:'💚', DIAMOND_FRAGMENT:'🔶', AMETHYST_FRAGMENT:'🟣',
+  COPPER_BAR:'🟫', IRON_BAR:'⚫', SILVER_BAR:'🪨', GOLD_BAR:'🌟', MITHRIL_BAR:'💎',
+  RUBY:'🔴', SAPPHIRE:'🔵', EMERALD:'💚', DIAMOND:'💎', AMETHYST:'🟣',
+  LEATHER:'🟫',
+};
+
+async function loadSkillsTab() {
+  [skillsData, resourcesData] = await Promise.all([
+    api('GET', '/api/gathering/skills'),
+    api('GET', '/api/gathering/resources'),
+  ]);
+  gatheringState = await api('GET', '/api/gathering/current');
+  switchSkillTab('fish');
+}
+
+function switchSkillTab(tab) {
+  ['fish','mine','smith','bag'].forEach(t => {
+    document.getElementById('sk-panel-' + t).style.display = t === tab ? 'block' : 'none';
+    document.getElementById('sk-tab-' + t).classList.toggle('active', t === tab);
+  });
+  if (tab === 'fish')  renderFishing();
+  if (tab === 'mine')  renderMining();
+  if (tab === 'smith') renderSmithing();
+  if (tab === 'bag')   renderBag();
+}
+
+function getSkill(type) {
+  return skillsData.find(s => s.skillType === type) || {level:1, experience:0, expNeeded:100};
+}
+
+function skillBar(skill) {
+  const pct = Math.floor((skill.experience / skill.expNeeded) * 100);
+  return `
+    <div class="sk-skill-row">
+      <span class="sk-skill-label">Lv.${skill.level}</span>
+      <div class="xp-bar-bg" style="flex:1"><div class="xp-bar-fill" style="width:${pct}%"></div></div>
+      <span class="xp-label" style="margin-left:.4rem">${skill.experience}/${skill.expNeeded} XP</span>
+    </div>`;
+}
+
+// ── PESCAR ──
+function renderFishing() {
+  const skill = getSkill('FISHING');
+  const fish  = resourcesData.filter(r => r.category === 'FISH');
+  const busy  = warrior?.onMission ?? false;
+  const activeFish = gatheringState?.active && gatheringState?.skillType === 'FISHING';
+
+  document.getElementById('sk-fish-content').innerHTML = `
+    <div class="sk-section">
+      <div class="sk-title">🎣 Pesca ${skillBar(skill)}</div>
+      ${activeFish ? renderGatheringTimer() : `
+        <p class="sk-desc">Escolha a duração da pesca:</p>
+        <div class="sk-duration-btns">
+          ${FISH_DURATIONS.map(d => `
+            <button class="btn-hour ${busy || (gatheringState?.active && !activeFish) ? 'disabled' : ''}"
+                    onclick="startGathering('FISHING', ${d})"
+                    ${busy || (gatheringState?.active && !activeFish) ? 'disabled' : ''}>
+              ${d}min
+            </button>`).join('')}
+        </div>`}
+    </div>
+    ${fish.length > 0 ? `
+    <div class="sk-section">
+      <div class="sk-title">Peixes</div>
+      ${fish.map(r => `
+        <div class="sk-resource-row">
+          <span>${RESOURCE_ICONS[r.type] || '?'} ${r.displayName} ×${r.quantity}</span>
+          <button class="btn-equip" onclick="consumeFish('${r.type}')">Consumir</button>
+        </div>`).join('')}
+    </div>` : ''}`;
+}
+
+// ── MINERAR ──
+function renderMining() {
+  const skill = getSkill('MINING');
+  const ores  = resourcesData.filter(r => ['ORE','FRAGMENT'].includes(r.category));
+  const busy  = warrior?.onMission ?? false;
+  const activeMine = gatheringState?.active && gatheringState?.skillType === 'MINING';
+
+  document.getElementById('sk-mine-content').innerHTML = `
+    <div class="sk-section">
+      <div class="sk-title">⛏ Mineração ${skillBar(skill)}</div>
+      ${activeMine ? renderGatheringTimer() : `
+        <p class="sk-desc">Escolha a duração:</p>
+        <div class="sk-duration-btns">
+          ${MINE_DURATIONS.map(d => `
+            <button class="btn-hour ${busy || (gatheringState?.active && !activeMine) ? 'disabled' : ''}"
+                    onclick="startGathering('MINING', ${d})"
+                    ${busy || (gatheringState?.active && !activeMine) ? 'disabled' : ''}>
+              ${d}min
+            </button>`).join('')}
+        </div>`}
+    </div>
+    ${ores.length > 0 ? `
+    <div class="sk-section">
+      <div class="sk-title">Minérios e Fragmentos</div>
+      ${ores.map(r => `
+        <div class="sk-resource-row">
+          <span>${RESOURCE_ICONS[r.type] || '?'} ${r.displayName} ×${r.quantity}</span>
+        </div>`).join('')}
+    </div>` : ''}`;
+}
+
+function renderGatheringTimer() {
+  if (!gatheringState?.active) return '';
+  const secs = gatheringState.secondsRemaining ?? 0;
+  const done = secs <= 0;
+  clearInterval(gatheringTimer);
+
+  if (!done) {
+    let s = secs;
+    gatheringTimer = setInterval(() => {
+      s--;
+      const el = document.getElementById('gathering-timer');
+      if (!el) { clearInterval(gatheringTimer); return; }
+      if (s <= 0) {
+        el.textContent = 'Pronto!';
+        el.classList.add('done');
+        document.getElementById('gathering-collect-btn').disabled = false;
+        document.getElementById('gathering-collect-btn').textContent = '🎒 Coletar';
+        clearInterval(gatheringTimer);
+      } else {
+        el.textContent = formatTime(s);
+      }
+    }, 1000);
+  }
+
+  return `
+    <div class="gathering-active-box">
+      <div class="gathering-active-title">${gatheringState.displayName} — ${gatheringState.durationMinutes}min</div>
+      <div class="qp-timer ${done ? 'done' : ''}" id="gathering-timer">
+        ${done ? 'Pronto!' : formatTime(secs)}
+      </div>
+      <div style="display:flex;gap:.5rem;margin-top:.5rem">
+        <button class="btn-collect" id="gathering-collect-btn"
+                ${done ? '' : 'disabled'}
+                onclick="collectGathering(${gatheringState.id})">
+          ${done ? '🎒 Coletar' : 'Coletando...'}
+        </button>
+        ${!done ? `<button class="btn-cancel-work" onclick="cancelGathering(${gatheringState.id})">Cancelar</button>` : ''}
+      </div>
+    </div>`;
+}
+
+// ── FORJA ──
+async function renderSmithing() {
+  const smithSkill = getSkill('SMITHING');
+  const recipes = await api('GET', '/api/smithing/recipes');
+  const bars = resourcesData.filter(r => r.category === 'BAR');
+  const frags = resourcesData.filter(r => r.category === 'FRAGMENT');
+
+  const refineHtml = recipes.refine?.map(r => `
+    <div class="sk-recipe-card ${r.canCraft ? '' : 'locked'}">
+      <div class="sk-recipe-title">${RESOURCE_ICONS[r.ore]||''} ${r.oreName} ×${r.oreQty} + ${fmtBronze(r.bronzeCost)} → ${RESOURCE_ICONS[r.bar]||''} ${r.barName}</div>
+      <div style="font-size:.75rem;color:#888">Forja Lv.${r.levelRequired} ${!r.canCraft ? '🔒' : ''}</div>
+      ${r.canCraft ? `
+        <div style="display:flex;align-items:center;gap:.5rem;margin-top:.4rem">
+          <input type="number" min="1" value="1" id="refine-qty-${r.ore}" style="width:55px;background:#0f3460;color:#e0d5c5;border:1px solid #444;border-radius:4px;padding:.2rem">
+          <button class="btn-equip" onclick="refineOre('${r.ore}', '${r.bar}')">Refinar</button>
+        </div>` : ''}
+    </div>`).join('') || '';
+
+  const craftHtml = recipes.craft?.map(r => `
+    <div class="sk-recipe-card ${r.canCraft ? '' : 'locked'}">
+      <div class="sk-recipe-title rarity-${r.rarity}">${r.name} (${r.sockets} socket${r.sockets !== 1 ? 's' : ''})</div>
+      <div style="font-size:.75rem;color:#aaa">
+        ${r.ingredients.map(i => `${RESOURCE_ICONS[i.resource]||''} ${i.name} ×${i.qty}`).join(' + ')}
+        ${r.atk > 0 ? ` · +${r.atk} ATK` : ''}${r.def > 0 ? ` · +${r.def} DEF` : ''}${r.hp > 0 ? ` · +${r.hp} HP` : ''}
+      </div>
+      <div style="font-size:.75rem;color:#888">Forja Lv.${r.levelRequired} ${!r.canCraft ? '🔒' : ''}</div>
+      ${r.canCraft ? `<button class="btn-equip" onclick="craftEquipment('${r.id}')" style="margin-top:.4rem">Craftar</button>` : ''}
+    </div>`).join('') || '';
+
+  const gemHtml = recipes.gems?.map(r => {
+    const fragData = resourcesData.find(x => x.type === r.fragment);
+    const qty = fragData?.quantity ?? 0;
+    return `
+      <div class="sk-recipe-card ${qty >= 3 ? '' : 'locked'}">
+        <div class="sk-recipe-title">${RESOURCE_ICONS[r.fragment]||''} ${r.fragmentName} ×3 → ${RESOURCE_ICONS[r.gem]||''} ${r.gemName}</div>
+        <div style="font-size:.75rem;color:#888">Você tem: ${qty} fragmentos</div>
+        ${qty >= 3 ? `<button class="btn-equip" onclick="craftGem('${r.fragment}')" style="margin-top:.4rem">Criar Joia</button>` : ''}
+      </div>`;
+  }).join('') || '';
+
+  document.getElementById('sk-smith-content').innerHTML = `
+    <div class="sk-section">
+      <div class="sk-title">🔨 Forja ${skillBar(smithSkill)}</div>
+    </div>
+    <div class="sk-section">
+      <div class="sk-title">Refinar Minérios → Barras</div>
+      ${refineHtml || '<p style="color:#888;font-size:.8rem">Nenhuma receita disponível</p>'}
+    </div>
+    <div class="sk-section">
+      <div class="sk-title">Craftar Equipamento</div>
+      ${craftHtml}
+    </div>
+    <div class="sk-section">
+      <div class="sk-title">Criar Joias</div>
+      ${gemHtml}
+    </div>`;
+}
+
+// ── INVENTÁRIO DE RECURSOS ──
+function renderBag() {
+  if (resourcesData.length === 0) {
+    document.getElementById('sk-bag-content').innerHTML = '<p style="color:#888;font-size:.82rem">Nenhum recurso ainda.</p>';
+    return;
+  }
+  const categories = {FISH:'🎣 Peixes', ORE:'⛏ Minérios', FRAGMENT:'💠 Fragmentos', BAR:'🔩 Barras', GEM:'💎 Joias', MATERIAL:'📦 Materiais'};
+  let html = '';
+  for (const [cat, label] of Object.entries(categories)) {
+    const items = resourcesData.filter(r => r.category === cat && r.quantity > 0);
+    if (!items.length) continue;
+    html += `<div class="sk-section"><div class="sk-title">${label}</div>`;
+    html += items.map(r => `
+      <div class="sk-resource-row">
+        <span>${RESOURCE_ICONS[r.type]||'?'} ${r.displayName} ×${r.quantity}</span>
+        ${cat === 'FISH' ? `<button class="btn-equip" onclick="consumeFish('${r.type}')">Consumir</button>` : ''}
+      </div>`).join('');
+    html += '</div>';
+  }
+  document.getElementById('sk-bag-content').innerHTML = html;
+}
+
+// ── AÇÕES ──
+async function startGathering(skillType, duration) {
+  const data = await api('POST', '/api/gathering/start', { skillType, durationMinutes: duration });
+  if (data.error) { showMessage(data.error, true); return; }
+  gatheringState = { active: true, ...data };
+  await loadWarrior();
+  switchSkillTab(skillType === 'FISHING' ? 'fish' : 'mine');
+}
+
+async function collectGathering(id) {
+  const data = await api('POST', `/api/gathering/${id}/collect`);
+  if (data.error) { showMessage(data.error, true); return; }
+
+  const dropsHtml = data.drops.map(d =>
+    `${RESOURCE_ICONS[d.type]||'?'} ${d.displayName} ×${d.quantity}`
+  ).join('  ');
+  showMessage('Coletado! ' + dropsHtml);
+
+  gatheringState = { active: false };
+  resourcesData = await api('GET', '/api/gathering/resources');
+  await loadWarrior();
+  switchSkillTab(document.querySelector('.tab.active')?.id?.replace('sk-tab-','') || 'fish');
+}
+
+async function cancelGathering(id) {
+  if (!confirm('Cancelar coleta? Você não receberá nada.')) return;
+  await api('POST', `/api/gathering/${id}/cancel`);
+  gatheringState = { active: false };
+  await loadWarrior();
+  switchSkillTab(document.querySelector('.tab.active')?.id?.replace('sk-tab-','') || 'fish');
+}
+
+async function consumeFish(resourceType) {
+  const data = await api('POST', `/api/gathering/consume/${resourceType}`);
+  if (data.error) { showMessage(data.error, true); return; }
+  showMessage(`${data.message} Estamina: ${data.newStamina}/100`);
+  resourcesData = await api('GET', '/api/gathering/resources');
+  await loadWarrior();
+  renderFishing();
+  renderBag();
+}
+
+async function refineOre(oreType, barType) {
+  const qty = parseInt(document.getElementById(`refine-qty-${oreType}`)?.value || '1');
+  const data = await api('POST', '/api/smithing/refine', { oreType, quantity: qty });
+  if (data.error) { showMessage(data.error, true); return; }
+  showMessage(data.message);
+  resourcesData = await api('GET', '/api/gathering/resources');
+  renderSmithing();
+}
+
+async function craftEquipment(recipeId) {
+  const data = await api('POST', '/api/smithing/craft', { recipeId });
+  if (data.error) { showMessage(data.error, true); return; }
+  showMessage(`${data.message} (${data.sockets} socket${data.sockets !== 1 ? 's' : ''})`);
+  resourcesData = await api('GET', '/api/gathering/resources');
+  renderSmithing();
+}
+
+async function craftGem(fragmentType) {
+  const data = await api('POST', '/api/smithing/gem', { fragmentType });
+  if (data.error) { showMessage(data.error, true); return; }
+  showMessage(data.message);
+  resourcesData = await api('GET', '/api/gathering/resources');
+  renderSmithing();
+}
+
+async function socketGem(itemId, gemType) {
+  const data = await api('POST', `/api/smithing/socket/${itemId}/${gemType}`);
+  if (data.error) { showMessage(data.error, true); return; }
+  showMessage(data.message);
+  resourcesData = await api('GET', '/api/gathering/resources');
+  loadInventory();
 }
 
 // ── TRABALHO ──
