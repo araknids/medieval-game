@@ -76,7 +76,7 @@ public class InventoryController {
                         int attackBonus, int defenseBonus, int healthBonus,
                         int rarity, String rarityName, long sellPrice,
                         int sockets, List<GemSlot> gems,
-                        boolean equipped) {
+                        boolean equipped, boolean guarded) {
 
         static ItemResponse from(InventoryItem i, List<SocketedGem> socketedGems) {
             List<GemSlot> gems = socketedGems.stream()
@@ -88,7 +88,7 @@ public class InventoryController {
                 i.getAttackBonus(), i.getDefenseBonus(), i.getHealthBonus(),
                 i.getRarity(), rarityName(i.getRarity()), i.getSellPrice(),
                 i.getSockets(), gems,
-                i.isEquipped()
+                i.isEquipped(), i.isGuarded()
             );
         }
 

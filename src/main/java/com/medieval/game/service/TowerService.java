@@ -78,6 +78,9 @@ public class TowerService {
         if (warrior.isOnMission()) {
             throw new IllegalStateException("Seu guerreiro já está ocupado");
         }
+        if (warrior.isKnockedOut()) {
+            throw new IllegalStateException("Seu guerreiro está inconsciente. Visite o Templo para curar!");
+        }
 
         int stamina = player.getCalculatedStamina();
         if (stamina < STAMINA_COST) {
@@ -158,9 +161,11 @@ public class TowerService {
                 playerRepository.save(player);
             }
         } else {
-            // Derrotado — sai da torre
+            // Derrotado — sai da torre, HP = 0, perde buff
             run.setStatus(TowerStatus.DEFEATED);
             warrior.setOnMission(false);
+            warrior.applyDamagePercent(100);
+            warrior.clearBuff();
             warriorRepository.save(warrior);
         }
 

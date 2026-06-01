@@ -39,6 +39,8 @@ public class ZoneService {
 
         if (warrior.isOnMission())
             throw new IllegalStateException("Seu guerreiro já está ocupado");
+        if (warrior.isKnockedOut())
+            throw new IllegalStateException("Seu guerreiro está inconsciente. Visite o Templo para curar!");
 
         if (activityRepository.findByPlayerAndStatus(player, ZoneActivityStatus.IN_PROGRESS).isPresent())
             throw new IllegalStateException("Você já está em uma expedição");
@@ -120,9 +122,14 @@ public class ZoneService {
                 activity.setBattleLog(String.join("\n", pvp.battleLog()));
                 activity.setResolvedAt(LocalDateTime.now());
 
-                // Stamina = 0
+                // HP = 0 + perde buff; stamina = 0
                 player.setCurrentStamina(0);
                 player.setStaminaUpdatedAt(LocalDateTime.now());
+                warriorRepository.findByPlayer(player).ifPresent(w -> {
+                    w.applyDamagePercent(100);
+                    w.clearBuff();
+                    warriorRepository.save(w);
+                });
 
                 // Alto Risco: 10% de perder item equipado
                 if (activity.getZone() == Zone.HIGH_RISK) {
@@ -374,8 +381,9 @@ public class ZoneService {
         Random rng = new Random();
         if (rng.nextDouble() >= 0.10) return null; // 10% chance
 
+        // Itens protegidos pelo Templo não caem
         List<InventoryItem> equipped = inventoryRepository.findAllByPlayer(player)
-                .stream().filter(InventoryItem::isEquipped).toList();
+                .stream().filter(i -> i.isEquipped() && !i.isGuarded()).toList();
         if (equipped.isEmpty()) return null;
 
         InventoryItem item = equipped.get(rng.nextInt(equipped.size()));

@@ -189,6 +189,14 @@ section {
   padding: 0.4rem 0;
 }
 
+/* ── TEMPLO ── */
+.temple-hp-bar { margin: .3rem 0; }
+.temple-buff-active {
+  background: #1a2a4a; border: 1px solid #5b9bd5;
+  border-radius: 5px; padding: .4rem .7rem;
+  font-size: .82rem; color: #5b9bd5; margin-bottom: .5rem;
+}
+
 /* ── EXPEDIÇÕES / ZONAS ── */
 .zone-card {
   background: #0f3460; border: 1px solid #2a2a4a;

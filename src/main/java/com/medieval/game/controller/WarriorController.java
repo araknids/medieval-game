@@ -83,6 +83,25 @@ public class WarriorController {
             bonusHp  += gem.hp();
         }
 
+        // Buff ativo
+        int buffAtk = 0, buffDef = 0, buffHp = 0, buffEva = 0;
+        String buffName = "";
+        long   buffSecsLeft = 0;
+        if (warrior.hasActiveBuff()) {
+            var buff = warrior.getActiveBuff();
+            buffAtk = buff.atkBonus; buffDef = buff.defBonus;
+            buffHp  = buff.hpBonus; buffEva = buff.evasionBonus;
+            buffName = buff.icon + " " + buff.displayName;
+            buffSecsLeft = Math.max(0,
+                java.time.temporal.ChronoUnit.SECONDS.between(
+                    java.time.LocalDateTime.now(), warrior.getBuffExpiresAt()));
+        }
+        bonusAtk += buffAtk; bonusDef += buffDef; bonusHp += buffHp;
+        int totalEvasion = warrior.getEvasionChance() + buffEva;
+
+        // HP atual (com regen passiva)
+        int hpPercent = warrior.getCalculatedHpPercent();
+
         // Normaliza a moeda: silver pode ter > 100 por migração ou seeds diretas
         long total   = player.getBronze() + player.getSilver() * 100L + player.getGold() * 10_000L;
         long gold    = total / 10_000L;
@@ -98,10 +117,12 @@ public class WarriorController {
                 warrior.getTotalBaseDefense() + bonusDef,
                 warrior.getTotalBaseHealth()  + bonusHp,
                 warrior.getStrength(), warrior.getDexterity(), warrior.getConstitution(), warrior.getLuck(),
-                warrior.getAvailablePoints(), warrior.getEvasionChance(),
+                warrior.getAvailablePoints(), totalEvasion,
                 player.getCalculatedStamina(), player.getMinutesToFullStamina(),
                 bronze, silver, gold,
                 player.getRankPoints(),
+                hpPercent, warrior.isKnockedOut(),
+                buffName, buffSecsLeft,
                 warrior.isOnMission()
         );
     }
@@ -116,5 +137,7 @@ public class WarriorController {
                            int stamina, long minutesToFullStamina,
                            long bronze, long silver, long gold,
                            int rankPoints,
+                           int hpPercent, boolean isKnockedOut,
+                           String activeBuff, long buffSecondsLeft,
                            boolean onMission) {}
 }

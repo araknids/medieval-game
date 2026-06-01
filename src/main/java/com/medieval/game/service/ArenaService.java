@@ -53,6 +53,9 @@ public class ArenaService {
         if (cWarrior.isOnMission()) {
             throw new IllegalStateException("Seu guerreiro está em missão");
         }
+        if (cWarrior.isKnockedOut()) {
+            throw new IllegalStateException("Seu guerreiro está inconsciente. Visite o Templo para curar!");
+        }
 
         if (!instantComplete) {
             playerService.consumeStamina(challenger, 25);
@@ -143,9 +146,15 @@ public class ArenaService {
             playerRepository.save(opp);
         }
 
-        // Libera guerreiro
+        // Libera guerreiro; derrota = HP 0 + perde buff
         warriorRepository.findByPlayer(challenger).ifPresent(w -> {
             w.setOnMission(false);
+            if (!match.isChallengerWon()) {
+                w.applyDamagePercent(100); // HP = 0
+                w.clearBuff();             // perde o buff
+            } else {
+                w.applyDamagePercent(10);  // leve desgaste por lutar
+            }
             warriorRepository.save(w);
         });
 

@@ -248,9 +248,22 @@ async function loadWarrior() {
       <span class="label">Estamina</span>
       <span class="value ${stamina < 30 ? 'stamina-low' : ''}">${stamina}/100${staminaInfo}</span>
     </div>
-    <span class="status-badge ${busy ? 'status-busy' : 'status-available'}">
-      ${busy ? '⚔ Ocupado' : '✓ Disponível'}
-    </span>
+    <div style="margin-top:.4rem">
+      ${warrior.isKnockedOut
+        ? `<span class="status-badge status-busy">💀 Inconsciente</span>`
+        : `<span class="status-badge ${busy ? 'status-busy' : 'status-available'}">
+             ${busy ? '⚔ Ocupado' : '✓ Disponível'}
+           </span>`}
+    </div>
+    <div class="xp-bar-bg" style="margin-top:.3rem">
+      <div class="xp-bar-fill" style="width:${warrior.hpPercent ?? 100}%;background:${
+        (warrior.hpPercent ?? 100) <= 0 ? '#cf6679' :
+        (warrior.hpPercent ?? 100) < 50 ? '#c9a84c' : '#4caf82'}"></div>
+    </div>
+    <div style="font-size:.7rem;color:#888;margin-top:.1rem">
+      ❤ HP ${warrior.hpPercent ?? 100}%
+      ${warrior.activeBuff ? `&nbsp;·&nbsp; ${warrior.activeBuff} ativo` : ''}
+    </div>
     ${busy ? `<button class="btn-cancel-work" onclick="freeWarrior()" style="margin-top:.4rem;font-size:.72rem">
       🔓 Liberar (se travado)
     </button>` : ''}`;
@@ -258,10 +271,11 @@ async function loadWarrior() {
 
 // ── Navegação de locais ──
 function goTo(loc) {
-  ['tavern','inventory','commerce','zones','skills','work','tower','arena'].forEach(l => {
+  ['tavern','inventory','commerce','temple','zones','skills','work','tower','arena'].forEach(l => {
     document.getElementById('loc-panel-' + l).style.display = l === loc ? 'block' : 'none';
     document.getElementById('loc-' + l).classList.toggle('active', l === loc);
   });
+  if (loc === 'temple')   { loadTemple(); }
   if (loc === 'zones')    { loadZones(); }
   if (loc === 'skills')   { loadSkillsTab(); }
   if (loc === 'tower')    { loadTower(); }
@@ -747,6 +761,124 @@ async function unequipItem(itemId) {
   if (data.error) { showMessage(data.error, true); return; }
   showMessage(`${data.name} desequipado.`);
   await Promise.all([loadWarrior(), loadInventory()]);
+}
+
+// ── TEMPLO ──
+
+async function loadTemple() {
+  const data = await api('GET', '/api/temple');
+  renderTemple(data);
+}
+
+function renderTemple(data) {
+  const el = document.getElementById('temple-content');
+  if (!el) return;
+
+  const hpColor   = data.hpPercent <= 0 ? '#cf6679' : data.hpPercent < 50 ? '#c9a84c' : '#4caf82';
+  const hpLabel   = data.isKnockedOut ? '💀 Inconsciente' : `❤ ${data.hpPercent}%`;
+  const healLabel = data.healFree ? 'Curar (Grátis)' : `Curar (${fmtBronze(100)})`;
+
+  const buffActive = data.activeBuff
+    ? `<div class="temple-buff-active">
+        Bênção ativa: <strong>${data.activeBuff}</strong>
+        — ${Math.floor(data.buffSecondsLeft / 60)}min restantes
+       </div>`
+    : '<div class="temple-buff-active" style="color:#888">Nenhuma bênção ativa.</div>';
+
+  const buffsHtml = data.buffs.map(b => `
+    <div class="sk-recipe-card">
+      <div class="sk-recipe-title">${b.icon} ${b.displayName} — <span style="color:#888">${b.effect}</span></div>
+      <div style="font-size:.75rem;color:#888;margin-bottom:.4rem">${fmtBronze(b.bronzeCost)}</div>
+      <button class="btn-equip" onclick="applyBuff('${b.id}')">Abençoar</button>
+    </div>`).join('');
+
+  el.innerHTML = `
+    <div class="sk-section">
+      <div class="sk-title">Estado do Guerreiro</div>
+      <div class="temple-hp-bar">
+        <span style="color:${hpColor};font-weight:bold">${hpLabel}</span>
+        <div class="xp-bar-bg" style="margin-top:.3rem">
+          <div class="xp-bar-fill" style="width:${data.hpPercent}%;background:${hpColor}"></div>
+        </div>
+        <div style="font-size:.72rem;color:#888;margin-top:.2rem">
+          ${data.isKnockedOut
+            ? 'Seu guerreiro não pode lutar até ser curado.'
+            : data.hpPercent < 100
+            ? 'Regenerando HP... o templo pode curar instantaneamente.'
+            : 'HP cheio!'}
+        </div>
+      </div>
+      <button class="btn-collect" onclick="healWarrior()"
+              style="margin-top:.6rem"
+              ${data.hpPercent >= 100 ? 'disabled' : ''}>
+        ${data.hpPercent >= 100 ? '✓ HP Cheio' : healLabel}
+      </button>
+    </div>
+
+    <div class="sk-section">
+      <div class="sk-title">Bênção</div>
+      ${buffActive}
+      <div style="margin-top:.5rem">${buffsHtml}</div>
+    </div>
+
+    <div class="sk-section">
+      <div class="sk-title">Proteção de Itens (${data.protectedCount}/${data.maxProtected})</div>
+      <p class="zone-desc">Itens protegidos não são perdidos em combate PvP. Custo: ${fmtBronze(50)}/item.</p>
+      <div id="temple-protected-items">Carregando itens...</div>
+    </div>`;
+
+  loadTempleItems();
+}
+
+async function loadTempleItems() {
+  const items = await api('GET', '/api/inventory');
+  const el = document.getElementById('temple-protected-items');
+  if (!el || !Array.isArray(items)) return;
+
+  const equipped = items.filter(i => i.equipped);
+  if (!equipped.length) {
+    el.innerHTML = '<p style="color:#888;font-size:.8rem">Nenhum item equipado.</p>';
+    return;
+  }
+
+  el.innerHTML = equipped.map(i => `
+    <div class="sk-resource-row">
+      <span class="rarity-${i.rarity}">${i.name}</span>
+      ${i.guarded
+        ? `<button class="btn-unequip" onclick="unprotectItem(${i.id})">🛡 Remover</button>`
+        : `<button class="btn-equip"   onclick="protectItem(${i.id})">Proteger</button>`}
+    </div>`).join('');
+}
+
+async function healWarrior() {
+  const data = await api('POST', '/api/temple/heal');
+  if (data.error) { showMessage(data.error, true); return; }
+  showMessage(data.message);
+  await loadWarrior();
+  loadTemple();
+}
+
+async function applyBuff(buffId) {
+  const data = await api('POST', `/api/temple/buff/${buffId}`);
+  if (data.error) { showMessage(data.error, true); return; }
+  showMessage(data.message);
+  await loadWarrior();
+  loadTemple();
+}
+
+async function protectItem(itemId) {
+  const data = await api('POST', `/api/temple/protect/${itemId}`);
+  if (data.error) { showMessage(data.error, true); return; }
+  showMessage(data.message);
+  await loadWarrior();
+  loadTempleItems();
+}
+
+async function unprotectItem(itemId) {
+  const data = await api('POST', `/api/temple/unprotect/${itemId}`);
+  if (data.error) { showMessage(data.error, true); return; }
+  showMessage(data.message);
+  loadTempleItems();
 }
 
 // ── EXPEDIÇÕES / ZONAS ──

@@ -1,9 +1,13 @@
 package com.medieval.game.model;
 
+import com.medieval.game.enums.BuffType;
 import com.medieval.game.enums.WarriorClass;
 import jakarta.persistence.*;
 import lombok.Data;
 import lombok.NoArgsConstructor;
+
+import java.time.Duration;
+import java.time.LocalDateTime;
 
 @Entity
 @Table(name = "warriors")
@@ -26,21 +30,65 @@ public class Warrior {
     @Column(nullable = false)
     private WarriorClass warriorClass;
 
-    private int level      = 1;
+    private int  level      = 1;
     private long experience = 0;
 
-    // Stats base (da classe + level ups automáticos)
+    // Stats base
     private int attack;
     private int defense;
     private int health;
 
-    // Atributos distribuídos pelo jogador
-    private int strength     = 0;   // +1 ATK por ponto
-    private int dexterity    = 0;   // +1% evasão por ponto
-    private int constitution = 0;   // +5 HP e +0.5 DEF por ponto
-    private int luck         = 0;   // +1% drop chance por ponto
-
+    // Atributos
+    private int strength     = 0;
+    private int dexterity    = 0;
+    private int constitution = 0;
+    private int luck         = 0;
     private int availablePoints = 0;
+
+    // ── HP com regen passiva (% 0-100, regenera 100% em 1 hora) ──
+    @Column(columnDefinition = "integer default 100")
+    private int currentHpSnapshot = 100;
+
+    @Column(nullable = false)
+    private LocalDateTime hpUpdatedAt = LocalDateTime.now();
+
+    public int getCalculatedHpPercent() {
+        long minutes = Duration.between(hpUpdatedAt, LocalDateTime.now()).toMinutes();
+        int regen = (int)(minutes * 100.0 / 60.0);
+        return Math.min(100, currentHpSnapshot + regen);
+    }
+
+    public boolean isKnockedOut() {
+        return getCalculatedHpPercent() <= 0;
+    }
+
+    /** Aplica dano (em %). Regen começa automaticamente a partir do valor atual */
+    public void applyDamagePercent(int percent) {
+        currentHpSnapshot = Math.max(0, getCalculatedHpPercent() - percent);
+        hpUpdatedAt       = LocalDateTime.now();
+    }
+
+    /** Cura para 100% */
+    public void healFull() {
+        currentHpSnapshot = 100;
+        hpUpdatedAt       = LocalDateTime.now();
+    }
+
+    // ── Buff do Templo ──
+    @Enumerated(EnumType.STRING)
+    private BuffType activeBuff;
+
+    private LocalDateTime buffExpiresAt;
+
+    public boolean hasActiveBuff() {
+        return activeBuff != null && buffExpiresAt != null
+               && LocalDateTime.now().isBefore(buffExpiresAt);
+    }
+
+    public void clearBuff() {
+        activeBuff    = null;
+        buffExpiresAt = null;
+    }
 
     private boolean onMission = false;
 
@@ -52,11 +100,9 @@ public class Warrior {
         availablePoints += 5;
     }
 
-    public long expNeededForNextLevel() {
-        return (long) level * 100;
-    }
+    public long expNeededForNextLevel() { return (long) level * 100; }
 
-    // Stats totais (base + atributos, sem bônus de item)
+    // Stats totais (base + atributos, sem itens)
     public int getTotalBaseAttack()  { return attack  + strength; }
     public int getTotalBaseDefense() { return defense + (int)(constitution * 0.5); }
     public int getTotalBaseHealth()  { return health  + constitution * 5; }

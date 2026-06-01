@@ -40,4 +40,7 @@ public class InventoryItem {
     // Número de sockets disponíveis neste item (0-3)
     @Column(columnDefinition = "integer default 0")
     private int sockets = 0;
+
+    @Column(columnDefinition = "boolean default false")
+    private boolean guarded = false; // protegido pelo Templo
 }
