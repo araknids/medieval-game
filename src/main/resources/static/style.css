@@ -271,6 +271,17 @@ section {
 .drop-stats { color: #aaa; font-size: 0.78rem; }
 
 /* ── LOJA ── */
+.shop-merchant-header {
+  background: #0f3460; border: 1px solid #c9a84c;
+  border-radius: 8px; padding: 0.8rem 1rem;
+  margin-bottom: 1rem;
+}
+.merchant-name  { color: #c9a84c; font-weight: bold; font-size: 0.95rem; margin-bottom: 0.2rem; }
+.merchant-quote { color: #888; font-size: 0.8rem; font-style: italic; margin-bottom: 0.5rem; }
+.shop-timer-wrap { font-size: 0.78rem; color: #5b9bd5; }
+.shop-items-grid { display: flex; flex-direction: column; gap: 0.5rem; }
+
+
 .shop-card {
   background: #0f3460; border: 1px solid #2a2a4a;
   border-radius: 6px; padding: 0.7rem;

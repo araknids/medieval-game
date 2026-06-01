@@ -9,7 +9,6 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
-import java.util.List;
 import java.util.Map;
 
 @RestController
@@ -17,31 +16,38 @@ import java.util.Map;
 @RequiredArgsConstructor
 public class ShopController {
 
-    private final ShopService shopService;
+    private final ShopService  shopService;
     private final PlayerService playerService;
 
     @GetMapping
-    public ResponseEntity<List<?>> getItems() {
-        List<?> items = shopService.getItems().stream().map(i -> Map.of(
-                "id",          i.id(),
-                "name",        i.name(),
-                "type",        i.type().name(),
-                "typeDisplay", i.type().displayName,
-                "attackBonus", i.atk(),
-                "defenseBonus",i.def(),
-                "healthBonus", i.hp(),
-                "rarity",      i.rarity(),
-                "rarityName",  i.rarityName(),
-                "price",       i.price()
+    public ResponseEntity<?> getShop() {
+        var items = shopService.getItems().stream().map(i -> Map.of(
+                "id",           i.id(),
+                "name",         i.name(),
+                "type",         i.type().name(),
+                "typeDisplay",  i.type().displayName,
+                "attackBonus",  i.atk(),
+                "defenseBonus", i.def(),
+                "healthBonus",  i.hp(),
+                "rarity",       i.rarity(),
+                "rarityName",   i.rarityName(),
+                "price",        i.price()
         )).toList();
-        return ResponseEntity.ok(items);
+
+        return ResponseEntity.ok(Map.of(
+                "items",            items,
+                "rotationId",       shopService.currentRotationId(),
+                "secondsUntilNext", shopService.secondsUntilNextRotation(),
+                "merchantName",     shopService.merchantName(),
+                "merchantQuote",    shopService.merchantQuote()
+        ));
     }
 
     @PostMapping("/buy/{shopItemId}")
-    public ResponseEntity<?> buy(@PathVariable int shopItemId, Authentication auth) {
+    public ResponseEntity<?> buy(@PathVariable long shopItemId, Authentication auth) {
         try {
-            Player player = playerService.findById((Long) auth.getPrincipal());
-            InventoryItem item = shopService.buy(player, shopItemId);
+            Player       player = playerService.findById((Long) auth.getPrincipal());
+            InventoryItem item  = shopService.buy(player, shopItemId);
             return ResponseEntity.ok(Map.of(
                     "message", item.getName() + " comprado com sucesso!",
                     "gold",    player.getGold(),

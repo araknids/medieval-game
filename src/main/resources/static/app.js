@@ -392,21 +392,60 @@ function switchCommerceTab(tab) {
   if (tab === 'sell') loadSellList();
 }
 
+let shopTimerInterval = null;
+
 async function loadShop() {
-  const items = await api('GET', '/api/shop');
-  if (!Array.isArray(items)) return;
-  document.getElementById('shop-list').innerHTML = items.map(i => {
-    const stats = statsText(i);
-    return `
-      <div class="shop-card">
-        <div class="shop-item-info">
-          <h3 class="rarity-${i.rarity}">${i.name}</h3>
-          <div class="shop-stats">${i.typeDisplay} · ${stats}</div>
-        </div>
-        <span class="shop-price">💰 ${i.price}</span>
-        <button class="btn-buy" onclick="buyItem(${i.id})">Comprar</button>
-      </div>`;
-  }).join('');
+  const data = await api('GET', '/api/shop');
+  if (!data.items) return;
+
+  const { items, merchantName, merchantQuote, secondsUntilNext } = data;
+
+  // Timer da rotação
+  clearInterval(shopTimerInterval);
+  let secs = secondsUntilNext;
+
+  function renderShopTimer() {
+    const h = Math.floor(secs / 3600);
+    const m = Math.floor((secs % 3600) / 60);
+    const s = secs % 60;
+    const timeStr = `${h}h ${String(m).padStart(2,'0')}m ${String(s).padStart(2,'0')}s`;
+    const el = document.getElementById('shop-timer');
+    if (el) el.textContent = `🛒 Nova carroça em ${timeStr}`;
+  }
+
+  document.getElementById('shop-list').innerHTML = `
+    <div class="shop-merchant-header">
+      <div class="merchant-name">🧙 ${merchantName}</div>
+      <div class="merchant-quote">"${merchantQuote}"</div>
+      <div class="shop-timer-wrap"><span id="shop-timer"></span></div>
+    </div>
+    <div class="shop-items-grid">
+      ${items.map(i => {
+        const stats = statsText(i);
+        return `
+          <div class="shop-card">
+            <div class="shop-item-info">
+              <h3 class="rarity-${i.rarity}">${i.name}</h3>
+              <div class="shop-stats">${i.typeDisplay} · ${i.rarityName} · ${stats}</div>
+            </div>
+            <span class="shop-price">💰 ${i.price}</span>
+            <button class="btn-buy" onclick="buyItem(${i.id})">Comprar</button>
+          </div>`;
+      }).join('')}
+    </div>`;
+
+  renderShopTimer();
+  shopTimerInterval = setInterval(() => {
+    secs--;
+    if (secs <= 0) {
+      clearInterval(shopTimerInterval);
+      const el = document.getElementById('shop-timer');
+      if (el) el.textContent = '🛒 A carroça chegou! Novos itens disponíveis!';
+      setTimeout(() => loadShop(), 2000);
+    } else {
+      renderShopTimer();
+    }
+  }, 1000);
 }
 
 async function sellItem(itemId) {
