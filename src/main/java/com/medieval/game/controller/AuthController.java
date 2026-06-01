@@ -128,7 +128,9 @@ public class AuthController {
             return ResponseEntity.badRequest().body(Map.of("error", "Link inválido ou expirado"));
         }
 
-        Player player = reset.getPlayer();
+        // Carrega o player diretamente do banco para evitar LazyInitializationException
+        Player player = playerRepository.findById(reset.getPlayer().getId())
+                .orElseThrow(() -> new IllegalArgumentException("Jogador não encontrado"));
         player.setPasswordHash(passwordEncoder.encode(newPassword));
         playerRepository.save(player);
 
