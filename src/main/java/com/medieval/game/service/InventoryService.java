@@ -4,6 +4,7 @@ import com.medieval.game.enums.ItemType;
 import com.medieval.game.model.InventoryItem;
 import com.medieval.game.model.Player;
 import com.medieval.game.repository.InventoryItemRepository;
+import com.medieval.game.repository.PlayerRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -15,6 +16,7 @@ import java.util.List;
 public class InventoryService {
 
     private final InventoryItemRepository inventoryRepository;
+    private final PlayerRepository        playerRepository;
 
     public List<InventoryItem> getInventory(Player player) {
         return inventoryRepository.findAllByPlayer(player);
@@ -70,6 +72,7 @@ public class InventoryService {
             throw new IllegalStateException("Desequipe o item antes de vender");
         }
         player.setGold(player.getGold() + item.getSellPrice());
+        playerRepository.save(player);
         inventoryRepository.delete(item);
         return item;
     }
