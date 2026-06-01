@@ -16,11 +16,11 @@ public class EmailService {
     @Value("${app.mail.enabled:false}")
     private boolean mailEnabled;
 
-    @Value("${app.resend.api-key:}")
-    private String resendApiKey;
+    @Value("${app.brevo.api-key:}")
+    private String brevoApiKey;
 
-    @Value("${app.resend.from:Medieval Game <onboarding@resend.dev>}")
-    private String fromAddress;
+    @Value("${app.brevo.from-email:}")
+    private String fromEmail;
 
     @Value("${app.base-url:http://localhost:8080}")
     private String baseUrl;
@@ -67,21 +67,21 @@ public class EmailService {
 
         try {
             HttpHeaders headers = new HttpHeaders();
-            headers.setBearerAuth(resendApiKey);
+            headers.set("api-key", brevoApiKey);
             headers.setContentType(MediaType.APPLICATION_JSON);
 
             Map<String, Object> payload = Map.of(
-                "from",    fromAddress,
-                "to",      List.of(to),
-                "subject", subject,
-                "text",    text
+                "sender",      Map.of("name", "Medieval Game", "email", fromEmail),
+                "to",          List.of(Map.of("email", to)),
+                "subject",     subject,
+                "textContent", text
             );
 
             HttpEntity<Map<String, Object>> request = new HttpEntity<>(payload, headers);
-            restTemplate.postForObject("https://api.resend.com/emails", request, String.class);
-            log.info("Email enviado via Resend para {}", to);
+            restTemplate.postForObject("https://api.brevo.com/v3/smtp/email", request, String.class);
+            log.info("Email enviado via Brevo para {}", to);
         } catch (Exception e) {
-            log.error("Erro ao enviar email via Resend para {}: {}", to, e.getMessage());
+            log.error("Erro ao enviar email via Brevo para {}: {}", to, e.getMessage());
         }
     }
 }
