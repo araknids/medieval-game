@@ -1,6 +1,10 @@
-target/
-.idea/
-*.iml
-*.class
-*.log
-.DS_Store
+# Claude Code local settings
+.claude/
+
+# VSCode local settings
+.vscode/
+
+# Godot cache (futuro)
+godot-client/.godot/
+godot-client/*.import
+godot-client/export_presets.cfg

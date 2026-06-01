@@ -1,4 +1,4 @@
-name: CI — Testes Automaticos
+name: CI — Testes Automáticos
 
 on:
   push:
@@ -12,7 +12,7 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout codigo
+      - name: Checkout código
         uses: actions/checkout@v4
 
       - name: Configurar Java 17
@@ -23,15 +23,18 @@ jobs:
           cache: maven
 
       - name: Rodar todos os testes
+        working-directory: backend
         run: mvn test --batch-mode
         env:
+          # Variáveis mínimas para o contexto de teste
+          # O perfil dev usa H2 em memória, não precisa de PostgreSQL
           SPRING_PROFILES_ACTIVE: dev
 
-      - name: Publicar relatorio de testes
+      - name: Publicar relatório de testes
         if: always()
         uses: dorny/test-reporter@v1
         with:
           name: Resultados JUnit
-          path: target/surefire-reports/*.xml
+          path: backend/target/surefire-reports/*.xml
           reporter: java-junit
           fail-on-error: true
