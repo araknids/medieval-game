@@ -2,6 +2,7 @@ package com.medieval.game.controller;
 
 import com.medieval.game.model.ArenaMatch;
 import com.medieval.game.model.Player;
+import com.medieval.game.repository.WarriorRepository;
 import com.medieval.game.service.ArenaService;
 import com.medieval.game.service.PlayerService;
 import lombok.RequiredArgsConstructor;
@@ -23,12 +24,19 @@ public class ArenaController {
 
     private final ArenaService arenaService;
     private final PlayerService playerService;
+    private final WarriorRepository warriorRepository;
 
     @GetMapping("/rank")
     public ResponseEntity<List<RankEntry>> getRank() {
         List<RankEntry> rank = arenaService.getRanking().stream()
                 .limit(20)
-                .map(RankEntry::from)
+                .map(p -> {
+                    String warriorName = warriorRepository.findByPlayer(p)
+                            .map(w -> w.getName())
+                            .orElse("?");
+                    return new RankEntry(warriorName, p.getRankPoints(),
+                            p.getArenaWins(), p.getArenaLosses());
+                })
                 .toList();
         return ResponseEntity.ok(rank);
     }
@@ -82,10 +90,5 @@ public class ArenaController {
         }
     }
 
-    record RankEntry(String username, int rankPoints, int wins, int losses, String warriorName) {
-        static RankEntry from(Player p) {
-            return new RankEntry(p.getUsername(), p.getRankPoints(),
-                    p.getArenaWins(), p.getArenaLosses(), "");
-        }
-    }
+    record RankEntry(String warriorName, int rankPoints, int wins, int losses) {}
 }

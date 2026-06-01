@@ -109,7 +109,7 @@ async function loadWarrior() {
   if (data.error) return;
   warrior = data;
 
-  document.getElementById('hdr-username').textContent = currentUsername;
+  document.getElementById('hdr-username').textContent = warrior.name;
   document.getElementById('hdr-gold').textContent = (warrior.gold ?? '–') + ' ouro';
   document.getElementById('hdr-rank').textContent = (warrior.rankPoints ?? '–') + ' pts';
 
@@ -554,9 +554,9 @@ async function loadRank() {
       <thead><tr><th>#</th><th>Jogador</th><th>Pontos</th><th>V/D</th></tr></thead>
       <tbody>
         ${rank.map((r, i) => `
-          <tr class="${r.username === currentUsername ? 'me' : ''}">
+          <tr class="${r.warriorName === warrior?.name ? 'me' : ''}">
             <td class="rank-pos">${i + 1}</td>
-            <td class="rank-name">${r.username}</td>
+            <td class="rank-name">${r.warriorName}</td>
             <td class="rank-pts">${r.rankPoints}</td>
             <td class="rank-wl">${r.wins}/${r.losses}</td>
           </tr>`).join('')}

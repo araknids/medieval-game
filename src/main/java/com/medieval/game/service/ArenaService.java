@@ -68,7 +68,7 @@ public class ArenaService {
 
         if (opponent != null) {
             Warrior oWarrior = warriorRepository.findByPlayer(opponent).orElse(null);
-            opponentName = opponent.getUsername();
+            opponentName = oWarrior != null ? oWarrior.getName() : opponent.getUsername();
             oStats = oWarrior != null ? totalStats(opponent, oWarrior) : npcStats();
         } else {
             opponentName = NPC_NAMES[new Random().nextInt(NPC_NAMES.length)];
@@ -76,12 +76,14 @@ public class ArenaService {
         }
 
         // Simula a batalha
+        String challengerName = cWarrior.getName();
+
         List<String> log = simulate(
-                challenger.getUsername(), cStats[0], cStats[1], cStats[2], cStats[3],
+                challengerName, cStats[0], cStats[1], cStats[2], cStats[3],
                 opponentName, oStats[0], oStats[1], oStats[2], oStats[3]
         );
 
-        boolean challengerWon = log.get(log.size() - 1).contains(challenger.getUsername());
+        boolean challengerWon = log.get(log.size() - 1).contains(challengerName);
         long goldReward  = challengerWon ? 200 : 50;
         int  rankChange  = challengerWon ? (opponent != null ? 25 : 15) : (opponent != null ? -15 : -5);
 
