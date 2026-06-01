@@ -3,6 +3,7 @@ package com.medieval.game.service;
 import com.medieval.game.enums.WorkStatus;
 import com.medieval.game.enums.WorkType;
 import com.medieval.game.model.Player;
+import com.medieval.game.model.Warrior;
 import com.medieval.game.model.WorkProfession;
 import com.medieval.game.model.WorkSession;
 import com.medieval.game.repository.PlayerRepository;
@@ -50,30 +51,33 @@ public class WorkService {
             throw new IllegalArgumentException("Horas devem ser entre 1 e 12");
         }
 
-        warriorRepository.findByPlayer(player).ifPresent(w -> {
-            if (w.isOnMission()) throw new IllegalStateException("Seu guerreiro já está ocupado");
-        });
+        Warrior warrior = warriorRepository.findByPlayer(player)
+                .orElseThrow(() -> new IllegalStateException("Guerreiro não encontrado"));
+
+        if (warrior.isOnMission()) {
+            throw new IllegalStateException("Seu guerreiro já está ocupado");
+        }
 
         if (workRepository.findByPlayerAndStatus(player, WorkStatus.IN_PROGRESS).isPresent()) {
             throw new IllegalStateException("Você já está trabalhando");
         }
 
-        // Valida nível mínimo da profissão
-        WorkProfession profession = getProfession(player, workType);
-        if (profession.getLevel() < workType.minWorkLevel) {
+        // Valida nível mínimo com o nível do personagem (guerreiro)
+        if (warrior.getLevel() < workType.minWorkLevel) {
             throw new IllegalStateException(
-                "Nível " + workType.displayName + " insuficiente. " +
-                "Necessário: " + workType.minWorkLevel + ", seu nível: " + profession.getLevel()
+                "Nível do personagem insuficiente para " + workType.displayName +
+                ". Necessário: nível " + workType.minWorkLevel +
+                ", seu nível: " + warrior.getLevel()
             );
         }
+
+        WorkProfession profession = getProfession(player, workType);
 
         long goldReward = Math.round(workType.goldPerHour * hours * profession.goldBonus());
         int  xpReward   = workType.xpPerHour * hours;
 
-        warriorRepository.findByPlayer(player).ifPresent(w -> {
-            w.setOnMission(true);
-            warriorRepository.save(w);
-        });
+        warrior.setOnMission(true);
+        warriorRepository.save(warrior);
 
         WorkSession session = new WorkSession();
         session.setPlayer(player);

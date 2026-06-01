@@ -34,9 +34,10 @@ public class WorkController {
 
     @GetMapping("/jobs")
     public ResponseEntity<List<?>> getJobs(Authentication auth) {
-        Player  player = getPlayer(auth);
-        boolean busy   = warriorRepository.findByPlayer(player)
-                .map(w -> w.isOnMission()).orElse(false);
+        Player  player  = getPlayer(auth);
+        var     warrior = warriorRepository.findByPlayer(player).orElse(null);
+        boolean busy    = warrior != null && warrior.isOnMission();
+        int warriorLevel = warrior != null ? warrior.getLevel() : 1; // nível do personagem
 
         var jobs = Arrays.stream(WorkType.values()).map(wt -> {
             WorkProfession prof = workService.getProfession(player, wt);
@@ -45,7 +46,8 @@ public class WorkController {
             long   profXpNeeded = prof.expNeededForNextLevel();
             double bonus        = prof.goldBonus();
             int    bonusPct     = (int) Math.round((bonus - 1.0) * 100);
-            boolean available   = profLevel >= wt.minWorkLevel && !busy;
+            // Desbloqueio baseado no nível do guerreiro, não da profissão
+            boolean available   = warriorLevel >= wt.minWorkLevel && !busy;
 
             return Map.ofEntries(
                 Map.entry("id",                   wt.name()),
