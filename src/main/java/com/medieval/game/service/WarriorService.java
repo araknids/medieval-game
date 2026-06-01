@@ -1,10 +1,10 @@
 package com.medieval.game.service;
 
-import com.medieval.game.enums.Attribute;
-import com.medieval.game.enums.WarriorClass;
+import com.medieval.game.enums.*;
 import com.medieval.game.model.Player;
 import com.medieval.game.model.Warrior;
-import com.medieval.game.repository.WarriorRepository;
+import com.medieval.game.repository.*;
+import java.util.Optional;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -13,7 +13,12 @@ import org.springframework.transaction.annotation.Transactional;
 @RequiredArgsConstructor
 public class WarriorService {
 
-    private final WarriorRepository warriorRepository;
+    private final WarriorRepository          warriorRepository;
+    private final ActiveQuestRepository      questRepository;
+    private final WorkSessionRepository      workRepository;
+    private final GatheringSessionRepository gatheringRepository;
+    private final ArenaMatchRepository       arenaRepository;
+    private final TowerRunRepository         towerRepository;
 
     @Transactional
     public Warrior create(Player player, String name, WarriorClass warriorClass) {
@@ -44,11 +49,37 @@ public class WarriorService {
         warriorRepository.save(warrior);
     }
 
-    /** Libera o guerreiro se não houver nenhuma sessão ativa (emergência de suporte) */
+    /** Libera o guerreiro e cancela todas as sessões ativas (emergência de suporte) */
     @Transactional
     public boolean freeIfStuck(Player player) {
         Warrior warrior = getWarrior(player);
         if (!warrior.isOnMission()) return false;
+
+        // Cancela quest ativa
+        questRepository.findAllByPlayerAndStatusNot(player, QuestStatus.COLLECTED)
+                .forEach(q -> {
+                    if (q.getStatus() == QuestStatus.IN_PROGRESS) {
+                        q.setStatus(QuestStatus.ABANDONED);
+                        questRepository.save(q);
+                    }
+                });
+
+        // Cancela sessão de trabalho
+        workRepository.findByPlayerAndStatus(player, WorkStatus.IN_PROGRESS)
+                .ifPresent(w -> { w.setStatus(WorkStatus.CANCELLED); workRepository.save(w); });
+
+        // Cancela sessão de coleta (pesca/mineração)
+        gatheringRepository.findByPlayerAndStatus(player, GatheringStatus.IN_PROGRESS)
+                .ifPresent(g -> { g.setStatus(GatheringStatus.CANCELLED); gatheringRepository.save(g); });
+
+        // Cancela batalha na arena
+        arenaRepository.findByChallengerAndStatus(player, MatchStatus.FIGHTING)
+                .ifPresent(a -> { a.setStatus(MatchStatus.COLLECTED); arenaRepository.save(a); });
+
+        // Cancela run da torre
+        towerRepository.findByPlayerAndStatus(player, TowerStatus.IN_PROGRESS)
+                .ifPresent(t -> { t.setStatus(TowerStatus.EXITED); towerRepository.save(t); });
+
         warrior.setOnMission(false);
         warriorRepository.save(warrior);
         return true;
