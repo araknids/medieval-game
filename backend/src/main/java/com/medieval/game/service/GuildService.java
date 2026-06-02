@@ -60,6 +60,7 @@ public class GuildService {
             throw new IllegalStateException("Guilda está cheia (" + guild.maxMembers() + " membros máx.).");
 
         player.setGuild(guild);
+        player.setGuildDonatedBronze(0); // reset donations on joining a new guild
         playerRepository.save(player);
         return guild;
     }
@@ -74,12 +75,12 @@ public class GuildService {
             if (memberCount > 1)
                 throw new IllegalStateException(
                         "Você é o líder. Transfira a liderança antes de sair, ou dissolva a guilda.");
-            // Único membro e líder → dissolve automaticamente
             disband(player);
             return;
         }
 
         player.setGuild(null);
+        player.setGuildDonatedBronze(0);
         playerRepository.save(player);
     }
 
@@ -99,6 +100,7 @@ public class GuildService {
             throw new IllegalArgumentException("Jogador não pertence à sua guilda.");
 
         target.setGuild(null);
+        target.setGuildDonatedBronze(0);
         playerRepository.save(target);
     }
 
@@ -131,7 +133,14 @@ public class GuildService {
         playerService.spendBronze(player, bronzeAmount);
 
         guild.setGold(guild.getGold() + bronzeAmount);
-        return guildRepository.save(guild);
+        guildRepository.save(guild);
+
+        // Track individual donation for the ranking
+        Player managed = playerRepository.findById(player.getId()).orElse(player);
+        managed.setGuildDonatedBronze(managed.getGuildDonatedBronze() + bronzeAmount);
+        playerRepository.save(managed);
+
+        return guild;
     }
 
     // ── Subir nível da guilda (líder) ─────────────────────────────────────────
@@ -156,9 +165,9 @@ public class GuildService {
         Guild guild = requireGuild(leader);
         requireLeader(leader, guild);
 
-        // Remove todos os membros
+        // Remove all members and reset their donation counters
         List<Player> members = playerRepository.findAllByGuild(guild);
-        members.forEach(m -> m.setGuild(null));
+        members.forEach(m -> { m.setGuild(null); m.setGuildDonatedBronze(0); });
         playerRepository.saveAll(members);
 
         guildRepository.delete(guild);

@@ -160,7 +160,9 @@ public class GuildController {
     }
 
     private Map<String, Object> toDetail(Player player, Guild guild) {
-        List<Map<String, Object>> memberList = guildService.members(guild).stream()
+        List<Player> members = guildService.members(guild);
+
+        List<Map<String, Object>> memberList = members.stream()
                 .map(m -> {
                     boolean isLeader = guild.getLeaderId().equals(m.getId());
                     return Map.<String, Object>of(
@@ -170,6 +172,16 @@ public class GuildController {
                         "isMe",        m.getId().equals(player.getId())
                     );
                 }).toList();
+
+        // Donation rank — sorted by guildDonatedBronze descending
+        List<Map<String, Object>> donationRank = members.stream()
+                .filter(m -> m.getGuildDonatedBronze() > 0)
+                .sorted((a, b) -> Long.compare(b.getGuildDonatedBronze(), a.getGuildDonatedBronze()))
+                .map(m -> Map.<String, Object>of(
+                    "warriorName",   guildService.warriorName(m),
+                    "donatedBronze", m.getGuildDonatedBronze(),
+                    "isMe",          m.getId().equals(player.getId())
+                )).toList();
 
         boolean isLeader = guild.getLeaderId().equals(player.getId());
 
@@ -199,7 +211,8 @@ public class GuildController {
             Map.entry("isLeader",         isLeader),
             Map.entry("xpBonus",          guild.xpBonus()),
             Map.entry("dropBonus",        guild.dropBonus()),
-            Map.entry("bronzeBonus",      guild.bronzeBonus())
+            Map.entry("bronzeBonus",      guild.bronzeBonus()),
+            Map.entry("donationRank",     donationRank)
         );
     }
 

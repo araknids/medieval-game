@@ -1988,7 +1988,34 @@ function renderGuildPanel(g) {
       ${disbandBtn}
     </div>
     <div id="guild-msg" style="margin-top:8px;min-height:20px"></div>
+
+    ${renderDonationRank(g.donationRank ?? [], player => player.isMe)}
   `;
+}
+
+function renderDonationRank(rank) {
+  if (!rank || rank.length === 0) {
+    return `
+      <div style="margin-top:20px">
+        <h4 style="margin:0 0 8px">🏆 Top Donors</h4>
+        <p style="color:#aaa;font-size:13px">No donations yet.</p>
+      </div>`;
+  }
+  const rows = rank.map((r, i) => {
+    const medal  = i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : `${i+1}.`;
+    const style  = r.isMe ? 'color:#ffd700;font-weight:bold' : '';
+    return `<tr style="${style}">
+      <td style="padding:4px 0">${medal} ${r.warriorName}${r.isMe ? ' (you)' : ''}</td>
+      <td style="text-align:right;padding:4px 0">${fmtBronze(r.donatedBronze)}</td>
+    </tr>`;
+  }).join('');
+  return `
+    <div style="margin-top:20px">
+      <h4 style="margin:0 0 8px">🏆 Top Donors</h4>
+      <table style="width:100%;border-collapse:collapse;font-size:13px">
+        ${rows}
+      </table>
+    </div>`;
 }
 
 async function renderNoGuildPanel() {

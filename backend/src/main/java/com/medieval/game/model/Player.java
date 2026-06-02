@@ -80,6 +80,10 @@ public class Player {
     @JoinColumn(name = "guild_id")
     private Guild guild;
 
+    // Total donated to current guild in bronze — reset on leave/join/disband
+    @Column(columnDefinition = "bigint default 0")
+    private long guildDonatedBronze = 0;
+
     @Column(nullable = false)
     private LocalDateTime createdAt = LocalDateTime.now();
 }
