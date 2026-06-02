@@ -2360,7 +2360,7 @@ function renderMailPanel(letters, unread) {
         <div style="margin-bottom:8px;font-size:13px;color:#aaa">
           Cost: <strong style="color:#ffd700">1 silver (100 bronze)</strong> per letter (+ bronze attached)
         </div>
-        <input id="mail-to" type="text" placeholder="Recipient username (exact)"
+        <input id="mail-to" type="text" placeholder="Recipient warrior name (exact)"
           style="width:100%;padding:8px;background:#111;color:#eee;border:1px solid #555;
                  border-radius:4px;margin-bottom:8px;box-sizing:border-box">
         <textarea id="mail-msg" placeholder="Your message (max 500 chars)" maxlength="500" rows="4"
@@ -2440,7 +2440,7 @@ async function mailSend() {
   const gold = parseInt(document.getElementById('mail-gold').value) || 0;
   if (!to)  { mailMsg('Enter the recipient username.', false); return; }
   if (!msg) { mailMsg('Write a message.', false); return; }
-  const r = await api('POST', '/api/mail/send', { recipientUsername: to, message: msg, goldAmount: gold });
+  const r = await api('POST', '/api/mail/send', { recipientWarriorName: to, message: msg, goldAmount: gold });
   if (r.error) { mailMsg(r.error, false); return; }
   mailMsg(r.message);
   document.getElementById('mail-to').value   = '';

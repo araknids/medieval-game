@@ -17,14 +17,15 @@ class MailIntegrationTest extends BaseIntegrationTest {
 
     String senderToken;
     String recipientToken;
-    String recipientUsername;
+    String recipientWarriorName; // warrior names are public; usernames are private
 
     @BeforeEach
     void setup() throws Exception {
-        String senderUser = uniqueUser("sender");
-        recipientUsername = uniqueUser("recip");
+        String senderUser    = uniqueUser("sender");
+        String recipientUser = uniqueUser("recip");
+        recipientWarriorName = "Guerreiro " + recipientUser; // set by registerAndGetToken
         senderToken    = registerAndGetToken(senderUser);
-        recipientToken = registerAndGetToken(recipientUsername);
+        recipientToken = registerAndGetToken(recipientUser);
     }
 
     // TC-134: Inbox returns empty for new player
@@ -46,7 +47,7 @@ class MailIntegrationTest extends BaseIntegrationTest {
                         .header("Authorization", bearer(senderToken))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(json(Map.of(
-                                "recipientUsername", recipientUsername,
+                                "recipientWarriorName", recipientWarriorName,
                                 "message", "Hello warrior!",
                                 "goldAmount", 0
                         ))))
@@ -65,7 +66,7 @@ class MailIntegrationTest extends BaseIntegrationTest {
                         .header("Authorization", bearer(selfToken))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(json(Map.of(
-                                "recipientUsername", selfUsername,
+                                "recipientWarriorName", "Guerreiro " + selfUsername,
                                 "message", "Hi me",
                                 "goldAmount", 0
                         ))))
@@ -81,7 +82,7 @@ class MailIntegrationTest extends BaseIntegrationTest {
                         .header("Authorization", bearer(senderToken))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(json(Map.of(
-                                "recipientUsername", "nobody_xyz_12345",
+                                "recipientWarriorName", "UnknownWarrior_xyz_12345",
                                 "message", "Hi!",
                                 "goldAmount", 0
                         ))))
@@ -98,7 +99,7 @@ class MailIntegrationTest extends BaseIntegrationTest {
                         .header("Authorization", bearer(senderToken))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(json(Map.of(
-                                "recipientUsername", recipientUsername,
+                                "recipientWarriorName", recipientWarriorName,
                                 "message", "Big send",
                                 "goldAmount", 999999
                         ))))
@@ -115,7 +116,7 @@ class MailIntegrationTest extends BaseIntegrationTest {
                 .header("Authorization", bearer(senderToken))
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(json(Map.of(
-                        "recipientUsername", recipientUsername,
+                        "recipientWarriorName", recipientWarriorName,
                         "message", "Hello warrior!",
                         "goldAmount", 0
                 ))));
@@ -138,7 +139,7 @@ class MailIntegrationTest extends BaseIntegrationTest {
                         .header("Authorization", bearer(senderToken))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(json(Map.of(
-                                "recipientUsername", recipientUsername,
+                                "recipientWarriorName", recipientWarriorName,
                                 "message", "Bronze for you!",
                                 "goldAmount", 500  // 500 bronze attached
                         ))))
@@ -161,7 +162,7 @@ class MailIntegrationTest extends BaseIntegrationTest {
                         .header("Authorization", bearer(senderToken))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(json(Map.of(
-                                "recipientUsername", recipientUsername,
+                                "recipientWarriorName", recipientWarriorName,
                                 "message", "Delete me",
                                 "goldAmount", 0
                         ))))

@@ -2,6 +2,7 @@ package com.medieval.game.service;
 
 import com.medieval.game.model.Mail;
 import com.medieval.game.model.Player;
+import com.medieval.game.model.Warrior;
 import com.medieval.game.repository.MailRepository;
 import com.medieval.game.repository.PlayerRepository;
 import com.medieval.game.repository.WarriorRepository;
@@ -28,7 +29,7 @@ public class MailService {
 
     // ── Send letter ───────────────────────────────────────────────────────────
     @Transactional
-    public Mail send(Player sender, String recipientUsername, String message, long goldAmount) {
+    public Mail send(Player sender, String recipientWarriorName, String message, long goldAmount) {
         if (goldAmount < 0)
             throw new IllegalArgumentException("Gold amount cannot be negative.");
         if (message == null || message.isBlank())
@@ -36,8 +37,10 @@ public class MailService {
         if (message.length() > 500)
             throw new IllegalArgumentException("Message too long (max 500 characters).");
 
-        Player recipient = playerRepository.findByUsername(recipientUsername)
-                .orElseThrow(() -> new IllegalArgumentException("Player '" + recipientUsername + "' not found."));
+        // Look up recipient by warrior name (username is private)
+        Warrior recipientWarrior = warriorRepository.findByName(recipientWarriorName)
+                .orElseThrow(() -> new IllegalArgumentException("Warrior '" + recipientWarriorName + "' not found."));
+        Player recipient = recipientWarrior.getPlayer();
 
         if (recipient.getId().equals(sender.getId()))
             throw new IllegalArgumentException("You cannot send a letter to yourself.");

@@ -43,9 +43,9 @@ public class MailController {
         try {
             Player sender = getPlayer(auth);
             Mail mail = mailService.send(sender,
-                    req.recipientUsername(), req.message(), req.goldAmount());
+                    req.recipientWarriorName(), req.message(), req.goldAmount());
             return ResponseEntity.ok(Map.of(
-                "message", "Letter sent to " + req.recipientUsername() + "!",
+                "message", "Letter sent to " + req.recipientWarriorName() + "!",
                 "id",      mail.getId()
             ));
         } catch (IllegalArgumentException | IllegalStateException e) {
@@ -108,5 +108,5 @@ public class MailController {
         );
     }
 
-    record SendRequest(String recipientUsername, String message, long goldAmount) {}
+    record SendRequest(String recipientWarriorName, String message, long goldAmount) {}
 }
