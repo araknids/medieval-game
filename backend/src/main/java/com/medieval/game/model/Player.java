@@ -84,6 +84,19 @@ public class Player {
     @Column(columnDefinition = "bigint default 0")
     private long guildDonatedBronze = 0;
 
+    // ── SoulStone (moeda VIP) ─────────────────────────────────────────────────
+    @Column(columnDefinition = "integer default 0")
+    private int soulStones = 0;
+
+    /** Último uso da cura instantânea via SoulStone (CD de 30 min) */
+    private LocalDateTime lastSoulstoneHealAt;
+
+    /** Expansão de inventário comprada com SoulStone (10 → 20 slots) */
+    @Column(columnDefinition = "boolean default false")
+    private boolean inventoryExpanded = false;
+
+    public int getMaxInventorySlots() { return inventoryExpanded ? 20 : 10; }
+
     @Column(nullable = false)
     private LocalDateTime createdAt = LocalDateTime.now();
 }

@@ -17,6 +17,8 @@ import java.util.List;
 @RequiredArgsConstructor
 public class InventoryService {
 
+    private static final int SOULSTONE_EXPAND_COST = 3; // SoulStones para expandir inventário
+
     private final InventoryItemRepository inventoryRepository;
     private final PlayerRepository        playerRepository;
     private final ItemLoreGenerator       loreGenerator;
@@ -94,6 +96,31 @@ public class InventoryService {
         return item;
     }
 
+    // ── Expansão de inventário via SoulStone ──
+
+    /** Contagem de itens na bag (não equipados) */
+    public int bagSize(Player player) {
+        return (int) inventoryRepository.findAllByPlayer(player).stream()
+                .filter(i -> !i.isEquipped()).count();
+    }
+
+    @Transactional
+    public void expandInventory(Player player) {
+        log.info("[InventoryService] player={} action=expandInventory", player.getId());
+        if (player.isInventoryExpanded()) {
+            log.warn("[InventoryService] player={} REJECTED: inventory already expanded", player.getId());
+            throw new IllegalStateException("Your inventory is already expanded to 20 slots.");
+        }
+        if (player.getSoulStones() < SOULSTONE_EXPAND_COST) {
+            log.warn("[InventoryService] player={} REJECTED: not enough SoulStones ({}<{})", player.getId(), player.getSoulStones(), SOULSTONE_EXPAND_COST);
+            throw new IllegalStateException("Not enough SoulStones. Required: " + SOULSTONE_EXPAND_COST);
+        }
+        player.setSoulStones(player.getSoulStones() - SOULSTONE_EXPAND_COST);
+        player.setInventoryExpanded(true);
+        playerRepository.save(player);
+        log.info("[InventoryService] player={} action=expandInventory OK stones_remaining={}", player.getId(), player.getSoulStones());
+    }
+
     @Transactional
     public void giveStarterItems(Player player) {
         String origin = loreGenerator.originStarter();
@@ -117,6 +144,11 @@ public class InventoryService {
     public InventoryItem make(Player player, String name, ItemType type,
                               int atk, int def, int hp, int rarity, long sellPrice,
                               String description, String origin) {
+        int max = player.getMaxInventorySlots();
+        if (bagSize(player) >= max) {
+            log.warn("[InventoryService] player={} bag full ({}/{}) — item '{}' not added", player.getId(), bagSize(player), max, name);
+            throw new IllegalStateException("Inventory full (" + max + " slots). Sell items or expand with SoulStones.");
+        }
         InventoryItem item = new InventoryItem();
         item.setPlayer(player);
         item.setName(name);
