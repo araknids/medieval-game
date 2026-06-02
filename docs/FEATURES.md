@@ -447,7 +447,43 @@ Aplicados automaticamente em quests e trabalho para todos os membros:
 
 ---
 
-## 22. Funcionalidades Futuras Planejadas
+## 22. Sistema de Correio (Mail)
+
+### Envio
+- Remetente digita o **username exato** do destinatário (não nome do guerreiro)
+- Escreve uma mensagem (máx. 500 caracteres)
+- Pode incluir **gold** opcional (valor em gold inteiro ≥ 0)
+- Custo fixo: **1 gold por carta** (descontado na hora do envio)
+- O gold anexado é transferido ao destinatário quando ele resgata a carta
+
+### Recebimento
+- Cartas aparecem na caixa de entrada ordenadas pela mais recente
+- Indicador visual de não lidas (badge com contagem)
+- Ao abrir a carta: marcada como lida
+- Se há gold anexado: botão "Collect gold" transfere para o saldo
+- Carta pode ser deletada após lida
+
+### Regras
+- Não pode enviar para si mesmo
+- Destinatário deve existir (erro amigável se não encontrar)
+- Remetente precisa ter: 1 gold (taxa) + gold anexado
+- Limite de mensagem: 500 caracteres
+
+### Entidade
+- `Mail`: id, senderPlayerId, senderName (warrior name), recipientPlayerId, message, goldAmount, sentAt, readAt (null = unread), collectedAt (null = not collected)
+
+### Endpoints
+| Método | Rota | Ação |
+|--------|------|------|
+| GET | `/api/mail/inbox` | Lista cartas recebidas (mais recentes primeiro) |
+| GET | `/api/mail/sent` | Lista cartas enviadas |
+| POST | `/api/mail/send` | Envia carta `{recipientUsername, message, goldAmount}` |
+| POST | `/api/mail/{id}/collect` | Resgata gold da carta |
+| DELETE | `/api/mail/{id}` | Deleta carta da caixa de entrada |
+
+---
+
+## 23. Funcionalidades Futuras Planejadas
 
 - [ ] Cliente Godot (Steam)
 - [ ] Mercado entre jogadores (integração Steam Marketplace)

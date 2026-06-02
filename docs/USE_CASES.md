@@ -1539,4 +1539,68 @@
 
 ---
 
-*Atualizado em 2026-06-02. Guerra de Territórios: UC-59 a UC-64.*
+---
+
+## Sistema de Correio
+
+### UC-65: Send Letter
+**Actor:** Authenticated player
+**Pre-conditions:** Player has ≥ 1 gold (fee) + gold amount to attach.
+
+**Flow:**
+1. Player types recipient username, message (≤ 500 chars), and optional gold amount.
+2. System validates: recipient exists, not self, sufficient funds.
+3. System deducts 1 gold (fee) + goldAmount from sender.
+4. System saves Mail record with status unread/uncollected.
+5. System returns success message.
+
+**Alternate flow:**
+- Recipient not found → 400.
+- Insufficient funds → 400.
+- Self-send → 400.
+
+**Post-conditions:** Mail record created; sender's gold reduced.
+
+---
+
+### UC-66: Read Inbox
+**Actor:** Authenticated player
+
+**Flow:**
+1. Player opens mail tab.
+2. System returns list of received letters sorted by sentAt desc.
+3. Player opens a letter → marked as read.
+
+**Post-conditions:** Letter.readAt set.
+
+---
+
+### UC-67: Collect Gold from Letter
+**Actor:** Authenticated player
+**Pre-conditions:** Letter has goldAmount > 0 and collectedAt == null.
+
+**Flow:**
+1. Player clicks "Collect gold" on a letter.
+2. System transfers goldAmount to recipient's balance.
+3. System sets letter.collectedAt.
+
+**Alternate flow:**
+- Already collected → 400.
+- Letter belongs to other player → 400.
+
+**Post-conditions:** Gold transferred; letter marked collected.
+
+---
+
+### UC-68: Delete Letter
+**Actor:** Authenticated player (recipient)
+
+**Flow:**
+1. Player deletes a letter from inbox.
+2. System removes the Mail record.
+
+**Pre-conditions:** Player is the recipient of the letter.
+
+---
+
+*Updated 2026-06-02. Mail system: UC-65 to UC-68.*

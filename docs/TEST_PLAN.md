@@ -2845,4 +2845,20 @@ Membros de guilda dominante recebem XP e bronze com +10% base.
 
 ---
 
-*Atualizado em 2026-06-02. Total: 133 casos de teste (TC-001 a TC-048 unitários; TC-051 a TC-133 integração).*
+---
+
+## Integration Tests — Mail System (TC-134 to TC-141)
+
+### TC-134: GET /api/mail/inbox returns empty array for new player
+### TC-135: POST /api/mail/send → letter created, sender gold reduced by 1 + goldAmount
+**Pre:** Sender has ≥ 2 gold (1 fee + 1 attached)
+### TC-136: POST /api/mail/send to self → 400
+### TC-137: POST /api/mail/send to non-existent user → 400
+### TC-138: POST /api/mail/send with insufficient funds → 400
+### TC-139: GET /api/mail/inbox after receiving → letter present with correct fields
+### TC-140: POST /api/mail/{id}/collect → gold transferred to recipient
+### TC-141: DELETE /api/mail/{id} → letter removed from inbox
+
+---
+
+*Updated 2026-06-02. Total: 141 test cases (TC-001 to TC-048 unit; TC-051 to TC-141 integration).*
