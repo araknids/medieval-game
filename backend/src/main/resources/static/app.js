@@ -119,10 +119,11 @@ function formatTime(seconds) {
   return `${m}:${s.toString().padStart(2, '0')}`;
 }
 
-function statRow(label, base, bonus, total) {
-  const display = bonus > 0
-    ? `${base}<span class="stat-bonus">+${bonus}</span>`
-    : `${total}`;
+// Colors: item bonus = green (uncommon), buff bonus = gold
+function statRow(label, base, itemBonus, buffBonus) {
+  let display = `${base}`;
+  if (itemBonus > 0) display += `<span style="color:#4caf50;font-size:.8em"> +${itemBonus}</span>`;
+  if (buffBonus > 0) display += `<span style="color:#ffd700;font-size:.8em"> +${buffBonus}</span>`;
   return `<div class="warrior-stat-row">
     <span class="label">${label}</span><span class="value">${display}</span>
   </div>`;
@@ -233,39 +234,69 @@ async function loadWarrior() {
   const minsToFull = warrior.minutesToFullStamina ?? 0;
   const staminaInfo = stamina < 100 ? ` <span class="stamina-regen">(+100 em ${minsToFull}min)</span>` : '';
 
+  // Buff display with color and remaining time
+  const buffLine = warrior.activeBuff ? (() => {
+    const secsLeft = warrior.buffSecondsLeft ?? 0;
+    const timeStr  = secsLeft > 3600
+      ? `${Math.floor(secsLeft / 3600)}h ${Math.floor((secsLeft % 3600) / 60)}m`
+      : `${Math.floor(secsLeft / 60)}m`;
+    return `<div style="margin-top:.3rem;font-size:.75rem;padding:3px 6px;
+                         background:#2a2510;border:1px solid #ffd700;border-radius:4px;
+                         color:#ffd700;display:inline-block">
+              ${warrior.activeBuff} <span style="color:#aaa;font-size:.7em">(${timeStr})</span>
+            </div>`;
+  })() : '';
+
+  const hpColor = (warrior.hpPercent ?? 100) <= 0 ? '#cf6679'
+                : (warrior.hpPercent ?? 100) < 50  ? '#c9a84c' : '#4caf82';
+
   document.getElementById('warrior-card').innerHTML = `
     <div class="warrior-name">${warrior.name}</div>
     <div class="warrior-class">${warrior.warriorClass}</div>
-    <div class="warrior-stat-row"><span class="label">Nível</span><span class="value">${warrior.level}</span></div>
+    <div class="warrior-stat-row"><span class="label">Level</span><span class="value">${warrior.level}</span></div>
     <div class="xp-bar-wrap">
       <div class="xp-bar-bg"><div class="xp-bar-fill" style="width:${xpPct}%"></div></div>
       <div class="xp-label">EXP ${warrior.experience} / ${warrior.expNeeded}</div>
     </div>
-    ${statRow('Ataque', warrior.baseAttack, warrior.bonusAttack, warrior.totalAttack)}
-    ${statRow('Defesa', warrior.baseDefense, warrior.bonusDefense, warrior.totalDefense)}
-    ${statRow('HP',     warrior.baseHealth,  warrior.bonusHealth,  warrior.totalHealth)}
+
+    ${statRow('Attack',  warrior.baseAttack,  warrior.itemBonusAttack  ?? 0, warrior.buffBonusAttack  ?? 0)}
+    ${statRow('Defense', warrior.baseDefense, warrior.itemBonusDefense ?? 0, warrior.buffBonusDefense ?? 0)}
+    ${statRow('HP',      warrior.baseHealth,  warrior.itemBonusHealth  ?? 0, warrior.buffBonusHealth  ?? 0)}
     <div class="warrior-stat-row">
-      <span class="label">Estamina</span>
+      <span class="label">Evasion</span>
+      <span class="value">${warrior.baseEvasion ?? warrior.evasionChance}%${
+        (warrior.buffBonusEvasion ?? 0) > 0
+          ? `<span style="color:#ffd700;font-size:.8em"> +${warrior.buffBonusEvasion}%</span>`
+          : ''}</span>
+    </div>
+    <div class="warrior-stat-row">
+      <span class="label">Luck</span>
+      <span class="value">${warrior.luck ?? 0}
+        <span style="color:#888;font-size:.75em">(+${warrior.luck ?? 0}% drop)</span>
+      </span>
+    </div>
+    <div class="warrior-stat-row">
+      <span class="label">Stamina</span>
       <span class="value ${stamina < 30 ? 'stamina-low' : ''}">${stamina}/100${staminaInfo}</span>
     </div>
+
+    ${buffLine}
+
     <div style="margin-top:.4rem">
       ${warrior.isKnockedOut
-        ? `<span class="status-badge status-busy">💀 Inconsciente</span>`
+        ? `<span class="status-badge status-busy">💀 Knocked Out</span>`
         : `<span class="status-badge ${busy ? 'status-busy' : 'status-available'}">
-             ${busy ? '⚔ Ocupado' : '✓ Disponível'}
+             ${busy ? '⚔ Busy' : '✓ Available'}
            </span>`}
     </div>
     <div class="xp-bar-bg" style="margin-top:.3rem">
-      <div class="xp-bar-fill" style="width:${warrior.hpPercent ?? 100}%;background:${
-        (warrior.hpPercent ?? 100) <= 0 ? '#cf6679' :
-        (warrior.hpPercent ?? 100) < 50 ? '#c9a84c' : '#4caf82'}"></div>
+      <div class="xp-bar-fill" style="width:${warrior.hpPercent ?? 100}%;background:${hpColor}"></div>
     </div>
     <div style="font-size:.7rem;color:#888;margin-top:.1rem">
       ❤ HP ${warrior.hpPercent ?? 100}%
-      ${warrior.activeBuff ? `&nbsp;·&nbsp; ${warrior.activeBuff} ativo` : ''}
     </div>
     ${busy ? `<button class="btn-cancel-work" onclick="freeWarrior()" style="margin-top:.4rem;font-size:.72rem">
-      🔓 Liberar (se travado)
+      🔓 Free (if stuck)
     </button>` : ''}`;
 }
 

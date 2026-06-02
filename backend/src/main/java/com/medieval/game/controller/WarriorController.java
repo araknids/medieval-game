@@ -96,13 +96,19 @@ public class WarriorController {
                 java.time.temporal.ChronoUnit.SECONDS.between(
                     java.time.LocalDateTime.now(), warrior.getBuffExpiresAt()));
         }
-        bonusAtk += buffAtk; bonusDef += buffDef; bonusHp += buffHp;
-        int totalEvasion = warrior.getEvasionChance() + buffEva;
+        // Keep item+gem bonus separate from buff bonus for color-coding in the UI
+        int itemBonusAtk = bonusAtk;
+        int itemBonusDef = bonusDef;
+        int itemBonusHp  = bonusHp;
 
-        // HP atual (com regen passiva)
+        bonusAtk += buffAtk; bonusDef += buffDef; bonusHp += buffHp;
+        int baseEvasion  = warrior.getEvasionChance(); // from dexterity, before buff
+        int totalEvasion = baseEvasion + buffEva;
+
+        // HP actual (with passive regen)
         int hpPercent = warrior.getCalculatedHpPercent();
 
-        // Normaliza a moeda: silver pode ter > 100 por migração ou seeds diretas
+        // Normalise currency
         long total   = player.getBronze() + player.getSilver() * 100L + player.getGold() * 10_000L;
         long gold    = total / 10_000L;
         long silver  = (total % 10_000L) / 100L;
@@ -116,8 +122,10 @@ public class WarriorController {
                 warrior.getTotalBaseAttack()  + bonusAtk,
                 warrior.getTotalBaseDefense() + bonusDef,
                 warrior.getTotalBaseHealth()  + bonusHp,
+                itemBonusAtk, itemBonusDef, itemBonusHp,
+                buffAtk, buffDef, buffHp, buffEva,
                 warrior.getStrength(), warrior.getDexterity(), warrior.getConstitution(), warrior.getLuck(),
-                warrior.getAvailablePoints(), totalEvasion,
+                warrior.getAvailablePoints(), baseEvasion, totalEvasion,
                 player.getCalculatedStamina(), player.getMinutesToFullStamina(),
                 bronze, silver, gold,
                 player.getRankPoints(),
@@ -132,8 +140,10 @@ public class WarriorController {
                            int baseAttack,  int baseDefense,  int baseHealth,
                            int bonusAttack, int bonusDefense, int bonusHealth,
                            int totalAttack, int totalDefense, int totalHealth,
+                           int itemBonusAttack, int itemBonusDefense, int itemBonusHealth,
+                           int buffBonusAttack, int buffBonusDefense, int buffBonusHealth, int buffBonusEvasion,
                            int strength, int dexterity, int constitution, int luck,
-                           int availablePoints, int evasionChance,
+                           int availablePoints, int baseEvasion, int evasionChance,
                            int stamina, long minutesToFullStamina,
                            long bronze, long silver, long gold,
                            int rankPoints,
