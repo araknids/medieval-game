@@ -1928,47 +1928,63 @@ async function loadGuild() {
 
 function renderGuildPanel(g) {
   const el = document.getElementById('guild-content');
+
+  const treasuryFmt   = fmtBronze(g.treasuryBronze ?? 0);
+  const costFmt       = fmtBronze(g.levelUpCost ?? 0);
+  const canLevelUp    = (g.treasuryBronze ?? 0) >= (g.levelUpCost ?? Infinity);
+
   const levelUpBtn = g.isLeader
-    ? `<button onclick="guildLevelUp()" style="margin-top:8px">⬆ Subir Nível (${g.levelUpCost} gold)</button>`
+    ? `<button onclick="guildLevelUp()" ${canLevelUp ? '' : 'disabled title="Tesouro insuficiente"'}
+         style="margin-top:8px">
+         ⬆ Level Up (precisa ${costFmt})
+       </button>`
     : '';
+
   const disbandBtn = g.isLeader
-    ? `<button onclick="guildDisband()" style="background:#8b0000;margin-top:8px">💀 Dissolver Guilda</button>`
-    : `<button onclick="guildLeave()" style="background:#555;margin-top:8px">🚪 Sair da Guilda</button>`;
+    ? `<button onclick="guildDisband()" style="background:#8b0000;margin-top:8px">💀 Dissolve Guild</button>`
+    : `<button onclick="guildLeave()" style="background:#555;margin-top:8px">🚪 Leave Guild</button>`;
+
+  const bonusLine = (g.xpBonus || g.dropBonus || g.bronzeBonus)
+    ? `<div style="font-size:12px;color:#8bc34a;margin-top:4px">
+         Bonuses: +${g.xpBonus}% XP · +${g.dropBonus}% drop · +${g.bronzeBonus}% bronze
+       </div>`
+    : '';
 
   const memberRows = g.members.map(m => {
-    const badge  = m.isLeader ? ' 👑' : '';
-    const kickBtn = g.isLeader && !m.isMe && !m.isLeader
-      ? `<button onclick="guildKick(${m.playerId})" style="font-size:11px;padding:2px 6px;background:#8b0000">Expulsar</button>`
+    const badge       = m.isLeader ? ' 👑' : '';
+    const kickBtn     = g.isLeader && !m.isMe && !m.isLeader
+      ? `<button onclick="guildKick(${m.playerId})" style="font-size:11px;padding:2px 6px;background:#8b0000">Kick</button>`
       : '';
     const transferBtn = g.isLeader && !m.isMe
-      ? `<button onclick="guildTransfer(${m.playerId})" style="font-size:11px;padding:2px 6px;background:#555">Liderança</button>`
+      ? `<button onclick="guildTransfer(${m.playerId})" style="font-size:11px;padding:2px 6px;background:#555">Transfer</button>`
       : '';
     return `<tr>
-      <td>${m.warriorName}${badge}${m.isMe ? ' <em>(você)</em>' : ''}</td>
+      <td>${m.warriorName}${badge}${m.isMe ? ' <em>(you)</em>' : ''}</td>
       <td style="text-align:right">${kickBtn} ${transferBtn}</td>
     </tr>`;
   }).join('');
 
   el.innerHTML = `
     <div style="background:#1a1a2e;border:1px solid #444;border-radius:8px;padding:16px;margin-bottom:12px">
-      <h3 style="margin:0 0 4px">${g.name} <span style="font-size:12px;color:#aaa">Nv.${g.level}</span></h3>
-      <p style="color:#aaa;margin:0 0 8px;font-size:13px">${g.description || 'Sem descrição.'}</p>
-      <div style="display:flex;gap:24px;font-size:13px">
-        <span>👑 Gold da guilda: <strong>${g.gold}</strong></span>
-        <span>👥 Membros: <strong>${g.members.length}/${g.maxMembers}</strong></span>
+      <h3 style="margin:0 0 4px">${g.name} <span style="font-size:12px;color:#aaa">Lv.${g.level}</span></h3>
+      <p style="color:#aaa;margin:0 0 8px;font-size:13px">${g.description || 'No description.'}</p>
+      <div style="display:flex;gap:24px;font-size:13px;flex-wrap:wrap">
+        <span>🏦 Treasury: <strong>${treasuryFmt}</strong></span>
+        <span>👥 Members: <strong>${g.members.length}/${g.maxMembers}</strong></span>
       </div>
+      ${bonusLine}
       ${levelUpBtn}
     </div>
 
-    <h4 style="margin:0 0 8px">Membros</h4>
+    <h4 style="margin:0 0 8px">Members</h4>
     <table style="width:100%;border-collapse:collapse;font-size:13px">
       ${memberRows}
     </table>
 
-    <div style="margin-top:16px;display:flex;gap:8px;flex-wrap:wrap">
-      <input id="donate-amount" type="number" min="1" placeholder="Bronze para doar"
+    <div style="margin-top:16px;display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+      <input id="donate-amount" type="number" min="1" placeholder="Amount in bronze"
         style="width:160px;padding:6px;background:#111;color:#eee;border:1px solid #555;border-radius:4px">
-      <button onclick="guildDonate()">💰 Doar</button>
+      <button onclick="guildDonate()">💰 Donate</button>
       ${disbandBtn}
     </div>
     <div id="guild-msg" style="margin-top:8px;min-height:20px"></div>
@@ -2075,7 +2091,7 @@ async function guildDonate() {
   if (!amount || amount <= 0) { guildMsg('Enter a valid amount.', false); return; }
   const r = await api('POST', '/api/guild/donate', { amount });
   if (r.error) { guildMsg(r.error, false); return; }
-  guildMsg(`Donated! Guild gold: ${r.guildGold}`);
+  guildMsg(`Donated! Treasury: ${fmtBronze(r.guildGold ?? 0)}`);
   await loadGuild();
   loadWarrior();
 }

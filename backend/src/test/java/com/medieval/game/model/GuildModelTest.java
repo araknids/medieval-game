@@ -75,10 +75,10 @@ class GuildModelTest {
 
     // Extra: levelUpCost formula
     @Test
-    @DisplayName("TC-extra | levelUpCost level 1 → 0, level 2 → 1000, level 3 → 2000")
+    @DisplayName("TC-extra | levelUpCost level 1 = 1000, level 2 = 2000, level 3 = 3000")
     void tcExtra_levelUpCost_formula() {
-        assertThat(guild(1).levelUpCost()).isEqualTo(0L);
-        assertThat(guild(2).levelUpCost()).isEqualTo(1000L);
-        assertThat(guild(3).levelUpCost()).isEqualTo(2000L);
+        assertThat(guild(1).levelUpCost()).isEqualTo(1000L);
+        assertThat(guild(2).levelUpCost()).isEqualTo(2000L);
+        assertThat(guild(3).levelUpCost()).isEqualTo(3000L);
     }
 }

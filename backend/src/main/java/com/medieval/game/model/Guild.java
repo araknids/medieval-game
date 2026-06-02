@@ -21,6 +21,7 @@ public class Guild {
 
     private String description;
 
+    // Treasury stored in bronze (same unit as player currency)
     @Column(columnDefinition = "bigint default 0")
     private long gold = 0;
 
@@ -38,9 +39,9 @@ public class Guild {
         return 10 + level * 5;
     }
 
-    // Guild gold cost to level up
+    // Cost in bronze to level up: level 1→2 = 1000, level 2→3 = 2000, etc.
     public long levelUpCost() {
-        return (level - 1) * 1000L;
+        return level * 1000L;
     }
 
     // XP bonus % for all members — min(20, (level-1)*5)

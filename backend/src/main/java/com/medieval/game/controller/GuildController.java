@@ -173,20 +173,33 @@ public class GuildController {
 
         boolean isLeader = guild.getLeaderId().equals(player.getId());
 
+        // Decompose treasury (stored in bronze) into bronze/silver/gold for display
+        long rawBronze   = guild.getGold();
+        long tGold       = rawBronze / 10000;
+        long tSilver     = (rawBronze % 10000) / 100;
+        long tBronze     = rawBronze % 100;
+
+        long costBronze  = guild.levelUpCost();
+        long cGold       = costBronze / 10000;
+        long cSilver     = (costBronze % 10000) / 100;
+        long cBronze     = costBronze % 100;
+
         return Map.ofEntries(
-            Map.entry("inGuild",     true),
-            Map.entry("id",          guild.getId()),
-            Map.entry("name",        guild.getName()),
-            Map.entry("description", guild.getDescription() != null ? guild.getDescription() : ""),
-            Map.entry("level",       guild.getLevel()),
-            Map.entry("gold",        guild.getGold()),
-            Map.entry("levelUpCost", guild.levelUpCost()),
-            Map.entry("maxMembers",  guild.maxMembers()),
-            Map.entry("members",     memberList),
-            Map.entry("isLeader",    isLeader),
-            Map.entry("xpBonus",     guild.xpBonus()),
-            Map.entry("dropBonus",   guild.dropBonus()),
-            Map.entry("bronzeBonus", guild.bronzeBonus())
+            Map.entry("inGuild",          true),
+            Map.entry("id",               guild.getId()),
+            Map.entry("name",             guild.getName()),
+            Map.entry("description",      guild.getDescription() != null ? guild.getDescription() : ""),
+            Map.entry("level",            guild.getLevel()),
+            Map.entry("treasuryBronze",   rawBronze),
+            Map.entry("treasury",         Map.of("bronze", tBronze, "silver", tSilver, "gold", tGold)),
+            Map.entry("levelUpCost",      costBronze),
+            Map.entry("levelUpCostFmt",   Map.of("bronze", cBronze, "silver", cSilver, "gold", cGold)),
+            Map.entry("maxMembers",       guild.maxMembers()),
+            Map.entry("members",          memberList),
+            Map.entry("isLeader",         isLeader),
+            Map.entry("xpBonus",          guild.xpBonus()),
+            Map.entry("dropBonus",        guild.dropBonus()),
+            Map.entry("bronzeBonus",      guild.bronzeBonus())
         );
     }
 
