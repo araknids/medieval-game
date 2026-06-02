@@ -21,6 +21,7 @@ public class WarriorService {
     private final TowerRunRepository             towerRepository;
     private final TrainingSessionRepository      trainingRepository;
     private final KingdomActiveQuestRepository   kingdomQuestRepository;
+    private final ZoneActivityRepository         zoneActivityRepository;
 
     @Transactional
     public Warrior create(Player player, String name, WarriorClass warriorClass) {
@@ -81,6 +82,10 @@ public class WarriorService {
         // Cancel tower run
         towerRepository.findByPlayerAndStatus(player, TowerStatus.IN_PROGRESS)
                 .ifPresent(t -> { t.setStatus(TowerStatus.EXITED); towerRepository.save(t); });
+
+        // Cancel orphaned zone activity (expedition/zone session)
+        zoneActivityRepository.findByPlayerAndStatus(player, com.medieval.game.enums.ZoneActivityStatus.IN_PROGRESS)
+                .ifPresent(z -> { z.setStatus(com.medieval.game.enums.ZoneActivityStatus.CANCELLED); zoneActivityRepository.save(z); });
 
         // Cancel active training session (Combat Kingdom)
         trainingRepository.findByPlayerAndStatus(player, com.medieval.game.enums.TrainingStatus.IN_PROGRESS)
