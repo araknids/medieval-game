@@ -2828,12 +2828,14 @@ async function startKingdomGathering(skillType, durationMinutes) {
 
 // PvP / High-Risk zone gathering: /api/zones/enter (Gatherer role)
 async function enterKingdomZone(zone, skillType, durationMinutes) {
+  console.log('[WORLD] enterKingdomZone called:', zone, skillType, durationMinutes);
   const r = await api('POST', '/api/zones/enter', {
     zone,
     role: 'GATHERING',
     skillType,
     durationMinutes
   });
+  console.log('[WORLD] zone enter response:', JSON.stringify(r));
   if (r.error) { worldMsg(r.error, false); return; }
   const label = zone === 'HIGH_RISK' ? 'High Risk' : 'PvP';
   worldMsg(`Entered ${label} zone! ${skillType === 'FISHING' ? 'Fishing' : 'Mining'} for ${durationMinutes >= 60 ? durationMinutes/60+'h' : durationMinutes+'min'}. Watch out for hunters!`);

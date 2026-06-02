@@ -8,6 +8,7 @@ import com.medieval.game.model.ZoneActivity;
 import com.medieval.game.service.PlayerService;
 import com.medieval.game.service.ZoneService;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
@@ -19,6 +20,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
+@Slf4j
 @RestController
 @RequestMapping("/api/zones")
 @RequiredArgsConstructor
@@ -65,10 +67,14 @@ public class ZoneController {
     public ResponseEntity<?> enter(@RequestBody EnterRequest req, Authentication auth) {
         try {
             Player player = getPlayer(auth);
+            log.info("[ZONE-ENTER] player={} zone={} role={} skill={} duration={}min",
+                    player.getId(), req.zone(), req.role(), req.skillType(), req.durationMinutes());
             ZoneActivity activity = zoneService.enter(player, req.zone(), req.role(),
                     req.skillType(), req.durationMinutes());
+            log.info("[ZONE-ENTER] OK → activityId={}", activity.getId());
             return ResponseEntity.ok(toMap(activity));
         } catch (IllegalArgumentException | IllegalStateException e) {
+            log.warn("[ZONE-ENTER] REJECTED → {}", e.getMessage());
             return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
         }
     }
