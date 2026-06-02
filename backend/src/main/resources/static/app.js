@@ -2360,22 +2360,22 @@ function renderTerritories(territories, myStatus) {
 }
 
 function territoryMsg(text, ok = true) {
-  const el = document.getElementById('territory-msg');
+  const el = document.getElementById('world-territory-msg') || document.getElementById('territory-msg');
   if (el) el.innerHTML = `<span style="color:${ok ? '#4caf50' : '#f44336'}">${text}</span>`;
 }
 
 async function territoryDeclare(territory) {
   const r = await api('POST', `/api/territory/${territory}/declare`);
+  await loadWorld();
   if (r.error) { territoryMsg(r.error, false); return; }
   territoryMsg(r.message);
-  await loadTerritories();
 }
 
 async function territoryCancel() {
   const r = await api('POST', '/api/territory/cancel');
+  await loadWorld();
   if (r.error) { territoryMsg(r.error, false); return; }
   territoryMsg(r.message);
-  await loadTerritories();
 }
 
 async function territoryHistory(territory, name) {
@@ -2554,14 +2554,23 @@ async function loadWorld() {
   const el = document.getElementById('world-content');
   el.innerHTML = '<p>Loading...</p>';
   try {
-    const kingdoms = await api('GET', '/api/world');
-    renderWorldOverview(kingdoms);
+    const [kingdoms, territories] = await Promise.all([
+      api('GET', '/api/world'),
+      api('GET', '/api/territory')
+    ]);
+    renderWorldOverview(kingdoms, territories);
   } catch(e) {
     el.innerHTML = '<p style="color:red">Error loading world.</p>';
   }
 }
 
-function renderWorldOverview(kingdoms) {
+const KINGDOM_TO_TERRITORY = {
+  FISHING: 'DESFILADEIRO_DO_OSSO',
+  MINING:  'MINAS_DE_FERRO_NEGRO',
+  COMBAT:  'FORTALEZA_MALDITA'
+};
+
+function renderWorldOverview(kingdoms, territories) {
   const el = document.getElementById('world-content');
   const ZONE_LABELS = {
     FISHING: ['Safe Shore','Wild Coast','Deep Sea'],
@@ -2583,6 +2592,31 @@ function renderWorldOverview(kingdoms) {
       `<span style="font-size:11px;padding:2px 8px;border-radius:12px;background:${zoneBgs[i]};color:${zoneColors[i]}">${z}</span>`
     ).join('');
 
+    const terKey = KINGDOM_TO_TERRITORY[k.kingdom];
+    const ter = (territories || []).find(t => t.territory === terKey);
+
+    const declarersLine = ter && ter.declaringGuilds && ter.declaringGuilds.length > 0
+      ? `<div style="font-size:11px;color:#ffc107;margin-top:4px">⚔ Declared: ${ter.declaringGuilds.join(', ')}</div>`
+      : '';
+
+    const warBtn = ter && !ter.isMine && !ter.myGuildDeclared
+      ? `<button onclick="event.stopPropagation();territoryDeclare('${terKey}')" style="font-size:11px;padding:4px 10px;background:#7a1f1f">⚔ Declare War</button>`
+      : ter && ter.myGuildDeclared
+      ? `<button onclick="event.stopPropagation();territoryCancel()" style="font-size:11px;padding:4px 10px;background:#7a3b00">✖ Cancel Declaration</button>`
+      : '';
+
+    const histBtn = `<button onclick="event.stopPropagation();territoryHistory('${terKey}','${k.displayName}')" style="font-size:11px;padding:4px 10px;background:#333">📜 History</button>`;
+
+    const warSection = `
+      <div onclick="event.stopPropagation()" style="border-top:1px solid #333;margin-top:10px;padding-top:8px">
+        <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
+          <span style="font-size:11px;color:#666">Territory War:</span>
+          ${warBtn}
+          ${histBtn}
+        </div>
+        ${declarersLine}
+      </div>`;
+
     return `<div onclick="enterKingdom('${k.kingdom}')" style="background:#1a1a2e;border:1px solid ${k.isMine ? '#4caf50' : '#444'};border-radius:10px;padding:16px;margin-bottom:12px;cursor:pointer">
       <div style="display:flex;justify-content:space-between;align-items:flex-start">
         <div>
@@ -2593,10 +2627,12 @@ function renderWorldOverview(kingdoms) {
       </div>
       <p style="color:#888;font-size:12px;margin:8px 0 0">${k.lore}</p>
       <div style="margin-top:8px;display:flex;gap:6px;flex-wrap:wrap">${zoneHtml}</div>
+      ${warSection}
     </div>`;
   }).join('');
 
-  el.innerHTML = cards + '<div id="kingdom-detail" style="margin-top:16px"></div>';
+  el.innerHTML = cards + '<div id="kingdom-detail" style="margin-top:16px"></div>' +
+                 '<div id="world-territory-msg" style="margin-top:8px;min-height:20px"></div>';
 }
 
 async function enterKingdom(kingdom) {
