@@ -417,10 +417,23 @@ Aplicados automaticamente em quests e trabalho para todos os membros:
 - Declaração de ataque feita pelo líder antes do próximo ciclo de 6h
 
 ### Ciclo de Batalhas (automático — 00h, 06h, 12h, 18h UTC)
-- Território neutro: guilda luta NPCs (1 NPC por membro); se múltiplas guildas venceram, lutam entre si
-- Território controlado: defensores lutam contra cada atacante em sequência
-  - Defensores regeneram HP entre lutas, exceto após a última
-  - Debuff de streak não se aplica na rodada atual
+
+**1 atacante:**
+- Neutro: luta NPCs → vence → domina
+- Controlado: luta defensores → vence → domina
+
+**Múltiplos atacantes — 2 Fases:**
+
+**Fase 1 — Todos lutam contra os defensores originais de forma independente:**
+- Cada guilda atacante luta separadamente contra os defensores
+- Defensores recuperam HP entre lutas (exceto após a última)
+- HP restante de cada atacante é salvo no banco (HP Fase 1)
+- Debuff de streak aplicado nos defensores em todas as lutas da Fase 1
+
+**Fase 2 — Desempate aleatório entre vencedores da Fase 1:**
+- Vencedores embaralhados aleatoriamente (sem vantagem por quem declarou primeiro)
+- Cada luta usa o HP Fase 1 de ambas as guilds (sem carry-over entre lutas)
+- Vencedora da última luta domina o território
 
 ### Mecânica Guild Brawl
 - Todos os membros com HP > 0 participam

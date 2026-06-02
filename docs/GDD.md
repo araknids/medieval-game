@@ -573,13 +573,23 @@ Cada guilda luta seus próprios NPCs separadamente. Quem vencer luta entre si (o
 **Território controlado + 1 atacante:**
 Defensor luta contra atacante. Vencedor fica/toma o território.
 
-**Território controlado + múltiplos atacantes:**
-Defensor luta contra cada atacante em sequência (ordem de declaração):
-- Entre cada luta: defensores **recuperam HP ao estado pré-batalha**
-- Após a **última** luta da rodada: defensores **não recuperam** HP
-- Debuff da streak **não se aplica** nessa rodada (aplica na próxima)
-- Se defender vencer todos: mantém território, streak +1
-- Se algum atacante vencer: toma o território, streak e debuff zerados
+**Território controlado + múltiplos atacantes — 2 Fases:**
+
+**Fase 1 — Todos os atacantes lutam contra os defensores originais de forma independente:**
+- Cada guild atacante luta contra os defensores originais (Guild X) separadamente
+- Defensores **recuperam HP entre cada luta** da Fase 1 (exceto após a última)
+- O HP restante de cada atacante após a Fase 1 é salvo no banco (**HP Fase 1**)
+- Guilds que venceram os defensores avançam para a Fase 2
+
+**Fase 2 — Desempate aleatório entre os vencedores da Fase 1:**
+- Vencedores são **embaralhados aleatoriamente** (sem vantagem por ordem de declaração)
+- Cada luta do desempate: ambas as guilds entram com o **HP Fase 1** (do banco)
+- O HP **não** carrega entre lutas do desempate — cada luta reseta ao HP Fase 1
+- "Você lutou com o defensor e ficou com o que sobrou" — mesma condição inicial para todos
+- Vencedora da última luta domina o território
+
+**Se todos os atacantes perderem na Fase 1:** defensor mantém, streak +1
+**Se apenas um atacante vencer na Fase 1:** toma o território diretamente (sem Fase 2)
 
 ### 14.5 Mecânica de Batalha (Guild Brawl)
 

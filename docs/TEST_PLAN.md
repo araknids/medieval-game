@@ -2916,4 +2916,68 @@ Validates guild has no territory; registers declaration for next cycle.
 
 ---
 
-*Updated 2026-06-02. Total: 152 test cases (TC-001 to TC-052 unit; TC-051 to TC-152 integration).*
+---
+
+## Unit Tests — Territory War Brawl Mechanics (TC-053 to TC-061)
+**Class:** `TerritoryWarTest`
+
+### TC-053: Vastly superior attacker wins (×10 repeated)
+Stats: ATK 100/DEF 50/HP 300 vs ATK 5/DEF 2/HP 20 → attacker always wins
+
+### TC-054: Vastly superior defender wins (×10 repeated)
+Inverse of TC-053 → defender always wins
+
+### TC-055: 2v1 — two attackers beat one defender majority of runs
+10 runs with equal fighters → attackers win >5 times
+
+### TC-056: Phase 1 HP — fresh fighter beats 1 HP fighter
+Fresh fighter (200 HP) vs tired fighter (1 HP) → fresh wins >7/10 runs
+
+### TC-057: Phase 2 tiebreaker — identical Phase 1 HP, neither guaranteed winner
+30 runs with identical fighters → each wins at least once (non-deterministic)
+
+### TC-058: Phase 2 tiebreaker — better Phase 1 HP wins majority
+200 HP vs 80 HP → 200 HP wins majority (>5/10)
+
+### TC-059: Battle log always has start and outcome lines
+Log contains "The battle begins!" and "Attackers have conquered" or "Defenders held"
+
+### TC-060: Empty attackers → defenders win immediately
+### TC-061: Empty defenders → attackers win immediately
+
+---
+
+## Integration Tests — Warrior Exclusivity & Sequence (TC-153 to TC-160)
+**Class:** `WarriorExclusivityTest`
+
+These tests verify that a warrior cannot perform 2 simultaneous tasks and that
+collecting one task correctly frees the warrior for the next (catches state bugs).
+
+### TC-153: After collecting kingdom quest → warrior free → can start next quest
+Sequence: start quest → collect → start another quest → 200 (not 400)
+
+### TC-154: Cannot start 2 kingdom quests simultaneously
+Start quest FISHING → start quest MINING → 400
+
+### TC-155: Cannot start Work while on Kingdom quest (cross-system)
+### TC-156: Cannot start Kingdom quest while Working (cross-system)
+### TC-157: Cannot start Kingdom quest while Training at Fortaleza (cross-system)
+### TC-158: Cannot start Kingdom quest while gathering (cross-system)
+### TC-159: After Work collected → warrior free → can start kingdom quest
+### TC-160: After abandoning quest → warrior free → can start another quest
+
+---
+
+## Regression Tests — Zone Orphan State (TC-096, TC-097)
+**Class:** `ZoneIntegrationTest` — added after production bug
+
+### TC-096: freeIfStuck clears IN_PROGRESS zone → re-enter works
+Enter zone → /api/warrior/free → enter zone again → 200 (not "already on expedition")
+
+### TC-097: Zone enter auto-cancels orphaned expedition when warrior is free
+Enter zone → free warrior → enter different zone → ZoneService detects inconsistency
+and auto-cancels the orphan before creating the new zone
+
+---
+
+*Updated 2026-06-02. Total: 241 tests (TC-001-061 unit [includes RepeatedTests]; TC-051-160 integration; TC-096-097 regression).*
