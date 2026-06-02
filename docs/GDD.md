@@ -394,7 +394,16 @@ Ao subir de nível, a guilda aumenta a capacidade de membros **e concede bônus 
 | POST | `/api/guild/levelup` | Subir nível (líder) |
 | DELETE | `/api/guild` | Dissolver (líder) |
 
-### 8.7 Futuro (requer guilda)
+### 8.7 Ranking de Doações
+
+Exibido no painel da guilda abaixo da lista de membros. Mostra quem mais contribuiu para o tesouro da guilda na sessão atual.
+
+- **Campo:** `Player.guildDonatedBronze` — acumula o total doado pelo jogador à guilda atual
+- **Reset:** zerado ao entrar em nova guilda, sair ou a guilda ser dissolvida
+- **Ordenação:** descendente por bronze doado
+- **Exibição:** nome do guerreiro + total doado (formato bronze/prata/ouro)
+
+### 8.9 Futuro (requer guilda)
 
 - **Masmorra em grupo**: membros entram individualmente, batalha resolvida quando todos confirmam
 - **Dominação de castelo**: disputa territorial por zona, timer global, recompensas coletivas

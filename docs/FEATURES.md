@@ -389,8 +389,15 @@ Aplicados automaticamente em quests e trabalho para todos os membros:
 - Gold da guilda usado para subir nível
 - Custo de nível: `(level-1) × 1000` guild gold
 
-### Ranking
+### Ranking de Guildas
 - Guildas listadas por nível desc, depois gold desc
+
+### Ranking de Doações (dentro da guilda)
+- Exibido no painel da guilda, abaixo da lista de membros
+- Mostra cada membro e quanto doou ao tesouro na sessão atual
+- Ordenado por `guildDonatedBronze` descrescente
+- Valor exibido no formato bronze/prata/ouro
+- `Player.guildDonatedBronze` é zerado ao entrar/sair/guilda dissolvida
 
 ---
 

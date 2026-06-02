@@ -2766,4 +2766,22 @@ Verifica fórmula `max(0, level-3)×5` com cap 10
 
 ---
 
-*Atualizado em 2026-06-01. Total: 120 casos de teste (TC-001 a TC-040 unitários; TC-051 a TC-120 integração).*
+---
+
+## Testes de Integração — Donation Rank (TC-121 a TC-123)
+
+### TC-121: GET /api/guild → donationRank presente no payload
+**Tipo:** Integração  
+Após criar guilda, `donationRank` deve ser array (vazio ou com membros).
+
+### TC-122: Donate → donationRank atualiza com valor correto
+**Tipo:** Integração  
+Membro doa 50 bronze → `donationRank[0].donatedBronze == 50`, `donationRank[0].isMe == true`.
+
+### TC-123: Sair da guilda zera guildDonatedBronze ao entrar em outra
+**Tipo:** Integração  
+Player doa, sai e entra em nova guilda → `donationRank[0].donatedBronze == 0`.
+
+---
+
+*Atualizado em 2026-06-02. Total: 123 casos de teste (TC-001 a TC-040 unitários; TC-051 a TC-123 integração).*

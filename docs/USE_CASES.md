@@ -1429,4 +1429,24 @@
 
 ---
 
-*Atualizado em 2026-06-01. Guildas: UC-48 a UC-57 (inclui bônus passivos por nível).*
+---
+
+### UC-58: Visualizar Ranking de Doações da Guilda
+**Ator:** Membro da guilda  
+**Pré-condições:** Jogador pertence a uma guilda.
+
+**Fluxo Principal:**
+1. Jogador abre a aba Guilda.
+2. Sistema exibe painel da guilda com ranking de doações ao final.
+3. Cada membro aparece com seu nome e total doado (bronze/prata/ouro).
+4. Lista ordenada do maior para o menor doador.
+
+**Fluxo Alternativo:**
+- Nenhum membro doou ainda → exibe "No donations yet."
+
+**Pós-condições:** Somente leitura; nenhum estado alterado.  
+**Regras:** `guildDonatedBronze` é zerado ao entrar, sair ou guilda ser dissolvida.
+
+---
+
+*Atualizado em 2026-06-02. Guildas: UC-48 a UC-58.*
