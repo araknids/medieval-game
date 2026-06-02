@@ -483,7 +483,78 @@ Aplicados automaticamente em quests e trabalho para todos os membros:
 
 ---
 
-## 23. Funcionalidades Futuras Planejadas
+## 23. World Tab — 3 Reinos 🚧 Planejado
+
+Substitui as abas Taverna, Expedições, Habilidades (pesca/mineração) e Territórios por uma única aba **World** organizada em 3 reinos interdependentes.
+
+### Abas removidas / reorganizadas
+
+| Antes | Depois |
+|-------|--------|
+| Taverna (quests) | Dentro de cada reino → Taverna do reino |
+| Expedições (zones) | Dentro de cada reino → zonas por tipo |
+| Habilidades pesca/mine | Dentro de cada reino → gathering do reino |
+| Territórios | Integrado na tela de cada reino |
+| Smithing/Forja | Move para Commerce |
+
+### Estrutura dos 3 Reinos
+
+#### 🎣 Desfiladeiro do Osso — Reino da Pesca
+
+| Zona | Level | Risco | Atividade |
+|------|-------|-------|-----------|
+| Porto Seguro | 1+ | Nenhum | Pesca básica |
+| Costa Selvagem | 10+ | PvP | Pesca com hunters |
+| Mar Profundo | 20+ | PvP + monstros | Peixes raros |
+
+- **Quests:** Patrulhe a Costa, Explore os Recifes, Raid do Mar Profundo, Caça ao Monstro Marinho
+- **Futuro:** Sistema de Cozinha → refeições com buffs premium, bônus de guild
+
+#### ⛏ Minas de Ferro Negro — Reino da Mineração
+
+| Zona | Level | Risco | Atividade |
+|------|-------|-------|-----------|
+| Mina Aberta | 1+ | Nenhum | Mineração básica |
+| Túneis Profundos | 10+ | PvP | Mineração com hunters |
+| Minas Proibidas | 20+ | PvP + monstros | Minérios raros |
+
+- **Quests:** Escolta os Mineiros, Limpe as Cavernas, Recupere o Minério Raro, Derrote a Besta das Cavernas
+
+#### ⚔ Fortaleza Maldita — Reino do Combate
+
+| Zona | Level | Risco | Atividade |
+|------|-------|-------|-----------|
+| Arena de Treino | 1+ | Nenhum | **Treino pago** — paga bronze, ganha EXP (timer) |
+| Campo de Batalha | 10+ | PvP | Monstros + players |
+| Zona de Guerra | 20+ | PvP + monstros | Combate intenso |
+
+- **Quests:** Defenda as Muralhas, Limpe a Masmorra, Raid ao Acampamento, Caça ao Senhor da Guerra
+- **Treino:** nova mecânica — paga bronze, guerreiro treina por X horas, coleta XP puro
+
+### Interdependência forçada
+
+| Necessidade | Fonte |
+|-------------|-------|
+| Estamina premium | Peixes → Desfiladeiro |
+| Equipamento | Forja (Commerce) ← Minério ← Minas |
+| EXP/Level rápido | Treino + Quests ← Fortaleza |
+
+### Mecânica de Treino (nova — Fortaleza)
+
+- Player paga X bronze → guerreiro fica "treinando" por Y horas
+- Timer como Work, mas recompensa é **XP puro** (sem bronze, sem itens)
+- Mais eficiente em XP/hora que quests; sem outras recompensas
+- Custo e XP escalam com o nível do guerreiro
+
+### Guild War integrada
+
+- Sistema atual de Guild War permanece idêntico
+- Declarar ataque e ver status ficam **dentro da tela do reino**
+- Cada reino mantém seus bônus exclusivos para guilda dominante
+
+---
+
+## 24. Funcionalidades Futuras Planejadas
 
 - [ ] Cliente Godot (Steam)
 - [ ] Mercado entre jogadores (integração Steam Marketplace)

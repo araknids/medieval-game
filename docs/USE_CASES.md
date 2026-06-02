@@ -1603,4 +1603,92 @@
 
 ---
 
-*Updated 2026-06-02. Mail system: UC-65 to UC-68.*
+---
+
+## World Tab — 3 Reinos 🚧 Planejado
+
+### UC-69: View World — Kingdom Overview
+**Actor:** Authenticated player
+
+**Flow:**
+1. Player opens World tab.
+2. System displays 3 kingdom cards (Desfiladeiro, Minas, Fortaleza) with: controlling guild, player's guild bonus (if any), next war timer.
+3. Player selects a kingdom.
+
+---
+
+### UC-70: Enter Kingdom — View Kingdom Detail
+**Actor:** Any player
+
+**Flow:**
+1. Player clicks a kingdom card.
+2. System displays the kingdom detail view with available zones based on player level.
+3. Zones above player's level are locked with lock icon.
+
+---
+
+### UC-71: Start Kingdom Quest
+**Actor:** Player with available warrior (not on mission)
+**Pre-conditions:** Warrior not busy, sufficient stamina.
+
+**Flow:**
+1. Player opens kingdom tavern tab within the kingdom view.
+2. System lists quests specific to that kingdom.
+3. Player selects quest → warrior goes on mission (same timer mechanic as current quests).
+
+**Alternate:**
+- Warrior busy or insufficient stamina → 400.
+
+---
+
+### UC-72: Gather Resources in Kingdom Zone
+**Actor:** Player (lv requirement met for chosen zone)
+
+**Flow:**
+1. Player selects a zone within the kingdom (e.g., Porto Seguro for fishing).
+2. Chooses duration (fishing: 5-40min; mining: 10-60min).
+3. Warrior starts gathering session. Timer runs.
+4. Player collects on completion.
+
+**PvP zones (lv10+):** player may be attacked by hunters while gathering.
+
+---
+
+### UC-73: Train at Fortaleza (Combat Kingdom)
+**Actor:** Player in Fortaleza Maldita
+**Pre-conditions:** Warrior available, sufficient bronze.
+
+**Flow:**
+1. Player opens Arena de Treino.
+2. Selects training duration (1-12h).
+3. System calculates bronze cost and XP reward based on warrior level.
+4. Player confirms → warrior trains (timer). Warrior marked as busy.
+5. Player collects: receives XP only (no bronze, no items).
+
+**Alternate:**
+- Insufficient bronze → 400.
+
+---
+
+### UC-74: Declare Guild War from Kingdom View
+**Actor:** Guild leader (guild without territory)
+**Pre-conditions:** Same as UC-60.
+
+**Flow:**
+1. Player opens kingdom detail view.
+2. Clicks "Declare Attack" button within the kingdom's war section.
+3. System registers declaration (same mechanic as UC-60, just accessed from kingdom UI).
+
+---
+
+### UC-75: View Kingdom Zone with PvP (Hunter Role)
+**Actor:** Player lv10+
+
+**Flow:**
+1. Player selects a PvP zone in any kingdom (lv10+ required).
+2. Can enter as **Gatherer** (gathering resources with risk) OR **Hunter** (hunting other players).
+3. Resolution same as current Zone system.
+
+---
+
+*Updated 2026-06-02. World/3 Kingdoms: UC-69 to UC-75.*

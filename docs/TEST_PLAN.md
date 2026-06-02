@@ -2861,4 +2861,59 @@ Membros de guilda dominante recebem XP e bronze com +10% base.
 
 ---
 
-*Updated 2026-06-02. Total: 141 test cases (TC-001 to TC-048 unit; TC-051 to TC-141 integration).*
+---
+
+## Unit Tests — World / 3 Kingdoms (TC-049 to TC-052)
+
+### TC-049: Kingdom.questsFor(kingdom) returns only kingdom-specific quests
+**Type:** Unit | **Class:** KingdomServiceTest
+Quests linked to DESFILADEIRO are not returned for FORTALEZA.
+
+### TC-050: TrainingSession.xpReward() scales with warrior level
+**Type:** Unit
+Level 10 warrior earns more XP/h than level 1 for same duration.
+
+### TC-051: TrainingSession.bronzeCost() scales with warrior level
+**Type:** Unit
+Higher level warrior pays more bronze to train.
+
+### TC-052: Kingdom zone locking — player below min level cannot access
+**Type:** Unit
+Player lv5 cannot enter zone with minLevel=10 (KingdomZone validation).
+
+---
+
+## Integration Tests — World / 3 Kingdoms (TC-142 to TC-152)
+
+### TC-142: GET /api/world → returns 3 kingdoms with status
+Each kingdom has: name, controllingGuild (or null), playerGuildBonus, zones.
+
+### TC-143: GET /api/world/{kingdom} → returns kingdom detail with zones
+Locked zones show locked:true for player below level.
+
+### TC-144: POST /api/world/{kingdom}/quest/start → quest started (warrior busy)
+Same mechanic as current quest, but kingdom-specific quest type.
+
+### TC-145: POST /api/world/{kingdom}/quest/start — warrior busy → 400
+### TC-146: POST /api/world/{kingdom}/gather → gathering session started
+Kingdom DESFILADEIRO → FISHING; MINAS → MINING.
+
+### TC-147: POST /api/world/{kingdom}/gather — below zone level → 400
+Player lv5 trying to enter HIGH_RISK zone → 400.
+
+### TC-148: POST /api/world/FORTALEZA_MALDITA/train → training session started
+Response: bronze deducted, session created with XP reward.
+
+### TC-149: POST /api/world/FORTALEZA_MALDITA/train — insufficient bronze → 400
+### TC-150: POST /api/world/FORTALEZA_MALDITA/train/{id}/collect → XP awarded
+No bronze or items received — XP only.
+
+### TC-151: GET /api/world → shows guild bonus for player's guild's territory
+Player in guild controlling Minas → Minas card shows bonus active.
+
+### TC-152: POST /api/world/{kingdom}/declare — same as territory declare
+Validates guild has no territory; registers declaration for next cycle.
+
+---
+
+*Updated 2026-06-02. Total: 152 test cases (TC-001 to TC-052 unit; TC-051 to TC-152 integration).*
