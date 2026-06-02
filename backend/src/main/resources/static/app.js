@@ -2600,18 +2600,20 @@ async function enterKingdom(kingdom) {
   if (!el) return;
   el.innerHTML = '<p>Loading kingdom...</p>';
   try {
-    const [quests, activeQuests, training] = await Promise.all([
+    const [quests, activeQuests, training, gatherSession, zoneSession] = await Promise.all([
       api('GET', `/api/world/${kingdom}/quests`),
       api('GET', `/api/world/${kingdom}/quests/active`),
-      kingdom === 'COMBAT' ? api('GET', '/api/world/COMBAT/training') : Promise.resolve(null)
+      kingdom === 'COMBAT' ? api('GET', '/api/world/COMBAT/training') : Promise.resolve(null),
+      (kingdom === 'FISHING' || kingdom === 'MINING') ? api('GET', '/api/gathering/current') : Promise.resolve(null),
+      (kingdom === 'FISHING' || kingdom === 'MINING') ? api('GET', '/api/zones/current') : Promise.resolve(null)
     ]);
-    renderKingdomDetail(kingdom, quests, activeQuests, training);
+    renderKingdomDetail(kingdom, quests, activeQuests, training, gatherSession, zoneSession);
   } catch(e) {
     el.innerHTML = '<p style="color:red">Error loading kingdom.</p>';
   }
 }
 
-function renderKingdomDetail(kingdom, quests, activeQuests, training) {
+function renderKingdomDetail(kingdom, quests, activeQuests, training, gatherSession, zoneSession) {
   const el = document.getElementById('kingdom-detail');
   const NAMES = { FISHING:'Desfiladeiro do Osso', MINING:'Minas de Ferro Negro', COMBAT:'Fortaleza Maldita' };
   const ICONS = { FISHING:'🎣', MINING:'⛏', COMBAT:'⚔' };
@@ -2654,6 +2656,32 @@ function renderKingdomDetail(kingdom, quests, activeQuests, training) {
           </div>
         </div>`;
     }
+  }
+
+  // Active gathering / zone session banner
+  let activeGatherHtml = '';
+  if (gatherSession && gatherSession.active) {
+    const secsLeft = gatherSession.secondsRemaining || 0;
+    const timeStr  = secsLeft > 3600 ? `${Math.floor(secsLeft/3600)}h ${Math.floor((secsLeft%3600)/60)}m` : `${Math.floor(secsLeft/60)}m`;
+    activeGatherHtml = `
+      <div style="background:#0f2f2f;border:1px solid #00897b;border-radius:8px;padding:12px;margin-bottom:12px">
+        <strong style="color:#4db6ac">🎣 Gathering in Progress</strong>
+        <div style="font-size:13px;color:#aaa;margin-top:4px">${gatherSession.displayName} · ${secsLeft <= 0 ? 'Ready!' : timeStr + ' remaining'}</div>
+        ${secsLeft <= 0
+          ? `<button onclick="collectKingdomGather(${gatherSession.id})" style="margin-top:8px;background:#00695c">Collect</button>`
+          : `<button onclick="cancelKingdomGather(${gatherSession.id})" style="margin-top:8px;background:#555;font-size:12px">✕ Cancel</button>`}
+      </div>`;
+  } else if (zoneSession && zoneSession.active) {
+    const secsLeft = zoneSession.secondsRemaining || 0;
+    const timeStr  = secsLeft > 3600 ? `${Math.floor(secsLeft/3600)}h ${Math.floor((secsLeft%3600)/60)}m` : `${Math.floor(secsLeft/60)}m`;
+    activeGatherHtml = `
+      <div style="background:#2f0f0f;border:1px solid #ef5350;border-radius:8px;padding:12px;margin-bottom:12px">
+        <strong style="color:#ef9a9a">⚔ Expedition in Progress (${zoneSession.zoneName || zoneSession.zone})</strong>
+        <div style="font-size:13px;color:#aaa;margin-top:4px">${secsLeft <= 0 ? 'Ready to collect!' : timeStr + ' remaining'}</div>
+        ${secsLeft <= 0
+          ? `<button onclick="collectKingdomZoneSession(${zoneSession.id})" style="margin-top:8px;background:#c62828">Collect Loot</button>`
+          : `<button onclick="cancelKingdomZoneSession(${zoneSession.id})" style="margin-top:8px;background:#555;font-size:12px">✕ Cancel</button>`}
+      </div>`;
   }
 
   // Gathering section for FISHING and MINING kingdoms — 3 zones per kingdom
@@ -2723,6 +2751,7 @@ function renderKingdomDetail(kingdom, quests, activeQuests, training) {
         <button onclick="document.getElementById('kingdom-detail').innerHTML=''" style="background:#333;font-size:12px">✕ Close</button>
       </div>
       ${activeHtml}
+      ${activeGatherHtml}
       ${trainingHtml}
       <h4 style="margin:0 0 8px;color:#aaa;font-size:13px">QUESTS</h4>
       ${questCards}
@@ -2806,6 +2835,41 @@ async function enterKingdomZone(zone, skillType, durationMinutes) {
   if (r.error) { worldMsg(r.error, false); return; }
   const label = zone === 'HIGH_RISK' ? 'High Risk' : 'PvP';
   worldMsg(`Entered ${label} zone! ${skillType === 'FISHING' ? 'Fishing' : 'Mining'} for ${durationMinutes >= 60 ? durationMinutes/60+'h' : durationMinutes+'min'}. Watch out for hunters!`);
+  if (worldCurrentKingdom) await enterKingdom(worldCurrentKingdom);
+  loadWarrior();
+}
+
+// Kingdom gathering session helpers
+async function collectKingdomGather(sessionId) {
+  const r = await api('POST', `/api/gathering/${sessionId}/collect`);
+  if (r.error) { worldMsg(r.error, false); return; }
+  worldMsg('Gathering collected!');
+  if (worldCurrentKingdom) await enterKingdom(worldCurrentKingdom);
+  loadWarrior();
+}
+
+async function cancelKingdomGather(sessionId) {
+  if (!confirm('Cancel gathering session? You lose all collected resources.')) return;
+  const r = await api('POST', `/api/gathering/${sessionId}/cancel`);
+  if (r.error) { worldMsg(r.error, false); return; }
+  worldMsg('Gathering cancelled.');
+  if (worldCurrentKingdom) await enterKingdom(worldCurrentKingdom);
+  loadWarrior();
+}
+
+async function collectKingdomZoneSession(activityId) {
+  const r = await api('POST', `/api/zones/${activityId}/collect`);
+  if (r.error) { worldMsg(r.error, false); return; }
+  worldMsg('Expedition loot collected!');
+  if (worldCurrentKingdom) await enterKingdom(worldCurrentKingdom);
+  loadWarrior();
+}
+
+async function cancelKingdomZoneSession(activityId) {
+  if (!confirm('Cancel expedition? You lose all resources gathered so far.')) return;
+  const r = await api('POST', `/api/zones/${activityId}/cancel`);
+  if (r.error) { worldMsg(r.error, false); return; }
+  worldMsg('Expedition cancelled.');
   if (worldCurrentKingdom) await enterKingdom(worldCurrentKingdom);
   loadWarrior();
 }
