@@ -646,6 +646,46 @@ Stats do NPC: média dos warriors da guilda atacante × fator de dificuldade do 
 - [ ] Balanceamento de economia (baseado em dados reais de uso)
 - [ ] Notificações quando timer termina (push notification ou email)
 
+### 14.x TODO — Internacionalização (i18n) Incompleta
+
+Sistema base de i18n implementado (`lang/en.json`, `lang/pt.json`, função `t()`).
+O que ainda falta traduzir para cobertura completa EN ↔ PT:
+
+**Frontend — conteúdo dinâmico (funções `loadXxx()` em `app.js`)**
+
+| Painel | O que falta aplicar `t()` |
+|--------|--------------------------|
+| Quest | Botões "Collect", "Abandon", "Send Warrior"; nomes dos tipos de quest no card; status badges |
+| Arena | Botão "Challenge", resultado da batalha, mensagens de status |
+| Tower | Botões "Enter Tower", "Fight Boss", "Exit Tower"; ranking da torre |
+| Temple | Botões de cura e buffs; nome dos buffs; custo de proteção |
+| Skills | Botões "Start", "Collect", "Cancel" de pesca/mineração; botões da forja |
+| Zones | Nomes das zonas nos cards; botões "Enter Zone"; papel (Hunting/Gathering) |
+| Shop | Botão "Buy", "Purchased", timer de rotação |
+| Guild | Botões de ação (Leave, Kick, Transfer, Donate, Level Up, Disband); labels de membros |
+| Mail | Botão "Send", "Collect", "Delete"; placeholder dos campos |
+| Territory | Já parcialmente traduzido — revisar nomes dos NPCs |
+
+**Backend — displayNames dos enums (vêm do servidor, lidos no frontend)**
+
+| Enum | Exemplos a traduzir via lang file |
+|------|----------------------------------|
+| `QuestType` | "Patrulha" → `t('quest.type.PATROL')` |
+| `WorkType` | "Ajudante da Taverna" → `t('work.job.TAVERN_HELPER')` — **já parcialmente feito** |
+| `BuffType` | "Força", "Agilidade" → `t('temple.buff.STRENGTH')` |
+| `SkillType` | "Pesca", "Mineração" → chaves de skills |
+| `Zone` | "Zona Segura" → `t('zones.zone.SAFE')` — **já feito** |
+| `Territory` | "Fortaleza Maldita" → `t('territory.name.FORTALEZA_MALDITA')` — **já feito** |
+| `ItemType` | Nomes de equipamentos nos cards do inventário |
+
+**Outros**
+
+- [ ] Mensagens de erro e sucesso do frontend (ex: "Guild created!", "Letter sent!")
+- [ ] Battle log (textos em português no `BattleSimulator.java` — comentários aceitos, mas strings visíveis ao usuário devem ser EN)
+- [ ] Nomes de itens e lore gerados pelo `ItemLoreGenerator.java` (game content, pode ser Phase 2)
+- [ ] Textos de narrativa das quests
+- [ ] Adicionar `es.json`, `fr.json` etc. para mais idiomas (Phase 3)
+
 ### 14.3 Fase Godot (v1.0 — Cliente Desktop)
 
 - [ ] Cliente Godot com assets visuais 2D medievais
