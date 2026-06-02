@@ -13,12 +13,14 @@ import org.springframework.transaction.annotation.Transactional;
 @RequiredArgsConstructor
 public class WarriorService {
 
-    private final WarriorRepository          warriorRepository;
-    private final ActiveQuestRepository      questRepository;
-    private final WorkSessionRepository      workRepository;
-    private final GatheringSessionRepository gatheringRepository;
-    private final ArenaMatchRepository       arenaRepository;
-    private final TowerRunRepository         towerRepository;
+    private final WarriorRepository              warriorRepository;
+    private final ActiveQuestRepository          questRepository;
+    private final WorkSessionRepository          workRepository;
+    private final GatheringSessionRepository     gatheringRepository;
+    private final ArenaMatchRepository           arenaRepository;
+    private final TowerRunRepository             towerRepository;
+    private final TrainingSessionRepository      trainingRepository;
+    private final KingdomActiveQuestRepository   kingdomQuestRepository;
 
     @Transactional
     public Warrior create(Player player, String name, WarriorClass warriorClass) {
@@ -76,9 +78,22 @@ public class WarriorService {
         arenaRepository.findByChallengerAndStatus(player, MatchStatus.FIGHTING)
                 .ifPresent(a -> { a.setStatus(MatchStatus.COLLECTED); arenaRepository.save(a); });
 
-        // Cancela run da torre
+        // Cancel tower run
         towerRepository.findByPlayerAndStatus(player, TowerStatus.IN_PROGRESS)
                 .ifPresent(t -> { t.setStatus(TowerStatus.EXITED); towerRepository.save(t); });
+
+        // Cancel active training session (Combat Kingdom)
+        trainingRepository.findByPlayerAndStatus(player, com.medieval.game.enums.TrainingStatus.IN_PROGRESS)
+                .ifPresent(t -> { t.setStatus(com.medieval.game.enums.TrainingStatus.CANCELLED); trainingRepository.save(t); });
+
+        // Cancel active kingdom quests
+        kingdomQuestRepository.findByPlayerAndStatusNotOrderByStartedAtDesc(player, QuestStatus.COLLECTED)
+                .forEach(q -> {
+                    if (q.getStatus() == QuestStatus.IN_PROGRESS) {
+                        q.setStatus(QuestStatus.ABANDONED);
+                        kingdomQuestRepository.save(q);
+                    }
+                });
 
         warrior.setOnMission(false);
         warriorRepository.save(warrior);

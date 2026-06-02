@@ -2618,7 +2618,10 @@ function renderKingdomDetail(kingdom, quests, activeQuests, training) {
         <div style="background:#1a1a2e;border:1px solid #5c6bc0;border-radius:8px;padding:12px;margin-bottom:12px">
           <strong style="color:#7986cb">🏋 Training in Progress</strong>
           <div style="font-size:13px;color:#aaa;margin-top:4px">+${training.xpReward} XP · ${Math.floor(training.secondsRemaining/60)}m remaining</div>
-          ${training.readyToCollect ? `<button onclick="collectTraining(${training.id})" style="margin-top:8px;background:#3949ab">⭐ Collect XP</button>` : ''}
+          <div style="display:flex;gap:8px;margin-top:8px">
+            ${training.readyToCollect ? `<button onclick="collectTraining(${training.id})" style="background:#3949ab">⭐ Collect XP</button>` : ''}
+            <button onclick="cancelTraining(${training.id})" style="background:#555;font-size:12px">✕ Cancel</button>
+          </div>
         </div>`;
     } else {
       const lvl = warrior ? warrior.level : 1;
@@ -2631,6 +2634,23 @@ function renderKingdomDetail(kingdom, quests, activeQuests, training) {
           </div>
         </div>`;
     }
+  }
+
+  // Gathering section for FISHING and MINING kingdoms
+  let gatheringHtml = '';
+  if (kingdom === 'FISHING' || kingdom === 'MINING') {
+    const skillType = kingdom === 'FISHING' ? 'FISHING' : 'MINING';
+    const icon      = kingdom === 'FISHING' ? '🎣' : '⛏';
+    const label     = kingdom === 'FISHING' ? 'Fishing' : 'Mining';
+    const durations = kingdom === 'FISHING' ? [5,10,20,30,40] : [10,20,30,45,60];
+    gatheringHtml = `
+      <div style="background:#1a1a2e;border:1px solid #333;border-radius:8px;padding:12px;margin-bottom:12px">
+        <strong style="color:#4db6ac">${icon} ${label}</strong>
+        <p style="font-size:12px;color:#888;margin:4px 0 8px">Start a gathering session to collect resources in this kingdom.</p>
+        <div style="display:flex;gap:6px;flex-wrap:wrap">
+          ${durations.map(d => `<button onclick="startKingdomGathering('${skillType}',${d})" style="font-size:12px">${d}min</button>`).join('')}
+        </div>
+      </div>`;
   }
 
   const questCards = quests.map(q => {
@@ -2665,6 +2685,7 @@ function renderKingdomDetail(kingdom, quests, activeQuests, training) {
       ${trainingHtml}
       <h4 style="margin:0 0 8px;color:#aaa;font-size:13px">QUESTS</h4>
       ${questCards}
+      ${gatheringHtml}
       <div id="world-msg" style="margin-top:8px;min-height:20px"></div>
     </div>`;
 }
@@ -2707,10 +2728,27 @@ async function startTraining(hours) {
   loadWarrior();
 }
 
+async function cancelTraining(sessionId) {
+  if (!confirm('Cancel training? You will not receive any XP.')) return;
+  const r = await api('POST', `/api/world/COMBAT/training/${sessionId}/cancel`);
+  if (r.error) { worldMsg(r.error, false); return; }
+  worldMsg(r.message);
+  await enterKingdom('COMBAT');
+  loadWarrior();
+}
+
 async function collectTraining(sessionId) {
   const r = await api('POST', `/api/world/COMBAT/training/${sessionId}/collect`);
   if (r.error) { worldMsg(r.error, false); return; }
   worldMsg(r.message);
   await enterKingdom('COMBAT');
+  loadWarrior();
+}
+
+async function startKingdomGathering(skillType, durationMinutes) {
+  const r = await api('POST', '/api/gathering/start', { skillType, durationMinutes });
+  if (r.error) { worldMsg(r.error, false); return; }
+  worldMsg(`${skillType === 'FISHING' ? 'Fishing' : 'Mining'} started! ${durationMinutes}min session.`);
+  if (worldCurrentKingdom) await enterKingdom(worldCurrentKingdom);
   loadWarrior();
 }

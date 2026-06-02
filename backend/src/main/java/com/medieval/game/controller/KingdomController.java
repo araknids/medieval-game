@@ -155,6 +155,18 @@ public class KingdomController {
         }
     }
 
+    @PostMapping("/COMBAT/training/{id}/cancel")
+    public ResponseEntity<?> cancelTraining(
+            @PathVariable Long id, Authentication auth) {
+        try {
+            Player player = getPlayer(auth);
+            kingdomService.cancelTraining(player, id);
+            return ResponseEntity.ok(Map.of("message", "Training cancelled. Warrior freed."));
+        } catch (IllegalArgumentException | IllegalStateException e) {
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+        }
+    }
+
     @PostMapping("/COMBAT/training/{id}/collect")
     public ResponseEntity<?> collectTraining(
             @PathVariable Long id, Authentication auth) {

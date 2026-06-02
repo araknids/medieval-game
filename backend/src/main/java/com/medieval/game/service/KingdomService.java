@@ -243,6 +243,24 @@ public class KingdomService {
         return trainingRepo.findByPlayerAndStatus(player, TrainingStatus.IN_PROGRESS);
     }
 
+    @Transactional
+    public void cancelTraining(Player player, Long sessionId) {
+        TrainingSession session = trainingRepo.findById(sessionId)
+                .orElseThrow(() -> new IllegalArgumentException("Training session not found."));
+        if (!session.getPlayer().getId().equals(player.getId()))
+            throw new IllegalStateException("This session does not belong to you.");
+        if (session.getStatus() != TrainingStatus.IN_PROGRESS)
+            throw new IllegalStateException("Session is not in progress.");
+
+        session.setStatus(TrainingStatus.CANCELLED);
+        trainingRepo.save(session);
+
+        warriorRepo.findByPlayer(player).ifPresent(w -> {
+            w.setOnMission(false);
+            warriorRepo.save(w);
+        });
+    }
+
     // ── Drop helper ───────────────────────────────────────────────────────────
 
     private InventoryItem rollDrop(Player player, int dropChance, int guildBonus) {
