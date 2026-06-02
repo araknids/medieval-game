@@ -356,7 +356,7 @@ async function loadWarrior() {
 
 // ── Navegação de locais ──
 function goTo(loc) {
-  ['tavern','inventory','commerce','temple','zones','skills','work','tower','arena','guild','territory','mail'].forEach(l => {
+  ['tavern','inventory','commerce','temple','zones','skills','work','tower','arena','guild','world','mail'].forEach(l => {
     document.getElementById('loc-panel-' + l).style.display = l === loc ? 'block' : 'none';
     document.getElementById('loc-' + l).classList.toggle('active', l === loc);
   });
@@ -370,6 +370,7 @@ function goTo(loc) {
   if (loc === 'work')     { loadWork(); }
   if (loc === 'guild')     { loadGuild(); }
   if (loc === 'territory') { loadTerritories(); }
+  if (loc === 'world')      { loadWorld(); }
   if (loc === 'mail')      { loadMail(); }
 }
 
@@ -2516,4 +2517,200 @@ async function mailSend() {
 function mailMsg(text, ok = true) {
   const el = document.getElementById('mail-msg-area');
   if (el) el.innerHTML = `<span style="color:${ok ? '#4caf50' : '#f44336'}">${text}</span>`;
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// WORLD — 3 KINGDOMS
+// ═══════════════════════════════════════════════════════════════════
+
+let worldCurrentKingdom = null;
+
+async function loadWorld() {
+  const el = document.getElementById('world-content');
+  el.innerHTML = '<p>Loading...</p>';
+  try {
+    const kingdoms = await api('GET', '/api/world');
+    renderWorldOverview(kingdoms);
+  } catch(e) {
+    el.innerHTML = '<p style="color:red">Error loading world.</p>';
+  }
+}
+
+function renderWorldOverview(kingdoms) {
+  const el = document.getElementById('world-content');
+  const ZONE_LABELS = {
+    FISHING: ['Safe Shore','Wild Coast','Deep Sea'],
+    MINING:  ['Open Mine','Deep Tunnels','Forbidden Mines'],
+    COMBAT:  ['Training Hall','Battlefield','War Zone']
+  };
+
+  const cards = kingdoms.map(k => {
+    const ctrl = k.controllingGuild
+      ? `<span style="color:#4caf50">🛡 ${k.controllingGuild}</span>`
+      : `<span style="color:#aaa">Neutral</span>`;
+    const bonus = k.isMine ? `<div style="font-size:12px;color:#4caf50;margin-top:4px">Your guild: +${k.xpBonus}% XP · +${k.bronzeBonus}% bronze · +${k.exclusiveBonus}% bonus</div>` : '';
+    const secsH = Math.floor(k.secsUntilBattle / 3600);
+    const secsM = Math.floor((k.secsUntilBattle % 3600) / 60);
+    const zones = ZONE_LABELS[k.kingdom] || [];
+    const zoneColors = ['#4caf50','#ffc107','#ef5350'];
+    const zoneBgs    = ['#1a3a1a','#2a2a1a','#3a1a1a'];
+    const zoneHtml = zones.map((z,i) =>
+      `<span style="font-size:11px;padding:2px 8px;border-radius:12px;background:${zoneBgs[i]};color:${zoneColors[i]}">${z}</span>`
+    ).join('');
+
+    return `<div onclick="enterKingdom('${k.kingdom}')" style="background:#1a1a2e;border:1px solid ${k.isMine ? '#4caf50' : '#444'};border-radius:10px;padding:16px;margin-bottom:12px;cursor:pointer">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start">
+        <div>
+          <h3 style="margin:0 0 4px;font-size:16px">${k.icon} ${k.displayName}</h3>
+          ${ctrl}${bonus}
+        </div>
+        <div style="text-align:right;font-size:11px;color:#666">Next war<br><strong style="color:#eee">${secsH}h ${secsM}m</strong></div>
+      </div>
+      <p style="color:#888;font-size:12px;margin:8px 0 0">${k.lore}</p>
+      <div style="margin-top:8px;display:flex;gap:6px;flex-wrap:wrap">${zoneHtml}</div>
+    </div>`;
+  }).join('');
+
+  el.innerHTML = cards + '<div id="kingdom-detail" style="margin-top:16px"></div>';
+}
+
+async function enterKingdom(kingdom) {
+  worldCurrentKingdom = kingdom;
+  const el = document.getElementById('kingdom-detail');
+  if (!el) return;
+  el.innerHTML = '<p>Loading kingdom...</p>';
+  try {
+    const [quests, activeQuests, training] = await Promise.all([
+      api('GET', `/api/world/${kingdom}/quests`),
+      api('GET', `/api/world/${kingdom}/quests/active`),
+      kingdom === 'COMBAT' ? api('GET', '/api/world/COMBAT/training') : Promise.resolve(null)
+    ]);
+    renderKingdomDetail(kingdom, quests, activeQuests, training);
+  } catch(e) {
+    el.innerHTML = '<p style="color:red">Error loading kingdom.</p>';
+  }
+}
+
+function renderKingdomDetail(kingdom, quests, activeQuests, training) {
+  const el = document.getElementById('kingdom-detail');
+  const NAMES = { FISHING:'Desfiladeiro do Osso', MINING:'Minas de Ferro Negro', COMBAT:'Fortaleza Maldita' };
+  const ICONS = { FISHING:'🎣', MINING:'⛏', COMBAT:'⚔' };
+
+  const activeHtml = activeQuests.length === 0 ? '' : `
+    <div style="background:#0f1f0f;border:1px solid #2e7d32;border-radius:8px;padding:12px;margin-bottom:12px">
+      <strong style="color:#4caf50">Active Quests</strong>
+      ${activeQuests.map(q => `
+        <div style="margin-top:8px;display:flex;justify-content:space-between;align-items:center">
+          <span style="font-size:13px">${q.displayName}</span>
+          <div style="display:flex;gap:6px">
+            ${q.readyToCollect
+              ? `<button onclick="collectKingdomQuest('${kingdom}',${q.id})" style="font-size:12px;background:#2e7d32">Collect</button>`
+              : `<span style="color:#888;font-size:12px">${Math.floor(q.secondsRemaining/60)}m</span>`}
+            <button onclick="abandonKingdomQuest('${kingdom}',${q.id})" style="font-size:11px;background:#555;padding:3px 8px">✕</button>
+          </div>
+        </div>`).join('')}
+    </div>`;
+
+  let trainingHtml = '';
+  if (kingdom === 'COMBAT') {
+    if (training && training.active) {
+      trainingHtml = `
+        <div style="background:#1a1a2e;border:1px solid #5c6bc0;border-radius:8px;padding:12px;margin-bottom:12px">
+          <strong style="color:#7986cb">🏋 Training in Progress</strong>
+          <div style="font-size:13px;color:#aaa;margin-top:4px">+${training.xpReward} XP · ${Math.floor(training.secondsRemaining/60)}m remaining</div>
+          ${training.readyToCollect ? `<button onclick="collectTraining(${training.id})" style="margin-top:8px;background:#3949ab">⭐ Collect XP</button>` : ''}
+        </div>`;
+    } else {
+      const lvl = warrior ? warrior.level : 1;
+      trainingHtml = `
+        <div style="background:#1a1a2e;border:1px solid #333;border-radius:8px;padding:12px;margin-bottom:12px">
+          <strong style="color:#7986cb">🏋 Training Hall</strong>
+          <p style="font-size:12px;color:#888;margin:4px 0 8px">Pay bronze to earn pure XP. Cost: ${lvl*10} bronze/h · Reward: ${lvl*25} XP/h</p>
+          <div style="display:flex;gap:6px;flex-wrap:wrap">
+            ${[1,2,4,6,8,12].map(h => `<button onclick="startTraining(${h})" style="font-size:12px">${h}h</button>`).join('')}
+          </div>
+        </div>`;
+    }
+  }
+
+  const questCards = quests.map(q => {
+    const busy = activeQuests.length > 0;
+    const disabled = busy || !q.canStart;
+    return `
+      <div style="background:#1a1a2e;border:1px solid #333;border-radius:8px;padding:12px;margin-bottom:8px">
+        <div style="display:flex;justify-content:space-between;align-items:center">
+          <strong style="font-size:14px">${q.displayName}</strong>
+          <div style="display:flex;gap:8px;align-items:center;font-size:12px;color:#888">
+            <span>⏱ ${q.durationMinutes}m</span>
+            <span>${fmtBronze(q.bronzeReward)}</span>
+            <span>⭐ ${q.expReward} XP</span>
+            <span>⚡ ${q.staminaCost}</span>
+          </div>
+        </div>
+        <button onclick="startKingdomQuest('${kingdom}','${q.id}')"
+          ${disabled ? 'disabled style="opacity:.5"' : ''}
+          style="margin-top:8px;font-size:12px">
+          ${busy ? 'Warrior busy' : !q.canStart ? 'Low stamina' : 'Start Quest'}
+        </button>
+      </div>`;
+  }).join('');
+
+  el.innerHTML = `
+    <div style="background:#111;border-radius:10px;padding:16px">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+        <h3 style="margin:0">${ICONS[kingdom]} ${NAMES[kingdom]}</h3>
+        <button onclick="document.getElementById('kingdom-detail').innerHTML=''" style="background:#333;font-size:12px">✕ Close</button>
+      </div>
+      ${activeHtml}
+      ${trainingHtml}
+      <h4 style="margin:0 0 8px;color:#aaa;font-size:13px">QUESTS</h4>
+      ${questCards}
+      <div id="world-msg" style="margin-top:8px;min-height:20px"></div>
+    </div>`;
+}
+
+function worldMsg(text, ok = true) {
+  const el = document.getElementById('world-msg');
+  if (el) el.innerHTML = `<span style="color:${ok ? '#4caf50' : '#f44336'}">${text}</span>`;
+}
+
+async function startKingdomQuest(kingdom, questTypeId) {
+  const r = await api('POST', `/api/world/${kingdom}/quests/start`, { questType: questTypeId });
+  if (r.error) { worldMsg(r.error, false); return; }
+  worldMsg('Quest started! Return when the timer ends.');
+  await enterKingdom(kingdom);
+}
+
+async function collectKingdomQuest(kingdom, questId) {
+  const r = await api('POST', `/api/world/${kingdom}/quests/${questId}/collect`);
+  if (r.error) { worldMsg(r.error, false); return; }
+  const drop = r.droppedItem ? ' · Item: ' + r.droppedItem.name : '';
+  worldMsg(`Collected! ${fmtBronze(r.bronzeEarned)} · +${r.xpEarned} XP${drop}`);
+  await enterKingdom(kingdom);
+  loadWarrior();
+}
+
+async function abandonKingdomQuest(kingdom, questId) {
+  if (!confirm('Abandon quest? You receive no reward.')) return;
+  const r = await api('POST', `/api/world/${kingdom}/quests/${questId}/abandon`);
+  if (r.error) { worldMsg(r.error, false); return; }
+  worldMsg('Quest abandoned.');
+  await enterKingdom(kingdom);
+  loadWarrior();
+}
+
+async function startTraining(hours) {
+  const r = await api('POST', '/api/world/COMBAT/training/start', { hours });
+  if (r.error) { worldMsg(r.error, false); return; }
+  worldMsg(`Training started! ${hours}h · +${r.xpReward} XP on completion.`);
+  await enterKingdom('COMBAT');
+  loadWarrior();
+}
+
+async function collectTraining(sessionId) {
+  const r = await api('POST', `/api/world/COMBAT/training/${sessionId}/collect`);
+  if (r.error) { worldMsg(r.error, false); return; }
+  worldMsg(r.message);
+  await enterKingdom('COMBAT');
+  loadWarrior();
 }

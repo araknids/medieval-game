@@ -83,7 +83,7 @@
           <button id="loc-tower"     class="loc-btn"        onclick="goTo('tower')">🏰 <span data-i18n="nav.tower">Tower</span></button>
           <button id="loc-arena"     class="loc-btn"        onclick="goTo('arena')">⚔ Arena</button>
           <button id="loc-guild"     class="loc-btn"        onclick="goTo('guild')">🛡 <span data-i18n="nav.guild">Guild</span></button>
-          <button id="loc-territory" class="loc-btn"        onclick="goTo('territory')">🏰 <span data-i18n="nav.territory">Territories</span></button>
+          <button id="loc-world"     class="loc-btn"        onclick="goTo('world')">🌍 World</button>
           <button id="loc-mail"      class="loc-btn"        onclick="goTo('mail')">📬 <span data-i18n="nav.mail">Mail</span> <span id="mail-badge" style="display:none;background:#ef5350;color:#fff;border-radius:10px;padding:0 5px;font-size:.7em"></span></button>
           <button id="lang-toggle"   class="loc-btn"        onclick="toggleLanguage()" style="margin-left:auto;background:#1a3a1a;border-color:#2e7d32" title="Switch language">🌐 EN</button>
         </nav>
@@ -232,6 +232,14 @@
           <div id="panel-fight" style="display:none">
             <div id="fight-area">Carregando...</div>
           </div>
+        </section>
+
+        <section id="loc-panel-world" style="display:none">
+          <div class="loc-header">
+            <h2>🌍 World</h2>
+            <p class="loc-desc">Three kingdoms, each with its own resources and quests. No kingdom is self-sufficient.</p>
+          </div>
+          <div id="world-content">Loading...</div>
         </section>
 
         <section id="loc-panel-mail" style="display:none">
