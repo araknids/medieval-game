@@ -2607,9 +2607,11 @@ async function enterKingdom(kingdom) {
       (kingdom === 'FISHING' || kingdom === 'MINING') ? api('GET', '/api/gathering/current') : Promise.resolve(null),
       (kingdom === 'FISHING' || kingdom === 'MINING') ? api('GET', '/api/zones/current') : Promise.resolve(null)
     ]);
+    console.log('[WORLD] enterKingdom data:', {kingdom, gatherSession, zoneSession, activeQuests: activeQuests.length});
     renderKingdomDetail(kingdom, quests, activeQuests, training, gatherSession, zoneSession);
   } catch(e) {
-    el.innerHTML = '<p style="color:red">Error loading kingdom.</p>';
+    console.error('[WORLD] enterKingdom ERROR:', e);
+    el.innerHTML = '<p style="color:red">Error loading kingdom: ' + e.message + '</p>';
   }
 }
 
