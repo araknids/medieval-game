@@ -27,6 +27,7 @@ public class QuestService {
     private final WarriorService        warriorService;
     private final InventoryService      inventoryService;
     private final ItemLoreGenerator     loreGenerator;
+    private final TerritoryService      territoryService;
 
     @Value("${app.dev.instant-complete:false}")
     private boolean instantComplete;
@@ -105,9 +106,15 @@ public class QuestService {
 
         // Apply guild passive bonuses
         Guild guild      = playerRepository.findGuildByPlayerId(player.getId()).orElse(null);
-        int xpPct        = guild != null ? guild.xpBonus()     : 0;
-        int bronzePct    = guild != null ? guild.bronzeBonus()  : 0;
-        int guildDropPct = guild != null ? guild.dropBonus()    : 0;
+        int xpPct        = guild != null ? guild.xpBonus()    : 0;
+        int bronzePct    = guild != null ? guild.bronzeBonus() : 0;
+        int guildDropPct = guild != null ? guild.dropBonus()   : 0;
+
+        // Apply territory bonuses (stack with guild bonuses)
+        TerritoryService.TerritoryBonus territory = territoryService.getBonusForPlayer(player);
+        xpPct     += territory.xpBonus()     + territory.questXpBonus();
+        bronzePct += territory.bronzeBonus();
+        // territory does not add drop bonus directly, only guild luck does
 
         long totalBronze = quest.getGoldReward() + Math.round(quest.getGoldReward() * bronzePct / 100.0);
         long totalXp     = quest.getExpReward()  + Math.round(quest.getExpReward()  * xpPct     / 100.0);

@@ -15,11 +15,12 @@ import java.util.*;
 @RequiredArgsConstructor
 public class GatheringService {
 
-    private final GatheringSessionRepository sessionRepository;
-    private final SkillLevelRepository       skillRepository;
+    private final GatheringSessionRepository  sessionRepository;
+    private final SkillLevelRepository        skillRepository;
     private final ResourceInventoryRepository resourceRepository;
-    private final WarriorRepository          warriorRepository;
-    private final PlayerRepository           playerRepository;
+    private final WarriorRepository           warriorRepository;
+    private final PlayerRepository            playerRepository;
+    private final TerritoryService            territoryService;
 
     @Value("${app.dev.instant-complete:false}")
     private boolean instantComplete;
@@ -126,12 +127,28 @@ public class GatheringService {
         }
 
         SkillLevel skill = getOrCreateSkill(player, session.getSkillType());
+
+        // Territory bonus: fishing or mining yield
+        TerritoryService.TerritoryBonus terr = territoryService.getBonusForPlayer(player);
+        int yieldBonusPct = session.getSkillType() == com.medieval.game.enums.SkillType.FISHING
+                ? terr.fishingBonus()
+                : session.getSkillType() == com.medieval.game.enums.SkillType.MINING
+                    ? terr.miningBonus()
+                    : 0;
+
         List<ResourceDrop> drops = rollDrops(session.getSkillType(), skill.getLevel(), session.getDurationMinutes());
 
-        for (ResourceDrop drop : drops) addResource(player, drop.type(), drop.quantity());
+        // Apply yield bonus: extra items proportional to bonus %
+        List<ResourceDrop> boostedDrops = drops.stream().map(d -> {
+            int bonus = (int) Math.round(d.quantity() * yieldBonusPct / 100.0);
+            return bonus > 0 ? new ResourceDrop(d.type(), d.quantity() + bonus) : d;
+        }).toList();
 
-        // XP da skill
-        addSkillXp(skill, session.getXpReward());
+        for (ResourceDrop drop : boostedDrops) addResource(player, drop.type(), drop.quantity());
+
+        // XP da skill (also apply territory xp bonus)
+        int xpBonus = (int) Math.round(session.getXpReward() * terr.xpBonus() / 100.0);
+        addSkillXp(skill, session.getXpReward() + xpBonus);
 
         // Libera guerreiro
         warriorRepository.findByPlayer(player).ifPresent(w -> { w.setOnMission(false); warriorRepository.save(w); });

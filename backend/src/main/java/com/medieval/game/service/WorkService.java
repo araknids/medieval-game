@@ -27,6 +27,7 @@ public class WorkService {
     private final WorkProfessionRepository professionRepository;
     private final WarriorRepository        warriorRepository;
     private final PlayerRepository         playerRepository;
+    private final TerritoryService         territoryService;
 
     @Value("${app.dev.instant-complete:false}")
     private boolean instantComplete;
@@ -107,10 +108,14 @@ public class WorkService {
             throw new IllegalStateException("Trabalho em andamento. Faltam ~" + mins + " minutos");
         }
 
-        // Apply guild passive bonuses
+        // Apply guild + territory passive bonuses
         Guild guild   = playerRepository.findGuildByPlayerId(player.getId()).orElse(null);
         int xpPct     = guild != null ? guild.xpBonus()    : 0;
         int bronzePct = guild != null ? guild.bronzeBonus() : 0;
+
+        TerritoryService.TerritoryBonus terr = territoryService.getBonusForPlayer(player);
+        xpPct     += terr.xpBonus();
+        bronzePct += terr.bronzeBonus();
 
         long totalBronze = session.getGoldReward() + Math.round(session.getGoldReward() * bronzePct / 100.0);
         int  bonusXp     = (int) Math.round(session.getXpReward() * xpPct / 100.0);

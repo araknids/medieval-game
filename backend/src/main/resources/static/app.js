@@ -271,7 +271,7 @@ async function loadWarrior() {
 
 // ── Navegação de locais ──
 function goTo(loc) {
-  ['tavern','inventory','commerce','temple','zones','skills','work','tower','arena','guild'].forEach(l => {
+  ['tavern','inventory','commerce','temple','zones','skills','work','tower','arena','guild','territory'].forEach(l => {
     document.getElementById('loc-panel-' + l).style.display = l === loc ? 'block' : 'none';
     document.getElementById('loc-' + l).classList.toggle('active', l === loc);
   });
@@ -283,7 +283,8 @@ function goTo(loc) {
   if (loc === 'commerce') { loadShop(); }
   if (loc === 'inventory'){ renderAttributes(); loadInventory(); }
   if (loc === 'work')     { loadWork(); }
-  if (loc === 'guild')    { loadGuild(); }
+  if (loc === 'guild')     { loadGuild(); }
+  if (loc === 'territory') { loadTerritories(); }
 }
 
 // ── TAVERNA: missões ──
@@ -2129,4 +2130,119 @@ async function guildLevelUp() {
   if (r.error) { guildMsg(r.error, false); return; }
   guildMsg(r.message);
   await loadGuild();
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// TERRITORY WAR
+// ═══════════════════════════════════════════════════════════════════
+
+async function loadTerritories() {
+  const el = document.getElementById('territory-content');
+  el.innerHTML = '<p>Loading...</p>';
+  try {
+    const [territories, myStatus] = await Promise.all([
+      api('GET', '/api/territory'),
+      api('GET', '/api/territory/my')
+    ]);
+    renderTerritories(territories, myStatus);
+  } catch(e) {
+    el.innerHTML = '<p style="color:red">Error loading territories.</p>';
+  }
+}
+
+function renderTerritories(territories, myStatus) {
+  const el = document.getElementById('territory-content');
+  const myTerritory = myStatus.hasTerritory ? myStatus.territory : null;
+
+  const bonusBar = myStatus.hasTerritory ? `
+    <div style="background:#1a2a1a;border:1px solid #4caf50;border-radius:8px;padding:12px;margin-bottom:16px;font-size:13px">
+      <strong style="color:#4caf50">🏆 Your guild controls: ${myStatus.displayName}</strong><br>
+      <span style="color:#aaa">Bonuses: +${myStatus.xpBonus}% XP · +${myStatus.bronzeBonus}% bronze
+        ${myStatus.miningBonus > 0 ? ` · +${myStatus.miningBonus}% mining` : ''}
+        ${myStatus.fishingBonus > 0 ? ` · +${myStatus.fishingBonus}% fishing` : ''}
+        ${myStatus.questXpBonus > 0 ? ` · +${myStatus.questXpBonus}% quest XP` : ''}
+      </span><br>
+      <span style="color:#f44336;font-size:12px">Defense streak: ${myStatus.defenseStreak}
+        ${myStatus.debuffPercent > 0 ? ` (next battle: -${myStatus.debuffPercent}% ATK/DEF)` : ''}
+      </span>
+    </div>` : '';
+
+  const cards = territories.map(t => {
+    const isMine    = t.territory === myTerritory;
+    const secsH     = Math.floor(t.secsUntilBattle / 3600);
+    const secsM     = Math.floor((t.secsUntilBattle % 3600) / 60);
+    const timerStr  = `${secsH}h ${secsM}m`;
+
+    const controlLine = t.isNeutral
+      ? `<span style="color:#aaa">⚪ Neutral</span>`
+      : `<span style="color:${isMine ? '#4caf50' : '#ef5350'}">${isMine ? '🛡 Your guild' : '⚔ ' + t.controllingGuild}</span>`;
+
+    const streakLine = !t.isNeutral
+      ? `<div style="font-size:11px;color:#888">Streak: ${t.defenseStreak}x · Debuff: -${t.debuffPercent}% next</div>`
+      : '';
+
+    const declareBtn = !myTerritory && !isMine
+      ? `<button onclick="territoryDeclare('${t.territory}')" style="margin-top:8px;font-size:12px">
+           ⚔ Declare Attack
+         </button>`
+      : isMine
+        ? `<button onclick="territoryCancel()" style="margin-top:8px;font-size:12px;background:#555">
+             Cancel Declaration
+           </button>`
+        : '';
+
+    const historyBtn = `<button onclick="territoryHistory('${t.territory}', '${t.displayName}')"
+        style="margin-top:8px;font-size:12px;background:#333;margin-left:4px">📜 History</button>`;
+
+    return `
+      <div style="background:#1a1a2e;border:1px solid ${isMine ? '#4caf50' : '#444'};border-radius:8px;
+                  padding:14px;margin-bottom:12px">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start">
+          <div>
+            <strong style="font-size:15px">${t.displayName}</strong><br>
+            ${controlLine}
+            ${streakLine}
+          </div>
+          <div style="text-align:right;font-size:12px;color:#888">
+            Next battle in<br><strong style="color:#eee">${timerStr}</strong>
+          </div>
+        </div>
+        <div style="margin-top:6px;font-size:12px;color:#888">
+          Exclusive: +${t.exclusiveBonus}%
+          ${t.territory === 'FORTALEZA_MALDITA' ? 'quest XP' :
+            t.territory === 'MINAS_DE_FERRO_NEGRO' ? 'mining yield' : 'fishing yield'}
+        </div>
+        <div>${declareBtn}${historyBtn}</div>
+      </div>`;
+  }).join('');
+
+  el.innerHTML = bonusBar + cards + '<div id="territory-msg" style="margin-top:8px;min-height:20px"></div>';
+}
+
+function territoryMsg(text, ok = true) {
+  const el = document.getElementById('territory-msg');
+  if (el) el.innerHTML = `<span style="color:${ok ? '#4caf50' : '#f44336'}">${text}</span>`;
+}
+
+async function territoryDeclare(territory) {
+  const r = await api('POST', `/api/territory/${territory}/declare`);
+  if (r.error) { territoryMsg(r.error, false); return; }
+  territoryMsg(r.message);
+  await loadTerritories();
+}
+
+async function territoryCancel() {
+  const r = await api('POST', '/api/territory/cancel');
+  if (r.error) { territoryMsg(r.error, false); return; }
+  territoryMsg(r.message);
+  await loadTerritories();
+}
+
+async function territoryHistory(territory, name) {
+  const logs = await api('GET', `/api/territory/${territory}/history`);
+  if (!logs || !logs.length) { territoryMsg('No battles recorded yet.'); return; }
+  const msg = logs.slice(0, 3).map(l =>
+    `${l.resolvedAt.substring(0, 16)} — ${l.attacker} vs ${l.defender} → 🏆 ${l.winner}`
+  ).join('<br>');
+  territoryMsg(`<strong>${name} — Recent battles:</strong><br>${msg}`, true);
 }
