@@ -1,111 +1,78 @@
 <!DOCTYPE html>
-<html lang="pt-BR">
+<html lang="en">
 <head>
   <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Medieval Game</title>
   <link rel="stylesheet" href="/style.css">
 </head>
 <body>
 
-  <!-- TELA DE LOGIN -->
-  <div id="login-screen">
+  <!-- TELA DE LOGIN/REGISTER -->
+  <div id="login-screen" style="display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:100vh;background:#0d0d1a">
     <div class="auth-box">
-      <h1>⚔ Medieval Game</h1>
-
+      <h2>Log In</h2>
+      <div id="auth-error" style="color:#ef5350;font-size:.8rem;min-height:1.2rem"></div>
       <div id="login-form">
-        <h2>Entrar</h2>
-        <input id="login-username" type="text" placeholder="Usuário">
-        <input id="login-password" type="password" placeholder="Senha">
-        <button onclick="login()">Entrar</button>
-        <p class="link" onclick="showRegister()">Não tem conta? Cadastre-se</p>
-        <p class="link" onclick="showForgotPassword()">Esqueceu a senha?</p>
+        <input id="login-username" type="text" placeholder="Username"><br>
+        <input id="login-password" type="password" placeholder="Password"><br>
+        <button onclick="login()">Log In</button>
+        <button onclick="showAuthForm('register-form')" style="background:#333">Create Account</button>
+        <button onclick="showAuthForm('forgot-form')" style="background:transparent;color:#888;font-size:.8rem">Forgot password?</button>
       </div>
-
-      <div id="forgot-form" style="display:none">
-        <h2>Recuperar Senha</h2>
-        <input id="forgot-email" type="email" placeholder="Seu e-mail cadastrado">
-        <button onclick="forgotPassword()">Enviar link</button>
-        <p class="link" onclick="showLogin()">Voltar ao login</p>
-      </div>
-
-      <div id="reset-form" style="display:none">
-        <h2>Nova Senha</h2>
-        <input id="reset-password" type="password" placeholder="Nova senha (min 6)">
-        <input id="reset-password2" type="password" placeholder="Confirme a nova senha">
-        <button onclick="resetPassword()">Salvar senha</button>
-      </div>
-
       <div id="register-form" style="display:none">
-        <h2>Criar Conta</h2>
-        <input id="reg-username" type="text" placeholder="Usuário">
-        <input id="reg-email" type="email" placeholder="E-mail">
-        <input id="reg-password" type="password" placeholder="Senha (min 6)">
-        <input id="reg-warrior-name" type="text" placeholder="Nome do guerreiro">
-        <button onclick="register()">Criar Conta</button>
-        <p class="link" onclick="showLogin()">Já tem conta? Entrar</p>
+        <input id="reg-username" type="text" placeholder="Username (3-20 chars)"><br>
+        <input id="reg-email" type="email" placeholder="Email"><br>
+        <input id="reg-password" type="password" placeholder="Password (min 6)"><br>
+        <input id="reg-warrior" type="text" placeholder="Warrior Name"><br>
+        <button onclick="register()">Create Account</button>
+        <button onclick="showAuthForm('login-form')" style="background:#333">Back to login</button>
       </div>
-
-      <p id="auth-error" class="error"></p>
+      <div id="forgot-form" style="display:none">
+        <input id="forgot-email" type="email" placeholder="Your email"><br>
+        <button onclick="forgotPassword()">Send Reset Link</button>
+        <button onclick="showAuthForm('login-form')" style="background:#333">Back to login</button>
+      </div>
+      <div id="reset-form" style="display:none">
+        <input id="reset-password" type="password" placeholder="New password"><br>
+        <button onclick="resetPassword()">Reset Password</button>
+      </div>
     </div>
   </div>
 
   <!-- TELA DO JOGO -->
   <div id="game-screen" style="display:none">
-
-    <header>
-      <span class="hdr-title">⚔ Medieval Game</span>
-      <span>Olá, <strong id="hdr-username"></strong></span>
-      <span id="hdr-currency"></span>
-      <span>🏆 <strong id="hdr-rank"></strong> pts</span>
-      <button class="btn-small" onclick="logout()">Sair</button>
+    <header class="game-header">
+      <div class="header-logo">⚔ Medieval Game</div>
+      <div class="header-info">
+        <span id="hdr-username"></span>
+        <span id="hdr-currency"></span>
+        <span id="hdr-rank"></span>
+        <button onclick="logout()" style="margin-left:1rem;padding:.2rem .7rem;font-size:.8rem">Exit</button>
+      </div>
     </header>
 
     <div class="game-layout">
-
-      <!-- PAINEL ESQUERDO: GUERREIRO -->
-      <aside id="warrior-panel">
-        <h2>Guerreiro</h2>
-        <div id="warrior-card">Carregando...</div>
+      <aside class="warrior-sidebar">
+        <div class="sidebar-title">WARRIOR</div>
+        <div id="warrior-card">Loading...</div>
       </aside>
 
-      <!-- CONTEÚDO PRINCIPAL -->
       <main>
 
         <!-- NAV DE LOCAIS -->
         <nav class="location-nav">
-          <button id="loc-tavern"    class="loc-btn active" onclick="goTo('tavern')">🍺 <span data-i18n="nav.tavern">Tavern</span></button>
           <button id="loc-inventory" class="loc-btn"        onclick="goTo('inventory')">👤 <span data-i18n="nav.character">Character</span></button>
           <button id="loc-commerce"  class="loc-btn"        onclick="goTo('commerce')">🛒 <span data-i18n="nav.commerce">Commerce</span></button>
           <button id="loc-temple"    class="loc-btn"        onclick="goTo('temple')">⛪ <span data-i18n="nav.temple">Temple</span></button>
-          <button id="loc-zones"     class="loc-btn"        onclick="goTo('zones')">🗺 <span data-i18n="nav.expeditions">Expeditions</span></button>
-          <button id="loc-skills"    class="loc-btn"        onclick="goTo('skills')">⛏ <span data-i18n="nav.skills">Skills</span></button>
           <button id="loc-work"      class="loc-btn"        onclick="goTo('work')">⚒ <span data-i18n="nav.work">Work</span></button>
           <button id="loc-tower"     class="loc-btn"        onclick="goTo('tower')">🏰 <span data-i18n="nav.tower">Tower</span></button>
           <button id="loc-arena"     class="loc-btn"        onclick="goTo('arena')">⚔ Arena</button>
           <button id="loc-guild"     class="loc-btn"        onclick="goTo('guild')">🛡 <span data-i18n="nav.guild">Guild</span></button>
-          <button id="loc-world"     class="loc-btn"        onclick="goTo('world')">🌍 World</button>
+          <button id="loc-world"     class="loc-btn active" onclick="goTo('world')">🌍 World</button>
           <button id="loc-mail"      class="loc-btn"        onclick="goTo('mail')">📬 <span data-i18n="nav.mail">Mail</span> <span id="mail-badge" style="display:none;background:#ef5350;color:#fff;border-radius:10px;padding:0 5px;font-size:.7em"></span></button>
           <button id="lang-toggle"   class="loc-btn"        onclick="toggleLanguage()" style="margin-left:auto;background:#1a3a1a;border-color:#2e7d32" title="Switch language">🌐 EN</button>
         </nav>
-
-        <!-- TAVERNA -->
-        <section id="loc-panel-tavern">
-          <div class="loc-header">
-            <h2 data-i18n="nav.tavern">Tavern</h2>
-            <p class="loc-desc" data-i18n="section.tavern.desc">Send your warrior on quests and collect rewards.</p>
-          </div>
-          <div id="tavern-normal">
-            <div class="tabs">
-              <button id="tab-available" class="tab active" onclick="switchQuestTab('available')" data-i18n="quest.tab.available">Quests</button>
-              <button id="tab-active"    class="tab"        onclick="switchQuestTab('active')"    data-i18n="quest.tab.active">Active</button>
-            </div>
-            <div id="panel-available"><div id="quest-types-list"></div></div>
-            <div id="panel-active" style="display:none"><div id="active-quests-list"></div></div>
-          </div>
-          <div id="tavern-progress" style="display:none">
-            <div id="qp-content"></div>
-          </div>
-        </section>
 
         <!-- PERSONAGEM -->
         <section id="loc-panel-inventory" style="display:none">
@@ -119,20 +86,22 @@
           <div id="bag-items"></div>
         </section>
 
-        <!-- COMÉRCIO -->
+        <!-- COMÉRCIO (Buy / Sell / Smithing / Resources) -->
         <section id="loc-panel-commerce" style="display:none">
           <div class="loc-header">
             <h2 data-i18n="nav.commerce">Commerce</h2>
             <p class="loc-desc" data-i18n="section.commerce.desc">Buy and sell equipment from the traveling merchant.</p>
           </div>
           <div class="tabs">
-            <button id="tab-shop" class="tab active" onclick="switchCommerceTab('shop')" data-i18n="shop.tab.buy">Buy</button>
-            <button id="tab-sell"  class="tab" onclick="switchCommerceTab('sell')"  data-i18n="shop.tab.sell">Sell</button>
-            <button id="tab-smith" class="tab" onclick="switchCommerceTab('smith')">🔨 Smithing</button>
+            <button id="tab-shop"      class="tab active" onclick="switchCommerceTab('shop')"      data-i18n="shop.tab.buy">Buy</button>
+            <button id="tab-sell"      class="tab"        onclick="switchCommerceTab('sell')"      data-i18n="shop.tab.sell">Sell</button>
+            <button id="tab-smith"     class="tab"        onclick="switchCommerceTab('smith')">🔨 Smithing</button>
+            <button id="tab-resources" class="tab"        onclick="switchCommerceTab('resources')">🎒 Resources</button>
           </div>
           <div id="panel-shop"><div id="shop-list"></div></div>
-          <div id="panel-sell"  style="display:none"><div id="sell-list"></div></div>
-          <div id="panel-smith" style="display:none"><div id="smith-content"></div></div>
+          <div id="panel-sell"      style="display:none"><div id="sell-list"></div></div>
+          <div id="panel-smith"     style="display:none"><div id="smith-content"></div></div>
+          <div id="panel-resources" style="display:none"><div id="resources-content"></div></div>
         </section>
 
         <!-- TEMPLO -->
@@ -144,54 +113,15 @@
           <div id="temple-content"></div>
         </section>
 
-        <!-- EXPEDIÇÕES / ZONAS -->
-        <section id="loc-panel-zones" style="display:none">
-          <div class="loc-header">
-            <h2>🗺 <span data-i18n="nav.expeditions">Expeditions</span></h2>
-            <p class="loc-desc" data-i18n="section.zones.desc">Enter zones to gather resources. Beware of hunters in PvP zones!</p>
-          </div>
-          <div id="zones-content"></div>
-        </section>
-
-        <!-- HABILIDADES -->
-        <section id="loc-panel-skills" style="display:none">
-          <div class="loc-header">
-            <h2>⛏ <span data-i18n="nav.skills">Skills</span></h2>
-            <p class="loc-desc" data-i18n="section.skills.desc">Fish, mine and forge to craft equipment and gems.</p>
-          </div>
-          <div class="tabs">
-            <button id="sk-tab-fish"   class="tab active" onclick="switchSkillTab('fish')"  data-i18n="skills.tab.fish">🎣 Fishing</button>
-            <button id="sk-tab-mine"   class="tab"        onclick="switchSkillTab('mine')"  data-i18n="skills.tab.mine">⛏ Mining</button>
-            <button id="sk-tab-smith"  class="tab"        onclick="switchSkillTab('smith')" data-i18n="skills.tab.smith">🔨 Smithing</button>
-            <button id="sk-tab-bag"    class="tab"        onclick="switchSkillTab('bag')"   data-i18n="skills.tab.bag">🎒 Resources</button>
-          </div>
-          <div id="sk-panel-fish">
-            <div id="sk-fish-content">Carregando...</div>
-          </div>
-          <div id="sk-panel-mine"  style="display:none">
-            <div id="sk-mine-content">Carregando...</div>
-          </div>
-          <div id="sk-panel-smith" style="display:none">
-            <div id="sk-smith-content">Carregando...</div>
-          </div>
-          <div id="sk-panel-bag"   style="display:none">
-            <div id="sk-bag-content">Carregando...</div>
-          </div>
-        </section>
-
         <!-- TRABALHO -->
         <section id="loc-panel-work" style="display:none">
           <div class="loc-header">
             <h2 data-i18n="nav.work">Work</h2>
             <p class="loc-desc" data-i18n="section.work.desc">Earn bronze working for the city's inhabitants.</p>
           </div>
-
-          <!-- Lista de empregos -->
           <div id="work-normal">
-            <div id="work-job-list">Carregando...</div>
+            <div id="work-job-list"></div>
           </div>
-
-          <!-- Progresso do trabalho -->
           <div id="work-progress" style="display:none">
             <div id="work-progress-content"></div>
           </div>
@@ -203,21 +133,9 @@
             <h2>🏰 <span data-i18n="section.tower.title">Infernal Tower</span></h2>
             <p class="loc-desc" data-i18n="section.tower.desc">Descend through floors and face increasingly powerful bosses.</p>
           </div>
-
-          <!-- Lobby (ranking + entrar) -->
-          <div id="tower-lobby">
-            <div id="tower-ranking-panel"></div>
-          </div>
-
-          <!-- Dentro da torre -->
-          <div id="tower-floor" style="display:none">
-            <div id="tower-floor-content"></div>
-          </div>
-
-          <!-- Resultado do combate -->
-          <div id="tower-result" style="display:none">
-            <div id="tower-result-content"></div>
-          </div>
+          <div id="tower-lobby"><div id="tower-ranking-panel"></div></div>
+          <div id="tower-floor" style="display:none"><div id="tower-floor-content"></div></div>
+          <div id="tower-result" style="display:none"><div id="tower-result-content"></div></div>
         </section>
 
         <!-- ARENA -->
@@ -230,13 +148,21 @@
             <button id="tab-rank"  class="tab active" onclick="switchArenaTab('rank')"  data-i18n="arena.tab.rank">Ranking</button>
             <button id="tab-fight" class="tab"        onclick="switchArenaTab('fight')" data-i18n="arena.tab.fight">Battle</button>
           </div>
-          <div id="panel-rank"><div id="rank-list">Carregando...</div></div>
-          <div id="panel-fight" style="display:none">
-            <div id="fight-area">Carregando...</div>
-          </div>
+          <div id="panel-rank"><div id="rank-list"></div></div>
+          <div id="panel-fight" style="display:none"><div id="fight-area"></div></div>
         </section>
 
-        <section id="loc-panel-world" style="display:none">
+        <!-- GUILDA -->
+        <section id="loc-panel-guild" style="display:none">
+          <div class="loc-header">
+            <h2>🛡 <span data-i18n="nav.guild">Guild</span></h2>
+            <p class="loc-desc" data-i18n="section.guild.desc">Form a guild and grow together with other warriors.</p>
+          </div>
+          <div id="guild-content"></div>
+        </section>
+
+        <!-- WORLD — 3 KINGDOMS -->
+        <section id="loc-panel-world">
           <div class="loc-header">
             <h2>🌍 World</h2>
             <p class="loc-desc">Three kingdoms, each with its own resources and quests. No kingdom is self-sufficient.</p>
@@ -244,6 +170,7 @@
           <div id="world-content">Loading...</div>
         </section>
 
+        <!-- MAIL -->
         <section id="loc-panel-mail" style="display:none">
           <div class="loc-header">
             <h2>📬 <span data-i18n="nav.mail">Mail</span></h2>
@@ -252,21 +179,23 @@
           <div id="mail-content"></div>
         </section>
 
-        <section id="loc-panel-territory" style="display:none">
-          <div class="loc-header">
-            <h2>🏰 <span data-i18n="section.territory.title">Territory War</span></h2>
-            <p class="loc-desc" data-i18n="section.territory.desc">Conquer territories, dominate resources and grant bonuses to your guild.</p>
-          </div>
+        <!-- Hidden divs still needed by smithing JS logic -->
+        <div style="display:none">
+          <div id="sk-smith-content"></div>
+          <div id="sk-bag-content"></div>
+          <div id="sk-fish-content"></div>
+          <div id="sk-mine-content"></div>
+          <div id="sk-panel-fish"></div>
+          <div id="sk-panel-mine"></div>
+          <div id="sk-panel-smith"></div>
+          <div id="sk-panel-bag"></div>
+          <!-- Old zone/quest panels kept hidden for JS compatibility -->
+          <div id="zones-content"></div>
+          <div id="quest-types-list"></div>
+          <div id="active-quests-list"></div>
+          <div id="qp-content"></div>
           <div id="territory-content"></div>
-        </section>
-
-        <section id="loc-panel-guild" style="display:none">
-          <div class="loc-header">
-            <h2>🛡 <span data-i18n="nav.guild">Guild</span></h2>
-            <p class="loc-desc" data-i18n="section.guild.desc">Form a guild and grow together with other warriors.</p>
-          </div>
-          <div id="guild-content">Carregando...</div>
-        </section>
+        </div>
 
       </main>
     </div>

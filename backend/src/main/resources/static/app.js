@@ -262,9 +262,7 @@ function enterGame() {
   document.getElementById('login-screen').style.display = 'none';
   document.getElementById('game-screen').style.display = 'block';
   loadWarrior();
-  loadQuestTypes();
-  loadActiveQuests();
-  setInterval(loadActiveQuests, 10000);
+  loadWorld(); // Default to World tab
 }
 
 // ── Guerreiro ──
@@ -356,20 +354,17 @@ async function loadWarrior() {
 
 // ── Navegação de locais ──
 function goTo(loc) {
-  ['tavern','inventory','commerce','temple','zones','skills','work','tower','arena','guild','world','mail'].forEach(l => {
+  ['inventory','commerce','temple','work','tower','arena','guild','world','mail'].forEach(l => {
     document.getElementById('loc-panel-' + l).style.display = l === loc ? 'block' : 'none';
     document.getElementById('loc-' + l).classList.toggle('active', l === loc);
   });
   if (loc === 'temple')   { loadTemple(); }
-  if (loc === 'zones')    { loadZones(); }
-  if (loc === 'skills')   { loadSkillsTab(); }
   if (loc === 'tower')    { loadTower(); }
   if (loc === 'arena')    { loadRank(); loadCurrentFight(); }
   if (loc === 'commerce') { loadShop(); }
   if (loc === 'inventory'){ renderAttributes(); loadInventory(); }
   if (loc === 'work')     { loadWork(); }
   if (loc === 'guild')     { loadGuild(); }
-  if (loc === 'territory') { loadTerritories(); }
   if (loc === 'world')      { loadWorld(); }
   if (loc === 'mail')      { loadMail(); }
 }
@@ -597,14 +592,17 @@ async function collectReward(questId) {
 
 // ── COMÉRCIO: loja ──
 function switchCommerceTab(tab) {
-  document.getElementById('panel-shop').style.display  = tab === 'shop'  ? 'block' : 'none';
-  document.getElementById('panel-sell').style.display  = tab === 'sell'  ? 'block' : 'none';
-  document.getElementById('panel-smith').style.display = tab === 'smith' ? 'block' : 'none';
-  document.getElementById('tab-shop').classList.toggle('active',  tab === 'shop');
-  document.getElementById('tab-sell').classList.toggle('active',  tab === 'sell');
-  document.getElementById('tab-smith').classList.toggle('active', tab === 'smith');
-  if (tab === 'sell')  loadSellList();
-  if (tab === 'smith') loadSmithingInCommerce();
+  document.getElementById('panel-shop').style.display      = tab === 'shop'      ? 'block' : 'none';
+  document.getElementById('panel-sell').style.display      = tab === 'sell'      ? 'block' : 'none';
+  document.getElementById('panel-smith').style.display     = tab === 'smith'     ? 'block' : 'none';
+  document.getElementById('panel-resources').style.display = tab === 'resources' ? 'block' : 'none';
+  document.getElementById('tab-shop').classList.toggle('active',      tab === 'shop');
+  document.getElementById('tab-sell').classList.toggle('active',      tab === 'sell');
+  document.getElementById('tab-smith').classList.toggle('active',     tab === 'smith');
+  document.getElementById('tab-resources').classList.toggle('active', tab === 'resources');
+  if (tab === 'sell')      loadSellList();
+  if (tab === 'smith')     loadSmithingInCommerce();
+  if (tab === 'resources') loadResourcesInCommerce();
 }
 
 // Loads smithing content into the Commerce tab smithing panel
@@ -2882,4 +2880,24 @@ async function cancelKingdomZoneSession(activityId) {
   worldMsg('Expedition cancelled.');
   if (worldCurrentKingdom) await enterKingdom(worldCurrentKingdom);
   loadWarrior();
+}
+
+// Resources tab in Commerce — shows all gathered items (fish, ores, gems, bars)
+async function loadResourcesInCommerce() {
+  const el = document.getElementById('resources-content');
+  el.innerHTML = '<p>Loading resources...</p>';
+  try {
+    if (!resourcesData.length) {
+      [skillsData, resourcesData] = await Promise.all([
+        api('GET', '/api/gathering/skills'),
+        api('GET', '/api/gathering/resources')
+      ]);
+    }
+    // Reuse sk-bag-content rendering then copy
+    await renderBag();
+    const src = document.getElementById('sk-bag-content');
+    if (src) el.innerHTML = src.innerHTML;
+  } catch(e) {
+    el.innerHTML = '<p style="color:red">Error loading resources.</p>';
+  }
 }
