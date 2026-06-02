@@ -1012,14 +1012,14 @@ function renderZones(zones, current) {
         </div>
         <p class="zone-desc">${z.description}</p>
         <div class="zone-stats">
-          <span>×${z.multiplier} recursos</span>
+          <span>×${z.multiplier} ${t('zones.multiplier')||'resources'}</span>
           ${z.npcEncounterChancePerHour > 0 ? `<span style="color:#c9a84c">🐉 ${z.npcEncounterChancePerHour}%/h NPC</span>` : ''}
           ${pvp ? `<span class="stamina-low">⚔ ${z.encounterChancePerHour}%/h PvP</span>` : ''}
         </div>
         ${!locked ? `
           <div class="zone-roles">
             <div class="zone-role-section">
-              <div class="sk-title" style="margin-bottom:.4rem">🎣 Coletar (Pesca)</div>
+              <div class="sk-title" style="margin-bottom:.4rem">🎣 ${t('zone.gathering_fish')||'Gather (Fishing)'}</div>
               <div class="sk-duration-btns">
                 ${durations.map(d => `
                   <button class="btn-hour" ${busy ? 'disabled' : ''}
@@ -1029,7 +1029,7 @@ function renderZones(zones, current) {
               </div>
             </div>
             <div class="zone-role-section" style="margin-top:.5rem">
-              <div class="sk-title" style="margin-bottom:.4rem">⛏ Coletar (Mineração)</div>
+              <div class="sk-title" style="margin-bottom:.4rem">⛏ ${t('zone.gathering_mine')||'Gather (Mining)'}</div>
               <div class="sk-duration-btns">
                 ${durations.map(d => `
                   <button class="btn-hour" ${busy ? 'disabled' : ''}
@@ -1040,7 +1040,7 @@ function renderZones(zones, current) {
             </div>
             ${pvp ? `
             <div class="zone-role-section" style="margin-top:.5rem">
-              <div class="sk-title" style="margin-bottom:.4rem">🗡 Caçar (Hunter)</div>
+              <div class="sk-title" style="margin-bottom:.4rem">🗡 ${t('zone.hunt_section')||'Hunt (Hunter)'}</div>
               <div class="sk-duration-btns">
                 ${[60,120,180,360].map(d => `
                   <button class="btn-hour" ${busy ? 'disabled' : ''}
@@ -1739,7 +1739,7 @@ async function showTowerLobby() {
 
   document.getElementById('tower-ranking-panel').innerHTML = `
     <div class="tower-enter-box">
-      <div class="tower-enter-title">Entrar na Torre</div>
+      <div class="tower-enter-title">${t('tower.enter_btn')}</div>
       <p style="color:#888;font-size:.82rem;margin:.4rem 0">
         Cost: <span class="stamina-cost">⚡ 25 stamina</span>
         &nbsp;·&nbsp; ${t('tower.your_stamina')} <strong>${stamina}/100</strong>
@@ -1750,11 +1750,11 @@ async function showTowerLobby() {
       <button class="btn-fight"
               ${busy || noStamina ? 'disabled style="opacity:.5;cursor:not-allowed"' : ''}
               onclick="enterTower()">
-        ${busy ? t('tower.warrior_busy') : noStamina ? t('tower.no_stamina') : '🏰 Entrar na Torre'}
+        ${busy ? t('tower.warrior_busy') : noStamina ? t('tower.no_stamina') : t('tower.enter_btn')}
       </button>
     </div>
     <h3 style="color:#c9a84c;margin:1rem 0 .5rem;font-size:.85rem;text-transform:uppercase;letter-spacing:.05em">
-      Ranking — Melhores Andares
+      Best Floors Ranking
     </h3>
     ${rankHtml}`;
 }
