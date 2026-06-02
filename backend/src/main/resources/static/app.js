@@ -1,4 +1,45 @@
-// ── Estado global ──
+// ── i18n ──────────────────────────────────────────────────────────────────────
+let _lang = {};
+let _currentLang = localStorage.getItem('lang') || 'en';
+
+async function loadLanguage(lang) {
+  try {
+    const res = await fetch(`/lang/${lang}.json`);
+    _lang = await res.json();
+    _currentLang = lang;
+    localStorage.setItem('lang', lang);
+    applyStaticTranslations();
+  } catch(e) {
+    console.warn('Failed to load language:', lang, e);
+  }
+}
+
+// Translate key with optional {param} interpolation
+function t(key, params) {
+  let s = _lang[key] ?? key;
+  if (params) for (const [k, v] of Object.entries(params)) s = s.replaceAll(`{${k}}`, v);
+  return s;
+}
+
+// Apply translations to elements with data-i18n attribute
+function applyStaticTranslations() {
+  document.querySelectorAll('[data-i18n]').forEach(el => {
+    el.textContent = t(el.dataset.i18n);
+  });
+  // Update language toggle button label
+  const btn = document.getElementById('lang-toggle');
+  if (btn) btn.textContent = _currentLang === 'en' ? '🌐 PT' : '🌐 EN';
+}
+
+async function toggleLanguage() {
+  const next = _currentLang === 'en' ? 'pt' : 'en';
+  await loadLanguage(next);
+  // Reload current panel content to apply new translations
+  const activeBtn = document.querySelector('.loc-btn.active');
+  if (activeBtn) activeBtn.click();
+}
+
+// ── Global state ──────────────────────────────────────────────────────────────
 let token    = localStorage.getItem('token');
 let player   = null;
 let warrior  = null;
@@ -207,10 +248,13 @@ function logout() {
 function enterGame() {
   document.getElementById('login-screen').style.display = 'none';
   document.getElementById('game-screen').style.display = 'block';
-  loadWarrior();
-  loadQuestTypes();
-  loadActiveQuests();
-  setInterval(loadActiveQuests, 10000);
+  // Load i18n first, then render game
+  loadLanguage(_currentLang).then(() => {
+    loadWarrior();
+    loadQuestTypes();
+    loadActiveQuests();
+    setInterval(loadActiveQuests, 10000);
+  });
 }
 
 // ── Guerreiro ──
@@ -253,30 +297,30 @@ async function loadWarrior() {
   document.getElementById('warrior-card').innerHTML = `
     <div class="warrior-name">${warrior.name}</div>
     <div class="warrior-class">${warrior.warriorClass}</div>
-    <div class="warrior-stat-row"><span class="label">Level</span><span class="value">${warrior.level}</span></div>
+    <div class="warrior-stat-row"><span class="label">${t('stat.level')}</span><span class="value">${warrior.level}</span></div>
     <div class="xp-bar-wrap">
       <div class="xp-bar-bg"><div class="xp-bar-fill" style="width:${xpPct}%"></div></div>
-      <div class="xp-label">EXP ${warrior.experience} / ${warrior.expNeeded}</div>
+      <div class="xp-label">${t('stat.exp')} ${warrior.experience} / ${warrior.expNeeded}</div>
     </div>
 
-    ${statRow('Attack',  warrior.baseAttack,  warrior.itemBonusAttack  ?? 0, warrior.buffBonusAttack  ?? 0)}
-    ${statRow('Defense', warrior.baseDefense, warrior.itemBonusDefense ?? 0, warrior.buffBonusDefense ?? 0)}
-    ${statRow('HP',      warrior.baseHealth,  warrior.itemBonusHealth  ?? 0, warrior.buffBonusHealth  ?? 0)}
+    ${statRow(t('stat.attack'),  warrior.baseAttack,  warrior.itemBonusAttack  ?? 0, warrior.buffBonusAttack  ?? 0)}
+    ${statRow(t('stat.defense'), warrior.baseDefense, warrior.itemBonusDefense ?? 0, warrior.buffBonusDefense ?? 0)}
+    ${statRow(t('stat.hp'),      warrior.baseHealth,  warrior.itemBonusHealth  ?? 0, warrior.buffBonusHealth  ?? 0)}
     <div class="warrior-stat-row">
-      <span class="label">Evasion</span>
+      <span class="label">${t('stat.evasion')}</span>
       <span class="value">${warrior.baseEvasion ?? warrior.evasionChance}%${
         (warrior.buffBonusEvasion ?? 0) > 0
           ? `<span style="color:#ffd700;font-size:.8em"> +${warrior.buffBonusEvasion}%</span>`
           : ''}</span>
     </div>
     <div class="warrior-stat-row">
-      <span class="label">Luck</span>
+      <span class="label">${t('stat.luck')}</span>
       <span class="value">${warrior.luck ?? 0}
-        <span style="color:#888;font-size:.75em">(+${warrior.luck ?? 0}% drop)</span>
+        <span style="color:#888;font-size:.75em">(${t('stat.drop_hint', {n: warrior.luck ?? 0})})</span>
       </span>
     </div>
     <div class="warrior-stat-row">
-      <span class="label">Stamina</span>
+      <span class="label">${t('stat.stamina')}</span>
       <span class="value ${stamina < 30 ? 'stamina-low' : ''}">${stamina}/100${staminaInfo}</span>
     </div>
 
@@ -284,19 +328,19 @@ async function loadWarrior() {
 
     <div style="margin-top:.4rem">
       ${warrior.isKnockedOut
-        ? `<span class="status-badge status-busy">💀 Knocked Out</span>`
+        ? `<span class="status-badge status-busy">💀 ${t('status.knocked_out')}</span>`
         : `<span class="status-badge ${busy ? 'status-busy' : 'status-available'}">
-             ${busy ? '⚔ Busy' : '✓ Available'}
+             ${busy ? `⚔ ${t('status.busy')}` : `✓ ${t('status.available')}`}
            </span>`}
     </div>
     <div class="xp-bar-bg" style="margin-top:.3rem">
       <div class="xp-bar-fill" style="width:${warrior.hpPercent ?? 100}%;background:${hpColor}"></div>
     </div>
     <div style="font-size:.7rem;color:#888;margin-top:.1rem">
-      ❤ HP ${warrior.hpPercent ?? 100}%
+      ❤ ${t('stat.hp')} ${warrior.hpPercent ?? 100}%
     </div>
     ${busy ? `<button class="btn-cancel-work" onclick="freeWarrior()" style="margin-top:.4rem;font-size:.72rem">
-      🔓 Free (if stuck)
+      🔓 ${t('status.free_btn')}
     </button>` : ''}`;
 }
 
@@ -1504,7 +1548,7 @@ async function showWorkJobList() {
         return `
           <div class="work-job-card ${locked ? 'locked' : ''}">
             <div class="wj-header">
-              <span class="wj-name">${job.displayName}</span>
+              <span class="wj-name">${_lang['work.job.'+job.id] || job.displayName}</span>
               <span class="wj-prof-level">Lv.${job.profLevel}${job.bonusPct > 0 ? ` <span class="wl-bonus">+${job.bonusPct}%</span>` : ''}</span>
             </div>
             <div class="xp-bar-bg" style="margin-bottom:.4rem"><div class="xp-bar-fill" style="width:${xpPct}%"></div></div>
@@ -1512,7 +1556,7 @@ async function showWorkJobList() {
             <div class="wj-stats">
               <span>${fmtBronze(job.goldPerHourWithBonus)}/h</span>
               <span>⭐ ${job.xpPerHour} xp/h</span>
-              ${locked ? `<span class="wj-req">🔒 Lv.${job.minWorkLevel} necessário</span>` : ''}
+              ${locked ? `<span class="wj-req">🔒 ${t('work.min_level', {n: job.minWorkLevel})}</span>` : ''}
             </div>
             ${!locked ? `
               <div class="wj-hours">
@@ -2199,47 +2243,51 @@ function renderTerritories(territories, myStatus) {
       </span>
     </div>` : '';
 
-  const cards = territories.map(t => {
-    const isMine    = t.territory === myTerritory;
-    const secsH     = Math.floor(t.secsUntilBattle / 3600);
-    const secsM     = Math.floor((t.secsUntilBattle % 3600) / 60);
+  const cards = territories.map(ter => {
+    const isMine    = ter.territory === myTerritory;
+    const secsH     = Math.floor(ter.secsUntilBattle / 3600);
+    const secsM     = Math.floor((ter.secsUntilBattle % 3600) / 60);
     const timerStr  = `${secsH}h ${secsM}m`;
+    const terName   = t('territory.name.' + ter.territory) !== 'territory.name.' + ter.territory
+                      ? t('territory.name.' + ter.territory)
+                      : ter.displayName;
 
-    const controlLine = t.isNeutral
-      ? `<span style="color:#aaa">⚪ Neutral</span>`
-      : `<span style="color:${isMine ? '#4caf50' : '#ef5350'}">${isMine ? '🛡 Your guild' : '⚔ ' + t.controllingGuild}</span>`;
+    const controlLine = ter.isNeutral
+      ? `<span style="color:#aaa">⚪ ${t('territory.neutral')}</span>`
+      : `<span style="color:${isMine ? '#4caf50' : '#ef5350'}">${isMine ? `🛡 ${t('territory.your_guild')}` : '⚔ ' + ter.controllingGuild}</span>`;
 
-    const streakLine = !t.isNeutral
-      ? `<div style="font-size:11px;color:#888">Streak: ${t.defenseStreak}x · Debuff: -${t.debuffPercent}% next</div>`
-      : '';
-
-    // Guilds that declared attack on this territory
-    const declarers = (t.declaringGuilds || []);
-    const declarersLine = declarers.length > 0
-      ? `<div style="margin-top:6px;font-size:12px;color:#ff9800">
-           ⚔ Declared: ${declarers.join(', ')}
+    const streakLine = !ter.isNeutral
+      ? `<div style="font-size:11px;color:#888">
+           ${t('territory.streak', {n: ter.defenseStreak})} · ${t('territory.debuff', {n: ter.debuffPercent})}
          </div>`
       : '';
 
-    // Button logic:
-    // - If my guild declared on THIS territory → show Cancel Attack
-    // - If my guild has no territory AND hasn't declared anywhere → show Declare Attack
-    // - Otherwise → no button
-    const canDeclare = !myTerritory && !t.myGuildDeclared;
-    const hasDeclared = t.myGuildDeclared;
+    const declarers = (ter.declaringGuilds || []);
+    const declarersLine = declarers.length > 0
+      ? `<div style="margin-top:6px;font-size:12px;color:#ff9800">
+           ⚔ ${t('territory.declared', {guilds: declarers.join(', ')})}
+         </div>`
+      : '';
+
+    const canDeclare = !myTerritory && !ter.myGuildDeclared;
+    const hasDeclared = ter.myGuildDeclared;
+
+    const bonusLabel = ter.territory === 'FORTALEZA_MALDITA' ? t('territory.bonus.quest_xp')
+                     : ter.territory === 'MINAS_DE_FERRO_NEGRO' ? t('territory.bonus.mining')
+                     : t('territory.bonus.fishing');
 
     const declareBtn = canDeclare && !isMine
-      ? `<button onclick="territoryDeclare('${t.territory}')" style="margin-top:8px;font-size:12px">
-           ⚔ Declare Attack
+      ? `<button onclick="territoryDeclare('${ter.territory}')" style="margin-top:8px;font-size:12px">
+           ⚔ ${t('territory.declare_btn')}
          </button>`
       : hasDeclared
         ? `<button onclick="territoryCancel()" style="margin-top:8px;font-size:12px;background:#7a3b00">
-             ✖ Cancel Attack
+             ✖ ${t('territory.cancel_btn')}
            </button>`
         : '';
 
-    const historyBtn = `<button onclick="territoryHistory('${t.territory}', '${t.displayName}')"
-        style="margin-top:8px;font-size:12px;background:#333;margin-left:4px">📜 History</button>`;
+    const historyBtn = `<button onclick="territoryHistory('${ter.territory}', '${terName}')"
+        style="margin-top:8px;font-size:12px;background:#333;margin-left:4px">📜 ${t('territory.history_btn')}</button>`;
 
     const borderColor = isMine ? '#4caf50' : hasDeclared ? '#ff9800' : '#444';
 
@@ -2248,18 +2296,16 @@ function renderTerritories(territories, myStatus) {
                   padding:14px;margin-bottom:12px">
         <div style="display:flex;justify-content:space-between;align-items:flex-start">
           <div>
-            <strong style="font-size:15px">${t.displayName}</strong><br>
+            <strong style="font-size:15px">${terName}</strong><br>
             ${controlLine}
             ${streakLine}
           </div>
           <div style="text-align:right;font-size:12px;color:#888">
-            Next battle in<br><strong style="color:#eee">${timerStr}</strong>
+            ${t('territory.next_battle')}<br><strong style="color:#eee">${timerStr}</strong>
           </div>
         </div>
         <div style="margin-top:6px;font-size:12px;color:#888">
-          Exclusive: +${t.exclusiveBonus}%
-          ${t.territory === 'FORTALEZA_MALDITA' ? 'quest XP' :
-            t.territory === 'MINAS_DE_FERRO_NEGRO' ? 'mining yield' : 'fishing yield'}
+          Exclusive: +${ter.exclusiveBonus}% ${bonusLabel}
         </div>
         ${declarersLine}
         <div>${declareBtn}${historyBtn}</div>

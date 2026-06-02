@@ -73,18 +73,19 @@
 
         <!-- NAV DE LOCAIS -->
         <nav class="location-nav">
-          <button id="loc-tavern"    class="loc-btn active" onclick="goTo('tavern')">🍺 Taverna</button>
-          <button id="loc-inventory" class="loc-btn"        onclick="goTo('inventory')">👤 Personagem</button>
-          <button id="loc-commerce"  class="loc-btn"        onclick="goTo('commerce')">🛒 Comércio</button>
-          <button id="loc-temple"    class="loc-btn"        onclick="goTo('temple')">⛪ Templo</button>
-          <button id="loc-zones"     class="loc-btn"        onclick="goTo('zones')">🗺 Expedições</button>
-          <button id="loc-skills"    class="loc-btn"        onclick="goTo('skills')">⛏ Habilidades</button>
-          <button id="loc-work"      class="loc-btn"        onclick="goTo('work')">⚒ Trabalho</button>
-          <button id="loc-tower"     class="loc-btn"        onclick="goTo('tower')">🏰 Torre</button>
+          <button id="loc-tavern"    class="loc-btn active" onclick="goTo('tavern')">🍺 <span data-i18n="nav.tavern">Tavern</span></button>
+          <button id="loc-inventory" class="loc-btn"        onclick="goTo('inventory')">👤 <span data-i18n="nav.character">Character</span></button>
+          <button id="loc-commerce"  class="loc-btn"        onclick="goTo('commerce')">🛒 <span data-i18n="nav.commerce">Commerce</span></button>
+          <button id="loc-temple"    class="loc-btn"        onclick="goTo('temple')">⛪ <span data-i18n="nav.temple">Temple</span></button>
+          <button id="loc-zones"     class="loc-btn"        onclick="goTo('zones')">🗺 <span data-i18n="nav.expeditions">Expeditions</span></button>
+          <button id="loc-skills"    class="loc-btn"        onclick="goTo('skills')">⛏ <span data-i18n="nav.skills">Skills</span></button>
+          <button id="loc-work"      class="loc-btn"        onclick="goTo('work')">⚒ <span data-i18n="nav.work">Work</span></button>
+          <button id="loc-tower"     class="loc-btn"        onclick="goTo('tower')">🏰 <span data-i18n="nav.tower">Tower</span></button>
           <button id="loc-arena"     class="loc-btn"        onclick="goTo('arena')">⚔ Arena</button>
-          <button id="loc-guild"      class="loc-btn"        onclick="goTo('guild')">🛡 Guilda</button>
-          <button id="loc-territory" class="loc-btn"        onclick="goTo('territory')">🏰 Territórios</button>
-          <button id="loc-mail"      class="loc-btn"        onclick="goTo('mail')">📬 Mail <span id="mail-badge" style="display:none;background:#ef5350;color:#fff;border-radius:10px;padding:0 5px;font-size:.7em"></span></button>
+          <button id="loc-guild"     class="loc-btn"        onclick="goTo('guild')">🛡 <span data-i18n="nav.guild">Guild</span></button>
+          <button id="loc-territory" class="loc-btn"        onclick="goTo('territory')">🏰 <span data-i18n="nav.territory">Territories</span></button>
+          <button id="loc-mail"      class="loc-btn"        onclick="goTo('mail')">📬 <span data-i18n="nav.mail">Mail</span> <span id="mail-badge" style="display:none;background:#ef5350;color:#fff;border-radius:10px;padding:0 5px;font-size:.7em"></span></button>
+          <button id="lang-toggle"   class="loc-btn"        onclick="toggleLanguage()" style="margin-left:auto;background:#1a3a1a;border-color:#2e7d32">🌐 PT</button>
         </nav>
 
         <!-- TAVERNA -->
