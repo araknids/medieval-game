@@ -11,8 +11,8 @@ import static org.hamcrest.Matchers.*;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
-// TC-142 to TC-152 — World / 3 Kingdoms integration tests
-@DisplayName("TC-142-152 | World — 3 Kingdoms Integration")
+// TC-142 to TC-157 — World / 3 Kingdoms integration tests
+@DisplayName("TC-142-157 | World — 3 Kingdoms Integration")
 class WorldIntegrationTest extends BaseIntegrationTest {
 
     String token;
@@ -184,5 +184,92 @@ class WorldIntegrationTest extends BaseIntegrationTest {
                         .content("{\"questType\":\"ESCORT_MINERS\"}"))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.error").isNotEmpty());
+    }
+
+    // TC-153: GET /api/world — each kingdom has lore, icon, secsUntilBattle, isMine, xpBonus
+    @Test
+    @DisplayName("TC-153 | GET /api/world — response has all required overlay fields")
+    void tc153_worldOverview_hasAllRequiredFields() throws Exception {
+        mockMvc.perform(get("/api/world").header("Authorization", bearer(token)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].lore").isNotEmpty())
+                .andExpect(jsonPath("$[0].icon").isNotEmpty())
+                .andExpect(jsonPath("$[0].secsUntilBattle").isNumber())
+                .andExpect(jsonPath("$[0].isMine").isBoolean())
+                .andExpect(jsonPath("$[0].xpBonus").isNumber())
+                .andExpect(jsonPath("$[0].bronzeBonus").isNumber())
+                .andExpect(jsonPath("$[0].exclusiveBonus").isNumber());
+    }
+
+    // TC-154: POST training/start with hours=0 → 400
+    @Test
+    @DisplayName("TC-154 | POST training/start with hours=0 → 400")
+    void tc154_startTraining_zeroHours_returns400() throws Exception {
+        mockMvc.perform(post("/api/world/COMBAT/training/start")
+                        .header("Authorization", bearer(token))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"hours\":0}"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error").isNotEmpty());
+    }
+
+    // TC-155: Cancel training → warrior freed → can start kingdom quest
+    @Test
+    @DisplayName("TC-155 | Cancel training → warrior freed → can start quest")
+    void tc155_cancelTraining_warriorFreed_canStartQuest() throws Exception {
+        String startResp = mockMvc.perform(post("/api/world/COMBAT/training/start")
+                        .header("Authorization", bearer(token))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"hours\":2}"))
+                .andExpect(status().isOk())
+                .andReturn().getResponse().getContentAsString();
+
+        long sessionId = objectMapper.readTree(startResp).get("id").asLong();
+
+        mockMvc.perform(post("/api/world/COMBAT/training/" + sessionId + "/cancel")
+                        .header("Authorization", bearer(token)))
+                .andExpect(status().isOk());
+
+        mockMvc.perform(post("/api/world/FISHING/quests/start")
+                        .header("Authorization", bearer(token))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"questType\":\"PATROL_COAST\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value("IN_PROGRESS"));
+    }
+
+    // TC-156: Collect training → warrior freed → can start kingdom quest
+    @Test
+    @DisplayName("TC-156 | Collect training → warrior freed → can start quest")
+    void tc156_collectTraining_warriorFreed_canStartQuest() throws Exception {
+        String startResp = mockMvc.perform(post("/api/world/COMBAT/training/start")
+                        .header("Authorization", bearer(token))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"hours\":1}"))
+                .andExpect(status().isOk())
+                .andReturn().getResponse().getContentAsString();
+
+        long sessionId = objectMapper.readTree(startResp).get("id").asLong();
+
+        mockMvc.perform(post("/api/world/COMBAT/training/" + sessionId + "/collect")
+                        .header("Authorization", bearer(token)))
+                .andExpect(status().isOk());
+
+        mockMvc.perform(post("/api/world/MINING/quests/start")
+                        .header("Authorization", bearer(token))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"questType\":\"ESCORT_MINERS\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value("IN_PROGRESS"));
+    }
+
+    // TC-157: GET /api/world — COMBAT kingdom returns 4 quest types
+    @Test
+    @DisplayName("TC-157 | GET /api/world/COMBAT/quests → 4 quest types")
+    void tc157_getCombatQuests_returns4() throws Exception {
+        mockMvc.perform(get("/api/world/COMBAT/quests").header("Authorization", bearer(token)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$").isArray())
+                .andExpect(jsonPath("$", hasSize(4)));
     }
 }

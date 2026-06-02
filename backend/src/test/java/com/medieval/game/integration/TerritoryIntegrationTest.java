@@ -1,5 +1,6 @@
 package com.medieval.game.integration;
 
+import com.fasterxml.jackson.databind.JsonNode;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -7,12 +8,13 @@ import org.springframework.http.MediaType;
 
 import java.util.Map;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.hamcrest.Matchers.*;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
-// TC-124 to TC-133 — Territory War integration tests
-@DisplayName("TC-124-133 | Territory War — Integration")
+// TC-124 to TC-138 — Territory War integration tests
+@DisplayName("TC-124-138 | Territory War — Integration")
 class TerritoryIntegrationTest extends BaseIntegrationTest {
 
     String token;
@@ -151,5 +153,101 @@ class TerritoryIntegrationTest extends BaseIntegrationTest {
         mockMvc.perform(get("/api/territory").header("Authorization", bearer(token)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$[0].secsUntilBattle").isNumber());
+    }
+
+    // TC-134: After declare, myGuildDeclared=true for that territory
+    @Test
+    @DisplayName("TC-134 | After declare, myGuildDeclared=true visible in GET /api/territory")
+    void tc134_afterDeclare_myGuildDeclaredTrue() throws Exception {
+        mockMvc.perform(post("/api/guild")
+                .header("Authorization", bearer(leaderToken))
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(json(Map.of("name", "DeclGuild134_" + System.nanoTime(), "description", ""))));
+
+        mockMvc.perform(post("/api/territory/FORTALEZA_MALDITA/declare")
+                .header("Authorization", bearer(leaderToken)))
+                .andExpect(status().isOk());
+
+        mockMvc.perform(get("/api/territory").header("Authorization", bearer(leaderToken)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[?(@.territory == 'FORTALEZA_MALDITA')].myGuildDeclared",
+                        hasItem(true)));
+    }
+
+    // TC-135: After declare then cancel, myGuildDeclared goes back to false
+    @Test
+    @DisplayName("TC-135 | After declare + cancel, myGuildDeclared=false")
+    void tc135_afterDeclareAndCancel_myGuildDeclaredFalse() throws Exception {
+        mockMvc.perform(post("/api/guild")
+                .header("Authorization", bearer(leaderToken))
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(json(Map.of("name", "DeclGuild135_" + System.nanoTime(), "description", ""))));
+
+        mockMvc.perform(post("/api/territory/MINAS_DE_FERRO_NEGRO/declare")
+                .header("Authorization", bearer(leaderToken)));
+
+        mockMvc.perform(post("/api/territory/cancel")
+                .header("Authorization", bearer(leaderToken)))
+                .andExpect(status().isOk());
+
+        mockMvc.perform(get("/api/territory").header("Authorization", bearer(leaderToken)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[?(@.territory == 'MINAS_DE_FERRO_NEGRO')].myGuildDeclared",
+                        hasItem(false)));
+    }
+
+    // TC-136: declaringGuilds is a non-null array in every territory entry
+    @Test
+    @DisplayName("TC-136 | GET /api/territory — all entries have declaringGuilds as array")
+    void tc136_allTerritories_haveDeclaringGuildsArray() throws Exception {
+        mockMvc.perform(get("/api/territory").header("Authorization", bearer(token)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].declaringGuilds").isArray())
+                .andExpect(jsonPath("$[1].declaringGuilds").isArray())
+                .andExpect(jsonPath("$[2].declaringGuilds").isArray());
+    }
+
+    // TC-137: After declare, guild name appears in declaringGuilds for that territory
+    @Test
+    @DisplayName("TC-137 | After declare, guild name in declaringGuilds")
+    void tc137_afterDeclare_guildInDeclaringGuilds() throws Exception {
+        String guildName = "WarGuild137_" + System.nanoTime();
+        mockMvc.perform(post("/api/guild")
+                .header("Authorization", bearer(leaderToken))
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(json(Map.of("name", guildName, "description", ""))));
+
+        mockMvc.perform(post("/api/territory/DESFILADEIRO_DO_OSSO/declare")
+                .header("Authorization", bearer(leaderToken)));
+
+        String resp = mockMvc.perform(get("/api/territory").header("Authorization", bearer(leaderToken)))
+                .andExpect(status().isOk())
+                .andReturn().getResponse().getContentAsString();
+
+        JsonNode territories = objectMapper.readTree(resp);
+        boolean found = false;
+        for (JsonNode ter : territories) {
+            if ("DESFILADEIRO_DO_OSSO".equals(ter.get("territory").asText())) {
+                for (JsonNode g : ter.get("declaringGuilds")) {
+                    if (guildName.equals(g.asText())) { found = true; break; }
+                }
+            }
+        }
+        assertThat(found).as("guild name should appear in declaringGuilds").isTrue();
+    }
+
+    // TC-138: GET /api/territory — all entries include exclusiveBonus and displayName
+    @Test
+    @DisplayName("TC-138 | GET /api/territory — all fields present: displayName, exclusiveBonus, lore")
+    void tc138_territory_hasAllRequiredFields() throws Exception {
+        mockMvc.perform(get("/api/territory").header("Authorization", bearer(token)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].displayName").isNotEmpty())
+                .andExpect(jsonPath("$[0].lore").isNotEmpty())
+                .andExpect(jsonPath("$[0].exclusiveBonus").isNumber())
+                .andExpect(jsonPath("$[0].isNeutral").isBoolean())
+                .andExpect(jsonPath("$[0].isMine").isBoolean())
+                .andExpect(jsonPath("$[0].defenseStreak").isNumber())
+                .andExpect(jsonPath("$[0].debuffPercent").isNumber());
     }
 }
