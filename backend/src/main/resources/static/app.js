@@ -597,11 +597,31 @@ async function collectReward(questId) {
 
 // ── COMÉRCIO: loja ──
 function switchCommerceTab(tab) {
-  document.getElementById('panel-shop').style.display = tab === 'shop' ? 'block' : 'none';
-  document.getElementById('panel-sell').style.display = tab === 'sell' ? 'block' : 'none';
-  document.getElementById('tab-shop').classList.toggle('active', tab === 'shop');
-  document.getElementById('tab-sell').classList.toggle('active', tab === 'sell');
-  if (tab === 'sell') loadSellList();
+  document.getElementById('panel-shop').style.display  = tab === 'shop'  ? 'block' : 'none';
+  document.getElementById('panel-sell').style.display  = tab === 'sell'  ? 'block' : 'none';
+  document.getElementById('panel-smith').style.display = tab === 'smith' ? 'block' : 'none';
+  document.getElementById('tab-shop').classList.toggle('active',  tab === 'shop');
+  document.getElementById('tab-sell').classList.toggle('active',  tab === 'sell');
+  document.getElementById('tab-smith').classList.toggle('active', tab === 'smith');
+  if (tab === 'sell')  loadSellList();
+  if (tab === 'smith') loadSmithingInCommerce();
+}
+
+// Loads smithing content into the Commerce tab smithing panel
+async function loadSmithingInCommerce() {
+  const el = document.getElementById('smith-content');
+  el.innerHTML = '<p>Loading smithing...</p>';
+  // Ensure resources and skills are loaded
+  if (!resourcesData.length || !skillsData.length) {
+    [skillsData, resourcesData] = await Promise.all([
+      api('GET', '/api/gathering/skills'),
+      api('GET', '/api/gathering/resources')
+    ]);
+  }
+  // Render smithing into sk-smith-content (hidden), then copy HTML
+  await renderSmithing();
+  const src = document.getElementById('sk-smith-content');
+  if (src) el.innerHTML = src.innerHTML;
 }
 
 let shopTimerInterval = null;
@@ -2636,21 +2656,42 @@ function renderKingdomDetail(kingdom, quests, activeQuests, training) {
     }
   }
 
-  // Gathering section for FISHING and MINING kingdoms
+  // Gathering section for FISHING and MINING kingdoms — 3 zones per kingdom
   let gatheringHtml = '';
   if (kingdom === 'FISHING' || kingdom === 'MINING') {
     const skillType = kingdom === 'FISHING' ? 'FISHING' : 'MINING';
-    const icon      = kingdom === 'FISHING' ? '🎣' : '⛏';
-    const label     = kingdom === 'FISHING' ? 'Fishing' : 'Mining';
-    const durations = kingdom === 'FISHING' ? [5,10,20,30,40] : [10,20,30,45,60];
-    gatheringHtml = `
-      <div style="background:#1a1a2e;border:1px solid #333;border-radius:8px;padding:12px;margin-bottom:12px">
-        <strong style="color:#4db6ac">${icon} ${label}</strong>
-        <p style="font-size:12px;color:#888;margin:4px 0 8px">Start a gathering session to collect resources in this kingdom.</p>
-        <div style="display:flex;gap:6px;flex-wrap:wrap">
-          ${durations.map(d => `<button onclick="startKingdomGathering('${skillType}',${d})" style="font-size:12px">${d}min</button>`).join('')}
-        </div>
-      </div>`;
+    const wLevel    = warrior ? warrior.level : 1;
+
+    const zones = kingdom === 'FISHING' ? [
+      { name:'🏖 Safe Shore',   minLv:1,  pvp:false, durations:[5,10,20,30,40],    zone:null,        color:'#4caf50', desc:'Safe fishing — no PvP' },
+      { name:'🌊 Wild Coast',   minLv:10, pvp:true,  durations:[30,60,180,360,720], zone:'PVP',       color:'#ffc107', desc:'PvP zone — hunters may attack' },
+      { name:'🦈 Deep Sea',     minLv:20, pvp:true,  durations:[30,60,180,360,720], zone:'HIGH_RISK', color:'#ef5350', desc:'High risk — rare fish, PvP + monsters. Items at stake!' }
+    ] : [
+      { name:'⛏ Open Mine',      minLv:1,  pvp:false, durations:[10,20,30,45,60],    zone:null,        color:'#4caf50', desc:'Safe mining — no PvP' },
+      { name:'🪨 Deep Tunnels',  minLv:10, pvp:true,  durations:[30,60,180,360,720], zone:'PVP',       color:'#ffc107', desc:'PvP zone — hunters may attack' },
+      { name:'💎 Forbidden Mines',minLv:20, pvp:true,  durations:[30,60,180,360,720], zone:'HIGH_RISK', color:'#ef5350', desc:'High risk — rare ores, PvP + monsters. Items at stake!' }
+    ];
+
+    gatheringHtml = zones.map(z => {
+      const locked = wLevel < z.minLv;
+      return `
+        <div style="background:#1a1a2e;border:1px solid ${locked?'#333':z.color+'44'};border-radius:8px;padding:12px;margin-bottom:8px;opacity:${locked?'0.5':'1'}">
+          <div style="display:flex;justify-content:space-between;align-items:center">
+            <strong style="color:${z.color}">${z.name}</strong>
+            ${locked ? `<span style="font-size:11px;color:#888">🔒 Lv.${z.minLv}+</span>` : z.pvp ? '<span style="font-size:11px;color:#ef5350">⚔ PvP</span>' : '<span style="font-size:11px;color:#4caf50">✓ Safe</span>'}
+          </div>
+          <p style="font-size:11px;color:#888;margin:3px 0 6px">${z.desc}</p>
+          ${!locked ? `<div style="display:flex;gap:5px;flex-wrap:wrap">
+            ${z.durations.map(d => {
+              const label = d >= 60 ? (d/60)+'h' : d+'min';
+              const onclick = z.zone
+                ? `enterKingdomZone('${z.zone}','${skillType}',${d})`
+                : `startKingdomGathering('${skillType}',${d})`;
+              return `<button onclick="${onclick}" style="font-size:11px;padding:3px 8px">${label}</button>`;
+            }).join('')}
+          </div>` : '<p style="font-size:11px;color:#555;margin:0">Reach level '+z.minLv+' to unlock.</p>'}
+        </div>`;
+    }).join('');
   }
 
   const questCards = quests.map(q => {
@@ -2745,10 +2786,26 @@ async function collectTraining(sessionId) {
   loadWarrior();
 }
 
+// Safe zone gathering: /api/gathering/start
 async function startKingdomGathering(skillType, durationMinutes) {
   const r = await api('POST', '/api/gathering/start', { skillType, durationMinutes });
   if (r.error) { worldMsg(r.error, false); return; }
   worldMsg(`${skillType === 'FISHING' ? 'Fishing' : 'Mining'} started! ${durationMinutes}min session.`);
+  if (worldCurrentKingdom) await enterKingdom(worldCurrentKingdom);
+  loadWarrior();
+}
+
+// PvP / High-Risk zone gathering: /api/zones/enter (Gatherer role)
+async function enterKingdomZone(zone, skillType, durationMinutes) {
+  const r = await api('POST', '/api/zones/enter', {
+    zone,
+    role: 'GATHERING',
+    skillType,
+    durationMinutes
+  });
+  if (r.error) { worldMsg(r.error, false); return; }
+  const label = zone === 'HIGH_RISK' ? 'High Risk' : 'PvP';
+  worldMsg(`Entered ${label} zone! ${skillType === 'FISHING' ? 'Fishing' : 'Mining'} for ${durationMinutes >= 60 ? durationMinutes/60+'h' : durationMinutes+'min'}. Watch out for hunters!`);
   if (worldCurrentKingdom) await enterKingdom(worldCurrentKingdom);
   loadWarrior();
 }
