@@ -2598,7 +2598,8 @@ async function enterKingdom(kingdom) {
   if (!el) return;
   el.innerHTML = '<p>Loading kingdom...</p>';
   try {
-    const [quests, activeQuests, training, gatherSession, zoneSession] = await Promise.all([
+    const [, quests, activeQuests, training, gatherSession, zoneSession] = await Promise.all([
+      loadWarrior(),
       api('GET', `/api/world/${kingdom}/quests`),
       api('GET', `/api/world/${kingdom}/quests/active`),
       kingdom === 'COMBAT' ? api('GET', '/api/world/COMBAT/training') : Promise.resolve(null),
@@ -2729,7 +2730,7 @@ function renderKingdomDetail(kingdom, quests, activeQuests, training, gatherSess
   }
 
   const questCards = quests.map(q => {
-    const busy = activeQuests.length > 0;
+    const busy = activeQuests.length > 0 || (warrior && warrior.onMission);
     const disabled = busy || !q.canStart;
     return `
       <div style="background:#1a1a2e;border:1px solid #333;border-radius:8px;padding:12px;margin-bottom:8px">
@@ -2774,60 +2775,59 @@ function worldMsg(text, ok = true) {
 async function startKingdomQuest(kingdom, questTypeId) {
   const r = await api('POST', `/api/world/${kingdom}/quests/start`, { questType: questTypeId });
   if (r.error) { worldMsg(r.error, false); return; }
-  worldMsg('Quest started! Return when the timer ends.');
   await enterKingdom(kingdom);
+  worldMsg('Quest started! Return when the timer ends.');
 }
 
 async function collectKingdomQuest(kingdom, questId) {
   const r = await api('POST', `/api/world/${kingdom}/quests/${questId}/collect`);
   if (r.error) { worldMsg(r.error, false); return; }
   const drop = r.droppedItem ? ' · Item: ' + r.droppedItem.name : '';
-  worldMsg(`Collected! ${fmtBronze(r.bronzeEarned)} · +${r.xpEarned} XP${drop}`);
+  const rewardMsg = `✅ Collected! ${fmtBronze(r.bronzeEarned)} · +${r.xpEarned} XP${drop}`;
   await enterKingdom(kingdom);
-  loadWarrior();
+  worldMsg(rewardMsg);
 }
 
 async function abandonKingdomQuest(kingdom, questId) {
   if (!confirm('Abandon quest? You receive no reward.')) return;
   const r = await api('POST', `/api/world/${kingdom}/quests/${questId}/abandon`);
   if (r.error) { worldMsg(r.error, false); return; }
-  worldMsg('Quest abandoned.');
   await enterKingdom(kingdom);
-  loadWarrior();
+  worldMsg('Quest abandoned.');
 }
 
 async function startTraining(hours) {
   const r = await api('POST', '/api/world/COMBAT/training/start', { hours });
   if (r.error) { worldMsg(r.error, false); return; }
-  worldMsg(`Training started! ${hours}h · +${r.xpReward} XP on completion.`);
+  const msg = `Training started! ${hours}h · +${r.xpReward} XP on completion.`;
   await enterKingdom('COMBAT');
-  loadWarrior();
+  worldMsg(msg);
 }
 
 async function cancelTraining(sessionId) {
   if (!confirm('Cancel training? You will not receive any XP.')) return;
   const r = await api('POST', `/api/world/COMBAT/training/${sessionId}/cancel`);
   if (r.error) { worldMsg(r.error, false); return; }
-  worldMsg(r.message);
+  const msg = r.message;
   await enterKingdom('COMBAT');
-  loadWarrior();
+  worldMsg(msg);
 }
 
 async function collectTraining(sessionId) {
   const r = await api('POST', `/api/world/COMBAT/training/${sessionId}/collect`);
   if (r.error) { worldMsg(r.error, false); return; }
-  worldMsg(r.message);
+  const msg = r.message;
   await enterKingdom('COMBAT');
-  loadWarrior();
+  worldMsg(msg);
 }
 
 // Safe zone gathering: /api/gathering/start
 async function startKingdomGathering(skillType, durationMinutes) {
   const r = await api('POST', '/api/gathering/start', { skillType, durationMinutes });
   if (r.error) { worldMsg(r.error, false); return; }
-  worldMsg(`${skillType === 'FISHING' ? 'Fishing' : 'Mining'} started! ${durationMinutes}min session.`);
+  const msg = `${skillType === 'FISHING' ? 'Fishing' : 'Mining'} started! ${durationMinutes}min session.`;
   if (worldCurrentKingdom) await enterKingdom(worldCurrentKingdom);
-  loadWarrior();
+  worldMsg(msg);
 }
 
 // PvP / High-Risk zone gathering: /api/zones/enter (Gatherer role)
@@ -2842,44 +2842,40 @@ async function enterKingdomZone(zone, skillType, durationMinutes) {
   console.log('[WORLD] zone enter response:', JSON.stringify(r));
   if (r.error) { worldMsg(r.error, false); return; }
   const label = zone === 'HIGH_RISK' ? 'High Risk' : 'PvP';
-  worldMsg(`Entered ${label} zone! ${skillType === 'FISHING' ? 'Fishing' : 'Mining'} for ${durationMinutes >= 60 ? durationMinutes/60+'h' : durationMinutes+'min'}. Watch out for hunters!`);
+  const msg = `Entered ${label} zone! ${skillType === 'FISHING' ? 'Fishing' : 'Mining'} for ${durationMinutes >= 60 ? durationMinutes/60+'h' : durationMinutes+'min'}. Watch out for hunters!`;
   if (worldCurrentKingdom) await enterKingdom(worldCurrentKingdom);
-  loadWarrior();
+  worldMsg(msg);
 }
 
 // Kingdom gathering session helpers
 async function collectKingdomGather(sessionId) {
   const r = await api('POST', `/api/gathering/${sessionId}/collect`);
   if (r.error) { worldMsg(r.error, false); return; }
-  worldMsg('Gathering collected!');
   if (worldCurrentKingdom) await enterKingdom(worldCurrentKingdom);
-  loadWarrior();
+  worldMsg('Gathering collected!');
 }
 
 async function cancelKingdomGather(sessionId) {
   if (!confirm('Cancel gathering session? You lose all collected resources.')) return;
   const r = await api('POST', `/api/gathering/${sessionId}/cancel`);
   if (r.error) { worldMsg(r.error, false); return; }
-  worldMsg('Gathering cancelled.');
   if (worldCurrentKingdom) await enterKingdom(worldCurrentKingdom);
-  loadWarrior();
+  worldMsg('Gathering cancelled.');
 }
 
 async function collectKingdomZoneSession(activityId) {
   const r = await api('POST', `/api/zones/${activityId}/collect`);
   if (r.error) { worldMsg(r.error, false); return; }
-  worldMsg('Expedition loot collected!');
   if (worldCurrentKingdom) await enterKingdom(worldCurrentKingdom);
-  loadWarrior();
+  worldMsg('Expedition loot collected!');
 }
 
 async function cancelKingdomZoneSession(activityId) {
   if (!confirm('Cancel expedition? You lose all resources gathered so far.')) return;
   const r = await api('POST', `/api/zones/${activityId}/cancel`);
   if (r.error) { worldMsg(r.error, false); return; }
-  worldMsg('Expedition cancelled.');
   if (worldCurrentKingdom) await enterKingdom(worldCurrentKingdom);
-  loadWarrior();
+  worldMsg('Expedition cancelled.');
 }
 
 // Resources tab in Commerce — shows all gathered items (fish, ores, gems, bars)
