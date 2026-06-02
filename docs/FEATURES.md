@@ -53,14 +53,14 @@
 
 ---
 
-## 3. Sistema de Moedas (3 Tier)
+## 3. Sistema de Moedas (3 Tier + VIP)
 
 - **Bronze**: moeda base (menor)
 - **Prata**: 100 bronze = 1 prata
 - **Ouro**: 100 prata = 1 ouro (= 10.000 bronze)
 - Display: `2🥇 30🥈 45🥉`
-- Futura 4ª moeda (VIP) planejada
 - Novos jogadores começam com 50 prata
+- **SoulStone (💎)**: moeda VIP — ver seção 25
 
 ---
 
@@ -182,6 +182,11 @@ Capacete, Armadura, Espada, Escudo, Calça, Bota, Luva, Ombreira, Colar, Anel
 ### Proteção (Templo)
 - Até 3 itens podem ser protegidos (50 bronze cada)
 - Itens protegidos NÃO caem em morte no Alto Risco
+
+### Bag (Mochila)
+- Capacidade: **10 slots** para jogadores free, **20 slots** para VIP (SoulStone — ver seção 25)
+- Itens equipados **não** contam contra o limite da bag
+- Ao tentar receber item com bag cheia: item é perdido (drop bloqueado com mensagem de erro)
 
 ### Itens Iniciais
 7 itens Comuns ao criar conta: Elmo, Armadura, Espada, Escudo, Botas, Luvas, Calça (todos de Ferro/Couro)
@@ -573,11 +578,73 @@ Substitui as abas Taverna, Expedições, Habilidades (pesca/mineração) e Terri
 - [ ] Mercado entre jogadores (integração Steam Marketplace)
 - [ ] Masmorra em grupo (requer guilda)
 - [ ] Dominação de Castelo (requer guilda)
-- [ ] 4ª moeda VIP
 - [ ] Mais classes de guerreiro
 - [ ] Mais zonas e biomas
 - [ ] Sistema de crafting avançado
 - [ ] Eventos temporários
+- [ ] SoulStone — cosmético/social (títulos, frames de guilda, lore customizado)
+- [ ] SoulStone — métodos de ganho adicionais (login diário, conquistas, eventos)
+
+---
+
+## 25. SoulStone 💎 — Moeda VIP
+
+### Visão Geral
+
+Moeda premium da conta (não do personagem). Obtida via compra (futuro: Stripe/Steam). Separada em **compras permanentes** e **consumíveis**.
+
+### Formas de Ganhar
+
+| Método | Status |
+|--------|--------|
+| Compra direta (Stripe/Steam) | Planejado — admin endpoint por enquanto para testes |
+| Login diário consecutivo | Futuro (+1 💎 a cada 7 dias) |
+| Conquistas | Futuro |
+| Eventos sazonais | Futuro |
+
+### Compras Permanentes (one-time — ficam para sempre)
+
+| Feature | Custo | Detalhe |
+|---------|-------|---------|
+| Expandir Bag | 3 💎 | 10 slots → 20 slots na mochila |
+| Slot extra de buff | 8 💎 | 1 → 2 buffs ativos simultâneos no Templo |
+| Resetar atributos do guerreiro | 5 💎 | Redistribui todos os pontos alocados |
+| Trocar nome do guerreiro | 2 💎 | Uma compra = uma troca |
+
+### Consumíveis (gastam toda vez que usar)
+
+| Feature | Custo | Cooldown / Limite |
+|---------|-------|-------------------|
+| Cura instantânea de HP | 1 💎 | CD 30 min |
+| Ticket extra de arena | 1 💎 | +1 luta além do limite diário |
+| Pular metade do CD de treino/work | 1 💎 | Uma vez por sessão ativa |
+
+### Cosmético / Social (planejado para o futuro)
+- Título exibido no perfil
+- Frame especial no card da guilda
+- Lore customizado para um item
+
+### Mecânica de Saldo
+- Campo `soulStones` em `Player` (escopo de conta, não de personagem)
+- Nunca pode ficar negativo
+- Toda operação valida saldo antes de debitar
+- Histórico de transações: futuro
+
+### Entidades
+- `Player.soulStones` — saldo atual
+- `Player.lastSoulstoneHealAt` — controle de CD da cura instantânea
+- `Player.inventoryExpanded` — flag de expansão da bag (perm)
+- `Player.extraBuffSlot` — flag de slot extra de buff (perm)
+
+### Endpoints
+| Método | Rota | Ação |
+|--------|------|------|
+| POST | `/api/temple/soulstone-heal` | Cura instantânea (1 💎, CD 30 min) |
+| POST | `/api/inventory/expand` | Expande bag 10→20 (3 💎, perm) |
+| GET  | `/api/inventory/slots` | Info de slots atual |
+| POST | `/api/warrior/rename` | Troca nome (2 💎, perm) |
+| POST | `/api/warrior/reset-attributes` | Reseta atributos (5 💎, perm) |
+| POST | `/api/admin/grant-soulstones` | Dar SoulStones (testes/admin) |
 
 ---
 
