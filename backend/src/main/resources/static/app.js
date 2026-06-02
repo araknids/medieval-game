@@ -2700,8 +2700,11 @@ function renderKingdomDetail(kingdom, quests, activeQuests, training, gatherSess
       { name:'💎 Forbidden Mines',minLv:20, pvp:true,  durations:[30,60,180,360,720], zone:'HIGH_RISK', color:'#ef5350', desc:'High risk — rare ores, PvP + monsters. Items at stake!' }
     ];
 
-    // Check if warrior is busy (has active gather or zone session)
-    const isBusy = (gatherSession && gatherSession.active) || (zoneSession && zoneSession.active) || (warrior && warrior.onMission);
+    // Check if warrior is busy based on fresh API data (not stale warrior cache)
+    // Only block PvP zones for active gathering/zone/kingdom-quest sessions
+    const isBusy = (gatherSession && gatherSession.active)
+                || (zoneSession   && zoneSession.active)
+                || activeQuests.length > 0;
 
     gatheringHtml = zones.map(z => {
       const locked = wLevel < z.minLv;
