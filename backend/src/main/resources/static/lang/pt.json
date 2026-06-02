@@ -241,5 +241,16 @@
   "guild.created": "Guilda criada!",
   "guild.joined": "Você entrou na guilda!",
   "mail.err_no_to": "Informe o nome do guerreiro destinatário.",
-  "mail.err_no_msg": "Escreva uma mensagem."
+  "mail.err_no_msg": "Escreva uma mensagem.",
+  "item.type.HELMET": "Capacete",
+  "item.type.ARMOR": "Armadura",
+  "item.type.WEAPON": "Espada",
+  "item.type.SHIELD": "Escudo",
+  "item.type.BOOTS": "Botas",
+  "item.type.GLOVES": "Luvas",
+  "item.type.RING": "Anel",
+  "item.type.NECKLACE": "Colar",
+  "item.type.SHOULDER": "Ombreira",
+  "item.type.PANTS": "Calças",
+  "btn.consume": "Consumir"
 }

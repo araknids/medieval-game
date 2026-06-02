@@ -5,60 +5,56 @@ import org.springframework.stereotype.Component;
 
 import java.util.Random;
 
-/**
- * Gera lore e origem para itens — tudo em memória, sem banco de dados.
- * O mesmo item sempre terá o mesmo texto pois é salvo no DB na criação.
- */
 @Component
 public class ItemLoreGenerator {
 
-    // ── Lore por raridade × tipo ──
+    // ── Lore by rarity × type ──
 
     private static final String[][] COMMON_LORE = {
         // WEAPON
-        {"Uma arma funcional, sem nada de especial. Cumpre seu papel nas batalhas do dia a dia.",
-         "Forjada às pressas por um ferreiro do vilarejo. Não é bonita, mas corta.",
-         "Desgastada pelo uso, mas ainda afiada o suficiente para a batalha."},
-        // ARMOR (ARMOR, HELMET, SHIELD, GLOVES, BOOTS, PANTS, SHOULDER, NECKLACE, RING)
-        {"Uma proteção básica, simples mas funcional. Já viu dias melhores.",
-         "Costurada por mãos habilidosas mas com material modesto.",
-         "Resistente o suficiente para aguentar as primeiras batalhas de um aventureiro."},
+        {"A functional weapon with nothing special about it. Gets the job done in everyday battles.",
+         "Hastily forged by a village blacksmith. Not pretty, but it cuts.",
+         "Worn from use, but still sharp enough for battle."},
+        // ARMOR (everything else)
+        {"Basic protection — simple but functional. Has seen better days.",
+         "Sewn by skilled hands but with modest materials.",
+         "Sturdy enough to survive a new adventurer's first battles."},
     };
 
     private static final String[][] UNCOMMON_LORE = {
         // WEAPON
-        {"Forjada por um artesão habilidoso que aprendeu o ofício com um mestre. Já participou de várias batalhas.",
-         "Tem um equilíbrio perfeito entre ataque e durabilidade. Não é obra de um leigo.",
-         "Dizem que pertenceu a um soldado da guarda que a perdeu num confronto nas estradas."},
+        {"Forged by a skilled craftsman who learned the trade from a master. Has seen many battles.",
+         "Has the perfect balance between offense and durability. Not the work of an amateur.",
+         "Said to have belonged to a guard soldier who lost it in a skirmish on the roads."},
         // ARMOR
-        {"Construída com esmero e materiais de qualidade superior. Oferece proteção real.",
-         "Um equipamento digno de um soldado veterano. Resistiu a muitas batalhas.",
-         "Fabricada com técnica refinada. Quem a usou antes sabia o que estava fazendo."},
+        {"Built with care and superior quality materials. Offers real protection.",
+         "Equipment worthy of a veteran soldier. Has survived many battles.",
+         "Crafted with refined technique. Whoever wore it before knew what they were doing."},
     };
 
     private static final String[][] RARE_LORE = {
         // WEAPON
-        {"Dizem que esta arma pertenceu a um guerreiro lendário que desapareceu misteriosamente nas Terras do Norte.",
-         "Emite um leve brilho ao luar. Forjada com metais raros de uma mina hoje abandonada.",
-         "Gravuras antigas decoram sua lâmina. Ninguém sabe ao certo o que significam."},
+        {"They say this weapon belonged to a legendary warrior who disappeared mysteriously in the Northern Lands.",
+         "It emits a faint glow in moonlight. Forged with rare metals from a now-abandoned mine.",
+         "Ancient engravings decorate its blade. No one knows exactly what they mean."},
         // ARMOR
-        {"Feita com técnicas antigas quase esquecidas. Emana uma aura de poder contido.",
-         "As marcas de batalha nela são incontáveis. Sobreviveu onde outros pereceram.",
-         "Criada por um armeiro de reputação lendária. Vale muito mais do que aparenta."},
+        {"Made with ancient techniques nearly forgotten. It emanates an aura of restrained power.",
+         "The battle marks on it are countless. It survived where others perished.",
+         "Created by an armorer of legendary reputation. Worth far more than it appears."},
     };
 
     private static final String[][] EPIC_LORE = {
         // WEAPON
-        {"Um artefato de poder imensurável. Dizem que foi banhado no sangue de um dragão ancestral.",
-         "O nome desta arma ecoa pelos séculos. Guerreiros caíram de joelhos só de vê-la.",
-         "Criada numa forja esquecida pelos deuses, guarda dentro de si um fragmento de batalhas épicas."},
+        {"An artifact of immeasurable power. They say it was bathed in the blood of an ancient dragon.",
+         "The name of this weapon echoes through the centuries. Warriors fell to their knees just seeing it.",
+         "Created in a forge forgotten by the gods, it holds within it a fragment of epic battles."},
         // ARMOR
-        {"Criada pelos próprios forjadores dos deuses, carrega a bênção dos antigos combatentes.",
-         "Apenas os mais dignos são considerados merecedores de usá-la.",
-         "Nenhum ferreiro vivo consegue reproduzir esta obra. É uma relíquia de outra era."},
+        {"Created by the gods' own forgers, it carries the blessing of the ancient warriors.",
+         "Only the most worthy are considered deserving of wearing it.",
+         "No living blacksmith can reproduce this work. It is a relic of another age."},
     };
 
-    // ── Origens ──
+    // ── Origin strings ──
 
     public String generateLore(int rarity, ItemType type, Random rng) {
         String[][] pool = switch (rarity) {
@@ -67,33 +63,32 @@ public class ItemLoreGenerator {
             case 2 -> UNCOMMON_LORE;
             default -> COMMON_LORE;
         };
-        // índice 0 = armas, índice 1 = todo o resto
         int idx = (type == ItemType.WEAPON) ? 0 : 1;
         String[] texts = pool[idx];
         return texts[rng.nextInt(texts.length)];
     }
 
     public String originFromQuest(String questDisplayName) {
-        return "Encontrado durante: " + questDisplayName + ".";
+        return "Found during: " + questDisplayName + ".";
     }
 
     public String originFromShop(String merchantName) {
-        return "Adquirido no Comércio de " + merchantName + ".";
+        return "Acquired at " + merchantName + "'s Trading Post.";
     }
 
     public String originFromZone(String zoneName) {
-        return "Encontrado em exploração na " + zoneName + ".";
+        return "Found while exploring " + zoneName + ".";
     }
 
     public String originFromSmithing() {
-        return "Forjado pelo próprio guerreiro na bigorna do Templo.";
+        return "Forged by the warrior at the Temple's anvil.";
     }
 
     public String originStarter() {
-        return "Equipamento inicial fornecido pela guilda de aventureiros.";
+        return "Starter equipment provided by the adventurers' guild.";
     }
 
     public String originDrop(String bossOrEnemyName) {
-        return "Obtido após derrotar " + bossOrEnemyName + ".";
+        return "Obtained after defeating " + bossOrEnemyName + ".";
     }
 }

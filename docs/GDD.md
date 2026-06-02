@@ -655,16 +655,24 @@ Stats do NPC: média dos warriors da guilda atacante × fator de dificuldade do 
 - Quest types, work jobs, zone names, territory names, buff names — todos via `t()` com fallback ao displayName do backend
 - Botões de quest, arena, tower, temple, skills, zones, shop, guild, mail
 
-**TODO Phase 2 — Intencionalmente deixado para depois:**
+**Phase 2 concluída.** Todas as strings de conteúdo traduzidas para inglês:
 
-| Item | Motivo de deixar para depois |
-|------|------------------------------|
-| Narrativa do `BattleSimulator.java` (textos de ataque, evasão, vitória) | Conteúdo de jogo com sabor medieval — requer copywriter, não simples tradução |
-| Lore de itens gerado pelo `ItemLoreGenerator.java` | Conteúdo criativo, ~100 textos únicos por raridade/tipo |
-| Nomes narrativos de quests ("As trevas da masmorra foram varridas...") | Idem — conteúdo de jogo, não UI |
-| `item.typeDisplay` e `item.typeDisplay` nos cards de inventário | Vem do backend como string, precisaria de novo campo no enum ou mapa no frontend |
-| Placeholders dos campos de formulário (auth, mail) | Baixa prioridade — já em inglês, PT é bônus |
-| Idiomas adicionais (`es.json`, `fr.json`, etc.) | Phase 3 — depois do lançamento na Steam |
+- [x] `BattleSimulator.java` — textos de ataque, partes do corpo, evasões, vitória
+- [x] `ItemLoreGenerator.java` — lore por raridade/tipo (Common/Uncommon/Rare/Epic × Weapon/Armor) e origens
+- [x] `ItemType.java` — displayNames agora em inglês (Helmet, Armor, Weapon, etc.)
+- [x] `item.typeDisplay` no frontend — usa `t('item.type.'+type)||fallback`
+- [x] `item.rarityName` no frontend — usa `t('inventory.rarity.'+rarity)||fallback`
+- [x] Quest narratives (PATROL/DUNGEON/RAID/BOSS_HUNT) — traduzidas no frontend
+- [x] Drop narratives — traduzidas no frontend
+
+**TODO Phase 3 — Expansão de idiomas:**
+
+| Item | Quando |
+|------|--------|
+| `es.json` (espanhol) | Após lançamento na Steam |
+| `fr.json` (francês) | Idem |
+| Detecção automática do idioma do browser | Com `navigator.language` |
+| Backend i18n via `Accept-Language` header | Somente se o jogo escalar para múltiplas regiões |
 
 ### 14.3 Fase Godot (v1.0 — Cliente Desktop)
 

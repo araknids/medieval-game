@@ -114,36 +114,36 @@ function renderBattleLog(lines) {
   }).join('\n');
 }
 
-// ── Narrativas das missões ──
+// ── Quest narratives ──
 const QUEST_NARRATIVES = {
   PATROL: [
-    'Seu guerreiro patrulhou os arredores, mantendo a paz e afugentando bandoleiros.',
-    'Uma ronda tranquila pelos arredores da cidade. A noite foi calma.',
-    'O guerreiro cruzou cada rua com atenção, garantindo a segurança da região.',
+    'Your warrior patrolled the surroundings, keeping the peace and driving off bandits.',
+    'A quiet round through the city outskirts. The night was calm.',
+    'The warrior crossed every street with care, ensuring the region\'s safety.',
   ],
   DUNGEON: [
-    'As trevas da masmorra foram varridas com determinação. Inimigos caíram pelo caminho.',
-    'Batalhas nas profundezas ecoaram pelas cavernas. O guerreiro saiu vitorioso.',
-    'Criaturas sombrias tentaram barrar o caminho, mas foram derrotadas uma a uma.',
+    'The darkness of the dungeon was swept aside with determination. Enemies fell along the way.',
+    'Battles in the depths echoed through the caverns. The warrior emerged victorious.',
+    'Shadow creatures tried to block the path, but were defeated one by one.',
   ],
   RAID: [
-    'O raid foi intenso — múltiplos inimigos foram derrotados em combate aberto.',
-    'Sangue e glória: o raid foi um sucesso retumbante.',
-    'Liderando o ataque, o guerreiro deixou um rastro de vitórias no campo.',
+    'The raid was intense — multiple enemies were defeated in open combat.',
+    'Blood and glory: the raid was a resounding success.',
+    'Leading the assault, the warrior left a trail of victories across the field.',
   ],
   BOSS_HUNT: [
-    'O chefe rugiu ameaçadoramente, mas caiu diante da determinação do guerreiro.',
-    'Uma batalha épica que ficará marcada na memória. O chefe foi abatido.',
-    'Após um confronto lendário, o chefe foi finalmente derrotado.',
+    'The boss roared menacingly, but fell before the warrior\'s determination.',
+    'An epic battle that will be remembered. The boss was slain.',
+    'After a legendary confrontation, the boss was finally defeated.',
   ],
 };
 
 const DROP_NARRATIVES = [
-  'Ao vasculhar os destroços do inimigo, encontrou algo brilhante entre a sujeira...',
-  'Num canto esquecido da masmorra, havia um item abandonado há anos...',
-  'A vitória trouxe uma surpresa inesperada escondida nos pertences do inimigo...',
-  'Entre os escombros da batalha, um reflexo chamou atenção do guerreiro...',
-  'Com cuidado, examinou o corpo do inimigo e encontrou algo valioso...',
+  'While searching through the enemy\'s remains, something shiny caught the eye...',
+  'In a forgotten corner of the dungeon, an item lay abandoned for years...',
+  'Victory brought an unexpected surprise hidden among the enemy\'s belongings...',
+  'Among the rubble of battle, a glimmer caught the warrior\'s attention...',
+  'Carefully examining the fallen enemy, something valuable was discovered...',
 ];
 
 function questNarrative(questType) {
@@ -546,7 +546,7 @@ async function collectFromProgress(questId) {
     rewardsHtml += `
       <div class="qp-result-drop">
         ✨ <strong>${d.name}</strong>
-        <span class="drop-stats">${d.typeDisplay} · ${stats}</span>
+        <span class="drop-stats">${(t('item.type.'+d.type)||d.typeDisplay)} · ${stats}</span>
       </div>`;
   }
 
@@ -637,7 +637,7 @@ async function loadShop() {
           <div class="shop-card ${i.purchased ? 'shop-card-sold' : ''}">
             <div class="shop-item-info">
               <h3 class="rarity-${i.rarity}">${i.name}</h3>
-              <div class="shop-stats">${i.typeDisplay} · ${i.rarityName} · ${stats}</div>
+              <div class="shop-stats">${(t('item.type.'+i.type)||i.typeDisplay)} · ${(t('inventory.rarity.'+i.rarity)||i.rarityName)} · ${stats}</div>
             </div>
             <span class="shop-price">${fmtBronze(i.price)}</span>
             ${i.purchased
@@ -770,7 +770,7 @@ async function loadInventory() {
       <div style="display:flex;justify-content:space-between;width:100%;align-items:center">
         <div>
           <div class="bag-item-name rarity-${item.rarity}">${item.name}</div>
-          <div class="bag-item-type">${item.typeDisplay} · ${item.rarityName}</div>
+          <div class="bag-item-type">${(t('item.type.'+item.type)||item.typeDisplay)} · ${(t('inventory.rarity.'+item.rarity)||item.rarityName)}</div>
           <div class="bag-item-stats">${statsText(item)}</div>
           ${item.sockets > 0 ? renderSockets(item) : ''}
         </div>
@@ -797,7 +797,7 @@ async function loadSellList() {
     <div class="shop-card">
       <div class="shop-item-info">
         <h3 class="rarity-${item.rarity}">${item.name}</h3>
-        <div class="shop-stats">${item.typeDisplay} · ${statsText(item)}</div>
+        <div class="shop-stats">${(t('item.type.'+item.type)||item.typeDisplay)} · ${statsText(item)}</div>
       </div>
       <span class="shop-price">${fmtBronze(item.sellPrice)}</span>
       <button class="btn-buy" onclick="sellItem(${item.id})">Vender</button>
@@ -1277,7 +1277,7 @@ function renderFishing() {
             <span>${RESOURCE_ICONS[r.type] || '?'} ${r.displayName} ×${r.quantity}</span>
             <span style="color:#4caf82;font-size:.72rem;margin-left:.5rem">${FISH_DESCRIPTIONS[r.type] || ''}</span>
           </div>
-          <button class="btn-equip" onclick="consumeFish('${r.type}')">Consumir</button>
+          <button class="btn-equip" onclick="consumeFish('${r.type}')">${t('btn.consume')||'Consume'}</button>
         </div>`).join('')}
     </div>` : ''}`;
 }
@@ -1432,7 +1432,7 @@ function renderBag() {
             ? `<span style="color:#4caf82;font-size:.72rem;margin-left:.5rem">${FISH_DESCRIPTIONS[r.type]}</span>`
             : ''}
         </div>
-        ${cat === 'FISH' ? `<button class="btn-equip" onclick="consumeFish('${r.type}')">Consumir</button>` : ''}
+        ${cat === 'FISH' ? `<button class="btn-equip" onclick="consumeFish('${r.type}')">${t('btn.consume')||'Consume'}</button>` : ''}
       </div>`).join('');
     html += '</div>';
   }

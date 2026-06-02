@@ -241,5 +241,16 @@
   "guild.created": "Guild created!",
   "guild.joined": "You joined the guild!",
   "mail.err_no_to": "Enter the recipient warrior name.",
-  "mail.err_no_msg": "Write a message."
+  "mail.err_no_msg": "Write a message.",
+  "item.type.HELMET": "Helmet",
+  "item.type.ARMOR": "Armor",
+  "item.type.WEAPON": "Weapon",
+  "item.type.SHIELD": "Shield",
+  "item.type.BOOTS": "Boots",
+  "item.type.GLOVES": "Gloves",
+  "item.type.RING": "Ring",
+  "item.type.NECKLACE": "Necklace",
+  "item.type.SHOULDER": "Shoulder",
+  "item.type.PANTS": "Pants",
+  "btn.consume": "Consume"
 }
