@@ -1394,4 +1394,39 @@
 
 ---
 
-*Atualizado em 2026-06-01 com sistema de guildas (UC-48 a UC-55).*
+---
+
+### UC-56: Receber Bônus Passivo da Guilda em Quest
+**Ator:** Membro de guilda nível ≥ 2  
+**Pré-condições:** Jogador em guilda com level ≥ 2; coleta uma quest concluída.
+
+**Fluxo Principal:**
+1. Jogador coleta recompensa de quest.
+2. Sistema calcula `xpBonus = min(20, (guildLevel-1)×5)%`.
+3. Sistema calcula `bronzeBonus = min(10, max(0, guildLevel-3)×5)%`.
+4. Sistema calcula `dropBonus = min(7, max(0, guildLevel-2)×2)%`.
+5. XP, bronze e drop chance são multiplicados pelos bônus antes de serem atribuídos.
+6. Resposta inclui `guildBonusXp`, `guildBonusBronze`, `guildBonusDrop` para exibição.
+
+**Fluxo Alternativo:**
+- Guilda nível 1 → bônus = 0%, comportamento idêntico a sem guilda.
+
+**Pós-condições:** Jogador recebe XP e bronze com bônus aplicado.  
+**Regras:** Bônus são caps: XP 20%, drop 7%, bronze 10%. Aplicado em quests e trabalho.
+
+---
+
+### UC-57: Receber Bônus Passivo da Guilda em Trabalho
+**Ator:** Membro de guilda nível ≥ 2  
+**Pré-condições:** Jogador em guilda; coleta trabalho concluído.
+
+**Fluxo Principal:**
+1. Jogador coleta recompensa de trabalho.
+2. Sistema aplica `xpBonus` e `bronzeBonus` da guilda sobre XP e gold ganhos.
+3. Recompensa final = base × (1 + bonus%).
+
+**Pós-condições:** Jogador recebe mais XP e bronze que o base.
+
+---
+
+*Atualizado em 2026-06-01. Guildas: UC-48 a UC-57 (inclui bônus passivos por nível).*

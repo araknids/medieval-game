@@ -365,13 +365,29 @@ Enviado via Brevo HTTP API (não SMTP, evita bloqueios de hosting):
 ### Ações do Líder
 - **Expulsar membro**: remove qualquer membro da guilda
 - **Transferir liderança**: passa o cargo para outro membro
-- **Subir nível**: gasta gold da guilda (`level × 1000`)
+- **Subir nível**: gasta gold da guilda (`(level-1) × 1000`)
 - **Dissolver**: remove todos os membros e apaga a guilda
+
+### Bônus Passivos por Nível
+Aplicados automaticamente em quests e trabalho para todos os membros:
+
+| Nível | Membros | XP Bonus | Drop Bonus | Bronze Bonus |
+|-------|---------|----------|------------|--------------|
+| 1 | 15 | +0% | +0% | +0% |
+| 2 | 20 | +5% | +0% | +0% |
+| 3 | 25 | +10% | +3% | +0% |
+| 4 | 30 | +15% | +5% | +5% |
+| 5 | 35 | +20% | +7% | +10% |
+| 6+ | +5/lv | +20% (cap) | +7% (cap) | +10% (cap) |
+
+- `xpBonus    = min(20, (level-1) × 5)` %
+- `dropBonus  = min(7, max(0, level-2) × 2)` %
+- `bronzeBonus= min(10, max(0, level-3) × 5)` %
 
 ### Economia da Guilda
 - Membros podem **doar bronze** → convertido em gold da guilda
 - Gold da guilda usado para subir nível
-- Custo de nível: nível atual × 1.000 gold
+- Custo de nível: `(level-1) × 1000` guild gold
 
 ### Ranking
 - Guildas listadas por nível desc, depois gold desc

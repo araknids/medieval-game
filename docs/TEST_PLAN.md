@@ -2724,4 +2724,46 @@ GET /api/arena/rank
 
 ---
 
-*Atualizado em 2026-06-01. Total: 116 casos de teste (TC-001 a TC-035 unitários; TC-051 a TC-116 integração).*
+---
+
+## Testes Unitários — Bônus de Guilda (TC-036 a TC-040)
+
+### TC-036: Guild.xpBonus() level 1 → 0%
+**Tipo:** Unitário | **Classe:** GuildModelTest  
+`new Guild(level=1).xpBonus() == 0`
+
+### TC-037: Guild.xpBonus() level 3 → 10%
+**Tipo:** Unitário  
+`new Guild(level=3).xpBonus() == 10`
+
+### TC-038: Guild.xpBonus() cap em level 5+ → 20%
+**Tipo:** Unitário  
+`new Guild(level=6).xpBonus() == 20` (não ultrapassa o cap)
+
+### TC-039: Guild.dropBonus() level 2 → 0%, level 3 → 2%, level 5 → 6%
+**Tipo:** Unitário  
+Verifica fórmula `max(0, level-2)×2` com cap 7
+
+### TC-040: Guild.bronzeBonus() level 3 → 0%, level 4 → 5%, level 5 → 10%
+**Tipo:** Unitário  
+Verifica fórmula `max(0, level-3)×5` com cap 10
+
+---
+
+## Testes de Integração — Bônus de Guilda (TC-117 a TC-120)
+
+### TC-117: Quest reward com guilda level 2 → XP +5% vs sem guilda
+**Tipo:** Integração | **Pré:** Player em guilda level 2; coleta PATROL
+
+### TC-118: Quest reward com guilda level 1 → sem diferença de XP
+**Tipo:** Integração | **Pré:** Player em guilda level 1 (sem bônus)
+
+### TC-119: Work reward com guilda level 4 → bronze +5% e XP +15%
+**Tipo:** Integração | **Pré:** Player em guilda level 4; coleta trabalho
+
+### TC-120: GET /api/guild retorna xpBonus, dropBonus, bronzeBonus no payload
+**Tipo:** Integração | **Verifica:** campos de bônus presentes na resposta da guilda
+
+---
+
+*Atualizado em 2026-06-01. Total: 120 casos de teste (TC-001 a TC-040 unitários; TC-051 a TC-120 integração).*

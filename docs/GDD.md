@@ -350,14 +350,28 @@ Grupos sociais permanentes que conectam jogadores, criam senso de pertencimento 
 - Liderança é transferida explicitamente ou ao líder sair como único membro (dissolve)
 - Líder não pode sair com outros membros ativos — deve transferir ou dissolver
 
-### 8.4 Capacidade e Nível
+### 8.4 Capacidade, Nível e Bônus Passivos
 
-| Nível da Guilda | Membros Máximos | Custo para Subir (guild gold) |
-|----------------|----------------|-------------------------------|
-| 1 | 15 | 1.000 |
-| 2 | 20 | 2.000 |
-| 3 | 25 | 3.000 |
-| N | 10 + N×5 | N×1.000 |
+Ao subir de nível, a guilda aumenta a capacidade de membros **e concede bônus passivos permanentes a todos os membros**, aplicados automaticamente em quests e trabalho.
+
+| Nível | Membros | XP Bonus | Drop Bonus | Bronze Bonus | Custo (guild gold) |
+|-------|---------|----------|------------|--------------|-------------------|
+| 1 | 15 | +0% | +0% | +0% | — |
+| 2 | 20 | +5% | +0% | +0% | 1.000 |
+| 3 | 25 | +10% | +3% | +0% | 2.000 |
+| 4 | 30 | +15% | +5% | +5% | 3.000 |
+| 5 | 35 | +20% | +7% | +10% | 4.000 |
+| 6+ | +5/lv | +20% (cap) | +7% (cap) | +10% (cap) | (N-1)×1.000 |
+
+**Fórmulas:**
+- `xpBonus    = min(20, (level - 1) × 5)` %
+- `dropBonus  = min(7,  max(0, level - 2) × 2)` %
+- `bronzeBonus= min(10, max(0, level - 3) × 5)` %
+
+**Onde são aplicados:**
+- **XP bonus**: quests (collectReward), trabalho (collectWork)
+- **Drop bonus**: chance de drop de item em quests
+- **Bronze bonus**: recompensa bronze em quests e trabalho
 
 ### 8.5 Economia da Guilda
 
