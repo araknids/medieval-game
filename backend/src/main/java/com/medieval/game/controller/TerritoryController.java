@@ -2,6 +2,9 @@ package com.medieval.game.controller;
 
 import com.medieval.game.enums.Territory;
 import com.medieval.game.model.*;
+import com.medieval.game.model.TerritoryDeclaration.DeclarationStatus;
+import com.medieval.game.repository.PlayerRepository;
+import com.medieval.game.repository.TerritoryDeclarationRepository;
 import com.medieval.game.service.PlayerService;
 import com.medieval.game.service.TerritoryService;
 import com.medieval.game.service.TerritoryService.TerritoryBonus;
@@ -20,8 +23,10 @@ import java.util.Map;
 @RequiredArgsConstructor
 public class TerritoryController {
 
-    private final TerritoryService territoryService;
-    private final PlayerService    playerService;
+    private final TerritoryService               territoryService;
+    private final PlayerService                  playerService;
+    private final PlayerRepository               playerRepository;
+    private final TerritoryDeclarationRepository declarationRepo;
 
     // ── List all territories ──────────────────────────────────────────────────
     @GetMapping
@@ -29,11 +34,30 @@ public class TerritoryController {
         Player player    = getPlayer(auth);
         TerritoryBonus myBonus = territoryService.getBonusForPlayer(player);
 
+        // Get player's guild id for declaration check (avoid lazy proxy)
+        Long myGuildId = playerRepository.findGuildByPlayerId(player.getId())
+                .map(g -> g.getId()).orElse(null);
+        long nextCycleId = territoryService.currentCycleId() + 1;
+
         List<?> territories = Arrays.stream(Territory.values()).map(t -> {
             TerritoryControl ctrl = territoryService.getTerritory(t);
             long secsUntilNext = 21600 - (Instant.now().getEpochSecond() % 21600);
-            // Load guild name safely (avoid lazy proxy + null in Map.of)
             String guildName = ctrl.isNeutral() ? "" : ctrl.getControllingGuild().getName();
+
+            // Pending declarations for this territory in next cycle
+            List<TerritoryDeclaration> pending = declarationRepo
+                    .findByTerritoryAndStatusOrderByDeclaredAtAsc(t, DeclarationStatus.PENDING)
+                    .stream()
+                    .filter(d -> d.getBattleCycleId() == nextCycleId)
+                    .toList();
+
+            List<String> declaringGuilds = pending.stream()
+                    .map(d -> d.getGuild().getName())
+                    .toList();
+
+            boolean myGuildDeclared = myGuildId != null && pending.stream()
+                    .anyMatch(d -> d.getGuild().getId().equals(myGuildId));
+
             return Map.ofEntries(
                 Map.entry("territory",       t.name()),
                 Map.entry("displayName",     t.displayName),
@@ -44,7 +68,9 @@ public class TerritoryController {
                 Map.entry("isNeutral",       ctrl.isNeutral()),
                 Map.entry("isMine",          myBonus.territory() == t),
                 Map.entry("secsUntilBattle", secsUntilNext),
-                Map.entry("exclusiveBonus",  t.exclusiveBonus)
+                Map.entry("exclusiveBonus",  t.exclusiveBonus),
+                Map.entry("declaringGuilds", declaringGuilds),
+                Map.entry("myGuildDeclared", myGuildDeclared)
             );
         }).toList();
 

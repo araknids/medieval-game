@@ -2181,21 +2181,38 @@ function renderTerritories(territories, myStatus) {
       ? `<div style="font-size:11px;color:#888">Streak: ${t.defenseStreak}x · Debuff: -${t.debuffPercent}% next</div>`
       : '';
 
-    const declareBtn = !myTerritory && !isMine
+    // Guilds that declared attack on this territory
+    const declarers = (t.declaringGuilds || []);
+    const declarersLine = declarers.length > 0
+      ? `<div style="margin-top:6px;font-size:12px;color:#ff9800">
+           ⚔ Declared: ${declarers.join(', ')}
+         </div>`
+      : '';
+
+    // Button logic:
+    // - If my guild declared on THIS territory → show Cancel Attack
+    // - If my guild has no territory AND hasn't declared anywhere → show Declare Attack
+    // - Otherwise → no button
+    const canDeclare = !myTerritory && !t.myGuildDeclared;
+    const hasDeclared = t.myGuildDeclared;
+
+    const declareBtn = canDeclare && !isMine
       ? `<button onclick="territoryDeclare('${t.territory}')" style="margin-top:8px;font-size:12px">
            ⚔ Declare Attack
          </button>`
-      : isMine
-        ? `<button onclick="territoryCancel()" style="margin-top:8px;font-size:12px;background:#555">
-             Cancel Declaration
+      : hasDeclared
+        ? `<button onclick="territoryCancel()" style="margin-top:8px;font-size:12px;background:#7a3b00">
+             ✖ Cancel Attack
            </button>`
         : '';
 
     const historyBtn = `<button onclick="territoryHistory('${t.territory}', '${t.displayName}')"
         style="margin-top:8px;font-size:12px;background:#333;margin-left:4px">📜 History</button>`;
 
+    const borderColor = isMine ? '#4caf50' : hasDeclared ? '#ff9800' : '#444';
+
     return `
-      <div style="background:#1a1a2e;border:1px solid ${isMine ? '#4caf50' : '#444'};border-radius:8px;
+      <div style="background:#1a1a2e;border:1px solid ${borderColor};border-radius:8px;
                   padding:14px;margin-bottom:12px">
         <div style="display:flex;justify-content:space-between;align-items:flex-start">
           <div>
@@ -2212,6 +2229,7 @@ function renderTerritories(territories, myStatus) {
           ${t.territory === 'FORTALEZA_MALDITA' ? 'quest XP' :
             t.territory === 'MINAS_DE_FERRO_NEGRO' ? 'mining yield' : 'fishing yield'}
         </div>
+        ${declarersLine}
         <div>${declareBtn}${historyBtn}</div>
       </div>`;
   }).join('');
