@@ -229,5 +229,20 @@
   "misc.hours":     "h",
   "misc.seconds":   "s",
   "misc.rank_pts":  "pts",
-  "misc.language":  "Language"
+  "misc.language":  "Language",
+
+  "section.tavern.desc":    "Send your warrior on quests and collect rewards.",
+  "section.character.desc": "Manage your equipment, attributes and socketed gems.",
+  "section.commerce.desc":  "Buy and sell equipment from the traveling merchant.",
+  "section.temple.desc":    "Heal your warrior, receive blessings and protect your items.",
+  "section.zones.desc":     "Enter zones to gather resources. Beware of hunters in PvP zones!",
+  "section.skills.desc":    "Fish, mine and forge to craft equipment and gems.",
+  "section.work.desc":      "Earn bronze working for the city's inhabitants.",
+  "section.tower.title":    "Infernal Tower",
+  "section.tower.desc":     "Descend through floors and face increasingly powerful bosses.",
+  "section.arena.desc":     "Challenge other warriors and climb the ranking.",
+  "section.mail.desc":      "Send letters and bronze to other warriors.",
+  "section.territory.title":"Territory War",
+  "section.territory.desc": "Conquer territories, dominate resources and grant bonuses to your guild.",
+  "section.guild.desc":     "Form a guild and grow together with other warriors."
 }

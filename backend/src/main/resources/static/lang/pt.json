@@ -229,5 +229,20 @@
   "misc.hours":     "h",
   "misc.seconds":   "s",
   "misc.rank_pts":  "pts",
-  "misc.language":  "Idioma"
+  "misc.language":  "Idioma",
+
+  "section.tavern.desc":    "Envie seu guerreiro em missões e colete recompensas.",
+  "section.character.desc": "Gerencie seus equipamentos, atributos e joias encaixadas.",
+  "section.commerce.desc":  "Compre e venda equipamentos do mercador viajante.",
+  "section.temple.desc":    "Cure seu guerreiro, receba bênçãos e proteja seus itens.",
+  "section.zones.desc":     "Entre em zonas para coletar recursos. Cuidado com hunters nas zonas PvP!",
+  "section.skills.desc":    "Pesque, minere e forje para criar equipamentos e joias.",
+  "section.work.desc":      "Ganhe bronze trabalhando para os habitantes da cidade.",
+  "section.tower.title":    "Torre Infernal",
+  "section.tower.desc":     "Desça pelos andares e enfrente chefes cada vez mais poderosos.",
+  "section.arena.desc":     "Desafie outros guerreiros e suba no ranking.",
+  "section.mail.desc":      "Envie cartas e bronze para outros guerreiros.",
+  "section.territory.title":"Guerra de Territórios",
+  "section.territory.desc": "Conquiste territórios, domine recursos e conceda bônus à sua guilda.",
+  "section.guild.desc":     "Forme uma guilda e evolua junto com outros guerreiros."
 }

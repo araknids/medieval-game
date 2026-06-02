@@ -29,9 +29,12 @@ function applyStaticTranslations() {
   document.querySelectorAll('[data-i18n]').forEach(el => {
     el.textContent = t(el.dataset.i18n);
   });
-  // Update language toggle button label
+  // Show CURRENT language — clicking switches to the other
   const btn = document.getElementById('lang-toggle');
-  if (btn) btn.textContent = _currentLang === 'en' ? '🌐 PT' : '🌐 EN';
+  if (btn) {
+    btn.textContent = _currentLang === 'en' ? '🌐 EN' : '🌐 PT';
+    btn.title = _currentLang === 'en' ? 'Switch to Português' : 'Switch to English';
+  }
 }
 
 async function toggleLanguage() {
@@ -1567,7 +1570,7 @@ async function showWorkJobList() {
             </div>
             ${!locked ? `
               <div class="wj-hours">
-                <span>Horas:</span>
+                <span>${t('work.hours') || 'Hours:'}</span>
                 <div class="hours-btns">
                   ${[1,2,4,6,8,12].map(h => `
                     <button class="btn-hour" onclick="startWork('${job.id}', ${h})" ${disabled ? 'disabled' : ''}>
