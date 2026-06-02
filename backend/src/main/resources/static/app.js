@@ -418,7 +418,7 @@ async function loadActiveQuests() {
   timerIntervals = {};
 
   const el = document.getElementById('active-quests-list');
-  if (!quests.length) { el.innerHTML = '<p style="color:#888;font-size:.82rem">${t('quest.none_active')}</p>'; return; }
+  if (!quests.length) { el.innerHTML = `<p style="color:#888;font-size:.82rem">${t('quest.none_active')}</p>`; return; }
 
   el.innerHTML = quests.map(q => `
     <div class="quest-card" id="quest-card-${q.id}">
@@ -764,7 +764,7 @@ async function loadInventory() {
     </div>`;
 
   const bagEl = document.getElementById('bag-items');
-  if (!bag.length) { bagEl.innerHTML = '<p style="color:#555;font-size:.8rem">${t('inventory.bag_empty')}</p>'; return; }
+  if (!bag.length) { bagEl.innerHTML = `<p style="color:#555;font-size:.8rem">${t('inventory.bag_empty')}</p>`; return; }
   bagEl.innerHTML = bag.map(item => `
     <div class="bag-item" style="flex-direction:column;align-items:flex-start;gap:.3rem">
       <div style="display:flex;justify-content:space-between;width:100%;align-items:center">
@@ -789,7 +789,7 @@ async function loadSellList() {
   const el = document.getElementById('sell-list');
 
   if (!bag.length) {
-    el.innerHTML = '<p style="color:#888;font-size:.82rem">${t('inventory.no_sell')}</p>';
+    el.innerHTML = `<p style="color:#888;font-size:.82rem">${t('inventory.no_sell')}</p>`;
     return;
   }
 
@@ -875,7 +875,7 @@ function renderTemple(data) {
         Bênção ativa: <strong>${data.activeBuff}</strong>
         — ${Math.floor(data.buffSecondsLeft / 60)}min restantes
        </div>`
-    : '<div class="temple-buff-active" style="color:#888">${t('temple.no_buff')}</div>';
+    : `<div class="temple-buff-active" style="color:#888">${t('temple.no_buff')}</div>`;
 
   const buffsHtml = data.buffs.map(b => `
     <div class="sk-recipe-card">
@@ -929,7 +929,7 @@ async function loadTempleItems() {
 
   const equipped = items.filter(i => i.equipped);
   if (!equipped.length) {
-    el.innerHTML = '<p style="color:#888;font-size:.8rem">${t('temple.no_items')}</p>';
+    el.innerHTML = `<p style="color:#888;font-size:.8rem">${t('temple.no_items')}</p>`;
     return;
   }
 
@@ -1400,7 +1400,7 @@ async function renderSmithing() {
     </div>
     <div class="sk-section">
       <div class="sk-title">Refinar Minérios → Barras</div>
-      ${refineHtml || '<p style="color:#888;font-size:.8rem">${t('skills.no_recipes')}</p>'}
+      ${refineHtml || `<p style="color:#888;font-size:.8rem">${t('skills.no_recipes')}</p>`}
     </div>
     <div class="sk-section">
       <div class="sk-title">Craftar Equipamento</div>
@@ -1415,7 +1415,7 @@ async function renderSmithing() {
 // ── INVENTÁRIO DE RECURSOS ──
 function renderBag() {
   if (resourcesData.length === 0) {
-    document.getElementById('sk-bag-content').innerHTML = '<p style="color:#888;font-size:.82rem">${t('skills.no_resources')}</p>';
+    document.getElementById('sk-bag-content').innerHTML = `<p style="color:#888;font-size:.82rem">${t('skills.no_resources')}</p>`;
     return;
   }
   const categories = {FISH:t('skills.cat.FISH'), ORE:t('skills.cat.ORE'), FRAGMENT:t('skills.cat.GEM_FRAGMENT'), BAR:t('skills.cat.BAR'), GEM:t('skills.cat.GEM'), MATERIAL:t('skills.cat.MATERIAL')};
@@ -1724,7 +1724,7 @@ async function showTowerLobby() {
   const noStamina = stamina < 25;
 
   const rankHtml = ranking.length === 0
-    ? '<p style="color:#888;font-size:.82rem">${t('tower.no_entries')}</p>'
+    ? `<p style="color:#888;font-size:.82rem">${t('tower.no_entries')}</p>`
     : `<table class="rank-table">
         <thead><tr><th>#</th><th>Guerreiro</th><th>Andar</th></tr></thead>
         <tbody>
