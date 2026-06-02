@@ -24,34 +24,6 @@ public class SchemaMigrator {
     @EventListener(ApplicationReadyEvent.class)
     public void migrate() {
         patchZoneActivityRoleCheck();
-        patchPlayerSoulStoneColumns();
-    }
-
-    // players: add SoulStone columns if not present (Hibernate adds them but needs defaults)
-    private void patchPlayerSoulStoneColumns() {
-        try {
-            jdbc.execute("""
-                DO $$
-                BEGIN
-                    IF NOT EXISTS (SELECT 1 FROM information_schema.columns
-                                   WHERE table_name='players' AND column_name='soul_stones') THEN
-                        ALTER TABLE players ADD COLUMN soul_stones integer NOT NULL DEFAULT 0;
-                    END IF;
-                    IF NOT EXISTS (SELECT 1 FROM information_schema.columns
-                                   WHERE table_name='players' AND column_name='last_soulstone_heal_at') THEN
-                        ALTER TABLE players ADD COLUMN last_soulstone_heal_at timestamp;
-                    END IF;
-                    IF NOT EXISTS (SELECT 1 FROM information_schema.columns
-                                   WHERE table_name='players' AND column_name='inventory_expanded') THEN
-                        ALTER TABLE players ADD COLUMN inventory_expanded boolean NOT NULL DEFAULT false;
-                    END IF;
-                END
-                $$;
-                """);
-            log.info("[SchemaMigrator] players SoulStone columns ensured");
-        } catch (Exception e) {
-            log.warn("[SchemaMigrator] players SoulStone columns patch failed: {}", e.getMessage());
-        }
     }
 
     // zone_activities.role: extend check constraint to include COMBAT

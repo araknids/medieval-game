@@ -61,37 +61,7 @@ public class InventoryController {
             return ResponseEntity.ok(Map.of(
                 "message",    item.getName() + " vendido!",
                 "goldEarned", item.getSellPrice(),
-                "gold",       player.getGold(),
-                "bagSize",    inventoryService.bagSize(player),
-                "maxSlots",   player.getMaxInventorySlots()
-            ));
-        } catch (IllegalArgumentException | IllegalStateException e) {
-            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
-        }
-    }
-
-    // GET /api/inventory/slots — info de slots para o frontend
-    @GetMapping("/slots")
-    public ResponseEntity<?> slots(Authentication auth) {
-        Player player = getPlayer(auth);
-        return ResponseEntity.ok(Map.of(
-            "bagSize",           inventoryService.bagSize(player),
-            "maxSlots",          player.getMaxInventorySlots(),
-            "inventoryExpanded", player.isInventoryExpanded(),
-            "soulStones",        player.getSoulStones()
-        ));
-    }
-
-    // POST /api/inventory/expand — expande inventário com SoulStones
-    @PostMapping("/expand")
-    public ResponseEntity<?> expand(Authentication auth) {
-        try {
-            Player player = getPlayer(auth);
-            inventoryService.expandInventory(player);
-            return ResponseEntity.ok(Map.of(
-                "message",    "Inventory expanded to 20 slots!",
-                "maxSlots",   player.getMaxInventorySlots(),
-                "soulStones", player.getSoulStones()
+                "gold",       player.getGold()
             ));
         } catch (IllegalArgumentException | IllegalStateException e) {
             return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
