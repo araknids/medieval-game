@@ -15,8 +15,11 @@ async function loadLanguage(lang) {
 }
 
 // Translate key with optional {param} interpolation
+// Returns '' if lang not loaded yet — never shows raw keys to the user
 function t(key, params) {
-  let s = _lang[key] ?? key;
+  const val = _lang[key];
+  if (val === undefined) return '';   // lang not loaded or missing key
+  let s = val;
   if (params) for (const [k, v] of Object.entries(params)) s = s.replaceAll(`{${k}}`, v);
   return s;
 }
@@ -248,13 +251,10 @@ function logout() {
 function enterGame() {
   document.getElementById('login-screen').style.display = 'none';
   document.getElementById('game-screen').style.display = 'block';
-  // Load i18n first, then render game
-  loadLanguage(_currentLang).then(() => {
-    loadWarrior();
-    loadQuestTypes();
-    loadActiveQuests();
-    setInterval(loadActiveQuests, 10000);
-  });
+  loadWarrior();
+  loadQuestTypes();
+  loadActiveQuests();
+  setInterval(loadActiveQuests, 10000);
 }
 
 // ── Guerreiro ──
@@ -1966,23 +1966,31 @@ function resetFight() {
     </div>`;
 }
 
-// ── Init ──
-const resetTokenParam = new URLSearchParams(window.location.search).get('reset');
-if (resetTokenParam) {
-  document.getElementById('login-screen').style.display = 'flex';
-  showAuthForm('reset-form');
-} else if (token) {
-  api('GET', '/api/warrior').then(data => {
-    if (data.error) { logout(); return; }
-    warrior = data;
-    api('GET', '/api/auth/login').catch(() => {});
-    currentUsername = localStorage.getItem('username') || '';
-    enterGame();
-  });
-} else {
-  document.getElementById('login-screen').style.display = 'flex';
-  showLogin();
-}
+// ── Init — load language FIRST, then check token ──
+loadLanguage(_currentLang).finally(() => {
+  const resetTokenParam = new URLSearchParams(window.location.search).get('reset');
+  if (resetTokenParam) {
+    document.getElementById('login-screen').style.display = 'flex';
+    showAuthForm('reset-form');
+  } else if (token) {
+    api('GET', '/api/warrior').then(data => {
+      if (data.error) { logout(); return; }
+      warrior = data;
+      api('GET', '/api/auth/login').catch(() => {});
+      currentUsername = localStorage.getItem('username') || '';
+      // Language already loaded above, just enter game
+      document.getElementById('login-screen').style.display = 'none';
+      document.getElementById('game-screen').style.display = 'block';
+      loadWarrior();
+      loadQuestTypes();
+      loadActiveQuests();
+      setInterval(loadActiveQuests, 10000);
+    });
+  } else {
+    document.getElementById('login-screen').style.display = 'flex';
+    showLogin();
+  }
+});
 
 // ═══════════════════════════════════════════════════════════════════
 // GUILDA
