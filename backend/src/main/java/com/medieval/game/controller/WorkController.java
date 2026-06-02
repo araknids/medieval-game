@@ -46,8 +46,9 @@ public class WorkController {
             long   profXpNeeded = prof.expNeededForNextLevel();
             double bonus        = prof.goldBonus();
             int    bonusPct     = (int) Math.round((bonus - 1.0) * 100);
-            // Desbloqueio baseado no nível do guerreiro, não da profissão
-            boolean available   = warriorLevel >= wt.minWorkLevel && !busy;
+            // Unlock based on warrior level, not profession level
+            boolean meetsLevelReq = warriorLevel >= wt.minWorkLevel;
+            boolean available     = meetsLevelReq && !busy;
 
             return Map.ofEntries(
                 Map.entry("id",                   wt.name()),
@@ -61,6 +62,7 @@ public class WorkController {
                 Map.entry("profXpNeeded",         profXpNeeded),
                 Map.entry("bonusPct",             bonusPct),
                 Map.entry("available",            available),
+                Map.entry("meetsLevelReq",        meetsLevelReq),
                 Map.entry("goldPerHourWithBonus", (long) Math.round(wt.goldPerHour * bonus))
             );
         }).toList();

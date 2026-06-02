@@ -1463,7 +1463,7 @@ async function showWorkJobList() {
   document.getElementById('work-job-list').innerHTML = `
     <div class="work-jobs-grid">
       ${jobs.map(job => {
-        const locked    = !job.available && job.profLevel < job.minWorkLevel;
+        const locked    = !job.meetsLevelReq;  // locked = warrior level too low
         const busy      = warrior?.onMission && !locked;
         const disabled  = locked || busy;
         const xpPct     = Math.floor((job.profXp / job.profXpNeeded) * 100);
