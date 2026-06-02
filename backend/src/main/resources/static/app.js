@@ -2661,7 +2661,11 @@ function renderKingdomDetail(kingdom, quests, activeQuests, training, gatherSess
   const el = document.getElementById('kingdom-detail');
   const NAMES = { FISHING:'Desfiladeiro do Osso', MINING:'Minas de Ferro Negro', COMBAT:'Fortaleza Maldita' };
   const ICONS = { FISHING:'🎣', MINING:'⛏', COMBAT:'⚔' };
-  const busy = activeQuests.length > 0 || (warrior && warrior.onMission);
+  const busy = activeQuests.length > 0
+    || !!(warrior && warrior.onMission)
+    || !!(gatherSession && gatherSession.active)
+    || !!(zoneSession && zoneSession.active)
+    || !!(training && training.active && !training.readyToCollect);
 
   const activeHtml = activeQuests.length === 0 ? '' : `
     <div style="background:#0f1f0f;border:1px solid #2e7d32;border-radius:8px;padding:12px;margin-bottom:12px">
