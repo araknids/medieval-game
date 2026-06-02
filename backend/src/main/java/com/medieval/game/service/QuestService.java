@@ -194,22 +194,22 @@ public class QuestService {
 
     private String itemName(ItemType type, int rarity, Random rng) {
         String[] bases = switch (type) {
-            case HELMET   -> new String[]{"Elmo", "Capacete"};
-            case ARMOR    -> new String[]{"Armadura", "Couraça"};
-            case WEAPON   -> new String[]{"Espada", "Lâmina"};
-            case SHIELD   -> new String[]{"Escudo", "Broquel"};
-            case BOOTS    -> new String[]{"Botas", "Grevas"};
-            case GLOVES   -> new String[]{"Luvas", "Manoplas"};
-            case PANTS    -> new String[]{"Calça", "Perneiras"};
-            case SHOULDER -> new String[]{"Ombreira", "Espaldeiras"};
-            case NECKLACE -> new String[]{"Colar", "Amuleto"};
-            case RING     -> new String[]{"Anel", "Sigilo"};
+            case HELMET   -> new String[]{"Helm", "Helmet"};
+            case ARMOR    -> new String[]{"Armor", "Breastplate"};
+            case WEAPON   -> new String[]{"Sword", "Blade"};
+            case SHIELD   -> new String[]{"Shield", "Buckler"};
+            case BOOTS    -> new String[]{"Boots", "Greaves"};
+            case GLOVES   -> new String[]{"Gloves", "Gauntlets"};
+            case PANTS    -> new String[]{"Pants", "Leggings"};
+            case SHOULDER -> new String[]{"Shoulder", "Pauldron"};
+            case NECKLACE -> new String[]{"Necklace", "Amulet"};
+            case RING     -> new String[]{"Ring", "Signet"};
         };
         String[] suffixes = switch (rarity) {
-            case 2 -> new String[]{"de Aço", "de Malha", "de Prata"};
-            case 3 -> new String[]{"Élfico", "do Guerreiro", "Encantado"};
-            case 4 -> new String[]{"Lendário", "do Dragão", "Amaldiçoado"};
-            default -> new String[]{"de Ferro", "de Couro", "de Madeira"};
+            case 2 -> new String[]{"of Steel", "of Chainmail", "of Silver"};
+            case 3 -> new String[]{"of the Elves", "of the Warrior", "Enchanted"};
+            case 4 -> new String[]{"Legendary", "of the Dragon", "Cursed"};
+            default -> new String[]{"of Iron", "of Leather", "of Wood"};
         };
         return bases[rng.nextInt(bases.length)] + " " + suffixes[rng.nextInt(suffixes.length)];
     }

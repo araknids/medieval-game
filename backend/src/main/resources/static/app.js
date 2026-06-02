@@ -394,7 +394,7 @@ function renderQuestTypes() {
   el.innerHTML = questTypes.map(q => {
     const noStamina = stamina < q.staminaCost;
     const disabled  = busy || noStamina;
-    const btnLabel  = busy ? t('status.busy') : noStamina ? `${t('quest.no_stamina_msg', {stamina, cost: q.staminaCost})}` : t('quest.btn.send');
+    const btnLabel  = busy ? t('status.busy') : noStamina ? `⚡ ${stamina}/${q.staminaCost}` : t('quest.btn.send');
     return `
     <div class="quest-card">
       <h3>${t('quest.type.'+q.id)||q.displayName}</h3>
@@ -680,11 +680,11 @@ async function buyItem(shopItemId) {
 
 // ── COMÉRCIO: inventário ──
 const ALL_SLOTS = [
-  { id:'HELMET','label':'Capacete'}, { id:'ARMOR',   'label':'Armadura'},
-  { id:'WEAPON','label':'Espada'},   { id:'SHIELD',  'label':'Escudo'},
-  { id:'PANTS', 'label':'Calça'},    { id:'BOOTS',   'label':'Bota'},
-  { id:'GLOVES','label':'Luva'},     { id:'SHOULDER','label':'Ombreira'},
-  { id:'NECKLACE','label':'Colar'},  { id:'RING',    'label':'Anel'},
+  { id:'HELMET'  }, { id:'ARMOR'    },
+  { id:'WEAPON'  }, { id:'SHIELD'   },
+  { id:'PANTS'   }, { id:'BOOTS'    },
+  { id:'GLOVES'  }, { id:'SHOULDER' },
+  { id:'NECKLACE'}, { id:'RING'     },
 ];
 
 const ATTR_INFO = {
@@ -750,14 +750,14 @@ async function loadInventory() {
         const item = equipped[slot.id];
         if (item) return `
           <div class="equip-slot filled">
-            <div class="slot-label">${slot.label}</div>
+            <div class="slot-label">${t('inventory.slot.'+slot.id)}</div>
             <div class="slot-item-name rarity-${item.rarity}">${item.name}</div>
             <div class="slot-item-stats">${statsText(item)}</div>
-            <button class="btn-unequip" onclick="unequipItem(${item.id})">Desequipar</button>
+            <button class="btn-unequip" onclick="unequipItem(${item.id})">${t('inventory.btn.unequip')}</button>
           </div>`;
         return `
           <div class="equip-slot empty">
-            <div class="slot-label">${slot.label}</div>
+            <div class="slot-label">${t('inventory.slot.'+slot.id)}</div>
             <div class="slot-empty-text">— vazio —</div>
           </div>`;
       }).join('')}
@@ -881,7 +881,7 @@ function renderTemple(data) {
     <div class="sk-recipe-card">
       <div class="sk-recipe-title">${b.icon} ${t('temple.buff.'+b.id)||b.displayName} — <span style="color:#888">${b.effect}</span></div>
       <div style="font-size:.75rem;color:#888;margin-bottom:.4rem">${fmtBronze(b.bronzeCost)}</div>
-      <button class="btn-equip" onclick="applyBuff('${b.id}')">Abençoar</button>
+      <button class="btn-equip" onclick="applyBuff('${b.id}')">${t('temple.bless_btn')}</button>
     </div>`).join('');
 
   el.innerHTML = `
@@ -915,7 +915,7 @@ function renderTemple(data) {
 
     <div class="sk-section">
       <div class="sk-title">Proteção de Itens (${data.protectedCount}/${data.maxProtected})</div>
-      <p class="zone-desc">Itens protegidos não são perdidos em combate PvP. Custo: ${fmtBronze(50)}/item.</p>
+      <p class="zone-desc">Protected items are not lost in PvP combat. Cost: ${fmtBronze(50)}/item.</p>
       <div id="temple-protected-items">Carregando itens...</div>
     </div>`;
 
@@ -937,8 +937,8 @@ async function loadTempleItems() {
     <div class="sk-resource-row">
       <span class="rarity-${i.rarity}">${i.name}</span>
       ${i.guarded
-        ? `<button class="btn-unequip" onclick="unprotectItem(${i.id})">🛡 Remover</button>`
-        : `<button class="btn-equip"   onclick="protectItem(${i.id})">Proteger</button>`}
+        ? `<button class="btn-unequip" onclick="unprotectItem(${i.id})">${t('btn.remove')||'Remove'}</button>`
+        : `<button class="btn-equip"   onclick="protectItem(${i.id})">${t('temple.protect_btn')}</button>`}
     </div>`).join('');
 }
 
@@ -1197,10 +1197,10 @@ const FISH_DURATIONS = [5, 10, 20, 30, 40];
 const MINE_DURATIONS = [10, 20, 30, 45, 60];
 
 const FISH_DESCRIPTIONS = {
-  SMALL_FISH:     '+10 estamina',
-  SALMON:         '+25 estamina',
-  TUNA:           '+40 estamina',
-  SHARK:          '+60 estamina',
+  SMALL_FISH:     '+10 stamina',
+  SALMON:         '+25 stamina',
+  TUNA:           '+40 stamina',
+  SHARK:          '+60 stamina',
   LEGENDARY_FISH: '+80 estamina + buff temporário de XP',
 };
 
@@ -1258,7 +1258,7 @@ function renderFishing() {
     <div class="sk-section">
       <div class="sk-title">🎣 Pesca ${skillBar(skill)}</div>
       ${activeFish ? renderGatheringTimer() : `
-        <p class="sk-desc">Escolha a duração da pesca:</p>
+        <p class="sk-desc">${t('skills.duration')} (${t('skills.tab.fish').toLowerCase()})</p>
         <div class="sk-duration-btns">
           ${FISH_DURATIONS.map(d => `
             <button class="btn-hour ${busy || (gatheringState?.active && !activeFish) ? 'disabled' : ''}"
@@ -1293,7 +1293,7 @@ function renderMining() {
     <div class="sk-section">
       <div class="sk-title">⛏ Mineração ${skillBar(skill)}</div>
       ${activeMine ? renderGatheringTimer() : `
-        <p class="sk-desc">Escolha a duração:</p>
+        <p class="sk-desc">${t('skills.duration')}</p>
         <div class="sk-duration-btns">
           ${MINE_DURATIONS.map(d => `
             <button class="btn-hour ${busy || (gatheringState?.active && !activeMine) ? 'disabled' : ''}"
@@ -1741,11 +1741,11 @@ async function showTowerLobby() {
     <div class="tower-enter-box">
       <div class="tower-enter-title">Entrar na Torre</div>
       <p style="color:#888;font-size:.82rem;margin:.4rem 0">
-        Custo: <span class="stamina-cost">⚡ 25 estamina</span>
-        &nbsp;·&nbsp; Sua estamina: <strong>${stamina}/100</strong>
+        Cost: <span class="stamina-cost">⚡ 25 stamina</span>
+        &nbsp;·&nbsp; ${t('tower.your_stamina')} <strong>${stamina}/100</strong>
       </p>
       <p style="color:#888;font-size:.8rem;margin-bottom:.8rem">
-        Lute andar por andar. Se perder, é expulso. Chegue o mais longe possível!
+        Fight floor by floor. If you lose, you are expelled. Go as far as you can!
       </p>
       <button class="btn-fight"
               ${busy || noStamina ? 'disabled style="opacity:.5;cursor:not-allowed"' : ''}
@@ -1869,7 +1869,7 @@ async function loadRank() {
   }
   document.getElementById('rank-list').innerHTML = `
     <table class="rank-table">
-      <thead><tr><th>#</th><th>Jogador</th><th>Pontos</th><th>V/D</th></tr></thead>
+      <thead><tr><th>#</th><th>${t('tower.col.warrior')}</th><th>${t('tower.col.floor')}</th></tr></thead>
       <tbody>
         ${rank.map((r, i) => `
           <tr class="${r.warriorName === warrior?.name ? 'me' : ''}">
@@ -1896,7 +1896,7 @@ function renderFightArea(data) {
       <div class="fight-box">
         <h3>Entrar em batalha</h3>
         <p style="color:#888;font-size:.83rem;margin-bottom:.5rem">
-          Custo: <span class="stamina-cost">⚡ 25 estamina</span> &nbsp;·&nbsp; Sua estamina: <strong>${stamina}/100</strong>
+          Cost: <span class="stamina-cost">⚡ 25 stamina</span> &nbsp;·&nbsp; ${t('tower.your_stamina')} <strong>${stamina}/100</strong>
         </p>
         <p style="color:#888;font-size:.83rem;margin-bottom:.8rem">
           Batalha dura 1 minuto. Vitória: +25 rank, ${fmtBronze(200)}.
