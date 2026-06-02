@@ -173,17 +173,20 @@ public class GuildController {
 
         boolean isLeader = guild.getLeaderId().equals(player.getId());
 
-        return Map.of(
-            "inGuild",     true,
-            "id",          guild.getId(),
-            "name",        guild.getName(),
-            "description", guild.getDescription() != null ? guild.getDescription() : "",
-            "level",       guild.getLevel(),
-            "gold",        guild.getGold(),
-            "levelUpCost", guild.levelUpCost(),
-            "maxMembers",  guild.maxMembers(),
-            "members",     memberList,
-            "isLeader",    isLeader
+        return Map.ofEntries(
+            Map.entry("inGuild",     true),
+            Map.entry("id",          guild.getId()),
+            Map.entry("name",        guild.getName()),
+            Map.entry("description", guild.getDescription() != null ? guild.getDescription() : ""),
+            Map.entry("level",       guild.getLevel()),
+            Map.entry("gold",        guild.getGold()),
+            Map.entry("levelUpCost", guild.levelUpCost()),
+            Map.entry("maxMembers",  guild.maxMembers()),
+            Map.entry("members",     memberList),
+            Map.entry("isLeader",    isLeader),
+            Map.entry("xpBonus",     guild.xpBonus()),
+            Map.entry("dropBonus",   guild.dropBonus()),
+            Map.entry("bronzeBonus", guild.bronzeBonus())
         );
     }
 

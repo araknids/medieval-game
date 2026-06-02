@@ -2,6 +2,7 @@ package com.medieval.game.service;
 
 import com.medieval.game.enums.WorkStatus;
 import com.medieval.game.enums.WorkType;
+import com.medieval.game.model.Guild;
 import com.medieval.game.model.Player;
 import com.medieval.game.model.Warrior;
 import com.medieval.game.model.WorkProfession;
@@ -106,12 +107,20 @@ public class WorkService {
             throw new IllegalStateException("Trabalho em andamento. Faltam ~" + mins + " minutos");
         }
 
-        player.addBronzeAmount(session.getGoldReward());
+        // Apply guild passive bonuses
+        Guild guild   = playerRepository.findGuildByPlayerId(player.getId()).orElse(null);
+        int xpPct     = guild != null ? guild.xpBonus()    : 0;
+        int bronzePct = guild != null ? guild.bronzeBonus() : 0;
+
+        long totalBronze = session.getGoldReward() + Math.round(session.getGoldReward() * bronzePct / 100.0);
+        int  bonusXp     = (int) Math.round(session.getXpReward() * xpPct / 100.0);
+
+        player.addBronzeAmount(totalBronze);
         playerRepository.save(player);
 
-        // Adiciona XP à profissão específica
+        // Add XP (with guild bonus) to the specific profession
         WorkProfession profession = getProfession(player, session.getWorkType());
-        profession.setExperience(profession.getExperience() + session.getXpReward());
+        profession.setExperience(profession.getExperience() + session.getXpReward() + bonusXp);
         while (profession.getExperience() >= profession.expNeededForNextLevel()) {
             profession.setExperience(profession.getExperience() - profession.expNeededForNextLevel());
             profession.setLevel(profession.getLevel() + 1);

@@ -33,13 +33,28 @@ public class Guild {
     @Column(nullable = false)
     private LocalDateTime createdAt = LocalDateTime.now();
 
-    // Máximo de membros: 15 no nível 1, +5 por nível adicional
+    // Max members: 15 at level 1, +5 per additional level
     public int maxMembers() {
         return 10 + level * 5;
     }
 
-    // Custo em gold da guilda para subir de nível
+    // Guild gold cost to level up
     public long levelUpCost() {
-        return level * 1000L;
+        return (level - 1) * 1000L;
+    }
+
+    // XP bonus % for all members — min(20, (level-1)*5)
+    public int xpBonus() {
+        return Math.min(20, (level - 1) * 5);
+    }
+
+    // Drop chance bonus % — min(7, max(0, level-2)*2)
+    public int dropBonus() {
+        return Math.min(7, Math.max(0, level - 2) * 2);
+    }
+
+    // Bronze reward bonus % — min(10, max(0, level-3)*5)
+    public int bronzeBonus() {
+        return Math.min(10, Math.max(0, level - 3) * 5);
     }
 }

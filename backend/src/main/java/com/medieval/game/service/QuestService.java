@@ -5,6 +5,7 @@ import com.medieval.game.enums.QuestStatus;
 import com.medieval.game.enums.QuestType;
 import com.medieval.game.model.*;
 import com.medieval.game.repository.ActiveQuestRepository;
+import com.medieval.game.repository.PlayerRepository;
 import com.medieval.game.repository.WarriorRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
@@ -21,6 +22,7 @@ public class QuestService {
 
     private final ActiveQuestRepository questRepository;
     private final WarriorRepository     warriorRepository;
+    private final PlayerRepository      playerRepository;
     private final PlayerService         playerService;
     private final WarriorService        warriorService;
     private final InventoryService      inventoryService;
@@ -101,10 +103,19 @@ public class QuestService {
             throw new IllegalStateException("Missão ainda não concluída. Faltam " + secsLeft + "s");
         }
 
-        playerService.addGold(player, quest.getGoldReward());
-        warriorService.addExperience(quest.getWarrior(), quest.getExpReward());
+        // Apply guild passive bonuses
+        Guild guild      = playerRepository.findGuildByPlayerId(player.getId()).orElse(null);
+        int xpPct        = guild != null ? guild.xpBonus()     : 0;
+        int bronzePct    = guild != null ? guild.bronzeBonus()  : 0;
+        int guildDropPct = guild != null ? guild.dropBonus()    : 0;
 
-        // Carrega o guerreiro diretamente pelo player para garantir instância gerenciada
+        long totalBronze = quest.getGoldReward() + Math.round(quest.getGoldReward() * bronzePct / 100.0);
+        long totalXp     = quest.getExpReward()  + Math.round(quest.getExpReward()  * xpPct     / 100.0);
+
+        playerService.addGold(player, totalBronze);
+        warriorService.addExperience(quest.getWarrior(), totalXp);
+
+        // Reload warrior to clear mission flag
         warriorRepository.findByPlayer(player).ifPresent(w -> {
             w.setOnMission(false);
             warriorRepository.save(w);
@@ -113,13 +124,13 @@ public class QuestService {
         quest.setStatus(QuestStatus.COLLECTED);
         questRepository.save(quest);
 
-        InventoryItem drop = rollDrop(player, quest.getQuestType());
+        InventoryItem drop = rollDrop(player, quest.getQuestType(), guildDropPct);
         return new CollectResult(quest, drop);
     }
 
     // ── Drop system ──
 
-    private InventoryItem rollDrop(Player player, QuestType type) {
+    private InventoryItem rollDrop(Player player, QuestType type, int guildDropBonus) {
         Random rng = new Random();
         Warrior warrior = warriorRepository.findByPlayer(player).orElse(null);
         int luckBonus = warrior != null ? warrior.getLuck() : 0;
@@ -129,7 +140,7 @@ public class QuestService {
             case DUNGEON   -> 25;
             case RAID      -> 40;
             case BOSS_HUNT -> 60;
-        } + luckBonus;
+        } + luckBonus + guildDropBonus;
 
         if (rng.nextInt(100) >= dropChance) return null;
 
