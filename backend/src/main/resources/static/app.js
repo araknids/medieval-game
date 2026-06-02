@@ -37,9 +37,16 @@ function applyStaticTranslations() {
 async function toggleLanguage() {
   const next = _currentLang === 'en' ? 'pt' : 'en';
   await loadLanguage(next);
-  // Reload current panel content to apply new translations
+
+  // Re-render sidebar (always visible, uses t() for labels)
+  if (warrior) loadWarrior();
+
+  // Re-render current active panel using its loc id
   const activeBtn = document.querySelector('.loc-btn.active');
-  if (activeBtn) activeBtn.click();
+  if (activeBtn && activeBtn.id) {
+    const loc = activeBtn.id.replace('loc-', '');
+    goTo(loc);
+  }
 }
 
 // ── Global state ──────────────────────────────────────────────────────────────
