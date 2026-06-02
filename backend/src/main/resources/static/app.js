@@ -2700,16 +2700,9 @@ function renderKingdomDetail(kingdom, quests, activeQuests, training, gatherSess
       { name:'💎 Forbidden Mines',minLv:20, pvp:true,  durations:[30,60,180,360,720], zone:'HIGH_RISK', color:'#ef5350', desc:'High risk — rare ores, PvP + monsters. Items at stake!' }
     ];
 
-    // Only block PvP zones if the timer is still RUNNING (not if ready to collect)
-    // A session that expired but wasn't collected = warrior is already free
-    const gatherBusy = gatherSession && gatherSession.active && (gatherSession.secondsRemaining > 0);
-    const zoneBusy   = zoneSession   && zoneSession.active   && (zoneSession.secondsRemaining   > 0);
-    const questBusy  = activeQuests.some(q => !q.readyToCollect);
-    const isBusy     = gatherBusy || zoneBusy || questBusy;
-
+    // Let backend decide if warrior is free — frontend only locks by level
     gatheringHtml = zones.map(z => {
       const locked = wLevel < z.minLv;
-      const busyAndPvp = isBusy && z.pvp; // can't start PvP while busy
       return `
         <div style="background:#1a1a2e;border:1px solid ${locked?'#333':z.color+'44'};border-radius:8px;padding:12px;margin-bottom:8px;opacity:${locked?'0.5':'1'}">
           <div style="display:flex;justify-content:space-between;align-items:center">
@@ -2718,7 +2711,6 @@ function renderKingdomDetail(kingdom, quests, activeQuests, training, gatherSess
           </div>
           <p style="font-size:11px;color:#888;margin:3px 0 6px">${z.desc}</p>
           ${locked ? '<p style="font-size:11px;color:#555;margin:0">Reach level '+z.minLv+' to unlock.</p>'
-            : busyAndPvp ? '<p style="font-size:11px;color:#e57373;margin:0">⚠ Warrior busy — collect or cancel the active session above first.</p>'
             : `<div style="display:flex;gap:5px;flex-wrap:wrap">
             ${z.durations.map(d => {
               const label = d >= 60 ? (d/60)+'h' : d+'min';
