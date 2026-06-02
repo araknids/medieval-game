@@ -2896,8 +2896,12 @@ async function enterKingdomZone(zone, skillType, durationMinutes) {
 async function collectKingdomGather(sessionId) {
   const r = await api('POST', `/api/gathering/${sessionId}/collect`);
   if (r.error) { worldMsg(r.error, false); return; }
+  const drops = (r.drops && r.drops.length > 0)
+    ? r.drops.map(d => `${d.displayName} x${d.quantity}`).join(' · ')
+    : 'nothing this time';
+  const msg = `✅ Gathered: ${drops}`;
   if (worldCurrentKingdom) await enterKingdom(worldCurrentKingdom);
-  worldMsg('Gathering collected!');
+  worldMsg(msg);
 }
 
 async function cancelKingdomGather(sessionId) {
@@ -2911,8 +2915,21 @@ async function cancelKingdomGather(sessionId) {
 async function collectKingdomZoneSession(activityId) {
   const r = await api('POST', `/api/zones/${activityId}/collect`);
   if (r.error) { worldMsg(r.error, false); return; }
+  let msg;
+  if (r.wasAttacked && !r.survived) {
+    const attacker = r.attackerName ? ` by ${r.attackerName}` : '';
+    const lost = r.lostItemName ? ` · Lost: ${r.lostItemName}` : '';
+    msg = `💀 Defeated${attacker}! No loot.${lost}`;
+  } else {
+    const drops = (r.drops && r.drops.length > 0)
+      ? r.drops.map(d => `${d.displayName} x${d.quantity}`).join(' · ')
+      : 'nothing this time';
+    const attacked = r.wasAttacked ? ` (survived attack by ${r.attackerName})` : '';
+    const xp = r.xpGained > 0 ? ` · +${r.xpGained} XP` : '';
+    msg = `✅ Expedition done${attacked}! ${drops}${xp}`;
+  }
   if (worldCurrentKingdom) await enterKingdom(worldCurrentKingdom);
-  worldMsg('Expedition loot collected!');
+  worldMsg(msg);
 }
 
 async function cancelKingdomZoneSession(activityId) {
