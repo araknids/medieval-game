@@ -2700,8 +2700,12 @@ function renderKingdomDetail(kingdom, quests, activeQuests, training, gatherSess
       { name:'💎 Forbidden Mines',minLv:20, pvp:true,  durations:[30,60,180,360,720], zone:'HIGH_RISK', color:'#ef5350', desc:'High risk — rare ores, PvP + monsters. Items at stake!' }
     ];
 
+    // Check if warrior is busy (has active gather or zone session)
+    const isBusy = (gatherSession && gatherSession.active) || (zoneSession && zoneSession.active) || (warrior && warrior.onMission);
+
     gatheringHtml = zones.map(z => {
       const locked = wLevel < z.minLv;
+      const busyAndPvp = isBusy && z.pvp; // can't start PvP while busy
       return `
         <div style="background:#1a1a2e;border:1px solid ${locked?'#333':z.color+'44'};border-radius:8px;padding:12px;margin-bottom:8px;opacity:${locked?'0.5':'1'}">
           <div style="display:flex;justify-content:space-between;align-items:center">
@@ -2709,7 +2713,9 @@ function renderKingdomDetail(kingdom, quests, activeQuests, training, gatherSess
             ${locked ? `<span style="font-size:11px;color:#888">🔒 Lv.${z.minLv}+</span>` : z.pvp ? '<span style="font-size:11px;color:#ef5350">⚔ PvP</span>' : '<span style="font-size:11px;color:#4caf50">✓ Safe</span>'}
           </div>
           <p style="font-size:11px;color:#888;margin:3px 0 6px">${z.desc}</p>
-          ${!locked ? `<div style="display:flex;gap:5px;flex-wrap:wrap">
+          ${locked ? '<p style="font-size:11px;color:#555;margin:0">Reach level '+z.minLv+' to unlock.</p>'
+            : busyAndPvp ? '<p style="font-size:11px;color:#e57373;margin:0">⚠ Warrior busy — collect or cancel the active session above first.</p>'
+            : `<div style="display:flex;gap:5px;flex-wrap:wrap">
             ${z.durations.map(d => {
               const label = d >= 60 ? (d/60)+'h' : d+'min';
               const onclick = z.zone
@@ -2717,7 +2723,7 @@ function renderKingdomDetail(kingdom, quests, activeQuests, training, gatherSess
                 : `startKingdomGathering('${skillType}',${d})`;
               return `<button onclick="${onclick}" style="font-size:11px;padding:3px 8px">${label}</button>`;
             }).join('')}
-          </div>` : '<p style="font-size:11px;color:#555;margin:0">Reach level '+z.minLv+' to unlock.</p>'}
+          </div>`}
         </div>`;
     }).join('');
   }
