@@ -2817,6 +2817,55 @@ function worldMsg(text, ok = true) {
   if (el) el.innerHTML = `<span style="color:${ok ? '#4caf50' : '#f44336'}">${text}</span>`;
 }
 
+// ── Collect Modal ──────────────────────────────────────────────────────────────
+// rows: [{icon, label, value, color}]
+// log:  string[] (battle log lines)
+function showCollectModal({ title, color = '#4caf50', rows = [], log = [] }) {
+  closeCollectModal();
+
+  const GATHER_ICONS = { FISH:'🐟', ORE:'🪨', GEM:'💎', BAR:'🔩', CRYSTAL:'🔮' };
+
+  const rowsHtml = rows.map(r => `
+    <div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid #2a2a3a">
+      <span style="font-size:18px;min-width:24px;text-align:center">${r.icon}</span>
+      <span style="font-size:13px;color:#bbb;flex:1">${r.label}</span>
+      <span style="font-weight:bold;color:${r.color || '#fff'};font-size:13px">${r.value}</span>
+    </div>`).join('');
+
+  const logHtml = log.length > 0 ? `
+    <details style="margin-top:14px">
+      <summary style="cursor:pointer;color:#888;font-size:12px;user-select:none">
+        📜 Battle Log (${log.length} lines)
+      </summary>
+      <div style="margin-top:8px;background:#0d0d0d;border-radius:6px;padding:10px;max-height:220px;overflow-y:auto;font-size:11px;font-family:monospace;color:#aaa;white-space:pre-wrap;line-height:1.5">${log.join('\n')}</div>
+    </details>` : '';
+
+  const el = document.createElement('div');
+  el.id = 'collect-modal-overlay';
+  el.setAttribute('style',
+    'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.82);' +
+    'z-index:9999;display:flex;align-items:center;justify-content:center;padding:16px;box-sizing:border-box');
+  el.onclick = closeCollectModal;
+  el.innerHTML = `
+    <div onclick="event.stopPropagation()" style="background:#16162a;border:2px solid ${color};border-radius:14px;
+      padding:24px;max-width:460px;width:100%;max-height:85vh;overflow-y:auto;position:relative;box-shadow:0 8px 32px rgba(0,0,0,0.6)">
+      <button onclick="closeCollectModal()" style="position:absolute;top:10px;right:10px;background:#333;
+        border:none;color:#aaa;padding:4px 10px;border-radius:4px;cursor:pointer;font-size:13px">✕</button>
+      <h3 style="margin:0 0 16px;color:${color};font-size:17px">${title}</h3>
+      ${rowsHtml || '<div style="color:#888;font-size:13px">Nothing this time.</div>'}
+      ${logHtml}
+      <button onclick="closeCollectModal()" style="margin-top:18px;width:100%;background:${color};color:#000;
+        font-weight:bold;padding:10px;border-radius:8px;cursor:pointer;font-size:14px;border:none">Continue</button>
+    </div>`;
+  document.body.appendChild(el);
+}
+
+function closeCollectModal() {
+  document.getElementById('collect-modal-overlay')?.remove();
+}
+
+const GATHER_CATEGORY_ICON = { FISH:'🐟', ORE:'🪨', GEM:'💎', BAR:'🔩', CRYSTAL:'🔮' };
+
 async function startKingdomQuest(kingdom, questTypeId) {
   const r = await api('POST', `/api/world/${kingdom}/quests/start`, { questType: questTypeId });
   if (r.error) { worldMsg(r.error, false); return; }
@@ -2827,10 +2876,13 @@ async function startKingdomQuest(kingdom, questTypeId) {
 async function collectKingdomQuest(kingdom, questId) {
   const r = await api('POST', `/api/world/${kingdom}/quests/${questId}/collect`);
   if (r.error) { worldMsg(r.error, false); return; }
-  const drop = r.droppedItem ? ' · Item: ' + r.droppedItem.name : '';
-  const rewardMsg = `✅ Collected! ${fmtBronze(r.bronzeEarned)} · +${r.xpEarned} XP${drop}`;
+  const rows = [
+    { icon:'⭐', label:'Experience', value:`+${r.xpEarned} XP`,    color:'#ffd700' },
+    { icon:'🪙', label:'Bronze',     value:fmtBronze(r.bronzeEarned), color:'#cd7f32' },
+  ];
+  if (r.droppedItem) rows.push({ icon:'🎁', label:'Item Drop', value:r.droppedItem.name, color:'#a855f7' });
+  showCollectModal({ title:'⚔ Quest Completed!', color:'#4caf50', rows });
   await enterKingdom(kingdom);
-  worldMsg(rewardMsg);
 }
 
 async function abandonKingdomQuest(kingdom, questId) {
@@ -2896,12 +2948,16 @@ async function enterKingdomZone(zone, skillType, durationMinutes) {
 async function collectKingdomGather(sessionId) {
   const r = await api('POST', `/api/gathering/${sessionId}/collect`);
   if (r.error) { worldMsg(r.error, false); return; }
-  const drops = (r.drops && r.drops.length > 0)
-    ? r.drops.map(d => `${d.displayName} x${d.quantity}`).join(' · ')
-    : 'nothing this time';
-  const msg = `✅ Gathered: ${drops}`;
+  const rows = (r.drops && r.drops.length > 0)
+    ? r.drops.map(d => ({
+        icon: GATHER_CATEGORY_ICON[d.category] || '📦',
+        label: d.displayName,
+        value: `x${d.quantity}`,
+        color: '#4db6ac'
+      }))
+    : [];
+  showCollectModal({ title:'🎣 Gathering Results!', color:'#00897b', rows });
   if (worldCurrentKingdom) await enterKingdom(worldCurrentKingdom);
-  worldMsg(msg);
 }
 
 async function cancelKingdomGather(sessionId) {
@@ -2915,21 +2971,26 @@ async function cancelKingdomGather(sessionId) {
 async function collectKingdomZoneSession(activityId) {
   const r = await api('POST', `/api/zones/${activityId}/collect`);
   if (r.error) { worldMsg(r.error, false); return; }
-  let msg;
+  let title, color, rows = [];
+
   if (r.wasAttacked && !r.survived) {
-    const attacker = r.attackerName ? ` by ${r.attackerName}` : '';
-    const lost = r.lostItemName ? ` · Lost: ${r.lostItemName}` : '';
-    msg = `💀 Defeated${attacker}! No loot.${lost}`;
+    title = '💀 Defeated in Expedition!';
+    color = '#ef5350';
+    if (r.attackerName) rows.push({ icon:'⚔', label:'Defeated by', value:r.attackerName, color:'#ef9a9a' });
+    if (r.lostItemName) rows.push({ icon:'💸', label:'Item stolen', value:r.lostItemName,  color:'#ef5350' });
   } else {
-    const drops = (r.drops && r.drops.length > 0)
-      ? r.drops.map(d => `${d.displayName} x${d.quantity}`).join(' · ')
-      : 'nothing this time';
-    const attacked = r.wasAttacked ? ` (survived attack by ${r.attackerName})` : '';
-    const xp = r.xpGained > 0 ? ` · +${r.xpGained} XP` : '';
-    msg = `✅ Expedition done${attacked}! ${drops}${xp}`;
+    title = r.wasAttacked ? '⚔ Survived the Expedition!' : '✅ Expedition Completed!';
+    color = r.wasAttacked ? '#ffc107' : '#4caf50';
+    if (r.wasAttacked && r.attackerName)
+      rows.push({ icon:'⚔', label:'Survived attack by', value:r.attackerName, color:'#ffc107' });
+    (r.drops || []).forEach(d =>
+      rows.push({ icon:'📦', label:d.displayName, value:`x${d.quantity}`, color:'#4db6ac' }));
+    if (r.xpGained > 0)
+      rows.push({ icon:'⭐', label:'Experience', value:`+${r.xpGained} XP`, color:'#ffd700' });
   }
+
+  showCollectModal({ title, color, rows, log: r.battleLog || [] });
   if (worldCurrentKingdom) await enterKingdom(worldCurrentKingdom);
-  worldMsg(msg);
 }
 
 async function cancelKingdomZoneSession(activityId) {
