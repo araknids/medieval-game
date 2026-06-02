@@ -626,7 +626,158 @@ Stats do NPC: média dos warriors da guilda atacante × fator de dificuldade do 
 
 ---
 
-## 15. Plano de Lançamento
+## 15. Redesign — World Tab (3 Kingdoms) 🚧 Planejado
+
+> **Status:** Design aprovado, não implementado. Este sistema substitui as abas Taverna, Expedições, Habilidades (pesca/mineração) e Territórios por uma aba única "World" organizada em 3 reinos interdependentes.
+
+### 15.1 Conceito Central
+
+O mundo é organizado por **localização** em vez de por mecânica. Cada reino tem uma especialidade que força troca com os outros dois — nenhum é autossuficiente.
+
+```
+Pesca     → Peixe = estamina premium   → todo mundo precisa
+Mineração → Minério = equipamento       → todo mundo precisa  
+Combate   → EXP/Level = desbloqueia    → todo mundo quer
+```
+
+### 15.2 Abas removidas / reorganizadas
+
+| Aba atual | Destino |
+|-----------|---------|
+| Taverna | **Removida** — quests vivem dentro de cada reino |
+| Expedições | **Removida** — zones vivem dentro de cada reino |
+| Habilidades (pesca/mine) | **Removida** — gathering vive dentro de cada reino |
+| Territórios | **Removida** — integrada na tela de cada reino |
+| Habilidades (Forja/Smithing) | **Vai para Commerce** |
+| **World** | **Criada** — tela principal com os 3 reinos |
+
+Resultado: -4 abas +1 = interface muito mais limpa.
+
+---
+
+### 15.3 Reino da Pesca — Desfiladeiro do Osso 🎣
+
+**Identidade:** recurso de estamina, economia de alimentos, futuro sistema de cozinha.
+
+| Zona | Level mín. | Atividade | Risco |
+|------|-----------|-----------|-------|
+| Porto Seguro | 1 | Pesca básica, peixes comuns | Nenhum |
+| Costa Selvagem | 10 | Pesca com risco de hunters (players) | PvP |
+| Mar Profundo | 20 | Peixes raros, criaturas perigosas | PvP + monstros |
+
+**Quests do reino:** Patrulhe a Costa, Explore os Recifes, Raid do Mar Profundo, Caça ao Monstro Marinho
+
+**Loop de valor:**
+```
+Pesca → Peixes (restauram estamina)
+      → Futuro: Cozinha → Refeições premium → Buffs de guild, regen acelerada
+```
+
+**Futuro — Sistema de Cozinha:**
+- Refeições criadas com peixes do Mar Profundo
+- Buffs mais fortes que peixe cru (+estamina, bônus de guild, XP por tempo)
+- Ingredientes raros exclusivos do Mar Profundo
+
+---
+
+### 15.4 Reino da Mineração — Minas de Ferro Negro ⛏
+
+**Identidade:** matéria-prima para toda a cadeia de equipamento do jogo.
+
+| Zona | Level mín. | Atividade | Risco |
+|------|-----------|-----------|-------|
+| Mina Aberta | 1 | Mineração básica, minérios comuns | Nenhum |
+| Túneis Profundos | 10 | Mineração com risco de hunters | PvP |
+| Minas Proibidas | 20 | Minérios raros, alta periculosidade | PvP + monstros |
+
+**Quests do reino:** Escolta os Mineiros, Limpe as Cavernas, Recupere o Minério Raro, Derrote a Besta das Cavernas
+
+**Loop de valor:**
+```
+Mineração → Minério → Forja (Commerce) → Equipamento → todos os reinos precisam
+```
+
+---
+
+### 15.5 Reino do Combate — Fortaleza Maldita ⚔
+
+**Identidade:** progressão de XP acelerada, combate puro, sem pesca ou mineração.
+
+| Zona | Level mín. | Atividade | Risco |
+|------|-----------|-----------|-------|
+| Arena de Treino | 1 | **Treino pago** — paga bronze, ganha EXP passivo (timer, como Work mas para XP) | Nenhum |
+| Campo de Batalha | 10 | Caça a monstros + PvP com players | PvP |
+| Zona de Guerra | 20 | Monstros e players simultaneamente | PvP + monstros |
+
+**Quests do reino:** Defenda as Muralhas, Limpe a Masmorra, Raid ao Acampamento, Caça ao Senhor da Guerra
+
+**Treino (mecânica nova):**
+- Paga uma quantia de bronze → personagem "treina" por X horas (timer)
+- Ao coletar: recebe XP puro (sem bronze, sem itens)
+- Mais eficiente em XP/hora que missões, mas sem outras recompensas
+- Custo escala com o level do guerreiro
+
+**Loop de valor:**
+```
+Treino → EXP → Level → desbloqueia zonas de alto risco nos outros dois reinos
+Zona de Guerra → combate mais intenso → itens de alta raridade
+```
+
+---
+
+### 15.6 Navegação da aba World
+
+```
+[World Tab]
+  ├── Card: Desfiladeiro do Osso 🎣
+  │   → Clica → tela do reino:
+  │       ├── Status do reino (guilda dominante, bônus, war timer)
+  │       ├── 🍺 Taverna → quests do reino (timer-based)
+  │       ├── 🎣 Porto Seguro → pesca (timer-based)
+  │       ├── 🌊 Costa Selvagem → pesca PvP (lv10+)
+  │       ├── 🦈 Mar Profundo → pesca high-risk (lv20+)
+  │       └── ⚔ Declarar Guerra (se guilda presente)
+  │
+  ├── Card: Minas de Ferro Negro ⛏
+  │   → idem, com zonas de mineração
+  │
+  └── Card: Fortaleza Maldita ⚔
+      → idem, com treino e zonas de combate
+```
+
+### 15.7 Interdependência forçada
+
+Nenhum jogador pode ser autossuficiente dentro de um único reino:
+
+| Necessidade | Fonte |
+|-------------|-------|
+| Estamina rápida | Peixes (Desfiladeiro) |
+| Equipamento | Forja (Commerce) ← Minério (Minas) |
+| EXP/Level | Treino + Quests (Fortaleza) |
+| Recursos de crafting | Minas |
+| Buffs premium (futuro) | Cozinha (Desfiladeiro) |
+
+### 15.8 Guerra de Territórios (integrada)
+
+O sistema atual de Guild War permanece com as mesmas mecânicas, mas a declaração de ataque e o status do território ficam visíveis **dentro da tela do reino** em vez de em aba separada. Cada reino ainda tem seus bônus exclusivos para a guilda dominante:
+
+- **Desfiladeiro:** +10% XP + +10% bronze + +20% yield de pesca
+- **Minas:** +10% XP + +10% bronze + +20% yield de mineração
+- **Fortaleza:** +10% XP + +10% bronze + +10% XP extra em quests
+
+### 15.9 Futuras expansões que o design já comporta
+
+| Expansão | Reino | Quando |
+|----------|-------|--------|
+| Sistema de Cozinha | Desfiladeiro | v0.5 |
+| Refeições de guild (feast) | Desfiladeiro | v0.5 |
+| Crafting de elite (mithril+) | Minas | v0.4 |
+| Torneio de arena entre guildas | Fortaleza | v0.6 |
+| Missões de reino cruzadas | Todos | v0.5 |
+
+---
+
+## 16. Plano de Lançamento
 
 ### 14.1 Estado Atual (v0.2 — Web)
 
@@ -690,7 +841,7 @@ Stats do NPC: média dos warriors da guilda atacante × fator de dificuldade do 
 
 ---
 
-## 16. Considerações Técnicas
+## 17. Considerações Técnicas
 
 ### 14.1 Stack Atual
 
@@ -713,7 +864,7 @@ Stats do NPC: média dos warriors da guilda atacante × fator de dificuldade do 
 
 ---
 
-## 17. Glossário
+## 18. Glossário
 
 | Termo | Definição |
 |-------|-----------|
