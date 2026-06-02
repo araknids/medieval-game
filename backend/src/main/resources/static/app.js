@@ -299,8 +299,9 @@ async function loadWarrior() {
             </div>`;
   })() : '';
 
-  const hpColor = (warrior.hpPercent ?? 100) <= 0 ? '#cf6679'
-                : (warrior.hpPercent ?? 100) < 50  ? '#c9a84c' : '#4caf82';
+  const hpColor      = (warrior.hpPercent ?? 100) <= 0 ? '#cf6679'
+                     : (warrior.hpPercent ?? 100) < 50  ? '#c9a84c' : '#4caf82';
+  const staminaColor = stamina < 30 ? '#cf6679' : stamina < 60 ? '#c9a84c' : '#4caf82';
 
   document.getElementById('warrior-card').innerHTML = `
     <div class="warrior-name">${warrior.name}</div>
@@ -346,6 +347,12 @@ async function loadWarrior() {
     </div>
     <div style="font-size:.7rem;color:#888;margin-top:.1rem">
       ❤ ${t('stat.hp')} ${warrior.hpPercent ?? 100}%
+    </div>
+    <div class="xp-bar-bg" style="margin-top:.3rem">
+      <div class="xp-bar-fill" style="width:${stamina}%;background:${staminaColor}"></div>
+    </div>
+    <div style="font-size:.7rem;color:#888;margin-top:.1rem">
+      ⚡ ${t('stat.stamina')} ${stamina}/100
     </div>
     ${busy ? `<button class="btn-cancel-work" onclick="freeWarrior()" style="margin-top:.4rem;font-size:.72rem">
       🔓 ${t('status.free_btn')}
