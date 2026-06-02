@@ -42,8 +42,18 @@ public class ZoneService {
         if (warrior.isKnockedOut())
             throw new IllegalStateException("Your warrior is unconscious. Visit the Temple to heal!");
 
-        if (activityRepository.findByPlayerAndStatus(player, ZoneActivityStatus.IN_PROGRESS).isPresent())
-            throw new IllegalStateException("You are already on an expedition");
+        // Auto-cancel orphaned expedition: IN_PROGRESS but warrior is already free
+        // This happens when freeIfStuck() was called before the ZoneActivity cancel fix was deployed
+        activityRepository.findByPlayerAndStatus(player, ZoneActivityStatus.IN_PROGRESS)
+                .ifPresent(orphan -> {
+                    if (!warrior.isOnMission()) {
+                        // Warrior is free but expedition is still marked IN_PROGRESS — cancel it
+                        orphan.setStatus(ZoneActivityStatus.CANCELLED);
+                        activityRepository.save(orphan);
+                    } else {
+                        throw new IllegalStateException("You are already on an expedition");
+                    }
+                });
 
         if (warrior.getLevel() < zone.minLevel)
             throw new IllegalStateException("Level too low. Required: " + zone.minLevel);
