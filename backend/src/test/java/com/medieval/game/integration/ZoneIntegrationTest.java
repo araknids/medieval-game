@@ -80,4 +80,54 @@ class ZoneIntegrationTest extends BaseIntegrationTest {
                         .header("Authorization", bearer(token)))
                 .andExpect(status().isOk());
     }
+
+    // ── TC-096: freeIfStuck cancels ZoneActivity → re-enter works ────────────
+    // This test catches the specific bug: warrior freed via /api/warrior/free
+    // left a ZoneActivity IN_PROGRESS, blocking all subsequent zone entries.
+    @Test
+    @DisplayName("TC-096 | freeIfStuck clears IN_PROGRESS zone → re-enter works")
+    void tc096_freeWarrior_clearsZoneActivity_allowsReEntry() throws Exception {
+        // 1. Enter a zone (creates IN_PROGRESS ZoneActivity)
+        mockMvc.perform(post("/api/zones/enter")
+                        .header("Authorization", bearer(token))
+                        .contentType(org.springframework.http.MediaType.APPLICATION_JSON)
+                        .content("{\"zone\":\"SAFE\",\"role\":\"HUNTING\",\"durationMinutes\":30}"))
+                .andExpect(status().isOk());
+
+        // 2. Free the warrior (simulates freeIfStuck — should also cancel zone activity)
+        mockMvc.perform(post("/api/warrior/free")
+                        .header("Authorization", bearer(token)))
+                .andExpect(status().isOk());
+
+        // 3. Re-enter the same zone — must succeed (not "already on expedition")
+        // This is the exact scenario that was broken: orphaned IN_PROGRESS zone
+        mockMvc.perform(post("/api/zones/enter")
+                        .header("Authorization", bearer(token))
+                        .contentType(org.springframework.http.MediaType.APPLICATION_JSON)
+                        .content("{\"zone\":\"SAFE\",\"role\":\"HUNTING\",\"durationMinutes\":30}"))
+                .andExpect(status().isOk());
+    }
+
+    // TC-097: Auto-cancel orphaned zone (IN_PROGRESS + warrior free) on re-enter
+    @Test
+    @DisplayName("TC-097 | Zone enter auto-cancels orphaned expedition when warrior is free")
+    void tc097_zoneEnter_autoCancels_orphanedExpedition() throws Exception {
+        // 1. Enter zone
+        mockMvc.perform(post("/api/zones/enter")
+                        .header("Authorization", bearer(token))
+                        .contentType(org.springframework.http.MediaType.APPLICATION_JSON)
+                        .content("{\"zone\":\"SAFE\",\"role\":\"HUNTING\",\"durationMinutes\":30}"))
+                .andExpect(status().isOk());
+
+        // 2. Free warrior (but zone activity stays IN_PROGRESS — orphaned state)
+        mockMvc.perform(post("/api/warrior/free").header("Authorization", bearer(token)));
+
+        // 3. Directly try to enter zone — ZoneService should auto-cancel the orphan
+        mockMvc.perform(post("/api/zones/enter")
+                        .header("Authorization", bearer(token))
+                        .contentType(org.springframework.http.MediaType.APPLICATION_JSON)
+                        .content("{\"zone\":\"SAFE\",\"role\":\"GATHERING\",\"skillType\":\"FISHING\",\"durationMinutes\":30}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.zone").value("SAFE"));
+    }
 }
