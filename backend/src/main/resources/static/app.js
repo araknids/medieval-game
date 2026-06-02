@@ -2618,6 +2618,7 @@ function renderKingdomDetail(kingdom, quests, activeQuests, training, gatherSess
   const el = document.getElementById('kingdom-detail');
   const NAMES = { FISHING:'Desfiladeiro do Osso', MINING:'Minas de Ferro Negro', COMBAT:'Fortaleza Maldita' };
   const ICONS = { FISHING:'🎣', MINING:'⛏', COMBAT:'⚔' };
+  const busy = activeQuests.length > 0 || (warrior && warrior.onMission);
 
   const activeHtml = activeQuests.length === 0 ? '' : `
     <div style="background:#0f1f0f;border:1px solid #2e7d32;border-radius:8px;padding:12px;margin-bottom:12px">
@@ -2652,9 +2653,11 @@ function renderKingdomDetail(kingdom, quests, activeQuests, training, gatherSess
         <div style="background:#1a1a2e;border:1px solid #333;border-radius:8px;padding:12px;margin-bottom:12px">
           <strong style="color:#7986cb">🏋 Training Hall</strong>
           <p style="font-size:12px;color:#888;margin:4px 0 8px">Pay bronze to earn pure XP. Cost: ${lvl*10} bronze/h · Reward: ${lvl*25} XP/h</p>
-          <div style="display:flex;gap:6px;flex-wrap:wrap">
+          ${busy
+            ? `<p style="font-size:12px;color:#f44336;margin:0">⚔ Warrior is busy</p>`
+            : `<div style="display:flex;gap:6px;flex-wrap:wrap">
             ${[1,2,4,6,8,12].map(h => `<button onclick="startTraining(${h})" style="font-size:12px">${h}h</button>`).join('')}
-          </div>
+          </div>`}
         </div>`;
     }
   }
@@ -2706,7 +2709,6 @@ function renderKingdomDetail(kingdom, quests, activeQuests, training, gatherSess
       { name:'💎 Forbidden Mines', minLv:20, pvp:true,  durations:dur, color:'#ef5350', desc:'High risk — rare ores (coming soon)' }
     ];
 
-    // Let backend decide if warrior is free — frontend only locks by level
     gatheringHtml = zones.map(z => {
       const locked = wLevel < z.minLv;
       return `
@@ -2716,21 +2718,21 @@ function renderKingdomDetail(kingdom, quests, activeQuests, training, gatherSess
             ${locked ? `<span style="font-size:11px;color:#888">🔒 Lv.${z.minLv}+</span>` : z.pvp ? '<span style="font-size:11px;color:#ef5350">⚔ PvP</span>' : '<span style="font-size:11px;color:#4caf50">✓ Safe</span>'}
           </div>
           <p style="font-size:11px;color:#888;margin:3px 0 6px">${z.desc}</p>
-          ${locked ? '<p style="font-size:11px;color:#555;margin:0">Reach level '+z.minLv+' to unlock.</p>'
-            : `<div style="display:flex;gap:5px;flex-wrap:wrap">
-            ${z.durations.map(d => {
-              const label = d >= 60 ? (d/60)+'h' : d+'min';
-              // All zones use the same gathering API — PvP risk is cosmetic for now
-              const onclick = `startKingdomGathering('${skillType}',${d})`;
-              return `<button onclick="${onclick}" style="font-size:11px;padding:3px 8px">${label}</button>`;
-            }).join('')}
-          </div>`}
+          ${locked
+            ? '<p style="font-size:11px;color:#555;margin:0">Reach level '+z.minLv+' to unlock.</p>'
+            : busy
+              ? '<p style="font-size:11px;color:#f44336;margin:0">⚔ Warrior is busy</p>'
+              : `<div style="display:flex;gap:5px;flex-wrap:wrap">
+              ${z.durations.map(d => {
+                const label = d >= 60 ? (d/60)+'h' : d+'min';
+                return `<button onclick="startKingdomGathering('${skillType}',${d})" style="font-size:11px;padding:3px 8px">${label}</button>`;
+              }).join('')}
+            </div>`}
         </div>`;
     }).join('');
   }
 
   const questCards = quests.map(q => {
-    const busy = activeQuests.length > 0 || (warrior && warrior.onMission);
     const disabled = busy || !q.canStart;
     return `
       <div style="background:#1a1a2e;border:1px solid #333;border-radius:8px;padding:12px;margin-bottom:8px">
