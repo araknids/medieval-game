@@ -133,7 +133,6 @@ public class TerritoryService {
                         .collect(Collectors.toList());
 
         if (declarations.isEmpty()) {
-            // No attackers — defender keeps, streak increases
             if (!control.isNeutral()) {
                 control.setDefenseStreak(control.getDefenseStreak() + 1);
                 controlRepo.save(control);
@@ -141,30 +140,31 @@ public class TerritoryService {
             return;
         }
 
-        int debuff = control.debuffPercent(); // applied this round (from previous streak)
-
+        int debuff = control.debuffPercent();
         Guild currentHolder = control.getControllingGuild();
-        Guild newHolder     = currentHolder; // will be updated if attacker wins
+        Guild newHolder = currentHolder;
+
+        // ── PHASE 1: every attacker fights the original defenders independently ──
+        // Defenders recover HP between each fight (except after the last one).
+        // Collect the guilds that beat the defenders.
+
+        List<Guild> phase1Winners = new ArrayList<>();
 
         for (int i = 0; i < declarations.size(); i++) {
             TerritoryDeclaration decl = declarations.get(i);
-            boolean isLastFight = (i == declarations.size() - 1);
+            boolean isLastPhase1Fight = (i == declarations.size() - 1);
 
             Guild attackerGuild = decl.getGuild();
             List<Fighter> attackers = buildFighters(attackerGuild, 0);
-
-            // Is this a tiebreaker? (newHolder changed from original — a previous attacker won)
-            boolean isTiebreaker = newHolder != null && !newHolder.equals(currentHolder);
 
             List<Fighter> defenders;
             if (control.isNeutral()) {
                 defenders = buildNpcFighters(territory, attackers.size());
             } else {
-                // If tiebreaker: fight previous winner with their REMAINING HP (already in DB)
-                defenders = buildFighters(newHolder, isTiebreaker ? 0 : debuff);
+                defenders = buildFighters(currentHolder, debuff); // always the ORIGINAL holder
             }
 
-            // Save pre-battle HP for defenders (needed for HP recovery between regular defense fights)
+            // Save pre-battle HP for defender recovery between Phase 1 fights
             Map<Long, Integer> preBattleHp = new HashMap<>();
             for (Fighter f : defenders) {
                 if (f.warrior != null) preBattleHp.put(f.warrior.getId(), f.hp);
@@ -172,48 +172,83 @@ public class TerritoryService {
 
             BrawlResult result = guildBrawl(attackers, defenders, territory);
 
+            // Persist attacker HP (their Phase 1 remaining HP goes to DB)
             persistHpChanges(result.attackerFighters);
 
-            // Restore defender HP between regular fights — but NOT in tiebreakers (remaining HP is intentional)
-            if (!control.isNeutral() && !isLastFight && !isTiebreaker) {
+            // Restore defenders between Phase 1 fights — except after the last Phase 1 fight
+            if (!isLastPhase1Fight) {
                 for (Fighter f : result.defenderFighters) {
-                    if (f.warrior != null && preBattleHp.containsKey(f.warrior.getId())) {
+                    if (f.warrior != null && preBattleHp.containsKey(f.warrior.getId()))
                         f.hp = preBattleHp.get(f.warrior.getId());
-                    }
                 }
             }
             persistHpChanges(result.defenderFighters);
 
-            // Build battle log with clear tiebreaker label
-            String defenderLabel;
-            if (control.isNeutral()) {
-                defenderLabel = territory.npcName + "s (NPC)";
-            } else if (isTiebreaker) {
-                defenderLabel = newHolder.getName() + " [TIEBREAKER — remaining HP]";
-            } else {
-                defenderLabel = newHolder != null ? newHolder.getName() : "NPC";
-            }
-
-            TerritoryBattleLog battleLog = new TerritoryBattleLog();
-            battleLog.setTerritory(territory);
-            battleLog.setAttackerGuildName(isTiebreaker
-                    ? attackerGuild.getName() + " [TIEBREAKER]"
-                    : attackerGuild.getName());
-            battleLog.setDefenderGuildName(defenderLabel);
-            battleLog.setBattleLog(String.join("\n", result.log));
-            battleLog.setResolvedAt(LocalDateTime.now());
+            String defenderName = control.isNeutral() ? territory.npcName + "s" : currentHolder.getName();
+            saveBattleLog(territory, attackerGuild.getName(), defenderName,
+                    result.attackersWon ? attackerGuild.getName() : defenderName, result.log);
 
             if (result.attackersWon) {
-                battleLog.setWinnerGuildName(attackerGuild.getName());
-                newHolder = attackerGuild;
-                debuff = 0;
-            } else {
-                battleLog.setWinnerGuildName(newHolder != null ? newHolder.getName() : "NPC");
+                phase1Winners.add(attackerGuild);
             }
 
-            battleLogRepo.save(battleLog);
             decl.setStatus(DeclarationStatus.RESOLVED);
             declarationRepo.save(decl);
+        }
+
+        if (phase1Winners.isEmpty()) {
+            // All attackers beaten — original holder wins, streak increases
+            if (!control.isNeutral()) {
+                control.setDefenseStreak(control.getDefenseStreak() + 1);
+                controlRepo.save(control);
+            }
+            return;
+        }
+
+        // Single winner — takes territory directly
+        if (phase1Winners.size() == 1) {
+            newHolder = phase1Winners.get(0);
+        } else {
+            // ── PHASE 2: tiebreaker among Phase 1 winners (random bracket) ──
+            //
+            // Every guild enters EACH tiebreaker fight with their Phase 1 HP
+            // (the HP remaining after beating Guild X). HP does NOT carry over
+            // between tiebreaker fights — each fight resets to Phase 1 HP.
+            //
+            // This gives every guild the same starting condition in every fight:
+            // "you fought the defender and kept what was left."
+
+            Collections.shuffle(phase1Winners, new java.util.Random());
+            Guild tiebreakerChampion = phase1Winners.get(0);
+
+            for (int i = 1; i < phase1Winners.size(); i++) {
+                Guild tiebreakerChallenger = phase1Winners.get(i);
+
+                // Build fighters fresh from DB — Phase 1 HP is what's stored
+                // (we didn't persist between tiebreaker fights)
+                List<Fighter> champFighters = buildFighters(tiebreakerChampion,    0);
+                List<Fighter> chalFighters  = buildFighters(tiebreakerChallenger, 0);
+
+                BrawlResult tResult = guildBrawl(chalFighters, champFighters, territory);
+
+                // Do NOT persist HP between tiebreaker fights —
+                // next fight always starts from Phase 1 HP (DB state unchanged)
+
+                String tbWinner;
+                if (tResult.attackersWon) {
+                    tbWinner            = tiebreakerChallenger.getName();
+                    tiebreakerChampion  = tiebreakerChallenger;
+                } else {
+                    tbWinner = tiebreakerChampion.getName();
+                }
+
+                saveBattleLog(territory,
+                    tiebreakerChallenger.getName() + " [TIEBREAKER]",
+                    tiebreakerChampion.getName()   + " [TIEBREAKER — Phase 1 HP]",
+                    tbWinner, tResult.log);
+            }
+
+            newHolder = tiebreakerChampion;
         }
 
         // Update territory control
@@ -343,6 +378,20 @@ public class TerritoryService {
 
     public List<TerritoryBattleLog> getHistory(Territory territory) {
         return battleLogRepo.findTop10ByTerritoryOrderByResolvedAtDesc(territory);
+    }
+
+    // ── Battle log helper ─────────────────────────────────────────────────────
+
+    private void saveBattleLog(Territory territory, String attacker, String defender,
+                               String winner, java.util.List<String> log) {
+        TerritoryBattleLog entry = new TerritoryBattleLog();
+        entry.setTerritory(territory);
+        entry.setAttackerGuildName(attacker);
+        entry.setDefenderGuildName(defender);
+        entry.setWinnerGuildName(winner);
+        entry.setBattleLog(String.join("\n", log));
+        entry.setResolvedAt(LocalDateTime.now());
+        battleLogRepo.save(entry);
     }
 
     // ── Inner types ───────────────────────────────────────────────────────────

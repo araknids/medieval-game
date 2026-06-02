@@ -36,7 +36,7 @@ class TerritoryWarTest {
 
     // ── 1v1: stronger fighter wins ─────────────────────────────────────────────
 
-    @RepeatedTest(5)
+    @RepeatedTest(10)
     @DisplayName("1v1: vastly superior attacker wins")
     void brawl_strongAttackerWins() {
         BrawlResult result = service.guildBrawl(
@@ -47,7 +47,7 @@ class TerritoryWarTest {
         assertThat(result.attackersWon()).isTrue();
     }
 
-    @RepeatedTest(5)
+    @RepeatedTest(10)
     @DisplayName("1v1: vastly superior defender wins")
     void brawl_strongDefenderWins() {
         BrawlResult result = service.guildBrawl(
@@ -94,33 +94,48 @@ class TerritoryWarTest {
         assertThat(wins).isGreaterThan(7);
     }
 
-    // ── 3-attacker chain: illustrates who wins ────────────────────────────────
+    // ── Phase 2 tiebreaker: everyone uses Phase 1 HP ─────────────────────────
 
     @Test
-    @DisplayName("3-attacker chain: Guild1 beats defenders, Guild2 beats tired Guild1")
-    void threeAttackerChain_guild2BeatsTiredGuild1() {
-        // Step 1: Guild1 dominates defenders → becomes new holder with ~1/3 HP
-        BrawlResult round1 = service.guildBrawl(
-            List.of(fighter("Guild1", 80, 60, 300)),
-            List.of(fighter("Defender", 10, 5, 30)),
-            Territory.DESFILADEIRO_DO_OSSO
-        );
-        assertThat(round1.attackersWon()).isTrue();
+    @DisplayName("Tiebreaker: both guilds use Phase 1 HP — neither guaranteed to win")
+    void tiebreaker_phase1Hp_neitherGuaranteedWinner() {
+        // Design doc: in Phase 2 tiebreaker, all guilds use Phase 1 HP.
+        // With identical fighters, BOTH can win (not deterministic).
+        // Test: verify that each can win at least once in 30 runs.
 
-        // Step 2: Guild2 (full HP) vs Guild1 (reduced to ~1/3 HP after winning)
-        // TerritoryService sets survivor HP to max(1, previousHp/3)
-        int guild1TiredHp = Math.max(1, 300 / 3); // = 100
-        int guild2Wins = 0;
-        for (int i = 0; i < 10; i++) {
+        int phase1Hp = 150;
+        int guild1Wins = 0, guild2Wins = 0;
+        for (int i = 0; i < 30; i++) {
             BrawlResult r = service.guildBrawl(
-                List.of(fighter("Guild2",       80, 60, 300)),       // fresh
-                List.of(fighter("Guild1_tired", 80, 60, guild1TiredHp)), // tired
+                List.of(fighter("Guild1", 40, 25, phase1Hp)),
+                List.of(fighter("Guild2", 40, 25, phase1Hp)),
                 Territory.DESFILADEIRO_DO_OSSO
             );
-            if (r.attackersWon()) guild2Wins++;
+            if (r.attackersWon()) guild1Wins++; else guild2Wins++;
         }
-        // Guild2 (300HP) vs tired Guild1 (100HP) → Guild2 should win majority
-        assertThat(guild2Wins).isGreaterThan(5);
+        // With identical fighters neither should win ALL 30 — both win at least once
+        assertThat(guild1Wins).isGreaterThan(0);
+        assertThat(guild2Wins).isGreaterThan(0);
+    }
+
+    @Test
+    @DisplayName("Phase 1 HP advantage wins tiebreaker: better Phase 1 HP → wins more")
+    void tiebreaker_betterPhase1Hp_winsMajority() {
+        // Guild A kept 200 HP from Phase 1 (beat defenders quickly)
+        // Guild B kept 80 HP from Phase 1 (struggled with defenders)
+        // In tiebreaker, A should win majority since it starts with more HP
+
+        int winsWith200 = 0;
+        for (int i = 0; i < 10; i++) {
+            BrawlResult r = service.guildBrawl(
+                List.of(fighter("GuildA_better", 40, 25, 200)), // better Phase 1 HP
+                List.of(fighter("GuildB_worse",  40, 25,  80)), // worse Phase 1 HP
+                Territory.MINAS_DE_FERRO_NEGRO
+            );
+            if (r.attackersWon()) winsWith200++;
+        }
+        // Guild A (200 HP Phase 1) vs Guild B (80 HP Phase 1) → A wins majority
+        assertThat(winsWith200).isGreaterThan(5);
     }
 
     // ── Log structure ──────────────────────────────────────────────────────────
