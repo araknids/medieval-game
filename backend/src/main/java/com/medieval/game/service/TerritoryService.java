@@ -153,14 +153,18 @@ public class TerritoryService {
             Guild attackerGuild = decl.getGuild();
             List<Fighter> attackers = buildFighters(attackerGuild, 0);
 
+            // Is this a tiebreaker? (newHolder changed from original — a previous attacker won)
+            boolean isTiebreaker = newHolder != null && !newHolder.equals(currentHolder);
+
             List<Fighter> defenders;
             if (control.isNeutral()) {
                 defenders = buildNpcFighters(territory, attackers.size());
             } else {
-                defenders = buildFighters(newHolder, debuff);
+                // If tiebreaker: fight previous winner with their REMAINING HP (already in DB)
+                defenders = buildFighters(newHolder, isTiebreaker ? 0 : debuff);
             }
 
-            // Save pre-battle HP for defenders (needed for recovery between fights)
+            // Save pre-battle HP for defenders (needed for HP recovery between regular defense fights)
             Map<Long, Integer> preBattleHp = new HashMap<>();
             for (Fighter f : defenders) {
                 if (f.warrior != null) preBattleHp.put(f.warrior.getId(), f.hp);
@@ -169,33 +173,42 @@ public class TerritoryService {
             BrawlResult result = guildBrawl(attackers, defenders, territory);
 
             persistHpChanges(result.attackerFighters);
-            if (!control.isNeutral() && !isLastFight) {
-                // Restore defenders to pre-battle HP (they recover between fights)
+
+            // Restore defender HP between regular fights — but NOT in tiebreakers (remaining HP is intentional)
+            if (!control.isNeutral() && !isLastFight && !isTiebreaker) {
                 for (Fighter f : result.defenderFighters) {
                     if (f.warrior != null && preBattleHp.containsKey(f.warrior.getId())) {
                         f.hp = preBattleHp.get(f.warrior.getId());
                     }
                 }
             }
-            // Always persist defenders' HP (restored or post-battle)
-            {
-                persistHpChanges(result.defenderFighters);
+            persistHpChanges(result.defenderFighters);
+
+            // Build battle log with clear tiebreaker label
+            String defenderLabel;
+            if (control.isNeutral()) {
+                defenderLabel = territory.npcName + "s (NPC)";
+            } else if (isTiebreaker) {
+                defenderLabel = newHolder.getName() + " [TIEBREAKER — remaining HP]";
+            } else {
+                defenderLabel = newHolder != null ? newHolder.getName() : "NPC";
             }
 
-            // Save battle log
             TerritoryBattleLog battleLog = new TerritoryBattleLog();
             battleLog.setTerritory(territory);
-            battleLog.setAttackerGuildName(attackerGuild.getName());
-            battleLog.setDefenderGuildName(control.isNeutral() ? territory.npcName + "s" : (newHolder != null ? newHolder.getName() : "NPC"));
+            battleLog.setAttackerGuildName(isTiebreaker
+                    ? attackerGuild.getName() + " [TIEBREAKER]"
+                    : attackerGuild.getName());
+            battleLog.setDefenderGuildName(defenderLabel);
             battleLog.setBattleLog(String.join("\n", result.log));
             battleLog.setResolvedAt(LocalDateTime.now());
 
             if (result.attackersWon) {
                 battleLog.setWinnerGuildName(attackerGuild.getName());
                 newHolder = attackerGuild;
-                debuff = 0; // reset if attacker takes over
+                debuff = 0;
             } else {
-                battleLog.setWinnerGuildName(control.isNeutral() ? "NPC" : (newHolder != null ? newHolder.getName() : "NPC"));
+                battleLog.setWinnerGuildName(newHolder != null ? newHolder.getName() : "NPC");
             }
 
             battleLogRepo.save(battleLog);
