@@ -84,6 +84,7 @@
           <button id="loc-arena"     class="loc-btn"        onclick="goTo('arena')">⚔ Arena</button>
           <button id="loc-guild"      class="loc-btn"        onclick="goTo('guild')">🛡 Guilda</button>
           <button id="loc-territory" class="loc-btn"        onclick="goTo('territory')">🏰 Territórios</button>
+          <button id="loc-mail"      class="loc-btn"        onclick="goTo('mail')">📬 Mail <span id="mail-badge" style="display:none;background:#ef5350;color:#fff;border-radius:10px;padding:0 5px;font-size:.7em"></span></button>
         </nav>
 
         <!-- TAVERNA -->
@@ -237,6 +238,14 @@
           <div id="panel-fight" style="display:none">
             <div id="fight-area">Carregando...</div>
           </div>
+        </section>
+
+        <section id="loc-panel-mail" style="display:none">
+          <div class="loc-header">
+            <h2>📬 Mail</h2>
+            <p class="loc-desc">Send letters and gold to other warriors.</p>
+          </div>
+          <div id="mail-content">Loading...</div>
         </section>
 
         <section id="loc-panel-territory" style="display:none">

@@ -302,7 +302,7 @@ async function loadWarrior() {
 
 // ── Navegação de locais ──
 function goTo(loc) {
-  ['tavern','inventory','commerce','temple','zones','skills','work','tower','arena','guild','territory'].forEach(l => {
+  ['tavern','inventory','commerce','temple','zones','skills','work','tower','arena','guild','territory','mail'].forEach(l => {
     document.getElementById('loc-panel-' + l).style.display = l === loc ? 'block' : 'none';
     document.getElementById('loc-' + l).classList.toggle('active', l === loc);
   });
@@ -316,6 +316,7 @@ function goTo(loc) {
   if (loc === 'work')     { loadWork(); }
   if (loc === 'guild')     { loadGuild(); }
   if (loc === 'territory') { loadTerritories(); }
+  if (loc === 'mail')      { loadMail(); }
 }
 
 // ── TAVERNA: missões ──
@@ -2294,4 +2295,161 @@ async function territoryHistory(territory, name) {
     `${l.resolvedAt.substring(0, 16)} — ${l.attacker} vs ${l.defender} → 🏆 ${l.winner}`
   ).join('<br>');
   territoryMsg(`<strong>${name} — Recent battles:</strong><br>${msg}`, true);
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// MAIL SYSTEM
+// ═══════════════════════════════════════════════════════════════════
+
+async function loadMail() {
+  const el = document.getElementById('mail-content');
+  el.innerHTML = '<p>Loading...</p>';
+  try {
+    const data = await api('GET', '/api/mail/inbox');
+    updateMailBadge(data.unread);
+    renderMailPanel(data.letters, data.unread);
+  } catch(e) {
+    el.innerHTML = '<p style="color:red">Error loading mail.</p>';
+  }
+}
+
+function updateMailBadge(unread) {
+  const badge = document.getElementById('mail-badge');
+  if (!badge) return;
+  if (unread > 0) {
+    badge.textContent = unread;
+    badge.style.display = 'inline';
+  } else {
+    badge.style.display = 'none';
+  }
+}
+
+function renderMailPanel(letters, unread) {
+  const el = document.getElementById('mail-content');
+
+  const inbox = letters.length === 0
+    ? '<p style="color:#aaa;text-align:center;padding:20px">No letters yet.</p>'
+    : letters.map(m => `
+        <div onclick="mailOpen(${m.id})" style="
+          background:#1a1a2e;border:1px solid ${m.isRead ? '#333' : '#5c6bc0'};
+          border-radius:6px;padding:10px 12px;margin-bottom:8px;cursor:pointer;
+          display:flex;justify-content:space-between;align-items:center">
+          <div>
+            <strong style="color:${m.isRead ? '#ccc' : '#fff'}">${m.from}</strong>
+            ${!m.isRead ? '<span style="color:#5c6bc0;font-size:.75em;margin-left:6px">● NEW</span>' : ''}
+            ${m.goldAmount > 0 && !m.isCollected ? '<span style="color:#ffd700;font-size:.75em;margin-left:6px">💰 ' + m.goldAmount + ' gold</span>' : ''}
+            <div style="color:#888;font-size:.8em;margin-top:2px">
+              ${m.message.length > 60 ? m.message.substring(0, 60) + '…' : m.message}
+            </div>
+          </div>
+          <div style="font-size:.7em;color:#666;text-align:right;white-space:nowrap;margin-left:8px">
+            ${m.sentAt.substring(0, 10)}
+          </div>
+        </div>`).join('');
+
+  el.innerHTML = `
+    <div style="display:flex;gap:8px;margin-bottom:16px">
+      <button id="mail-tab-inbox" class="tab active" onclick="mailShowTab('inbox')">📥 Inbox ${unread > 0 ? '(' + unread + ')' : ''}</button>
+      <button id="mail-tab-send"  class="tab"        onclick="mailShowTab('send')">✉ Send Letter</button>
+    </div>
+
+    <div id="mail-inbox-panel">${inbox}</div>
+
+    <div id="mail-send-panel" style="display:none">
+      <div style="background:#1a1a2e;border:1px solid #444;border-radius:8px;padding:16px">
+        <div style="margin-bottom:8px;font-size:13px;color:#aaa">
+          Cost: <strong style="color:#ffd700">1 silver (100 bronze)</strong> per letter (+ bronze attached)
+        </div>
+        <input id="mail-to" type="text" placeholder="Recipient username (exact)"
+          style="width:100%;padding:8px;background:#111;color:#eee;border:1px solid #555;
+                 border-radius:4px;margin-bottom:8px;box-sizing:border-box">
+        <textarea id="mail-msg" placeholder="Your message (max 500 chars)" maxlength="500" rows="4"
+          style="width:100%;padding:8px;background:#111;color:#eee;border:1px solid #555;
+                 border-radius:4px;margin-bottom:8px;box-sizing:border-box;resize:vertical"></textarea>
+        <div style="display:flex;gap:8px;align-items:center;margin-bottom:10px">
+          <label style="font-size:13px;color:#aaa">💰 Bronze to attach:</label>
+          <input id="mail-gold" type="number" min="0" value="0"
+            style="width:80px;padding:6px;background:#111;color:#eee;border:1px solid #555;border-radius:4px">
+        </div>
+        <button onclick="mailSend()">✉ Send Letter</button>
+      </div>
+    </div>
+
+    <div id="mail-msg-area" style="margin-top:10px;min-height:20px"></div>
+
+    <div id="mail-open-panel" style="display:none;margin-top:12px;
+      background:#1a1a2e;border:1px solid #444;border-radius:8px;padding:16px"></div>
+  `;
+}
+
+function mailShowTab(tab) {
+  document.getElementById('mail-inbox-panel').style.display = tab === 'inbox' ? 'block' : 'none';
+  document.getElementById('mail-send-panel').style.display  = tab === 'send'  ? 'block' : 'none';
+  document.getElementById('mail-open-panel').style.display  = 'none';
+  document.getElementById('mail-tab-inbox').classList.toggle('active', tab === 'inbox');
+  document.getElementById('mail-tab-send').classList.toggle('active',  tab === 'send');
+}
+
+async function mailOpen(id) {
+  const r = await api('POST', `/api/mail/${id}/read`);
+  if (r.error) { mailMsg(r.error, false); return; }
+
+  const panel = document.getElementById('mail-open-panel');
+  panel.style.display = 'block';
+
+  const goldBtn = r.hasGold
+    ? `<button onclick="mailCollect(${id})" style="margin-top:10px;background:#7a5f00">
+         💰 Collect ${fmtBronze(r.goldAmount)}
+       </button>`
+    : r.goldAmount > 0 ? `<span style="color:#888;font-size:12px">💰 ${fmtBronze(r.goldAmount)} (already collected)</span>` : '';
+
+  panel.innerHTML = `
+    <div style="display:flex;justify-content:space-between;align-items:flex-start">
+      <strong>From: ${r.from}</strong>
+      <button onclick="mailDelete(${id})" style="background:#333;font-size:11px;padding:3px 8px">🗑 Delete</button>
+    </div>
+    <div style="color:#888;font-size:.75em;margin:.3rem 0">${r.sentAt.substring(0, 16).replace('T', ' ')}</div>
+    <div style="background:#111;border-radius:4px;padding:10px;margin-top:8px;
+                white-space:pre-wrap;font-size:13px;line-height:1.5">${r.message}</div>
+    ${goldBtn}
+  `;
+
+  // Refresh unread badge
+  const data = await api('GET', '/api/mail/inbox');
+  updateMailBadge(data.unread);
+}
+
+async function mailCollect(id) {
+  const r = await api('POST', `/api/mail/${id}/collect`);
+  if (r.error) { mailMsg(r.error, false); return; }
+  mailMsg(r.message);
+  await loadMail();
+  loadWarrior();
+}
+
+async function mailDelete(id) {
+  if (!confirm('Delete this letter?')) return;
+  const r = await api('DELETE', `/api/mail/${id}`);
+  if (r.error) { mailMsg(r.error, false); return; }
+  await loadMail();
+}
+
+async function mailSend() {
+  const to   = document.getElementById('mail-to').value.trim();
+  const msg  = document.getElementById('mail-msg').value.trim();
+  const gold = parseInt(document.getElementById('mail-gold').value) || 0;
+  if (!to)  { mailMsg('Enter the recipient username.', false); return; }
+  if (!msg) { mailMsg('Write a message.', false); return; }
+  const r = await api('POST', '/api/mail/send', { recipientUsername: to, message: msg, goldAmount: gold });
+  if (r.error) { mailMsg(r.error, false); return; }
+  mailMsg(r.message);
+  document.getElementById('mail-to').value   = '';
+  document.getElementById('mail-msg').value  = '';
+  document.getElementById('mail-gold').value = '0';
+  loadWarrior(); // update gold display
+}
+
+function mailMsg(text, ok = true) {
+  const el = document.getElementById('mail-msg-area');
+  if (el) el.innerHTML = `<span style="color:${ok ? '#4caf50' : '#f44336'}">${text}</span>`;
 }
