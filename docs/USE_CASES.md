@@ -1449,4 +1449,94 @@
 
 ---
 
-*Atualizado em 2026-06-02. Guildas: UC-48 a UC-58.*
+---
+
+## Guerra de Territórios
+
+### UC-59: Visualizar Status dos Territórios
+**Ator:** Qualquer jogador autenticado
+
+**Fluxo:**
+1. Jogador acessa aba Territórios.
+2. Sistema exibe os 3 territórios com: guilda dominante (ou "Neutro"), defenseStreak, bônus ativos e tempo até próxima batalha.
+
+**Pós-condições:** Apenas leitura.
+
+---
+
+### UC-60: Declarar Ataque a Território
+**Ator:** Líder de guilda sem território
+
+**Pré-condições:** Jogador é líder; guilda não controla nenhum território; nenhuma declaração ativa para esse ciclo.
+
+**Fluxo:**
+1. Líder seleciona território alvo e confirma ataque.
+2. Sistema valida: guilda sem território, território disponível para ataque, não há declaração duplicada.
+3. Sistema registra `TerritoryDeclaration` com status PENDING.
+4. Na próxima janela de 6h, a batalha é resolvida automaticamente.
+
+**Fluxo Alternativo:**
+- Guilda já controla território → 400 (deve defender).
+- Declaração duplicada → 400.
+
+---
+
+### UC-61: Resolução Automática de Batalha de Território
+**Ator:** Sistema (scheduler a cada 6h)
+
+**Fluxo:**
+1. Scheduler dispara em 00h, 06h, 12h ou 18h UTC.
+2. Para cada território com declarações pendentes:
+   a. Compila membros defensores (HP > 0) e aplicar debuff se streak > 0.
+   b. Para cada atacante (em ordem de declaração):
+      - Resolve Guild Brawl via BattleSimulator.
+      - Se há outro atacante: defensores recuperam HP ao estado pré-batalha.
+      - Se é o último atacante: defensores não recuperam HP.
+   c. Se todos os atacantes foram derrotados: defenseStreak +1, territoryControl atualizado.
+   d. Se algum atacante venceu: TerritoryControl atualizado para a guilda vencedora, streak = 0.
+3. Para território neutro: gera NPCs, resolve batalha, vencedor domina.
+4. Registra TerritoryBattleLog para cada batalha.
+5. Notifica resultado (exibido no painel ao abrir a aba).
+
+---
+
+### UC-62: Guild Brawl (Mecânica de Batalha)
+**Ator:** Sistema (disparado pela resolução de UC-61)
+
+**Fluxo:**
+1. Coleta membros de cada lado com HP > 0.
+2. Aplica debuff percentual (se aplicável) nos stats dos defensores.
+3. Sorteia pares aleatórios.
+4. Resolve cada par 1v1 via BattleSimulator; vencedor entra na próxima briga (2v1).
+5. Continua até um lado ser eliminado.
+6. Atualiza HP de todos os guerreiros participantes no banco.
+7. Retorna lado vencedor e log consolidado.
+
+---
+
+### UC-63: Receber Bônus de Território
+**Ator:** Membro de guilda dominante
+
+**Pré-condições:** Guilda do jogador domina um território.
+
+**Fluxo:**
+1. Jogador coleta recompensa de quest, trabalho ou coleta.
+2. Sistema verifica se a guilda do jogador controla algum território.
+3. Aplica: +10% XP, +10% bronze (base), mais bônus exclusivo do território.
+4. Bônus acumulam com os bônus de nível de guilda.
+
+---
+
+### UC-64: Cancelar Declaração de Ataque
+**Ator:** Líder de guilda
+
+**Pré-condições:** Existe declaração PENDING para o ciclo atual.
+
+**Fluxo:**
+1. Líder cancela a declaração.
+2. Sistema muda status para CANCELLED.
+3. Guilda não participa da próxima batalha.
+
+---
+
+*Atualizado em 2026-06-02. Guerra de Territórios: UC-59 a UC-64.*

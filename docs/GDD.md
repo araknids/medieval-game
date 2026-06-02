@@ -538,7 +538,95 @@ Medieval fantástico sem seriedade excessiva. Linguagem direta, textos curtos. F
 
 ---
 
-## 14. Plano de Lançamento
+## 14. Guerra de Territórios
+
+### 14.1 Conceito
+
+Sistema de PvP em escala de guilda. Três territórios fixos no mapa podem ser dominados por guildas, concedendo bônus permanentes a seus membros enquanto o domínio for mantido. Batalhas acontecem automaticamente 4 vezes por dia, criando conflito constante e rotação de poder.
+
+### 14.2 Os Três Territórios
+
+| Território | Tema | Bônus Exclusivo | NPC Neutro |
+|------------|------|-----------------|------------|
+| **Fortaleza Maldita** | Fortaleza amaldiçoada por um lich antigo | +10% XP extra em quests | Cavaleiros Amaldiçoados |
+| **Minas de Ferro Negro** | Minas ancestrais de metal raro | +20% yield de mineração | Golens de Ferro |
+| **Desfiladeiro do Osso** | Passagem estratégica entre reinos | +20% yield de pesca | Esqueletos Guerreiros |
+
+**Bônus base** para membros da guilda dominante em qualquer território: **+10% XP** e **+10% bronze** em todas as ações.
+
+### 14.3 Regras de Participação
+
+- Guilda **sem território**: líder pode declarar ataque em qualquer território antes do próximo ciclo
+- Guilda **com território**: defende automaticamente — não pode atacar outro território
+- Uma guilda só pode dominar **um território por vez**
+- Guerreiros com HP > 0 participam com seu HP atual
+- Guerreiros com HP = 0 (inconscientes) não participam
+
+### 14.4 Ciclo de Batalhas (a cada 6h — 00h, 06h, 12h, 18h UTC)
+
+**Território neutro + 1 atacante:**
+A guilda ataca NPCs em quantidade igual ao número de membros dela. Vitória = domínio imediato.
+
+**Território neutro + múltiplos atacantes:**
+Cada guilda luta seus próprios NPCs separadamente. Quem vencer luta entre si (ordem de declaração); último sobrevivente domina.
+
+**Território controlado + 1 atacante:**
+Defensor luta contra atacante. Vencedor fica/toma o território.
+
+**Território controlado + múltiplos atacantes:**
+Defensor luta contra cada atacante em sequência (ordem de declaração):
+- Entre cada luta: defensores **recuperam HP ao estado pré-batalha**
+- Após a **última** luta da rodada: defensores **não recuperam** HP
+- Debuff da streak **não se aplica** nessa rodada (aplica na próxima)
+- Se defender vencer todos: mantém território, streak +1
+- Se algum atacante vencer: toma o território, streak e debuff zerados
+
+### 14.5 Mecânica de Batalha (Guild Brawl)
+
+```
+1. Coleta todos os membros de cada lado com HP > 0
+2. Aplica debuff de defesa (se streak > 0 da rodada anterior)
+3. Sorteia pares aleatórios (A1 vs B1, A2 vs B2...)
+4. Resolve cada par via BattleSimulator (1v1 sequencial)
+5. Vencedor do par entra no próximo combate ativo → 2v1
+6. Continua até um lado ser eliminado
+7. Atualiza HP de todos os guerreiros no banco
+```
+
+### 14.6 Debuff do Defensor (stack por rodadas consecutivas)
+
+| Streak (defesas vencidas) | Debuff na próxima rodada |
+|--------------------------|--------------------------|
+| 0 | Nenhum (1ª defesa) |
+| 1 | -5% ATK e DEF |
+| 2 | -10% |
+| 3 | -15% |
+| N | min(50%, N × 5%) |
+
+Reset completo quando o território troca de dono.
+
+### 14.7 NPCs para Territórios Neutros
+
+| Território | NPC | Estilo de combate |
+|------------|-----|-------------------|
+| Fortaleza Maldita | Cavaleiro Amaldiçoado | Alta DEF, moderado ATK |
+| Minas de Ferro Negro | Golem de Ferro | Altíssimo HP, baixo ATK |
+| Desfiladeiro do Osso | Esqueleto Guerreiro | Balanceado, alta evasão |
+
+Stats do NPC: média dos warriors da guilda atacante × fator de dificuldade do território. Contagem: 1 NPC por membro da guilda atacante.
+
+### 14.8 Endpoints
+
+| Método | Rota | Ação |
+|--------|------|------|
+| GET | `/api/territory` | Lista os 3 territórios e status atual |
+| POST | `/api/territory/{territory}/declare` | Declara ataque (requer guilda sem território) |
+| GET | `/api/territory/{territory}/history` | Histórico de batalhas do território |
+| GET | `/api/territory/my` | Status do território da guilda do jogador |
+
+---
+
+## 15. Plano de Lançamento
 
 ### 14.1 Estado Atual (v0.2 — Web)
 
@@ -574,7 +662,7 @@ Medieval fantástico sem seriedade excessiva. Linguagem direta, textos curtos. F
 
 ---
 
-## 15. Considerações Técnicas
+## 16. Considerações Técnicas
 
 ### 14.1 Stack Atual
 
@@ -597,7 +685,7 @@ Medieval fantástico sem seriedade excessiva. Linguagem direta, textos curtos. F
 
 ---
 
-## 16. Glossário
+## 17. Glossário
 
 | Termo | Definição |
 |-------|-----------|

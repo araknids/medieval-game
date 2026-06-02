@@ -401,7 +401,53 @@ Aplicados automaticamente em quests e trabalho para todos os membros:
 
 ---
 
-## 21. Funcionalidades Futuras Planejadas
+## 21. Guerra de Territórios
+
+### Territórios
+
+| Território | Bônus base | Bônus exclusivo |
+|------------|------------|-----------------|
+| Fortaleza Maldita | +10% XP, +10% bronze | +10% XP extra em quests |
+| Minas de Ferro Negro | +10% XP, +10% bronze | +20% yield mineração |
+| Desfiladeiro do Osso | +10% XP, +10% bronze | +20% yield pesca |
+
+### Regras de controle
+- Uma guilda domina no máximo 1 território
+- Guilda dominante defende automaticamente — não pode atacar outro território
+- Declaração de ataque feita pelo líder antes do próximo ciclo de 6h
+
+### Ciclo de Batalhas (automático — 00h, 06h, 12h, 18h UTC)
+- Território neutro: guilda luta NPCs (1 NPC por membro); se múltiplas guildas venceram, lutam entre si
+- Território controlado: defensores lutam contra cada atacante em sequência
+  - Defensores regeneram HP entre lutas, exceto após a última
+  - Debuff de streak não se aplica na rodada atual
+
+### Mecânica Guild Brawl
+- Todos os membros com HP > 0 participam
+- Pares aleatórios 1v1 via BattleSimulator
+- Vencedor de cada 1v1 entra na próxima briga → 2v1
+- HP dos guerreiros atualizado no banco após a batalha
+
+### Debuff do Defensor
+- `defenseStreak`: incrementa a cada rodada que o defensor mantém o território
+- Debuff = `min(50, defenseStreak × 5)`% de ATK e DEF na próxima rodada
+- Reset completo quando território troca de dono
+
+### NPCs para território neutro
+- Cavaleiros Amaldiçoados (Fortaleza Maldita) — alta DEF
+- Golens de Ferro (Minas de Ferro Negro) — alto HP
+- Esqueletos Guerreiros (Desfiladeiro do Osso) — balanceados, alta evasão
+- Stats baseados na média dos membros atacantes × fator de dificuldade
+
+### Entidades
+- `Territory` (enum): FORTALEZA_MALDITA, MINAS_DE_FERRO_NEGRO, DESFILADEIRO_DO_OSSO
+- `TerritoryControl`: guilda dominante, defenseStreak, dominantSince
+- `TerritoryDeclaration`: guilda atacante, território alvo, timestamp
+- `TerritoryBattleLog`: resultado, log de batalha, vencedor, data
+
+---
+
+## 22. Funcionalidades Futuras Planejadas
 
 - [ ] Cliente Godot (Steam)
 - [ ] Mercado entre jogadores (integração Steam Marketplace)

@@ -2784,4 +2784,65 @@ Player doa, sai e entra em nova guilda → `donationRank[0].donatedBronze == 0`.
 
 ---
 
-*Atualizado em 2026-06-02. Total: 123 casos de teste (TC-001 a TC-040 unitários; TC-051 a TC-123 integração).*
+---
+
+## Testes Unitários — Guerra de Territórios (TC-041 a TC-048)
+
+### TC-041: defenseStreak 0 → debuff 0%
+**Tipo:** Unitário | **Classe:** TerritoryServiceTest
+`TerritoryControl(streak=0).debuffPercent() == 0`
+
+### TC-042: defenseStreak 1 → debuff 5%
+`TerritoryControl(streak=1).debuffPercent() == 5`
+
+### TC-043: defenseStreak 10 → debuff 50% (cap)
+`TerritoryControl(streak=10).debuffPercent() == 50`
+
+### TC-044: NPC stats gerados com base na média dos atacantes
+Stats dos NPCs = média dos warriors atacantes × fator do território.
+
+### TC-045: Guild Brawl — lado com mais membros vence NPC equilibrado
+2 warriors (50 ATK, 50 DEF, 100 HP) vs 2 NPCs equivalentes — resultado não-determinístico mas não deve crashar.
+
+### TC-046: Guild Brawl — 2v1 (vencedor do 1v1 entra na briga seguinte)
+Verifica que ao final de um 1v1 o vencedor combate o próximo oponente disponível.
+
+### TC-047: Defender HP restaurado entre lutas (exceto a última)
+Após luta 1, HP dos defensores = HP pré-luta. Após luta 2 (última), HP não restaurado.
+
+### TC-048: TerritoryDeclaration duplicada → rejeitada
+Guilda já tem declaração PENDING para o mesmo ciclo → lança exceção.
+
+---
+
+## Testes de Integração — Guerra de Territórios (TC-124 a TC-133)
+
+### TC-124: GET /api/territory → lista 3 territórios com status
+Sem guilda dominante → todos neutros.
+
+### TC-125: POST /api/territory/FORTALEZA_MALDITA/declare → declaração criada
+**Pré:** Líder de guilda sem território.
+
+### TC-126: POST /api/territory/declare com guilda que já controla território → 400
+Guilda dominante não pode declarar ataque.
+
+### TC-127: POST /api/territory/declare duplicada → 400
+Mesma guilda declara duas vezes no mesmo ciclo.
+
+### TC-128: GET /api/territory/my → retorna status e bônus do território da guilda
+
+### TC-129: Resolução automática — território neutro + 1 atacante → guilda domina
+Simular resolução de batalha via TerritoryService (chamada direta, sem scheduler).
+
+### TC-130: Resolução — território neutro + NPC → guilda grande vence NPCs fracos
+
+### TC-131: Resolução — defensor mantém, defenseStreak +1
+
+### TC-132: Resolução — atacante vence, streak zera para o novo dono
+
+### TC-133: Bônus de território aplicado em quest collect (GET /api/quests collect)
+Membros de guilda dominante recebem XP e bronze com +10% base.
+
+---
+
+*Atualizado em 2026-06-02. Total: 133 casos de teste (TC-001 a TC-048 unitários; TC-051 a TC-133 integração).*
