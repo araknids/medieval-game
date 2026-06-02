@@ -394,7 +394,7 @@ function renderQuestTypes() {
   el.innerHTML = questTypes.map(q => {
     const noStamina = stamina < q.staminaCost;
     const disabled  = busy || noStamina;
-    const btnLabel  = busy ? t('status.busy') : noStamina ? `Sem estamina (${stamina}/${q.staminaCost})` : t('quest.btn.send');
+    const btnLabel  = busy ? t('status.busy') : noStamina ? `${t('quest.no_stamina_msg', {stamina, cost: q.staminaCost})}` : t('quest.btn.send');
     return `
     <div class="quest-card">
       <h3>${t('quest.type.'+q.id)||q.displayName}</h3>
@@ -418,7 +418,7 @@ async function loadActiveQuests() {
   timerIntervals = {};
 
   const el = document.getElementById('active-quests-list');
-  if (!quests.length) { el.innerHTML = '<p style="color:#888;font-size:.82rem">Nenhuma missão ativa.</p>'; return; }
+  if (!quests.length) { el.innerHTML = '<p style="color:#888;font-size:.82rem">${t('quest.none_active')}</p>'; return; }
 
   el.innerHTML = quests.map(q => `
     <div class="quest-card" id="quest-card-${q.id}">
@@ -552,7 +552,7 @@ async function collectFromProgress(questId) {
 
   document.getElementById('qp-content').innerHTML = `
     <div class="qp-box">
-      <div class="qp-quest-name">Missão Concluída!</div>
+      <div class="qp-quest-name">${t('quest.complete_title')}</div>
       ${rewardsHtml}
       <button class="btn-send qp-collect-btn" onclick="closeQuestProgress()" style="margin-top:1rem">
         Voltar às Missões
@@ -621,7 +621,7 @@ async function loadShop() {
     const s = secs % 60;
     const timeStr = `${h}h ${String(m).padStart(2,'0')}m ${String(s).padStart(2,'0')}s`;
     const el = document.getElementById('shop-timer');
-    if (el) el.textContent = `🛒 Nova carroça em ${timeStr}`;
+    if (el) el.textContent = `🛒 ${t('shop.next_rotation')} ${timeStr}`;
   }
 
   document.getElementById('shop-list').innerHTML = `
@@ -641,8 +641,8 @@ async function loadShop() {
             </div>
             <span class="shop-price">${fmtBronze(i.price)}</span>
             ${i.purchased
-              ? `<button class="btn-bought" disabled>✓ Comprado</button>`
-              : `<button class="btn-buy" onclick="buyItem(${i.id})">Comprar</button>`
+              ? `<button class="btn-bought" disabled>✓ ${t('shop.purchased')}</button>`
+              : `<button class="btn-buy" onclick="buyItem(${i.id})">${t('shop.btn.buy')}</button>`
             }
           </div>`;
       }).join('')}
@@ -688,10 +688,10 @@ const ALL_SLOTS = [
 ];
 
 const ATTR_INFO = {
-  STRENGTH:     { icon: '⚔',  label: 'Força',         effect: '+1 ATK' },
-  DEXTERITY:    { icon: '🏹', label: 'Destreza',       effect: '+1% evasão' },
-  CONSTITUTION: { icon: '🛡',  label: 'Constituição',  effect: '+5 HP / +0.5 DEF' },
-  LUCK:         { icon: '🍀', label: 'Sorte',          effect: '+1% drop' },
+  STRENGTH:     { icon: '⚔',  labelKey: 'attr.strength',     effectKey: 'attr.strength.effect' },
+  DEXTERITY:    { icon: '🏹', labelKey: 'attr.dexterity',    effectKey: 'attr.dexterity.effect' },
+  CONSTITUTION: { icon: '🛡',  labelKey: 'attr.constitution', effectKey: 'attr.constitution.effect' },
+  LUCK:         { icon: '🍀', labelKey: 'attr.luck',         effectKey: 'attr.luck.effect' },
 };
 
 function renderAttributes() {
@@ -704,8 +704,8 @@ function renderAttributes() {
     return `
       <div class="attr-row">
         <span class="attr-icon">${info.icon}</span>
-        <span class="attr-label">${info.label}</span>
-        <span class="attr-effect">${info.effect}</span>
+        <span class="attr-label">${t(info.labelKey)||info.labelKey}</span>
+        <span class="attr-effect">${t(info.effectKey)||info.effectKey}</span>
         <span class="attr-val">${val}</span>
         <button class="btn-attr" ${pts <= 0 ? 'disabled' : ''} onclick="spendPoint('${id}')">+</button>
       </div>`;
@@ -714,12 +714,12 @@ function renderAttributes() {
   el.innerHTML = `
     <div class="attr-section">
       <div class="attr-header">
-        <span>Atributos</span>
-        ${pts > 0 ? `<span class="attr-points-badge">⬆ ${pts} ponto${pts > 1 ? 's' : ''} disponível</span>` : ''}
+        <span>${t('char.attributes')}</span>
+        ${pts > 0 ? `<span class="attr-points-badge">⬆ ${t('char.points_available', {n: pts})}</span>` : ''}
       </div>
       ${rows}
       <div class="attr-stats-summary">
-        Evasão: <strong>${warrior.evasionChance ?? 10}%</strong>
+        ${t('stat.evasion')}: <strong>${warrior.evasionChance ?? 10}%</strong>
       </div>
     </div>`;
 }
@@ -764,7 +764,7 @@ async function loadInventory() {
     </div>`;
 
   const bagEl = document.getElementById('bag-items');
-  if (!bag.length) { bagEl.innerHTML = '<p style="color:#555;font-size:.8rem">Mochila vazia.</p>'; return; }
+  if (!bag.length) { bagEl.innerHTML = '<p style="color:#555;font-size:.8rem">${t('inventory.bag_empty')}</p>'; return; }
   bagEl.innerHTML = bag.map(item => `
     <div class="bag-item" style="flex-direction:column;align-items:flex-start;gap:.3rem">
       <div style="display:flex;justify-content:space-between;width:100%;align-items:center">
@@ -774,7 +774,7 @@ async function loadInventory() {
           <div class="bag-item-stats">${statsText(item)}</div>
           ${item.sockets > 0 ? renderSockets(item) : ''}
         </div>
-        <button class="btn-equip" onclick="equipItem(${item.id})">Equipar</button>
+        <button class="btn-equip" onclick="equipItem(${item.id})">${t('inventory.btn.equip')}</button>
       </div>
       ${item.description ? `<p class="item-lore">"${item.description}"</p>` : ''}
       ${item.origin ? `<p class="item-origin">📍 ${item.origin}</p>` : ''}
@@ -789,7 +789,7 @@ async function loadSellList() {
   const el = document.getElementById('sell-list');
 
   if (!bag.length) {
-    el.innerHTML = '<p style="color:#888;font-size:.82rem">Nenhum item na mochila para vender.</p>';
+    el.innerHTML = '<p style="color:#888;font-size:.82rem">${t('inventory.no_sell')}</p>';
     return;
   }
 
@@ -800,7 +800,7 @@ async function loadSellList() {
         <div class="shop-stats">${(t('item.type.'+item.type)||item.typeDisplay)} · ${statsText(item)}</div>
       </div>
       <span class="shop-price">${fmtBronze(item.sellPrice)}</span>
-      <button class="btn-buy" onclick="sellItem(${item.id})">Vender</button>
+      <button class="btn-buy" onclick="sellItem(${item.id})">${t('inventory.btn.sell')}</button>
     </div>`).join('');
 }
 
@@ -845,13 +845,13 @@ function statsText(item) {
 async function equipItem(itemId) {
   const data = await api('POST', `/api/inventory/${itemId}/equip`);
   if (data.error) { showMessage(data.error, true); return; }
-  showMessage(`${data.name} equipado!`);
+  showMessage(`${data.name} ${t('inventory.item_equipped')}`);
   await Promise.all([loadWarrior(), loadInventory()]);
 }
 async function unequipItem(itemId) {
   const data = await api('POST', `/api/inventory/${itemId}/unequip`);
   if (data.error) { showMessage(data.error, true); return; }
-  showMessage(`${data.name} desequipado.`);
+  showMessage(`${data.name} ${t('inventory.item_unequipped')}`);
   await Promise.all([loadWarrior(), loadInventory()]);
 }
 
@@ -868,14 +868,14 @@ function renderTemple(data) {
 
   const hpColor   = data.hpPercent <= 0 ? '#cf6679' : data.hpPercent < 50 ? '#c9a84c' : '#4caf82';
   const hpLabel   = data.isKnockedOut ? '💀 Inconsciente' : `❤ ${data.hpPercent}%`;
-  const healLabel = data.healFree ? 'Curar (Grátis)' : `Curar (${fmtBronze(100)})`;
+  const healLabel = data.healFree ? t('temple.heal_free_btn') : `${t('temple.heal_paid', {cost: fmtBronze(100)})}`;
 
   const buffActive = data.activeBuff
     ? `<div class="temple-buff-active">
         Bênção ativa: <strong>${data.activeBuff}</strong>
         — ${Math.floor(data.buffSecondsLeft / 60)}min restantes
        </div>`
-    : '<div class="temple-buff-active" style="color:#888">Nenhuma bênção ativa.</div>';
+    : '<div class="temple-buff-active" style="color:#888">${t('temple.no_buff')}</div>';
 
   const buffsHtml = data.buffs.map(b => `
     <div class="sk-recipe-card">
@@ -886,7 +886,7 @@ function renderTemple(data) {
 
   el.innerHTML = `
     <div class="sk-section">
-      <div class="sk-title">Estado do Guerreiro</div>
+      <div class="sk-title">${t('temple.warrior_state')}</div>
       <div class="temple-hp-bar">
         <span style="color:${hpColor};font-weight:bold">${hpLabel}</span>
         <div class="xp-bar-bg" style="margin-top:.3rem">
@@ -894,7 +894,7 @@ function renderTemple(data) {
         </div>
         <div style="font-size:.72rem;color:#888;margin-top:.2rem">
           ${data.isKnockedOut
-            ? 'Seu guerreiro não pode lutar até ser curado.'
+            ? t('temple.ko_warning')
             : data.hpPercent < 100
             ? 'Regenerando HP... o templo pode curar instantaneamente.'
             : 'HP cheio!'}
@@ -908,7 +908,7 @@ function renderTemple(data) {
     </div>
 
     <div class="sk-section">
-      <div class="sk-title">Bênção</div>
+      <div class="sk-title">${t('temple.buffs')}</div>
       ${buffActive}
       <div style="margin-top:.5rem">${buffsHtml}</div>
     </div>
@@ -929,7 +929,7 @@ async function loadTempleItems() {
 
   const equipped = items.filter(i => i.equipped);
   if (!equipped.length) {
-    el.innerHTML = '<p style="color:#888;font-size:.8rem">Nenhum item equipado.</p>';
+    el.innerHTML = '<p style="color:#888;font-size:.8rem">${t('temple.no_items')}</p>';
     return;
   }
 
@@ -1061,7 +1061,7 @@ function renderZoneActive(state) {
   const color = ZONE_COLORS[state.zone] || '#888';
   const icon  = ZONE_ICONS[state.zone]  || '🗺';
   const role  = state.role === 'HUNTING' ? '🗡 Caçando' :
-                state.skillType === 'FISHING' ? '🎣 Pescando' : '⛏ Minerando';
+                state.skillType === 'FISHING' ? t('zone.active_fish') : t('zone.active_mine');
 
   let timerSecs = state.secondsRemaining ?? 0;
   clearInterval(window._zoneTimer);
@@ -1079,19 +1079,19 @@ function renderZoneActive(state) {
       <div class="qp-timer" id="zone-timer" style="font-size:2rem">${timerHtml()}</div>
       <p style="color:#888;font-size:.78rem;margin:.4rem 0">
         ${state.attacked && !state.survived
-          ? `⚠ Você foi atacado por <strong>${state.attackerName}</strong> durante a expedição!`
+          ? `${t('zone.attacked', {name: state.attackerName})}`
           : state.attacked
-          ? `Você sobreviveu a um ataque de <strong>${state.attackerName}</strong>!`
+          ? `${t('zone.survived', {name: state.attackerName})}`
           : ''}
       </p>
       <div style="display:flex;gap:.5rem;margin-top:.6rem;flex-wrap:wrap">
         <button class="btn-collect" id="zone-collect-btn"
                 ${state.readyToCollect ? '' : 'disabled'}
                 onclick="collectZone(${state.id})">
-          ${state.readyToCollect ? '🎒 Coletar' : 'Em expedição...'}
+          ${state.readyToCollect ? t('zone.collect_btn') : t('zone.in_progress')}
         </button>
         ${!state.readyToCollect ? `
-          <button class="btn-cancel-work" onclick="cancelZone(${state.id})">Cancelar</button>
+          <button class="btn-cancel-work" onclick="cancelZone(${state.id})">${t('btn.cancel')}</button>
         ` : ''}
       </div>
     </div>`;
@@ -1104,7 +1104,7 @@ function renderZoneActive(state) {
       if (!t) { clearInterval(window._zoneTimer); return; }
       if (timerSecs <= 0) {
         t.innerHTML = '<span class="done">Pronto!</span>';
-        if (b) { b.disabled = false; b.textContent = '🎒 Coletar'; }
+        if (b) { b.disabled = false; b.textContent = t('zone.collect_btn'); }
         clearInterval(window._zoneTimer);
       } else {
         t.textContent = formatTime(timerSecs);
@@ -1146,7 +1146,7 @@ async function collectZone(activityId) {
           ${data.lostItemName ? `<br>Item perdido: <span style="color:#c97ddb">${data.lostItemName}</span>` : ''}
         </p>
         <div class="battle-log" style="max-height:200px">${logHtml}</div>
-        <button class="btn-send" onclick="loadZones()" style="margin-top:.8rem">Voltar</button>
+        <button class="btn-send" onclick="loadZones()" style="margin-top:.8rem">${t('btn.back')}</button>
       </div>`;
   } else {
     const dropsHtml = data.drops.map(d =>
@@ -1180,7 +1180,7 @@ async function collectZone(activityId) {
 }
 
 async function cancelZone(activityId) {
-  if (!confirm('Cancelar expedição? Você perde todos os recursos coletados.')) return;
+  if (!confirm(t('zone.cancel_confirm'))) return;
   const data = await api('POST', `/api/zones/${activityId}/cancel`);
   if (data.error) { showMessage(data.error, true); return; }
   await loadWarrior();
@@ -1329,7 +1329,7 @@ function renderGatheringTimer() {
         el.textContent = t('quest.ready_short');
         el.classList.add('done');
         document.getElementById('gathering-collect-btn').disabled = false;
-        document.getElementById('gathering-collect-btn').textContent = '🎒 Coletar';
+        document.getElementById('gathering-collect-btn').textContent = t('zone.collect_btn');
         clearInterval(gatheringTimer);
       } else {
         el.textContent = formatTime(s);
@@ -1347,9 +1347,9 @@ function renderGatheringTimer() {
         <button class="btn-collect" id="gathering-collect-btn"
                 ${done ? '' : 'disabled'}
                 onclick="collectGathering(${gatheringState.id})">
-          ${done ? '🎒 Coletar' : t('skills.in_progress')}
+          ${done ? t('zone.collect_btn') : t('skills.in_progress')}
         </button>
-        ${!done ? `<button class="btn-cancel-work" onclick="cancelGathering(${gatheringState.id})">Cancelar</button>` : ''}
+        ${!done ? `<button class="btn-cancel-work" onclick="cancelGathering(${gatheringState.id})">${t('btn.cancel')}</button>` : ''}
       </div>
     </div>`;
 }
@@ -1400,7 +1400,7 @@ async function renderSmithing() {
     </div>
     <div class="sk-section">
       <div class="sk-title">Refinar Minérios → Barras</div>
-      ${refineHtml || '<p style="color:#888;font-size:.8rem">Nenhuma receita disponível</p>'}
+      ${refineHtml || '<p style="color:#888;font-size:.8rem">${t('skills.no_recipes')}</p>'}
     </div>
     <div class="sk-section">
       <div class="sk-title">Craftar Equipamento</div>
@@ -1415,10 +1415,10 @@ async function renderSmithing() {
 // ── INVENTÁRIO DE RECURSOS ──
 function renderBag() {
   if (resourcesData.length === 0) {
-    document.getElementById('sk-bag-content').innerHTML = '<p style="color:#888;font-size:.82rem">Nenhum recurso ainda.</p>';
+    document.getElementById('sk-bag-content').innerHTML = '<p style="color:#888;font-size:.82rem">${t('skills.no_resources')}</p>';
     return;
   }
-  const categories = {FISH:'🎣 Peixes', ORE:'⛏ Minérios', FRAGMENT:'💠 Fragmentos', BAR:'🔩 Barras', GEM:'💎 Joias', MATERIAL:'📦 Materiais'};
+  const categories = {FISH:t('skills.cat.FISH'), ORE:t('skills.cat.ORE'), FRAGMENT:t('skills.cat.GEM_FRAGMENT'), BAR:t('skills.cat.BAR'), GEM:t('skills.cat.GEM'), MATERIAL:t('skills.cat.MATERIAL')};
   let html = '';
   for (const [cat, label] of Object.entries(categories)) {
     const items = resourcesData.filter(r => r.category === cat && r.quantity > 0);
@@ -1464,7 +1464,7 @@ async function collectGathering(id) {
 }
 
 async function cancelGathering(id) {
-  if (!confirm('Cancelar coleta? Você não receberá nada.')) return;
+  if (!confirm(t('skills.cancel_confirm'))) return;
   await api('POST', `/api/gathering/${id}/cancel`);
   gatheringState = { active: false };
   await loadWarrior();
@@ -1507,10 +1507,10 @@ async function craftGem(fragmentType) {
 }
 
 async function freeWarrior() {
-  if (!confirm('Liberar guerreiro? Só use isso se ele estiver travado sem nenhuma missão ativa.')) return;
+  if (!confirm(t('warrior.free_confirm'))) return;
   const data = await api('POST', '/api/warrior/free');
   if (data.error) { showMessage(data.error, true); return; }
-  showMessage(data.message || 'Guerreiro liberado!');
+  showMessage(data.message || t('warrior.freed'));
   await loadWarrior();
 }
 
@@ -1618,7 +1618,7 @@ function renderWorkProgress(session) {
       <button class="btn-collect qp-collect-btn" id="work-btn"
               ${done ? '' : 'disabled'}
               onclick="collectWork(${session.id})">
-        ${done ? '💰 Coletar' : 'Trabalhando...'}
+        ${done ? t('work.collect_money') : t('work.in_progress')}
       </button>
       ${!done ? `
       <button class="btn-cancel-work" onclick="cancelWork(${session.id})" style="margin-top:.5rem">
@@ -1637,7 +1637,7 @@ function renderWorkProgress(session) {
         t.textContent = 'Concluído!';
         t.classList.add('done');
         b.disabled = false;
-        b.textContent = '💰 Coletar';
+        b.textContent = t('work.collect_money');
         clearInterval(workTimerInterval);
       } else {
         t.textContent = formatTime(secs);
@@ -1667,7 +1667,7 @@ async function collectWork(sessionId) {
 }
 
 async function cancelWork(sessionId) {
-  if (!confirm('Cancelar o trabalho? Você recebe apenas o gold das horas completas.')) return;
+  if (!confirm(t('work.cancel_confirm'))) return;
 
   const data = await api('POST', `/api/work/${sessionId}/cancel`);
   if (data.error) { showMessage(data.error, true); return; }
@@ -1675,8 +1675,8 @@ async function cancelWork(sessionId) {
   clearInterval(workTimerInterval);
 
   const msg = data.goldEarned > 0
-    ? `Trabalho cancelado. ${fmtBronze(data.goldEarned)} e +${data.xpEarned} xp pelas horas completas.`
-    : 'Trabalho cancelado. Nenhuma hora completa — nada recebido.';
+    ? `${t('work.cancelled_partial', {bronze: fmtBronze(data.goldEarned), xp: data.xpEarned})}`
+    : t('work.cancelled_none');
 
   document.getElementById('work-progress-content').innerHTML = `
     <div class="qp-box">
@@ -1685,7 +1685,7 @@ async function cancelWork(sessionId) {
         ${data.goldEarned > 0
           ? `<span class="cr-gold">${fmtBronze(data.goldEarned)}</span>
              <span class="cr-exp">+${data.xpEarned} xp trabalho</span>`
-          : `<span style="color:#888">Nenhuma hora completa</span>`}
+          : `<span style="color:#888">${t('work.no_hours')}</span>`}
       </div>
       <button class="btn-send qp-collect-btn" onclick="closeWork()" style="margin-top:.8rem">
         Voltar aos Empregos
@@ -1724,7 +1724,7 @@ async function showTowerLobby() {
   const noStamina = stamina < 25;
 
   const rankHtml = ranking.length === 0
-    ? '<p style="color:#888;font-size:.82rem">Nenhum guerreiro chegou lá ainda.</p>'
+    ? '<p style="color:#888;font-size:.82rem">${t('tower.no_entries')}</p>'
     : `<table class="rank-table">
         <thead><tr><th>#</th><th>Guerreiro</th><th>Andar</th></tr></thead>
         <tbody>
@@ -1750,7 +1750,7 @@ async function showTowerLobby() {
       <button class="btn-fight"
               ${busy || noStamina ? 'disabled style="opacity:.5;cursor:not-allowed"' : ''}
               onclick="enterTower()">
-        ${busy ? '⚔ Guerreiro ocupado' : noStamina ? '⚡ Sem estamina' : '🏰 Entrar na Torre'}
+        ${busy ? t('tower.warrior_busy') : noStamina ? t('tower.no_stamina') : '🏰 Entrar na Torre'}
       </button>
     </div>
     <h3 style="color:#c9a84c;margin:1rem 0 .5rem;font-size:.85rem;text-transform:uppercase;letter-spacing:.05em">
@@ -1902,7 +1902,7 @@ function renderFightArea(data) {
           Batalha dura 1 minuto. Vitória: +25 rank, ${fmtBronze(200)}.
         </p>
         <button class="btn-fight" ${noStamina ? 'disabled style="opacity:.5;cursor:not-allowed"' : ''} onclick="startFight()">
-          ${noStamina ? '⚡ Sem estamina' : '⚔ Lutar'}
+          ${noStamina ? t('tower.no_stamina') : '⚔ Lutar'}
         </button>
       </div>`;
     return;
