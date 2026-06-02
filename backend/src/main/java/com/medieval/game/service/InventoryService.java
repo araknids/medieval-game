@@ -26,13 +26,13 @@ public class InventoryService {
     @Transactional
     public InventoryItem equip(Player player, Long itemId) {
         InventoryItem item = inventoryRepository.findById(itemId)
-                .orElseThrow(() -> new IllegalArgumentException("Item não encontrado"));
+                .orElseThrow(() -> new IllegalArgumentException("Item not found"));
 
         if (!item.getPlayer().getId().equals(player.getId())) {
-            throw new IllegalStateException("Este item não é seu");
+            throw new IllegalStateException("This item does not belong to you");
         }
         if (item.isEquipped()) {
-            throw new IllegalStateException("Item já equipado");
+            throw new IllegalStateException("Item already equipped");
         }
 
         // Desequipa o item atual do mesmo slot, se houver
@@ -49,13 +49,13 @@ public class InventoryService {
     @Transactional
     public InventoryItem unequip(Player player, Long itemId) {
         InventoryItem item = inventoryRepository.findById(itemId)
-                .orElseThrow(() -> new IllegalArgumentException("Item não encontrado"));
+                .orElseThrow(() -> new IllegalArgumentException("Item not found"));
 
         if (!item.getPlayer().getId().equals(player.getId())) {
-            throw new IllegalStateException("Este item não é seu");
+            throw new IllegalStateException("This item does not belong to you");
         }
         if (!item.isEquipped()) {
-            throw new IllegalStateException("Item não está equipado");
+            throw new IllegalStateException("Item is not equipped");
         }
 
         item.setEquipped(false);
@@ -65,9 +65,9 @@ public class InventoryService {
     @Transactional
     public InventoryItem sell(Player player, Long itemId) {
         InventoryItem item = inventoryRepository.findById(itemId)
-                .orElseThrow(() -> new IllegalArgumentException("Item não encontrado"));
+                .orElseThrow(() -> new IllegalArgumentException("Item not found"));
         if (!item.getPlayer().getId().equals(player.getId())) {
-            throw new IllegalStateException("Este item não é seu");
+            throw new IllegalStateException("This item does not belong to you");
         }
         if (item.isEquipped()) {
             throw new IllegalStateException("Desequipe o item antes de vender");

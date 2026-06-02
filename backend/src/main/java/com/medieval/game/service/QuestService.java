@@ -38,7 +38,7 @@ public class QuestService {
     public ActiveQuest sendOnQuest(Player player, QuestType questType) {
         Warrior warrior = warriorService.getWarrior(player);
         if (warrior.isOnMission()) {
-            throw new IllegalStateException("Este guerreiro já está em missão");
+            throw new IllegalStateException("This warrior is already on a mission");
         }
 
         if (!instantComplete) {
@@ -70,13 +70,13 @@ public class QuestService {
     @Transactional
     public void abandonQuest(Player player, Long questId) {
         ActiveQuest quest = questRepository.findById(questId)
-                .orElseThrow(() -> new IllegalArgumentException("Missão não encontrada"));
+                .orElseThrow(() -> new IllegalArgumentException("Quest not found"));
 
         if (!quest.getPlayer().getId().equals(player.getId())) {
-            throw new IllegalStateException("Esta missão não é sua");
+            throw new IllegalStateException("This quest does not belong to you");
         }
         if (quest.getStatus() != QuestStatus.IN_PROGRESS) {
-            throw new IllegalStateException("Missão não pode ser abandonada");
+            throw new IllegalStateException("Quest cannot be abandoned");
         }
 
         warriorRepository.findByPlayer(player).ifPresent(w -> {
@@ -91,17 +91,17 @@ public class QuestService {
     @Transactional
     public CollectResult collectReward(Player player, Long questId) {
         ActiveQuest quest = questRepository.findById(questId)
-                .orElseThrow(() -> new IllegalArgumentException("Missão não encontrada: " + questId));
+                .orElseThrow(() -> new IllegalArgumentException("Quest not found: " + questId));
 
         if (!quest.getPlayer().getId().equals(player.getId())) {
-            throw new IllegalStateException("Esta missão não é sua");
+            throw new IllegalStateException("This quest does not belong to you");
         }
         if (quest.getStatus() == QuestStatus.COLLECTED) {
-            throw new IllegalStateException("Recompensa já coletada");
+            throw new IllegalStateException("Reward already collected");
         }
         if (!quest.isReadyToCollect()) {
             long secsLeft = java.time.Duration.between(LocalDateTime.now(), quest.getCompletesAt()).getSeconds();
-            throw new IllegalStateException("Missão ainda não concluída. Faltam " + secsLeft + "s");
+            throw new IllegalStateException("Quest not yet complete. " + secsLeft + "s");
         }
 
         // Apply guild passive bonuses

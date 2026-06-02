@@ -69,22 +69,22 @@ public class TowerService {
     @Transactional
     public TowerRun enter(Player player) {
         if (towerRunRepository.findByPlayerAndStatus(player, TowerStatus.IN_PROGRESS).isPresent()) {
-            throw new IllegalStateException("Você já está dentro da torre");
+            throw new IllegalStateException("You are already inside the tower");
         }
 
         Warrior warrior = warriorRepository.findByPlayer(player)
-                .orElseThrow(() -> new IllegalStateException("Guerreiro não encontrado"));
+                .orElseThrow(() -> new IllegalStateException("Warrior not found"));
 
         if (warrior.isOnMission()) {
-            throw new IllegalStateException("Seu guerreiro já está ocupado");
+            throw new IllegalStateException("Your warrior is already busy");
         }
         if (warrior.isKnockedOut()) {
-            throw new IllegalStateException("Seu guerreiro está inconsciente. Visite o Templo para curar!");
+            throw new IllegalStateException("Your warrior is unconscious. Visit the Temple to heal!");
         }
 
         int stamina = player.getCalculatedStamina();
         if (stamina < STAMINA_COST) {
-            throw new IllegalStateException("Estamina insuficiente (" + stamina + "/" + STAMINA_COST + ")");
+            throw new IllegalStateException("Insufficient stamina (" + stamina + "/" + STAMINA_COST + ")");
         }
 
         player.setCurrentStamina(stamina - STAMINA_COST);
@@ -116,7 +116,7 @@ public class TowerService {
 
         // Stats do guerreiro (base + atributos + itens)
         Warrior warrior = warriorRepository.findByPlayer(player)
-                .orElseThrow(() -> new IllegalStateException("Guerreiro não encontrado"));
+                .orElseThrow(() -> new IllegalStateException("Warrior not found"));
 
         List<InventoryItem> equipped = inventoryRepository.findAllByPlayer(player).stream()
                 .filter(InventoryItem::isEquipped).toList();

@@ -35,25 +35,25 @@ public class ZoneService {
                               SkillType skillType, int durationMinutes) {
 
         Warrior warrior = warriorRepository.findByPlayer(player)
-                .orElseThrow(() -> new IllegalStateException("Guerreiro não encontrado"));
+                .orElseThrow(() -> new IllegalStateException("Warrior not found"));
 
         if (warrior.isOnMission())
-            throw new IllegalStateException("Seu guerreiro já está ocupado");
+            throw new IllegalStateException("Your warrior is already busy");
         if (warrior.isKnockedOut())
-            throw new IllegalStateException("Seu guerreiro está inconsciente. Visite o Templo para curar!");
+            throw new IllegalStateException("Your warrior is unconscious. Visit the Temple to heal!");
 
         if (activityRepository.findByPlayerAndStatus(player, ZoneActivityStatus.IN_PROGRESS).isPresent())
-            throw new IllegalStateException("Você já está em uma expedição");
+            throw new IllegalStateException("You are already on an expedition");
 
         if (warrior.getLevel() < zone.minLevel)
-            throw new IllegalStateException("Nível insuficiente. Necessário: " + zone.minLevel);
+            throw new IllegalStateException("Level too low. Required: " + zone.minLevel);
 
         if (durationMinutes < 30 || durationMinutes > 720)
-            throw new IllegalArgumentException("Duração deve ser entre 30 min e 12h");
+            throw new IllegalArgumentException("Duration must be between 30 min and 12h");
 
         // Valida skill para gatherer
         if (role == ActivityRole.GATHERING && skillType == null)
-            throw new IllegalArgumentException("Escolha uma habilidade para coletar");
+            throw new IllegalArgumentException("Choose a skill to gather with");
 
         warrior.setOnMission(true);
         warriorRepository.save(warrior);
@@ -84,16 +84,16 @@ public class ZoneService {
                 .orElseThrow(() -> new IllegalArgumentException("Expedição não encontrada"));
 
         if (!activity.getPlayer().getId().equals(player.getId()))
-            throw new IllegalStateException("Esta expedição não é sua");
+            throw new IllegalStateException("This expedition does not belong to you");
 
         if (activity.getStatus() == ZoneActivityStatus.COMPLETED ||
             activity.getStatus() == ZoneActivityStatus.DEFEATED)
-            throw new IllegalStateException("Expedição já finalizada");
+            throw new IllegalStateException("Expedition already finished");
 
         if (!activity.isReadyToCollect() && activity.getStatus() == ZoneActivityStatus.IN_PROGRESS) {
             long secs = java.time.Duration.between(
                     LocalDateTime.now(), activity.getEndsAt()).getSeconds();
-            throw new IllegalStateException("Expedição ainda em andamento. Faltam " + secs + "s");
+            throw new IllegalStateException("Expedition still in progress. " + secs + "s");
         }
 
         List<GatheringService.ResourceDrop> drops = new ArrayList<>();
@@ -181,9 +181,9 @@ public class ZoneService {
         ZoneActivity activity = activityRepository.findById(activityId)
                 .orElseThrow(() -> new IllegalArgumentException("Expedição não encontrada"));
         if (!activity.getPlayer().getId().equals(player.getId()))
-            throw new IllegalStateException("Não é sua");
+            throw new IllegalStateException("Not yours");
         if (activity.getStatus() != ZoneActivityStatus.IN_PROGRESS)
-            throw new IllegalStateException("Já finalizada");
+            throw new IllegalStateException("Already finished");
 
         activity.setStatus(ZoneActivityStatus.CANCELLED);
         activityRepository.save(activity);

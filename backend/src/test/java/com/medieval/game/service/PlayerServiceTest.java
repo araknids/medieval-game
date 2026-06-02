@@ -86,6 +86,6 @@ class PlayerServiceTest {
 
         assertThatThrownBy(() -> playerService.spendBronze(player, 100))
                 .isInstanceOf(IllegalStateException.class)
-                .hasMessageContaining("insuficiente");
+                .hasMessageContaining("Insufficient");
     }
 }

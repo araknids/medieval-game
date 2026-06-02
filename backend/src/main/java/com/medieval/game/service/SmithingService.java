@@ -81,7 +81,7 @@ public class SmithingService {
 
         SkillLevel smithing = gatheringService.getOrCreateSkill(player, SkillType.SMITHING);
         if (smithing.getLevel() < recipe.smithingLevelRequired()) {
-            throw new IllegalStateException("Nível de Forja insuficiente. Necessário: " + recipe.smithingLevelRequired());
+            throw new IllegalStateException("Smithing level too low. Required: " + recipe.smithingLevelRequired());
         }
 
         int batches = quantity; // 1 batch = recipe.oreQty() ores → 1 bar
@@ -103,7 +103,7 @@ public class SmithingService {
 
         SkillLevel smithing = gatheringService.getOrCreateSkill(player, SkillType.SMITHING);
         if (smithing.getLevel() < recipe.smithingLevel()) {
-            throw new IllegalStateException("Nível de Forja insuficiente. Necessário: " + recipe.smithingLevel());
+            throw new IllegalStateException("Smithing level too low. Required: " + recipe.smithingLevel());
         }
 
         // Consome ingredientes
@@ -140,7 +140,7 @@ public class SmithingService {
     @Transactional
     public void craftGem(Player player, ResourceType fragmentType) {
         if (fragmentType.category != ResourceCategory.FRAGMENT) {
-            throw new IllegalArgumentException("Não é um fragmento");
+            throw new IllegalArgumentException("Not a gem fragment");
         }
 
         gatheringService.removeResource(player, fragmentType, 3);
@@ -151,7 +151,7 @@ public class SmithingService {
             case EMERALD_FRAGMENT   -> ResourceType.EMERALD;
             case DIAMOND_FRAGMENT   -> ResourceType.DIAMOND;
             case AMETHYST_FRAGMENT  -> ResourceType.AMETHYST;
-            default -> throw new IllegalArgumentException("Fragmento inválido");
+            default -> throw new IllegalArgumentException("Invalid fragment");
         };
 
         gatheringService.addResource(player, gem, 1);
@@ -164,17 +164,17 @@ public class SmithingService {
     @Transactional
     public SocketedGem socketGem(Player player, Long itemId, ResourceType gemType) {
         if (gemType.category != ResourceCategory.GEM) {
-            throw new IllegalArgumentException("Não é uma joia");
+            throw new IllegalArgumentException("Not a gem");
         }
 
         InventoryItem item = inventoryRepository.findById(itemId)
-                .orElseThrow(() -> new IllegalArgumentException("Item não encontrado"));
+                .orElseThrow(() -> new IllegalArgumentException("Item not found"));
         if (!item.getPlayer().getId().equals(player.getId()))
-            throw new IllegalStateException("Item não é seu");
+            throw new IllegalStateException("Item does not belong to you");
 
         List<SocketedGem> existing = gemRepository.findAllByItem(item);
         if (existing.size() >= item.getSockets())
-            throw new IllegalStateException("Não há sockets disponíveis neste item");
+            throw new IllegalStateException("No sockets available on this item");
 
         gatheringService.removeResource(player, gemType, 1);
 

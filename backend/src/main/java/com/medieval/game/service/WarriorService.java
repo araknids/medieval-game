@@ -34,7 +34,7 @@ public class WarriorService {
 
     public Warrior getWarrior(Player player) {
         return warriorRepository.findByPlayer(player)
-                .orElseThrow(() -> new IllegalStateException("Guerreiro não encontrado para este jogador"));
+                .orElseThrow(() -> new IllegalStateException("Warrior not found para este jogador"));
     }
 
     @Transactional
@@ -90,7 +90,7 @@ public class WarriorService {
         Warrior warrior = getWarrior(player);
 
         if (warrior.getAvailablePoints() <= 0) {
-            throw new IllegalStateException("Nenhum ponto disponível");
+            throw new IllegalStateException("No attribute points available");
         }
 
         switch (attribute) {

@@ -47,7 +47,7 @@ public class EmailService {
         String body = String.format(
             "Olá!\n\n" +
             "Recebemos uma solicitação para redefinir sua senha.\n\n" +
-            "Clique no link abaixo (válido por 30 minutos):\n%s\n\n" +
+            "Clique no link abaixo (válido por 30 minutes remaining):\n%s\n\n" +
             "Se não foi você, ignore este email.\n\n" +
             "— Equipe Medieval Game",
             resetUrl

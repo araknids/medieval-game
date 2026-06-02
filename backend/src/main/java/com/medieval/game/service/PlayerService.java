@@ -19,10 +19,10 @@ public class PlayerService {
     @Transactional
     public Player register(String username, String email, String rawPassword) {
         if (playerRepository.existsByUsername(username)) {
-            throw new IllegalArgumentException("Nome de usuário já existe: " + username);
+            throw new IllegalArgumentException("Username already exists: " + username);
         }
         if (playerRepository.existsByEmail(email)) {
-            throw new IllegalArgumentException("E-mail já cadastrado: " + email);
+            throw new IllegalArgumentException("Email already registered: " + email);
         }
         Player player = new Player();
         player.setUsername(username);
@@ -33,12 +33,12 @@ public class PlayerService {
 
     public Player findByUsername(String username) {
         return playerRepository.findByUsername(username)
-                .orElseThrow(() -> new IllegalArgumentException("Jogador não encontrado: " + username));
+                .orElseThrow(() -> new IllegalArgumentException("Player not found: " + username));
     }
 
     public Player findById(Long id) {
         return playerRepository.findById(id)
-                .orElseThrow(() -> new IllegalArgumentException("Jogador não encontrado: " + id));
+                .orElseThrow(() -> new IllegalArgumentException("Player not found: " + id));
     }
 
     public boolean checkPassword(Player player, String rawPassword) {
@@ -74,7 +74,7 @@ public class PlayerService {
     @Transactional
     public void spendBronze(Player player, long bronzeAmount) {
         if (player.totalBronze() < bronzeAmount) {
-            throw new IllegalStateException("Moedas insuficientes");
+            throw new IllegalStateException("Insufficient funds");
         }
         long remaining = player.totalBronze() - bronzeAmount;
         player.setGold(remaining / 10_000L);
@@ -101,7 +101,7 @@ public class PlayerService {
         if (current < cost) {
             long minutesLeft = player.getMinutesToFullStamina();
             throw new IllegalStateException(
-                "Estamina insuficiente (" + current + "/" + cost + "). " +
+                "Insufficient stamina (" + current + "/" + cost + "). " +
                 "Regenera totalmente em " + minutesLeft + " min."
             );
         }

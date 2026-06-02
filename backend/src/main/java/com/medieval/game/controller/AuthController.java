@@ -68,7 +68,7 @@ public class AuthController {
         try {
             Player  player  = playerService.findByUsername(req.username());
             if (!playerService.checkPassword(player, req.password())) {
-                return ResponseEntity.status(401).body(Map.of("error", "Senha incorreta"));
+                return ResponseEntity.status(401).body(Map.of("error", "Incorrect password"));
             }
             Warrior warrior = warriorService.getWarrior(player);
             String  token   = jwtUtil.generateToken(player.getId(), player.getUsername());
@@ -85,7 +85,7 @@ public class AuthController {
                     )
             ));
         } catch (IllegalArgumentException e) {
-            return ResponseEntity.status(401).body(Map.of("error", "Usuário não encontrado"));
+            return ResponseEntity.status(401).body(Map.of("error", "User not found"));
         }
     }
 
@@ -93,7 +93,7 @@ public class AuthController {
     public ResponseEntity<?> forgotPassword(@RequestBody Map<String, String> body) {
         String email = body.get("email");
         if (email == null || email.isBlank()) {
-            return ResponseEntity.badRequest().body(Map.of("error", "Informe o email"));
+            return ResponseEntity.badRequest().body(Map.of("error", "Please provide your email"));
         }
 
         Optional<Player> playerOpt = playerRepository.findByEmail(email.trim().toLowerCase());
@@ -109,7 +109,7 @@ public class AuthController {
         }
 
         return ResponseEntity.ok(Map.of("message",
-                "Se esse email estiver cadastrado, você receberá as instruções em breve."));
+                "If this email is registered, you will receive instructions shortly."));
     }
 
     @PostMapping("/reset-password")
@@ -118,26 +118,26 @@ public class AuthController {
         String newPassword = body.get("password");
 
         if (token == null || newPassword == null || newPassword.length() < 6) {
-            return ResponseEntity.badRequest().body(Map.of("error", "Token ou senha inválidos"));
+            return ResponseEntity.badRequest().body(Map.of("error", "Invalid token or password"));
         }
 
         PasswordResetToken reset = resetTokenRepository.findByToken(token)
                 .orElse(null);
 
         if (reset == null || reset.isUsed() || reset.isExpired()) {
-            return ResponseEntity.badRequest().body(Map.of("error", "Link inválido ou expirado"));
+            return ResponseEntity.badRequest().body(Map.of("error", "Invalid or expired link"));
         }
 
         // Carrega o player diretamente do banco para evitar LazyInitializationException
         Player player = playerRepository.findById(reset.getPlayer().getId())
-                .orElseThrow(() -> new IllegalArgumentException("Jogador não encontrado"));
+                .orElseThrow(() -> new IllegalArgumentException("Player not found"));
         player.setPasswordHash(passwordEncoder.encode(newPassword));
         playerRepository.save(player);
 
         reset.setUsed(true);
         resetTokenRepository.save(reset);
 
-        return ResponseEntity.ok(Map.of("message", "Senha alterada com sucesso! Faça login."));
+        return ResponseEntity.ok(Map.of("message", "Password changed successfully! Please log in."));
     }
 
     record RegisterRequest(

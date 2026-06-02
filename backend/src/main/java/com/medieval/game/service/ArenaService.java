@@ -44,17 +44,17 @@ public class ArenaService {
     @Transactional
     public ArenaMatch startFight(Player challenger) {
         if (matchRepository.findByChallengerAndStatus(challenger, MatchStatus.FIGHTING).isPresent()) {
-            throw new IllegalStateException("Você já está em uma batalha");
+            throw new IllegalStateException("You are already in a battle");
         }
 
         Warrior cWarrior = warriorRepository.findByPlayer(challenger)
-                .orElseThrow(() -> new IllegalStateException("Guerreiro não encontrado"));
+                .orElseThrow(() -> new IllegalStateException("Warrior not found"));
 
         if (cWarrior.isOnMission()) {
-            throw new IllegalStateException("Seu guerreiro está em missão");
+            throw new IllegalStateException("Your warrior is on a mission");
         }
         if (cWarrior.isKnockedOut()) {
-            throw new IllegalStateException("Seu guerreiro está inconsciente. Visite o Templo para curar!");
+            throw new IllegalStateException("Your warrior is unconscious. Visit the Temple to heal!");
         }
 
         if (!instantComplete) {
@@ -116,17 +116,17 @@ public class ArenaService {
     @Transactional
     public ArenaMatch collectResult(Player challenger, Long matchId) {
         ArenaMatch match = matchRepository.findById(matchId)
-                .orElseThrow(() -> new IllegalArgumentException("Batalha não encontrada"));
+                .orElseThrow(() -> new IllegalArgumentException("Battle not found"));
 
         if (!match.getChallenger().getId().equals(challenger.getId())) {
-            throw new IllegalStateException("Esta batalha não é sua");
+            throw new IllegalStateException("This battle does not belong to you");
         }
         if (match.getStatus() == MatchStatus.COLLECTED) {
-            throw new IllegalStateException("Resultado já coletado");
+            throw new IllegalStateException("Reward already collected");
         }
         if (LocalDateTime.now().isBefore(match.getFinishesAt())) {
             long secsLeft = java.time.Duration.between(LocalDateTime.now(), match.getFinishesAt()).getSeconds();
-            throw new IllegalStateException("Batalha ainda em andamento. Faltam " + secsLeft + "s");
+            throw new IllegalStateException("Battle still in progress. " + secsLeft + "s");
         }
 
         playerService.addGold(challenger, match.getGoldReward());

@@ -67,8 +67,8 @@ public class GatheringService {
     @Transactional
     public void removeResource(Player player, ResourceType type, long qty) {
         ResourceInventory inv = resourceRepository.findByPlayerAndResourceType(player, type)
-                .orElseThrow(() -> new IllegalStateException("Resource not found"));
-        if (inv.getQuantity() < qty) throw new IllegalStateException("Insufficient quantity of " + type.displayName);
+                .orElseThrow(() -> new IllegalStateException("Recurso não encontrado"));
+        if (inv.getQuantity() < qty) throw new IllegalStateException("Quantidade insuficiente de " + type.displayName);
         inv.setQuantity(inv.getQuantity() - qty);
         resourceRepository.save(inv);
     }
@@ -82,15 +82,15 @@ public class GatheringService {
     @Transactional
     public GatheringSession startGathering(Player player, SkillType skillType, int durationMinutes) {
         if (sessionRepository.findByPlayerAndStatus(player, GatheringStatus.IN_PROGRESS).isPresent()) {
-            throw new IllegalStateException("You are already gathering");
+            throw new IllegalStateException("Você já está coletando");
         }
         Warrior warrior = warriorRepository.findByPlayer(player)
-                .orElseThrow(() -> new IllegalStateException("Warrior not found"));
-        if (warrior.isOnMission()) throw new IllegalStateException("Your warrior is busy");
+                .orElseThrow(() -> new IllegalStateException("Guerreiro não encontrado"));
+        if (warrior.isOnMission()) throw new IllegalStateException("Seu guerreiro está ocupado");
 
         int minDuration = skillType == SkillType.FISHING ? 5 : 10;
         if (durationMinutes < minDuration || durationMinutes > 60) {
-            throw new IllegalArgumentException("Invalid duration");
+            throw new IllegalArgumentException("Duração inválida");
         }
 
         SkillLevel skill = getOrCreateSkill(player, skillType);
@@ -116,11 +116,11 @@ public class GatheringService {
     @Transactional
     public List<ResourceDrop> collectGathering(Player player, Long sessionId) {
         GatheringSession session = sessionRepository.findById(sessionId)
-                .orElseThrow(() -> new IllegalArgumentException("Session not found"));
+                .orElseThrow(() -> new IllegalArgumentException("Sessão não encontrada"));
         if (!session.getPlayer().getId().equals(player.getId()))
-            throw new IllegalStateException("This session does not belong to you");
+            throw new IllegalStateException("Sessão não é sua");
         if (session.getStatus() == GatheringStatus.COLLECTED)
-            throw new IllegalStateException("Already collected");
+            throw new IllegalStateException("Já coletado");
         if (!session.isReadyToCollect()) {
             long secs = java.time.Duration.between(LocalDateTime.now(), session.getFinishesAt()).getSeconds();
             throw new IllegalStateException("Ainda coletando. Faltam " + secs + "s");
@@ -161,11 +161,11 @@ public class GatheringService {
     @Transactional
     public void cancelGathering(Player player, Long sessionId) {
         GatheringSession session = sessionRepository.findById(sessionId)
-                .orElseThrow(() -> new IllegalArgumentException("Session not found"));
+                .orElseThrow(() -> new IllegalArgumentException("Sessão não encontrada"));
         if (!session.getPlayer().getId().equals(player.getId()))
-            throw new IllegalStateException("This session does not belong to you");
+            throw new IllegalStateException("Sessão não é sua");
         if (session.getStatus() != GatheringStatus.IN_PROGRESS)
-            throw new IllegalStateException("Session already finished");
+            throw new IllegalStateException("Sessão já finalizada");
 
         session.setStatus(GatheringStatus.CANCELLED);
         sessionRepository.save(session);
@@ -177,7 +177,7 @@ public class GatheringService {
     @Transactional
     public int consumeFish(Player player, ResourceType fishType) {
         if (fishType.category != ResourceType.ResourceCategory.FISH)
-            throw new IllegalArgumentException("Not a fish");
+            throw new IllegalArgumentException("Não é um peixe");
 
         removeResource(player, fishType, 1);
 

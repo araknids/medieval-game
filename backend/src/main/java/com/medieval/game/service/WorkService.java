@@ -50,26 +50,26 @@ public class WorkService {
     @Transactional
     public WorkSession startWork(Player player, WorkType workType, int hours) {
         if (hours < 1 || hours > 12) {
-            throw new IllegalArgumentException("Horas devem ser entre 1 e 12");
+            throw new IllegalArgumentException("Hours must be between 1 and 12");
         }
 
         Warrior warrior = warriorRepository.findByPlayer(player)
-                .orElseThrow(() -> new IllegalStateException("Guerreiro não encontrado"));
+                .orElseThrow(() -> new IllegalStateException("Warrior not found"));
 
         if (warrior.isOnMission()) {
-            throw new IllegalStateException("Seu guerreiro já está ocupado");
+            throw new IllegalStateException("Your warrior is already busy");
         }
 
         if (workRepository.findByPlayerAndStatus(player, WorkStatus.IN_PROGRESS).isPresent()) {
-            throw new IllegalStateException("Você já está trabalhando");
+            throw new IllegalStateException("You are already working");
         }
 
         // Valida nível mínimo com o nível do personagem (guerreiro)
         if (warrior.getLevel() < workType.minWorkLevel) {
             throw new IllegalStateException(
-                "Nível do personagem insuficiente para " + workType.displayName +
-                ". Necessário: nível " + workType.minWorkLevel +
-                ", seu nível: " + warrior.getLevel()
+                "Warrior level too low for " + workType.displayName +
+                ". Required: level " + workType.minWorkLevel +
+                ", your level: " + warrior.getLevel()
             );
         }
 
@@ -97,15 +97,15 @@ public class WorkService {
     @Transactional
     public WorkSession collectWork(Player player, Long sessionId) {
         WorkSession session = workRepository.findById(sessionId)
-                .orElseThrow(() -> new IllegalArgumentException("Sessão não encontrada"));
+                .orElseThrow(() -> new IllegalArgumentException("Session not found"));
 
         if (!session.getPlayer().getId().equals(player.getId()))
-            throw new IllegalStateException("Esta sessão não é sua");
+            throw new IllegalStateException("This session does not belong to you");
         if (session.getStatus() == WorkStatus.COLLECTED)
-            throw new IllegalStateException("Recompensa já coletada");
+            throw new IllegalStateException("Reward already collected");
         if (!session.isReadyToCollect()) {
             long mins = java.time.Duration.between(LocalDateTime.now(), session.getFinishesAt()).toMinutes();
-            throw new IllegalStateException("Trabalho em andamento. Faltam ~" + mins + " minutos");
+            throw new IllegalStateException("Work in progress. ~" + mins + " minutes remaining");
         }
 
         // Apply guild + territory passive bonuses
@@ -144,12 +144,12 @@ public class WorkService {
     @Transactional
     public WorkSession cancelWork(Player player, Long sessionId) {
         WorkSession session = workRepository.findById(sessionId)
-                .orElseThrow(() -> new IllegalArgumentException("Sessão não encontrada"));
+                .orElseThrow(() -> new IllegalArgumentException("Session not found"));
 
         if (!session.getPlayer().getId().equals(player.getId()))
-            throw new IllegalStateException("Esta sessão não é sua");
+            throw new IllegalStateException("This session does not belong to you");
         if (session.getStatus() != WorkStatus.IN_PROGRESS)
-            throw new IllegalStateException("Trabalho já finalizado");
+            throw new IllegalStateException("Work already finished");
 
         long hoursCompleted = Math.min(
             java.time.Duration.between(session.getStartedAt(), LocalDateTime.now()).toHours(),

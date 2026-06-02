@@ -123,7 +123,7 @@ public class TowerController {
     public ResponseEntity<?> exit(Authentication auth) {
         try {
             towerService.exit(getPlayer(auth));
-            return ResponseEntity.ok(Map.of("message", "Você saiu da torre."));
+            return ResponseEntity.ok(Map.of("message", "You left the tower."));
         } catch (IllegalStateException e) {
             return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
         }

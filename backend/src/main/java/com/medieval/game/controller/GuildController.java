@@ -83,7 +83,7 @@ public class GuildController {
     public ResponseEntity<?> leave(Authentication auth) {
         try {
             guildService.leave(getPlayer(auth));
-            return ResponseEntity.ok(Map.of("message", "Você saiu da guilda.", "inGuild", false));
+            return ResponseEntity.ok(Map.of("message", "You left the guild.", "inGuild", false));
         } catch (IllegalArgumentException | IllegalStateException e) {
             return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
         }
@@ -94,7 +94,7 @@ public class GuildController {
     public ResponseEntity<?> kick(@PathVariable Long playerId, Authentication auth) {
         try {
             guildService.kick(getPlayer(auth), playerId);
-            return ResponseEntity.ok(Map.of("message", "Membro expulso."));
+            return ResponseEntity.ok(Map.of("message", "Member kicked."));
         } catch (IllegalArgumentException | IllegalStateException e) {
             return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
         }
@@ -106,7 +106,7 @@ public class GuildController {
         try {
             Player leader = getPlayer(auth);
             guildService.transfer(leader, playerId);
-            return ResponseEntity.ok(Map.of("message", "Liderança transferida."));
+            return ResponseEntity.ok(Map.of("message", "Leadership transferred."));
         } catch (IllegalArgumentException | IllegalStateException e) {
             return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
         }
@@ -119,7 +119,7 @@ public class GuildController {
             Player player = getPlayer(auth);
             Guild guild = guildService.donate(player, req.amount());
             return ResponseEntity.ok(Map.of(
-                "message",  "Doação realizada!",
+                "message",  "Donation successful!",
                 "guildGold", guild.getGold()
             ));
         } catch (IllegalArgumentException | IllegalStateException e) {
@@ -133,7 +133,7 @@ public class GuildController {
         try {
             Guild guild = guildService.levelUp(getPlayer(auth));
             return ResponseEntity.ok(Map.of(
-                "message",    "Guilda subiu para nível " + guild.getLevel() + "!",
+                "message",    "Guild leveled up to level " + guild.getLevel() + "!",
                 "level",      guild.getLevel(),
                 "maxMembers", guild.maxMembers(),
                 "guildGold",  guild.getGold()
@@ -148,7 +148,7 @@ public class GuildController {
     public ResponseEntity<?> disband(Authentication auth) {
         try {
             guildService.disband(getPlayer(auth));
-            return ResponseEntity.ok(Map.of("message", "Guilda dissolvida.", "inGuild", false));
+            return ResponseEntity.ok(Map.of("message", "Guild disbanded.", "inGuild", false));
         } catch (IllegalArgumentException | IllegalStateException e) {
             return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
         }

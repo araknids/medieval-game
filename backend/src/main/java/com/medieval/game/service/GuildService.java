@@ -26,9 +26,9 @@ public class GuildService {
     @Transactional
     public Guild create(Player player, String name, String description) {
         if (playerRepository.findGuildByPlayerId(player.getId()).isPresent())
-            throw new IllegalStateException("Você já pertence a uma guilda.");
+            throw new IllegalStateException("You already belong to a guild.");
         if (guildRepository.existsByName(name))
-            throw new IllegalArgumentException("Nome de guilda já existe.");
+            throw new IllegalArgumentException("Guild name already exists.");
         if (name == null || name.isBlank() || name.length() < 3 || name.length() > 30)
             throw new IllegalArgumentException("Nome deve ter entre 3 e 30 caracteres.");
 
@@ -50,14 +50,14 @@ public class GuildService {
     @Transactional
     public Guild join(Player player, Long guildId) {
         if (playerRepository.findGuildByPlayerId(player.getId()).isPresent())
-            throw new IllegalStateException("Você já pertence a uma guilda. Saia primeiro.");
+            throw new IllegalStateException("You already belong to a guild. Saia primeiro.");
 
         Guild guild = guildRepository.findById(guildId)
-                .orElseThrow(() -> new IllegalArgumentException("Guilda não encontrada."));
+                .orElseThrow(() -> new IllegalArgumentException("Guild not found."));
 
         int memberCount = playerRepository.countByGuild(guild);
         if (memberCount >= guild.maxMembers())
-            throw new IllegalStateException("Guilda está cheia (" + guild.maxMembers() + " membros máx.).");
+            throw new IllegalStateException("Guild is full (" + guild.maxMembers() + " max members).");
 
         player.setGuild(guild);
         player.setGuildDonatedBronze(0); // reset donations on joining a new guild
@@ -91,13 +91,13 @@ public class GuildService {
         requireLeader(leader, guild);
 
         if (leader.getId().equals(targetPlayerId))
-            throw new IllegalArgumentException("Você não pode expulsar a si mesmo.");
+            throw new IllegalArgumentException("You cannot kick yourself.");
 
         Player target = playerRepository.findById(targetPlayerId)
-                .orElseThrow(() -> new IllegalArgumentException("Jogador não encontrado."));
+                .orElseThrow(() -> new IllegalArgumentException("Player not found."));
 
         if (target.getGuild() == null || !target.getGuild().getId().equals(guild.getId()))
-            throw new IllegalArgumentException("Jogador não pertence à sua guilda.");
+            throw new IllegalArgumentException("Player does not belong to your guild.");
 
         target.setGuild(null);
         target.setGuildDonatedBronze(0);
@@ -111,13 +111,13 @@ public class GuildService {
         requireLeader(leader, guild);
 
         if (leader.getId().equals(targetPlayerId))
-            throw new IllegalArgumentException("Você já é o líder.");
+            throw new IllegalArgumentException("You are already the leader.");
 
         Player target = playerRepository.findById(targetPlayerId)
-                .orElseThrow(() -> new IllegalArgumentException("Jogador não encontrado."));
+                .orElseThrow(() -> new IllegalArgumentException("Player not found."));
 
         if (target.getGuild() == null || !target.getGuild().getId().equals(guild.getId()))
-            throw new IllegalArgumentException("Jogador não pertence à sua guilda.");
+            throw new IllegalArgumentException("Player does not belong to your guild.");
 
         guild.setLeaderId(targetPlayerId);
         return guildRepository.save(guild);
@@ -127,7 +127,7 @@ public class GuildService {
     @Transactional
     public Guild donate(Player player, long bronzeAmount) {
         if (bronzeAmount <= 0)
-            throw new IllegalArgumentException("Quantidade inválida.");
+            throw new IllegalArgumentException("Invalid amount.");
 
         Guild guild = requireGuild(player);
         playerService.spendBronze(player, bronzeAmount);
@@ -152,7 +152,7 @@ public class GuildService {
         long cost = guild.levelUpCost();
         if (guild.getGold() < cost)
             throw new IllegalStateException(
-                    "Gold insuficiente. Necessário: " + cost + ", disponível: " + guild.getGold());
+                    "Insufficient guild gold. Required: " + cost + ", available: " + guild.getGold());
 
         guild.setGold(guild.getGold() - cost);
         guild.setLevel(guild.getLevel() + 1);
@@ -199,11 +199,11 @@ public class GuildService {
     // Usa query direta para evitar proxy lazy com open-in-view=false
     private Guild requireGuild(Player player) {
         return playerRepository.findGuildByPlayerId(player.getId())
-                .orElseThrow(() -> new IllegalStateException("Você não pertence a nenhuma guilda."));
+                .orElseThrow(() -> new IllegalStateException("You do not belong to any guild."));
     }
 
     private void requireLeader(Player player, Guild guild) {
         if (!guild.getLeaderId().equals(player.getId()))
-            throw new IllegalStateException("Apenas o líder pode executar esta ação.");
+            throw new IllegalStateException("Only the leader can perform this action.");
     }
 }

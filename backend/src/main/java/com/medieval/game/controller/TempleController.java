@@ -69,7 +69,7 @@ public class TempleController {
     public ResponseEntity<?> heal(Authentication auth) {
         try {
             templeService.heal(getPlayer(auth));
-            return ResponseEntity.ok(Map.of("message", "Guerreiro curado! HP restaurado a 100%."));
+            return ResponseEntity.ok(Map.of("message", "Warrior healed! HP restored to 100%."));
         } catch (IllegalArgumentException | IllegalStateException e) {
             return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
         }
@@ -105,7 +105,7 @@ public class TempleController {
     public ResponseEntity<?> unprotect(@PathVariable Long itemId, Authentication auth) {
         try {
             templeService.unprotectItem(getPlayer(auth), itemId);
-            return ResponseEntity.ok(Map.of("message", "Proteção removida."));
+            return ResponseEntity.ok(Map.of("message", "Protection removed."));
         } catch (IllegalArgumentException | IllegalStateException e) {
             return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
         }

@@ -37,10 +37,10 @@ public class TempleService {
     @Transactional
     public void heal(Player player) {
         Warrior warrior = warriorRepository.findByPlayer(player)
-                .orElseThrow(() -> new IllegalStateException("Guerreiro não encontrado"));
+                .orElseThrow(() -> new IllegalStateException("Warrior not found"));
 
         if (warrior.getCalculatedHpPercent() >= 100) {
-            throw new IllegalStateException("Seu guerreiro já está com HP cheio!");
+            throw new IllegalStateException("Your warrior already has full HP!");
         }
 
         long cost = healCost(warrior);
@@ -55,7 +55,7 @@ public class TempleService {
     @Transactional
     public void applyBuff(Player player, BuffType buffType) {
         Warrior warrior = warriorRepository.findByPlayer(player)
-                .orElseThrow(() -> new IllegalStateException("Guerreiro não encontrado"));
+                .orElseThrow(() -> new IllegalStateException("Warrior not found"));
 
         playerService.spendBronze(player, buffType.bronzeCost);
 
@@ -74,13 +74,13 @@ public class TempleService {
     @Transactional
     public void protectItem(Player player, Long itemId) {
         InventoryItem item = inventoryRepository.findById(itemId)
-                .orElseThrow(() -> new IllegalArgumentException("Item não encontrado"));
+                .orElseThrow(() -> new IllegalArgumentException("Item not found"));
         if (!item.getPlayer().getId().equals(player.getId()))
-            throw new IllegalStateException("Item não é seu");
+            throw new IllegalStateException("Item does not belong to you");
         if (item.isGuarded())
-            throw new IllegalStateException("Item já está protegido");
+            throw new IllegalStateException("Item is already protected");
         if (countProtected(player) >= MAX_PROTECTED)
-            throw new IllegalStateException("Máximo de " + MAX_PROTECTED + " itens protegidos atingido");
+            throw new IllegalStateException("Maximum of " + MAX_PROTECTED + " protected items reached");
 
         playerService.spendBronze(player, PROTECT_COST);
         item.setGuarded(true);
@@ -90,9 +90,9 @@ public class TempleService {
     @Transactional
     public void unprotectItem(Player player, Long itemId) {
         InventoryItem item = inventoryRepository.findById(itemId)
-                .orElseThrow(() -> new IllegalArgumentException("Item não encontrado"));
+                .orElseThrow(() -> new IllegalArgumentException("Item not found"));
         if (!item.getPlayer().getId().equals(player.getId()))
-            throw new IllegalStateException("Item não é seu");
+            throw new IllegalStateException("Item does not belong to you");
 
         item.setGuarded(false);
         inventoryRepository.save(item);

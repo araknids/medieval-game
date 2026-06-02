@@ -197,7 +197,7 @@ public class ShopService {
         int  slot       = (int)(shopItemId % SHOP_SIZE);
 
         if (rotationId != currentRotationId()) {
-            throw new IllegalStateException("A loja mudou desde que você carregou a página. Atualize e tente novamente.");
+            throw new IllegalStateException("The shop has refreshed since you loaded the page. Reload and try again.");
         }
 
         Random rng = new Random(rotationId);
@@ -212,12 +212,12 @@ public class ShopService {
             }
         }
 
-        if (item == null) throw new IllegalStateException("Item não encontrado");
+        if (item == null) throw new IllegalStateException("Item not found");
 
         // Bloqueia compra duplicada
         Set<Integer> bought = purchaseRepository.purchasedSlots(player, rotationId);
         if (bought.contains(slot)) {
-            throw new IllegalStateException("Você já comprou este item nesta rotação");
+            throw new IllegalStateException("You already purchased this item in this rotation");
         }
 
         playerService.spendGold(player, item.price());

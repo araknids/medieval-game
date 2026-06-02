@@ -67,7 +67,7 @@ public class QuestController {
         try {
             Player player = getPlayer(auth);
             questService.abandonQuest(player, questId);
-            return ResponseEntity.ok(Map.of("message", "Missão abandonada."));
+            return ResponseEntity.ok(Map.of("message", "Quest abandoned."));
         } catch (IllegalArgumentException | IllegalStateException e) {
             return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
         }

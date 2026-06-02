@@ -39,7 +39,7 @@ public class WarriorController {
     public ResponseEntity<?> freeWarrior(Authentication auth) {
         Player player = playerService.findById((Long) auth.getPrincipal());
         boolean freed = warriorService.freeIfStuck(player);
-        if (!freed) return ResponseEntity.ok(Map.of("message", "Guerreiro já estava livre."));
+        if (!freed) return ResponseEntity.ok(Map.of("message", "Warrior was already free."));
         return ResponseEntity.ok(buildResponse(warriorService.getWarrior(player), player));
     }
 

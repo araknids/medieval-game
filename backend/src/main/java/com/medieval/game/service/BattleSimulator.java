@@ -73,12 +73,12 @@ public class BattleSimulator {
         int cCurrentHp = cHp;
         int oCurrentHp = oHp;
 
-        log.add("⚔ " + cName + " vs " + oName + " — A batalha começa!");
+        log.add("⚔ " + cName + " vs " + oName + " — The battle begins!");
         log.add("HP: [" + cName + ": ❤ " + cHp + "] | [" + oName + ": ❤ " + oHp + "]");
         log.add("─────────────────────────");
 
         for (int round = 1; round <= 30 && cCurrentHp > 0 && oCurrentHp > 0; round++) {
-            log.add("— Rodada " + round + " —");
+            log.add("— Round " + round + " —");
 
             // Atacante ataca oponente
             if (rng.nextInt(100) < oEvasion) {

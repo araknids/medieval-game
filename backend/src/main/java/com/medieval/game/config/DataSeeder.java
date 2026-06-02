@@ -43,7 +43,7 @@ public class DataSeeder {
         inventoryService.giveStarterItems(player);
 
         log.info("==============================================");
-        log.info("  Admin criado — login: {}  senha: {}", adminUsername, adminPassword);
+        log.info("  Admin created — login: {}  password: {}", adminUsername, adminPassword);
         log.info("==============================================");
     }
 }

@@ -42,7 +42,7 @@ class WarriorIntegrationTest extends BaseIntegrationTest {
         mockMvc.perform(post("/api/warrior/attributes/STRENGTH")
                         .header("Authorization", bearer(token)))
                 .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.error").value(containsString("ponto")));
+                .andExpect(jsonPath("$.error").value(containsString("point")));
     }
 
     // ── TC-057: GET /api/warrior sem token → 403 (Spring Security default) ──

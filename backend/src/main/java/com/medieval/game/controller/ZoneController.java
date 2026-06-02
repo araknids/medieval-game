@@ -110,7 +110,7 @@ public class ZoneController {
     public ResponseEntity<?> cancel(@PathVariable Long id, Authentication auth) {
         try {
             zoneService.cancel(getPlayer(auth), id);
-            return ResponseEntity.ok(Map.of("message", "Expedição cancelada."));
+            return ResponseEntity.ok(Map.of("message", "Expedition cancelled."));
         } catch (IllegalArgumentException | IllegalStateException e) {
             return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
         }
