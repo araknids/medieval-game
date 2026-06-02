@@ -7,6 +7,7 @@ import com.medieval.game.model.Warrior;
 import com.medieval.game.repository.InventoryItemRepository;
 import com.medieval.game.repository.WarriorRepository;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -14,6 +15,7 @@ import java.time.LocalDateTime;
 import java.util.Arrays;
 import java.util.List;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class TempleService {
@@ -36,10 +38,12 @@ public class TempleService {
 
     @Transactional
     public void heal(Player player) {
+        log.info("[TempleService] player={} action=heal", player.getId());
         Warrior warrior = warriorRepository.findByPlayer(player)
                 .orElseThrow(() -> new IllegalStateException("Warrior not found"));
 
         if (warrior.getCalculatedHpPercent() >= 100) {
+            log.warn("[TempleService] player={} REJECTED: warrior already has full HP", player.getId());
             throw new IllegalStateException("Your warrior already has full HP!");
         }
 
@@ -48,12 +52,14 @@ public class TempleService {
 
         warrior.healFull();
         warriorRepository.save(warrior);
+        log.info("[TempleService] player={} action=heal OK cost={}", player.getId(), cost);
     }
 
     // ── Buff / Bênção ──
 
     @Transactional
     public void applyBuff(Player player, BuffType buffType) {
+        log.info("[TempleService] player={} action=applyBuff buffType={}", player.getId(), buffType);
         Warrior warrior = warriorRepository.findByPlayer(player)
                 .orElseThrow(() -> new IllegalStateException("Warrior not found"));
 
@@ -62,6 +68,7 @@ public class TempleService {
         warrior.setActiveBuff(buffType);
         warrior.setBuffExpiresAt(LocalDateTime.now().plusMinutes(BUFF_DURATION_MIN));
         warriorRepository.save(warrior);
+        log.info("[TempleService] player={} action=applyBuff OK buffType={} cost={}", player.getId(), buffType, buffType.bronzeCost);
     }
 
     // ── Proteger item ──
@@ -73,18 +80,26 @@ public class TempleService {
 
     @Transactional
     public void protectItem(Player player, Long itemId) {
+        log.info("[TempleService] player={} action=protect itemId={}", player.getId(), itemId);
         InventoryItem item = inventoryRepository.findById(itemId)
                 .orElseThrow(() -> new IllegalArgumentException("Item not found"));
-        if (!item.getPlayer().getId().equals(player.getId()))
+        if (!item.getPlayer().getId().equals(player.getId())) {
+            log.warn("[TempleService] player={} REJECTED: item {} does not belong to this player", player.getId(), itemId);
             throw new IllegalStateException("Item does not belong to you");
-        if (item.isGuarded())
+        }
+        if (item.isGuarded()) {
+            log.warn("[TempleService] player={} REJECTED: item {} is already protected", player.getId(), itemId);
             throw new IllegalStateException("Item is already protected");
-        if (countProtected(player) >= MAX_PROTECTED)
+        }
+        if (countProtected(player) >= MAX_PROTECTED) {
+            log.warn("[TempleService] player={} REJECTED: max {} protected items reached", player.getId(), MAX_PROTECTED);
             throw new IllegalStateException("Maximum of " + MAX_PROTECTED + " protected items reached");
+        }
 
         playerService.spendBronze(player, PROTECT_COST);
         item.setGuarded(true);
         inventoryRepository.save(item);
+        log.info("[TempleService] player={} action=protect OK itemId={} name={}", player.getId(), itemId, item.getName());
     }
 
     @Transactional

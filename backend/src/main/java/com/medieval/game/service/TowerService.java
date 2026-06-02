@@ -4,12 +4,14 @@ import com.medieval.game.enums.TowerStatus;
 import com.medieval.game.model.*;
 import com.medieval.game.repository.*;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 import java.util.Optional;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class TowerService {
@@ -68,7 +70,9 @@ public class TowerService {
 
     @Transactional
     public TowerRun enter(Player player) {
+        log.info("[TowerService] player={} action=enter", player.getId());
         if (towerRunRepository.findByPlayerAndStatus(player, TowerStatus.IN_PROGRESS).isPresent()) {
+            log.warn("[TowerService] player={} REJECTED: already inside the tower", player.getId());
             throw new IllegalStateException("You are already inside the tower");
         }
 
@@ -76,14 +80,17 @@ public class TowerService {
                 .orElseThrow(() -> new IllegalStateException("Warrior not found"));
 
         if (warrior.isOnMission()) {
+            log.warn("[TowerService] player={} REJECTED: warrior is already busy", player.getId());
             throw new IllegalStateException("Your warrior is already busy");
         }
         if (warrior.isKnockedOut()) {
+            log.warn("[TowerService] player={} REJECTED: warrior is unconscious", player.getId());
             throw new IllegalStateException("Your warrior is unconscious. Visit the Temple to heal!");
         }
 
         int stamina = player.getCalculatedStamina();
         if (stamina < STAMINA_COST) {
+            log.warn("[TowerService] player={} REJECTED: insufficient stamina {}/{}", player.getId(), stamina, STAMINA_COST);
             throw new IllegalStateException("Insufficient stamina (" + stamina + "/" + STAMINA_COST + ")");
         }
 
@@ -103,11 +110,14 @@ public class TowerService {
         run.setPlayer(player);
         run.setCurrentFloor(startFloor);
         run.setHighestFloor(player.getTowerBestFloor()); // já completados anteriormente
-        return towerRunRepository.save(run);
+        TowerRun saved = towerRunRepository.save(run);
+        log.info("[TowerService] player={} action=enter OK runId={} startFloor={}", player.getId(), saved.getId(), startFloor);
+        return saved;
     }
 
     @Transactional
     public FightResult fight(Player player) {
+        log.info("[TowerService] player={} action=climbToNextFloor", player.getId());
         TowerRun run = towerRunRepository.findByPlayerAndStatus(player, TowerStatus.IN_PROGRESS)
                 .orElseThrow(() -> new IllegalStateException("Você não está na torre"));
 
@@ -126,14 +136,14 @@ public class TowerService {
         int wHp  = warrior.getTotalBaseHealth()  + equipped.stream().mapToInt(InventoryItem::getHealthBonus).sum();
         int wEva = warrior.getEvasionChance();
 
-        List<String> log = battleSimulator.simulate(
+        List<String> battleLog = battleSimulator.simulate(
             warrior.getName(), wAtk, wDef, wHp, wEva,
             boss.name(), boss.attack(), boss.defense(), boss.health(), boss.evasion()
         );
 
-        String winnerTag = log.get(log.size() - 1);
+        String winnerTag = battleLog.get(battleLog.size() - 1);
         boolean won = winnerTag.contains("WINNER:" + warrior.getName());
-        log.remove(log.size() - 1);
+        battleLog.remove(battleLog.size() - 1);
 
         long bronzeEarned = 0;
         long expEarned    = 0;
@@ -170,7 +180,8 @@ public class TowerService {
         }
 
         towerRunRepository.save(run);
-        return new FightResult(won, floor, bronzeEarned, expEarned, log, boss.name(),
+        log.info("[TowerService] player={} action=climbToNextFloor OK floor={} won={} bronze={} xp={}", player.getId(), floor, won, bronzeEarned, expEarned);
+        return new FightResult(won, floor, bronzeEarned, expEarned, battleLog, boss.name(),
                 run.getStatus() == TowerStatus.DEFEATED);
     }
 

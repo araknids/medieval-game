@@ -4,6 +4,7 @@ import com.medieval.game.enums.*;
 import com.medieval.game.model.*;
 import com.medieval.game.repository.*;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -11,6 +12,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.LocalDateTime;
 import java.util.*;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class GatheringService {
@@ -81,15 +83,21 @@ public class GatheringService {
 
     @Transactional
     public GatheringSession startGathering(Player player, SkillType skillType, int durationMinutes) {
+        log.info("[GatheringService] player={} action=startGathering skillType={} duration={}", player.getId(), skillType, durationMinutes);
         if (sessionRepository.findByPlayerAndStatus(player, GatheringStatus.IN_PROGRESS).isPresent()) {
+            log.warn("[GatheringService] player={} REJECTED: already gathering", player.getId());
             throw new IllegalStateException("You are already gathering");
         }
         Warrior warrior = warriorRepository.findByPlayer(player)
                 .orElseThrow(() -> new IllegalStateException("Warrior not found"));
-        if (warrior.isOnMission()) throw new IllegalStateException("Your warrior is busy");
+        if (warrior.isOnMission()) {
+            log.warn("[GatheringService] player={} REJECTED: warrior is busy", player.getId());
+            throw new IllegalStateException("Your warrior is busy");
+        }
 
         int minDuration = skillType == SkillType.FISHING ? 5 : 10;
         if (durationMinutes < minDuration || durationMinutes > 60) {
+            log.warn("[GatheringService] player={} REJECTED: invalid duration={} for skillType={}", player.getId(), durationMinutes, skillType);
             throw new IllegalArgumentException("Invalid duration");
         }
 
@@ -108,21 +116,29 @@ public class GatheringService {
         session.setFinishesAt(instantComplete
                 ? LocalDateTime.now()
                 : LocalDateTime.now().plusMinutes(durationMinutes));
-        return sessionRepository.save(session);
+        GatheringSession saved = sessionRepository.save(session);
+        log.info("[GatheringService] player={} action=startGathering OK id={}", player.getId(), saved.getId());
+        return saved;
     }
 
     public record ResourceDrop(ResourceType type, long quantity) {}
 
     @Transactional
     public List<ResourceDrop> collectGathering(Player player, Long sessionId) {
+        log.info("[GatheringService] player={} action=collectGathering sessionId={}", player.getId(), sessionId);
         GatheringSession session = sessionRepository.findById(sessionId)
                 .orElseThrow(() -> new IllegalArgumentException("Session not found"));
-        if (!session.getPlayer().getId().equals(player.getId()))
+        if (!session.getPlayer().getId().equals(player.getId())) {
+            log.warn("[GatheringService] player={} REJECTED: session {} does not belong to this player", player.getId(), sessionId);
             throw new IllegalStateException("This session does not belong to you");
-        if (session.getStatus() == GatheringStatus.COLLECTED)
+        }
+        if (session.getStatus() == GatheringStatus.COLLECTED) {
+            log.warn("[GatheringService] player={} REJECTED: session {} already collected", player.getId(), sessionId);
             throw new IllegalStateException("Already collected");
+        }
         if (!session.isReadyToCollect()) {
             long secs = java.time.Duration.between(LocalDateTime.now(), session.getFinishesAt()).getSeconds();
+            log.warn("[GatheringService] player={} REJECTED: session {} still in progress, {}s remaining", player.getId(), sessionId, secs);
             throw new IllegalStateException("Ainda coletando. Faltam " + secs + "s");
         }
 
@@ -155,21 +171,28 @@ public class GatheringService {
 
         session.setStatus(GatheringStatus.COLLECTED);
         sessionRepository.save(session);
+        log.info("[GatheringService] player={} action=collectGathering OK sessionId={} drops={}", player.getId(), sessionId, drops.size());
         return drops;
     }
 
     @Transactional
     public void cancelGathering(Player player, Long sessionId) {
+        log.info("[GatheringService] player={} action=cancelGathering sessionId={}", player.getId(), sessionId);
         GatheringSession session = sessionRepository.findById(sessionId)
                 .orElseThrow(() -> new IllegalArgumentException("Session not found"));
-        if (!session.getPlayer().getId().equals(player.getId()))
+        if (!session.getPlayer().getId().equals(player.getId())) {
+            log.warn("[GatheringService] player={} REJECTED: session {} does not belong to this player", player.getId(), sessionId);
             throw new IllegalStateException("This session does not belong to you");
-        if (session.getStatus() != GatheringStatus.IN_PROGRESS)
+        }
+        if (session.getStatus() != GatheringStatus.IN_PROGRESS) {
+            log.warn("[GatheringService] player={} REJECTED: session {} already finished (status={})", player.getId(), sessionId, session.getStatus());
             throw new IllegalStateException("Session already finished");
+        }
 
         session.setStatus(GatheringStatus.CANCELLED);
         sessionRepository.save(session);
         warriorRepository.findByPlayer(player).ifPresent(w -> { w.setOnMission(false); warriorRepository.save(w); });
+        log.info("[GatheringService] player={} action=cancelGathering OK sessionId={}", player.getId(), sessionId);
     }
 
     // ── Consumir peixe (restaura stamina) ──

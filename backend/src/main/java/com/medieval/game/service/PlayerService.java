@@ -3,12 +3,14 @@ package com.medieval.game.service;
 import com.medieval.game.model.Player;
 import com.medieval.game.repository.PlayerRepository;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class PlayerService {
@@ -18,17 +20,22 @@ public class PlayerService {
 
     @Transactional
     public Player register(String username, String email, String rawPassword) {
+        log.info("[PlayerService] action=register username={}", username);
         if (playerRepository.existsByUsername(username)) {
+            log.warn("[PlayerService] action=register REJECTED: username already exists: {}", username);
             throw new IllegalArgumentException("Username already exists: " + username);
         }
         if (playerRepository.existsByEmail(email)) {
+            log.warn("[PlayerService] action=register REJECTED: email already registered: {}", email);
             throw new IllegalArgumentException("Email already registered: " + email);
         }
         Player player = new Player();
         player.setUsername(username);
         player.setEmail(email);
         player.setPasswordHash(passwordEncoder.encode(rawPassword));
-        return playerRepository.save(player);
+        Player saved = playerRepository.save(player);
+        log.info("[PlayerService] action=register OK playerId={} username={}", saved.getId(), username);
+        return saved;
     }
 
     public Player findByUsername(String username) {
@@ -74,6 +81,7 @@ public class PlayerService {
     @Transactional
     public void spendBronze(Player player, long bronzeAmount) {
         if (player.totalBronze() < bronzeAmount) {
+            log.warn("[PlayerService] player={} REJECTED: insufficient funds (have={} need={})", player.getId(), player.totalBronze(), bronzeAmount);
             throw new IllegalStateException("Insufficient funds");
         }
         long remaining = player.totalBronze() - bronzeAmount;

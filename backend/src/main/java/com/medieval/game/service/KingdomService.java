@@ -4,6 +4,7 @@ import com.medieval.game.enums.*;
 import com.medieval.game.model.*;
 import com.medieval.game.repository.*;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -13,6 +14,7 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class KingdomService {
@@ -79,14 +81,19 @@ public class KingdomService {
 
     @Transactional
     public KingdomActiveQuest startQuest(Player player, Kingdom kingdom, KingdomQuestType questType) {
-        if (questType.kingdom != kingdom)
+        log.info("[KingdomService] player={} action=startQuest kingdom={} questType={}", player.getId(), kingdom, questType);
+        if (questType.kingdom != kingdom) {
+            log.warn("[KingdomService] player={} REJECTED: Quest does not belong to this kingdom", player.getId());
             throw new IllegalArgumentException("Quest does not belong to this kingdom.");
+        }
 
         Warrior warrior = warriorRepo.findByPlayer(player)
                 .orElseThrow(() -> new IllegalStateException("Warrior not found."));
 
-        if (warrior.isOnMission())
+        if (warrior.isOnMission()) {
+            log.warn("[KingdomService] player={} REJECTED: warrior is already busy", player.getId());
             throw new IllegalStateException("Your warrior is already busy.");
+        }
 
         playerService.consumeStamina(player, questType.staminaCost);
 
@@ -104,20 +111,29 @@ public class KingdomService {
         quest.setCompletesAt(instantComplete
                 ? LocalDateTime.now()
                 : LocalDateTime.now().plusMinutes(questType.durationMinutes));
-        return questRepo.save(quest);
+        KingdomActiveQuest saved = questRepo.save(quest);
+        log.info("[KingdomService] player={} action=startQuest OK id={}", player.getId(), saved.getId());
+        return saved;
     }
 
     @Transactional
     public CollectResult collectQuest(Player player, Long questId) {
+        log.info("[KingdomService] player={} action=collectQuest questId={}", player.getId(), questId);
         KingdomActiveQuest quest = questRepo.findById(questId)
                 .orElseThrow(() -> new IllegalArgumentException("Quest not found."));
 
-        if (!quest.getPlayer().getId().equals(player.getId()))
+        if (!quest.getPlayer().getId().equals(player.getId())) {
+            log.warn("[KingdomService] player={} REJECTED: quest {} does not belong to this player", player.getId(), questId);
             throw new IllegalStateException("This quest does not belong to you.");
-        if (quest.getStatus() == QuestStatus.COLLECTED)
+        }
+        if (quest.getStatus() == QuestStatus.COLLECTED) {
+            log.warn("[KingdomService] player={} REJECTED: quest {} reward already collected", player.getId(), questId);
             throw new IllegalStateException("Reward already collected.");
-        if (!quest.isReadyToCollect())
+        }
+        if (!quest.isReadyToCollect()) {
+            log.warn("[KingdomService] player={} REJECTED: quest {} not yet complete, {}s remaining", player.getId(), questId, quest.secondsRemaining());
             throw new IllegalStateException("Quest not yet complete. " + quest.secondsRemaining() + "s remaining.");
+        }
 
         // Apply guild + territory bonuses
         Guild guild = playerRepository.findGuildByPlayerId(player.getId()).orElse(null);
@@ -145,18 +161,24 @@ public class KingdomService {
         // Drop chance same logic as regular quests
         int guildDrop = guild != null ? guild.dropBonus() : 0;
         InventoryItem drop = rollDrop(player, quest.getQuestType().dropChance, guildDrop);
+        log.info("[KingdomService] player={} action=collectQuest OK bronze={} xp={} drop={}", player.getId(), totalBronze, totalXp, drop != null ? drop.getName() : "none");
         return new CollectResult(quest, drop, totalBronze, totalXp);
     }
 
     @Transactional
     public void abandonQuest(Player player, Long questId) {
+        log.info("[KingdomService] player={} action=abandonQuest questId={}", player.getId(), questId);
         KingdomActiveQuest quest = questRepo.findById(questId)
                 .orElseThrow(() -> new IllegalArgumentException("Quest not found."));
 
-        if (!quest.getPlayer().getId().equals(player.getId()))
+        if (!quest.getPlayer().getId().equals(player.getId())) {
+            log.warn("[KingdomService] player={} REJECTED: quest {} does not belong to this player", player.getId(), questId);
             throw new IllegalStateException("This quest does not belong to you.");
-        if (quest.getStatus() != QuestStatus.IN_PROGRESS)
+        }
+        if (quest.getStatus() != QuestStatus.IN_PROGRESS) {
+            log.warn("[KingdomService] player={} REJECTED: quest {} cannot be abandoned (status={})", player.getId(), questId, quest.getStatus());
             throw new IllegalStateException("Quest cannot be abandoned.");
+        }
 
         warriorRepo.findByPlayer(player).ifPresent(w -> {
             w.setOnMission(false);
@@ -165,6 +187,7 @@ public class KingdomService {
 
         quest.setStatus(QuestStatus.ABANDONED);
         questRepo.save(quest);
+        log.info("[KingdomService] player={} action=abandonQuest OK questId={}", player.getId(), questId);
     }
 
     public List<KingdomActiveQuest> getActiveQuests(Player player, Kingdom kingdom) {
@@ -181,16 +204,23 @@ public class KingdomService {
 
     @Transactional
     public TrainingSession startTraining(Player player, int hours) {
-        if (hours < 1 || hours > 12)
+        log.info("[KingdomService] player={} action=startTraining hours={}", player.getId(), hours);
+        if (hours < 1 || hours > 12) {
+            log.warn("[KingdomService] player={} REJECTED: training duration invalid hours={}", player.getId(), hours);
             throw new IllegalArgumentException("Training duration must be 1-12 hours.");
+        }
 
-        if (trainingRepo.existsByPlayerAndStatus(player, TrainingStatus.IN_PROGRESS))
+        if (trainingRepo.existsByPlayerAndStatus(player, TrainingStatus.IN_PROGRESS)) {
+            log.warn("[KingdomService] player={} REJECTED: already training", player.getId());
             throw new IllegalStateException("You are already training.");
+        }
 
         Warrior warrior = warriorRepo.findByPlayer(player)
                 .orElseThrow(() -> new IllegalStateException("Warrior not found."));
-        if (warrior.isOnMission())
+        if (warrior.isOnMission()) {
+            log.warn("[KingdomService] player={} REJECTED: warrior is busy", player.getId());
             throw new IllegalStateException("Your warrior is busy.");
+        }
 
         long bronzeCost = (long) warrior.getLevel() * TRAINING_BRONZE_PER_HOUR_PER_LEVEL * hours;
         long xpReward   = (long) warrior.getLevel() * TRAINING_XP_PER_HOUR_PER_LEVEL    * hours;
@@ -209,20 +239,28 @@ public class KingdomService {
         session.setFinishesAt(instantComplete
                 ? LocalDateTime.now()
                 : LocalDateTime.now().plusHours(hours));
-        return trainingRepo.save(session);
+        TrainingSession saved = trainingRepo.save(session);
+        log.info("[KingdomService] player={} action=startTraining OK id={} xpReward={}", player.getId(), saved.getId(), xpReward);
+        return saved;
     }
 
     @Transactional
     public TrainingSession collectTraining(Player player, Long sessionId) {
+        log.info("[KingdomService] player={} action=collectTraining sessionId={}", player.getId(), sessionId);
         TrainingSession session = trainingRepo.findById(sessionId)
                 .orElseThrow(() -> new IllegalArgumentException("Training session not found."));
 
-        if (!session.getPlayer().getId().equals(player.getId()))
+        if (!session.getPlayer().getId().equals(player.getId())) {
+            log.warn("[KingdomService] player={} REJECTED: session {} does not belong to this player", player.getId(), sessionId);
             throw new IllegalStateException("This session does not belong to you.");
-        if (session.getStatus() == TrainingStatus.COLLECTED)
+        }
+        if (session.getStatus() == TrainingStatus.COLLECTED) {
+            log.warn("[KingdomService] player={} REJECTED: session {} already collected", player.getId(), sessionId);
             throw new IllegalStateException("Already collected.");
+        }
         if (!session.isReadyToCollect()) {
             long mins = java.time.Duration.between(LocalDateTime.now(), session.getFinishesAt()).toMinutes();
+            log.warn("[KingdomService] player={} REJECTED: session {} still in progress, ~{}min remaining", player.getId(), sessionId, mins);
             throw new IllegalStateException("Still training. ~" + mins + " minutes remaining.");
         }
 
@@ -236,7 +274,9 @@ public class KingdomService {
         });
 
         session.setStatus(TrainingStatus.COLLECTED);
-        return trainingRepo.save(session);
+        TrainingSession result = trainingRepo.save(session);
+        log.info("[KingdomService] player={} action=collectTraining OK xp={}", player.getId(), session.getXpReward());
+        return result;
     }
 
     public Optional<TrainingSession> getCurrentTraining(Player player) {
@@ -245,12 +285,17 @@ public class KingdomService {
 
     @Transactional
     public void cancelTraining(Player player, Long sessionId) {
+        log.info("[KingdomService] player={} action=cancelTraining sessionId={}", player.getId(), sessionId);
         TrainingSession session = trainingRepo.findById(sessionId)
                 .orElseThrow(() -> new IllegalArgumentException("Training session not found."));
-        if (!session.getPlayer().getId().equals(player.getId()))
+        if (!session.getPlayer().getId().equals(player.getId())) {
+            log.warn("[KingdomService] player={} REJECTED: session {} does not belong to this player", player.getId(), sessionId);
             throw new IllegalStateException("This session does not belong to you.");
-        if (session.getStatus() != TrainingStatus.IN_PROGRESS)
+        }
+        if (session.getStatus() != TrainingStatus.IN_PROGRESS) {
+            log.warn("[KingdomService] player={} REJECTED: session {} is not in progress (status={})", player.getId(), sessionId, session.getStatus());
             throw new IllegalStateException("Session is not in progress.");
+        }
 
         session.setStatus(TrainingStatus.CANCELLED);
         trainingRepo.save(session);
@@ -259,6 +304,7 @@ public class KingdomService {
             w.setOnMission(false);
             warriorRepo.save(w);
         });
+        log.info("[KingdomService] player={} action=cancelTraining OK sessionId={}", player.getId(), sessionId);
     }
 
     // ── Drop helper ───────────────────────────────────────────────────────────

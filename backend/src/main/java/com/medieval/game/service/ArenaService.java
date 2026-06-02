@@ -9,6 +9,7 @@ import com.medieval.game.repository.ArenaMatchRepository;
 import com.medieval.game.repository.PlayerRepository;
 import com.medieval.game.repository.WarriorRepository;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -18,6 +19,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.Random;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class ArenaService {
@@ -43,7 +45,9 @@ public class ArenaService {
 
     @Transactional
     public ArenaMatch startFight(Player challenger) {
+        log.info("[ArenaService] player={} action=startFight", challenger.getId());
         if (matchRepository.findByChallengerAndStatus(challenger, MatchStatus.FIGHTING).isPresent()) {
+            log.warn("[ArenaService] player={} REJECTED: already in a battle", challenger.getId());
             throw new IllegalStateException("You are already in a battle");
         }
 
@@ -51,9 +55,11 @@ public class ArenaService {
                 .orElseThrow(() -> new IllegalStateException("Warrior not found"));
 
         if (cWarrior.isOnMission()) {
+            log.warn("[ArenaService] player={} REJECTED: warrior is on a mission", challenger.getId());
             throw new IllegalStateException("Your warrior is on a mission");
         }
         if (cWarrior.isKnockedOut()) {
+            log.warn("[ArenaService] player={} REJECTED: warrior is unconscious", challenger.getId());
             throw new IllegalStateException("Your warrior is unconscious. Visit the Temple to heal!");
         }
 
@@ -81,15 +87,15 @@ public class ArenaService {
         // Simula a batalha
         String challengerName = cWarrior.getName();
 
-        List<String> log = battleSimulator.simulate(
+        List<String> battleLog = battleSimulator.simulate(
                 challengerName, cStats[0], cStats[1], cStats[2], cStats[3],
                 opponentName, oStats[0], oStats[1], oStats[2], oStats[3]
         );
 
         // A tag WINNER: é a última linha — parseia para verificar vencedor
-        String winnerTag = log.get(log.size() - 1);
+        String winnerTag = battleLog.get(battleLog.size() - 1);
         boolean challengerWon = winnerTag.contains("WINNER:" + challengerName);
-        log.remove(log.size() - 1); // remove a tag interna
+        battleLog.remove(battleLog.size() - 1); // remove a tag interna
         long goldReward  = challengerWon ? 200 : 50; // bronze
         int  rankChange  = challengerWon ? (opponent != null ? 25 : 15) : (opponent != null ? -15 : -5);
 
@@ -97,7 +103,7 @@ public class ArenaService {
         match.setChallenger(challenger);
         match.setOpponent(opponent);
         match.setOpponentName(opponentName);
-        match.setBattleLog(String.join("\n", log));
+        match.setBattleLog(String.join("\n", battleLog));
         match.setChallengerWon(challengerWon);
         match.setGoldReward(goldReward);
         match.setRankChange(rankChange);
@@ -110,22 +116,28 @@ public class ArenaService {
         cWarrior.setOnMission(true);
         warriorRepository.save(cWarrior);
 
-        return matchRepository.save(match);
+        ArenaMatch saved = matchRepository.save(match);
+        log.info("[ArenaService] player={} action=startFight OK id={} opponent={} won={}", challenger.getId(), saved.getId(), opponentName, challengerWon);
+        return saved;
     }
 
     @Transactional
     public ArenaMatch collectResult(Player challenger, Long matchId) {
+        log.info("[ArenaService] player={} action=collectFight matchId={}", challenger.getId(), matchId);
         ArenaMatch match = matchRepository.findById(matchId)
                 .orElseThrow(() -> new IllegalArgumentException("Battle not found"));
 
         if (!match.getChallenger().getId().equals(challenger.getId())) {
+            log.warn("[ArenaService] player={} REJECTED: match {} does not belong to this player", challenger.getId(), matchId);
             throw new IllegalStateException("This battle does not belong to you");
         }
         if (match.getStatus() == MatchStatus.COLLECTED) {
+            log.warn("[ArenaService] player={} REJECTED: match {} reward already collected", challenger.getId(), matchId);
             throw new IllegalStateException("Reward already collected");
         }
         if (LocalDateTime.now().isBefore(match.getFinishesAt())) {
             long secsLeft = java.time.Duration.between(LocalDateTime.now(), match.getFinishesAt()).getSeconds();
+            log.warn("[ArenaService] player={} REJECTED: match {} still in progress, {}s remaining", challenger.getId(), matchId, secsLeft);
             throw new IllegalStateException("Battle still in progress. " + secsLeft + "s");
         }
 
@@ -159,7 +171,9 @@ public class ArenaService {
         });
 
         match.setStatus(MatchStatus.COLLECTED);
-        return matchRepository.save(match);
+        ArenaMatch result = matchRepository.save(match);
+        log.info("[ArenaService] player={} action=collectFight OK matchId={} won={} bronze={}", challenger.getId(), matchId, match.isChallengerWon(), match.getGoldReward());
+        return result;
     }
 
     public List<Player> getRanking() {

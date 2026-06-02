@@ -12,6 +12,7 @@ import com.medieval.game.repository.WarriorRepository;
 import com.medieval.game.repository.WorkProfessionRepository;
 import com.medieval.game.repository.WorkSessionRepository;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -19,6 +20,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.LocalDateTime;
 import java.util.Optional;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class WorkService {
@@ -49,7 +51,9 @@ public class WorkService {
 
     @Transactional
     public WorkSession startWork(Player player, WorkType workType, int hours) {
+        log.info("[WorkService] player={} action=startWork workType={} hours={}", player.getId(), workType, hours);
         if (hours < 1 || hours > 12) {
+            log.warn("[WorkService] player={} REJECTED: invalid hours={}", player.getId(), hours);
             throw new IllegalArgumentException("Hours must be between 1 and 12");
         }
 
@@ -57,15 +61,18 @@ public class WorkService {
                 .orElseThrow(() -> new IllegalStateException("Warrior not found"));
 
         if (warrior.isOnMission()) {
+            log.warn("[WorkService] player={} REJECTED: warrior is already busy", player.getId());
             throw new IllegalStateException("Your warrior is already busy");
         }
 
         if (workRepository.findByPlayerAndStatus(player, WorkStatus.IN_PROGRESS).isPresent()) {
+            log.warn("[WorkService] player={} REJECTED: already working", player.getId());
             throw new IllegalStateException("You are already working");
         }
 
         // Valida nível mínimo com o nível do personagem (guerreiro)
         if (warrior.getLevel() < workType.minWorkLevel) {
+            log.warn("[WorkService] player={} REJECTED: warrior level {} too low for {} (required {})", player.getId(), warrior.getLevel(), workType, workType.minWorkLevel);
             throw new IllegalStateException(
                 "Warrior level too low for " + workType.displayName +
                 ". Required: level " + workType.minWorkLevel +
@@ -91,20 +98,28 @@ public class WorkService {
         session.setFinishesAt(instantComplete
                 ? LocalDateTime.now()
                 : LocalDateTime.now().plusHours(hours));
-        return workRepository.save(session);
+        WorkSession saved = workRepository.save(session);
+        log.info("[WorkService] player={} action=startWork OK id={} goldReward={}", player.getId(), saved.getId(), goldReward);
+        return saved;
     }
 
     @Transactional
     public WorkSession collectWork(Player player, Long sessionId) {
+        log.info("[WorkService] player={} action=collectWork sessionId={}", player.getId(), sessionId);
         WorkSession session = workRepository.findById(sessionId)
                 .orElseThrow(() -> new IllegalArgumentException("Session not found"));
 
-        if (!session.getPlayer().getId().equals(player.getId()))
+        if (!session.getPlayer().getId().equals(player.getId())) {
+            log.warn("[WorkService] player={} REJECTED: session {} does not belong to this player", player.getId(), sessionId);
             throw new IllegalStateException("This session does not belong to you");
-        if (session.getStatus() == WorkStatus.COLLECTED)
+        }
+        if (session.getStatus() == WorkStatus.COLLECTED) {
+            log.warn("[WorkService] player={} REJECTED: session {} reward already collected", player.getId(), sessionId);
             throw new IllegalStateException("Reward already collected");
+        }
         if (!session.isReadyToCollect()) {
             long mins = java.time.Duration.between(LocalDateTime.now(), session.getFinishesAt()).toMinutes();
+            log.warn("[WorkService] player={} REJECTED: session {} still in progress, ~{}min remaining", player.getId(), sessionId, mins);
             throw new IllegalStateException("Work in progress. ~" + mins + " minutes remaining");
         }
 
@@ -138,18 +153,25 @@ public class WorkService {
         });
 
         session.setStatus(WorkStatus.COLLECTED);
-        return workRepository.save(session);
+        WorkSession result = workRepository.save(session);
+        log.info("[WorkService] player={} action=collectWork OK sessionId={} bronze={}", player.getId(), sessionId, totalBronze);
+        return result;
     }
 
     @Transactional
     public WorkSession cancelWork(Player player, Long sessionId) {
+        log.info("[WorkService] player={} action=cancelWork sessionId={}", player.getId(), sessionId);
         WorkSession session = workRepository.findById(sessionId)
                 .orElseThrow(() -> new IllegalArgumentException("Session not found"));
 
-        if (!session.getPlayer().getId().equals(player.getId()))
+        if (!session.getPlayer().getId().equals(player.getId())) {
+            log.warn("[WorkService] player={} REJECTED: session {} does not belong to this player", player.getId(), sessionId);
             throw new IllegalStateException("This session does not belong to you");
-        if (session.getStatus() != WorkStatus.IN_PROGRESS)
+        }
+        if (session.getStatus() != WorkStatus.IN_PROGRESS) {
+            log.warn("[WorkService] player={} REJECTED: session {} already finished (status={})", player.getId(), sessionId, session.getStatus());
             throw new IllegalStateException("Work already finished");
+        }
 
         long hoursCompleted = Math.min(
             java.time.Duration.between(session.getStartedAt(), LocalDateTime.now()).toHours(),
@@ -184,6 +206,8 @@ public class WorkService {
         });
 
         session.setStatus(WorkStatus.CANCELLED);
-        return workRepository.save(session);
+        WorkSession cancelled = workRepository.save(session);
+        log.info("[WorkService] player={} action=cancelWork OK sessionId={} hoursCompleted={}", player.getId(), sessionId, hoursCompleted);
+        return cancelled;
     }
 }

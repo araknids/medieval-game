@@ -7,6 +7,7 @@ import com.medieval.game.model.ShopPurchase;
 import com.medieval.game.repository.InventoryItemRepository;
 import com.medieval.game.repository.ShopPurchaseRepository;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -15,6 +16,7 @@ import java.util.List;
 import java.util.Random;
 import java.util.Set;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class ShopService {
@@ -193,10 +195,12 @@ public class ShopService {
     // ── Compra ──
     @Transactional
     public InventoryItem buy(Player player, long shopItemId) {
+        log.info("[ShopService] player={} action=buy shopItemId={}", player.getId(), shopItemId);
         long rotationId = shopItemId / SHOP_SIZE;
         int  slot       = (int)(shopItemId % SHOP_SIZE);
 
         if (rotationId != currentRotationId()) {
+            log.warn("[ShopService] player={} REJECTED: shop has rotated since page load", player.getId());
             throw new IllegalStateException("The shop has refreshed since you loaded the page. Reload and try again.");
         }
 
@@ -212,11 +216,15 @@ public class ShopService {
             }
         }
 
-        if (item == null) throw new IllegalStateException("Item not found");
+        if (item == null) {
+            log.warn("[ShopService] player={} REJECTED: shop item {} not found", player.getId(), shopItemId);
+            throw new IllegalStateException("Item not found");
+        }
 
         // Bloqueia compra duplicada
         Set<Integer> bought = purchaseRepository.purchasedSlots(player, rotationId);
         if (bought.contains(slot)) {
+            log.warn("[ShopService] player={} REJECTED: item at slot {} already purchased in this rotation", player.getId(), slot);
             throw new IllegalStateException("You already purchased this item in this rotation");
         }
 
@@ -240,7 +248,9 @@ public class ShopService {
         inv.setSellPrice(item.price() / 2);
         inv.setDescription(loreGenerator.generateLore(item.rarity(), item.type(), rng));
         inv.setOrigin(loreGenerator.originFromShop("Mercador Viajante"));
-        return inventoryRepository.save(inv);
+        InventoryItem saved = inventoryRepository.save(inv);
+        log.info("[ShopService] player={} action=buy OK shopItemId={} name={} price={}", player.getId(), shopItemId, item.name(), item.price());
+        return saved;
     }
 
     // ── Helpers ──

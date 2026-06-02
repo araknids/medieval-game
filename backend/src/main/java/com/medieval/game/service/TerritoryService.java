@@ -69,39 +69,55 @@ public class TerritoryService {
 
     @Transactional
     public TerritoryDeclaration declare(Player player, Territory territory) {
+        log.info("[TerritoryService] player={} action=declare territory={}", player.getId(), territory);
         Guild guild = playerRepository.findGuildByPlayerId(player.getId())
                 .orElseThrow(() -> new IllegalStateException("You must be in a guild to declare an attack."));
 
-        if (!guild.getLeaderId().equals(player.getId()))
+        if (!guild.getLeaderId().equals(player.getId())) {
+            log.warn("[TerritoryService] player={} REJECTED: only the guild leader can declare an attack", player.getId());
             throw new IllegalStateException("Only the guild leader can declare an attack.");
+        }
 
         // Guild cannot attack if it already controls a territory
-        if (controlRepo.findByControllingGuild(guild).isPresent())
+        if (controlRepo.findByControllingGuild(guild).isPresent()) {
+            log.warn("[TerritoryService] player={} REJECTED: guild {} already controls a territory", player.getId(), guild.getName());
             throw new IllegalStateException("Your guild already controls a territory. Defend it.");
+        }
 
         long cycleId = currentCycleId() + 1; // targets the NEXT cycle
 
-        if (declarationRepo.existsByGuildAndBattleCycleIdAndStatus(guild, cycleId, DeclarationStatus.PENDING))
+        if (declarationRepo.existsByGuildAndBattleCycleIdAndStatus(guild, cycleId, DeclarationStatus.PENDING)) {
+            log.warn("[TerritoryService] player={} REJECTED: guild {} already declared for next cycle", player.getId(), guild.getName());
             throw new IllegalStateException("Your guild already declared an attack for the next cycle.");
+        }
 
         TerritoryDeclaration decl = new TerritoryDeclaration();
         decl.setGuild(guild);
         decl.setTerritory(territory);
         decl.setBattleCycleId(cycleId);
-        return declarationRepo.save(decl);
+        TerritoryDeclaration saved = declarationRepo.save(decl);
+        log.info("[TerritoryService] player={} action=declare OK guild={} territory={} cycleId={}", player.getId(), guild.getName(), territory, cycleId);
+        return saved;
     }
 
     @Transactional
     public void cancelDeclaration(Player player) {
+        log.info("[TerritoryService] player={} action=cancelDeclaration", player.getId());
         Guild guild = playerRepository.findGuildByPlayerId(player.getId())
                 .orElseThrow(() -> new IllegalStateException("Not in a guild."));
 
-        if (!guild.getLeaderId().equals(player.getId()))
+        if (!guild.getLeaderId().equals(player.getId())) {
+            log.warn("[TerritoryService] player={} REJECTED: only the guild leader can cancel", player.getId());
             throw new IllegalStateException("Only the guild leader can cancel.");
+        }
 
         long cycleId = currentCycleId() + 1;
         declarationRepo.findByGuildAndBattleCycleIdAndStatus(guild, cycleId, DeclarationStatus.PENDING)
-                .ifPresent(d -> { d.setStatus(DeclarationStatus.CANCELLED); declarationRepo.save(d); });
+                .ifPresent(d -> {
+                    d.setStatus(DeclarationStatus.CANCELLED);
+                    declarationRepo.save(d);
+                    log.info("[TerritoryService] player={} action=cancelDeclaration OK guild={} territory={}", player.getId(), guild.getName(), d.getTerritory());
+                });
     }
 
     // ── Scheduled Battle Resolution ───────────────────────────────────────────

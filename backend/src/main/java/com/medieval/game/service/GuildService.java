@@ -6,11 +6,13 @@ import com.medieval.game.repository.GuildRepository;
 import com.medieval.game.repository.PlayerRepository;
 import com.medieval.game.repository.WarriorRepository;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class GuildService {
@@ -25,12 +27,19 @@ public class GuildService {
     // ── Criar guilda ──────────────────────────────────────────────────────────
     @Transactional
     public Guild create(Player player, String name, String description) {
-        if (playerRepository.findGuildByPlayerId(player.getId()).isPresent())
+        log.info("[GuildService] player={} action=createGuild name={}", player.getId(), name);
+        if (playerRepository.findGuildByPlayerId(player.getId()).isPresent()) {
+            log.warn("[GuildService] player={} REJECTED: already belongs to a guild", player.getId());
             throw new IllegalStateException("You already belong to a guild.");
-        if (guildRepository.existsByName(name))
+        }
+        if (guildRepository.existsByName(name)) {
+            log.warn("[GuildService] player={} REJECTED: guild name already exists: {}", player.getId(), name);
             throw new IllegalArgumentException("Guild name already exists.");
-        if (name == null || name.isBlank() || name.length() < 3 || name.length() > 30)
+        }
+        if (name == null || name.isBlank() || name.length() < 3 || name.length() > 30) {
+            log.warn("[GuildService] player={} REJECTED: invalid guild name length", player.getId());
             throw new IllegalArgumentException("Nome deve ter entre 3 e 30 caracteres.");
+        }
 
         playerService.spendBronze(player, CREATE_COST_BRONZE);
 
@@ -43,38 +52,48 @@ public class GuildService {
         player.setGuild(guild);
         playerRepository.save(player);
 
+        log.info("[GuildService] player={} action=createGuild OK guildId={} name={}", player.getId(), guild.getId(), guild.getName());
         return guild;
     }
 
     // ── Entrar na guilda ──────────────────────────────────────────────────────
     @Transactional
     public Guild join(Player player, Long guildId) {
-        if (playerRepository.findGuildByPlayerId(player.getId()).isPresent())
+        log.info("[GuildService] player={} action=joinGuild guildId={}", player.getId(), guildId);
+        if (playerRepository.findGuildByPlayerId(player.getId()).isPresent()) {
+            log.warn("[GuildService] player={} REJECTED: already belongs to a guild", player.getId());
             throw new IllegalStateException("You already belong to a guild. Saia primeiro.");
+        }
 
         Guild guild = guildRepository.findById(guildId)
                 .orElseThrow(() -> new IllegalArgumentException("Guild not found."));
 
         int memberCount = playerRepository.countByGuild(guild);
-        if (memberCount >= guild.maxMembers())
+        if (memberCount >= guild.maxMembers()) {
+            log.warn("[GuildService] player={} REJECTED: guild {} is full ({}/{})", player.getId(), guild.getName(), memberCount, guild.maxMembers());
             throw new IllegalStateException("Guild is full (" + guild.maxMembers() + " max members).");
+        }
 
         player.setGuild(guild);
         player.setGuildDonatedBronze(0); // reset donations on joining a new guild
         playerRepository.save(player);
+        log.info("[GuildService] player={} action=joinGuild OK guildId={} name={}", player.getId(), guild.getId(), guild.getName());
         return guild;
     }
 
     // ── Sair da guilda ────────────────────────────────────────────────────────
     @Transactional
     public void leave(Player player) {
+        log.info("[GuildService] player={} action=leaveGuild", player.getId());
         Guild guild = requireGuild(player);
 
         if (guild.getLeaderId().equals(player.getId())) {
             int memberCount = playerRepository.countByGuild(guild);
-            if (memberCount > 1)
+            if (memberCount > 1) {
+                log.warn("[GuildService] player={} REJECTED: leader cannot leave while there are other members", player.getId());
                 throw new IllegalStateException(
                         "Você é o líder. Transfira a liderança antes de sair, ou dissolva a guilda.");
+            }
             disband(player);
             return;
         }
@@ -82,26 +101,33 @@ public class GuildService {
         player.setGuild(null);
         player.setGuildDonatedBronze(0);
         playerRepository.save(player);
+        log.info("[GuildService] player={} action=leaveGuild OK guildId={}", player.getId(), guild.getId());
     }
 
     // ── Expulsar membro ───────────────────────────────────────────────────────
     @Transactional
     public void kick(Player leader, Long targetPlayerId) {
+        log.info("[GuildService] player={} action=kickMember targetPlayerId={}", leader.getId(), targetPlayerId);
         Guild guild = requireGuild(leader);
         requireLeader(leader, guild);
 
-        if (leader.getId().equals(targetPlayerId))
+        if (leader.getId().equals(targetPlayerId)) {
+            log.warn("[GuildService] player={} REJECTED: cannot kick yourself", leader.getId());
             throw new IllegalArgumentException("You cannot kick yourself.");
+        }
 
         Player target = playerRepository.findById(targetPlayerId)
                 .orElseThrow(() -> new IllegalArgumentException("Player not found."));
 
-        if (target.getGuild() == null || !target.getGuild().getId().equals(guild.getId()))
+        if (target.getGuild() == null || !target.getGuild().getId().equals(guild.getId())) {
+            log.warn("[GuildService] player={} REJECTED: target {} does not belong to this guild", leader.getId(), targetPlayerId);
             throw new IllegalArgumentException("Player does not belong to your guild.");
+        }
 
         target.setGuild(null);
         target.setGuildDonatedBronze(0);
         playerRepository.save(target);
+        log.info("[GuildService] player={} action=kickMember OK targetPlayerId={} guildId={}", leader.getId(), targetPlayerId, guild.getId());
     }
 
     // ── Transferir liderança ──────────────────────────────────────────────────
@@ -126,8 +152,11 @@ public class GuildService {
     // ── Doar bronze para a guilda ─────────────────────────────────────────────
     @Transactional
     public Guild donate(Player player, long bronzeAmount) {
-        if (bronzeAmount <= 0)
+        log.info("[GuildService] player={} action=donate amount={}", player.getId(), bronzeAmount);
+        if (bronzeAmount <= 0) {
+            log.warn("[GuildService] player={} REJECTED: invalid donation amount={}", player.getId(), bronzeAmount);
             throw new IllegalArgumentException("Invalid amount.");
+        }
 
         Guild guild = requireGuild(player);
         playerService.spendBronze(player, bronzeAmount);
@@ -140,28 +169,35 @@ public class GuildService {
         managed.setGuildDonatedBronze(managed.getGuildDonatedBronze() + bronzeAmount);
         playerRepository.save(managed);
 
+        log.info("[GuildService] player={} action=donate OK guildId={} amount={}", player.getId(), guild.getId(), bronzeAmount);
         return guild;
     }
 
     // ── Subir nível da guilda (líder) ─────────────────────────────────────────
     @Transactional
     public Guild levelUp(Player leader) {
+        log.info("[GuildService] player={} action=levelUp", leader.getId());
         Guild guild = requireGuild(leader);
         requireLeader(leader, guild);
 
         long cost = guild.levelUpCost();
-        if (guild.getGold() < cost)
+        if (guild.getGold() < cost) {
+            log.warn("[GuildService] player={} REJECTED: insufficient guild gold (have={} need={})", leader.getId(), guild.getGold(), cost);
             throw new IllegalStateException(
                     "Insufficient guild gold. Required: " + cost + ", available: " + guild.getGold());
+        }
 
         guild.setGold(guild.getGold() - cost);
         guild.setLevel(guild.getLevel() + 1);
-        return guildRepository.save(guild);
+        Guild saved = guildRepository.save(guild);
+        log.info("[GuildService] player={} action=levelUp OK guildId={} newLevel={}", leader.getId(), guild.getId(), guild.getLevel());
+        return saved;
     }
 
     // ── Dissolver guilda (líder) ──────────────────────────────────────────────
     @Transactional
     public void disband(Player leader) {
+        log.info("[GuildService] player={} action=disband", leader.getId());
         Guild guild = requireGuild(leader);
         requireLeader(leader, guild);
 
@@ -171,6 +207,7 @@ public class GuildService {
         playerRepository.saveAll(members);
 
         guildRepository.delete(guild);
+        log.info("[GuildService] player={} action=disband OK guildId={} name={}", leader.getId(), guild.getId(), guild.getName());
     }
 
     // ── Consultas ─────────────────────────────────────────────────────────────

@@ -8,6 +8,7 @@ import com.medieval.game.repository.ActiveQuestRepository;
 import com.medieval.game.repository.PlayerRepository;
 import com.medieval.game.repository.WarriorRepository;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -16,6 +17,7 @@ import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Random;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class QuestService {
@@ -36,8 +38,10 @@ public class QuestService {
 
     @Transactional
     public ActiveQuest sendOnQuest(Player player, QuestType questType) {
+        log.info("[QuestService] player={} action=sendOnQuest questType={}", player.getId(), questType);
         Warrior warrior = warriorService.getWarrior(player);
         if (warrior.isOnMission()) {
+            log.warn("[QuestService] player={} REJECTED: warrior is already on a mission", player.getId());
             throw new IllegalStateException("This warrior is already on a mission");
         }
 
@@ -59,7 +63,9 @@ public class QuestService {
         quest.setGoldReward(questType.bronzeReward);
         quest.setExpReward(questType.expReward);
         quest.setStatus(QuestStatus.IN_PROGRESS);
-        return questRepository.save(quest);
+        ActiveQuest saved = questRepository.save(quest);
+        log.info("[QuestService] player={} action=sendOnQuest OK id={}", player.getId(), saved.getId());
+        return saved;
     }
 
     public List<ActiveQuest> getActiveQuests(Player player) {
@@ -69,13 +75,16 @@ public class QuestService {
 
     @Transactional
     public void abandonQuest(Player player, Long questId) {
+        log.info("[QuestService] player={} action=abandonQuest questId={}", player.getId(), questId);
         ActiveQuest quest = questRepository.findById(questId)
                 .orElseThrow(() -> new IllegalArgumentException("Quest not found"));
 
         if (!quest.getPlayer().getId().equals(player.getId())) {
+            log.warn("[QuestService] player={} REJECTED: quest {} does not belong to this player", player.getId(), questId);
             throw new IllegalStateException("This quest does not belong to you");
         }
         if (quest.getStatus() != QuestStatus.IN_PROGRESS) {
+            log.warn("[QuestService] player={} REJECTED: quest {} cannot be abandoned (status={})", player.getId(), questId, quest.getStatus());
             throw new IllegalStateException("Quest cannot be abandoned");
         }
 
@@ -86,21 +95,26 @@ public class QuestService {
 
         quest.setStatus(QuestStatus.ABANDONED);
         questRepository.save(quest);
+        log.info("[QuestService] player={} action=abandonQuest OK questId={}", player.getId(), questId);
     }
 
     @Transactional
     public CollectResult collectReward(Player player, Long questId) {
+        log.info("[QuestService] player={} action=collectReward questId={}", player.getId(), questId);
         ActiveQuest quest = questRepository.findById(questId)
                 .orElseThrow(() -> new IllegalArgumentException("Quest not found: " + questId));
 
         if (!quest.getPlayer().getId().equals(player.getId())) {
+            log.warn("[QuestService] player={} REJECTED: quest {} does not belong to this player", player.getId(), questId);
             throw new IllegalStateException("This quest does not belong to you");
         }
         if (quest.getStatus() == QuestStatus.COLLECTED) {
+            log.warn("[QuestService] player={} REJECTED: quest {} reward already collected", player.getId(), questId);
             throw new IllegalStateException("Reward already collected");
         }
         if (!quest.isReadyToCollect()) {
             long secsLeft = java.time.Duration.between(LocalDateTime.now(), quest.getCompletesAt()).getSeconds();
+            log.warn("[QuestService] player={} REJECTED: quest {} not yet complete, {}s remaining", player.getId(), questId, secsLeft);
             throw new IllegalStateException("Quest not yet complete. " + secsLeft + "s");
         }
 
@@ -132,6 +146,7 @@ public class QuestService {
         questRepository.save(quest);
 
         InventoryItem drop = rollDrop(player, quest.getQuestType(), guildDropPct);
+        log.info("[QuestService] player={} action=collectReward OK bronze={} xp={} drop={}", player.getId(), totalBronze, totalXp, drop != null ? drop.getName() : "none");
         return new CollectResult(quest, drop);
     }
 

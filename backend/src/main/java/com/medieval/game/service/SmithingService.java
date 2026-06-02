@@ -6,12 +6,14 @@ import com.medieval.game.enums.SkillType;
 import com.medieval.game.model.*;
 import com.medieval.game.repository.*;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 import java.util.Map;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class SmithingService {
@@ -74,6 +76,7 @@ public class SmithingService {
     // ── Refinar ore → bar ──
     @Transactional
     public void refineOre(Player player, ResourceType oreType, int quantity) {
+        log.info("[SmithingService] player={} action=refineOre oreType={} quantity={}", player.getId(), oreType, quantity);
         RefineRecipe recipe = REFINE_RECIPES.stream()
                 .filter(r -> r.ore() == oreType)
                 .findFirst()
@@ -81,6 +84,7 @@ public class SmithingService {
 
         SkillLevel smithing = gatheringService.getOrCreateSkill(player, SkillType.SMITHING);
         if (smithing.getLevel() < recipe.smithingLevelRequired()) {
+            log.warn("[SmithingService] player={} REJECTED: smithing level {} too low for {} (required {})", player.getId(), smithing.getLevel(), oreType, recipe.smithingLevelRequired());
             throw new IllegalStateException("Smithing level too low. Required: " + recipe.smithingLevelRequired());
         }
 
@@ -91,11 +95,13 @@ public class SmithingService {
 
         int xp = batches * recipe.smithingLevelRequired() * 5;
         gatheringService.addSkillXp(smithing, xp);
+        log.info("[SmithingService] player={} action=refineOre OK oreType={} batches={} bar={}", player.getId(), oreType, batches, recipe.bar());
     }
 
     // ── Craftar equipamento ──
     @Transactional
     public InventoryItem craftEquipment(Player player, String recipeId) {
+        log.info("[SmithingService] player={} action=craftEquipment recipeId={}", player.getId(), recipeId);
         CraftRecipe recipe = CRAFT_RECIPES.stream()
                 .filter(r -> r.id().equals(recipeId))
                 .findFirst()
@@ -103,6 +109,7 @@ public class SmithingService {
 
         SkillLevel smithing = gatheringService.getOrCreateSkill(player, SkillType.SMITHING);
         if (smithing.getLevel() < recipe.smithingLevel()) {
+            log.warn("[SmithingService] player={} REJECTED: smithing level {} too low for recipe {} (required {})", player.getId(), smithing.getLevel(), recipeId, recipe.smithingLevel());
             throw new IllegalStateException("Smithing level too low. Required: " + recipe.smithingLevel());
         }
 
@@ -133,13 +140,17 @@ public class SmithingService {
         int xp = recipe.smithingLevel() * 10;
         gatheringService.addSkillXp(smithing, xp);
 
-        return inventoryRepository.save(item);
+        InventoryItem saved = inventoryRepository.save(item);
+        log.info("[SmithingService] player={} action=craftEquipment OK recipeId={} itemId={} name={}", player.getId(), recipeId, saved.getId(), saved.getName());
+        return saved;
     }
 
     // ── Craftar joia (3 fragmentos → 1 joia) ──
     @Transactional
     public void craftGem(Player player, ResourceType fragmentType) {
+        log.info("[SmithingService] player={} action=craftGem fragmentType={}", player.getId(), fragmentType);
         if (fragmentType.category != ResourceCategory.FRAGMENT) {
+            log.warn("[SmithingService] player={} REJECTED: {} is not a gem fragment", player.getId(), fragmentType);
             throw new IllegalArgumentException("Not a gem fragment");
         }
 
@@ -158,23 +169,30 @@ public class SmithingService {
 
         SkillLevel smithing = gatheringService.getOrCreateSkill(player, SkillType.SMITHING);
         gatheringService.addSkillXp(smithing, 30);
+        log.info("[SmithingService] player={} action=craftGem OK fragment={} gem={}", player.getId(), fragmentType, gem);
     }
 
     // ── Encaixar joia em item ──
     @Transactional
     public SocketedGem socketGem(Player player, Long itemId, ResourceType gemType) {
+        log.info("[SmithingService] player={} action=socketGem itemId={} gemType={}", player.getId(), itemId, gemType);
         if (gemType.category != ResourceCategory.GEM) {
+            log.warn("[SmithingService] player={} REJECTED: {} is not a gem", player.getId(), gemType);
             throw new IllegalArgumentException("Not a gem");
         }
 
         InventoryItem item = inventoryRepository.findById(itemId)
                 .orElseThrow(() -> new IllegalArgumentException("Item not found"));
-        if (!item.getPlayer().getId().equals(player.getId()))
+        if (!item.getPlayer().getId().equals(player.getId())) {
+            log.warn("[SmithingService] player={} REJECTED: item {} does not belong to this player", player.getId(), itemId);
             throw new IllegalStateException("Item does not belong to you");
+        }
 
         List<SocketedGem> existing = gemRepository.findAllByItem(item);
-        if (existing.size() >= item.getSockets())
+        if (existing.size() >= item.getSockets()) {
+            log.warn("[SmithingService] player={} REJECTED: no sockets available on item {} (used {}/{})", player.getId(), itemId, existing.size(), item.getSockets());
             throw new IllegalStateException("No sockets available on this item");
+        }
 
         gatheringService.removeResource(player, gemType, 1);
 
@@ -184,7 +202,9 @@ public class SmithingService {
         gem.setItem(item);
         gem.setGemType(gemType);
         gem.setSlotIndex(slotIndex);
-        return gemRepository.save(gem);
+        SocketedGem saved = gemRepository.save(gem);
+        log.info("[SmithingService] player={} action=socketGem OK itemId={} gemType={} slot={}", player.getId(), itemId, gemType, slotIndex);
+        return saved;
     }
 
     // ── Calcula bonus total de joias de um item ──

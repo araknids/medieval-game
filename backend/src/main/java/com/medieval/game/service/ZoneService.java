@@ -4,6 +4,7 @@ import com.medieval.game.enums.*;
 import com.medieval.game.model.*;
 import com.medieval.game.repository.*;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -14,6 +15,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.Random;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class ZoneService {
@@ -34,14 +36,19 @@ public class ZoneService {
     @Transactional
     public ZoneActivity enter(Player player, Zone zone, ActivityRole role,
                               SkillType skillType, int durationMinutes) {
+        log.info("[ZoneService] player={} action=enter zone={} role={} skill={} duration={}", player.getId(), zone, role, skillType, durationMinutes);
 
         Warrior warrior = warriorRepository.findByPlayer(player)
                 .orElseThrow(() -> new IllegalStateException("Warrior not found"));
 
-        if (warrior.isOnMission())
+        if (warrior.isOnMission()) {
+            log.warn("[ZoneService] player={} REJECTED: warrior is already busy", player.getId());
             throw new IllegalStateException("Your warrior is already busy");
-        if (warrior.isKnockedOut())
+        }
+        if (warrior.isKnockedOut()) {
+            log.warn("[ZoneService] player={} REJECTED: warrior is unconscious", player.getId());
             throw new IllegalStateException("Your warrior is unconscious. Visit the Temple to heal!");
+        }
 
         // Auto-cancel orphaned expedition: IN_PROGRESS but warrior is already free
         // This happens when freeIfStuck() was called before the ZoneActivity cancel fix was deployed
@@ -56,19 +63,27 @@ public class ZoneService {
                     }
                 });
 
-        if (warrior.getLevel() < zone.minLevel)
+        if (warrior.getLevel() < zone.minLevel) {
+            log.warn("[ZoneService] player={} REJECTED: level {} too low for zone {} (required {})", player.getId(), warrior.getLevel(), zone, zone.minLevel);
             throw new IllegalStateException("Level too low. Required: " + zone.minLevel);
+        }
 
-        if (durationMinutes < 30 || durationMinutes > 720)
+        if (durationMinutes < 30 || durationMinutes > 720) {
+            log.warn("[ZoneService] player={} REJECTED: invalid duration={}", player.getId(), durationMinutes);
             throw new IllegalArgumentException("Duration must be between 30 min and 12h");
+        }
 
         // Valida skill para gatherer
-        if (role == ActivityRole.GATHERING && skillType == null)
+        if (role == ActivityRole.GATHERING && skillType == null) {
+            log.warn("[ZoneService] player={} REJECTED: gathering requires a skill type", player.getId());
             throw new IllegalArgumentException("Choose a skill to gather with");
+        }
 
         // COMBAT só pode entrar em PVP e HIGH_RISK (SAFE = Training Hall)
-        if (role == ActivityRole.COMBAT && zone == Zone.SAFE)
+        if (role == ActivityRole.COMBAT && zone == Zone.SAFE) {
+            log.warn("[ZoneService] player={} REJECTED: combat role not allowed in SAFE zone", player.getId());
             throw new IllegalArgumentException("Use the Training Hall for safe training. Combat zones start at Campo de Batalha (Lv.10+).");
+        }
 
         warrior.setOnMission(true);
         warriorRepository.save(warrior);
@@ -83,7 +98,9 @@ public class ZoneService {
         activity.setEndsAt(instantComplete
                 ? LocalDateTime.now()
                 : LocalDateTime.now().plusMinutes(durationMinutes));
-        return activityRepository.save(activity);
+        ZoneActivity saved = activityRepository.save(activity);
+        log.info("[ZoneService] player={} action=enter OK id={}", player.getId(), saved.getId());
+        return saved;
     }
 
     // ── Coleta da expedição ──
@@ -95,19 +112,25 @@ public class ZoneService {
 
     @Transactional
     public CollectResult collect(Player player, Long activityId) {
+        log.info("[ZoneService] player={} action=collect activityId={}", player.getId(), activityId);
         ZoneActivity activity = activityRepository.findById(activityId)
                 .orElseThrow(() -> new IllegalArgumentException("Expedição não encontrada"));
 
-        if (!activity.getPlayer().getId().equals(player.getId()))
+        if (!activity.getPlayer().getId().equals(player.getId())) {
+            log.warn("[ZoneService] player={} REJECTED: activity {} does not belong to this player", player.getId(), activityId);
             throw new IllegalStateException("This expedition does not belong to you");
+        }
 
         if (activity.getStatus() == ZoneActivityStatus.COMPLETED ||
-            activity.getStatus() == ZoneActivityStatus.DEFEATED)
+            activity.getStatus() == ZoneActivityStatus.DEFEATED) {
+            log.warn("[ZoneService] player={} REJECTED: activity {} already finished (status={})", player.getId(), activityId, activity.getStatus());
             throw new IllegalStateException("Expedition already finished");
+        }
 
         if (!activity.isReadyToCollect() && activity.getStatus() == ZoneActivityStatus.IN_PROGRESS) {
             long secs = java.time.Duration.between(
                     LocalDateTime.now(), activity.getEndsAt()).getSeconds();
+            log.warn("[ZoneService] player={} REJECTED: activity {} still in progress, {}s remaining", player.getId(), activityId, secs);
             throw new IllegalStateException("Expedition still in progress. " + secs + "s");
         }
 
@@ -202,6 +225,7 @@ public class ZoneService {
         });
 
         activityRepository.save(activity);
+        log.info("[ZoneService] player={} action=collect OK activityId={} survived={} drops={}", player.getId(), activityId, survived, drops.size());
         return new CollectResult(activity, drops, wasAttacked, survived, lostItem);
     }
 
@@ -209,12 +233,17 @@ public class ZoneService {
 
     @Transactional
     public void cancel(Player player, Long activityId) {
+        log.info("[ZoneService] player={} action=cancel activityId={}", player.getId(), activityId);
         ZoneActivity activity = activityRepository.findById(activityId)
                 .orElseThrow(() -> new IllegalArgumentException("Expedição não encontrada"));
-        if (!activity.getPlayer().getId().equals(player.getId()))
+        if (!activity.getPlayer().getId().equals(player.getId())) {
+            log.warn("[ZoneService] player={} REJECTED: activity {} does not belong to this player", player.getId(), activityId);
             throw new IllegalStateException("Not yours");
-        if (activity.getStatus() != ZoneActivityStatus.IN_PROGRESS)
+        }
+        if (activity.getStatus() != ZoneActivityStatus.IN_PROGRESS) {
+            log.warn("[ZoneService] player={} REJECTED: activity {} already finished (status={})", player.getId(), activityId, activity.getStatus());
             throw new IllegalStateException("Already finished");
+        }
 
         activity.setStatus(ZoneActivityStatus.CANCELLED);
         activityRepository.save(activity);
@@ -223,6 +252,7 @@ public class ZoneService {
             w.setOnMission(false);
             warriorRepository.save(w);
         });
+        log.info("[ZoneService] player={} action=cancel OK activityId={}", player.getId(), activityId);
     }
 
     // ── Verifica expedição ativa ──

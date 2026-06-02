@@ -6,11 +6,13 @@ import com.medieval.game.model.Player;
 import com.medieval.game.repository.InventoryItemRepository;
 import com.medieval.game.repository.PlayerRepository;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class InventoryService {
@@ -25,13 +27,16 @@ public class InventoryService {
 
     @Transactional
     public InventoryItem equip(Player player, Long itemId) {
+        log.info("[InventoryService] player={} action=equip itemId={}", player.getId(), itemId);
         InventoryItem item = inventoryRepository.findById(itemId)
                 .orElseThrow(() -> new IllegalArgumentException("Item not found"));
 
         if (!item.getPlayer().getId().equals(player.getId())) {
+            log.warn("[InventoryService] player={} REJECTED: item {} does not belong to this player", player.getId(), itemId);
             throw new IllegalStateException("This item does not belong to you");
         }
         if (item.isEquipped()) {
+            log.warn("[InventoryService] player={} REJECTED: item {} already equipped", player.getId(), itemId);
             throw new IllegalStateException("Item already equipped");
         }
 
@@ -43,38 +48,49 @@ public class InventoryService {
                 });
 
         item.setEquipped(true);
-        return inventoryRepository.save(item);
+        InventoryItem saved = inventoryRepository.save(item);
+        log.info("[InventoryService] player={} action=equip OK itemId={} name={}", player.getId(), itemId, item.getName());
+        return saved;
     }
 
     @Transactional
     public InventoryItem unequip(Player player, Long itemId) {
+        log.info("[InventoryService] player={} action=unequip itemId={}", player.getId(), itemId);
         InventoryItem item = inventoryRepository.findById(itemId)
                 .orElseThrow(() -> new IllegalArgumentException("Item not found"));
 
         if (!item.getPlayer().getId().equals(player.getId())) {
+            log.warn("[InventoryService] player={} REJECTED: item {} does not belong to this player", player.getId(), itemId);
             throw new IllegalStateException("This item does not belong to you");
         }
         if (!item.isEquipped()) {
+            log.warn("[InventoryService] player={} REJECTED: item {} is not equipped", player.getId(), itemId);
             throw new IllegalStateException("Item is not equipped");
         }
 
         item.setEquipped(false);
-        return inventoryRepository.save(item);
+        InventoryItem saved = inventoryRepository.save(item);
+        log.info("[InventoryService] player={} action=unequip OK itemId={}", player.getId(), itemId);
+        return saved;
     }
 
     @Transactional
     public InventoryItem sell(Player player, Long itemId) {
+        log.info("[InventoryService] player={} action=sell itemId={}", player.getId(), itemId);
         InventoryItem item = inventoryRepository.findById(itemId)
                 .orElseThrow(() -> new IllegalArgumentException("Item not found"));
         if (!item.getPlayer().getId().equals(player.getId())) {
+            log.warn("[InventoryService] player={} REJECTED: item {} does not belong to this player", player.getId(), itemId);
             throw new IllegalStateException("This item does not belong to you");
         }
         if (item.isEquipped()) {
+            log.warn("[InventoryService] player={} REJECTED: item {} is equipped, unequip first", player.getId(), itemId);
             throw new IllegalStateException("Desequipe o item antes de vender");
         }
         player.addBronzeAmount(item.getSellPrice()); // sell price é em bronze
         playerRepository.save(player);
         inventoryRepository.delete(item);
+        log.info("[InventoryService] player={} action=sell OK itemId={} name={} bronze={}", player.getId(), itemId, item.getName(), item.getSellPrice());
         return item;
     }
 
