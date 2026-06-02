@@ -17,7 +17,6 @@
 
 - **Torn City** (browser RPG assíncrono)
 - **Runescape** (progressão de skills, economia de itens)
-- **Dungeons & Warriors** (MMO RPG de navegador estilo antigo)
 - **Ogame** (timers, idle progressivo)
 
 ### 1.3 Proposta de Valor
@@ -328,7 +327,67 @@ Todo item gerado automaticamente recebe:
 
 ---
 
-## 8. Templo
+## 8. Guildas
+
+### 8.1 Conceito
+
+Grupos sociais permanentes que conectam jogadores, criam senso de pertencimento e desbloqueiam conteúdo cooperativo futuro (masmorras em grupo, dominação de castelo).
+
+### 8.2 Criação e Acesso
+
+- Criar guilda custa **100 bronze** (barreira mínima para evitar spam)
+- Nome único no servidor, 3-30 caracteres
+- Um jogador só pode pertencer a **uma guilda por vez**
+- Sem restrição de nível para entrar ou criar
+
+### 8.3 Hierarquia
+
+| Papel | Permissões |
+|-------|-----------|
+| **Líder** | Todas as ações: expulsar, transferir liderança, dissolver, subir nível |
+| **Membro** | Entrar, sair, doar bronze |
+
+- Liderança é transferida explicitamente ou ao líder sair como único membro (dissolve)
+- Líder não pode sair com outros membros ativos — deve transferir ou dissolver
+
+### 8.4 Capacidade e Nível
+
+| Nível da Guilda | Membros Máximos | Custo para Subir (guild gold) |
+|----------------|----------------|-------------------------------|
+| 1 | 15 | 1.000 |
+| 2 | 20 | 2.000 |
+| 3 | 25 | 3.000 |
+| N | 10 + N×5 | N×1.000 |
+
+### 8.5 Economia da Guilda
+
+- Membros doam bronze → acumula como **guild gold**
+- Guild gold é usado exclusivamente para subir nível da guilda
+- Não há conversão de volta (doação é irreversível)
+
+### 8.6 Endpoints
+
+| Método | Rota | Ação |
+|--------|------|------|
+| GET | `/api/guild` | Info da guilda do jogador |
+| GET | `/api/guild/list` | Lista todas as guildas |
+| POST | `/api/guild` | Criar guilda |
+| POST | `/api/guild/join/{id}` | Entrar |
+| POST | `/api/guild/leave` | Sair |
+| POST | `/api/guild/kick/{playerId}` | Expulsar membro (líder) |
+| POST | `/api/guild/transfer/{playerId}` | Transferir liderança |
+| POST | `/api/guild/donate` | Doar bronze |
+| POST | `/api/guild/levelup` | Subir nível (líder) |
+| DELETE | `/api/guild` | Dissolver (líder) |
+
+### 8.7 Futuro (requer guilda)
+
+- **Masmorra em grupo**: membros entram individualmente, batalha resolvida quando todos confirmam
+- **Dominação de castelo**: disputa territorial por zona, timer global, recompensas coletivas
+
+---
+
+## 9. Templo
 
 Local de recuperação e fortalecimento.
 
@@ -352,7 +411,7 @@ Local de recuperação e fortalecimento.
 
 ---
 
-## 9. Sistema de Combate
+## 10. Sistema de Combate
 
 O `BattleSimulator` é compartilhado por Arena, Torre e Zonas.
 
@@ -377,7 +436,7 @@ O `BattleSimulator` é compartilhado por Arena, Torre e Zonas.
 
 ---
 
-## 10. Narrativa e Mundo
+## 11. Narrativa e Mundo
 
 ### 10.1 Ambientação
 
@@ -396,7 +455,7 @@ Medieval fantástico sem seriedade excessiva. Linguagem direta, textos curtos. F
 
 ---
 
-## 11. Interface (UI)
+## 12. Interface (UI)
 
 ### 11.1 Estrutura de Telas
 
@@ -430,7 +489,7 @@ Medieval fantástico sem seriedade excessiva. Linguagem direta, textos curtos. F
 
 ---
 
-## 12. Progressão do Jogador
+## 13. Progressão do Jogador
 
 ### 12.1 Linha do Tempo Esperada
 
@@ -456,31 +515,34 @@ Medieval fantástico sem seriedade excessiva. Linguagem direta, textos curtos. F
 
 ---
 
-## 13. Plano de Lançamento
+## 14. Plano de Lançamento
 
-### 13.1 Estado Atual (v0.1 — Web)
+### 14.1 Estado Atual (v0.2 — Web)
 
-- Todos os 20 sistemas implementados e funcionais
-- 134 testes automatizados (80 unitários + 54 integração)
-- Deploy na Railway com PostgreSQL
+- 21 sistemas implementados e funcionais (incluindo Guildas)
+- 147 testes automatizados (80 unitários + 67 integração)
+- CI/CD via GitHub Actions (mvn test em cada push)
+- Deploy automático na Railway com PostgreSQL
 - Sem monetização
 
-### 13.2 Próximos Passos (v0.2 — Polimento)
+### 14.2 Próximos Passos (v0.3 — Conteúdo Cooperativo)
 
 - [ ] Tutorial in-game para novos jogadores
-- [ ] Sistema de guild / clã
+- [x] ~~Sistema de guild / clã~~ ✓ implementado
+- [ ] Masmorra em grupo (requer guilda)
+- [ ] Dominação de Castelo (requer guilda)
 - [ ] Mais tipos de itens e bosses
 - [ ] Balanceamento de economia (baseado em dados reais de uso)
 - [ ] Notificações quando timer termina (push notification ou email)
 
-### 13.3 Fase Godot (v1.0 — Cliente Desktop)
+### 14.3 Fase Godot (v1.0 — Cliente Desktop)
 
 - [ ] Cliente Godot com assets visuais 2D medievais
 - [ ] Mesma API REST como backend (sem reescrever lógica)
 - [ ] Animações de combate (battle log vira cenas animadas)
 - [ ] Sons e trilha sonora
 
-### 13.4 Steam (v1.0 — Lançamento)
+### 14.4 Steam (v1.0 — Lançamento)
 
 - [ ] Página na Steam com screenshots e trailer
 - [ ] Conquistas Steam (Tower floor 10, Arena rank top 10, etc.)
@@ -489,7 +551,7 @@ Medieval fantástico sem seriedade excessiva. Linguagem direta, textos curtos. F
 
 ---
 
-## 14. Considerações Técnicas
+## 15. Considerações Técnicas
 
 ### 14.1 Stack Atual
 
@@ -512,7 +574,7 @@ Medieval fantástico sem seriedade excessiva. Linguagem direta, textos curtos. F
 
 ---
 
-## 15. Glossário
+## 16. Glossário
 
 | Termo | Definição |
 |-------|-----------|
