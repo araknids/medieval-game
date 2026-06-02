@@ -646,45 +646,25 @@ Stats do NPC: média dos warriors da guilda atacante × fator de dificuldade do 
 - [ ] Balanceamento de economia (baseado em dados reais de uso)
 - [ ] Notificações quando timer termina (push notification ou email)
 
-### 14.x TODO — Internacionalização (i18n) Incompleta
+### 14.x i18n — Fase 1 concluída / TODO Phase 2
 
-Sistema base de i18n implementado (`lang/en.json`, `lang/pt.json`, função `t()`).
-O que ainda falta traduzir para cobertura completa EN ↔ PT:
+**Implementado (Fase 1):**
+- Sistema base: `lang/en.json`, `lang/pt.json`, função `t()`, toggle EN↔PT
+- Navbar, títulos e descrições de todas as abas
+- Painel do guerreiro (stats, status badges)
+- Quest types, work jobs, zone names, territory names, buff names — todos via `t()` com fallback ao displayName do backend
+- Botões de quest, arena, tower, temple, skills, zones, shop, guild, mail
 
-**Frontend — conteúdo dinâmico (funções `loadXxx()` em `app.js`)**
+**TODO Phase 2 — Intencionalmente deixado para depois:**
 
-| Painel | O que falta aplicar `t()` |
-|--------|--------------------------|
-| Quest | Botões "Collect", "Abandon", "Send Warrior"; nomes dos tipos de quest no card; status badges |
-| Arena | Botão "Challenge", resultado da batalha, mensagens de status |
-| Tower | Botões "Enter Tower", "Fight Boss", "Exit Tower"; ranking da torre |
-| Temple | Botões de cura e buffs; nome dos buffs; custo de proteção |
-| Skills | Botões "Start", "Collect", "Cancel" de pesca/mineração; botões da forja |
-| Zones | Nomes das zonas nos cards; botões "Enter Zone"; papel (Hunting/Gathering) |
-| Shop | Botão "Buy", "Purchased", timer de rotação |
-| Guild | Botões de ação (Leave, Kick, Transfer, Donate, Level Up, Disband); labels de membros |
-| Mail | Botão "Send", "Collect", "Delete"; placeholder dos campos |
-| Territory | Já parcialmente traduzido — revisar nomes dos NPCs |
-
-**Backend — displayNames dos enums (vêm do servidor, lidos no frontend)**
-
-| Enum | Exemplos a traduzir via lang file |
-|------|----------------------------------|
-| `QuestType` | "Patrulha" → `t('quest.type.PATROL')` |
-| `WorkType` | "Ajudante da Taverna" → `t('work.job.TAVERN_HELPER')` — **já parcialmente feito** |
-| `BuffType` | "Força", "Agilidade" → `t('temple.buff.STRENGTH')` |
-| `SkillType` | "Pesca", "Mineração" → chaves de skills |
-| `Zone` | "Zona Segura" → `t('zones.zone.SAFE')` — **já feito** |
-| `Territory` | "Fortaleza Maldita" → `t('territory.name.FORTALEZA_MALDITA')` — **já feito** |
-| `ItemType` | Nomes de equipamentos nos cards do inventário |
-
-**Outros**
-
-- [ ] Mensagens de erro e sucesso do frontend (ex: "Guild created!", "Letter sent!")
-- [ ] Battle log (textos em português no `BattleSimulator.java` — comentários aceitos, mas strings visíveis ao usuário devem ser EN)
-- [ ] Nomes de itens e lore gerados pelo `ItemLoreGenerator.java` (game content, pode ser Phase 2)
-- [ ] Textos de narrativa das quests
-- [ ] Adicionar `es.json`, `fr.json` etc. para mais idiomas (Phase 3)
+| Item | Motivo de deixar para depois |
+|------|------------------------------|
+| Narrativa do `BattleSimulator.java` (textos de ataque, evasão, vitória) | Conteúdo de jogo com sabor medieval — requer copywriter, não simples tradução |
+| Lore de itens gerado pelo `ItemLoreGenerator.java` | Conteúdo criativo, ~100 textos únicos por raridade/tipo |
+| Nomes narrativos de quests ("As trevas da masmorra foram varridas...") | Idem — conteúdo de jogo, não UI |
+| `item.typeDisplay` e `item.typeDisplay` nos cards de inventário | Vem do backend como string, precisaria de novo campo no enum ou mapa no frontend |
+| Placeholders dos campos de formulário (auth, mail) | Baixa prioridade — já em inglês, PT é bônus |
+| Idiomas adicionais (`es.json`, `fr.json`, etc.) | Phase 3 — depois do lançamento na Steam |
 
 ### 14.3 Fase Godot (v1.0 — Cliente Desktop)
 

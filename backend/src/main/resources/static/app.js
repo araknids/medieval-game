@@ -167,7 +167,7 @@ function showMessage(text, isError = false, isDrop = false) {
 }
 
 function formatTime(seconds) {
-  if (seconds <= 0) return 'Pronto!';
+  if (seconds <= 0) return t('quest.ready_short');
   const m = Math.floor(seconds / 60);
   const s = seconds % 60;
   return `${m}:${s.toString().padStart(2, '0')}`;
@@ -389,15 +389,15 @@ async function loadQuestTypes() {
 function renderQuestTypes() {
   const busy = warrior?.onMission ?? false;
   const el = document.getElementById('quest-types-list');
-  if (!questTypes.length) { el.innerHTML = 'Carregando...'; return; }
+  if (!questTypes.length) { el.innerHTML = t('misc.loading'); return; }
   const stamina = warrior?.stamina ?? 100;
   el.innerHTML = questTypes.map(q => {
     const noStamina = stamina < q.staminaCost;
     const disabled  = busy || noStamina;
-    const btnLabel  = busy ? 'Guerreiro ocupado' : noStamina ? `Sem estamina (${stamina}/${q.staminaCost})` : 'Enviar';
+    const btnLabel  = busy ? t('status.busy') : noStamina ? `Sem estamina (${stamina}/${q.staminaCost})` : t('quest.btn.send');
     return `
     <div class="quest-card">
-      <h3>${q.displayName}</h3>
+      <h3>${t('quest.type.'+q.id)||q.displayName}</h3>
       <div class="quest-rewards">
         <span>⏱ ${q.durationMinutes} min</span>
         <span>${fmtBronze(q.goldReward)}</span>
@@ -423,9 +423,9 @@ async function loadActiveQuests() {
   el.innerHTML = quests.map(q => `
     <div class="quest-card" id="quest-card-${q.id}">
       <div class="quest-card-top">
-        <h3>${q.questType}</h3>
+        <h3>${t('quest.type.'+q.questType)||q.questType}</h3>
         <span class="timer ${q.secondsRemaining <= 0 ? 'done' : ''}" id="timer-${q.id}">
-          ${q.secondsRemaining <= 0 ? 'Pronto!' : formatTime(q.secondsRemaining)}
+          ${q.secondsRemaining <= 0 ? t('quest.ready_short') : formatTime(q.secondsRemaining)}
         </span>
       </div>
       <div class="quest-rewards">
@@ -433,7 +433,7 @@ async function loadActiveQuests() {
         <span>⭐ ${q.expReward} exp</span>
       </div>
       <button class="btn-collect" id="btn-collect-${q.id}" ${q.secondsRemaining > 0 ? 'disabled' : ''} onclick="collectReward(${q.id})">
-        ${q.secondsRemaining > 0 ? 'Aguardando...' : '🎁 Coletar'}
+        ${q.secondsRemaining > 0 ? t('quest.waiting') : t('quest.btn.collect_icon')}
       </button>
     </div>`).join('');
 
@@ -446,8 +446,8 @@ async function loadActiveQuests() {
       const be = document.getElementById(`btn-collect-${q.id}`);
       if (!te) { clearInterval(timerIntervals[q.id]); return; }
       if (secs <= 0) {
-        te.textContent = 'Pronto!'; te.classList.add('done');
-        be.disabled = false; be.textContent = '🎁 Coletar';
+        te.textContent = t('quest.ready_short'); te.classList.add('done');
+        be.disabled = false; be.textContent = t('quest.btn.collect_icon');
         clearInterval(timerIntervals[q.id]);
         loadWarrior();
       } else { te.textContent = formatTime(secs); }
@@ -476,10 +476,10 @@ function closeQuestProgress() {
 }
 
 async function abandonQuest(questId) {
-  if (!confirm('Abandonar a missão? Você não receberá nenhuma recompensa.')) return;
+  if (!confirm(t('quest.confirm_abandon'))) return;
   const data = await api('POST', `/api/quests/${questId}/abandon`);
   if (data.error) { showMessage(data.error, true); return; }
-  showMessage('Missão abandonada.');
+  showMessage(t('quest.abandoned'));
   closeQuestProgress();
   await loadWarrior();
 }
@@ -488,17 +488,17 @@ function renderQuestProgress(quest) {
   const done = quest.secondsRemaining <= 0;
   document.getElementById('qp-content').innerHTML = `
     <div class="qp-box">
-      <div class="qp-quest-name">${quest.questType}</div>
+      <div class="qp-quest-name">${t('quest.type.'+quest.questType)||quest.questType}</div>
       <div class="qp-rewards-preview">
         ${fmtBronze(quest.goldReward)} &nbsp;&nbsp; ⭐ ${quest.expReward} exp
       </div>
       <div class="qp-timer ${done ? 'done' : ''}" id="qp-timer">
-        ${done ? 'Completo!' : formatTime(quest.secondsRemaining)}
+        ${done ? t('quest.complete') : formatTime(quest.secondsRemaining)}
       </div>
       <button class="btn-collect qp-collect-btn" id="qp-btn"
               ${done ? '' : 'disabled'}
               onclick="collectFromProgress(${quest.id})">
-        ${done ? '🎁 Coletar' : 'Aguardando...'}
+        ${done ? t('quest.btn.collect_icon') : t('quest.waiting')}
       </button>
       ${!done ? `
       <button class="btn-cancel-work" onclick="abandonQuest(${quest.id})" style="margin-top:.5rem">
@@ -514,10 +514,10 @@ function renderQuestProgress(quest) {
       const b = document.getElementById('qp-btn');
       if (!t) { clearInterval(interval); return; }
       if (secs <= 0) {
-        t.textContent = 'Completo!';
+        t.textContent = t('quest.complete');
         t.classList.add('done');
         b.disabled = false;
-        b.textContent = '🎁 Coletar';
+        b.textContent = t('quest.btn.collect_icon');
         clearInterval(interval);
       } else {
         t.textContent = formatTime(secs);
@@ -879,7 +879,7 @@ function renderTemple(data) {
 
   const buffsHtml = data.buffs.map(b => `
     <div class="sk-recipe-card">
-      <div class="sk-recipe-title">${b.icon} ${b.displayName} — <span style="color:#888">${b.effect}</span></div>
+      <div class="sk-recipe-title">${b.icon} ${t('temple.buff.'+b.id)||b.displayName} — <span style="color:#888">${b.effect}</span></div>
       <div style="font-size:.75rem;color:#888;margin-bottom:.4rem">${fmtBronze(b.bronzeCost)}</div>
       <button class="btn-equip" onclick="applyBuff('${b.id}')">Abençoar</button>
     </div>`).join('');
@@ -1006,7 +1006,7 @@ function renderZones(zones, current) {
     return `
       <div class="zone-card ${locked ? 'locked' : ''}" style="border-color:${color}20">
         <div class="zone-header">
-          <span class="zone-name" style="color:${color}">${icon} ${z.displayName}</span>
+          <span class="zone-name" style="color:${color}">${icon} ${t('zones.zone.'+z.id)||z.displayName}</span>
           ${locked ? `<span class="wj-lock">🔒 Lv.${z.minLevel}</span>` : ''}
           ${pvp ? `<span class="zone-pvp-badge">⚔ PvP</span>` : ''}
         </div>
@@ -1326,7 +1326,7 @@ function renderGatheringTimer() {
       const el = document.getElementById('gathering-timer');
       if (!el) { clearInterval(gatheringTimer); return; }
       if (s <= 0) {
-        el.textContent = 'Pronto!';
+        el.textContent = t('quest.ready_short');
         el.classList.add('done');
         document.getElementById('gathering-collect-btn').disabled = false;
         document.getElementById('gathering-collect-btn').textContent = '🎒 Coletar';
@@ -1339,15 +1339,15 @@ function renderGatheringTimer() {
 
   return `
     <div class="gathering-active-box">
-      <div class="gathering-active-title">${gatheringState.displayName} — ${gatheringState.durationMinutes}min</div>
+      <div class="gathering-active-title">${t('skills.tab.'+(gatheringState.skillType||'').toLowerCase())||gatheringState.displayName} — ${gatheringState.durationMinutes}min</div>
       <div class="qp-timer ${done ? 'done' : ''}" id="gathering-timer">
-        ${done ? 'Pronto!' : formatTime(secs)}
+        ${done ? t('quest.ready_short') : formatTime(secs)}
       </div>
       <div style="display:flex;gap:.5rem;margin-top:.5rem">
         <button class="btn-collect" id="gathering-collect-btn"
                 ${done ? '' : 'disabled'}
                 onclick="collectGathering(${gatheringState.id})">
-          ${done ? '🎒 Coletar' : 'Coletando...'}
+          ${done ? '🎒 Coletar' : t('skills.in_progress')}
         </button>
         ${!done ? `<button class="btn-cancel-work" onclick="cancelGathering(${gatheringState.id})">Cancelar</button>` : ''}
       </div>
@@ -1558,7 +1558,7 @@ async function showWorkJobList() {
         return `
           <div class="work-job-card ${locked ? 'locked' : ''}">
             <div class="wj-header">
-              <span class="wj-name">${_lang['work.job.'+job.id] || job.displayName}</span>
+              <span class="wj-name">${_lang['work.job.'+job.id] || jot('temple.buff.'+b.id)||b.displayName}</span>
               <span class="wj-prof-level">Lv.${job.profLevel}${job.bonusPct > 0 ? ` <span class="wl-bonus">+${job.bonusPct}%</span>` : ''}</span>
             </div>
             <div class="xp-bar-bg" style="margin-bottom:.4rem"><div class="xp-bar-fill" style="width:${xpPct}%"></div></div>
@@ -1925,7 +1925,7 @@ function renderFightArea(data) {
       const te = document.getElementById('fight-timer');
       if (!te) { clearInterval(fightTimerInterval); return; }
       if (secs <= 0) {
-        te.textContent = 'Pronto!';
+        te.textContent = t('quest.ready_short');
         te.classList.add('done');
         clearInterval(fightTimerInterval);
         el.innerHTML += `<button class="btn-collect" onclick="collectFight(${data.id})" style="margin-top:.5rem">🎁 Coletar resultado</button>`;
@@ -2129,7 +2129,7 @@ async function renderNoGuildPanel() {
             <span style="font-size:12px">👥 ${g.members}/${g.maxMembers}</span>
           </div>
           <button onclick="guildJoin(${g.id})" ${g.members >= g.maxMembers ? 'disabled' : ''}>
-            ${g.members >= g.maxMembers ? 'Cheia' : 'Entrar'}
+            ${g.members >= g.maxMembers ? 'Cheia' : t('guild.join_btn')}
           </button>
         </div>
       `).join('');
@@ -2166,7 +2166,7 @@ async function guildCreate() {
   const desc = document.getElementById('guild-desc').value.trim();
   const r = await api('POST', '/api/guild', { name, description: desc });
   if (r.error) { guildMsg(r.error, false); return; }
-  guildMsg('Guild created!');
+  guildMsg(t('guild.created'));
   await loadGuild();
   loadWarrior();
 }
@@ -2174,7 +2174,7 @@ async function guildCreate() {
 async function guildJoin(id) {
   const r = await api('POST', `/api/guild/join/${id}`);
   if (r.error) { guildMsg(r.error, false); return; }
-  guildMsg('You joined the guild!');
+  guildMsg(t('guild.joined'));
   await loadGuild();
 }
 
@@ -2502,8 +2502,8 @@ async function mailSend() {
   const to   = document.getElementById('mail-to').value.trim();
   const msg  = document.getElementById('mail-msg').value.trim();
   const gold = parseInt(document.getElementById('mail-gold').value) || 0;
-  if (!to)  { mailMsg('Enter the recipient username.', false); return; }
-  if (!msg) { mailMsg('Write a message.', false); return; }
+  if (!to)  { mailMsg(t('mail.err_no_to'), false); return; }
+  if (!msg) { mailMsg(t('mail.err_no_msg'), false); return; }
   const r = await api('POST', '/api/mail/send', { recipientWarriorName: to, message: msg, goldAmount: gold });
   if (r.error) { mailMsg(r.error, false); return; }
   mailMsg(r.message);
