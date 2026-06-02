@@ -2647,7 +2647,7 @@ async function enterKingdom(kingdom) {
       api('GET', `/api/world/${kingdom}/quests/active`),
       kingdom === 'COMBAT' ? api('GET', '/api/world/COMBAT/training') : Promise.resolve(null),
       (kingdom === 'FISHING' || kingdom === 'MINING') ? api('GET', '/api/gathering/current') : Promise.resolve(null),
-      (kingdom === 'FISHING' || kingdom === 'MINING') ? api('GET', '/api/zones/current') : Promise.resolve(null)
+      (kingdom === 'FISHING' || kingdom === 'MINING' || kingdom === 'COMBAT') ? api('GET', '/api/zones/current') : Promise.resolve(null)
     ]);
     console.log('[WORLD] enterKingdom data:', {kingdom, gatherSession, zoneSession, activeQuests: activeQuests.length});
     renderKingdomDetail(kingdom, quests, activeQuests, training, gatherSession, zoneSession);
@@ -2731,6 +2731,41 @@ function renderKingdomDetail(kingdom, quests, activeQuests, training, gatherSess
       </div>`;
   }
 
+  // Combat zones for COMBAT kingdom — Campo de Batalha (PVP) + Zona de Guerra (HIGH_RISK)
+  let combatZonesHtml = '';
+  if (kingdom === 'COMBAT') {
+    const wLevel = warrior ? warrior.level : 1;
+    const combatZones = [
+      { name:'⚔ Campo de Batalha', zone:'PVP',       minLv:10, color:'#ffc107',
+        desc:'Monstros e hunters — ganha XP e bronze pelo tempo passado.' },
+      { name:'🔥 Zona de Guerra',  zone:'HIGH_RISK',  minLv:20, color:'#ef5350',
+        desc:'Combate intenso — recompensas altas, risco de perder item.' }
+    ];
+    const combatDurations = [30, 60, 120, 240, 360];
+    combatZonesHtml = `<h4 style="margin:12px 0 8px;color:#aaa;font-size:13px">ZONAS DE COMBATE</h4>` +
+      combatZones.map(z => {
+        const locked = wLevel < z.minLv;
+        return `
+          <div style="background:#1a1a2e;border:1px solid ${locked?'#333':z.color+'44'};border-radius:8px;padding:12px;margin-bottom:8px;opacity:${locked?'0.5':'1'}">
+            <div style="display:flex;justify-content:space-between;align-items:center">
+              <strong style="color:${z.color}">${z.name}</strong>
+              ${locked ? `<span style="font-size:11px;color:#888">🔒 Lv.${z.minLv}+</span>` : '<span style="font-size:11px;color:#ef5350">⚔ PvP</span>'}
+            </div>
+            <p style="font-size:11px;color:#888;margin:3px 0 6px">${z.desc}</p>
+            ${locked
+              ? `<p style="font-size:11px;color:#555;margin:0">Alcance o nível ${z.minLv} para desbloquear.</p>`
+              : busy
+              ? '<p style="font-size:11px;color:#f44336;margin:0">⚔ Warrior is busy</p>'
+              : `<div style="display:flex;gap:5px;flex-wrap:wrap">
+                ${combatDurations.map(d => {
+                  const label = d >= 60 ? (d/60)+'h' : d+'min';
+                  return `<button onclick="enterCombatZone('${z.zone}',${d})" style="font-size:11px;padding:3px 8px">${label}</button>`;
+                }).join('')}
+              </div>`}
+          </div>`;
+      }).join('');
+  }
+
   // Gathering section for FISHING and MINING kingdoms — 3 zones per kingdom
   let gatheringHtml = '';
   if (kingdom === 'FISHING' || kingdom === 'MINING') {
@@ -2807,6 +2842,7 @@ function renderKingdomDetail(kingdom, quests, activeQuests, training, gatherSess
       ${trainingHtml}
       <h4 style="margin:0 0 8px;color:#aaa;font-size:13px">QUESTS</h4>
       ${questCards}
+      ${combatZonesHtml}
       ${gatheringHtml}
       <div id="world-msg" style="margin-top:8px;min-height:20px"></div>
     </div>`;
@@ -2944,6 +2980,15 @@ async function enterKingdomZone(zone, skillType, durationMinutes) {
   worldMsg(msg);
 }
 
+async function enterCombatZone(zone, durationMinutes) {
+  const r = await api('POST', '/api/zones/enter', { zone, role: 'COMBAT', durationMinutes });
+  if (r.error) { worldMsg(r.error, false); return; }
+  const label = durationMinutes >= 60 ? (durationMinutes/60)+'h' : durationMinutes+'min';
+  const zoneName = zone === 'HIGH_RISK' ? 'Zona de Guerra' : 'Campo de Batalha';
+  await enterKingdom('COMBAT');
+  worldMsg(`⚔ Entered ${zoneName}! Fighting for ${label}. Watch your back!`);
+}
+
 // Kingdom gathering session helpers
 async function collectKingdomGather(sessionId) {
   const r = await api('POST', `/api/gathering/${sessionId}/collect`);
@@ -2985,6 +3030,8 @@ async function collectKingdomZoneSession(activityId) {
       rows.push({ icon:'⚔', label:'Survived attack by', value:r.attackerName, color:'#ffc107' });
     (r.drops || []).forEach(d =>
       rows.push({ icon:'📦', label:d.displayName, value:`x${d.quantity}`, color:'#4db6ac' }));
+    if (r.bronzeGained > 0)
+      rows.push({ icon:'🪙', label:'Bronze', value:fmtBronze(r.bronzeGained), color:'#cd7f32' });
     if (r.xpGained > 0)
       rows.push({ icon:'⭐', label:'Experience', value:`+${r.xpGained} XP`, color:'#ffd700' });
   }

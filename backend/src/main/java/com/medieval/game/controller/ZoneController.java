@@ -98,6 +98,7 @@ public class ZoneController {
                 Map.entry("survived",     result.survived()),
                 Map.entry("drops",        dropsResponse),
                 Map.entry("xpGained",     result.activity().getXpGained()),
+                Map.entry("bronzeGained", result.activity().getBronzeGained()),
                 Map.entry("bronzeLost",   result.activity().getBronzeLost()),
                 Map.entry("lostItemName", result.lostItemName() != null ? result.lostItemName() : ""),
                 Map.entry("attackerName", result.activity().getAttackerWarriorName() != null
@@ -131,6 +132,7 @@ public class ZoneController {
                 ? Math.max(0, ChronoUnit.SECONDS.between(LocalDateTime.now(), a.getEndsAt()))
                 : 0;
         return Map.ofEntries(
+            Map.entry("active",          true),
             Map.entry("id",              a.getId()),
             Map.entry("zone",            a.getZone().name()),
             Map.entry("zoneName",        a.getZone().displayName),
@@ -144,6 +146,7 @@ public class ZoneController {
             Map.entry("survived",        a.isSurvivedAttack()),
             Map.entry("attackerName",    a.getAttackerWarriorName() != null ? a.getAttackerWarriorName() : ""),
             Map.entry("bronzeLost",      a.getBronzeLost()),
+            Map.entry("bronzeGained",    a.getBronzeGained()),
             Map.entry("xpGained",        a.getXpGained())
         );
     }

@@ -24,6 +24,7 @@ public class ZoneService {
     private final PlayerRepository         playerRepository;
     private final GatheringService         gatheringService;
     private final BattleSimulator          battleSimulator;
+    private final WarriorService           warriorService;
 
     @Value("${app.dev.instant-complete:false}")
     private boolean instantComplete;
@@ -64,6 +65,10 @@ public class ZoneService {
         // Valida skill para gatherer
         if (role == ActivityRole.GATHERING && skillType == null)
             throw new IllegalArgumentException("Choose a skill to gather with");
+
+        // COMBAT só pode entrar em PVP e HIGH_RISK (SAFE = Training Hall)
+        if (role == ActivityRole.COMBAT && zone == Zone.SAFE)
+            throw new IllegalArgumentException("Use the Training Hall for safe training. Combat zones start at Campo de Batalha (Lv.10+).");
 
         warrior.setOnMission(true);
         warriorRepository.save(warrior);
@@ -172,6 +177,22 @@ public class ZoneService {
             SkillLevel skill = gatheringService.getOrCreateSkill(player, activity.getSkillType());
             long xp = (long)(activity.getXpGained());
             gatheringService.addSkillXp(skill, (int) xp);
+        }
+
+        // Aplica recompensa COMBAT: XP de guerreiro + bronze (só se sobreviveu)
+        if (activity.getRole() == ActivityRole.COMBAT && activity.getStatus() == ZoneActivityStatus.COMPLETED) {
+            warriorRepository.findByPlayer(player).ifPresent(w -> {
+                double hours  = activity.getDurationMinutes() / 60.0;
+                double mult   = activity.getZone().multiplier;
+                long   xp     = Math.round(hours * mult * w.getLevel() * 20);
+                long   bronze = Math.round(hours * mult * w.getLevel() * 15);
+                activity.setXpGained(xp);
+                activity.setBronzeGained(bronze);
+                warriorService.addExperience(w, xp);
+                warriorRepository.save(w);
+                player.addBronzeAmount(bronze);
+                playerRepository.save(player);
+            });
         }
 
         // Libera o guerreiro
