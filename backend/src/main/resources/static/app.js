@@ -2692,14 +2692,19 @@ function renderKingdomDetail(kingdom, quests, activeQuests, training, gatherSess
     const skillType = kingdom === 'FISHING' ? 'FISHING' : 'MINING';
     const wLevel    = warrior ? warrior.level : 1;
 
+    // All zones use /api/gathering/start (max 60min). PvP risk = cosmetic for now.
+    const fishDurations = [5, 10, 20, 30, 40];
+    const mineDurations = [10, 20, 30, 45, 60];
+    const dur = kingdom === 'FISHING' ? fishDurations : mineDurations;
+
     const zones = kingdom === 'FISHING' ? [
-      { name:'🏖 Safe Shore',   minLv:1,  pvp:false, durations:[5,10,20,30,40],    zone:null,        color:'#4caf50', desc:'Safe fishing — no PvP' },
-      { name:'🌊 Wild Coast',   minLv:10, pvp:true,  durations:[30,60,180,360,720], zone:'PVP',       color:'#ffc107', desc:'PvP zone — hunters may attack' },
-      { name:'🦈 Deep Sea',     minLv:20, pvp:true,  durations:[30,60,180,360,720], zone:'HIGH_RISK', color:'#ef5350', desc:'High risk — rare fish, PvP + monsters. Items at stake!' }
+      { name:'🏖 Safe Shore', minLv:1,  pvp:false, durations:dur, color:'#4caf50', desc:'Safe fishing — no PvP' },
+      { name:'🌊 Wild Coast', minLv:10, pvp:true,  durations:dur, color:'#ffc107', desc:'PvP zone — hunters may attack (coming soon)' },
+      { name:'🦈 Deep Sea',   minLv:20, pvp:true,  durations:dur, color:'#ef5350', desc:'High risk — rare fish (coming soon)' }
     ] : [
-      { name:'⛏ Open Mine',      minLv:1,  pvp:false, durations:[10,20,30,45,60],    zone:null,        color:'#4caf50', desc:'Safe mining — no PvP' },
-      { name:'🪨 Deep Tunnels',  minLv:10, pvp:true,  durations:[30,60,180,360,720], zone:'PVP',       color:'#ffc107', desc:'PvP zone — hunters may attack' },
-      { name:'💎 Forbidden Mines',minLv:20, pvp:true,  durations:[30,60,180,360,720], zone:'HIGH_RISK', color:'#ef5350', desc:'High risk — rare ores, PvP + monsters. Items at stake!' }
+      { name:'⛏ Open Mine',       minLv:1,  pvp:false, durations:dur, color:'#4caf50', desc:'Safe mining — no PvP' },
+      { name:'🪨 Deep Tunnels',   minLv:10, pvp:true,  durations:dur, color:'#ffc107', desc:'PvP zone — hunters may attack (coming soon)' },
+      { name:'💎 Forbidden Mines', minLv:20, pvp:true,  durations:dur, color:'#ef5350', desc:'High risk — rare ores (coming soon)' }
     ];
 
     // Let backend decide if warrior is free — frontend only locks by level
@@ -2716,9 +2721,8 @@ function renderKingdomDetail(kingdom, quests, activeQuests, training, gatherSess
             : `<div style="display:flex;gap:5px;flex-wrap:wrap">
             ${z.durations.map(d => {
               const label = d >= 60 ? (d/60)+'h' : d+'min';
-              const onclick = z.zone
-                ? `enterKingdomZone('${z.zone}','${skillType}',${d})`
-                : `startKingdomGathering('${skillType}',${d})`;
+              // All zones use the same gathering API — PvP risk is cosmetic for now
+              const onclick = `startKingdomGathering('${skillType}',${d})`;
               return `<button onclick="${onclick}" style="font-size:11px;padding:3px 8px">${label}</button>`;
             }).join('')}
           </div>`}
