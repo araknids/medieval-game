@@ -119,9 +119,16 @@ calibrados; o problema da economia é **renda escalável sem trava + impressoras
 
 ## Backlog — Tarefas dedicadas (decididas, fora da rodada atual)
 
-### BL-1 — Redesenho da resolução PvP de emboscada (origem: A8)
+### BL-1 — Redesenho da resolução PvP de emboscada (origem: A8) — ✅ RESOLVIDO (2026-06-03, Opção 2)
 
-**Decisão (2026-06-03):** adiado como tarefa dedicada. A emboscada **já é segura** (C3 garante
+**Resolução:** implementada a **Opção 2 (retry transparente no servidor)**. `ZoneCollectCoordinator`
+(bean separado → transação nova por tentativa, padrão A7) refaz o `collect` sob
+`OptimisticLockingFailureException` (até 3×, backoff 50ms, **recarregando o Player fresco a cada
+tentativa** pra não repetir o conflito com versão velha). Esgotando, relança → 409 (retry do cliente é a
+rede final). O resultado da emboscada continua **imediato** (modal de hoje); a Opção 3 (por mail) fica
+para o futuro, se quisermos resolução assíncrona. Coberto por `ZoneCollectCoordinatorTest`.
+
+**Histórico — decisão (2026-06-03):** adiado como tarefa dedicada. A emboscada **já é segura** (C3 garante
 que não há corrupção; um conflito vira 409 + rollback, recuperável por retry). O que falta é
 **não falhar o request do jogador sob concorrência**.
 

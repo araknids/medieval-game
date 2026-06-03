@@ -6,6 +6,7 @@ import com.medieval.game.enums.Zone;
 import com.medieval.game.model.Player;
 import com.medieval.game.model.ZoneActivity;
 import com.medieval.game.service.PlayerService;
+import com.medieval.game.service.ZoneCollectCoordinator;
 import com.medieval.game.service.ZoneService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -31,8 +32,9 @@ import java.util.Optional;
 @RequiredArgsConstructor
 public class ZoneController {
 
-    private final ZoneService   zoneService;
-    private final PlayerService playerService;
+    private final ZoneService             zoneService;
+    private final ZoneCollectCoordinator  zoneCollectCoordinator;
+    private final PlayerService           playerService;
 
     // Lista todas as zonas com info
     @GetMapping
@@ -87,8 +89,9 @@ public class ZoneController {
     // Coleta resultado da expedição
     @PostMapping("/{id}/collect")
     public ResponseEntity<?> collect(@PathVariable Long id, Authentication auth) {
-        Player player = getPlayer(auth);
-        ZoneService.CollectResult result = zoneService.collect(player, id);
+        // Retry transparente: a emboscada toca 2 linhas; sob concorrência refaz em transação nova. [BL-1]
+        ZoneService.CollectResult result =
+                zoneCollectCoordinator.collectWithRetry((Long) auth.getPrincipal(), id);
 
         var dropsResponse = result.drops().stream().map(d -> Map.of(
             "type",        d.type().name(),
