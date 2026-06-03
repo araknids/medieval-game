@@ -9,6 +9,11 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
+import jakarta.validation.Valid;
+import jakarta.validation.constraints.Min;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Size;
+
 import java.util.List;
 import java.util.Map;
 
@@ -56,7 +61,7 @@ public class GuildController {
 
     // ── Criar guilda ──────────────────────────────────────────────────────────
     @PostMapping
-    public ResponseEntity<?> create(@RequestBody CreateRequest req, Authentication auth) {
+    public ResponseEntity<?> create(@Valid @RequestBody CreateRequest req, Authentication auth) {
         Player player = getPlayer(auth);
         Guild guild = guildService.create(player, req.name(), req.description());
         return ResponseEntity.ok(toDetail(player, guild));
@@ -94,7 +99,7 @@ public class GuildController {
 
     // ── Doar bronze para a guilda ─────────────────────────────────────────────
     @PostMapping("/donate")
-    public ResponseEntity<?> donate(@RequestBody DonateRequest req, Authentication auth) {
+    public ResponseEntity<?> donate(@Valid @RequestBody DonateRequest req, Authentication auth) {
         Player player = getPlayer(auth);
         Guild guild = guildService.donate(player, req.amount());
         return ResponseEntity.ok(Map.of(
@@ -184,6 +189,6 @@ public class GuildController {
         );
     }
 
-    record CreateRequest(String name, String description) {}
-    record DonateRequest(long amount) {}
+    record CreateRequest(@NotBlank @Size(min = 3, max = 30) String name, @Size(max = 200) String description) {}
+    record DonateRequest(@Min(1) long amount) {}
 }

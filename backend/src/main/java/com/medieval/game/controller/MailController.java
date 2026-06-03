@@ -11,6 +11,11 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
+import jakarta.validation.Valid;
+import jakarta.validation.constraints.Min;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Size;
+
 import java.util.List;
 import java.util.Map;
 
@@ -42,7 +47,7 @@ public class MailController {
 
     // ── Send letter ───────────────────────────────────────────────────────────
     @PostMapping("/send")
-    public ResponseEntity<?> send(@RequestBody SendRequest req, Authentication auth) {
+    public ResponseEntity<?> send(@Valid @RequestBody SendRequest req, Authentication auth) {
         Player sender = getPlayer(auth);
         Mail mail = mailService.send(sender,
                 req.recipientWarriorName(), req.message(), req.goldAmount());
@@ -111,5 +116,6 @@ public class MailController {
         );
     }
 
-    record SendRequest(String recipientWarriorName, String message, long goldAmount) {}
+    record SendRequest(@NotBlank String recipientWarriorName, @NotBlank @Size(max = 500) String message,
+                       @Min(0) long goldAmount) {}
 }

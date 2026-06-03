@@ -13,6 +13,12 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
+import jakarta.validation.Valid;
+import jakarta.validation.constraints.Max;
+import jakarta.validation.constraints.Min;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
+
 import java.util.Arrays;
 import java.util.Map;
 
@@ -81,7 +87,7 @@ public class SmithingController {
 
     // Refinar ore → bar
     @PostMapping("/refine")
-    public ResponseEntity<?> refine(@RequestBody RefineRequest req, Authentication auth) {
+    public ResponseEntity<?> refine(@Valid @RequestBody RefineRequest req, Authentication auth) {
         Player player = getPlayer(auth);
         smithingService.refineOre(player, req.oreType(), req.quantity());
         return ResponseEntity.ok(Map.of("message",
@@ -90,7 +96,7 @@ public class SmithingController {
 
     // Craftar equipamento
     @PostMapping("/craft")
-    public ResponseEntity<?> craft(@RequestBody CraftRequest req, Authentication auth) {
+    public ResponseEntity<?> craft(@Valid @RequestBody CraftRequest req, Authentication auth) {
         Player player = getPlayer(auth);
         InventoryItem item = smithingService.craftEquipment(player, req.recipeId());
         return ResponseEntity.ok(Map.of(
@@ -101,7 +107,7 @@ public class SmithingController {
 
     // Craftar joia (3 fragmentos → 1 joia)
     @PostMapping("/gem")
-    public ResponseEntity<?> craftGem(@RequestBody GemRequest req, Authentication auth) {
+    public ResponseEntity<?> craftGem(@Valid @RequestBody GemRequest req, Authentication auth) {
         Player player = getPlayer(auth);
         smithingService.craftGem(player, req.fragmentType());
         return ResponseEntity.ok(Map.of("message", "Joia criada com sucesso!"));
@@ -171,7 +177,7 @@ public class SmithingController {
         };
     }
 
-    record RefineRequest(ResourceType oreType, int quantity) {}
-    record CraftRequest(String recipeId) {}
-    record GemRequest(ResourceType fragmentType) {}
+    record RefineRequest(@NotNull ResourceType oreType, @Min(1) @Max(100000) int quantity) {}
+    record CraftRequest(@NotBlank String recipeId) {}
+    record GemRequest(@NotNull ResourceType fragmentType) {}
 }

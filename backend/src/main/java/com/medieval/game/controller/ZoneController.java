@@ -13,6 +13,11 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
+import jakarta.validation.Valid;
+import jakarta.validation.constraints.Max;
+import jakarta.validation.constraints.Min;
+import jakarta.validation.constraints.NotNull;
+
 import java.time.LocalDateTime;
 import java.time.temporal.ChronoUnit;
 import java.util.Arrays;
@@ -64,7 +69,7 @@ public class ZoneController {
 
     // Entra numa zona
     @PostMapping("/enter")
-    public ResponseEntity<?> enter(@RequestBody EnterRequest req, Authentication auth) {
+    public ResponseEntity<?> enter(@Valid @RequestBody EnterRequest req, Authentication auth) {
         try {
             Player player = getPlayer(auth);
             log.info("[ZONE-ENTER] player={} zone={} role={} skill={} duration={}min",
@@ -158,5 +163,6 @@ public class ZoneController {
         );
     }
 
-    record EnterRequest(Zone zone, ActivityRole role, SkillType skillType, int durationMinutes) {}
+    record EnterRequest(@NotNull Zone zone, @NotNull ActivityRole role, SkillType skillType,
+                        @Min(30) @Max(720) int durationMinutes) {}
 }

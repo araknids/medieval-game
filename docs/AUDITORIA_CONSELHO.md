@@ -140,10 +140,10 @@ aparecendo **na hora do collect** (modal) ou pode chegar **por mail / no próxim
 - "Na hora" → Opção 1 ou 2.
 - "Por mail" → Opção 3 (a mais limpa de verdade).
 
-### BL-2 — Unificar Kingdom × Territory (origem: M10)
-`Kingdom` e `Territory` representam a mesma coisa (mapeamento 1:1) com `displayName` duplicado.
-Refactor de clareza (sem bug): fazer `Kingdom` derivar nomes de `Territory` ou fundir. Toca enums +
-`KingdomService`/`TerritoryService` + controllers. **Risco moderado, valor = manutenção.** Não rushar.
+### BL-2 — Unificar Kingdom × Territory (origem: M10) — ✅ RESOLVIDO (2026-06-03)
+Feito na **Fase 1 do Reinos V2**: o enum `Territory` foi **removido** e fundido em `Kingdom`
+(território == reino). `TerritoryService`/controle/declaração/scheduler/controller passaram a operar
+em `Kingdom` + flag `app.kingdoms.war-territories`. Commit `3179c37`.
 
 ### BL-3 — Migração de schema com Flyway/Liquibase (origem: M12)
 Hoje: `ddl-auto=update` + `SchemaMigrator` caseiro (já robusto, por-coluna). Flyway daria migrações
@@ -158,15 +158,20 @@ ANTES do cliente Godot** (contrato estável). Mas é grande e o versionamento qu
 não for coordenado. Inclui: limpar campo legado `evasionChance`→`armorClass` (B3) e endurecer CSP (B1).
 **Tarefa dedicada, idealmente junto do início do trabalho do cliente Godot.**
 
-### BL-5 — `@Valid` nos DTOs restantes (origem: M8) — *baixa prioridade*
-Padronizar Bean Validation (`@Valid` + `@Min/@Max/@Size`) em Smithing/Zone/Mail/Guild DTOs. O pior caso
-(quantidade negativa no refino → impressão de dinheiro) **já foi blindado no C2**; o resto é defesa em
-profundidade. Risco de quebrar testes com payloads de borda — fazer com calma.
+### BL-5 — `@Valid` nos DTOs restantes (origem: M8) — ✅ RESOLVIDO (2026-06-03)
+Bean Validation aplicado nos DTOs de Smithing/Zone/Mail/Guild:
+- `RefineRequest` `@NotNull oreType` + `@Min(1) @Max(100000) quantity`; `CraftRequest` `@NotBlank recipeId`; `GemRequest` `@NotNull fragmentType`
+- `EnterRequest` `@NotNull zone/role` + `@Min(30) @Max(720) durationMinutes` (skillType segue nullable — exigido só p/ GATHERING no service)
+- `SendRequest` `@NotBlank recipientWarriorName` + `@NotBlank @Size(max=500) message` + `@Min(0) goldAmount`
+- `CreateRequest` `@NotBlank @Size(3..30) name` + `@Size(max=200) description`; `DonateRequest` `@Min(1) amount`
 
-### BL-6 — Generalizar check-constraints de enum (origem: M2) — *baixa prioridade*
-Hoje só `zone_activities_role_check` é recriado. Outros enums `STRING` quebrariam inserts ao ganhar valor
-novo. Opções: dropar os `*_check` (deixar o app validar) ou recriar a partir de `Enum.values()`. Valor
-imediato baixo (a abordagem ad-hoc por-constraint funciona). Risco em prod ao dropar/recriar constraints.
+Erros viram 400 via `GlobalExceptionHandler.handleValidation`. Coberto por `DtoValidationTest` (8 casos). Defesa em profundidade; o pior caso (refino negativo) já era blindado no C2 no nível do service.
+
+### BL-6 — Generalizar check-constraints de enum (origem: M2) — ✅ RESOLVIDO (2026-06-03)
+Resolvido via `SchemaMigrator.dropStaleEnumCheckConstraints()` (commit `59db855`): no boot, dropa
+genericamente os `*_check` das colunas de enum que ganharam valores (skill_type, resource_type,
+quest_type, kingdom, territory) — o app (JPA) valida o enum. Surgiu do fix do GARIMPO em prod.
+*Obs.:* cobre as tabelas conhecidas; um enum `STRING` novo em outra tabela ainda precisaria entrar na lista.
 
 ---
 
