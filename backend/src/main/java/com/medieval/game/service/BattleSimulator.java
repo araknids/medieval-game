@@ -133,15 +133,17 @@ public class BattleSimulator {
                 if (total >= oAc || isCrit) {
                     int dmg = Math.max(1, cAtk - oDef);
                     String bodyPart = BODY_PARTS[rng.nextInt(BODY_PARTS.length)];
+                    int oAfter = Math.max(0, oCurrentHp - dmg);
                     if (isCrit) {
                         dmg *= 2;
+                        oAfter = Math.max(0, oCurrentHp - dmg);
                         log.add("  💥 " + cName + " " + CRIT_TEXTS[rng.nextInt(CRIT_TEXTS.length)]
-                                + " " + bodyPart + " of " + oName + "! [-" + dmg + " HP] ❤ "
-                                + Math.max(0, oCurrentHp - dmg));
+                                + " " + bodyPart + " of " + oName + "! [-" + dmg + " HP]"
+                                + " " + oName + " ❤ " + oAfter + "/" + oHp);
                     } else {
                         log.add("  " + cName + " " + HIT_TEXTS[rng.nextInt(HIT_TEXTS.length)]
-                                + " " + bodyPart + " of " + oName + "! [-" + dmg + " HP] ❤ "
-                                + Math.max(0, oCurrentHp - dmg));
+                                + " " + bodyPart + " of " + oName + "! [-" + dmg + " HP]"
+                                + " " + oName + " ❤ " + oAfter + "/" + oHp);
                     }
                     oCurrentHp -= dmg;
                 } else {
@@ -163,16 +165,17 @@ public class BattleSimulator {
                 }
                 if (total >= cAc || isCrit) {
                     int dmg = Math.max(1, oAtk - cDef);
+                    if (isCrit) dmg *= 2;
                     String bodyPart = BODY_PARTS[rng.nextInt(BODY_PARTS.length)];
+                    int cAfter = Math.max(0, cCurrentHp - dmg);
                     if (isCrit) {
-                        dmg *= 2;
                         log.add("  💥 " + oName + " " + CRIT_TEXTS[rng.nextInt(CRIT_TEXTS.length)]
-                                + " " + bodyPart + " of " + cName + "! [-" + dmg + " HP] ❤ "
-                                + Math.max(0, cCurrentHp - dmg));
+                                + " " + bodyPart + " of " + cName + "! [-" + dmg + " HP]"
+                                + " " + cName + " ❤ " + cAfter + "/" + cHp);
                     } else {
                         log.add("  " + oName + " " + ENEMY_HIT_TEXTS[rng.nextInt(ENEMY_HIT_TEXTS.length)]
-                                + " " + bodyPart + " of " + cName + "! [-" + dmg + " HP] ❤ "
-                                + Math.max(0, cCurrentHp - dmg));
+                                + " " + bodyPart + " of " + cName + "! [-" + dmg + " HP]"
+                                + " " + cName + " ❤ " + cAfter + "/" + cHp);
                     }
                     cCurrentHp -= dmg;
                 } else {
