@@ -2,7 +2,6 @@ package com.medieval.game.service;
 
 import com.medieval.game.enums.MatchStatus;
 import com.medieval.game.model.ArenaMatch;
-import com.medieval.game.model.InventoryItem;
 import com.medieval.game.model.Player;
 import com.medieval.game.model.Warrior;
 import com.medieval.game.repository.ArenaMatchRepository;
@@ -31,6 +30,7 @@ public class ArenaService {
     private final PlayerService        playerService;
     private final BattleSimulator      battleSimulator;
     private final VipService           vipService;
+    private final WarriorStatsService  statsService;
 
     @Value("${app.dev.instant-complete:false}")
     private boolean instantComplete;
@@ -197,20 +197,8 @@ public class ArenaService {
     }
 
     private int[] totalStats(Player player, Warrior warrior) {
-        List<InventoryItem> equipped = inventoryService.getInventory(player)
-                .stream().filter(InventoryItem::isEquipped).toList();
-        int bonusAtk = equipped.stream().mapToInt(InventoryItem::getEffectiveAttack).sum();
-        int bonusDef = equipped.stream().mapToInt(InventoryItem::getEffectiveDefense).sum();
-        int bonusHp  = equipped.stream().mapToInt(InventoryItem::getEffectiveHealth).sum();
-        // d20 system: [atk, def, hp, dex, strBonus, luk]
-        return new int[]{
-            warrior.getTotalBaseAttack()  + bonusAtk,
-            warrior.getTotalBaseDefense() + bonusDef,
-            warrior.getTotalBaseHealth()  + bonusHp,
-            warrior.getDexterity(),   // [3] dex → AC = 10 + dex
-            warrior.getAttackBonus(), // [4] floor(STR/20)
-            warrior.getLuck()         // [5] luk → crit window + Fortune Save
-        };
+        // base + atributos + itens equipados + joias (fonte única) [AUDITORIA A1/A9]
+        return statsService.combatStats(player, warrior);
     }
 
     private int[] npcStats() {

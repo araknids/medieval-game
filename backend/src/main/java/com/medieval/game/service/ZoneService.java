@@ -29,6 +29,7 @@ public class ZoneService {
     private final WarriorService           warriorService;
     private final MailService              mailService;
     private final InventoryService         inventoryService;
+    private final WarriorStatsService      statsService;
 
     @Value("${app.dev.instant-complete:false}")
     private boolean instantComplete;
@@ -546,14 +547,9 @@ public class ZoneService {
         return new int[]{atk, def, hp, dex, strBonus, luk};
     }
 
-    /** Returns [atk, def, hp, dex, strBonus, luk] for d20 simulate(). */
+    /** Returns [atk, def, hp, dex, strBonus, luk] for d20 simulate(). [AUDITORIA A1/A9] */
     private int[] getWarriorStats(Warrior w, Player player) {
-        List<InventoryItem> equipped = inventoryRepository.findAllByPlayer(player)
-                .stream().filter(InventoryItem::isEquipped).toList();
-        int atk = w.getTotalBaseAttack()  + equipped.stream().mapToInt(InventoryItem::getEffectiveAttack).sum();
-        int def = w.getTotalBaseDefense() + equipped.stream().mapToInt(InventoryItem::getEffectiveDefense).sum();
-        int hp  = w.getTotalBaseHealth()  + equipped.stream().mapToInt(InventoryItem::getEffectiveHealth).sum();
-        return new int[]{atk, def, hp, w.getDexterity(), w.getAttackBonus(), w.getLuck()};
+        return statsService.combatStats(player, w);
     }
 
     private String maybeDropEquippedItem(Player player) {

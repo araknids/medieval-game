@@ -1,20 +1,17 @@
 package com.medieval.game.controller;
 
 import com.medieval.game.enums.Attribute;
-import com.medieval.game.model.InventoryItem;
 import com.medieval.game.model.Player;
 import com.medieval.game.model.Warrior;
-import com.medieval.game.service.InventoryService;
 import com.medieval.game.service.PlayerService;
-import com.medieval.game.service.SmithingService;
 import com.medieval.game.service.WarriorService;
+import com.medieval.game.service.WarriorStatsService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.Arrays;
-import java.util.List;
 import java.util.Map;
 
 @RestController
@@ -22,10 +19,9 @@ import java.util.Map;
 @RequiredArgsConstructor
 public class WarriorController {
 
-    private final WarriorService    warriorService;
-    private final PlayerService     playerService;
-    private final InventoryService  inventoryService;
-    private final SmithingService   smithingService;
+    private final WarriorService     warriorService;
+    private final PlayerService      playerService;
+    private final WarriorStatsService statsService;
 
     @GetMapping
     public ResponseEntity<WarriorResponse> getMyWarrior(Authentication auth) {
@@ -68,21 +64,11 @@ public class WarriorController {
     // ── Helper ──
 
     private WarriorResponse buildResponse(Warrior warrior, Player player) {
-        List<InventoryItem> equipped = inventoryService.getInventory(player)
-                .stream().filter(InventoryItem::isEquipped).toList();
-
-        int bonusAtk = equipped.stream().mapToInt(InventoryItem::getEffectiveAttack).sum();
-        int bonusDef = equipped.stream().mapToInt(InventoryItem::getEffectiveDefense).sum();
-        int bonusHp  = equipped.stream().mapToInt(InventoryItem::getEffectiveHealth).sum();
-
-        // Soma bônus das joias encaixadas nos itens equipados (item quebrado não conta)
-        for (InventoryItem item : equipped) {
-            if (item.isBroken()) continue;
-            SmithingService.GemBonus gem = smithingService.totalGemBonus(item);
-            bonusAtk += gem.atk();
-            bonusDef += gem.def();
-            bonusHp  += gem.hp();
-        }
+        // Bônus de itens equipados + joias (fonte única, mesmo cálculo do combate) [AUDITORIA A1/A9]
+        WarriorStatsService.ItemBonus ib = statsService.equippedItemBonus(player);
+        int bonusAtk = ib.atk();
+        int bonusDef = ib.def();
+        int bonusHp  = ib.hp();
 
         // Buff ativo
         int buffAtk = 0, buffDef = 0, buffHp = 0, buffEva = 0;

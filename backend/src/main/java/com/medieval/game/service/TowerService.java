@@ -18,10 +18,10 @@ public class TowerService {
 
     private final TowerRunRepository      towerRunRepository;
     private final WarriorRepository       warriorRepository;
-    private final InventoryItemRepository inventoryRepository;
     private final PlayerRepository        playerRepository;
     private final BattleSimulator         battleSimulator;
     private final InventoryService        inventoryService;
+    private final WarriorStatsService     statsService;
 
     private static final int STAMINA_COST = 25;
 
@@ -128,18 +128,13 @@ public class TowerService {
         int floor = run.getCurrentFloor();
         BossInfo boss = bossForFloor(floor);
 
-        // Stats do guerreiro (base + atributos + itens)
+        // Stats do guerreiro (base + atributos + itens + joias — fonte única) [AUDITORIA A1/A9]
         Warrior warrior = warriorRepository.findByPlayer(player)
                 .orElseThrow(() -> new IllegalStateException("Warrior not found"));
 
-        List<InventoryItem> equipped = inventoryRepository.findAllByPlayer(player).stream()
-                .filter(InventoryItem::isEquipped).toList();
-
-        int wAtk = warrior.getTotalBaseAttack()  + equipped.stream().mapToInt(InventoryItem::getEffectiveAttack).sum();
-        int wDef = warrior.getTotalBaseDefense() + equipped.stream().mapToInt(InventoryItem::getEffectiveDefense).sum();
-        int wHp  = warrior.getTotalBaseHealth()  + equipped.stream().mapToInt(InventoryItem::getEffectiveHealth).sum();
+        int[] s = statsService.combatStats(player, warrior);
         List<String> battleLog = battleSimulator.simulate(
-            warrior.getName(), wAtk, wDef, wHp, warrior.getDexterity(), warrior.getAttackBonus(), warrior.getLuck(),
+            warrior.getName(), s[0], s[1], s[2], s[3], s[4], s[5],
             boss.name(), boss.attack(), boss.defense(), boss.health(), boss.dex(), boss.strBonus(), boss.luk()
         );
 
