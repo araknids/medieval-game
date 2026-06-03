@@ -51,10 +51,10 @@ class ZoneAmbushIntegrationTest extends BaseIntegrationTest {
         return warriorRepository.findByPlayer(p).orElseThrow();
     }
 
-    // ── TC-212: Peixe Lendário cura HP para 100% ──
+    // ── TC-212: Peixe Lendário cura HP só até o teto de 50% [AUDITORIA A5] ──
     @Test
-    @DisplayName("TC-212 | Consume LEGENDARY_FISH → HP restored to 100%")
-    void tc212_legendaryFish_fullHeal() throws Exception {
+    @DisplayName("TC-212 | Consume LEGENDARY_FISH a 20% → HP capado em 50%")
+    void tc212_legendaryFish_cappedAt50() throws Exception {
         Player player = playerOf("amb");
         Warrior w = warriorOf(player);
         w.setCurrentHpSnapshot(20);
@@ -65,16 +65,16 @@ class ZoneAmbushIntegrationTest extends BaseIntegrationTest {
         mockMvc.perform(post("/api/gathering/consume/LEGENDARY_FISH")
                         .header("Authorization", bearer(token)))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.newHpPercent").value(100));
+                .andExpect(jsonPath("$.newHpPercent").value(50));
     }
 
-    // ── TC-213: Peixe Pequeno cura +5% HP ──
+    // ── TC-213: Peixe Pequeno cura +5% HP quando abaixo do teto ──
     @Test
-    @DisplayName("TC-213 | Consume SMALL_FISH → +5% HP")
+    @DisplayName("TC-213 | Consume SMALL_FISH a 30% → +5% HP")
     void tc213_smallFish_heals5pct() throws Exception {
         Player player = playerOf("amb");
         Warrior w = warriorOf(player);
-        w.setCurrentHpSnapshot(50);
+        w.setCurrentHpSnapshot(30);
         w.setHpUpdatedAt(java.time.LocalDateTime.now());
         warriorRepository.save(w);
         gatheringService.addResource(player, ResourceType.SMALL_FISH, 1);
@@ -82,7 +82,7 @@ class ZoneAmbushIntegrationTest extends BaseIntegrationTest {
         mockMvc.perform(post("/api/gathering/consume/SMALL_FISH")
                         .header("Authorization", bearer(token)))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.newHpPercent").value(greaterThanOrEqualTo(55)));
+                .andExpect(jsonPath("$.newHpPercent").value(greaterThanOrEqualTo(35)));
     }
 
     // ── TC-214: GET /api/zones/current expõe campos de emboscada ──

@@ -22,6 +22,7 @@ public class TowerService {
     private final BattleSimulator         battleSimulator;
     private final InventoryService        inventoryService;
     private final WarriorStatsService     statsService;
+    private final PlayerService           playerService;
 
     private static final int STAMINA_COST = 25;
 
@@ -127,6 +128,17 @@ public class TowerService {
 
         int floor = run.getCurrentFloor();
         BossInfo boss = bossForFloor(floor);
+
+        // Taxa de subida (sink escalável) — a Torre deixa de ser renda pura. [AUDITORIA A3]
+        // Custo = floor × 15. Vitória rende floor × 40 (líquido floor × 25); derrota custa a taxa.
+        long climbCost = (long) floor * 15;
+        if (player.totalBronze() < climbCost) {
+            log.warn("[TowerService] player={} REJECTED: bronze insuficiente para subir (have={} need={})",
+                    player.getId(), player.totalBronze(), climbCost);
+            throw new IllegalStateException("Bronze insuficiente para enfrentar o andar " + floor
+                    + " (custo " + climbCost + " bronze).");
+        }
+        playerService.spendBronze(player, climbCost);
 
         // Stats do guerreiro (base + atributos + itens + joias — fonte única) [AUDITORIA A1/A9]
         Warrior warrior = warriorRepository.findByPlayer(player)

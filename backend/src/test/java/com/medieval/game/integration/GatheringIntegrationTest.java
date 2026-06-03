@@ -122,7 +122,7 @@ class GatheringIntegrationTest extends BaseIntegrationTest {
         player.setStaminaUpdatedAt(java.time.LocalDateTime.now());
         playerRepository.save(player);
         Warrior w = warriorRepository.findByPlayer(player).orElseThrow();
-        w.setCurrentHpSnapshot(50);
+        w.setCurrentHpSnapshot(30);
         w.setHpUpdatedAt(java.time.LocalDateTime.now());
         warriorRepository.save(w);
 
@@ -132,7 +132,7 @@ class GatheringIntegrationTest extends BaseIntegrationTest {
                         .header("Authorization", bearer(token)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.newStamina").value(75))      // 50 + 25
-                .andExpect(jsonPath("$.newHpPercent").value(65));   // 50 + 15
+                .andExpect(jsonPath("$.newHpPercent").value(45));   // 30 + 15, abaixo do teto 50 [AUDITORIA A5]
     }
 
     // ── TC-237: consumeFish stamina não ultrapassa 100 ──

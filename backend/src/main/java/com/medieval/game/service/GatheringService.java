@@ -17,6 +17,9 @@ import java.util.*;
 @RequiredArgsConstructor
 public class GatheringService {
 
+    // Teto de HP que a cura por peixe alcança (resto exige Templo/regen). [AUDITORIA A5]
+    private static final int FISH_HP_CAP = 50;
+
     private final GatheringSessionRepository  sessionRepository;
     private final SkillLevelRepository        skillRepository;
     private final ResourceInventoryRepository resourceRepository;
@@ -231,14 +234,17 @@ public class GatheringService {
         player.setStaminaUpdatedAt(LocalDateTime.now());
         playerRepository.save(player);
 
-        // Restore HP on the warrior (capped at 100%)
+        // Restaura HP do guerreiro, mas só até 50% — recuperação de emergência.
+        // O restante (50→100%) exige Templo (sink pago) ou regen natural, para que a
+        // cura por peixe não anule o sink de cura no late-game. [AUDITORIA A5]
         int newHp = warriorRepository.findByPlayer(player).map(w -> {
-            int restored = Math.min(100, w.getCalculatedHpPercent() + hpHeal);
+            int cur = w.getCalculatedHpPercent();
+            int restored = cur >= FISH_HP_CAP ? cur : Math.min(FISH_HP_CAP, cur + hpHeal);
             w.setCurrentHpSnapshot(restored);
             w.setHpUpdatedAt(LocalDateTime.now());
             warriorRepository.save(w);
             return restored;
-        }).orElse(100);
+        }).orElse(FISH_HP_CAP);
 
         log.info("[GatheringService] player={} action=consumeFish fish={} stamina={} hp={}",
                 player.getId(), fishType, newStamina, newHp);

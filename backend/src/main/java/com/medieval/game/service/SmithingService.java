@@ -249,7 +249,7 @@ public class SmithingService {
     }
 
     // ── Reforjar item: re-rola os stats mantendo a raridade (sink econômico) ──
-    // Custo = raridade² × 200 bronze.
+    // Custo = raridade³ × 500 bronze (encarecido para conter re-roll abusivo). [AUDITORIA A4]
     @Transactional
     public InventoryItem reforgeItem(Player player, Long itemId) {
         log.info("[SmithingService] player={} action=reforgeItem itemId={}", player.getId(), itemId);
@@ -260,9 +260,10 @@ public class SmithingService {
             throw new IllegalStateException("Item does not belong to you");
         }
 
-        int rarity = item.getRarity();
-        long cost = (long) rarity * rarity * 200;
+        long cost = reforgeCost(item);
         playerService.spendBronze(player, cost);
+
+        int rarity = item.getRarity();
 
         // Re-rola os stats com a mesma distribuição usada na geração de drops
         java.util.Random rng = new java.util.Random();
@@ -286,9 +287,10 @@ public class SmithingService {
         return saved;
     }
 
-    /** Custo de reforja (raridade² × 200) — para exibição/validação. */
+    /** Custo de reforja (raridade³ × 500) — para exibição/validação. [AUDITORIA A4] */
     public long reforgeCost(InventoryItem item) {
-        return (long) item.getRarity() * item.getRarity() * 200;
+        long r = item.getRarity();
+        return r * r * r * 500;
     }
 
     // ── Calcula bonus total de joias de um item ──

@@ -215,7 +215,8 @@ public class ZoneService {
                 double hours  = activity.getDurationMinutes() / 60.0;
                 double mult   = activity.getZone().multiplier;
                 long   xp     = Math.round(hours * mult * w.getLevel() * 20);
-                long   bronze = Math.round(hours * mult * w.getLevel() * 15);
+                // bronze de combate reduzido (15→8/level) para conter inflação no late-game. [AUDITORIA A3]
+                long   bronze = Math.round(hours * mult * w.getLevel() * 8);
                 activity.setXpGained(xp);
                 activity.setBronzeGained(bronze);
                 warriorService.addExperience(w, xp);

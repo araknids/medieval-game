@@ -1496,7 +1496,7 @@ function renderGatheringTimer() {
 
 // ── FORJA ──
 function repairCostFor(item) { return (100 - (item.durability ?? 100)) * item.rarity * 5; }
-function reforgeCostFor(item) { return item.rarity * item.rarity * 200; }
+function reforgeCostFor(item) { return item.rarity * item.rarity * item.rarity * 500; }
 
 async function renderSmithing() {
   const smithSkill = getSkill('SMITHING');
