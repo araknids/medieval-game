@@ -7,8 +7,10 @@ import org.junit.jupiter.api.Test;
 
 import static org.assertj.core.api.Assertions.*;
 
-// TC-020-022 — GatheringService: Pesca e Stamina
-@DisplayName("TC-020-022 | GatheringService — Pesca e Stamina")
+// TC-020-022 — GatheringService: valores esperados de pesca/stamina (referência).
+// A validação REAL do consumeFish (stamina + HP, via endpoint) está em
+// GatheringIntegrationTest TC-236-238 e ZoneAmbushIntegrationTest TC-212-213.
+@DisplayName("TC-020-022 | GatheringService — Pesca e Stamina (valores de referência)")
 class GatheringServiceTest {
 
     // ── TC-020: Peixe por nível de pesca ──

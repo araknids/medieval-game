@@ -1,8 +1,16 @@
 package com.medieval.game.integration;
 
+import com.medieval.game.enums.ItemType;
+import com.medieval.game.model.InventoryItem;
+import com.medieval.game.model.Mail;
+import com.medieval.game.model.Player;
+import com.medieval.game.repository.PlayerRepository;
+import com.medieval.game.service.InventoryService;
+import com.medieval.game.service.MailService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.MediaType;
 
 import java.util.Map;
@@ -11,9 +19,13 @@ import static org.hamcrest.Matchers.*;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
-// TC-134 to TC-141 — Mail System
-@DisplayName("TC-134-141 | Mail System")
+// TC-134 to TC-141 — Mail System; TC-232-235 — Item overflow (bag-full → mail → claim)
+@DisplayName("TC-134-141,232-235 | Mail System")
 class MailIntegrationTest extends BaseIntegrationTest {
+
+    @Autowired MailService      mailService;
+    @Autowired InventoryService inventoryService;
+    @Autowired PlayerRepository playerRepository;
 
     String senderToken;
     String recipientToken;
@@ -26,6 +38,12 @@ class MailIntegrationTest extends BaseIntegrationTest {
         recipientWarriorName = "Guerreiro " + recipientUser; // set by registerAndGetToken
         senderToken    = registerAndGetToken(senderUser);
         recipientToken = registerAndGetToken(recipientUser);
+    }
+
+    private Player recipientPlayer() {
+        return playerRepository.findAll().stream()
+                .filter(p -> p.getUsername().startsWith("recip"))
+                .reduce((a, b) -> b.getId() > a.getId() ? b : a).orElseThrow();
     }
 
     // TC-134: Inbox returns empty for new player
@@ -176,5 +194,79 @@ class MailIntegrationTest extends BaseIntegrationTest {
 
         mockMvc.perform(get("/api/mail/inbox").header("Authorization", bearer(recipientToken)))
                 .andExpect(jsonPath("$.letters", hasSize(0)));
+    }
+
+    // ── TC-232: sendItemMail cria carta com item anexado (hasItem) ──
+    @Test
+    @DisplayName("TC-232 | Item mail appears in inbox with hasItem=true")
+    void tc232_itemMail_hasItem() throws Exception {
+        Player recip = recipientPlayer();
+        mailService.sendItemMail(recip, "Bag cheia teste.",
+                "Anel de Teste", ItemType.RING, 5, 0, 0, 2, 0, "lore", "origin");
+
+        mockMvc.perform(get("/api/mail/inbox").header("Authorization", bearer(recipientToken)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.letters[0].hasItem").value(true))
+                .andExpect(jsonPath("$.letters[0].itemName").value("Anel de Teste"));
+    }
+
+    // ── TC-233: claim-item adiciona o item à bag ──
+    @Test
+    @DisplayName("TC-233 | claim-item adds item to bag and marks collected")
+    void tc233_claimItem_addsToBag() throws Exception {
+        Player recip = recipientPlayer();
+        Mail mail = mailService.sendItemMail(recip, "Drop.",
+                "Espada Reivindicada", ItemType.WEAPON, 8, 0, 0, 3, 0, "lore", "origin");
+        int bagBefore = inventoryService.bagSize(recip);
+
+        mockMvc.perform(post("/api/mail/" + mail.getId() + "/claim-item")
+                        .header("Authorization", bearer(recipientToken)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.itemName").value("Espada Reivindicada"));
+
+        assertBagGrew(recip, bagBefore);
+    }
+
+    // ── TC-234: claim-item duas vezes → segunda falha (já coletado) ──
+    @Test
+    @DisplayName("TC-234 | claim-item twice → second returns 400")
+    void tc234_claimItem_twice_fails() throws Exception {
+        Player recip = recipientPlayer();
+        Mail mail = mailService.sendItemMail(recip, "Drop.",
+                "Elmo Único", ItemType.HELMET, 0, 4, 0, 2, 0, "lore", "origin");
+
+        mockMvc.perform(post("/api/mail/" + mail.getId() + "/claim-item")
+                        .header("Authorization", bearer(recipientToken)))
+                .andExpect(status().isOk());
+
+        mockMvc.perform(post("/api/mail/" + mail.getId() + "/claim-item")
+                        .header("Authorization", bearer(recipientToken)))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error").value(containsString("collected")));
+    }
+
+    // ── TC-235: claim-item com bag cheia → 400 ──
+    @Test
+    @DisplayName("TC-235 | claim-item with full bag → 400")
+    void tc235_claimItem_bagFull_fails() throws Exception {
+        Player recip = recipientPlayer();
+        Mail mail = mailService.sendItemMail(recip, "Drop.",
+                "Anel Extra", ItemType.RING, 1, 0, 0, 1, 0, "lore", "origin");
+
+        // Fill bag to max (10 slots for non-VIP)
+        int max = recip.getMaxInventorySlots();
+        int current = inventoryService.bagSize(recip);
+        for (int i = current; i < max; i++) {
+            inventoryService.make(recip, "Filler" + i, ItemType.RING, 0, 0, 0, 1, 5);
+        }
+
+        mockMvc.perform(post("/api/mail/" + mail.getId() + "/claim-item")
+                        .header("Authorization", bearer(recipientToken)))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error").value(containsString("full")));
+    }
+
+    private void assertBagGrew(Player p, int before) {
+        org.assertj.core.api.Assertions.assertThat(inventoryService.bagSize(p)).isGreaterThan(before);
     }
 }

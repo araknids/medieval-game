@@ -33,14 +33,14 @@ class ZoneIntegrationTest extends BaseIntegrationTest {
                 .andExpect(jsonPath("$", hasSize(greaterThan(0))));
     }
 
-    // TC-093: POST /api/zones/enter (SAFE, HUNTING, 30 min) - expedicao criada
+    // TC-093: POST /api/zones/enter (SAFE, GATHERING/FISHING, 30 min) - expedicao criada
     @Test
-    @DisplayName("TC-093 | POST /api/zones/enter SAFE HUNTING 30min - id e zone presentes")
+    @DisplayName("TC-093 | POST /api/zones/enter SAFE GATHERING 30min - id e zone presentes")
     void tc093_enterZone_returnsActivity() throws Exception {
         mockMvc.perform(post("/api/zones/enter")
                         .header("Authorization", bearer(token))
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"zone\":\"SAFE\",\"role\":\"HUNTING\",\"durationMinutes\":30}"))
+                        .content("{\"zone\":\"SAFE\",\"role\":\"GATHERING\",\"skillType\":\"FISHING\",\"durationMinutes\":30}"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.id").isNumber())
                 .andExpect(jsonPath("$.zone").value("SAFE"));
@@ -58,7 +58,7 @@ class ZoneIntegrationTest extends BaseIntegrationTest {
         mockMvc.perform(post("/api/zones/enter")
                         .header("Authorization", bearer(token))
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"zone\":\"SAFE\",\"role\":\"HUNTING\",\"durationMinutes\":30}"))
+                        .content("{\"zone\":\"SAFE\",\"role\":\"GATHERING\",\"skillType\":\"FISHING\",\"durationMinutes\":30}"))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.error").isNotEmpty());
     }
@@ -70,7 +70,7 @@ class ZoneIntegrationTest extends BaseIntegrationTest {
         String enterResponse = mockMvc.perform(post("/api/zones/enter")
                         .header("Authorization", bearer(token))
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"zone\":\"SAFE\",\"role\":\"HUNTING\",\"durationMinutes\":30}"))
+                        .content("{\"zone\":\"SAFE\",\"role\":\"GATHERING\",\"skillType\":\"FISHING\",\"durationMinutes\":30}"))
                 .andExpect(status().isOk())
                 .andReturn().getResponse().getContentAsString();
 
@@ -91,7 +91,7 @@ class ZoneIntegrationTest extends BaseIntegrationTest {
         mockMvc.perform(post("/api/zones/enter")
                         .header("Authorization", bearer(token))
                         .contentType(org.springframework.http.MediaType.APPLICATION_JSON)
-                        .content("{\"zone\":\"SAFE\",\"role\":\"HUNTING\",\"durationMinutes\":30}"))
+                        .content("{\"zone\":\"SAFE\",\"role\":\"GATHERING\",\"skillType\":\"FISHING\",\"durationMinutes\":30}"))
                 .andExpect(status().isOk());
 
         // 2. Free the warrior (simulates freeIfStuck — should also cancel zone activity)
@@ -104,7 +104,7 @@ class ZoneIntegrationTest extends BaseIntegrationTest {
         mockMvc.perform(post("/api/zones/enter")
                         .header("Authorization", bearer(token))
                         .contentType(org.springframework.http.MediaType.APPLICATION_JSON)
-                        .content("{\"zone\":\"SAFE\",\"role\":\"HUNTING\",\"durationMinutes\":30}"))
+                        .content("{\"zone\":\"SAFE\",\"role\":\"GATHERING\",\"skillType\":\"FISHING\",\"durationMinutes\":30}"))
                 .andExpect(status().isOk());
     }
 
@@ -116,7 +116,7 @@ class ZoneIntegrationTest extends BaseIntegrationTest {
         mockMvc.perform(post("/api/zones/enter")
                         .header("Authorization", bearer(token))
                         .contentType(org.springframework.http.MediaType.APPLICATION_JSON)
-                        .content("{\"zone\":\"SAFE\",\"role\":\"HUNTING\",\"durationMinutes\":30}"))
+                        .content("{\"zone\":\"SAFE\",\"role\":\"GATHERING\",\"skillType\":\"FISHING\",\"durationMinutes\":30}"))
                 .andExpect(status().isOk());
 
         // 2. Free warrior (but zone activity stays IN_PROGRESS — orphaned state)
