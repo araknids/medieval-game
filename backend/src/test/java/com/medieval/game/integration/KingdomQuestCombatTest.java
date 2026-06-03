@@ -37,15 +37,24 @@ class KingdomQuestCombatTest extends BaseIntegrationTest {
                 .reduce((a, b) -> b.getId() > a.getId() ? b : a).orElseThrow();
     }
 
-    private void refillStamina(Player p) {
+    /** Reset determinístico antes de cada start: guerreiro livre + HP cheio + stamina cheia.
+     *  Evita flakiness por estado deixado pela iteração anterior (start exige warrior livre + stamina). */
+    private void resetForStart() {
+        Player p = player();
         p.setCurrentStamina(100);
         p.setStaminaUpdatedAt(LocalDateTime.now());
         playerRepository.save(p);
+        warriorRepository.findByPlayer(p).ifPresent(w -> {
+            w.setOnMission(false);
+            w.setCurrentHpSnapshot(100);
+            w.setHpUpdatedAt(LocalDateTime.now());
+            warriorRepository.save(w);
+        });
     }
 
     /** Inicia HUNT_SEA_MONSTER (FISHING, 90% de monstro) e coleta na hora; devolve o JSON do collect. */
     private JsonNode startAndCollect() throws Exception {
-        refillStamina(player());
+        resetForStart();
         String startResp = mockMvc.perform(post("/api/world/FISHING/quests/start")
                         .header("Authorization", bearer(token))
                         .contentType(MediaType.APPLICATION_JSON)
