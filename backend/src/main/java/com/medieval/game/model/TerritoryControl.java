@@ -31,6 +31,11 @@ public class TerritoryControl {
 
     private LocalDateTime dominantSince;
 
+    // Último ciclo (epoch/21600) cujas batalhas já foram resolvidas — torna o cron
+    // idempotente e permite reprocessar ciclos perdidos em downtime/deploy. [AUDITORIA A7]
+    @Column(columnDefinition = "bigint default 0")
+    private long lastResolvedCycleId = 0;
+
     // Debuff % applied to defenders in the NEXT battle = min(50, defenseStreak * 5)
     public int debuffPercent() {
         return Math.min(50, defenseStreak * 5);

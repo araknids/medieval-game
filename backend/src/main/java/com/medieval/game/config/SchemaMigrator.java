@@ -32,6 +32,17 @@ public class SchemaMigrator {
         patchZoneActivityAmbushColumns();
         patchInventoryItemDurabilityColumn();
         patchOptimisticLockVersionColumns();
+        patchTerritoryLastResolvedCycleColumn();
+    }
+
+    // territory_controls: add last_resolved_cycle_id (idempotent cron / catch-up)
+    private void patchTerritoryLastResolvedCycleColumn() {
+        try {
+            jdbc.execute("ALTER TABLE territory_controls ADD COLUMN IF NOT EXISTS last_resolved_cycle_id bigint NOT NULL DEFAULT 0");
+            log.info("[SchemaMigrator] territory_controls last_resolved_cycle_id column ensured");
+        } catch (Exception e) {
+            log.warn("[SchemaMigrator] territory_controls last_resolved_cycle_id patch failed: {}", e.getMessage());
+        }
     }
 
     // zone_activities: add ambush PvP columns (each column independently — robust)

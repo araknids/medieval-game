@@ -6,7 +6,6 @@ import com.medieval.game.model.TerritoryDeclaration.DeclarationStatus;
 import com.medieval.game.repository.*;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -124,21 +123,42 @@ public class TerritoryService {
     }
 
     // ── Scheduled Battle Resolution ───────────────────────────────────────────
+    // O agendamento (cron + catch-up no boot) fica em TerritoryScheduler, que chama
+    // os métodos abaixo via proxy (cross-bean) para que cada território seja resolvido
+    // em sua PRÓPRIA transação (isolamento) e o @Transactional seja honrado. [AUDITORIA A7]
 
-    @Scheduled(cron = "0 0 0,6,12,18 * * *")
+    // Quantos ciclos perdidos (em downtime) reprocessar no máximo — evita loop gigante
+    // se o lastResolvedCycleId estiver muito atrás. 8 ciclos = 2 dias.
+    private static final long MAX_CATCHUP_CYCLES = 8;
+
+    /**
+     * Resolve todos os ciclos devidos de UM território: de (lastResolved+1) até o ciclo atual.
+     * Idempotente — não reprocessa o que já foi resolvido. Transação própria por território.
+     */
     @Transactional
-    public void resolveAllBattles() {
-        log.info("Territory war cycle starting...");
-        ensureInitialized();
-        long cycleId = currentCycleId(); // current cycle = battles to resolve now
-        for (Territory territory : Territory.values()) {
-            try {
-                resolveTerritory(territory, cycleId);
-            } catch (Exception e) {
-                log.error("Error resolving territory {}: {}", territory, e.getMessage(), e);
-            }
+    public void resolveDueCyclesForTerritory(Territory territory, long current) {
+        TerritoryControl control = getTerritory(territory);
+        long last = control.getLastResolvedCycleId();
+        if (last <= 0) {
+            // Primeira execução / pós-migração: marca o ponto atual sem reprocessar histórico.
+            control.setLastResolvedCycleId(current);
+            controlRepo.save(control);
+            return;
         }
-        log.info("Territory war cycle complete.");
+        if (last >= current) return; // nada novo
+
+        long from = Math.max(last + 1, current - MAX_CATCHUP_CYCLES + 1);
+        if (from > last + 1) {
+            log.warn("Territory {}: skipping {} stale cycles (cap {})",
+                    territory, (from - last - 1), MAX_CATCHUP_CYCLES);
+        }
+        for (long cycle = from; cycle <= current; cycle++) {
+            resolveTerritory(territory, cycle);
+        }
+        // Re-busca: resolveTerritory pode ter trocado o controle/streak
+        TerritoryControl after = getTerritory(territory);
+        after.setLastResolvedCycleId(current);
+        controlRepo.save(after);
     }
 
     @Transactional
