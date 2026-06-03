@@ -118,6 +118,11 @@ public class KingdomController {
         resp.put("bronzeEarned", result.bronzeEarned());
         resp.put("xpEarned",     result.xpEarned());
         resp.put("questId",      result.quest().getId());
+        resp.put("narrative",          result.narrative());
+        resp.put("monsterEncountered", result.monsterEncountered());
+        resp.put("monsterDefeated",    result.monsterDefeated());
+        if (result.monsterName() != null) resp.put("monsterName", result.monsterName());
+        resp.put("battleLog",          result.battleLog());
         if (result.droppedItem() != null) {
             InventoryItem d = result.droppedItem();
             resp.put("droppedItem", Map.of(
@@ -144,6 +149,11 @@ public class KingdomController {
         resp.put("bronzeEarned", result.bronzeEarned());
         resp.put("xpEarned",     result.xpEarned());
         resp.put("questId",      result.quest().getId());
+        resp.put("narrative",          result.narrative());
+        resp.put("monsterEncountered", result.monsterEncountered());
+        resp.put("monsterDefeated",    result.monsterDefeated());
+        if (result.monsterName() != null) resp.put("monsterName", result.monsterName());
+        resp.put("battleLog",          result.battleLog());
         if (result.droppedItem() != null) {
             InventoryItem d = result.droppedItem();
             resp.put("droppedItem", Map.of(

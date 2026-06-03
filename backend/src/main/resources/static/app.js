@@ -3127,10 +3127,14 @@ function worldMsg(text, ok = true) {
 // ── Collect Modal ──────────────────────────────────────────────────────────────
 // rows: [{icon, label, value, color}]
 // log:  string[] (battle log lines)
-function showCollectModal({ title, color = '#4caf50', rows = [], log = [] }) {
+// note: string (narrative/lore paragraph shown above the rows)
+function showCollectModal({ title, color = '#4caf50', rows = [], log = [], note = '' }) {
   closeCollectModal();
 
   const GATHER_ICONS = { FISH:'🐟', ORE:'🪨', GEM:'💎', BAR:'🔩', CRYSTAL:'🔮' };
+
+  const noteHtml = note ? `
+    <div style="background:#0d0d18;border-left:3px solid ${color};border-radius:6px;padding:10px 12px;margin-bottom:14px;font-size:13px;color:#cdd;font-style:italic;line-height:1.5">${note}</div>` : '';
 
   const rowsHtml = rows.map(r => `
     <div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid #2a2a3a">
@@ -3159,6 +3163,7 @@ function showCollectModal({ title, color = '#4caf50', rows = [], log = [] }) {
       <button onclick="closeCollectModal()" style="position:absolute;top:10px;right:10px;background:#333;
         border:none;color:#aaa;padding:4px 10px;border-radius:4px;cursor:pointer;font-size:13px">✕</button>
       <h3 style="margin:0 0 16px;color:${color};font-size:17px">${title}</h3>
+      ${noteHtml}
       ${rowsHtml || '<div style="color:#888;font-size:13px">Nothing this time.</div>'}
       ${logHtml}
       <button onclick="closeCollectModal()" style="margin-top:18px;width:100%;background:${color};color:#000;
@@ -3183,13 +3188,30 @@ async function startKingdomQuest(kingdom, questTypeId) {
 async function collectKingdomQuest(kingdom, questId) {
   const r = await api('POST', `/api/world/${kingdom}/quests/${questId}/collect`);
   if (r.error) { worldMsg(r.error, false); return; }
+  showQuestResultModal(r);
+  await enterKingdom(kingdom);
+}
+
+// Modal de resultado da quest: narrativa + (se houve) combate; derrota = sem recompensa.
+function showQuestResultModal(r) {
+  const lost = r.monsterEncountered && !r.monsterDefeated;
+  if (lost) {
+    showCollectModal({
+      title: `💀 Defeated by the ${r.monsterName || 'monster'}!`,
+      color: '#ef5350',
+      note:  r.narrative,
+      rows:  [{ icon:'☠', label:'Reward', value:'None — you were beaten', color:'#ef5350' }],
+      log:   r.battleLog || []
+    });
+    return;
+  }
   const rows = [
     { icon:'⭐', label:'Experience', value:`+${r.xpEarned} XP`,    color:'#ffd700' },
     { icon:'🪙', label:'Bronze',     value:fmtBronze(r.bronzeEarned), color:'#cd7f32' },
   ];
   if (r.droppedItem) rows.push({ icon:'🎁', label:'Item Drop', value:r.droppedItem.name, color:'#a855f7' });
-  showCollectModal({ title:'⚔ Quest Completed!', color:'#4caf50', rows });
-  await enterKingdom(kingdom);
+  const title = r.monsterEncountered ? `⚔ ${r.monsterName} slain!` : '⚔ Quest Completed!';
+  showCollectModal({ title, color:'#4caf50', note:r.narrative, rows, log:r.battleLog || [] });
 }
 
 async function abandonKingdomQuest(kingdom, questId) {
@@ -3482,13 +3504,8 @@ async function buyVip() {
 async function instantStartQuest(kingdom, questTypeId) {
   const r = await api('POST', `/api/world/${kingdom}/quests/instant-start`, { questType: questTypeId });
   if (r.error) { worldMsg(r.error, false); return; }
-  const drop = r.droppedItem ? ' · Item: ' + r.droppedItem.name : '';
-  const rows = [
-    { icon:'⭐', label:'Experience', value:`+${r.xpEarned} XP`,      color:'#ffd700' },
-    { icon:'🪙', label:'Bronze',     value:fmtBronze(r.bronzeEarned), color:'#cd7f32' },
-  ];
-  if (r.droppedItem) rows.push({ icon:'🎁', label:'Item Drop', value:r.droppedItem.name, color:'#a855f7' });
-  showCollectModal({ title:'⚡ Quest Instantânea!', color:'#7c3aed', rows });
+  // Instantânea também pode encontrar monstro — usa o mesmo modal de resultado.
+  showQuestResultModal(r);
   await enterKingdom(kingdom);
 }
 

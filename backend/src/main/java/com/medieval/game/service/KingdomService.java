@@ -35,9 +35,15 @@ public class KingdomService {
     private final ItemLoreGenerator            loreGenerator;
     private final TerritoryService             territoryService;
     private final VipService                   vipService;
+    private final WarriorStatsService          statsService;
+    private final BattleSimulator              battleSimulator;
+    private final KingdomQuestNarrator         narrator;
 
     @Value("${app.dev.instant-complete:false}")
     private boolean instantComplete;
+
+    // Vitrine de quests gira a cada 6h (igual à Loja). [Quests V2]
+    private static final long QUEST_ROTATION_SECONDS = 21600;
 
     // ── Kingdom status overview ───────────────────────────────────────────────
 
@@ -79,10 +85,32 @@ public class KingdomService {
 
     // ── Kingdom quests ────────────────────────────────────────────────────────
 
-    public List<KingdomQuestType> getQuestsForKingdom(Kingdom kingdom) {
+    /** Todas as quests definidas para o reino (6 por reino). */
+    public List<KingdomQuestType> allQuestsForKingdom(Kingdom kingdom) {
         return Arrays.stream(KingdomQuestType.values())
                 .filter(q -> q.kingdom == kingdom)
                 .toList();
+    }
+
+    /**
+     * Vitrine de quests: mostra 2 das 6 do reino, revezando a cada 6h (janela global, igual à Loja).
+     * Avança 1 posição por janela → cada quest aparece em 2 janelas consecutivas. [Quests V2]
+     */
+    public List<KingdomQuestType> getQuestsForKingdom(Kingdom kingdom) {
+        long rotationId = java.time.Instant.now().getEpochSecond() / QUEST_ROTATION_SECONDS;
+        return rotatingWindow(allQuestsForKingdom(kingdom), rotationId);
+    }
+
+    /** Janela de 2 quests para a rotação dada (determinística — testável). [Quests V2] */
+    static List<KingdomQuestType> rotatingWindow(List<KingdomQuestType> all, long rotationId) {
+        if (all.size() <= 2) return all;
+        int start = (int) Math.floorMod(rotationId, all.size());
+        return List.of(all.get(start), all.get((start + 1) % all.size()));
+    }
+
+    /** Segundos até a próxima rotação da vitrine de quests. */
+    public long secondsUntilQuestRotation() {
+        return QUEST_ROTATION_SECONDS - (java.time.Instant.now().getEpochSecond() % QUEST_ROTATION_SECONDS);
     }
 
     @Transactional
@@ -141,34 +169,71 @@ public class KingdomService {
             throw new IllegalStateException("Quest not yet complete. " + quest.secondsRemaining() + "s remaining.");
         }
 
-        // Apply guild + territory bonuses
+        // Bônus de guild + território (aplicados só se houver recompensa)
         Guild guild = playerRepository.findGuildByPlayerId(player.getId()).orElse(null);
         int xpPct     = guild != null ? guild.xpBonus()    : 0;
         int bronzePct = guild != null ? guild.bronzeBonus() : 0;
-
         TerritoryService.TerritoryBonus terr = territoryService.getBonusForPlayer(player);
         xpPct     += terr.xpBonus() + terr.questXpBonus();
         bronzePct += terr.bronzeBonus();
 
-        long totalBronze = quest.getBronzeReward() + Math.round(quest.getBronzeReward() * bronzePct / 100.0);
-        long totalXp     = quest.getExpReward()    + Math.round(quest.getExpReward()    * xpPct     / 100.0);
+        KingdomQuestType qt = quest.getQuestType();
+        Warrior warrior = warriorRepo.findByPlayer(player)
+                .orElseThrow(() -> new IllegalStateException("Warrior not found."));
+        var rng = java.util.concurrent.ThreadLocalRandom.current();
 
-        playerService.addGold(player, totalBronze);
-        warriorService.addExperience(quest.getWarrior(), totalXp);
+        // Encontro de monstro: chance escala com a dificuldade, sorteada na coleta. [Quests V2]
+        boolean encountered     = rng.nextInt(100) < qt.monsterChance;
+        boolean monsterDefeated = true;             // paz conta como "sem derrota"
+        String  monsterName     = null;
+        List<String> battleLog  = List.of();
 
-        warriorRepo.findByPlayer(player).ifPresent(w -> {
-            w.setOnMission(false);
-            warriorRepo.save(w);
-        });
+        if (encountered) {
+            monsterName = narrator.pickMonster(quest.getKingdom(), rng);
+            int[] s   = statsService.combatStats(player, warrior);
+            int maxHp = s[2];
+            int curHp = warrior.getCalculatedHpPercent() * maxHp / 100;
+            int[] mob = questMobStats(warrior.getLevel(), qt, rng);
+
+            BattleSimulator.BattleOutcome out = battleSimulator.simulateDetailed(
+                warrior.getName(), s[0], s[1], curHp, s[3], s[4], s[5],
+                monsterName, mob[0], mob[1], mob[2], mob[3], mob[4], mob[5]);
+
+            monsterDefeated = out.firstWon();
+            List<String> lg = new java.util.ArrayList<>(out.log());
+            if (!lg.isEmpty()) lg.remove(lg.size() - 1); // remove tag WINNER
+            battleLog = lg;
+
+            inventoryService.wearEquippedItems(player); // lutar desgasta equipamento
+
+            int finalPct = maxHp > 0 ? Math.max(0, out.firstHpFinal() * 100 / maxHp) : 0;
+            warrior.setCurrentHpSnapshot(finalPct);    // 0 = nocauteado
+            warrior.setHpUpdatedAt(LocalDateTime.now());
+        }
+
+        long totalBronze = 0, totalXp = 0;
+        InventoryItem drop = null;
+
+        if (monsterDefeated) { // travessia em paz OU monstro derrotado → recompensa cheia
+            totalBronze = quest.getBronzeReward() + Math.round(quest.getBronzeReward() * bronzePct / 100.0);
+            totalXp     = quest.getExpReward()    + Math.round(quest.getExpReward()    * xpPct     / 100.0);
+            playerService.addGold(player, totalBronze);
+            warriorService.addExperience(warrior, totalXp);
+            int guildDrop = guild != null ? guild.dropBonus() : 0;
+            drop = rollDrop(player, qt.dropChance, guildDrop);
+        }
+
+        warrior.setOnMission(false);
+        warriorRepo.save(warrior);
 
         quest.setStatus(QuestStatus.COLLECTED);
         questRepo.save(quest);
 
-        // Drop chance same logic as regular quests
-        int guildDrop = guild != null ? guild.dropBonus() : 0;
-        InventoryItem drop = rollDrop(player, quest.getQuestType().dropChance, guildDrop);
-        log.info("[KingdomService] player={} action=collectQuest OK bronze={} xp={} drop={}", player.getId(), totalBronze, totalXp, drop != null ? drop.getName() : "none");
-        return new CollectResult(quest, drop, totalBronze, totalXp);
+        String narrative = narrator.narrate(qt, encountered, monsterDefeated, monsterName, rng);
+        log.info("[KingdomService] player={} action=collectQuest OK encountered={} won={} bronze={} xp={} drop={}",
+                player.getId(), encountered, monsterDefeated, totalBronze, totalXp, drop != null ? drop.getName() : "none");
+        return new CollectResult(quest, drop, totalBronze, totalXp,
+                narrative, encountered, monsterDefeated, monsterName, battleLog);
     }
 
     @Transactional
@@ -342,6 +407,19 @@ public class KingdomService {
         log.info("[KingdomService] player={} action=cancelTraining OK sessionId={}", player.getId(), sessionId);
     }
 
+    // ── Monstro da quest (escala com level + dificuldade) ─────────────────────
+    // Calibrado para ser vencível por um guerreiro equipado; mais duro nas quests de tier alto.
+    private int[] questMobStats(int level, KingdomQuestType qt, java.util.concurrent.ThreadLocalRandom rng) {
+        double diff = 0.8 + (qt.durationMinutes / 30.0) * 0.6; // 5min→0.9 ... 30min→1.4
+        int atk = (int) Math.round((3 + level * 2) * diff) + rng.nextInt(3);
+        int def = (int) Math.round((1 + level)     * diff) + rng.nextInt(2);
+        int hp  = (int) Math.round((40 + level * 12) * diff) + rng.nextInt(20);
+        int dex = Math.min(level / 3, 14);
+        int str = Math.min(level / 15, 3);
+        int luk = Math.min(level / 5, 8);
+        return new int[]{atk, def, hp, dex, str, luk};
+    }
+
     // ── Drop helper ───────────────────────────────────────────────────────────
 
     private InventoryItem rollDrop(Player player, int dropChance, int guildBonus) {
@@ -409,6 +487,11 @@ public class KingdomService {
             KingdomActiveQuest quest,
             InventoryItem droppedItem,
             long bronzeEarned,
-            long xpEarned
+            long xpEarned,
+            String narrative,
+            boolean monsterEncountered,
+            boolean monsterDefeated,
+            String monsterName,
+            List<String> battleLog
     ) {}
 }
