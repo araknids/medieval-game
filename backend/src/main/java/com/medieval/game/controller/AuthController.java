@@ -1,6 +1,7 @@
 package com.medieval.game.controller;
 
 import com.medieval.game.config.JwtUtil;
+import com.medieval.game.config.LoginRateLimiter;
 import com.medieval.game.enums.WarriorClass;
 import com.medieval.game.model.PasswordResetToken;
 import com.medieval.game.model.Player;
@@ -11,6 +12,7 @@ import com.medieval.game.service.EmailService;
 import com.medieval.game.service.InventoryService;
 import com.medieval.game.service.PlayerService;
 import com.medieval.game.service.WarriorService;
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
@@ -38,6 +40,12 @@ public class AuthController {
     private final PasswordResetTokenRepository resetTokenRepository;
     private final PlayerRepository            playerRepository;
     private final PasswordEncoder             passwordEncoder;
+    private final LoginRateLimiter            rateLimiter;
+
+    // Limites anti-brute-force / anti-spam. [AUDITORIA A10]
+    private static final long RL_WINDOW_MS    = 15 * 60 * 1000L; // 15 min
+    private static final int  LOGIN_MAX_FAILS = 10;              // por IP+usuário / 15 min
+    private static final int  FORGOT_MAX_REQS = 5;               // por IP / 15 min
 
     @PostMapping("/register")
     public ResponseEntity<?> register(@Valid @RequestBody RegisterRequest req) {
@@ -64,12 +72,20 @@ public class AuthController {
     }
 
     @PostMapping("/login")
-    public ResponseEntity<?> login(@Valid @RequestBody LoginRequest req) {
+    public ResponseEntity<?> login(@Valid @RequestBody LoginRequest req, HttpServletRequest http) {
+        // Rate limit por IP+usuário; mensagem única para não permitir enumeração. [AUDITORIA A10]
+        String rlKey = "login:" + clientIp(http) + ":" + req.username().toLowerCase();
+        if (rateLimiter.isBlocked(rlKey, LOGIN_MAX_FAILS, RL_WINDOW_MS)) {
+            return ResponseEntity.status(429).body(Map.of("error",
+                    "Muitas tentativas de login. Tente novamente em alguns minutos."));
+        }
         try {
             Player  player  = playerService.findByUsername(req.username());
             if (!playerService.checkPassword(player, req.password())) {
-                return ResponseEntity.status(401).body(Map.of("error", "Incorrect password"));
+                rateLimiter.recordAttempt(rlKey, RL_WINDOW_MS);
+                return ResponseEntity.status(401).body(Map.of("error", "Invalid username or password"));
             }
+            rateLimiter.reset(rlKey); // sucesso limpa o contador
             Warrior warrior = warriorService.getWarrior(player);
             String  token   = jwtUtil.generateToken(player.getId(), player.getUsername());
             return ResponseEntity.ok(Map.of(
@@ -85,16 +101,25 @@ public class AuthController {
                     )
             ));
         } catch (IllegalArgumentException e) {
-            return ResponseEntity.status(401).body(Map.of("error", "User not found"));
+            rateLimiter.recordAttempt(rlKey, RL_WINDOW_MS);
+            return ResponseEntity.status(401).body(Map.of("error", "Invalid username or password"));
         }
     }
 
     @PostMapping("/forgot-password")
-    public ResponseEntity<?> forgotPassword(@RequestBody Map<String, String> body) {
+    public ResponseEntity<?> forgotPassword(@RequestBody Map<String, String> body, HttpServletRequest http) {
         String email = body.get("email");
         if (email == null || email.isBlank()) {
             return ResponseEntity.badRequest().body(Map.of("error", "Please provide your email"));
         }
+
+        // Anti-spam de email: limita requisições de reset por IP. [AUDITORIA A10]
+        String rlKey = "forgot:" + clientIp(http);
+        if (rateLimiter.isBlocked(rlKey, FORGOT_MAX_REQS, RL_WINDOW_MS)) {
+            return ResponseEntity.status(429).body(Map.of("error",
+                    "Muitas solicitações. Tente novamente em alguns minutos."));
+        }
+        rateLimiter.recordAttempt(rlKey, RL_WINDOW_MS);
 
         Optional<Player> playerOpt = playerRepository.findByEmail(email.trim().toLowerCase());
         // Retorna sempre a mesma mensagem para não revelar se o email existe
@@ -138,6 +163,15 @@ public class AuthController {
         resetTokenRepository.save(reset);
 
         return ResponseEntity.ok(Map.of("message", "Password changed successfully! Please log in."));
+    }
+
+    /** IP do cliente — respeita X-Forwarded-For (Railway roda atrás de proxy). */
+    private String clientIp(HttpServletRequest http) {
+        String fwd = http.getHeader("X-Forwarded-For");
+        if (fwd != null && !fwd.isBlank()) {
+            return fwd.split(",")[0].trim(); // primeiro IP da cadeia
+        }
+        return http.getRemoteAddr();
     }
 
     record RegisterRequest(
