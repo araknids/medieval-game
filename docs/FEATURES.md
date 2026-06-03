@@ -685,9 +685,15 @@ caçada PvE ficam **dentro de cada reino**. (A Forja/Smithing fica no Commerce.)
 
 > Quais reinos são guild-war vem da config `app.kingdoms.war-territories` (default: os 3 primeiros).
 
-### Quests por reino (Reinos V2)
-- **2 quests por reino** (10 no total): uma inicial (curta/barata) + uma avançada (longa/rica).
-- Coletadas via `/api/world/{kingdom}/quests` — separadas das quests clássicas de `/api/quests`.
+### Quests por reino (Quests V2)
+- **6 quests por reino** (30 no total), tiers de dificuldade crescente. A UI mostra **2 por vez**,
+  revezando a cada **6h** (janela global, igual à Loja; avança 1 por janela). `GET /api/world/{kingdom}/quests`
+  retorna a vitrine de 2 — separadas das quests clássicas de `/api/quests`.
+- **Encontro de monstro na coleta:** chance escala com a dificuldade da quest (~15%→90%). Se aparecer,
+  roda um combate (reusa o `BattleSimulator`); **é preciso vencer** para receber a recompensa.
+  Perder → 0 XP/bronze/drop e o guerreiro fica com o HP que sobrou (pode ficar nocauteado).
+- **Lore narrada na coleta:** texto curto (em inglês) contando o desfecho — travessia em paz,
+  monstro derrotado ou derrota. Gerado pelo `KingdomQuestNarrator` (monstros temáticos por reino).
 
 ### 🎣 Desfiladeiro do Osso / 🐟 Mar Abençoado — Reinos de Pesca
 | Zona | Level | Risco |

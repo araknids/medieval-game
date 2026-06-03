@@ -1,8 +1,7 @@
 # Plano — Quests de Reino V2 (rotação + combate + narrativa)
 
 > Documento de design. Decisões tomadas com o dono em 2026-06-03.
-> Status: **✅ aprovado para implementar** (lore em inglês). Depois de implementar: sincronizar
-> FEATURES/GDD/USE_CASES/TEST_PLAN.
+> Status: **✅ IMPLEMENTADO** (lore em inglês). 418 testes verdes. FEATURES/GDD/USE_CASES/TEST_PLAN sincronizados.
 
 ---
 

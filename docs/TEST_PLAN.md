@@ -2870,9 +2870,14 @@ Membros de guilda dominante recebem XP e bronze com +10% base.
 **Type:** Unit | **Class:** KingdomServiceTest
 Quests de FISHING não aparecem para MINING ou COMBAT.
 
-### TC-050: Cada reino tem exatamente 2 quests (Reinos V2)
+### TC-050: Cada reino tem exatamente 6 quests (Quests V2)
 **Type:** Unit
-Itera os 5 reinos; cada um tem 2 quests (antes: 4 nos de combate/coleta, 0 nos novos).
+Itera os 5 reinos; cada um tem 6 quests definidas no `KingdomQuestType`.
+
+### TC-050b: Vitrine rotativa mostra 2 das 6 (Quests V2)
+**Type:** Unit | **Class:** KingdomServiceTest
+`KingdomService.rotatingWindow(all, rotationId)` retorna 2 quests consecutivas; ao longo das janelas
+(6h cada) cobre todas as 6.
 
 ### TC-051: Kingdom unificado carrega dados de território (NPC + bônus)
 **Type:** Unit
@@ -2890,8 +2895,8 @@ Reinos de guerra (FISHING/MINING/COMBAT) têm npcName e exclusiveBonus > 0; Grut
 Cada reino tem: kingdom, displayName, icon, controllingGuild (ou ""), isMine, bônus, zonas.
 (Covil das Feras fundido na Fortaleza → 5 reinos.)
 
-### TC-143: GET /api/world/{kingdom}/quests → 2 quest types (Reinos V2)
-Cada reino expõe exatamente 2 quests.
+### TC-143: GET /api/world/{kingdom}/quests → vitrine de 2 (Quests V2)
+O endpoint retorna a vitrine de 2 quests (de um pool de 6 por reino, rotacionando a cada 6h).
 
 ### TC-144/145: POST /api/world/{kingdom}/quests/start → quest iniciada / warrior busy → 400
 Mesma mecânica das quests clássicas, mas quest específica do reino; consome estamina.
@@ -2915,8 +2920,12 @@ Guilda controlando MINING → card de Minas mostra bônus ativo.
 ### TC-152: POST /api/world/{kingdom}/quests/start com quest de outro reino → 400
 Quest de MINING em FISHING é rejeitada.
 
-### TC-157: GET /api/world/COMBAT/quests → 2 quest types
-Fortaleza também segue o padrão de 2 quests.
+### TC-157: GET /api/world/COMBAT/quests → vitrine de 2
+Fortaleza também retorna a vitrine de 2 (de 6).
+
+### Quest V2 — encontro de monstro na coleta
+- Coleta sempre retorna `narrative` não-vazio + `monsterEncountered`/`monsterDefeated`.
+- Vencer o monstro → XP/bronze creditados; perder → 0 recompensa. **Class:** `KingdomQuestCombatTest`.
 
 ### Caçada PvE (Fortaleza Maldita — antigo Covil das Feras)
 - `POST /api/world/COMBAT/raid` → 200 com `won`/`beast`/materiais (vitória rende gold/XP/Núcleo de Fera).
@@ -3331,8 +3340,10 @@ suíte; abaixo resumo por área):
 |------|----------------|------------------|
 | Unificação Kingdom/Território | `Territory` removido; território == reino; campos de batalha absorvidos | `KingdomServiceTest` (tc051), `TerritoryServiceTest`, `TerritoryIntegrationTest` |
 | Flag de guild-war | só reinos da config são contestáveis (3 de 5) | `TerritoryIntegrationTest`, `TerritoryCatchUpIntegrationTest` |
-| 5 reinos no World | `GET /api/world` → 5 reinos; `/quests` → 2 por reino | `WorldIntegrationTest` (tc142, tc143, tc157) |
-| 2 quests por reino | cada reino tem exatamente 2 quests | `KingdomServiceTest` (tc050) |
+| 5 reinos no World | `GET /api/world` → 5 reinos; `/quests` → vitrine de 2 por reino | `WorldIntegrationTest` (tc142, tc143, tc157) |
+| 6 quests por reino | cada reino tem exatamente 6 quests | `KingdomServiceTest` (tc050) |
+| Vitrine rotativa (Quests V2) | `getQuestsForKingdom` mostra 2 das 6, revezando a cada 6h | `KingdomServiceTest` (tc050b — `rotatingWindow`) |
+| Combate na coleta (Quests V2) | encontro de monstro: vencer → XP/bronze; perder → 0 recompensa; narrativa sempre presente | `KingdomQuestCombatTest`, `KingdomQuestNarratorTest` |
 | Garimpo | nova skill GARIMPO; fragmentos de joia; mineração sem gemas | `GatheringIntegrationTest`, `GatheringServiceTest` |
 | Split de peixe | peixe de estamina (só estamina) vs peixe de vida (só HP, cap 90%) | `GatheringIntegrationTest`, `ZoneAmbushIntegrationTest` |
 | Estamina na coleta | custo proporcional (~metade dos min, mín. 5); pulado em instant | `GatheringServiceTest` (`staminaCostFor`) |
@@ -3340,6 +3351,7 @@ suíte; abaixo resumo por área):
 
 ---
 
-*Updated 2026-06-03. Total: 410 tests passing. Reinos V2 (Fases 1-4): 5 reinos unificados, Garimpo,
-split de peixe (estamina/vida), estamina na coleta, caçada PvE na Fortaleza, flag de guild-war.
+*Updated 2026-06-03. Total: 418 tests passing. Reinos V2: 5 reinos unificados, Garimpo, split de peixe
+(estamina/vida), estamina na coleta, caçada PvE na Fortaleza, flag de guild-war. Quests V2: 6 quests/reino
+com vitrine rotativa de 2 (6h), encontro de monstro na coleta (vencer = recompensa) e lore narrada.
 Economic sinks TC-239-252 em `EconomicSinksIntegrationTest`/`InventoryItemDurabilityTest`.*

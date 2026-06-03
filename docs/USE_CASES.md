@@ -1648,11 +1648,28 @@
 
 **Flow:**
 1. Player opens the kingdom's quest list (`/api/world/{kingdom}/quests`).
-2. System lists the **2 quests** specific to that kingdom (Reinos V2).
+2. System lists the **vitrine de 2** quests (de um pool de **6** por reino, rotacionando a cada 6h). [Quests V2]
 3. Player selects quest → warrior goes on mission (same timer mechanic as current quests; consome estamina).
 
 **Alternate:**
 - Warrior busy or insufficient stamina → 400.
+
+---
+
+### UC-71b: Collect Kingdom Quest (monster encounter + lore) — Quests V2
+**Actor:** Player with a completed kingdom quest
+**Pre-conditions:** Quest timer done.
+
+**Flow:**
+1. Player collects (`POST /api/world/{kingdom}/quests/{id}/collect`).
+2. System rolls a **monster encounter** (chance escala com a dificuldade da quest).
+   - **No monster** → recompensa cheia (XP/bronze/drop).
+   - **Monster** → roda combate (`BattleSimulator`). **Vitória** → recompensa cheia; **derrota** →
+     0 recompensa e o guerreiro fica com o HP que sobrou (pode ficar KO).
+3. A resposta traz uma **narrativa** (em inglês) do desfecho + (se houve) o log do combate, além de
+   `monsterEncountered`, `monsterDefeated`, `monsterName`, `xpEarned`, `bronzeEarned`, `droppedItem`.
+
+**Pós-condições:** Guerreiro liberado; recompensa creditada só em paz/vitória.
 
 ---
 

@@ -800,6 +800,11 @@ Combate           → Fortaleza Maldita    → XP + caçada PvE + war→ todo mu
 
 > **Coleta gasta estamina** (pesca/mineração/garimpo) em produção — fecha o loop pescar-comer-coletar.
 
+> **Quests V2 (todos os reinos):** cada reino tem **6 quests**; a UI mostra **2 por vez**, revezando a
+> cada 6h. Na coleta há uma **chance de encontro de monstro** (escala com a dificuldade) — é preciso
+> **vencer o combate** para receber a recompensa; perder zera a recompensa e fere o guerreiro. A coleta
+> sempre volta com uma **narrativa** curta (paz / vitória / derrota). Detalhe: `docs/PLANO_QUESTS_REINO.md`.
+
 ### 15.2 Abas removidas / reorganizadas
 
 | Aba atual | Destino |
@@ -825,7 +830,7 @@ Resultado: -4 abas +1 = interface muito mais limpa.
 | Costa Selvagem | 10 | Pesca com risco de hunters (players) | PvP |
 | Mar Profundo | 20 | Peixes raros, criaturas perigosas | PvP + monstros |
 
-**Quests do reino (2):** Patrulhe a Costa, Caça ao Monstro Marinho
+**Quests do reino (6, vitrine de 2 rotacionando 6h) — exemplos:** Patrulhe a Costa, Caça ao Monstro Marinho
 
 **Loop de valor:**
 ```
@@ -850,7 +855,7 @@ Pesca → Peixes de estamina (Desfiladeiro) / Peixes de vida (Mar Abençoado)
 | Túneis Profundos | 10 | Mineração com risco de hunters | PvP |
 | Minas Proibidas | 20 | Minérios raros, alta periculosidade | PvP + monstros |
 
-**Quests do reino (2):** Escolta os Mineiros, Derrote a Besta das Cavernas
+**Quests do reino (6, vitrine de 2 rotacionando 6h) — exemplos:** Escolta os Mineiros, Derrote a Besta das Cavernas
 
 **Loop de valor:**
 ```
@@ -869,7 +874,7 @@ Mineração → Minério → Forja (Commerce) → Equipamento → todos os reino
 | Grutas Profundas | 10 | Garimpo com risco (cosmético) | PvP |
 | Caverna Proibida | 20 | Fragmentos raros | PvP |
 
-**Quests do reino (2):** Guard the Crystal Veins, Slay the Crystal Beast
+**Quests do reino (6, vitrine de 2 rotacionando 6h) — exemplos:** Guard the Crystal Veins, Slay the Crystal Beast
 
 **Loop:** `Garimpo → Fragmentos → Forja → Joias → sockets → todo build`
 
@@ -885,7 +890,7 @@ Mineração → Minério → Forja (Commerce) → Equipamento → todos os reino
 | Recife Profundo | 10 | Pesca com risco (cosmético) | PvP |
 | Abismo Abençoado | 20 | Peixes lendários de vida | PvP |
 
-**Quests do reino (2):** Cleanse the Tides, Guard the Sacred Reef
+**Quests do reino (6, vitrine de 2 rotacionando 6h) — exemplos:** Cleanse the Tides, Guard the Sacred Reef
 
 ---
 
@@ -899,7 +904,7 @@ Mineração → Minério → Forja (Commerce) → Equipamento → todos os reino
 | Campo de Batalha | 10 | Caça a monstros + PvP com players | PvP |
 | Zona de Guerra | 20 | Monstros e players simultaneamente | PvP + monstros |
 
-**Quests do reino (2):** Defenda as Muralhas, Caça ao Senhor da Guerra
+**Quests do reino (6, vitrine de 2 rotacionando 6h) — exemplos:** Defenda as Muralhas, Caça ao Senhor da Guerra
 
 **Treino (mecânica):**
 - Paga uma quantia de bronze → personagem "treina" por X horas (timer)
