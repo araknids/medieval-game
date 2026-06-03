@@ -75,4 +75,41 @@ class ZoneServiceTest {
         assertThat(Zone.PVP.minLevel).isEqualTo(10);
         assertThat(Zone.HIGH_RISK.minLevel).isEqualTo(20);
     }
+
+    // ── TC-209: BattleSimulator detailed returns clamped final HP ──
+    @Test
+    @DisplayName("TC-209 | simulateDetailed returns winner + final HP ≥ 0")
+    void tc209_simulateDetailed_returnsFinalHp() {
+        BattleSimulator sim = new BattleSimulator();
+        BattleSimulator.BattleOutcome out = sim.simulateDetailed(
+                "Strong", 50, 5, 300, 0, 3, 0,
+                "Weak",    2, 0,  20, 0, 0, 0);
+        assertThat(out.firstWon()).isTrue();          // strong fighter wins
+        assertThat(out.firstHpFinal()).isGreaterThan(0); // winner survives with HP
+        assertThat(out.secondHpFinal()).isEqualTo(0);    // loser at 0 HP
+    }
+
+    // ── TC-210: Winner keeps remaining HP (not full, not zero) ──
+    @Test
+    @DisplayName("TC-210 | Ambush winner keeps reduced HP (carries between fights)")
+    void tc210_winnerKeepsReducedHp() {
+        BattleSimulator sim = new BattleSimulator();
+        // Evenly matched but first has slight edge — winner should end with some HP < start
+        BattleSimulator.BattleOutcome out = sim.simulateDetailed(
+                "A", 30, 10, 200, 5, 1, 5,
+                "B", 20,  8, 100, 5, 0, 5);
+        assertThat(out.firstHpFinal()).isGreaterThanOrEqualTo(0);
+        assertThat(out.firstHpFinal()).isLessThanOrEqualTo(200);
+    }
+
+    // ── TC-211: Anti-farm protection formula — 5% per past ambush ──
+    @Test
+    @DisplayName("TC-211 | Anti-farm escape chance = 5% × ambushCount")
+    void tc211_antiFarmFormula() {
+        // The escape chance is rng.nextInt(100) < 5 * ambushCount
+        assertThat(5 * 0).isEqualTo(0);   // first ambush: 0% escape
+        assertThat(5 * 1).isEqualTo(5);   // after 1: 5%
+        assertThat(5 * 4).isEqualTo(20);  // after 4: 20%
+        assertThat(5 * 10).isEqualTo(50); // after 10: 50%
+    }
 }

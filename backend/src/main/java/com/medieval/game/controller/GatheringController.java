@@ -128,15 +128,16 @@ public class GatheringController {
         }
     }
 
-    // Consome peixe (restaura stamina)
+    // Consome peixe (restaura stamina E HP)
     @PostMapping("/consume/{resourceType}")
     public ResponseEntity<?> consume(@PathVariable ResourceType resourceType, Authentication auth) {
         try {
             Player player = getPlayer(auth);
-            int newStamina = gatheringService.consumeFish(player, resourceType);
+            var result = gatheringService.consumeFish(player, resourceType);
             return ResponseEntity.ok(Map.of(
                 "message",    resourceType.displayName + " consumido!",
-                "newStamina", newStamina
+                "newStamina", result.newStamina(),
+                "newHpPercent", result.newHpPercent()
             ));
         } catch (IllegalArgumentException | IllegalStateException e) {
             return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));

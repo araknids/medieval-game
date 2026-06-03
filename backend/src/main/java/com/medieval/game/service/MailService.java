@@ -122,6 +122,17 @@ public class MailService {
         return mailRepository.countUnreadByRecipientPlayerId(player.getId());
     }
 
+    // ── System mail (no fee, no gold, no item) — notifications ────────────────
+    @Transactional
+    public Mail sendSystemMail(Player recipient, String message) {
+        Mail mail = new Mail();
+        mail.setSenderPlayerId(0L);
+        mail.setSenderWarriorName("Sistema");
+        mail.setRecipientPlayerId(recipient.getId());
+        mail.setMessage(message.length() > 500 ? message.substring(0, 500) : message);
+        return mailRepository.save(mail);
+    }
+
     // ── Item mail (bag-full overflow) ─────────────────────────────────────────
 
     /**

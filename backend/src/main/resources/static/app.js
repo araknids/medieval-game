@@ -1596,7 +1596,8 @@ async function cancelGathering(id) {
 async function consumeFish(resourceType) {
   const data = await api('POST', `/api/gathering/consume/${resourceType}`);
   if (data.error) { showMessage(data.error, true); return; }
-  showMessage(`${data.message} Estamina: ${data.newStamina}/100`);
+  const hpPart = data.newHpPercent != null ? ` · ❤ HP: ${data.newHpPercent}%` : '';
+  showMessage(`${data.message} ⚡ Estamina: ${data.newStamina}/100${hpPart}`);
   resourcesData = await api('GET', '/api/gathering/resources');
   await loadWarrior();
   renderFishing();
@@ -2852,14 +2853,23 @@ function renderKingdomDetail(kingdom, quests, activeQuests, training, gatherSess
   } else if (zoneSession && zoneSession.active) {
     const secsLeft = zoneSession.secondsRemaining || 0;
     const timeStr  = secsLeft > 3600 ? `${Math.floor(secsLeft/3600)}h ${Math.floor((secsLeft%3600)/60)}m` : `${Math.floor(secsLeft/60)}m`;
+    const ambushWarn = zoneSession.ambushPending
+      ? `<div onclick="showAmbushDialog()" style="background:#3a0a0a;border:1px solid #ff6b6b;border-radius:6px;padding:8px;margin-top:8px;cursor:pointer">
+           <strong style="color:#ff6b6b">⚔ Você foi emboscado ${zoneSession.ambushCount}x!</strong>
+           <div style="font-size:11px;color:#ffb3b3">Clique para ver e decidir continuar ou recolher</div>
+         </div>`
+      : '';
     activeGatherHtml = `
       <div style="background:#2f0f0f;border:1px solid #ef5350;border-radius:8px;padding:12px;margin-bottom:12px">
         <strong style="color:#ef9a9a">⚔ Expedition in Progress (${zoneSession.zoneName || zoneSession.zone})</strong>
         <div style="font-size:13px;color:#aaa;margin-top:4px">${secsLeft <= 0 ? 'Ready to collect!' : timeStr + ' remaining'}</div>
+        ${ambushWarn}
         ${secsLeft <= 0
           ? `<button onclick="collectKingdomZoneSession(${zoneSession.id})" style="margin-top:8px;background:#c62828">Collect Loot</button>`
           : `<button onclick="cancelKingdomZoneSession(${zoneSession.id})" style="margin-top:8px;background:#555;font-size:12px">✕ Cancel</button>`}
       </div>`;
+    // Auto-open ambush dialog once when there's a pending ambush
+    if (zoneSession.ambushPending) { window.__pendingAmbushSession = zoneSession; setTimeout(showAmbushDialog, 300); }
   }
 
   // Combat zones for COMBAT kingdom — Campo de Batalha (PVP) + Zona de Guerra (HIGH_RISK)
@@ -3156,6 +3166,66 @@ async function cancelKingdomGather(sessionId) {
   if (r.error) { worldMsg(r.error, false); return; }
   if (worldCurrentKingdom) await enterKingdom(worldCurrentKingdom);
   worldMsg('Gathering cancelled.');
+}
+
+// Dialog mostrado quando o player foi emboscado e sobreviveu — continuar ou recolher
+function showAmbushDialog() {
+  const s = window.__pendingAmbushSession;
+  if (!s || !s.ambushPending) return;
+  closeCollectModal();
+
+  const rows = [];
+  if (s.lastAmbusherName)      rows.push({ icon:'⚔', label:'Emboscado por', value:s.lastAmbusherName, color:'#ff6b6b' });
+  if (s.lastAmbushBronzeLost)  rows.push({ icon:'💸', label:'Bronze perdido', value:fmtBronze(s.lastAmbushBronzeLost), color:'#ef5350' });
+  if (s.lastAmbushItemLost)    rows.push({ icon:'📦', label:'Item roubado', value:s.lastAmbushItemLost, color:'#ef5350' });
+  rows.push({ icon:'🛡', label:'Você sobreviveu!', value:`${s.ambushCount}ª emboscada`, color:'#4caf50' });
+
+  const rowsHtml = rows.map(r => `
+    <div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid #2a2a3a">
+      <span style="font-size:18px;min-width:24px;text-align:center">${r.icon}</span>
+      <span style="font-size:13px;color:#bbb;flex:1">${r.label}</span>
+      <span style="font-weight:bold;color:${r.color};font-size:13px">${r.value}</span>
+    </div>`).join('');
+
+  const log = s.lastAmbushLog || [];
+  const logHtml = log.length > 0 ? `
+    <details style="margin-top:12px">
+      <summary style="cursor:pointer;color:#888;font-size:12px">📜 Log da Emboscada (${log.length} linhas)</summary>
+      <div style="margin-top:8px;background:#0d0d0d;border-radius:6px;padding:10px;max-height:200px;overflow-y:auto;font-size:11px;font-family:monospace;color:#aaa;white-space:pre-wrap;line-height:1.5">${log.join('\n')}</div>
+    </details>` : '';
+
+  const el = document.createElement('div');
+  el.id = 'collect-modal-overlay';
+  el.setAttribute('style',
+    'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.82);' +
+    'z-index:9999;display:flex;align-items:center;justify-content:center;padding:16px;box-sizing:border-box');
+  el.innerHTML = `
+    <div onclick="event.stopPropagation()" style="background:#16162a;border:2px solid #ff6b6b;border-radius:14px;
+      padding:24px;max-width:460px;width:100%;max-height:85vh;overflow-y:auto;box-shadow:0 8px 32px rgba(0,0,0,0.6)">
+      <h3 style="margin:0 0 16px;color:#ff6b6b;font-size:17px">⚔ Você foi emboscado!</h3>
+      ${rowsHtml}
+      ${logHtml}
+      <div style="display:flex;gap:8px;margin-top:18px">
+        <button onclick="ambushContinue(${s.id})" style="flex:1;background:#4caf50;color:#000;font-weight:bold;padding:10px;border-radius:8px;border:none;cursor:pointer">▶ Continuar Expedição</button>
+        <button onclick="ambushCollectNow(${s.id})" style="flex:1;background:#c62828;color:#fff;font-weight:bold;padding:10px;border-radius:8px;border:none;cursor:pointer">📦 Recolher Agora</button>
+      </div>
+    </div>`;
+  document.body.appendChild(el);
+}
+
+async function ambushContinue(activityId) {
+  const r = await api('POST', `/api/zones/${activityId}/continue`);
+  closeCollectModal();
+  window.__pendingAmbushSession = null;
+  if (r.error) { worldMsg(r.error, false); return; }
+  worldMsg('Expedição continua. Boa sorte!');
+  if (worldCurrentKingdom) await enterKingdom(worldCurrentKingdom);
+}
+
+async function ambushCollectNow(activityId) {
+  closeCollectModal();
+  window.__pendingAmbushSession = null;
+  await collectKingdomZoneSession(activityId);
 }
 
 async function collectKingdomZoneSession(activityId) {

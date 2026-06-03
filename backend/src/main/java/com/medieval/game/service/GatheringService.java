@@ -197,8 +197,11 @@ public class GatheringService {
 
     // ── Consumir peixe (restaura stamina) ──
 
+    /** Result of eating a fish: restored stamina and HP percent. */
+    public record FishResult(int newStamina, int newHpPercent) {}
+
     @Transactional
-    public int consumeFish(Player player, ResourceType fishType) {
+    public FishResult consumeFish(Player player, ResourceType fishType) {
         if (fishType.category != ResourceType.ResourceCategory.FISH)
             throw new IllegalArgumentException("Not a fish");
 
@@ -212,13 +215,32 @@ public class GatheringService {
             case LEGENDARY_FISH-> 80;
             default -> 0;
         };
+        int hpHeal = switch (fishType) {
+            case SMALL_FISH    -> 5;
+            case SALMON        -> 15;
+            case TUNA          -> 30;
+            case SHARK         -> 50;
+            case LEGENDARY_FISH-> 100;
+            default -> 0;
+        };
 
-        int current = player.getCalculatedStamina();
-        int newStamina = Math.min(100, current + stamina);
+        int newStamina = Math.min(100, player.getCalculatedStamina() + stamina);
         player.setCurrentStamina(newStamina);
         player.setStaminaUpdatedAt(LocalDateTime.now());
         playerRepository.save(player);
-        return newStamina;
+
+        // Restore HP on the warrior (capped at 100%)
+        int newHp = warriorRepository.findByPlayer(player).map(w -> {
+            int restored = Math.min(100, w.getCalculatedHpPercent() + hpHeal);
+            w.setCurrentHpSnapshot(restored);
+            w.setHpUpdatedAt(LocalDateTime.now());
+            warriorRepository.save(w);
+            return restored;
+        }).orElse(100);
+
+        log.info("[GatheringService] player={} action=consumeFish fish={} stamina={} hp={}",
+                player.getId(), fishType, newStamina, newHp);
+        return new FishResult(newStamina, newHp);
     }
 
     // ── Geração de drops (público para ZoneService) ──

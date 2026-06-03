@@ -29,6 +29,31 @@ public class SchemaMigrator {
         patchPlayerVipColumns();
         patchWarriorBuff2Columns();
         patchWarriorIntellectColumn();
+        patchZoneActivityAmbushColumns();
+    }
+
+    // zone_activities: add ambush PvP columns
+    private void patchZoneActivityAmbushColumns() {
+        try {
+            jdbc.execute("""
+                DO $$
+                BEGIN
+                    IF NOT EXISTS (SELECT 1 FROM information_schema.columns
+                                   WHERE table_name='zone_activities' AND column_name='ambush_count') THEN
+                        ALTER TABLE zone_activities ADD COLUMN ambush_count integer NOT NULL DEFAULT 0;
+                        ALTER TABLE zone_activities ADD COLUMN ambush_pending boolean NOT NULL DEFAULT false;
+                        ALTER TABLE zone_activities ADD COLUMN last_ambusher_name varchar(255);
+                        ALTER TABLE zone_activities ADD COLUMN last_ambush_bronze_lost bigint NOT NULL DEFAULT 0;
+                        ALTER TABLE zone_activities ADD COLUMN last_ambush_item_lost varchar(255);
+                        ALTER TABLE zone_activities ADD COLUMN last_ambush_log text;
+                    END IF;
+                END
+                $$;
+                """);
+            log.info("[SchemaMigrator] zone_activities ambush columns ensured");
+        } catch (Exception e) {
+            log.warn("[SchemaMigrator] zone_activities ambush columns patch failed: {}", e.getMessage());
+        }
     }
 
     // players: add SoulStone columns if not present (Hibernate adds them but needs explicit DEFAULT)

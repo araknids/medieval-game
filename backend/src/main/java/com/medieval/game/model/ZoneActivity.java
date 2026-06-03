@@ -54,6 +54,22 @@ public class ZoneActivity {
     private String attackerWarriorName;
     private LocalDateTime resolvedAt;
 
+    // ── Ambush PvP (player-vs-player) ──────────────────────────────────────────
+    /** How many ambushes this expedition survived (drives anti-farm -5% per win). */
+    @Column(columnDefinition = "integer default 0")
+    private int ambushCount = 0;
+
+    /** True when there is an ambush the owner hasn't acknowledged yet → triggers dialog. */
+    @Column(columnDefinition = "boolean default false")
+    private boolean ambushPending = false;
+
+    /** Details of the most recent ambush suffered (for the dialog). */
+    private String lastAmbusherName;
+    private long   lastAmbushBronzeLost = 0;
+    private String lastAmbushItemLost;
+    @Column(columnDefinition = "TEXT")
+    private String lastAmbushLog;
+
     public boolean isReadyToCollect() {
         return status == ZoneActivityStatus.IN_PROGRESS
                 && LocalDateTime.now().isAfter(endsAt);

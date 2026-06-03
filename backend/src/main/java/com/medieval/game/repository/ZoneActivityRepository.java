@@ -17,9 +17,13 @@ public interface ZoneActivityRepository extends JpaRepository<ZoneActivity, Long
     List<ZoneActivity> findAllByZoneAndRoleAndStatus(
             Zone zone, ActivityRole role, ZoneActivityStatus status);
 
-    // Gatherers ativos na mesma zona (para o hunter caçar)
+    // Gatherers ativos na mesma zona (para o hunter caçar) — legado
     List<ZoneActivity> findAllByZoneAndRoleAndStatusAndPlayerNot(
             Zone zone, ActivityRole role, ZoneActivityStatus status, Player exclude);
+
+    // Qualquer player ativo na zona (pool de alvos de emboscada PvP), exceto o próprio
+    List<ZoneActivity> findAllByZoneAndStatusAndPlayerNot(
+            Zone zone, ZoneActivityStatus status, Player exclude);
 
     // Expedições finalizadas pelo jogador (histórico)
     List<ZoneActivity> findAllByPlayerAndStatusInOrderByStartedAtDesc(

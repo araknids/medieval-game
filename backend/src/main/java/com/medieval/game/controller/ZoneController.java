@@ -123,6 +123,17 @@ public class ZoneController {
         }
     }
 
+    // Continuar expedição após ser emboscado (dispensa o dialog de aviso)
+    @PostMapping("/{id}/continue")
+    public ResponseEntity<?> continueExpedition(@PathVariable Long id, Authentication auth) {
+        try {
+            zoneService.acknowledgeAmbush(getPlayer(auth), id);
+            return ResponseEntity.ok(Map.of("message", "Expedition continues."));
+        } catch (IllegalArgumentException | IllegalStateException e) {
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+        }
+    }
+
     private Player getPlayer(Authentication auth) {
         return playerService.findById((Long) auth.getPrincipal());
     }
@@ -147,7 +158,15 @@ public class ZoneController {
             Map.entry("attackerName",    a.getAttackerWarriorName() != null ? a.getAttackerWarriorName() : ""),
             Map.entry("bronzeLost",      a.getBronzeLost()),
             Map.entry("bronzeGained",    a.getBronzeGained()),
-            Map.entry("xpGained",        a.getXpGained())
+            Map.entry("xpGained",        a.getXpGained()),
+            // Ambush dialog data
+            Map.entry("ambushPending",   a.isAmbushPending()),
+            Map.entry("ambushCount",     a.getAmbushCount()),
+            Map.entry("lastAmbusherName",     a.getLastAmbusherName()     != null ? a.getLastAmbusherName()     : ""),
+            Map.entry("lastAmbushBronzeLost", a.getLastAmbushBronzeLost()),
+            Map.entry("lastAmbushItemLost",   a.getLastAmbushItemLost()   != null ? a.getLastAmbushItemLost()   : ""),
+            Map.entry("lastAmbushLog",        a.getLastAmbushLog()        != null
+                    ? Arrays.asList(a.getLastAmbushLog().split("\n")) : List.of())
         );
     }
 

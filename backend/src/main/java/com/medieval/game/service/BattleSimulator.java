@@ -92,7 +92,20 @@ public class BattleSimulator {
      * @param strBonus floor(STR / 20) → d20 attack roll bonus
      * @param luk      LUK attribute → crit expansion + Fortune Save
      */
+    /** Rich battle outcome: log + winner flag + final HP of both fighters (for ambush HP carry). */
+    public record BattleOutcome(List<String> log, boolean firstWon, int firstHpFinal, int secondHpFinal) {}
+
+    /** Backwards-compatible wrapper — returns just the log lines. */
     public List<String> simulate(
+            String cName, int cAtk, int cDef, int cHp, int cDex, int cStrBonus, int cLuk,
+            String oName, int oAtk, int oDef, int oHp, int oDex, int oStrBonus, int oLuk) {
+        return simulateDetailed(
+                cName, cAtk, cDef, cHp, cDex, cStrBonus, cLuk,
+                oName, oAtk, oDef, oHp, oDex, oStrBonus, oLuk).log();
+    }
+
+    /** Full fight to the death. Returns log + winner + final HP of both (clamped ≥ 0). */
+    public BattleOutcome simulateDetailed(
             String cName, int cAtk, int cDef, int cHp, int cDex, int cStrBonus, int cLuk,
             String oName, int oAtk, int oDef, int oHp, int oDex, int oStrBonus, int oLuk) {
 
@@ -190,7 +203,7 @@ public class BattleSimulator {
         String loser  = cWon ? oName : cName;
         log.add("🏆 " + winner + " " + VICTORY_TEXTS[rng.nextInt(VICTORY_TEXTS.length)]);
         log.add("WINNER:" + winner + "|LOSER:" + loser);
-        return log;
+        return new BattleOutcome(log, cWon, Math.max(0, cCurrentHp), Math.max(0, oCurrentHp));
     }
 
     /** d20 roll >= this threshold = critical hit. LUK expands window down from 20. */

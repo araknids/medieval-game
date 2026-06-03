@@ -27,6 +27,7 @@ public class ZoneService {
     private final GatheringService         gatheringService;
     private final BattleSimulator          battleSimulator;
     private final WarriorService           warriorService;
+    private final MailService              mailService;
 
     @Value("${app.dev.instant-complete:false}")
     private boolean instantComplete;
@@ -265,6 +266,18 @@ public class ZoneService {
         return activityRepository.findByPlayerAndStatus(player, ZoneActivityStatus.IN_PROGRESS);
     }
 
+    /** Player viu o aviso de emboscada e escolheu CONTINUAR — limpa o flag pendente. */
+    @Transactional
+    public void acknowledgeAmbush(Player player, Long activityId) {
+        ZoneActivity activity = activityRepository.findById(activityId)
+                .orElseThrow(() -> new IllegalArgumentException("Expedição não encontrada"));
+        if (!activity.getPlayer().getId().equals(player.getId()))
+            throw new IllegalStateException("Not yours");
+        activity.setAmbushPending(false);
+        activityRepository.save(activity);
+        log.info("[ZoneService] player={} action=acknowledgeAmbush activityId={} — continuing expedition", player.getId(), activityId);
+    }
+
     // ── Histórico ──
 
     public List<ZoneActivity> getHistory(Player player) {
@@ -311,80 +324,183 @@ public class ZoneService {
     record PvpResult(boolean wasAttacked, boolean survived, long bronzeLost,
                      String attackerName, List<String> battleLog) {}
 
+    /**
+     * Resolve all encounters for the collecting player ("attacker"). Each hour rolls
+     * PvP (ambush another in-progress player) and/or NPC. The attacker's HP carries
+     * between encounters. Returns the attacker's overall outcome.
+     */
     private PvpResult resolveEncounters(Player player, ZoneActivity activity) {
         Zone   zone  = activity.getZone();
         int    hours = Math.max(1, activity.getDurationMinutes() / 60);
         Random rng   = new Random();
 
-        Warrior defender = warriorRepository.findByPlayer(player).orElse(null);
-        if (defender == null) return new PvpResult(false, true, 0, null, List.of());
+        Warrior attacker = warriorRepository.findByPlayer(player).orElse(null);
+        if (attacker == null) return new PvpResult(false, true, 0, null, List.of());
 
-        int[] defStats = getWarriorStats(defender, player);
+        int[] atkStats = getWarriorStats(attacker, player);
+        int   atkMaxHp = atkStats[2];
+        int   atkHp    = attacker.getCalculatedHpPercent() * atkMaxHp / 100; // current absolute HP
+
+        boolean anyEncounter = false;
+        List<String> lastLog  = List.of();
+        String       lastFoe  = null;
 
         for (int h = 0; h < hours; h++) {
 
-            // ── Encontro com player (PvP) ──
+            // ── PvP: ambush another in-progress player ──
             if (zone.encounterChancePerHour > 0 && rng.nextInt(100) < zone.encounterChancePerHour) {
-                Warrior attacker = findHunterInZone(zone, player, rng);
-                if (attacker != null) {
-                    int[] atkStats = getWarriorStats(attacker, attacker.getPlayer());
-                    String atkName = attacker.getName();
+                ZoneActivity targetAct = findOpponentActivity(zone, player, rng);
+                if (targetAct != null) {
+                    Warrior targetWarrior = warriorRepository.findByPlayer(targetAct.getPlayer()).orElse(null);
+                    // anti-farm: target escapes with 5% per past survived ambush
+                    boolean escaped = rng.nextInt(100) < 5 * targetAct.getAmbushCount();
+                    if (targetWarrior != null && !escaped) {
+                        anyEncounter = true;
+                        Player  targetPlayer = targetAct.getPlayer();
+                        int[]   tgtStats = getWarriorStats(targetWarrior, targetPlayer);
+                        int     tgtMaxHp = tgtStats[2];
+                        int     tgtHp    = targetWarrior.getCalculatedHpPercent() * tgtMaxHp / 100;
 
-                    List<String> log = battleSimulator.simulate(
-                            atkName,            atkStats[0], atkStats[1], atkStats[2], atkStats[3], atkStats[4], atkStats[5],
-                            defender.getName(), defStats[0], defStats[1], defStats[2], defStats[3], defStats[4], defStats[5]);
+                        BattleSimulator.BattleOutcome out = battleSimulator.simulateDetailed(
+                            attacker.getName(),      atkStats[0], atkStats[1], atkHp, atkStats[3], atkStats[4], atkStats[5],
+                            targetWarrior.getName(), tgtStats[0], tgtStats[1], tgtHp, tgtStats[3], tgtStats[4], tgtStats[5]);
 
-                    boolean defWon = removeWinnerTag(log, defender.getName());
+                        List<String> log = stripWinnerTag(out.log());
+                        atkHp = out.firstHpFinal();
+                        lastLog = log;
+                        lastFoe = targetWarrior.getName() + " (jogador)";
 
-                    if (!defWon) {
-                        long bronzeLost = applyDefeatPenalty(player, attacker.getPlayer());
-                        return new PvpResult(true, false, bronzeLost, atkName + " (jogador)", log);
+                        // Persist target HP from the fight
+                        int tgtPct = tgtMaxHp > 0 ? Math.max(0, out.secondHpFinal() * 100 / tgtMaxHp) : 0;
+                        targetWarrior.setCurrentHpSnapshot(tgtPct);
+                        targetWarrior.setHpUpdatedAt(LocalDateTime.now());
+                        warriorRepository.save(targetWarrior);
+
+                        if (out.firstWon()) {
+                            // Attacker won → robs target, target dies
+                            long stolen = applyDefeatPenalty(targetPlayer, player);
+                            targetWarrior.clearBuff();
+                            warriorRepository.save(targetWarrior);
+                            markTargetAmbushed(targetAct, attacker.getName(), stolen, log, true, zone);
+                            // attacker survives, continue collecting
+                        } else {
+                            // Attacker lost → dies; target defended and robs the attacker
+                            long stolen = applyDefeatPenalty(player, targetPlayer);
+                            markTargetAmbushed(targetAct, attacker.getName(), 0, log, false, zone);
+                            persistAttackerHp(attacker, 0, atkMaxHp);
+                            return new PvpResult(true, false, stolen, lastFoe, log);
+                        }
                     }
-                    return new PvpResult(true, true, 0, atkName + " (jogador)", log);
                 }
             }
 
-            // ── Encontro com NPC ──
+            // ── NPC encounter (PvE) ──
             if (rng.nextInt(100) < zone.npcEncounterChancePerHour) {
-                int npcLevel = defender.getLevel() + rng.nextInt(4); // até +3
-                String npcName = npcName(zone, rng);
-                int[] npcStats = npcStatsByLevel(npcLevel, rng);
+                anyEncounter = true;
+                int    npcLevel = attacker.getLevel() + rng.nextInt(4);
+                String npcName  = npcName(zone, rng);
+                int[]  npcStats = npcStatsByLevel(npcLevel, rng);
 
-                List<String> log = battleSimulator.simulate(
-                        npcName,            npcStats[0], npcStats[1], npcStats[2], npcStats[3], npcStats[4], npcStats[5],
-                        defender.getName(), defStats[0], defStats[1], defStats[2], defStats[3], defStats[4], defStats[5]);
+                BattleSimulator.BattleOutcome out = battleSimulator.simulateDetailed(
+                        attacker.getName(), atkStats[0], atkStats[1], atkHp, atkStats[3], atkStats[4], atkStats[5],
+                        npcName,            npcStats[0], npcStats[1], npcStats[2], npcStats[3], npcStats[4], npcStats[5]);
 
-                boolean defWon = removeWinnerTag(log, defender.getName());
+                List<String> log = stripWinnerTag(out.log());
+                atkHp = out.firstHpFinal();
+                lastLog = log;
+                lastFoe = npcName;
 
-                if (!defWon) {
+                if (!out.firstWon()) {
                     long bronzeLost = applyDefeatPenalty(player, null);
+                    persistAttackerHp(attacker, 0, atkMaxHp);
                     return new PvpResult(true, false, bronzeLost, npcName, log);
                 }
-                return new PvpResult(true, true, 0, npcName, log);
             }
         }
 
-        return new PvpResult(false, true, 0, null, List.of());
+        // Survived all encounters — persist reduced HP
+        persistAttackerHp(attacker, atkHp, atkMaxHp);
+        return new PvpResult(anyEncounter, true, 0, lastFoe, lastLog);
     }
 
-    /** Remove a tag WINNER: do final do log e retorna se o defender venceu */
-    private boolean removeWinnerTag(List<String> log, String defenderName) {
-        if (log.isEmpty()) return true;
-        String last = log.get(log.size() - 1);
-        boolean defWon = last.contains("WINNER:" + defenderName);
-        log.remove(log.size() - 1);
-        return defWon;
+    /** Sorteia uma expedição IN_PROGRESS de outro player na mesma zona (pool de alvos). */
+    private ZoneActivity findOpponentActivity(Zone zone, Player exclude, Random rng) {
+        List<ZoneActivity> pool = activityRepository.findAllByZoneAndStatusAndPlayerNot(
+                zone, ZoneActivityStatus.IN_PROGRESS, exclude);
+        if (pool.isEmpty()) return null;
+        return pool.get(rng.nextInt(pool.size()));
     }
 
-    /** Aplica penalidade de derrota: perde 15% bronze; hunter (se player) ganha 50% do perdido */
-    private long applyDefeatPenalty(Player player, Player hunter) {
-        long bronzeLost = Math.round(player.totalBronze() * 0.15);
+    /** Aplica o resultado da emboscada no alvo (persistente) e notifica por mail. */
+    private void markTargetAmbushed(ZoneActivity targetAct, String attackerName, long bronzeLost,
+                                    List<String> log, boolean targetDied, Zone zone) {
+        Player targetPlayer = targetAct.getPlayer();
+        targetAct.setLastAmbusherName(attackerName);
+        targetAct.setLastAmbushBronzeLost(bronzeLost);
+        targetAct.setLastAmbushLog(String.join("\n", log));
+        targetAct.setAttacked(true);
+        targetAct.setAttackerWarriorName(attackerName);
+
+        if (targetDied) {
+            targetAct.setStatus(ZoneActivityStatus.DEFEATED);
+            targetAct.setSurvivedAttack(false);
+            targetAct.setResolvedAt(LocalDateTime.now());
+            // Death penalties for the target (it is not collecting, so apply here)
+            warriorRepository.findByPlayer(targetPlayer).ifPresent(w -> {
+                long xpLost = Math.max(1, w.expNeededForNextLevel() / 10);
+                warriorService.loseXp(w, xpLost);
+            });
+            String itemMsg = "";
+            if (zone == Zone.HIGH_RISK) {
+                String lost = maybeDropEquippedItem(targetPlayer);
+                if (lost != null) { targetAct.setLastAmbushItemLost(lost); targetAct.setLostEquippedItem(lost);
+                    itemMsg = " Item perdido: " + lost + "."; }
+            }
+            targetPlayer.setCurrentStamina(0);
+            targetPlayer.setStaminaUpdatedAt(LocalDateTime.now());
+            playerRepository.save(targetPlayer);
+            mailService.sendSystemMail(targetPlayer,
+                "💀 Você foi emboscado e MORTO por " + attackerName + " na " + zone.displayName + "! "
+                + "Perdeu " + bronzeLost + " bronze." + itemMsg + " HP: 0%. Sua expedição foi encerrada.");
+        } else {
+            // Survived: anti-farm counter + pending dialog
+            targetAct.setAmbushCount(targetAct.getAmbushCount() + 1);
+            targetAct.setAmbushPending(true);
+            targetAct.setSurvivedAttack(true);
+            int hpPct = warriorRepository.findByPlayer(targetPlayer)
+                    .map(Warrior::getCalculatedHpPercent).orElse(0);
+            mailService.sendSystemMail(targetPlayer,
+                "⚔ Você foi emboscado por " + attackerName + " na " + zone.displayName + " e SOBREVIVEU! "
+                + "HP: " + hpPct + "%. Recuperou bronze do atacante. Entre no jogo para continuar ou recolher.");
+        }
+        activityRepository.save(targetAct);
+    }
+
+    /** Persiste o HP absoluto do atacante como % no snapshot. */
+    private void persistAttackerHp(Warrior attacker, int hpAbs, int maxHp) {
+        int pct = maxHp > 0 ? Math.max(0, Math.min(100, hpAbs * 100 / maxHp)) : 0;
+        attacker.setCurrentHpSnapshot(pct);
+        attacker.setHpUpdatedAt(LocalDateTime.now());
+        warriorRepository.save(attacker);
+    }
+
+    /** Remove a tag interna WINNER: do final do log (cópia, não muta o original). */
+    private List<String> stripWinnerTag(List<String> log) {
+        if (log.isEmpty()) return new ArrayList<>();
+        List<String> copy = new ArrayList<>(log);
+        copy.remove(copy.size() - 1);
+        return copy;
+    }
+
+    /** Aplica penalidade de derrota: perde 15% bronze; vencedor (se player) ganha 50% do perdido */
+    private long applyDefeatPenalty(Player loser, Player winner) {
+        long bronzeLost = Math.round(loser.totalBronze() * 0.15);
         if (bronzeLost > 0) {
-            player.addBronzeAmount(-bronzeLost);
-            playerRepository.save(player);
-            if (hunter != null) {
-                hunter.addBronzeAmount(bronzeLost / 2);
-                playerRepository.save(hunter);
+            loser.addBronzeAmount(-bronzeLost);
+            playerRepository.save(loser);
+            if (winner != null) {
+                winner.addBronzeAmount(bronzeLost / 2);
+                playerRepository.save(winner);
             }
         }
         return bronzeLost;
@@ -422,14 +538,6 @@ public class ZoneService {
         return new int[]{atk, def, hp, dex, strBonus, luk};
     }
 
-    private Warrior findHunterInZone(Zone zone, Player exclude, Random rng) {
-        List<ZoneActivity> hunters = activityRepository.findAllByZoneAndRoleAndStatusAndPlayerNot(
-                zone, ActivityRole.HUNTING, ZoneActivityStatus.IN_PROGRESS, exclude);
-        if (hunters.isEmpty()) return null;
-        ZoneActivity hunterActivity = hunters.get(rng.nextInt(hunters.size()));
-        return warriorRepository.findByPlayer(hunterActivity.getPlayer()).orElse(null);
-    }
-
     /** Returns [atk, def, hp, dex, strBonus, luk] for d20 simulate(). */
     private int[] getWarriorStats(Warrior w, Player player) {
         List<InventoryItem> equipped = inventoryRepository.findAllByPlayer(player)
@@ -438,12 +546,6 @@ public class ZoneService {
         int def = w.getTotalBaseDefense() + equipped.stream().mapToInt(InventoryItem::getDefenseBonus).sum();
         int hp  = w.getTotalBaseHealth()  + equipped.stream().mapToInt(InventoryItem::getHealthBonus).sum();
         return new int[]{atk, def, hp, w.getDexterity(), w.getAttackBonus(), w.getLuck()};
-    }
-
-    // Método legado mantido para compatibilidade
-    private String npcHunterName(Random rng) {
-        String[] names = {"Ladrão das Sombras","Mercenário Solitário","Caçador de Recompensas"};
-        return names[rng.nextInt(names.length)];
     }
 
     private String maybeDropEquippedItem(Player player) {
