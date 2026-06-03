@@ -103,28 +103,20 @@ public class TerritoryController {
     // ── Declare attack ────────────────────────────────────────────────────────
     @PostMapping("/{territory}/declare")
     public ResponseEntity<?> declare(@PathVariable Territory territory, Authentication auth) {
-        try {
-            Player player = getPlayer(auth);
-            TerritoryDeclaration decl = territoryService.declare(player, territory);
-            return ResponseEntity.ok(Map.of(
-                "message",    "Attack declared on " + territory.displayName + "!",
-                "territory",  territory.name(),
-                "cycleId",    decl.getBattleCycleId()
-            ));
-        } catch (IllegalArgumentException | IllegalStateException e) {
-            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
-        }
+        Player player = getPlayer(auth);
+        TerritoryDeclaration decl = territoryService.declare(player, territory);
+        return ResponseEntity.ok(Map.of(
+            "message",    "Attack declared on " + territory.displayName + "!",
+            "territory",  territory.name(),
+            "cycleId",    decl.getBattleCycleId()
+        ));
     }
 
     // ── Cancel declaration ────────────────────────────────────────────────────
     @PostMapping("/cancel")
     public ResponseEntity<?> cancel(Authentication auth) {
-        try {
-            territoryService.cancelDeclaration(getPlayer(auth));
-            return ResponseEntity.ok(Map.of("message", "Declaration cancelled."));
-        } catch (IllegalArgumentException | IllegalStateException e) {
-            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
-        }
+        territoryService.cancelDeclaration(getPlayer(auth));
+        return ResponseEntity.ok(Map.of("message", "Declaration cancelled."));
     }
 
     // ── Battle history ────────────────────────────────────────────────────────

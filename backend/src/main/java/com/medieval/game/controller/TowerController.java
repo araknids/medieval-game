@@ -78,55 +78,43 @@ public class TowerController {
     // Entra na torre
     @PostMapping("/enter")
     public ResponseEntity<?> enter(Authentication auth) {
-        try {
-            Player  player = getPlayer(auth);
-            TowerRun run   = towerService.enter(player);
-            var boss = towerService.bossForFloor(run.getCurrentFloor());
-            return ResponseEntity.ok(Map.of(
-                "active",       true,
-                "runId",        run.getId(),
-                "currentFloor", run.getCurrentFloor(),
-                "highestFloor", run.getHighestFloor(),
-                "bossName",     boss.name(),
-                "bossHp",       boss.health(),
-                "bossAtk",      boss.attack(),
-                "bossDef",      boss.defense(),
-                "bossAc",  10 + boss.dex()
-            ));
-        } catch (IllegalStateException e) {
-            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
-        }
+        Player  player = getPlayer(auth);
+        TowerRun run   = towerService.enter(player);
+        var boss = towerService.bossForFloor(run.getCurrentFloor());
+        return ResponseEntity.ok(Map.of(
+            "active",       true,
+            "runId",        run.getId(),
+            "currentFloor", run.getCurrentFloor(),
+            "highestFloor", run.getHighestFloor(),
+            "bossName",     boss.name(),
+            "bossHp",       boss.health(),
+            "bossAtk",      boss.attack(),
+            "bossDef",      boss.defense(),
+            "bossAc",  10 + boss.dex()
+        ));
     }
 
     // Luta contra o chefe do andar atual
     @PostMapping("/fight")
     public ResponseEntity<?> fight(Authentication auth) {
-        try {
-            Player player = getPlayer(auth);
-            var result = towerService.fight(player);
-            return ResponseEntity.ok(Map.of(
-                "won",          result.won(),
-                "floor",        result.floor(),
-                "bossName",     result.bossName(),
-                "bronzeEarned", result.bronzeEarned(),
-                "expEarned",    result.expEarned(),
-                "log",          result.log(),
-                "runOver",      result.runOver()
-            ));
-        } catch (IllegalStateException e) {
-            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
-        }
+        Player player = getPlayer(auth);
+        var result = towerService.fight(player);
+        return ResponseEntity.ok(Map.of(
+            "won",          result.won(),
+            "floor",        result.floor(),
+            "bossName",     result.bossName(),
+            "bronzeEarned", result.bronzeEarned(),
+            "expEarned",    result.expEarned(),
+            "log",          result.log(),
+            "runOver",      result.runOver()
+        ));
     }
 
     // Sai da torre voluntariamente
     @PostMapping("/exit")
     public ResponseEntity<?> exit(Authentication auth) {
-        try {
-            towerService.exit(getPlayer(auth));
-            return ResponseEntity.ok(Map.of("message", "You left the tower."));
-        } catch (IllegalStateException e) {
-            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
-        }
+        towerService.exit(getPlayer(auth));
+        return ResponseEntity.ok(Map.of("message", "You left the tower."));
     }
 
     private Player getPlayer(Authentication auth) {

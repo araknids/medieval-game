@@ -51,30 +51,22 @@ public class ArenaController {
 
     @PostMapping("/fight")
     public ResponseEntity<?> startFight(Authentication auth) {
-        try {
-            Player player = getPlayer(auth);
-            ArenaMatch match = arenaService.startFight(player);
-            return ResponseEntity.ok(MatchResponse.from(match));
-        } catch (IllegalStateException e) {
-            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
-        }
+        Player player = getPlayer(auth);
+        ArenaMatch match = arenaService.startFight(player);
+        return ResponseEntity.ok(MatchResponse.from(match));
     }
 
     @PostMapping("/{id}/collect")
     public ResponseEntity<?> collect(@PathVariable Long id, Authentication auth) {
-        try {
-            Player player = getPlayer(auth);
-            ArenaMatch match = arenaService.collectResult(player, id);
-            return ResponseEntity.ok(Map.of(
-                    "won",        match.isChallengerWon(),
-                    "opponent",   match.getOpponentName(),
-                    "goldEarned", match.getGoldReward(),
-                    "rankChange", match.getRankChange(),
-                    "log",        Arrays.asList(match.getBattleLog().split("\n"))
-            ));
-        } catch (IllegalArgumentException | IllegalStateException e) {
-            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
-        }
+        Player player = getPlayer(auth);
+        ArenaMatch match = arenaService.collectResult(player, id);
+        return ResponseEntity.ok(Map.of(
+                "won",        match.isChallengerWon(),
+                "opponent",   match.getOpponentName(),
+                "goldEarned", match.getGoldReward(),
+                "rankChange", match.getRankChange(),
+                "log",        Arrays.asList(match.getBattleLog().split("\n"))
+        ));
     }
 
     private Player getPlayer(Authentication auth) {

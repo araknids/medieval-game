@@ -29,10 +29,13 @@ public class GlobalExceptionHandler {
         return ResponseEntity.badRequest().body(Map.of("error", ex.getMessage()));
     }
 
+    // Regra de negócio rejeitada (saldo insuficiente, bag cheia, já coletado, etc.)
+    // → 400, mantendo o contrato que os controllers já entregavam. Conflito de
+    // concorrência real é tratado separadamente abaixo (409). [AUDITORIA A6]
     @ExceptionHandler(IllegalStateException.class)
     public ResponseEntity<?> handleIllegalState(IllegalStateException ex) {
         log.warn("[GlobalExceptionHandler] Business rule rejected: {}", ex.getMessage());
-        return ResponseEntity.status(409).body(Map.of("error", ex.getMessage()));
+        return ResponseEntity.badRequest().body(Map.of("error", ex.getMessage()));
     }
 
     // Conflito de escrita concorrente (optimistic locking) — ex.: dois cliques no mesmo

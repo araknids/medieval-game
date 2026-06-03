@@ -43,69 +43,49 @@ public class MailController {
     // ── Send letter ───────────────────────────────────────────────────────────
     @PostMapping("/send")
     public ResponseEntity<?> send(@RequestBody SendRequest req, Authentication auth) {
-        try {
-            Player sender = getPlayer(auth);
-            Mail mail = mailService.send(sender,
-                    req.recipientWarriorName(), req.message(), req.goldAmount());
-            return ResponseEntity.ok(Map.of(
-                "message", "Letter sent to " + req.recipientWarriorName() + "!",
-                "id",      mail.getId()
-            ));
-        } catch (IllegalArgumentException | IllegalStateException e) {
-            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
-        }
+        Player sender = getPlayer(auth);
+        Mail mail = mailService.send(sender,
+                req.recipientWarriorName(), req.message(), req.goldAmount());
+        return ResponseEntity.ok(Map.of(
+            "message", "Letter sent to " + req.recipientWarriorName() + "!",
+            "id",      mail.getId()
+        ));
     }
 
     // ── Mark read + return full letter ────────────────────────────────────────
     @PostMapping("/{id}/read")
     public ResponseEntity<?> read(@PathVariable Long id, Authentication auth) {
-        try {
-            Mail mail = mailService.markRead(getPlayer(auth), id);
-            return ResponseEntity.ok(toMap(mail, false));
-        } catch (IllegalArgumentException | IllegalStateException e) {
-            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
-        }
+        Mail mail = mailService.markRead(getPlayer(auth), id);
+        return ResponseEntity.ok(toMap(mail, false));
     }
 
     // ── Collect gold ──────────────────────────────────────────────────────────
     @PostMapping("/{id}/collect")
     public ResponseEntity<?> collect(@PathVariable Long id, Authentication auth) {
-        try {
-            Player player = getPlayer(auth);
-            Mail mail = mailService.collectGold(player, id);
-            return ResponseEntity.ok(Map.of(
-                "message",    "Collected " + mail.getGoldAmount() + " gold!",
-                "goldAmount", mail.getGoldAmount()
-            ));
-        } catch (IllegalArgumentException | IllegalStateException e) {
-            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
-        }
+        Player player = getPlayer(auth);
+        Mail mail = mailService.collectGold(player, id);
+        return ResponseEntity.ok(Map.of(
+            "message",    "Collected " + mail.getGoldAmount() + " gold!",
+            "goldAmount", mail.getGoldAmount()
+        ));
     }
 
     // ── Claim item from mail ──────────────────────────────────────────────────
     @PostMapping("/{id}/claim-item")
     public ResponseEntity<?> claimItem(@PathVariable Long id, Authentication auth) {
-        try {
-            Player player = getPlayer(auth);
-            InventoryItem item = mailService.claimItem(player, id, inventoryService);
-            return ResponseEntity.ok(Map.of(
-                "message",  "Item '" + item.getName() + "' added to your bag!",
-                "itemName", item.getName()
-            ));
-        } catch (IllegalArgumentException | IllegalStateException e) {
-            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
-        }
+        Player player = getPlayer(auth);
+        InventoryItem item = mailService.claimItem(player, id, inventoryService);
+        return ResponseEntity.ok(Map.of(
+            "message",  "Item '" + item.getName() + "' added to your bag!",
+            "itemName", item.getName()
+        ));
     }
 
     // ── Delete ────────────────────────────────────────────────────────────────
     @DeleteMapping("/{id}")
     public ResponseEntity<?> delete(@PathVariable Long id, Authentication auth) {
-        try {
-            mailService.delete(getPlayer(auth), id);
-            return ResponseEntity.ok(Map.of("message", "Letter deleted."));
-        } catch (IllegalArgumentException | IllegalStateException e) {
-            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
-        }
+        mailService.delete(getPlayer(auth), id);
+        return ResponseEntity.ok(Map.of("message", "Letter deleted."));
     }
 
     // ── Helpers ───────────────────────────────────────────────────────────────

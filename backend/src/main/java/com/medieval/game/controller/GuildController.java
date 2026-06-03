@@ -57,101 +57,69 @@ public class GuildController {
     // ── Criar guilda ──────────────────────────────────────────────────────────
     @PostMapping
     public ResponseEntity<?> create(@RequestBody CreateRequest req, Authentication auth) {
-        try {
-            Player player = getPlayer(auth);
-            Guild guild = guildService.create(player, req.name(), req.description());
-            return ResponseEntity.ok(toDetail(player, guild));
-        } catch (IllegalArgumentException | IllegalStateException e) {
-            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
-        }
+        Player player = getPlayer(auth);
+        Guild guild = guildService.create(player, req.name(), req.description());
+        return ResponseEntity.ok(toDetail(player, guild));
     }
 
     // ── Entrar na guilda ──────────────────────────────────────────────────────
     @PostMapping("/join/{guildId}")
     public ResponseEntity<?> join(@PathVariable Long guildId, Authentication auth) {
-        try {
-            Player player = getPlayer(auth);
-            Guild guild = guildService.join(player, guildId);
-            return ResponseEntity.ok(toDetail(player, guild));
-        } catch (IllegalArgumentException | IllegalStateException e) {
-            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
-        }
+        Player player = getPlayer(auth);
+        Guild guild = guildService.join(player, guildId);
+        return ResponseEntity.ok(toDetail(player, guild));
     }
 
     // ── Sair da guilda ────────────────────────────────────────────────────────
     @PostMapping("/leave")
     public ResponseEntity<?> leave(Authentication auth) {
-        try {
-            guildService.leave(getPlayer(auth));
-            return ResponseEntity.ok(Map.of("message", "You left the guild.", "inGuild", false));
-        } catch (IllegalArgumentException | IllegalStateException e) {
-            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
-        }
+        guildService.leave(getPlayer(auth));
+        return ResponseEntity.ok(Map.of("message", "You left the guild.", "inGuild", false));
     }
 
     // ── Expulsar membro ───────────────────────────────────────────────────────
     @PostMapping("/kick/{playerId}")
     public ResponseEntity<?> kick(@PathVariable Long playerId, Authentication auth) {
-        try {
-            guildService.kick(getPlayer(auth), playerId);
-            return ResponseEntity.ok(Map.of("message", "Member kicked."));
-        } catch (IllegalArgumentException | IllegalStateException e) {
-            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
-        }
+        guildService.kick(getPlayer(auth), playerId);
+        return ResponseEntity.ok(Map.of("message", "Member kicked."));
     }
 
     // ── Transferir liderança ──────────────────────────────────────────────────
     @PostMapping("/transfer/{playerId}")
     public ResponseEntity<?> transfer(@PathVariable Long playerId, Authentication auth) {
-        try {
-            Player leader = getPlayer(auth);
-            guildService.transfer(leader, playerId);
-            return ResponseEntity.ok(Map.of("message", "Leadership transferred."));
-        } catch (IllegalArgumentException | IllegalStateException e) {
-            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
-        }
+        Player leader = getPlayer(auth);
+        guildService.transfer(leader, playerId);
+        return ResponseEntity.ok(Map.of("message", "Leadership transferred."));
     }
 
     // ── Doar bronze para a guilda ─────────────────────────────────────────────
     @PostMapping("/donate")
     public ResponseEntity<?> donate(@RequestBody DonateRequest req, Authentication auth) {
-        try {
-            Player player = getPlayer(auth);
-            Guild guild = guildService.donate(player, req.amount());
-            return ResponseEntity.ok(Map.of(
-                "message",  "Donation successful!",
-                "guildGold", guild.getGold()
-            ));
-        } catch (IllegalArgumentException | IllegalStateException e) {
-            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
-        }
+        Player player = getPlayer(auth);
+        Guild guild = guildService.donate(player, req.amount());
+        return ResponseEntity.ok(Map.of(
+            "message",  "Donation successful!",
+            "guildGold", guild.getGold()
+        ));
     }
 
     // ── Subir nível da guilda ─────────────────────────────────────────────────
     @PostMapping("/levelup")
     public ResponseEntity<?> levelUp(Authentication auth) {
-        try {
-            Guild guild = guildService.levelUp(getPlayer(auth));
-            return ResponseEntity.ok(Map.of(
-                "message",    "Guild leveled up to level " + guild.getLevel() + "!",
-                "level",      guild.getLevel(),
-                "maxMembers", guild.maxMembers(),
-                "guildGold",  guild.getGold()
-            ));
-        } catch (IllegalArgumentException | IllegalStateException e) {
-            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
-        }
+        Guild guild = guildService.levelUp(getPlayer(auth));
+        return ResponseEntity.ok(Map.of(
+            "message",    "Guild leveled up to level " + guild.getLevel() + "!",
+            "level",      guild.getLevel(),
+            "maxMembers", guild.maxMembers(),
+            "guildGold",  guild.getGold()
+        ));
     }
 
     // ── Dissolver guilda ──────────────────────────────────────────────────────
     @DeleteMapping
     public ResponseEntity<?> disband(Authentication auth) {
-        try {
-            guildService.disband(getPlayer(auth));
-            return ResponseEntity.ok(Map.of("message", "Guild disbanded.", "inGuild", false));
-        } catch (IllegalArgumentException | IllegalStateException e) {
-            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
-        }
+        guildService.disband(getPlayer(auth));
+        return ResponseEntity.ok(Map.of("message", "Guild disbanded.", "inGuild", false));
     }
 
     // ── Helpers ───────────────────────────────────────────────────────────────

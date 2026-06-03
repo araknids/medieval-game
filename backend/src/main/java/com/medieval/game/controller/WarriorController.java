@@ -52,13 +52,9 @@ public class WarriorController {
 
     @PostMapping("/attributes/{attribute}")
     public ResponseEntity<?> spendPoint(@PathVariable Attribute attribute, Authentication auth) {
-        try {
-            Player  player  = playerService.findById((Long) auth.getPrincipal());
-            Warrior warrior = warriorService.spendPoint(player, attribute);
-            return ResponseEntity.ok(buildResponse(warrior, player));
-        } catch (IllegalStateException e) {
-            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
-        }
+        Player  player  = playerService.findById((Long) auth.getPrincipal());
+        Warrior warrior = warriorService.spendPoint(player, attribute);
+        return ResponseEntity.ok(buildResponse(warrior, player));
     }
 
     // ── Helper ──

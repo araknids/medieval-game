@@ -82,56 +82,44 @@ public class ZoneController {
     // Coleta resultado da expedição
     @PostMapping("/{id}/collect")
     public ResponseEntity<?> collect(@PathVariable Long id, Authentication auth) {
-        try {
-            Player player = getPlayer(auth);
-            ZoneService.CollectResult result = zoneService.collect(player, id);
+        Player player = getPlayer(auth);
+        ZoneService.CollectResult result = zoneService.collect(player, id);
 
-            var dropsResponse = result.drops().stream().map(d -> Map.of(
-                "type",        d.type().name(),
-                "displayName", d.type().displayName,
-                "quantity",    d.quantity()
-            )).toList();
+        var dropsResponse = result.drops().stream().map(d -> Map.of(
+            "type",        d.type().name(),
+            "displayName", d.type().displayName,
+            "quantity",    d.quantity()
+        )).toList();
 
-            return ResponseEntity.ok(Map.ofEntries(
-                Map.entry("status",       result.activity().getStatus().name()),
-                Map.entry("wasAttacked",  result.wasAttacked()),
-                Map.entry("survived",     result.survived()),
-                Map.entry("drops",        dropsResponse),
-                Map.entry("xpGained",     result.activity().getXpGained()),
-                Map.entry("bronzeGained", result.activity().getBronzeGained()),
-                Map.entry("bronzeLost",   result.activity().getBronzeLost()),
-                Map.entry("lostItemName", result.lostItemName() != null ? result.lostItemName() : ""),
-                Map.entry("attackerName", result.activity().getAttackerWarriorName() != null
-                        ? result.activity().getAttackerWarriorName() : ""),
-                Map.entry("battleLog",    result.activity().getBattleLog() != null
-                        ? Arrays.asList(result.activity().getBattleLog().split("\n"))
-                        : List.of())
-            ));
-        } catch (IllegalArgumentException | IllegalStateException e) {
-            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
-        }
+        return ResponseEntity.ok(Map.ofEntries(
+            Map.entry("status",       result.activity().getStatus().name()),
+            Map.entry("wasAttacked",  result.wasAttacked()),
+            Map.entry("survived",     result.survived()),
+            Map.entry("drops",        dropsResponse),
+            Map.entry("xpGained",     result.activity().getXpGained()),
+            Map.entry("bronzeGained", result.activity().getBronzeGained()),
+            Map.entry("bronzeLost",   result.activity().getBronzeLost()),
+            Map.entry("lostItemName", result.lostItemName() != null ? result.lostItemName() : ""),
+            Map.entry("attackerName", result.activity().getAttackerWarriorName() != null
+                    ? result.activity().getAttackerWarriorName() : ""),
+            Map.entry("battleLog",    result.activity().getBattleLog() != null
+                    ? Arrays.asList(result.activity().getBattleLog().split("\n"))
+                    : List.of())
+        ));
     }
 
     // Cancela expedição
     @PostMapping("/{id}/cancel")
     public ResponseEntity<?> cancel(@PathVariable Long id, Authentication auth) {
-        try {
-            zoneService.cancel(getPlayer(auth), id);
-            return ResponseEntity.ok(Map.of("message", "Expedition cancelled."));
-        } catch (IllegalArgumentException | IllegalStateException e) {
-            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
-        }
+        zoneService.cancel(getPlayer(auth), id);
+        return ResponseEntity.ok(Map.of("message", "Expedition cancelled."));
     }
 
     // Continuar expedição após ser emboscado (dispensa o dialog de aviso)
     @PostMapping("/{id}/continue")
     public ResponseEntity<?> continueExpedition(@PathVariable Long id, Authentication auth) {
-        try {
-            zoneService.acknowledgeAmbush(getPlayer(auth), id);
-            return ResponseEntity.ok(Map.of("message", "Expedition continues."));
-        } catch (IllegalArgumentException | IllegalStateException e) {
-            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
-        }
+        zoneService.acknowledgeAmbush(getPlayer(auth), id);
+        return ResponseEntity.ok(Map.of("message", "Expedition continues."));
     }
 
     private Player getPlayer(Authentication auth) {

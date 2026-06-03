@@ -80,43 +80,31 @@ public class WorkController {
 
     @PostMapping("/start")
     public ResponseEntity<?> startWork(@Valid @RequestBody StartWorkRequest req, Authentication auth) {
-        try {
-            Player      player  = getPlayer(auth);
-            WorkSession session = workService.startWork(player, req.workType(), req.hours());
-            return ResponseEntity.ok(WorkResponse.from(session));
-        } catch (IllegalArgumentException | IllegalStateException e) {
-            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
-        }
+        Player      player  = getPlayer(auth);
+        WorkSession session = workService.startWork(player, req.workType(), req.hours());
+        return ResponseEntity.ok(WorkResponse.from(session));
     }
 
     @PostMapping("/{id}/cancel")
     public ResponseEntity<?> cancel(@PathVariable Long id, Authentication auth) {
-        try {
-            Player      player  = getPlayer(auth);
-            WorkSession session = workService.cancelWork(player, id);
-            return ResponseEntity.ok(Map.of(
-                    "goldEarned", session.getGoldReward(),
-                    "xpEarned",   session.getXpReward(),
-                    "cancelled",  true
-            ));
-        } catch (IllegalArgumentException | IllegalStateException e) {
-            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
-        }
+        Player      player  = getPlayer(auth);
+        WorkSession session = workService.cancelWork(player, id);
+        return ResponseEntity.ok(Map.of(
+                "goldEarned", session.getGoldReward(),
+                "xpEarned",   session.getXpReward(),
+                "cancelled",  true
+        ));
     }
 
     @PostMapping("/{id}/collect")
     public ResponseEntity<?> collect(@PathVariable Long id, Authentication auth) {
-        try {
-            Player      player  = getPlayer(auth);
-            WorkSession session = workService.collectWork(player, id);
-            return ResponseEntity.ok(Map.of(
-                    "goldEarned", session.getGoldReward(),
-                    "xpEarned",   session.getXpReward(),
-                    "jobName",    session.getWorkType().displayName
-            ));
-        } catch (IllegalArgumentException | IllegalStateException e) {
-            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
-        }
+        Player      player  = getPlayer(auth);
+        WorkSession session = workService.collectWork(player, id);
+        return ResponseEntity.ok(Map.of(
+                "goldEarned", session.getGoldReward(),
+                "xpEarned",   session.getXpReward(),
+                "jobName",    session.getWorkType().displayName
+        ));
     }
 
     private Player getPlayer(Authentication auth) {

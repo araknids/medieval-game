@@ -80,68 +80,52 @@ public class GatheringController {
     // Inicia coleta
     @PostMapping("/start")
     public ResponseEntity<?> start(@Valid @RequestBody StartRequest req, Authentication auth) {
-        try {
-            Player          player  = getPlayer(auth);
-            GatheringSession session = gatheringService.startGathering(player, req.skillType(), req.durationMinutes());
-            long secs = Math.max(0, ChronoUnit.SECONDS.between(LocalDateTime.now(), session.getFinishesAt()));
-            return ResponseEntity.ok(Map.of(
-                "active",           true,
-                "id",               session.getId(),
-                "skillType",        session.getSkillType().name(),
-                "displayName",      session.getSkillType().displayName,
-                "durationMinutes",  session.getDurationMinutes(),
-                "xpReward",         session.getXpReward(),
-                "secondsRemaining", secs,
-                "readyToCollect",   session.isReadyToCollect()
-            ));
-        } catch (IllegalArgumentException | IllegalStateException e) {
-            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
-        }
+        Player          player  = getPlayer(auth);
+        GatheringSession session = gatheringService.startGathering(player, req.skillType(), req.durationMinutes());
+        long secs = Math.max(0, ChronoUnit.SECONDS.between(LocalDateTime.now(), session.getFinishesAt()));
+        return ResponseEntity.ok(Map.of(
+            "active",           true,
+            "id",               session.getId(),
+            "skillType",        session.getSkillType().name(),
+            "displayName",      session.getSkillType().displayName,
+            "durationMinutes",  session.getDurationMinutes(),
+            "xpReward",         session.getXpReward(),
+            "secondsRemaining", secs,
+            "readyToCollect",   session.isReadyToCollect()
+        ));
     }
 
     // Coleta resultado
     @PostMapping("/{id}/collect")
     public ResponseEntity<?> collect(@PathVariable Long id, Authentication auth) {
-        try {
-            Player player = getPlayer(auth);
-            List<GatheringService.ResourceDrop> drops = gatheringService.collectGathering(player, id);
-            var dropsResponse = drops.stream().map(d -> Map.of(
-                "type",        d.type().name(),
-                "displayName", d.type().displayName,
-                "category",    d.type().category.name(),
-                "quantity",    d.quantity()
-            )).toList();
-            return ResponseEntity.ok(Map.of("drops", dropsResponse));
-        } catch (IllegalArgumentException | IllegalStateException e) {
-            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
-        }
+        Player player = getPlayer(auth);
+        List<GatheringService.ResourceDrop> drops = gatheringService.collectGathering(player, id);
+        var dropsResponse = drops.stream().map(d -> Map.of(
+            "type",        d.type().name(),
+            "displayName", d.type().displayName,
+            "category",    d.type().category.name(),
+            "quantity",    d.quantity()
+        )).toList();
+        return ResponseEntity.ok(Map.of("drops", dropsResponse));
     }
 
     // Cancela coleta
     @PostMapping("/{id}/cancel")
     public ResponseEntity<?> cancel(@PathVariable Long id, Authentication auth) {
-        try {
-            gatheringService.cancelGathering(getPlayer(auth), id);
-            return ResponseEntity.ok(Map.of("message", "Coleta cancelada."));
-        } catch (IllegalArgumentException | IllegalStateException e) {
-            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
-        }
+        gatheringService.cancelGathering(getPlayer(auth), id);
+        return ResponseEntity.ok(Map.of("message", "Coleta cancelada."));
     }
 
     // Consome peixe (restaura stamina E HP)
     @PostMapping("/consume/{resourceType}")
     public ResponseEntity<?> consume(@PathVariable ResourceType resourceType, Authentication auth) {
-        try {
-            Player player = getPlayer(auth);
-            var result = gatheringService.consumeFish(player, resourceType);
-            return ResponseEntity.ok(Map.of(
-                "message",    resourceType.displayName + " consumido!",
-                "newStamina", result.newStamina(),
-                "newHpPercent", result.newHpPercent()
-            ));
-        } catch (IllegalArgumentException | IllegalStateException e) {
-            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
-        }
+        Player player = getPlayer(auth);
+        var result = gatheringService.consumeFish(player, resourceType);
+        return ResponseEntity.ok(Map.of(
+            "message",    resourceType.displayName + " consumido!",
+            "newStamina", result.newStamina(),
+            "newHpPercent", result.newHpPercent()
+        ));
     }
 
     private Player getPlayer(Authentication auth) {

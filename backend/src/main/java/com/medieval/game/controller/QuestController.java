@@ -52,56 +52,44 @@ public class QuestController {
     // Envia guerreiro em missão
     @PostMapping("/start")
     public ResponseEntity<?> startQuest(@Valid @RequestBody StartQuestRequest req, Authentication auth) {
-        try {
-            Player player = getPlayer(auth);
-            ActiveQuest quest = questService.sendOnQuest(player, req.questType());
-            return ResponseEntity.ok(QuestResponse.from(quest));
-        } catch (IllegalArgumentException | IllegalStateException e) {
-            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
-        }
+        Player player = getPlayer(auth);
+        ActiveQuest quest = questService.sendOnQuest(player, req.questType());
+        return ResponseEntity.ok(QuestResponse.from(quest));
     }
 
     // Abandona missão — perde tudo, guerreiro liberado imediatamente
     @PostMapping("/{questId}/abandon")
     public ResponseEntity<?> abandonQuest(@PathVariable Long questId, Authentication auth) {
-        try {
-            Player player = getPlayer(auth);
-            questService.abandonQuest(player, questId);
-            return ResponseEntity.ok(Map.of("message", "Quest abandoned."));
-        } catch (IllegalArgumentException | IllegalStateException e) {
-            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
-        }
+        Player player = getPlayer(auth);
+        questService.abandonQuest(player, questId);
+        return ResponseEntity.ok(Map.of("message", "Quest abandoned."));
     }
 
     // Coleta recompensa de missão concluída
     @PostMapping("/{questId}/collect")
     public ResponseEntity<?> collectReward(@PathVariable Long questId, Authentication auth) {
-        try {
-            Player player = getPlayer(auth);
-            var result = questService.collectReward(player, questId);
-            ActiveQuest quest = result.quest();
+        Player player = getPlayer(auth);
+        var result = questService.collectReward(player, questId);
+        ActiveQuest quest = result.quest();
 
-            var response = new java.util.HashMap<String, Object>();
-            response.put("goldEarned", quest.getGoldReward());
-            response.put("expEarned",  quest.getExpReward());
-            response.put("questId",    quest.getId());
+        var response = new java.util.HashMap<String, Object>();
+        response.put("goldEarned", quest.getGoldReward());
+        response.put("expEarned",  quest.getExpReward());
+        response.put("questId",    quest.getId());
 
-            if (result.droppedItem() != null) {
-                var item = result.droppedItem();
-                response.put("droppedItem", Map.of(
-                    "name",        item.getName(),
-                    "typeDisplay", item.getType().displayName,
-                    "rarity",      item.getRarity(),
-                    "attackBonus", item.getAttackBonus(),
-                    "defenseBonus",item.getDefenseBonus(),
-                    "healthBonus", item.getHealthBonus()
-                ));
-            }
-
-            return ResponseEntity.ok(response);
-        } catch (IllegalArgumentException | IllegalStateException e) {
-            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+        if (result.droppedItem() != null) {
+            var item = result.droppedItem();
+            response.put("droppedItem", Map.of(
+                "name",        item.getName(),
+                "typeDisplay", item.getType().displayName,
+                "rarity",      item.getRarity(),
+                "attackBonus", item.getAttackBonus(),
+                "defenseBonus",item.getDefenseBonus(),
+                "healthBonus", item.getHealthBonus()
+            ));
         }
+
+        return ResponseEntity.ok(response);
     }
 
     private Player getPlayer(Authentication auth) {

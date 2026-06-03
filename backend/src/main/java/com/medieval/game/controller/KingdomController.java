@@ -81,13 +81,9 @@ public class KingdomController {
             @PathVariable Kingdom kingdom,
             @RequestBody StartQuestRequest req,
             Authentication auth) {
-        try {
-            Player player = getPlayer(auth);
-            KingdomActiveQuest quest = kingdomService.startQuest(player, kingdom, req.questType());
-            return ResponseEntity.ok(questToMap(quest));
-        } catch (IllegalArgumentException | IllegalStateException e) {
-            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
-        }
+        Player player = getPlayer(auth);
+        KingdomActiveQuest quest = kingdomService.startQuest(player, kingdom, req.questType());
+        return ResponseEntity.ok(questToMap(quest));
     }
 
     // ── Collect quest reward ──────────────────────────────────────────────────
@@ -96,28 +92,24 @@ public class KingdomController {
             @PathVariable Kingdom kingdom,
             @PathVariable Long id,
             Authentication auth) {
-        try {
-            Player player = getPlayer(auth);
-            KingdomService.CollectResult result = kingdomService.collectQuest(player, id);
-            var resp = new java.util.HashMap<String, Object>();
-            resp.put("bronzeEarned", result.bronzeEarned());
-            resp.put("xpEarned",     result.xpEarned());
-            resp.put("questId",      result.quest().getId());
-            if (result.droppedItem() != null) {
-                InventoryItem d = result.droppedItem();
-                resp.put("droppedItem", Map.of(
-                    "name",        d.getName(),
-                    "type",        d.getType().name(),
-                    "rarity",      d.getRarity(),
-                    "attackBonus", d.getAttackBonus(),
-                    "defenseBonus",d.getDefenseBonus(),
-                    "healthBonus", d.getHealthBonus()
-                ));
-            }
-            return ResponseEntity.ok(resp);
-        } catch (IllegalArgumentException | IllegalStateException e) {
-            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+        Player player = getPlayer(auth);
+        KingdomService.CollectResult result = kingdomService.collectQuest(player, id);
+        var resp = new java.util.HashMap<String, Object>();
+        resp.put("bronzeEarned", result.bronzeEarned());
+        resp.put("xpEarned",     result.xpEarned());
+        resp.put("questId",      result.quest().getId());
+        if (result.droppedItem() != null) {
+            InventoryItem d = result.droppedItem();
+            resp.put("droppedItem", Map.of(
+                "name",        d.getName(),
+                "type",        d.getType().name(),
+                "rarity",      d.getRarity(),
+                "attackBonus", d.getAttackBonus(),
+                "defenseBonus",d.getDefenseBonus(),
+                "healthBonus", d.getHealthBonus()
+            ));
         }
+        return ResponseEntity.ok(resp);
     }
 
     // ── Instant-start quest (VIP only) ───────────────────────────────────────
@@ -126,28 +118,24 @@ public class KingdomController {
             @PathVariable Kingdom kingdom,
             @RequestBody StartQuestRequest req,
             Authentication auth) {
-        try {
-            Player player = getPlayer(auth);
-            KingdomService.CollectResult result = kingdomService.instantStartQuest(player, kingdom, req.questType());
-            var resp = new java.util.HashMap<String, Object>();
-            resp.put("bronzeEarned", result.bronzeEarned());
-            resp.put("xpEarned",     result.xpEarned());
-            resp.put("questId",      result.quest().getId());
-            if (result.droppedItem() != null) {
-                InventoryItem d = result.droppedItem();
-                resp.put("droppedItem", Map.of(
-                    "name",        d.getName(),
-                    "type",        d.getType().name(),
-                    "rarity",      d.getRarity(),
-                    "attackBonus", d.getAttackBonus(),
-                    "defenseBonus",d.getDefenseBonus(),
-                    "healthBonus", d.getHealthBonus()
-                ));
-            }
-            return ResponseEntity.ok(resp);
-        } catch (IllegalArgumentException | IllegalStateException e) {
-            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+        Player player = getPlayer(auth);
+        KingdomService.CollectResult result = kingdomService.instantStartQuest(player, kingdom, req.questType());
+        var resp = new java.util.HashMap<String, Object>();
+        resp.put("bronzeEarned", result.bronzeEarned());
+        resp.put("xpEarned",     result.xpEarned());
+        resp.put("questId",      result.quest().getId());
+        if (result.droppedItem() != null) {
+            InventoryItem d = result.droppedItem();
+            resp.put("droppedItem", Map.of(
+                "name",        d.getName(),
+                "type",        d.getType().name(),
+                "rarity",      d.getRarity(),
+                "attackBonus", d.getAttackBonus(),
+                "defenseBonus",d.getDefenseBonus(),
+                "healthBonus", d.getHealthBonus()
+            ));
         }
+        return ResponseEntity.ok(resp);
     }
 
     // ── Abandon quest ─────────────────────────────────────────────────────────
@@ -156,12 +144,8 @@ public class KingdomController {
             @PathVariable Kingdom kingdom,
             @PathVariable Long id,
             Authentication auth) {
-        try {
-            kingdomService.abandonQuest(getPlayer(auth), id);
-            return ResponseEntity.ok(Map.of("message", "Quest abandoned."));
-        } catch (IllegalArgumentException | IllegalStateException e) {
-            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
-        }
+        kingdomService.abandonQuest(getPlayer(auth), id);
+        return ResponseEntity.ok(Map.of("message", "Quest abandoned."));
     }
 
     // ── Training (Combat Kingdom) ─────────────────────────────────────────────
@@ -176,40 +160,28 @@ public class KingdomController {
     @PostMapping("/COMBAT/training/start")
     public ResponseEntity<?> startTraining(
             @RequestBody TrainingRequest req, Authentication auth) {
-        try {
-            Player player = getPlayer(auth);
-            TrainingSession session = kingdomService.startTraining(player, req.hours());
-            return ResponseEntity.ok(trainingToMap(session));
-        } catch (IllegalArgumentException | IllegalStateException e) {
-            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
-        }
+        Player player = getPlayer(auth);
+        TrainingSession session = kingdomService.startTraining(player, req.hours());
+        return ResponseEntity.ok(trainingToMap(session));
     }
 
     @PostMapping("/COMBAT/training/{id}/cancel")
     public ResponseEntity<?> cancelTraining(
             @PathVariable Long id, Authentication auth) {
-        try {
-            Player player = getPlayer(auth);
-            kingdomService.cancelTraining(player, id);
-            return ResponseEntity.ok(Map.of("message", "Training cancelled. Warrior freed."));
-        } catch (IllegalArgumentException | IllegalStateException e) {
-            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
-        }
+        Player player = getPlayer(auth);
+        kingdomService.cancelTraining(player, id);
+        return ResponseEntity.ok(Map.of("message", "Training cancelled. Warrior freed."));
     }
 
     @PostMapping("/COMBAT/training/{id}/collect")
     public ResponseEntity<?> collectTraining(
             @PathVariable Long id, Authentication auth) {
-        try {
-            Player player = getPlayer(auth);
-            TrainingSession session = kingdomService.collectTraining(player, id);
-            return ResponseEntity.ok(Map.of(
-                "message",   "Training complete! +" + session.getXpReward() + " XP",
-                "xpEarned",  session.getXpReward()
-            ));
-        } catch (IllegalArgumentException | IllegalStateException e) {
-            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
-        }
+        Player player = getPlayer(auth);
+        TrainingSession session = kingdomService.collectTraining(player, id);
+        return ResponseEntity.ok(Map.of(
+            "message",   "Training complete! +" + session.getXpReward() + " XP",
+            "xpEarned",  session.getXpReward()
+        ));
     }
 
     // ── Helpers ───────────────────────────────────────────────────────────────

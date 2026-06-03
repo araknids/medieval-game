@@ -48,16 +48,12 @@ public class ShopController {
 
     @PostMapping("/buy/{shopItemId}")
     public ResponseEntity<?> buy(@PathVariable long shopItemId, Authentication auth) {
-        try {
-            Player        player = playerService.findById((Long) auth.getPrincipal());
-            InventoryItem item   = shopService.buy(player, shopItemId);
-            return ResponseEntity.ok(Map.of(
-                    "message", item.getName() + " comprado com sucesso!",
-                    "gold",    player.getGold(),
-                    "itemId",  item.getId()
-            ));
-        } catch (IllegalArgumentException | IllegalStateException e) {
-            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
-        }
+        Player        player = playerService.findById((Long) auth.getPrincipal());
+        InventoryItem item   = shopService.buy(player, shopItemId);
+        return ResponseEntity.ok(Map.of(
+                "message", item.getName() + " comprado com sucesso!",
+                "gold",    player.getGold(),
+                "itemId",  item.getId()
+        ));
     }
 }

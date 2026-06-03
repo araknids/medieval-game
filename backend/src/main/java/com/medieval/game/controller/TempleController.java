@@ -89,75 +89,51 @@ public class TempleController {
     // Curar
     @PostMapping("/heal")
     public ResponseEntity<?> heal(Authentication auth) {
-        try {
-            templeService.heal(getPlayer(auth));
-            return ResponseEntity.ok(Map.of("message", "Warrior healed! HP restored to 100%."));
-        } catch (IllegalArgumentException | IllegalStateException e) {
-            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
-        }
+        templeService.heal(getPlayer(auth));
+        return ResponseEntity.ok(Map.of("message", "Warrior healed! HP restored to 100%."));
     }
 
     // Aplicar bênção
     @PostMapping("/buff/{buffType}")
     public ResponseEntity<?> applyBuff(@PathVariable BuffType buffType, Authentication auth) {
-        try {
-            templeService.applyBuff(getPlayer(auth), buffType);
-            return ResponseEntity.ok(Map.of(
-                "message", buffType.displayName + " ativado por 1 hora!",
-                "buff",    buffType.name()
-            ));
-        } catch (IllegalArgumentException | IllegalStateException e) {
-            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
-        }
+        templeService.applyBuff(getPlayer(auth), buffType);
+        return ResponseEntity.ok(Map.of(
+            "message", buffType.displayName + " ativado por 1 hora!",
+            "buff",    buffType.name()
+        ));
     }
 
     // VIP — cura grátis (CD 10 min)
     @PostMapping("/vip-heal")
     public ResponseEntity<?> vipHeal(Authentication auth) {
-        try {
-            Player player = getPlayer(auth);
-            templeService.vipHeal(player);
-            return ResponseEntity.ok(Map.of("message", "VIP Heal! HP restored to 100% for free."));
-        } catch (IllegalArgumentException | IllegalStateException e) {
-            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
-        }
+        Player player = getPlayer(auth);
+        templeService.vipHeal(player);
+        return ResponseEntity.ok(Map.of("message", "VIP Heal! HP restored to 100% for free."));
     }
 
     // Proteger item
     @PostMapping("/protect/{itemId}")
     public ResponseEntity<?> protect(@PathVariable Long itemId, Authentication auth) {
-        try {
-            templeService.protectItem(getPlayer(auth), itemId);
-            return ResponseEntity.ok(Map.of("message", "Item protegido pelo Templo!"));
-        } catch (IllegalArgumentException | IllegalStateException e) {
-            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
-        }
+        templeService.protectItem(getPlayer(auth), itemId);
+        return ResponseEntity.ok(Map.of("message", "Item protegido pelo Templo!"));
     }
 
     // Remover proteção
     @PostMapping("/unprotect/{itemId}")
     public ResponseEntity<?> unprotect(@PathVariable Long itemId, Authentication auth) {
-        try {
-            templeService.unprotectItem(getPlayer(auth), itemId);
-            return ResponseEntity.ok(Map.of("message", "Protection removed."));
-        } catch (IllegalArgumentException | IllegalStateException e) {
-            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
-        }
+        templeService.unprotectItem(getPlayer(auth), itemId);
+        return ResponseEntity.ok(Map.of("message", "Protection removed."));
     }
 
     // SoulStone — cura instantânea (1 💎, CD 30 min)
     @PostMapping("/soulstone-heal")
     public ResponseEntity<?> soulstoneHeal(Authentication auth) {
-        try {
-            Player player = getPlayer(auth);
-            templeService.soulstoneHeal(player);
-            return ResponseEntity.ok(Map.of(
-                "message",    "Warrior instantly healed! HP restored to 100%.",
-                "soulStones", player.getSoulStones()
-            ));
-        } catch (IllegalArgumentException | IllegalStateException e) {
-            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
-        }
+        Player player = getPlayer(auth);
+        templeService.soulstoneHeal(player);
+        return ResponseEntity.ok(Map.of(
+            "message",    "Warrior instantly healed! HP restored to 100%.",
+            "soulStones", player.getSoulStones()
+        ));
     }
 
     private Player getPlayer(Authentication auth) {

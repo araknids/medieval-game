@@ -29,17 +29,13 @@ public class VipController {
     // POST /api/vip/buy — purchase or renew VIP (15 SoulStones, 30 days)
     @PostMapping("/buy")
     public ResponseEntity<?> buy(Authentication auth) {
-        try {
-            Player player = getPlayer(auth);
-            vipService.buyVip(player);
-            return ResponseEntity.ok(Map.of(
-                "message",      "VIP activated! Enjoy your 30 days of benefits.",
-                "vipExpiresAt", player.getVipExpiresAt().toString(),
-                "soulStones",   player.getSoulStones()
-            ));
-        } catch (IllegalStateException e) {
-            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
-        }
+        Player player = getPlayer(auth);
+        vipService.buyVip(player);
+        return ResponseEntity.ok(Map.of(
+            "message",      "VIP activated! Enjoy your 30 days of benefits.",
+            "vipExpiresAt", player.getVipExpiresAt().toString(),
+            "soulStones",   player.getSoulStones()
+        ));
     }
 
     private Player getPlayer(Authentication auth) {

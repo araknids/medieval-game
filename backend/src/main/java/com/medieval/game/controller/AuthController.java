@@ -49,26 +49,22 @@ public class AuthController {
 
     @PostMapping("/register")
     public ResponseEntity<?> register(@Valid @RequestBody RegisterRequest req) {
-        try {
-            Player  player  = playerService.register(req.username(), req.email(), req.password());
-            Warrior warrior = warriorService.create(player, req.warriorName(), WarriorClass.WARRIOR);
-            inventoryService.giveStarterItems(player);
-            emailService.sendWelcomeEmail(player.getEmail(), player.getUsername(), warrior.getName());
-            String token = jwtUtil.generateToken(player.getId(), player.getUsername());
-            return ResponseEntity.ok(Map.of(
-                    "token",    token,
-                    "playerId", player.getId(),
-                    "username", player.getUsername(),
-                    "gold",     player.getGold(),
-                    "warrior",  Map.of(
-                            "id",    warrior.getId(),
-                            "name",  warrior.getName(),
-                            "class", warrior.getWarriorClass().displayName
-                    )
-            ));
-        } catch (IllegalArgumentException e) {
-            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
-        }
+        Player  player  = playerService.register(req.username(), req.email(), req.password());
+        Warrior warrior = warriorService.create(player, req.warriorName(), WarriorClass.WARRIOR);
+        inventoryService.giveStarterItems(player);
+        emailService.sendWelcomeEmail(player.getEmail(), player.getUsername(), warrior.getName());
+        String token = jwtUtil.generateToken(player.getId(), player.getUsername());
+        return ResponseEntity.ok(Map.of(
+                "token",    token,
+                "playerId", player.getId(),
+                "username", player.getUsername(),
+                "gold",     player.getGold(),
+                "warrior",  Map.of(
+                        "id",    warrior.getId(),
+                        "name",  warrior.getName(),
+                        "class", warrior.getWarriorClass().displayName
+                )
+        ));
     }
 
     @PostMapping("/login")

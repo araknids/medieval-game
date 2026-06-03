@@ -35,37 +35,25 @@ public class InventoryController {
 
     @PostMapping("/{id}/equip")
     public ResponseEntity<?> equip(@PathVariable Long id, Authentication auth) {
-        try {
-            InventoryItem item = inventoryService.equip(getPlayer(auth), id);
-            return ResponseEntity.ok(ItemResponse.from(item, gemRepository.findAllByItem(item)));
-        } catch (IllegalArgumentException | IllegalStateException e) {
-            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
-        }
+        InventoryItem item = inventoryService.equip(getPlayer(auth), id);
+        return ResponseEntity.ok(ItemResponse.from(item, gemRepository.findAllByItem(item)));
     }
 
     @PostMapping("/{id}/unequip")
     public ResponseEntity<?> unequip(@PathVariable Long id, Authentication auth) {
-        try {
-            InventoryItem item = inventoryService.unequip(getPlayer(auth), id);
-            return ResponseEntity.ok(ItemResponse.from(item, gemRepository.findAllByItem(item)));
-        } catch (IllegalArgumentException | IllegalStateException e) {
-            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
-        }
+        InventoryItem item = inventoryService.unequip(getPlayer(auth), id);
+        return ResponseEntity.ok(ItemResponse.from(item, gemRepository.findAllByItem(item)));
     }
 
     @PostMapping("/{id}/sell")
     public ResponseEntity<?> sell(@PathVariable Long id, Authentication auth) {
-        try {
-            Player        player = getPlayer(auth);
-            InventoryItem item   = inventoryService.sell(player, id);
-            return ResponseEntity.ok(Map.of(
-                "message",    item.getName() + " vendido!",
-                "goldEarned", item.getSellPrice(),
-                "gold",       player.getGold()
-            ));
-        } catch (IllegalArgumentException | IllegalStateException e) {
-            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
-        }
+        Player        player = getPlayer(auth);
+        InventoryItem item   = inventoryService.sell(player, id);
+        return ResponseEntity.ok(Map.of(
+            "message",    item.getName() + " vendido!",
+            "goldEarned", item.getSellPrice(),
+            "gold",       player.getGold()
+        ));
     }
 
     // GET /api/inventory/slots — info de bag para o frontend
@@ -83,17 +71,13 @@ public class InventoryController {
     // POST /api/inventory/expand — expande bag (3 SoulStones, permanente)
     @PostMapping("/expand")
     public ResponseEntity<?> expand(Authentication auth) {
-        try {
-            Player player = getPlayer(auth);
-            inventoryService.expandInventory(player);
-            return ResponseEntity.ok(Map.of(
-                "message",    "Inventory expanded to 20 slots!",
-                "maxSlots",   player.getMaxInventorySlots(),
-                "soulStones", player.getSoulStones()
-            ));
-        } catch (IllegalArgumentException | IllegalStateException e) {
-            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
-        }
+        Player player = getPlayer(auth);
+        inventoryService.expandInventory(player);
+        return ResponseEntity.ok(Map.of(
+            "message",    "Inventory expanded to 20 slots!",
+            "maxSlots",   player.getMaxInventorySlots(),
+            "soulStones", player.getSoulStones()
+        ));
     }
 
     private Player getPlayer(Authentication auth) {
