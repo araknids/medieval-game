@@ -28,14 +28,16 @@ class KingdomServiceTest {
         assertThat(fishingQuests).noneMatch(q -> q.kingdom == Kingdom.COMBAT);
     }
 
-    // TC-050: Each kingdom has exactly 4 quest types
+    // TC-050: Cada reino de quest tem exatamente 4 quests. Reinos de coleta pura
+    // (ex.: GRUTAS_DE_CRISTAL/Garimpo) não têm quests. [REINOS_V2]
     @Test
-    @DisplayName("TC-050 | Each kingdom has exactly 4 quest types")
-    void tc050_eachKingdomHas4Quests() {
+    @DisplayName("TC-050 | Reinos com quest têm 4; reino de coleta (Grutas) tem 0")
+    void tc050_questKingdomsHave4() {
         for (Kingdom k : Kingdom.values()) {
             long count = Arrays.stream(KingdomQuestType.values())
                     .filter(q -> q.kingdom == k).count();
-            assertThat(count).as("Kingdom %s should have 4 quests", k).isEqualTo(4);
+            long expected = (k == Kingdom.GRUTAS_DE_CRISTAL) ? 0 : 4;
+            assertThat(count).as("Kingdom %s quest count", k).isEqualTo(expected);
         }
     }
 

@@ -57,6 +57,10 @@ public class KingdomService {
         long secsUntilNext = 21600 - (java.time.Instant.now().getEpochSecond() % 21600);
 
         return Arrays.stream(Kingdom.values()).map(k -> {
+            // Reino sem guerra de guild (ex.: Garimpo) → sem dados de território. [REINOS_V2]
+            if (k.territory == null) {
+                return new KingdomStatus(k, null, false, 0, 0, 0, 0, 0);
+            }
             TerritoryControl ctrl = territoryService.getTerritory(k.territory);
             String guildName = ctrl.isNeutral() ? null : ctrl.getControllingGuild().getName();
             boolean isMine   = myBonus.territory() == k.territory;

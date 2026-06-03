@@ -2774,7 +2774,8 @@ function renderWorldOverview(kingdoms, territories) {
   const ZONE_LABELS = {
     FISHING: ['Safe Shore','Wild Coast','Deep Sea'],
     MINING:  ['Open Mine','Deep Tunnels','Forbidden Mines'],
-    COMBAT:  ['Training Hall','Battlefield','War Zone']
+    COMBAT:  ['Training Hall','Battlefield','War Zone'],
+    GRUTAS_DE_CRISTAL: ['Veio Raso','Grutas Profundas','Caverna Proibida']
   };
 
   const cards = kingdoms.map(k => {
@@ -2806,7 +2807,8 @@ function renderWorldOverview(kingdoms, territories) {
 
     const histBtn = `<button onclick="event.stopPropagation();territoryHistory('${terKey}','${k.displayName}')" style="font-size:11px;padding:4px 10px;background:#333">📜 History</button>`;
 
-    const warSection = `
+    // Reinos sem guerra de guild (ex.: Grutas de Cristal) não mostram a seção de guerra. [REINOS_V2]
+    const warSection = terKey ? `
       <div onclick="event.stopPropagation()" style="border-top:1px solid #333;margin-top:10px;padding-top:8px">
         <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
           <span style="font-size:11px;color:#666">Territory War:</span>
@@ -2814,7 +2816,10 @@ function renderWorldOverview(kingdoms, territories) {
           ${histBtn}
         </div>
         ${declarersLine}
-      </div>`;
+      </div>` : '';
+    const nextWar = terKey
+      ? `<div style="text-align:right;font-size:11px;color:#666">Next war<br><strong style="color:#eee">${secsH}h ${secsM}m</strong></div>`
+      : '';
 
     return `<div onclick="enterKingdom('${k.kingdom}')" style="background:#1a1a2e;border:1px solid ${k.isMine ? '#4caf50' : '#444'};border-radius:10px;padding:16px;margin-bottom:12px;cursor:pointer">
       <div style="display:flex;justify-content:space-between;align-items:flex-start">
@@ -2822,7 +2827,7 @@ function renderWorldOverview(kingdoms, territories) {
           <h3 style="margin:0 0 4px;font-size:16px">${k.icon} ${k.displayName}</h3>
           ${ctrl}${bonus}
         </div>
-        <div style="text-align:right;font-size:11px;color:#666">Next war<br><strong style="color:#eee">${secsH}h ${secsM}m</strong></div>
+        ${nextWar}
       </div>
       <p style="color:#888;font-size:12px;margin:8px 0 0">${k.lore}</p>
       <div style="margin-top:8px;display:flex;gap:6px;flex-wrap:wrap">${zoneHtml}</div>
@@ -2845,7 +2850,7 @@ async function enterKingdom(kingdom) {
       api('GET', `/api/world/${kingdom}/quests`),
       api('GET', `/api/world/${kingdom}/quests/active`),
       kingdom === 'COMBAT' ? api('GET', '/api/world/COMBAT/training') : Promise.resolve(null),
-      (kingdom === 'FISHING' || kingdom === 'MINING') ? api('GET', '/api/gathering/current') : Promise.resolve(null),
+      (kingdom === 'FISHING' || kingdom === 'MINING' || kingdom === 'GRUTAS_DE_CRISTAL') ? api('GET', '/api/gathering/current') : Promise.resolve(null),
       (kingdom === 'FISHING' || kingdom === 'MINING' || kingdom === 'COMBAT') ? api('GET', '/api/zones/current') : Promise.resolve(null)
     ]);
     console.log('[WORLD] enterKingdom data:', {kingdom, gatherSession, zoneSession, activeQuests: activeQuests.length});
@@ -2858,8 +2863,8 @@ async function enterKingdom(kingdom) {
 
 function renderKingdomDetail(kingdom, quests, activeQuests, training, gatherSession, zoneSession) {
   const el = document.getElementById('kingdom-detail');
-  const NAMES = { FISHING:'Desfiladeiro do Osso', MINING:'Minas de Ferro Negro', COMBAT:'Fortaleza Maldita' };
-  const ICONS = { FISHING:'🎣', MINING:'⛏', COMBAT:'⚔' };
+  const NAMES = { FISHING:'Desfiladeiro do Osso', MINING:'Minas de Ferro Negro', COMBAT:'Fortaleza Maldita', GRUTAS_DE_CRISTAL:'Grutas de Cristal' };
+  const ICONS = { FISHING:'🎣', MINING:'⛏', COMBAT:'⚔', GRUTAS_DE_CRISTAL:'🔎' };
   const busy = activeQuests.length > 0
     || !!(warrior && warrior.onMission)
     || !!(gatherSession && gatherSession.active)
@@ -2978,10 +2983,12 @@ function renderKingdomDetail(kingdom, quests, activeQuests, training, gatherSess
       }).join('');
   }
 
-  // Gathering section for FISHING and MINING kingdoms — 3 zones per kingdom
+  // Gathering section for FISHING, MINING and GARIMPO kingdoms — 3 zones per kingdom
   let gatheringHtml = '';
-  if (kingdom === 'FISHING' || kingdom === 'MINING') {
-    const skillType = kingdom === 'FISHING' ? 'FISHING' : 'MINING';
+  if (kingdom === 'FISHING' || kingdom === 'MINING' || kingdom === 'GRUTAS_DE_CRISTAL') {
+    const skillType = kingdom === 'FISHING' ? 'FISHING'
+                    : kingdom === 'MINING'  ? 'MINING'
+                    : 'GARIMPO';
     const wLevel    = warrior ? warrior.level : 1;
 
     // All zones use /api/gathering/start (max 60min). PvP risk = cosmetic for now.
@@ -2993,10 +3000,14 @@ function renderKingdomDetail(kingdom, quests, activeQuests, training, gatherSess
       { name:'🏖 Safe Shore', minLv:1,  pvp:false, durations:dur, color:'#4caf50', desc:'Safe fishing — no PvP' },
       { name:'🌊 Wild Coast', minLv:10, pvp:true,  durations:dur, color:'#ffc107', desc:'PvP zone — hunters may attack (coming soon)' },
       { name:'🦈 Deep Sea',   minLv:20, pvp:true,  durations:dur, color:'#ef5350', desc:'High risk — rare fish (coming soon)' }
-    ] : [
+    ] : kingdom === 'MINING' ? [
       { name:'⛏ Open Mine',       minLv:1,  pvp:false, durations:dur, color:'#4caf50', desc:'Safe mining — no PvP' },
       { name:'🪨 Deep Tunnels',   minLv:10, pvp:true,  durations:dur, color:'#ffc107', desc:'PvP zone — hunters may attack (coming soon)' },
       { name:'💎 Forbidden Mines', minLv:20, pvp:true,  durations:dur, color:'#ef5350', desc:'High risk — rare ores (coming soon)' }
+    ] : [
+      { name:'🔎 Veio Raso',        minLv:1,  pvp:false, durations:dur, color:'#4caf50', desc:'Garimpo seguro — sem PvP' },
+      { name:'💠 Grutas Profundas', minLv:10, pvp:true,  durations:dur, color:'#ffc107', desc:'Zona PvP — caçadores podem atacar (em breve)' },
+      { name:'💎 Caverna Proibida', minLv:20, pvp:true,  durations:dur, color:'#ef5350', desc:'Alto risco — gemas raras (em breve)' }
     ];
 
     gatheringHtml = zones.map(z => {

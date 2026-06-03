@@ -22,6 +22,14 @@ public enum Kingdom {
         Territory.FORTALEZA_MALDITA,
         null,
         "An ancient fortress where warriors train and battle for glory. No mining, no fishing — only war."
+    ),
+    // Reinos V2 — reino de coleta SEM guerra de guild (territory = null). [PLANO_REINOS_V2]
+    GRUTAS_DE_CRISTAL(
+        "Grutas de Cristal",
+        "🔎",
+        null,                 // não é território de guild-war
+        SkillType.GARIMPO,
+        "Cavernas cintilantes onde garimpeiros escavam fragmentos de joias raras."
     );
 
     public final String displayName;
