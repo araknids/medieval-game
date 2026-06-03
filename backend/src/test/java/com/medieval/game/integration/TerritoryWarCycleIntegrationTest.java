@@ -1,6 +1,6 @@
 package com.medieval.game.integration;
 
-import com.medieval.game.enums.Territory;
+import com.medieval.game.enums.Kingdom;
 import com.medieval.game.model.Player;
 import com.medieval.game.model.TerritoryControl;
 import com.medieval.game.model.Warrior;
@@ -22,8 +22,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
-// TC-219 to TC-228 — Territory War resolution cycle (resolveTerritory) integration tests
-@DisplayName("TC-219-228 | Territory War Cycle — resolveTerritory")
+// TC-219 to TC-228 — Kingdom War resolution cycle (resolveTerritory) integration tests
+@DisplayName("TC-219-228 | Kingdom War Cycle — resolveTerritory")
 class TerritoryWarCycleIntegrationTest extends BaseIntegrationTest {
 
     @Autowired TerritoryService           territoryService;
@@ -33,7 +33,7 @@ class TerritoryWarCycleIntegrationTest extends BaseIntegrationTest {
     @Autowired GuildRepository            guildRepository;
 
     /** Funds the controlling guild's treasury so it can pay territory upkeep. */
-    private void fundControllingGuild(Territory t, long bronze) {
+    private void fundControllingGuild(Kingdom t, long bronze) {
         TerritoryControl ctrl = territoryService.getTerritory(t);
         Guild guild = ctrl.getControllingGuild();
         if (guild != null) {
@@ -66,7 +66,7 @@ class TerritoryWarCycleIntegrationTest extends BaseIntegrationTest {
         warriorRepository.save(w);
     }
 
-    private long createGuildAndDeclare(Territory t) throws Exception {
+    private long createGuildAndDeclare(Kingdom t) throws Exception {
         mockMvc.perform(post("/api/guild")
                 .header("Authorization", bearer(leaderToken))
                 .contentType(MediaType.APPLICATION_JSON)
@@ -84,9 +84,9 @@ class TerritoryWarCycleIntegrationTest extends BaseIntegrationTest {
     @DisplayName("TC-219 | No declarations on neutral territory → stays neutral")
     void tc219_noDeclarations_staysNeutral() {
         long cycle = territoryService.currentCycleId();
-        territoryService.resolveTerritory(Territory.MINAS_DE_FERRO_NEGRO, cycle);
+        territoryService.resolveTerritory(Kingdom.MINING, cycle);
 
-        TerritoryControl ctrl = territoryService.getTerritory(Territory.MINAS_DE_FERRO_NEGRO);
+        TerritoryControl ctrl = territoryService.getTerritory(Kingdom.MINING);
         assertThat(ctrl.isNeutral()).isTrue();
     }
 
@@ -94,10 +94,10 @@ class TerritoryWarCycleIntegrationTest extends BaseIntegrationTest {
     @Test
     @DisplayName("TC-220 | Strong guild attacks neutral → captures territory")
     void tc220_strongGuild_capturesNeutral() throws Exception {
-        long cycle = createGuildAndDeclare(Territory.FORTALEZA_MALDITA);
-        territoryService.resolveTerritory(Territory.FORTALEZA_MALDITA, cycle);
+        long cycle = createGuildAndDeclare(Kingdom.COMBAT);
+        territoryService.resolveTerritory(Kingdom.COMBAT, cycle);
 
-        TerritoryControl ctrl = territoryService.getTerritory(Territory.FORTALEZA_MALDITA);
+        TerritoryControl ctrl = territoryService.getTerritory(Kingdom.COMBAT);
         assertThat(ctrl.isNeutral()).isFalse();
         assertThat(ctrl.getControllingGuild()).isNotNull();
     }
@@ -106,19 +106,19 @@ class TerritoryWarCycleIntegrationTest extends BaseIntegrationTest {
     @Test
     @DisplayName("TC-221 | Held territory, no attacks → defenseStreak increments")
     void tc221_heldTerritory_streakIncrements() throws Exception {
-        long cycle = createGuildAndDeclare(Territory.DESFILADEIRO_DO_OSSO);
-        territoryService.resolveTerritory(Territory.DESFILADEIRO_DO_OSSO, cycle);
+        long cycle = createGuildAndDeclare(Kingdom.FISHING);
+        territoryService.resolveTerritory(Kingdom.FISHING, cycle);
 
-        TerritoryControl held = territoryService.getTerritory(Territory.DESFILADEIRO_DO_OSSO);
+        TerritoryControl held = territoryService.getTerritory(Kingdom.FISHING);
         assertThat(held.isNeutral()).isFalse();
         int streakBefore = held.getDefenseStreak();
 
         // Fund the treasury so the guild can pay upkeep and keep the territory
-        fundControllingGuild(Territory.DESFILADEIRO_DO_OSSO, 10_000);
+        fundControllingGuild(Kingdom.FISHING, 10_000);
 
         // Resolve a later cycle with no declarations → streak should increment
-        territoryService.resolveTerritory(Territory.DESFILADEIRO_DO_OSSO, cycle + 5);
-        TerritoryControl after = territoryService.getTerritory(Territory.DESFILADEIRO_DO_OSSO);
+        territoryService.resolveTerritory(Kingdom.FISHING, cycle + 5);
+        TerritoryControl after = territoryService.getTerritory(Kingdom.FISHING);
         assertThat(after.getDefenseStreak()).isEqualTo(streakBefore + 1);
     }
 
@@ -126,12 +126,12 @@ class TerritoryWarCycleIntegrationTest extends BaseIntegrationTest {
     @Test
     @DisplayName("TC-222 | Controlling guild member gets +10% XP / +10% bronze bonus")
     void tc222_controllingGuild_getsBonus() throws Exception {
-        long cycle = createGuildAndDeclare(Territory.FORTALEZA_MALDITA);
-        territoryService.resolveTerritory(Territory.FORTALEZA_MALDITA, cycle);
+        long cycle = createGuildAndDeclare(Kingdom.COMBAT);
+        territoryService.resolveTerritory(Kingdom.COMBAT, cycle);
 
         Player leader = leaderPlayer();
         TerritoryService.TerritoryBonus bonus = territoryService.getBonusForPlayer(leader);
-        assertThat(bonus.territory()).isEqualTo(Territory.FORTALEZA_MALDITA);
+        assertThat(bonus.territory()).isEqualTo(Kingdom.COMBAT);
         assertThat(bonus.xpBonus()).isEqualTo(10);
         assertThat(bonus.bronzeBonus()).isEqualTo(10);
     }
@@ -150,8 +150,8 @@ class TerritoryWarCycleIntegrationTest extends BaseIntegrationTest {
     @Test
     @DisplayName("TC-224 | Exclusive bonus maps to territory (FORTALEZA → questXpBonus)")
     void tc224_exclusiveBonus_perTerritory() throws Exception {
-        long cycle = createGuildAndDeclare(Territory.FORTALEZA_MALDITA);
-        territoryService.resolveTerritory(Territory.FORTALEZA_MALDITA, cycle);
+        long cycle = createGuildAndDeclare(Kingdom.COMBAT);
+        territoryService.resolveTerritory(Kingdom.COMBAT, cycle);
 
         Player leader = leaderPlayer();
         TerritoryService.TerritoryBonus bonus = territoryService.getBonusForPlayer(leader);
@@ -164,11 +164,11 @@ class TerritoryWarCycleIntegrationTest extends BaseIntegrationTest {
     @Test
     @DisplayName("TC-225 | Guild already holding a territory cannot declare attack")
     void tc225_holdingGuild_cannotDeclare() throws Exception {
-        long cycle = createGuildAndDeclare(Territory.FORTALEZA_MALDITA);
-        territoryService.resolveTerritory(Territory.FORTALEZA_MALDITA, cycle);
+        long cycle = createGuildAndDeclare(Kingdom.COMBAT);
+        territoryService.resolveTerritory(Kingdom.COMBAT, cycle);
 
         // Now holding FORTALEZA — try to declare on another territory
-        mockMvc.perform(post("/api/territory/MINAS_DE_FERRO_NEGRO/declare")
+        mockMvc.perform(post("/api/territory/MINING/declare")
                         .header("Authorization", bearer(leaderToken)))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.error").isNotEmpty());
@@ -178,10 +178,10 @@ class TerritoryWarCycleIntegrationTest extends BaseIntegrationTest {
     @Test
     @DisplayName("TC-226 | Capturing a territory sets defenseStreak to 0")
     void tc226_capture_resetsStreak() throws Exception {
-        long cycle = createGuildAndDeclare(Territory.MINAS_DE_FERRO_NEGRO);
-        territoryService.resolveTerritory(Territory.MINAS_DE_FERRO_NEGRO, cycle);
+        long cycle = createGuildAndDeclare(Kingdom.MINING);
+        territoryService.resolveTerritory(Kingdom.MINING, cycle);
 
-        TerritoryControl ctrl = territoryService.getTerritory(Territory.MINAS_DE_FERRO_NEGRO);
+        TerritoryControl ctrl = territoryService.getTerritory(Kingdom.MINING);
         assertThat(ctrl.getDefenseStreak()).isEqualTo(0);
     }
 

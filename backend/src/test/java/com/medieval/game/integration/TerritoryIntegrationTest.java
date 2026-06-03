@@ -13,8 +13,8 @@ import static org.hamcrest.Matchers.*;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
-// TC-124 to TC-138 — Territory War integration tests
-@DisplayName("TC-124-138 | Territory War — Integration")
+// TC-124 to TC-138 — Kingdom War integration tests
+@DisplayName("TC-124-138 | Kingdom War — Integration")
 class TerritoryIntegrationTest extends BaseIntegrationTest {
 
     String token;
@@ -47,11 +47,11 @@ class TerritoryIntegrationTest extends BaseIntegrationTest {
                 .andExpect(jsonPath("$.hasTerritory").value(false));
     }
 
-    // TC-126: POST /api/territory/FORTALEZA_MALDITA/declare without guild → 400
+    // TC-126: POST /api/territory/COMBAT/declare without guild → 400
     @Test
     @DisplayName("TC-126 | Declare attack without guild → 400")
     void tc126_declare_noGuild_returns400() throws Exception {
-        mockMvc.perform(post("/api/territory/FORTALEZA_MALDITA/declare")
+        mockMvc.perform(post("/api/territory/COMBAT/declare")
                         .header("Authorization", bearer(token)))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.error").isNotEmpty());
@@ -67,10 +67,10 @@ class TerritoryIntegrationTest extends BaseIntegrationTest {
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(json(Map.of("name", "TerritoryGuild" + System.nanoTime(), "description", ""))));
 
-        mockMvc.perform(post("/api/territory/FORTALEZA_MALDITA/declare")
+        mockMvc.perform(post("/api/territory/COMBAT/declare")
                         .header("Authorization", bearer(leaderToken)))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.territory").value("FORTALEZA_MALDITA"));
+                .andExpect(jsonPath("$.territory").value("COMBAT"));
     }
 
     // TC-128: Non-leader member cannot declare
@@ -88,7 +88,7 @@ class TerritoryIntegrationTest extends BaseIntegrationTest {
         mockMvc.perform(post("/api/guild/join/" + guildId)
                 .header("Authorization", bearer(token)));
 
-        mockMvc.perform(post("/api/territory/FORTALEZA_MALDITA/declare")
+        mockMvc.perform(post("/api/territory/COMBAT/declare")
                         .header("Authorization", bearer(token)))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.error").isNotEmpty());
@@ -103,10 +103,10 @@ class TerritoryIntegrationTest extends BaseIntegrationTest {
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(json(Map.of("name", "TerritoryGuild3" + System.nanoTime(), "description", ""))));
 
-        mockMvc.perform(post("/api/territory/FORTALEZA_MALDITA/declare")
+        mockMvc.perform(post("/api/territory/COMBAT/declare")
                 .header("Authorization", bearer(leaderToken)));
 
-        mockMvc.perform(post("/api/territory/MINAS_DE_FERRO_NEGRO/declare")
+        mockMvc.perform(post("/api/territory/MINING/declare")
                         .header("Authorization", bearer(leaderToken)))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.error").isNotEmpty());
@@ -116,15 +116,15 @@ class TerritoryIntegrationTest extends BaseIntegrationTest {
     @Test
     @DisplayName("TC-130 | GET /api/territory/{territory}/history → returns array")
     void tc130_battleHistory_returnsArray() throws Exception {
-        mockMvc.perform(get("/api/territory/FORTALEZA_MALDITA/history")
+        mockMvc.perform(get("/api/territory/COMBAT/history")
                         .header("Authorization", bearer(token)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$").isArray());
     }
 
-    // TC-131: Territory debuffPercent formula — via GET /api/territory
+    // TC-131: Kingdom debuffPercent formula — via GET /api/territory
     @Test
-    @DisplayName("TC-131 | Territory debuffPercent present in response")
+    @DisplayName("TC-131 | Kingdom debuffPercent present in response")
     void tc131_territory_hasDebuffPercent() throws Exception {
         mockMvc.perform(get("/api/territory").header("Authorization", bearer(token)))
                 .andExpect(status().isOk())
@@ -164,13 +164,13 @@ class TerritoryIntegrationTest extends BaseIntegrationTest {
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(json(Map.of("name", "DeclGuild134_" + System.nanoTime(), "description", ""))));
 
-        mockMvc.perform(post("/api/territory/FORTALEZA_MALDITA/declare")
+        mockMvc.perform(post("/api/territory/COMBAT/declare")
                 .header("Authorization", bearer(leaderToken)))
                 .andExpect(status().isOk());
 
         mockMvc.perform(get("/api/territory").header("Authorization", bearer(leaderToken)))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$[?(@.territory == 'FORTALEZA_MALDITA')].myGuildDeclared",
+                .andExpect(jsonPath("$[?(@.territory == 'COMBAT')].myGuildDeclared",
                         hasItem(true)));
     }
 
@@ -183,7 +183,7 @@ class TerritoryIntegrationTest extends BaseIntegrationTest {
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(json(Map.of("name", "DeclGuild135_" + System.nanoTime(), "description", ""))));
 
-        mockMvc.perform(post("/api/territory/MINAS_DE_FERRO_NEGRO/declare")
+        mockMvc.perform(post("/api/territory/MINING/declare")
                 .header("Authorization", bearer(leaderToken)));
 
         mockMvc.perform(post("/api/territory/cancel")
@@ -192,7 +192,7 @@ class TerritoryIntegrationTest extends BaseIntegrationTest {
 
         mockMvc.perform(get("/api/territory").header("Authorization", bearer(leaderToken)))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$[?(@.territory == 'MINAS_DE_FERRO_NEGRO')].myGuildDeclared",
+                .andExpect(jsonPath("$[?(@.territory == 'MINING')].myGuildDeclared",
                         hasItem(false)));
     }
 
@@ -217,7 +217,7 @@ class TerritoryIntegrationTest extends BaseIntegrationTest {
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(json(Map.of("name", guildName, "description", ""))));
 
-        mockMvc.perform(post("/api/territory/DESFILADEIRO_DO_OSSO/declare")
+        mockMvc.perform(post("/api/territory/FISHING/declare")
                 .header("Authorization", bearer(leaderToken)));
 
         String resp = mockMvc.perform(get("/api/territory").header("Authorization", bearer(leaderToken)))
@@ -227,7 +227,7 @@ class TerritoryIntegrationTest extends BaseIntegrationTest {
         JsonNode territories = objectMapper.readTree(resp);
         boolean found = false;
         for (JsonNode ter : territories) {
-            if ("DESFILADEIRO_DO_OSSO".equals(ter.get("territory").asText())) {
+            if ("FISHING".equals(ter.get("territory").asText())) {
                 for (JsonNode g : ter.get("declaringGuilds")) {
                     if (guildName.equals(g.asText())) { found = true; break; }
                 }

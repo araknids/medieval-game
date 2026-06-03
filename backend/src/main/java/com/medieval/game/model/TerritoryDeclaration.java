@@ -1,6 +1,6 @@
 package com.medieval.game.model;
 
-import com.medieval.game.enums.Territory;
+import com.medieval.game.enums.Kingdom;
 import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.Setter;
@@ -25,7 +25,7 @@ public class TerritoryDeclaration {
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
-    private Territory territory;
+    private Kingdom territory;
 
     @Column(nullable = false)
     private LocalDateTime declaredAt = LocalDateTime.now();

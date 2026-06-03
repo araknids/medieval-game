@@ -1,6 +1,6 @@
 package com.medieval.game.service;
 
-import com.medieval.game.enums.Territory;
+import com.medieval.game.enums.Kingdom;
 import com.medieval.game.model.TerritoryControl;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -10,7 +10,7 @@ import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-// TC-041 to TC-048 — Territory War unit tests
+// TC-041 to TC-048 — Kingdom War unit tests
 @DisplayName("TC-041-048 | TerritoryService — Debuff, NPC, Brawl")
 class TerritoryServiceTest {
 
@@ -63,10 +63,10 @@ class TerritoryServiceTest {
 
     // TC-046: TerritoryBonus for Minas de Ferro Negro has miningBonus = 20
     @Test
-    @DisplayName("TC-046 | TerritoryBonus(MINAS_DE_FERRO_NEGRO) → miningBonus = 20")
+    @DisplayName("TC-046 | TerritoryBonus(MINING) → miningBonus = 20")
     void tc046_minasBonus_mining20() {
         TerritoryService.TerritoryBonus bonus =
-                new TerritoryService.TerritoryBonus(Territory.MINAS_DE_FERRO_NEGRO, 10, 10);
+                new TerritoryService.TerritoryBonus(Kingdom.MINING, 10, 10);
         assertThat(bonus.miningBonus()).isEqualTo(20);
         assertThat(bonus.fishingBonus()).isEqualTo(0);
         assertThat(bonus.questXpBonus()).isEqualTo(0);
@@ -74,20 +74,20 @@ class TerritoryServiceTest {
 
     // TC-047: TerritoryBonus for Desfiladeiro do Osso has fishingBonus = 20
     @Test
-    @DisplayName("TC-047 | TerritoryBonus(DESFILADEIRO_DO_OSSO) → fishingBonus = 20")
+    @DisplayName("TC-047 | TerritoryBonus(FISHING) → fishingBonus = 20")
     void tc047_desfiladeiro_fishing20() {
         TerritoryService.TerritoryBonus bonus =
-                new TerritoryService.TerritoryBonus(Territory.DESFILADEIRO_DO_OSSO, 10, 10);
+                new TerritoryService.TerritoryBonus(Kingdom.FISHING, 10, 10);
         assertThat(bonus.fishingBonus()).isEqualTo(20);
         assertThat(bonus.miningBonus()).isEqualTo(0);
     }
 
     // TC-048: TerritoryBonus for Fortaleza Maldita has questXpBonus = 10
     @Test
-    @DisplayName("TC-048 | TerritoryBonus(FORTALEZA_MALDITA) → questXpBonus = 10")
+    @DisplayName("TC-048 | TerritoryBonus(COMBAT) → questXpBonus = 10")
     void tc048_fortaleza_questXp10() {
         TerritoryService.TerritoryBonus bonus =
-                new TerritoryService.TerritoryBonus(Territory.FORTALEZA_MALDITA, 10, 10);
+                new TerritoryService.TerritoryBonus(Kingdom.COMBAT, 10, 10);
         assertThat(bonus.questXpBonus()).isEqualTo(10);
         assertThat(bonus.miningBonus()).isEqualTo(0);
         assertThat(bonus.fishingBonus()).isEqualTo(0);

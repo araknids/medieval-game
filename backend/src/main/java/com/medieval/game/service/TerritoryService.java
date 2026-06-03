@@ -1,6 +1,6 @@
 package com.medieval.game.service;
 
-import com.medieval.game.enums.Territory;
+import com.medieval.game.enums.Kingdom;
 import com.medieval.game.model.*;
 import com.medieval.game.model.TerritoryDeclaration.DeclarationStatus;
 import com.medieval.game.repository.*;
@@ -32,11 +32,34 @@ public class TerritoryService {
     private final BattleSimulator                battleSimulator;
     private final GuildRepository                guildRepository;
 
-    // ── Init: ensure all 3 TerritoryControl rows exist ───────────────────────
+    // Quais reinos são território de guild-war (config). Os demais são zonas abertas.
+    // Começa com os 3 reinos antigos; mudar a config liga guerra em mais reinos. [REINOS_V2 / flag]
+    @org.springframework.beans.factory.annotation.Value("${app.kingdoms.war-territories:FISHING,MINING,COMBAT}")
+    private String warTerritoriesCsv;
+
+    /** Conjunto de reinos contestáveis por guild (da config). */
+    public java.util.Set<Kingdom> warKingdoms() {
+        java.util.EnumSet<Kingdom> set = java.util.EnumSet.noneOf(Kingdom.class);
+        for (String s : warTerritoriesCsv.split(",")) {
+            String name = s.trim();
+            if (!name.isEmpty()) {
+                try { set.add(Kingdom.valueOf(name)); }
+                catch (IllegalArgumentException ignored) { log.warn("[TerritoryService] reino de guerra inválido na config: {}", name); }
+            }
+        }
+        return set;
+    }
+
+    /** true se o reino é território de guild-war. */
+    public boolean isWarKingdom(Kingdom k) {
+        return warKingdoms().contains(k);
+    }
+
+    // ── Init: garante uma linha TerritoryControl por reino de GUERRA ───────────
 
     @Transactional
     public void ensureInitialized() {
-        for (Territory t : Territory.values()) {
+        for (Kingdom t : warKingdoms()) {
             if (controlRepo.findByTerritory(t).isEmpty()) {
                 TerritoryControl tc = new TerritoryControl();
                 tc.setTerritory(t);
@@ -57,7 +80,7 @@ public class TerritoryService {
         return controlRepo.findByControllingGuild(guild);
     }
 
-    public TerritoryControl getTerritory(Territory territory) {
+    public TerritoryControl getTerritory(Kingdom territory) {
         return controlRepo.findByTerritory(territory)
                 .orElseGet(() -> { ensureInitialized(); return controlRepo.findByTerritory(territory).orElseThrow(); });
     }
@@ -70,7 +93,7 @@ public class TerritoryService {
     // ── Declaration ───────────────────────────────────────────────────────────
 
     @Transactional
-    public TerritoryDeclaration declare(Player player, Territory territory) {
+    public TerritoryDeclaration declare(Player player, Kingdom territory) {
         log.info("[TerritoryService] player={} action=declare territory={}", player.getId(), territory);
         Guild guild = playerRepository.findGuildByPlayerId(player.getId())
                 .orElseThrow(() -> new IllegalStateException("You must be in a guild to declare an attack."));
@@ -136,7 +159,7 @@ public class TerritoryService {
      * Idempotente — não reprocessa o que já foi resolvido. Transação própria por território.
      */
     @Transactional
-    public void resolveDueCyclesForTerritory(Territory territory, long current) {
+    public void resolveDueCyclesForTerritory(Kingdom territory, long current) {
         TerritoryControl control = getTerritory(territory);
         long last = control.getLastResolvedCycleId();
         if (last <= 0) {
@@ -149,7 +172,7 @@ public class TerritoryService {
 
         long from = Math.max(last + 1, current - MAX_CATCHUP_CYCLES + 1);
         if (from > last + 1) {
-            log.warn("Territory {}: skipping {} stale cycles (cap {})",
+            log.warn("Kingdom {}: skipping {} stale cycles (cap {})",
                     territory, (from - last - 1), MAX_CATCHUP_CYCLES);
         }
         for (long cycle = from; cycle <= current; cycle++) {
@@ -162,7 +185,7 @@ public class TerritoryService {
     }
 
     @Transactional
-    public void resolveTerritory(Territory territory, long cycleId) {
+    public void resolveTerritory(Kingdom territory, long cycleId) {
         TerritoryControl control = getTerritory(territory);
 
         // ── Manutenção do território (sink econômico) ──────────────────────────
@@ -317,7 +340,7 @@ public class TerritoryService {
      * Cobra a manutenção da guild dominante. Se o tesouro não cobrir o custo,
      * o território é abandonado (volta a neutro) e o streak é zerado.
      */
-    private void chargeUpkeep(Territory territory, TerritoryControl control) {
+    private void chargeUpkeep(Kingdom territory, TerritoryControl control) {
         Guild holder = control.getControllingGuild();
         if (holder == null) return; // território neutro não paga manutenção
 
@@ -344,7 +367,7 @@ public class TerritoryService {
 
     // ── Guild Brawl (King of the Hill) ────────────────────────────────────────
 
-    public BrawlResult guildBrawl(List<Fighter> attackers, List<Fighter> defenders, Territory territory) {
+    public BrawlResult guildBrawl(List<Fighter> attackers, List<Fighter> defenders, Kingdom territory) {
         List<String> fullLog = new ArrayList<>();
         List<Fighter> atks = new ArrayList<>(attackers);
         List<Fighter> defs = new ArrayList<>(defenders);
@@ -414,7 +437,7 @@ public class TerritoryService {
         return fighters;
     }
 
-    private List<Fighter> buildNpcFighters(Territory territory, int count) {
+    private List<Fighter> buildNpcFighters(Kingdom territory, int count) {
         List<Fighter> npcs = new ArrayList<>();
         // NPC base stats (moderate challenge)
         int baseAtk = 20;
@@ -447,7 +470,7 @@ public class TerritoryService {
         }
     }
 
-    // ── Territory bonuses for services ────────────────────────────────────────
+    // ── Kingdom bonuses for services ────────────────────────────────────────
 
     public TerritoryBonus getBonusForPlayer(Player player) {
         Guild guild = playerRepository.findGuildByPlayerId(player.getId()).orElse(null);
@@ -460,13 +483,13 @@ public class TerritoryService {
 
     // ── History ───────────────────────────────────────────────────────────────
 
-    public List<TerritoryBattleLog> getHistory(Territory territory) {
+    public List<TerritoryBattleLog> getHistory(Kingdom territory) {
         return battleLogRepo.findTop10ByTerritoryOrderByResolvedAtDesc(territory);
     }
 
     // ── Battle log helper ─────────────────────────────────────────────────────
 
-    private void saveBattleLog(Territory territory, String attacker, String defender,
+    private void saveBattleLog(Kingdom territory, String attacker, String defender,
                                String winner, java.util.List<String> log) {
         TerritoryBattleLog entry = new TerritoryBattleLog();
         entry.setTerritory(territory);
@@ -502,19 +525,19 @@ public class TerritoryService {
     public record BrawlResult(boolean attackersWon, List<String> log,
                                List<Fighter> attackerFighters, List<Fighter> defenderFighters) {}
 
-    public record TerritoryBonus(Territory territory, int xpBonus, int bronzeBonus) {
+    public record TerritoryBonus(Kingdom territory, int xpBonus, int bronzeBonus) {
         public static final TerritoryBonus NONE = new TerritoryBonus(null, 0, 0);
 
         public int miningBonus() {
-            return territory == Territory.MINAS_DE_FERRO_NEGRO ? territory.exclusiveBonus : 0;
+            return territory == Kingdom.MINING ? territory.exclusiveBonus : 0;
         }
 
         public int fishingBonus() {
-            return territory == Territory.DESFILADEIRO_DO_OSSO ? territory.exclusiveBonus : 0;
+            return territory == Kingdom.FISHING ? territory.exclusiveBonus : 0;
         }
 
         public int questXpBonus() {
-            return territory == Territory.FORTALEZA_MALDITA ? territory.exclusiveBonus : 0;
+            return territory == Kingdom.COMBAT ? territory.exclusiveBonus : 0;
         }
     }
 }

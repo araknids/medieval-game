@@ -1,6 +1,6 @@
 package com.medieval.game.service;
 
-import com.medieval.game.enums.Territory;
+import com.medieval.game.enums.Kingdom;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.context.event.ApplicationReadyEvent;
@@ -38,14 +38,14 @@ public class TerritoryScheduler {
     private void runCatchUp(String trigger) {
         territoryService.ensureInitialized();
         long current = territoryService.currentCycleId();
-        log.info("Territory war ({}): resolving due cycles up to {}", trigger, current);
-        for (Territory territory : Territory.values()) {
+        log.info("Kingdom war ({}): resolving due cycles up to {}", trigger, current);
+        for (Kingdom territory : territoryService.warKingdoms()) {
             try {
                 territoryService.resolveDueCyclesForTerritory(territory, current);
             } catch (Exception e) {
                 log.error("Error resolving territory {}: {}", territory, e.getMessage(), e);
             }
         }
-        log.info("Territory war ({}) complete.", trigger);
+        log.info("Kingdom war ({}) complete.", trigger);
     }
 }

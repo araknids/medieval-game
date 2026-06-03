@@ -2484,8 +2484,8 @@ function renderTerritories(territories, myStatus) {
     const canDeclare = !myTerritory && !ter.myGuildDeclared;
     const hasDeclared = ter.myGuildDeclared;
 
-    const bonusLabel = ter.territory === 'FORTALEZA_MALDITA' ? t('territory.bonus.quest_xp')
-                     : ter.territory === 'MINAS_DE_FERRO_NEGRO' ? t('territory.bonus.mining')
+    const bonusLabel = ter.territory === 'COMBAT' ? t('territory.bonus.quest_xp')
+                     : ter.territory === 'MINING' ? t('territory.bonus.mining')
                      : t('territory.bonus.fishing');
 
     const declareBtn = canDeclare && !isMine
@@ -2763,11 +2763,8 @@ async function loadWorld() {
   }
 }
 
-const KINGDOM_TO_TERRITORY = {
-  FISHING: 'DESFILADEIRO_DO_OSSO',
-  MINING:  'MINAS_DE_FERRO_NEGRO',
-  COMBAT:  'FORTALEZA_MALDITA'
-};
+// Reinos V2: reino e território são o mesmo id agora (unificação Kingdom/Territory).
+// Reinos sem guild-war (Grutas/Mar/Covil) simplesmente não têm entrada em `territories`.
 
 function renderWorldOverview(kingdoms, territories) {
   const el = document.getElementById('world-content');
@@ -2794,7 +2791,7 @@ function renderWorldOverview(kingdoms, territories) {
       `<span style="font-size:11px;padding:2px 8px;border-radius:12px;background:${zoneBgs[i]};color:${zoneColors[i]}">${z}</span>`
     ).join('');
 
-    const terKey = KINGDOM_TO_TERRITORY[k.kingdom];
+    const terKey = k.kingdom;
     const ter = (territories || []).find(t => t.territory === terKey);
 
     const declarersLine = ter && ter.declaringGuilds && ter.declaringGuilds.length > 0

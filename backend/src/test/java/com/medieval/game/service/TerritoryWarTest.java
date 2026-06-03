@@ -1,6 +1,6 @@
 package com.medieval.game.service;
 
-import com.medieval.game.enums.Territory;
+import com.medieval.game.enums.Kingdom;
 import com.medieval.game.service.TerritoryService.BrawlResult;
 import com.medieval.game.service.TerritoryService.Fighter;
 import org.junit.jupiter.api.BeforeEach;
@@ -18,7 +18,7 @@ import static org.assertj.core.api.Assertions.assertThat;
  * Key scenario: when 3 guilds all beat the defenders in sequence,
  * the last winner is determined by remaining HP from previous fights.
  */
-@DisplayName("Territory War — GuildBrawl and Multi-Attacker Scenarios")
+@DisplayName("Kingdom War — GuildBrawl and Multi-Attacker Scenarios")
 class TerritoryWarTest {
 
     // TerritoryService only needs BattleSimulator for guildBrawl — pass nulls for repos
@@ -43,7 +43,7 @@ class TerritoryWarTest {
         BrawlResult result = service.guildBrawl(
             List.of(fighter("Strong", 100, 50, 300)),
             List.of(fighter("Weak",     5,  2,  20)),
-            Territory.FORTALEZA_MALDITA
+            Kingdom.COMBAT
         );
         assertThat(result.attackersWon()).isTrue();
     }
@@ -54,7 +54,7 @@ class TerritoryWarTest {
         BrawlResult result = service.guildBrawl(
             List.of(fighter("Weak",     5,  2,  20)),
             List.of(fighter("Strong", 100, 50, 300)),
-            Territory.FORTALEZA_MALDITA
+            Kingdom.COMBAT
         );
         assertThat(result.attackersWon()).isFalse();
     }
@@ -69,7 +69,7 @@ class TerritoryWarTest {
             BrawlResult r = service.guildBrawl(
                 List.of(fighter("A1", 25, 15, 80), fighter("A2", 25, 15, 80)),
                 List.of(fighter("D1", 25, 15, 80)),
-                Territory.FORTALEZA_MALDITA
+                Kingdom.COMBAT
             );
             if (r.attackersWon()) wins++;
         }
@@ -87,7 +87,7 @@ class TerritoryWarTest {
             BrawlResult r = service.guildBrawl(
                 List.of(fighter("FreshGuild", 50, 30, 200)),
                 List.of(fighter("TiredGuild", 50, 30,   1)), // 1 HP remaining from prev fight
-                Territory.MINAS_DE_FERRO_NEGRO
+                Kingdom.MINING
             );
             if (r.attackersWon()) wins++;
         }
@@ -106,7 +106,7 @@ class TerritoryWarTest {
         BrawlResult result = service.guildBrawl(
             List.of(), // guild with no surviving fighters (0 HP in Phase 1)
             List.of(fighter("Guild2", 40, 25, 150)),
-            Territory.DESFILADEIRO_DO_OSSO
+            Kingdom.FISHING
         );
         assertThat(result.attackersWon()).isFalse();
     }
@@ -121,7 +121,7 @@ class TerritoryWarTest {
             BrawlResult r = service.guildBrawl(
                 List.of(fighter("GuildA_strong", 40, 25, 500)), // 10x better Phase 1 HP
                 List.of(fighter("GuildB_weak",   40, 25,  50)), // weak Phase 1 HP
-                Territory.MINAS_DE_FERRO_NEGRO
+                Kingdom.MINING
             );
             if (r.attackersWon()) wins++;
         }
@@ -137,7 +137,7 @@ class TerritoryWarTest {
         BrawlResult result = service.guildBrawl(
             List.of(fighter("A", 30, 20, 100)),
             List.of(fighter("D", 30, 20, 100)),
-            Territory.FORTALEZA_MALDITA
+            Kingdom.COMBAT
         );
 
         String fullLog = String.join("\n", result.log());
@@ -154,7 +154,7 @@ class TerritoryWarTest {
         BrawlResult result = service.guildBrawl(
             List.of(),
             List.of(fighter("D1", 30, 20, 100)),
-            Territory.FORTALEZA_MALDITA
+            Kingdom.COMBAT
         );
         assertThat(result.attackersWon()).isFalse();
     }
@@ -165,7 +165,7 @@ class TerritoryWarTest {
         BrawlResult result = service.guildBrawl(
             List.of(fighter("A1", 30, 20, 100)),
             List.of(),
-            Territory.FORTALEZA_MALDITA
+            Kingdom.COMBAT
         );
         assertThat(result.attackersWon()).isTrue();
     }

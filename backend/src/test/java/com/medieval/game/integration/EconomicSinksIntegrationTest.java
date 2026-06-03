@@ -1,7 +1,7 @@
 package com.medieval.game.integration;
 
 import com.medieval.game.enums.ItemType;
-import com.medieval.game.enums.Territory;
+import com.medieval.game.enums.Kingdom;
 import com.medieval.game.model.*;
 import com.medieval.game.repository.*;
 import com.medieval.game.service.InventoryService;
@@ -235,7 +235,7 @@ class EconomicSinksIntegrationTest extends BaseIntegrationTest {
         Player p = playerOf("sink");
         Guild guild = newGuild(p, "UpkeepGuild-" + p.getId(), 5000);
 
-        Territory terr = Territory.FORTALEZA_MALDITA;
+        Kingdom terr = Kingdom.COMBAT;
         TerritoryControl control = setupControl(terr, guild, 3);
 
         assertThat(territoryService.upkeepCost(control)).isEqualTo(650);
@@ -256,7 +256,7 @@ class EconomicSinksIntegrationTest extends BaseIntegrationTest {
         Player p = playerOf("sink");
         Guild guild = newGuild(p, "BrokeGuild-" + p.getId(), 100); // < 650
 
-        Territory terr = Territory.DESFILADEIRO_DO_OSSO;
+        Kingdom terr = Kingdom.FISHING;
         setupControl(terr, guild, 3);
 
         territoryService.resolveTerritory(terr, territoryService.currentCycleId());
@@ -276,7 +276,7 @@ class EconomicSinksIntegrationTest extends BaseIntegrationTest {
         return guildRepository.save(g);
     }
 
-    private TerritoryControl setupControl(Territory terr, Guild guild, int streak) {
+    private TerritoryControl setupControl(Kingdom terr, Guild guild, int streak) {
         territoryService.ensureInitialized();
         TerritoryControl control = controlRepo.findByTerritory(terr).orElseThrow();
         control.setControllingGuild(guild);

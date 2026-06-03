@@ -1,71 +1,68 @@
 package com.medieval.game.enums;
 
+/**
+ * Reino — conceito único do mundo (Reinos V2). Unifica o antigo Kingdom + Territory:
+ * cada reino tem sua atividade (skill de coleta ou combate), seus dados de batalha
+ * (NPC/mults, usados quando o reino é território de guild-war) e seu bônus exclusivo.
+ *
+ * Quais reinos são território de guild-war é decidido por config
+ * (app.kingdoms.war-territories) — ver TerritoryService. [REINOS_V2 / BL-2]
+ */
 public enum Kingdom {
 
     FISHING(
-        "Desfiladeiro do Osso",
-        "🎣",
-        Territory.DESFILADEIRO_DO_OSSO,
-        SkillType.FISHING,
+        "Desfiladeiro do Osso", "🎣", SkillType.FISHING,
+        "Esqueleto Guerreiro", 1.0, 1.0, 0.8, 20,   // npcDef, npcAtk, npcHp, exclusiveBonus (% pescado)
         "A kingdom of tides and bounty. Master fishermen and sea hunters rule these waters."
     ),
     MINING(
-        "Minas de Ferro Negro",
-        "⛏",
-        Territory.MINAS_DE_FERRO_NEGRO,
-        SkillType.MINING,
+        "Minas de Ferro Negro", "⛏", SkillType.MINING,
+        "Golem de Ferro", 0.8, 0.7, 2.0, 20,        // exclusiveBonus = % minério
         "Deep tunnels rich in rare minerals. Those who control the ores control the forge."
     ),
     COMBAT(
-        "Fortaleza Maldita",
-        "⚔",
-        Territory.FORTALEZA_MALDITA,
-        null,
+        "Fortaleza Maldita", "⚔", null,
+        "Cavaleiro Amaldiçoado", 1.2, 1.0, 1.0, 10, // exclusiveBonus = % XP de quest
         "An ancient fortress where warriors train and battle for glory. No mining, no fishing — only war."
     ),
-    // Reinos V2 — reinos de coleta SEM guerra de guild (territory = null). [PLANO_REINOS_V2]
+    // ── Reinos V2 — não são guild-war por padrão (exclusiveBonus 0) ──
     GRUTAS_DE_CRISTAL(
-        "Grutas de Cristal",
-        "🔎",
-        null,                 // não é território de guild-war
-        SkillType.GARIMPO,
+        "Grutas de Cristal", "🔎", SkillType.GARIMPO,
+        "Fera de Cristal", 1.0, 1.0, 1.0, 0,
         "Cavernas cintilantes onde garimpeiros escavam fragmentos de joias raras."
     ),
     MAR_ABENCOADO(
-        "Mar Abençoado",
-        "🐟",
-        null,                 // não é território de guild-war
-        SkillType.FISHING,    // mesma skill da pesca, mas pool de peixe de VIDA
+        "Mar Abençoado", "🐟", SkillType.FISHING,   // mesma skill, pool de peixe de VIDA
+        "Servo das Marés", 1.0, 1.0, 1.0, 0,
         "Águas sagradas onde nadam peixes que restauram a vida de quem os consome."
     ),
     COVIL_DAS_FERAS(
-        "Covil das Feras",
-        "👹",
-        null,                 // não é território de guild-war
-        null,                 // combate PvE — sem skill de coleta
+        "Covil das Feras", "👹", null,              // combate PvE, sem skill de coleta
+        "Fera Selvagem", 1.0, 1.0, 1.0, 0,
         "Um covil infestado de feras. Cace-as por ouro e materiais — quanto mais forte você, mais valiosas as presas."
     );
 
-    public final String displayName;
-    public final String icon;
-    public final Territory territory;
-    public final SkillType primarySkill; // null for COMBAT
-    public final String lore;
+    public final String    displayName;
+    public final String    icon;
+    public final SkillType  primarySkill;   // null para reinos de combate
+    public final String     npcName;
+    public final double     npcDefMult;
+    public final double     npcAtkMult;
+    public final double     npcHpMult;
+    public final int        exclusiveBonus; // % — significado depende do reino (pescado/minério/XP)
+    public final String     lore;
 
-    Kingdom(String displayName, String icon, Territory territory,
-            SkillType primarySkill, String lore) {
-        this.displayName  = displayName;
-        this.icon         = icon;
-        this.territory    = territory;
-        this.primarySkill = primarySkill;
-        this.lore         = lore;
-    }
-
-    /** Returns the Kingdom linked to the given Territory, or null. */
-    public static Kingdom ofTerritory(Territory t) {
-        for (Kingdom k : values()) {
-            if (k.territory == t) return k;
-        }
-        return null;
+    Kingdom(String displayName, String icon, SkillType primarySkill,
+            String npcName, double npcDefMult, double npcAtkMult, double npcHpMult,
+            int exclusiveBonus, String lore) {
+        this.displayName    = displayName;
+        this.icon           = icon;
+        this.primarySkill   = primarySkill;
+        this.npcName        = npcName;
+        this.npcDefMult     = npcDefMult;
+        this.npcAtkMult     = npcAtkMult;
+        this.npcHpMult      = npcHpMult;
+        this.exclusiveBonus = exclusiveBonus;
+        this.lore           = lore;
     }
 }

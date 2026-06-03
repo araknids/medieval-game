@@ -1,6 +1,6 @@
 package com.medieval.game.model;
 
-import com.medieval.game.enums.Territory;
+import com.medieval.game.enums.Kingdom;
 import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.Setter;
@@ -21,7 +21,7 @@ public class TerritoryControl {
 
     @Enumerated(EnumType.STRING)
     @Column(unique = true, nullable = false)
-    private Territory territory;
+    private Kingdom territory;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "guild_id")

@@ -8,3 +8,6 @@
 godot-client/.godot/
 godot-client/*.import
 godot-client/export_presets.cfg
+
+# Editor atomic-write temp artifacts
+*.java.tmp.*

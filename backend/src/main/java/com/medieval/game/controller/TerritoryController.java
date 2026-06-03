@@ -1,6 +1,6 @@
 package com.medieval.game.controller;
 
-import com.medieval.game.enums.Territory;
+import com.medieval.game.enums.Kingdom;
 import com.medieval.game.model.*;
 import com.medieval.game.model.TerritoryDeclaration.DeclarationStatus;
 import com.medieval.game.repository.PlayerRepository;
@@ -14,7 +14,6 @@ import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
 import java.time.Instant;
-import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 
@@ -39,7 +38,7 @@ public class TerritoryController {
                 .map(g -> g.getId()).orElse(null);
         long nextCycleId = territoryService.currentCycleId() + 1;
 
-        List<?> territories = Arrays.stream(Territory.values()).map(t -> {
+        List<?> territories = territoryService.warKingdoms().stream().map(t -> {
             TerritoryControl ctrl = territoryService.getTerritory(t);
             long secsUntilNext = 21600 - (Instant.now().getEpochSecond() % 21600);
             String guildName = ctrl.isNeutral() ? "" : ctrl.getControllingGuild().getName();
@@ -102,7 +101,7 @@ public class TerritoryController {
 
     // ── Declare attack ────────────────────────────────────────────────────────
     @PostMapping("/{territory}/declare")
-    public ResponseEntity<?> declare(@PathVariable Territory territory, Authentication auth) {
+    public ResponseEntity<?> declare(@PathVariable Kingdom territory, Authentication auth) {
         Player player = getPlayer(auth);
         TerritoryDeclaration decl = territoryService.declare(player, territory);
         return ResponseEntity.ok(Map.of(
@@ -121,7 +120,7 @@ public class TerritoryController {
 
     // ── Battle history ────────────────────────────────────────────────────────
     @GetMapping("/{territory}/history")
-    public ResponseEntity<?> history(@PathVariable Territory territory) {
+    public ResponseEntity<?> history(@PathVariable Kingdom territory) {
         List<TerritoryBattleLog> logs = territoryService.getHistory(territory);
         List<?> result = logs.stream().map(l -> Map.of(
             "attacker",   l.getAttackerGuildName() != null ? l.getAttackerGuildName() : "?",

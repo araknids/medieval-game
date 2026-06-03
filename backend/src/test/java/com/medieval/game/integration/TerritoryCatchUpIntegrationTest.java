@@ -1,6 +1,6 @@
 package com.medieval.game.integration;
 
-import com.medieval.game.enums.Territory;
+import com.medieval.game.enums.Kingdom;
 import com.medieval.game.model.Guild;
 import com.medieval.game.model.Player;
 import com.medieval.game.model.TerritoryControl;
@@ -43,7 +43,7 @@ class TerritoryCatchUpIntegrationTest extends BaseIntegrationTest {
         return guildRepository.save(g);
     }
 
-    private TerritoryControl setupControl(Territory terr, Guild guild, int streak, long lastResolved) {
+    private TerritoryControl setupControl(Kingdom terr, Guild guild, int streak, long lastResolved) {
         territoryService.ensureInitialized();
         TerritoryControl c = controlRepo.findByTerritory(terr).orElseThrow();
         c.setControllingGuild(guild);
@@ -57,7 +57,7 @@ class TerritoryCatchUpIntegrationTest extends BaseIntegrationTest {
     @DisplayName("A7a | resolver o mesmo ciclo 2× cobra upkeep só uma vez")
     void a7a_idempotent() {
         Guild g = newGuild(10_000);
-        Territory terr = Territory.FORTALEZA_MALDITA;
+        Kingdom terr = Kingdom.COMBAT;
         long current = territoryService.currentCycleId();
         setupControl(terr, g, 0, current - 1); // um ciclo devido
 
@@ -77,7 +77,7 @@ class TerritoryCatchUpIntegrationTest extends BaseIntegrationTest {
     @DisplayName("A7b | catch-up resolve os 3 ciclos perdidos de uma vez")
     void a7b_catchUpMissedCycles() {
         Guild g = newGuild(100_000);
-        Territory terr = Territory.MINAS_DE_FERRO_NEGRO;
+        Kingdom terr = Kingdom.MINING;
         long current = territoryService.currentCycleId();
         setupControl(terr, g, 0, current - 3); // 3 ciclos devidos (current-2..current)
 
@@ -95,7 +95,7 @@ class TerritoryCatchUpIntegrationTest extends BaseIntegrationTest {
     @DisplayName("A7c | lastResolved=0 não reprocessa histórico (só inicializa)")
     void a7c_firstBootNoReprocess() {
         Guild g = newGuild(10_000);
-        Territory terr = Territory.DESFILADEIRO_DO_OSSO;
+        Kingdom terr = Kingdom.FISHING;
         long current = territoryService.currentCycleId();
         setupControl(terr, g, 5, 0); // nunca resolvido
 

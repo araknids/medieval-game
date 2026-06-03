@@ -120,15 +120,17 @@ Peixe-Coral (lv1), Peixe-Anjo (lv20), Peixe-Espírito (lv40), Peixe-Sagrado (lv6
 
 Cada fase entra com testes e fica verde antes da próxima.
 
-1. **Fase 1 — Unificar Kingdom/Territory + flag de war.** Refactor sem conteúdo novo: funde os enums,
-   migra `TerritoryService`/controle/declaração/scheduler para `Kingdom`, adiciona a flag (3 war no início).
-   *Paridade com hoje.* (Soft-wipe na subida.)
-2. **Fase 2 — Garimpo + realocar gemas.** Nova skill `GARIMPO`, fragmentos vêm do reino de Gemas (PvE/PvP),
+1. **Fase 1 — Unificar Kingdom/Territory + flag de war.** ✅ **COMPLETA.** `Territory` deletado e
+   fundido em `Kingdom` (campos de batalha/NPC + `exclusiveBonus` absorvidos). `TerritoryService`/
+   controle/declaração/scheduler/controller passam a operar em `Kingdom`. Flag
+   `app.kingdoms.war-territories=FISHING,MINING,COMBAT` (`TerritoryService.warKingdoms()`/`isWarKingdom`)
+   limita guerra a 3 reinos; init/scheduler/listAll iteram só esses. *Paridade com hoje.* (Soft-wipe na subida.)
+2. **Fase 2 — Garimpo + realocar gemas.** ✅ **COMPLETA.** Skill `GARIMPO`, fragmentos vêm do reino de Gemas (PvE/PvP),
    mineração só minério. UI de Garimpo igual pesca/mineração.
-3. **Fase 3 — Split de peixe + Mar Abençoado.** Peixes de estamina vs HP, novo reino, seleção de reino na
-   expedição de pesca, teto de cura definido.
-4. **Fase 4 — Combate PvE (farm de mob).** Reino de incursão, drop de gold/material escalando.
-5. **Fase 5 — Catálogo de monstros + chefes da Tower.** Mais mobs comuns; chefes especiais na Tower.
+3. **Fase 3 — Split de peixe + Mar Abençoado.** ✅ **COMPLETA.** Peixes de estamina vs HP, novo reino, seleção de reino na
+   expedição de pesca, teto de cura (90%) definido.
+4. **Fase 4 — Combate PvE (farm de mob).** ✅ **COMPLETA.** Reino de incursão (Covil das Feras), drop de gold/material escalando.
+5. **Fase 5 — Catálogo de monstros + chefes da Tower.** ⏳ Pendente. Mais mobs comuns; chefes especiais na Tower.
 
 ---
 
@@ -148,7 +150,11 @@ Cada fase entra com testes e fica verde antes da próxima.
 3. **Nomes/lore:** ✅ provisórios definidos (Mar Abençoado, Grutas de Cristal, Covil das Feras; peixes
    de HP: Coral/Anjo/Espírito/Sagrado/Fênix) — mudáveis a qualquer momento.
 
-**→ Design 100% travado. Pronto pra implementar a Fase 1.**
+**→ Design 100% travado. Fases 1-4 implementadas (409 testes verdes). Resta a Fase 5.**
+
+> ⚠️ **Deploy de prod das Fases 1-4 exige soft-wipe:** a coluna `territory_controls.territory`
+> passa a guardar nomes de `Kingdom` (`FISHING`/`MINING`/`COMBAT`) no lugar dos nomes antigos de
+> `Territory` (`DESFILADEIRO_DO_OSSO`...). Suba com `APP_MAINTENANCE_SOFT_WIPE=true` uma vez.
 
 ---
 

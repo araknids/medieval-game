@@ -42,16 +42,18 @@ class KingdomServiceTest {
         }
     }
 
-    // TC-051: Kingdom.ofTerritory maps correctly
+    // TC-051: Kingdom unificado absorve os dados de território (NPC + bônus exclusivo).
+    // Os 3 reinos antigos (guild-war) têm NPC + exclusiveBonus > 0; reinos de coleta V2 têm bônus 0. [REINOS_V2]
     @Test
-    @DisplayName("TC-051 | Kingdom.ofTerritory returns correct kingdom for each territory")
-    void tc051_ofTerritory_mapsCorrectly() {
-        assertThat(Kingdom.ofTerritory(com.medieval.game.enums.Territory.DESFILADEIRO_DO_OSSO))
-                .isEqualTo(Kingdom.FISHING);
-        assertThat(Kingdom.ofTerritory(com.medieval.game.enums.Territory.MINAS_DE_FERRO_NEGRO))
-                .isEqualTo(Kingdom.MINING);
-        assertThat(Kingdom.ofTerritory(com.medieval.game.enums.Territory.FORTALEZA_MALDITA))
-                .isEqualTo(Kingdom.COMBAT);
+    @DisplayName("TC-051 | Reinos de guerra têm NPC e bônus exclusivo; reinos V2 têm bônus 0")
+    void tc051_unifiedKingdomCarriesTerritoryData() {
+        for (Kingdom war : new Kingdom[]{ Kingdom.FISHING, Kingdom.MINING, Kingdom.COMBAT }) {
+            assertThat(war.npcName).as("%s npcName", war).isNotBlank();
+            assertThat(war.exclusiveBonus).as("%s exclusiveBonus", war).isPositive();
+        }
+        for (Kingdom v2 : new Kingdom[]{ Kingdom.GRUTAS_DE_CRISTAL, Kingdom.MAR_ABENCOADO, Kingdom.COVIL_DAS_FERAS }) {
+            assertThat(v2.exclusiveBonus).as("%s exclusiveBonus", v2).isZero();
+        }
     }
 
     // TC-052: COMBAT kingdom has no primarySkill (null)

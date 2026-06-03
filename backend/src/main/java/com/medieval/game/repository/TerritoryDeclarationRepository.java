@@ -1,6 +1,6 @@
 package com.medieval.game.repository;
 
-import com.medieval.game.enums.Territory;
+import com.medieval.game.enums.Kingdom;
 import com.medieval.game.model.Guild;
 import com.medieval.game.model.TerritoryDeclaration;
 import com.medieval.game.model.TerritoryDeclaration.DeclarationStatus;
@@ -15,7 +15,7 @@ public interface TerritoryDeclarationRepository extends JpaRepository<TerritoryD
     // EntityGraph eagerly loads guild to avoid LazyInitializationException with open-in-view=false
     @EntityGraph(attributePaths = "guild")
     List<TerritoryDeclaration> findByTerritoryAndStatusOrderByDeclaredAtAsc(
-            Territory territory, DeclarationStatus status);
+            Kingdom territory, DeclarationStatus status);
 
     @EntityGraph(attributePaths = "guild")
     Optional<TerritoryDeclaration> findByGuildAndBattleCycleIdAndStatus(
