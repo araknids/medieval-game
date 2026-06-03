@@ -79,6 +79,12 @@ public class SmithingService {
     @Transactional
     public void refineOre(Player player, ResourceType oreType, int quantity) {
         log.info("[SmithingService] player={} action=refineOre oreType={} quantity={}", player.getId(), oreType, quantity);
+        // SEGURANÇA: quantidade negativa/zero faria spendBronze e removeResource creditarem
+        // recurso/dinheiro (guardas "saldo < negativo" são sempre falsas). [AUDITORIA C2]
+        if (quantity < 1 || quantity > 1000) {
+            log.warn("[SmithingService] player={} REJECTED: invalid refine quantity {}", player.getId(), quantity);
+            throw new IllegalArgumentException("Quantity must be between 1 and 1000.");
+        }
         RefineRecipe recipe = REFINE_RECIPES.stream()
                 .filter(r -> r.ore() == oreType)
                 .findFirst()

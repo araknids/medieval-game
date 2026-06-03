@@ -80,6 +80,8 @@ public class PlayerService {
     /** Gasta um valor em bronze (decompõe automaticamente prata/ouro se necessário) */
     @Transactional
     public void spendBronze(Player player, long bronzeAmount) {
+        // SEGURANÇA: valor negativo passaria na guarda "saldo < negativo" e CREDITARIA dinheiro. [AUDITORIA C2]
+        if (bronzeAmount < 0) throw new IllegalArgumentException("amount must be >= 0");
         if (player.totalBronze() < bronzeAmount) {
             log.warn("[PlayerService] player={} REJECTED: insufficient funds (have={} need={})", player.getId(), player.totalBronze(), bronzeAmount);
             throw new IllegalStateException("Insufficient funds");

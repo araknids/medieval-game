@@ -56,6 +56,7 @@ public class GatheringService {
 
     @Transactional
     public void addResource(Player player, ResourceType type, long qty) {
+        if (qty < 0) throw new IllegalArgumentException("qty must be >= 0"); // [AUDITORIA C2]
         ResourceInventory inv = resourceRepository.findByPlayerAndResourceType(player, type)
                 .orElseGet(() -> {
                     ResourceInventory r = new ResourceInventory();
@@ -68,6 +69,7 @@ public class GatheringService {
 
     @Transactional
     public void removeResource(Player player, ResourceType type, long qty) {
+        if (qty < 0) throw new IllegalArgumentException("qty must be >= 0"); // [AUDITORIA C2]
         ResourceInventory inv = resourceRepository.findByPlayerAndResourceType(player, type)
                 .orElseThrow(() -> new IllegalStateException("Resource not found"));
         if (inv.getQuantity() < qty) throw new IllegalStateException("Insufficient quantity of " + type.displayName);

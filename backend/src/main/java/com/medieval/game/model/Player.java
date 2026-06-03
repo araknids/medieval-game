@@ -42,9 +42,11 @@ public class Player {
         return bronze + silver * 100L + gold * 10_000L;
     }
 
-    // Adiciona bronze e auto-converte sem depender de service
+    // Adiciona bronze e auto-converte sem depender de service.
+    // Clamp em 0: amount negativo (ex.: penalidade de PvP) nunca deixa o saldo
+    // devedor — resto de negativo em Java é negativo e corromperia os 3 campos. [AUDITORIA C4]
     public void addBronzeAmount(long amount) {
-        long total = totalBronze() + amount;
+        long total = Math.max(0, totalBronze() + amount);
         this.gold   = total / 10_000L;
         this.silver = (total % 10_000L) / 100L;
         this.bronze = total % 100L;
