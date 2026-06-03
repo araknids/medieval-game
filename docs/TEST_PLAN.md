@@ -3257,3 +3257,61 @@ streak ≥ 10 → debuffPercent = 50 (already unit-tested; integration verifies 
 ---
 
 *Updated 2026-06-03. Total: 309 tests. Ambush: TC-209-218 · Territory cycle: TC-219-228.*
+
+---
+
+## Economic Sinks — Durability, Repair, Reforge, Heal scaling, Territory upkeep (TC-239 to TC-252)
+
+### Durability + Repair (TC-239-244)
+**Class:** `DurabilityIntegrationTest` / `InventoryServiceTest`
+
+### TC-239: Battle reduces equipped item durability by 1-10
+After an arena/zone fight, equipped items lose between 1 and 10 durability points.
+
+### TC-240: Item at 0 durability gives no bonus
+Set item durability to 0 → warrior total stats exclude that item's ATK/DEF/HP.
+
+### TC-241: Durability never goes negative
+Repeated battles floor durability at 0, not below.
+
+### TC-242: Repair restores durability to 100
+POST repair → durability = 100, bonuses reapply.
+
+### TC-243: Repair cost = lostPoints × rarity × 5
+Item rarity 4 with 50 lost points → cost 50×4×5 = 1000 bronze; balance debited.
+
+### TC-244: Repair with insufficient bronze → 400
+No bronze → repair rejected.
+
+### Reforge (TC-245-247)
+
+### TC-245: Reforge cost = rarity² × 200
+Epic (r4) reforge → 3200 bronze debited.
+
+### TC-246: Reforge re-rolls stats keeping rarity
+After reforge, item rarity unchanged; stats within the rarity's range.
+
+### TC-247: Reforge with insufficient bronze → 400
+
+### Heal scaling (TC-248-249)
+
+### TC-248: Heal cost = level × 10 for level > 10
+Level 50 warrior heal → 500 bronze debited.
+
+### TC-249: Heal free for level ≤ 10
+Level 5 warrior heal → 0 cost.
+
+### Territory upkeep (TC-250-252)
+
+### TC-250: Upkeep cost = 500 × (1 + streak×0.1)
+Holding guild with streak 3 → upkeep 650 guild gold deducted at cycle.
+
+### TC-251: Treasury covers upkeep → territory kept
+Guild with enough guild gold pays → still controls territory.
+
+### TC-252: Treasury cannot cover → territory becomes neutral
+Guild with insufficient guild gold → territory reverts to neutral, streak resets.
+
+---
+
+*Updated 2026-06-03. Total: 309 tests documented. Economic sinks: TC-239-252 (planned).*

@@ -2027,3 +2027,70 @@ Ao receber um crítico: `floor(LUK/10)%` de chance de converter para hit normal.
 3. Útil para se recuperar entre emboscadas em zonas PvP.
 
 *Updated 2026-06-03. Emboscada PvP: UC-91 to UC-95.*
+
+---
+
+## Sumidouros Econômicos (anti-inflação)
+
+### UC-96: Durabilidade desgasta em batalha
+**Actor:** Sistema (após cada combate)
+
+**Flow:**
+1. Jogador entra em combate (arena, torre, zona, emboscada).
+2. Ao resolver, cada item equipado perde **1 a 10 pontos aleatórios** de durabilidade.
+3. Item que chega a 0 durabilidade **deixa de aplicar seus bônus** (ATK/DEF/HP/joias) até reparo.
+4. Durabilidade nunca fica negativa; item não some.
+
+---
+
+### UC-97: Reparar equipamento no Ferreiro
+**Actor:** Jogador com item desgastado
+
+**Flow:**
+1. Jogador abre a Forja (Commerce) e vê itens com durabilidade < 100.
+2. Seleciona um item para reparar.
+3. Custo = `pontos perdidos × raridade × 5 bronze`.
+4. Sistema valida saldo, debita bronze, restaura durabilidade para 100.
+5. Item volta a aplicar os bônus.
+
+**Exceções:**
+- Saldo insuficiente → erro
+- Item já em 100 → "Item não precisa de reparo"
+
+---
+
+### UC-98: Reforjar item (re-roll de stats)
+**Actor:** Jogador querendo melhorar os stats de um item
+
+**Flow:**
+1. Jogador abre a Forja e escolhe "Reforjar" num equipamento.
+2. Custo = `raridade² × 200 bronze` (Comum 200 … Épico 3.200).
+3. Sistema valida saldo, debita, re-rola os stats do item dentro da faixa da sua raridade.
+4. Novos stats substituem os antigos (irreversível).
+
+**Exceções:**
+- Saldo insuficiente → erro
+
+---
+
+### UC-99: Cura escalável por nível no Templo
+**Actor:** Jogador nível > 10 com HP < 100%
+
+**Flow:**
+1. Jogador acessa o Templo e escolhe curar.
+2. Custo = `nível × 10 bronze` (grátis até lv10; VIP grátis com CD).
+3. Sistema valida saldo, debita, restaura HP para 100%.
+
+---
+
+### UC-100: Manutenção de território (guild)
+**Actor:** Sistema (a cada ciclo de guerra, 6h)
+
+**Flow:**
+1. No ciclo de resolução, para cada território controlado:
+2. Calcula manutenção = `500 × (1 + defenseStreak × 0.1)` guild gold.
+3. Se o tesouro da guild **cobre** → debita, guild mantém o território.
+4. Se **não cobre** → território vira neutro, defenseStreak zera (perda por inadimplência).
+5. Registro no log de batalha do território.
+
+*Updated 2026-06-03. Sinks econômicos: UC-96 to UC-100.*

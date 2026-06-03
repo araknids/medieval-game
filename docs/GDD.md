@@ -321,6 +321,15 @@ Todo item gerado automaticamente recebe:
 - Slots de equipamento (10 peças equipadas) **não** contam contra o limite da bag
 - Se a bag estiver cheia ao receber um item (drop, quest, loja), o item é perdido com mensagem de aviso
 
+### 6.5 Durabilidade (Sink econômico)
+
+- Cada item de equipamento tem durabilidade **0–100** (começa cheia)
+- Perde **1 a 10 pontos aleatórios por batalha** (arena, torre, zona, emboscada), nos itens equipados
+- Item em durabilidade **0 não dá nenhum bônus** (ATK/DEF/HP/joias zerados) até ser reparado — não quebra permanentemente
+- Reparo no Ferreiro (Commerce): `pontos perdidos × raridade × 5 bronze`
+- Reforja (re-roll de stats): `raridade² × 200 bronze`, mantém a raridade
+- Design: dreno contínuo que pressiona quem mais farma combate, escalando com a qualidade do gear
+
 ---
 
 ## 7. Economia
@@ -348,18 +357,33 @@ Todo item gerado automaticamente recebe:
 | Trabalho (Mercenário, 8h) | 800 bronze |
 | Vender item Épico | 500-2.000 bronze |
 
-### 7.3 Gastos de Bronze
+### 7.3 Gastos de Bronze (Sumidouros / Sinks)
 
-| Gasto | Custo |
-|-------|-------|
-| Cura no Templo (lv > 10) | 100 bronze |
-| Buff de força | 30 bronze |
-| Proteger item | 50 bronze |
-| Refinar minério (Cobre) | 50 bronze |
-| Compra na loja (Comum) | 40-150 bronze |
-| Compra na loja (Épico) | 1.000-3.000 bronze |
+| Gasto | Custo | Tipo |
+|-------|-------|------|
+| Cura no Templo (lv > 10) | **nível × 10** (escala) | repetível |
+| Buff de força | 30 bronze | repetível |
+| Proteger item | 50 bronze | único (3 slots) |
+| Refinar minério (Cobre) | 50 bronze | repetível |
+| **Reparar equipamento** | pontos perdidos × raridade × 5 | **repetível (contínuo)** |
+| **Reforjar item (re-roll)** | raridade² × 200 | **repetível (late-game)** |
+| **Manutenção de território** | 500 × (1 + streak×0.1) guild gold | **repetível por ciclo** |
+| Compra na loja (Comum) | 40-150 bronze | 1×/rotação |
+| Compra na loja (Épico) | 1.000-3.000 bronze | 1×/rotação |
+| Treino (Fortaleza) | nível × 10 / hora | repetível |
 
-### 7.4 Loja (Comércio)
+### 7.4 Filosofia Anti-Inflação
+
+O income (quest ~2k/h, zona de combate ~11k/coleta em alto nível) é repetível e escala. Para o servidor não inflar, os **sinks também precisam escalar com a riqueza/progresso**:
+
+- **Durabilidade + Reparo**: dreno contínuo proporcional à qualidade do gear (perde 1-10 pts/batalha)
+- **Cura escalável**: pega o late-game (lv100 paga 1.000/cura)
+- **Reforja**: ralo dos ricos — min-maxer queima bronze atrás do roll perfeito (sem teto)
+- **Manutenção de território**: controla o end-game de guild (quanto mais segura, mais caro)
+
+Princípio: **não cortar income** (frustra), mas **dar drenos escaláveis** onde gastar.
+
+### 7.5 Loja (Comércio)
 
 - 10 itens novos a cada **6 horas** (sincronizado para todos os jogadores)
 - Cada item pode ser comprado uma vez por rotação por jogador
@@ -418,8 +442,14 @@ Ao subir de nível, a guilda aumenta a capacidade de membros **e concede bônus 
 ### 8.5 Economia da Guilda
 
 - Membros doam bronze → acumula como **guild gold**
-- Guild gold é usado exclusivamente para subir nível da guilda
+- Guild gold é usado para subir nível da guilda **e pagar manutenção de território**
 - Não há conversão de volta (doação é irreversível)
+
+**Manutenção de território (sink de guild):**
+- Guilda que controla um território paga manutenção a cada ciclo de guerra (6h)
+- Custo = `500 × (1 + defenseStreak × 0.1)` guild gold — escala com o tempo de domínio
+- Tesouro insuficiente → território vira neutro (perde por inadimplência), streak zera
+- Força guildas dominantes a manter doações ativas para sustentar o domínio
 
 ### 8.6 Endpoints
 
@@ -460,7 +490,7 @@ Local de recuperação e fortalecimento.
 
 - Restaura HP para 100% instantaneamente
 - Grátis para guerreiros nível ≤ 10
-- 100 bronze para guerreiros nível > 10
+- **Custo escalável: `nível × 10 bronze`** para nível > 10 (lv50=500, lv100=1.000) — sink de late-game
 
 ### 8.2 Bênçãos (Buffs)
 

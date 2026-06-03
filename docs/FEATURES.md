@@ -217,6 +217,14 @@ Capacete, Armadura, Espada, Escudo, Calça, Bota, Luva, Ombreira, Colar, Anel
 - Itens podem ter 0-3 sockets dependendo da raridade
 - Joias encaixadas dão bônus permanentes: Rubi (+5 ATK), Safira (+5 DEF), Esmeralda (+20 HP), Diamante (+3/+3/+10), Ametista (+5% drop)
 
+### Durabilidade (dreno econômico)
+- Cada item de equipamento tem **durabilidade 0–100** (começa em 100)
+- Perde **1 a 10 pontos aleatórios por batalha** (arena, torre, zona, emboscada) — aplicado aos itens equipados
+- Item com durabilidade **0 NÃO dá bônus** (ATK/DEF/HP/joias zerados até reparar) — não quebra permanentemente
+- Reparo no Ferreiro (Forja): `pontos perdidos × raridade × 5 bronze`
+  - Comum: 5/ponto (reparo cheio ~500) · Épico: 20/ponto (~2.000)
+- Sink contínuo que escala com a qualidade do gear
+
 ### Proteção (Templo)
 - Até 3 itens podem ser protegidos (50 bronze cada)
 - Itens protegidos NÃO caem em morte no Alto Risco
@@ -274,6 +282,9 @@ Capacete, Armadura, Espada, Escudo, Calça, Bota, Luva, Ombreira, Colar, Anel
 - **Refinar**: 5 minérios + bronze → 1 barra (custo escala por nível)
 - **Craftar equipamento**: barras → item com sockets garantidos
 - **Craftar joia**: 3 fragmentos do mesmo tipo → 1 joia
+- **Reparar item**: restaura durabilidade — `pontos perdidos × raridade × 5 bronze`
+- **Reforjar item (re-roll)**: re-rola os stats do item mantendo a raridade — `raridade² × 200 bronze`
+  - Comum 200 · Incomum 800 · Raro 1.800 · Épico 3.200 — dreno de late-game sem teto
 
 ---
 
@@ -349,7 +360,7 @@ Para cada hora da expedição:
 ### Cura
 - Restaura HP para 100% instantaneamente
 - Grátis se guerreiro ≤ level 10
-- Custa 1 prata (100 bronze) se level > 10
+- **Custo escalável por nível** se level > 10: `nível × 10 bronze` (lv50=500, lv100=1.000) — dreno de late-game
 - **VIP**: Grátis, cooldown de 10 minutos (`lastVipHealAt` no Player)
 
 ### Bênçãos (Buffs)
@@ -556,6 +567,12 @@ Aplicados automaticamente em quests e trabalho para todos os membros:
 - Uma guilda domina no máximo 1 território
 - Guilda dominante defende automaticamente — não pode atacar outro território
 - Declaração de ataque feita pelo líder antes do próximo ciclo de 6h
+
+### Manutenção de Território (dreno econômico de guild)
+- A cada ciclo de guerra (6h), a guilda dominante paga manutenção do **tesouro (guild gold)**
+- Custo = `500 × (1 + defenseStreak × 0.1)` — quanto mais tempo segura, mais caro
+- Se o tesouro **não cobrir** → território vira **neutro** (perde por inadimplência) e streak zera
+- Cria tensão econômica no end-game: segurar território exige guild com economia ativa
 
 ### Ciclo de Batalhas (automático — 00h, 06h, 12h, 18h UTC)
 
