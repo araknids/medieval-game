@@ -120,6 +120,36 @@ public class KingdomController {
         }
     }
 
+    // ── Instant-start quest (VIP only) ───────────────────────────────────────
+    @PostMapping("/{kingdom}/quests/instant-start")
+    public ResponseEntity<?> instantStartQuest(
+            @PathVariable Kingdom kingdom,
+            @RequestBody StartQuestRequest req,
+            Authentication auth) {
+        try {
+            Player player = getPlayer(auth);
+            KingdomService.CollectResult result = kingdomService.instantStartQuest(player, kingdom, req.questType());
+            var resp = new java.util.HashMap<String, Object>();
+            resp.put("bronzeEarned", result.bronzeEarned());
+            resp.put("xpEarned",     result.xpEarned());
+            resp.put("questId",      result.quest().getId());
+            if (result.droppedItem() != null) {
+                InventoryItem d = result.droppedItem();
+                resp.put("droppedItem", Map.of(
+                    "name",        d.getName(),
+                    "type",        d.getType().name(),
+                    "rarity",      d.getRarity(),
+                    "attackBonus", d.getAttackBonus(),
+                    "defenseBonus",d.getDefenseBonus(),
+                    "healthBonus", d.getHealthBonus()
+                ));
+            }
+            return ResponseEntity.ok(resp);
+        } catch (IllegalArgumentException | IllegalStateException e) {
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+        }
+    }
+
     // ── Abandon quest ─────────────────────────────────────────────────────────
     @PostMapping("/{kingdom}/quests/{id}/abandon")
     public ResponseEntity<?> abandonQuest(

@@ -114,6 +114,25 @@ public class WarriorController {
         long silver  = (total % 10_000L) / 100L;
         long bronze  = total % 100L;
 
+        // VIP fields
+        boolean isVip        = player.isVip();
+        String vipExpiresAt  = isVip && player.getVipExpiresAt() != null
+                               ? player.getVipExpiresAt().toString() : "";
+        int arenaFightsToday = player.getArenaFightsToday();
+        int arenaFightLimit  = player.getArenaFightLimit();
+        int instantQuestsToday = player.getVipInstantQuestsToday();
+
+        // Buff2 (VIP second slot)
+        String buff2Name    = "";
+        long   buff2SecsLeft = 0;
+        if (warrior.hasActiveBuff2()) {
+            var buff2 = warrior.getActiveBuff2();
+            buff2Name    = buff2.icon + " " + buff2.displayName;
+            buff2SecsLeft = Math.max(0,
+                java.time.temporal.ChronoUnit.SECONDS.between(
+                    java.time.LocalDateTime.now(), warrior.getBuffExpiresAt2()));
+        }
+
         return new WarriorResponse(
                 warrior.getId(), warrior.getName(), warrior.getWarriorClass().displayName,
                 warrior.getLevel(), warrior.getExperience(), warrior.expNeededForNextLevel(),
@@ -132,7 +151,10 @@ public class WarriorController {
                 hpPercent, warrior.isKnockedOut(),
                 buffName, buffSecsLeft,
                 warrior.isOnMission(),
-                player.getSoulStones()
+                player.getSoulStones(),
+                isVip, vipExpiresAt,
+                arenaFightsToday, arenaFightLimit, instantQuestsToday,
+                buff2Name, buff2SecsLeft
         );
     }
 
@@ -151,5 +173,8 @@ public class WarriorController {
                            int hpPercent, boolean isKnockedOut,
                            String activeBuff, long buffSecondsLeft,
                            boolean onMission,
-                           int soulStones) {}
+                           int soulStones,
+                           boolean isVip, String vipExpiresAt,
+                           int arenaFightsToday, int arenaFightLimit, int instantQuestsToday,
+                           String activeBuff2, long buff2SecondsLeft) {}
 }

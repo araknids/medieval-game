@@ -354,7 +354,10 @@ async function loadWarrior() {
     <div style="font-size:.7rem;color:#888;margin-top:.1rem">
       ⚡ ${t('stat.stamina')} ${stamina}/100
     </div>
-    ${(warrior.soulStones ?? 0) > 0 ? `<div style="font-size:.72rem;color:#a78bfa;margin-top:.3rem;font-weight:600">
+    ${warrior.isVip ? `<div style="font-size:.72rem;background:#3b0764;color:#c4b5fd;padding:2px 6px;border-radius:4px;margin-top:.3rem;display:inline-block">
+      👑 VIP${warrior.vipExpiresAt ? ' · ' + warrior.vipExpiresAt.substring(0,10) : ''}
+    </div>` : ''}
+    ${(warrior.soulStones ?? 0) > 0 ? `<div style="font-size:.72rem;color:#a78bfa;margin-top:.2rem;font-weight:600">
       💎 ${warrior.soulStones} SoulStone${warrior.soulStones !== 1 ? 's' : ''}
     </div>` : ''}
     ${busy ? `<button class="btn-cancel-work" onclick="freeWarrior()" style="margin-top:.4rem;font-size:.72rem">
@@ -606,13 +609,16 @@ function switchCommerceTab(tab) {
   document.getElementById('panel-sell').style.display      = tab === 'sell'      ? 'block' : 'none';
   document.getElementById('panel-smith').style.display     = tab === 'smith'     ? 'block' : 'none';
   document.getElementById('panel-resources').style.display = tab === 'resources' ? 'block' : 'none';
+  document.getElementById('panel-vipshop').style.display   = tab === 'vipshop'   ? 'block' : 'none';
   document.getElementById('tab-shop').classList.toggle('active',      tab === 'shop');
   document.getElementById('tab-sell').classList.toggle('active',      tab === 'sell');
   document.getElementById('tab-smith').classList.toggle('active',     tab === 'smith');
   document.getElementById('tab-resources').classList.toggle('active', tab === 'resources');
+  document.getElementById('tab-vipshop').classList.toggle('active',   tab === 'vipshop');
   if (tab === 'sell')      loadSellList();
   if (tab === 'smith')     loadSmithingInCommerce();
   if (tab === 'resources') loadResourcesInCommerce();
+  if (tab === 'vipshop')   loadVipShop();
 }
 
 // Loads smithing content into the Commerce tab smithing panel
@@ -932,10 +938,19 @@ function renderTemple(data) {
 
   const buffActive = data.activeBuff
     ? `<div class="temple-buff-active">
-        Bênção ativa: <strong>${data.activeBuff}</strong>
+        Bênção slot 1: <strong>${data.activeBuff}</strong>
         — ${Math.floor(data.buffSecondsLeft / 60)}min restantes
        </div>`
     : `<div class="temple-buff-active" style="color:#888">${t('temple.no_buff')}</div>`;
+
+  const buff2Active = data.activeBuff2
+    ? `<div class="temple-buff-active" style="color:#c4b5fd">
+        👑 Bênção slot 2 (VIP): <strong>${data.activeBuff2}</strong>
+        — ${Math.floor(data.buff2SecondsLeft / 60)}min restantes
+       </div>`
+    : data.isVip
+    ? `<div class="temple-buff-active" style="color:#7c3aed">👑 Slot 2 VIP disponível</div>`
+    : '';
 
   const buffsHtml = data.buffs.map(b => `
     <div class="sk-recipe-card">
@@ -965,6 +980,19 @@ function renderTemple(data) {
               ${data.hpPercent >= 100 ? 'disabled' : ''}>
         ${data.hpPercent >= 100 ? '✓ HP Cheio' : healLabel}
       </button>
+      ${data.isVip ? (() => {
+        const cdSecs = data.vipHealCooldownSecs || 0;
+        const disabled = data.hpPercent >= 100 || cdSecs > 0;
+        const label = data.hpPercent >= 100
+          ? '✓ HP Cheio'
+          : cdSecs > 0
+          ? `⏳ VIP Heal CD ${Math.floor(cdSecs/60)}m ${cdSecs%60}s`
+          : '👑 VIP Heal (grátis)';
+        return `<button class="btn-collect" onclick="vipHeal()"
+                  style="margin-top:.4rem;background:#7c3aed"
+                  ${disabled ? 'disabled' : ''}>${label}</button>
+                <div style="font-size:.7rem;color:#c4b5fd;margin-top:.2rem">👑 VIP · CD 10 min · grátis</div>`;
+      })() : ''}
       ${(() => {
         if (!data.soulStones) return '';
         const cdSecs = data.ssHealCooldownSecs || 0;
@@ -986,6 +1014,7 @@ function renderTemple(data) {
     <div class="sk-section">
       <div class="sk-title">${t('temple.buffs')}</div>
       ${buffActive}
+      ${buff2Active}
       <div style="margin-top:.5rem">${buffsHtml}</div>
     </div>
 
@@ -2903,8 +2932,19 @@ function renderKingdomDetail(kingdom, quests, activeQuests, training, gatherSess
     }).join('');
   }
 
+  const vipInstantLeft = warrior && warrior.isVip
+    ? Math.max(0, 2 - (warrior.instantQuestsToday ?? 0)) : 0;
+
   const questCards = quests.map(q => {
     const disabled = busy || !q.canStart;
+    const canInstant = warrior && warrior.isVip && !busy && q.canStart && vipInstantLeft > 0;
+    const instantBtn = warrior && warrior.isVip && !busy
+      ? `<button onclick="instantStartQuest('${kingdom}','${q.id}')"
+           style="margin-top:8px;font-size:12px;background:#7c3aed;margin-left:6px"
+           ${!canInstant ? 'disabled style="opacity:.5;margin-left:6px"' : ''}>
+           ⚡ Instant${vipInstantLeft > 0 ? ' (' + vipInstantLeft + ')' : ' (0)'}
+         </button>`
+      : '';
     return `
       <div style="background:#1a1a2e;border:1px solid #333;border-radius:8px;padding:12px;margin-bottom:8px">
         <div style="display:flex;justify-content:space-between;align-items:center">
@@ -2916,11 +2956,14 @@ function renderKingdomDetail(kingdom, quests, activeQuests, training, gatherSess
             <span>⚡ ${q.staminaCost}</span>
           </div>
         </div>
-        <button onclick="startKingdomQuest('${kingdom}','${q.id}')"
-          ${disabled ? 'disabled style="opacity:.5"' : ''}
-          style="margin-top:8px;font-size:12px">
-          ${busy ? 'Warrior busy' : !q.canStart ? 'Low stamina' : 'Start Quest'}
-        </button>
+        <div style="display:flex;flex-wrap:wrap;gap:4px;margin-top:8px">
+          <button onclick="startKingdomQuest('${kingdom}','${q.id}')"
+            ${disabled ? 'disabled style="opacity:.5"' : ''}
+            style="font-size:12px">
+            ${busy ? 'Warrior busy' : !q.canStart ? 'Low stamina' : 'Start Quest'}
+          </button>
+          ${instantBtn}
+        </div>
       </div>`;
   }).join('');
 
@@ -3139,6 +3182,125 @@ async function cancelKingdomZoneSession(activityId) {
   if (r.error) { worldMsg(r.error, false); return; }
   if (worldCurrentKingdom) await enterKingdom(worldCurrentKingdom);
   worldMsg('Expedition cancelled.');
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// VIP SHOP
+// ═══════════════════════════════════════════════════════════════════
+
+async function loadVipShop() {
+  const el = document.getElementById('vipshop-content');
+  el.innerHTML = '<p>Loading VIP Shop...</p>';
+  const [status, slots] = await Promise.all([
+    api('GET', '/api/vip/status'),
+    api('GET', '/api/inventory/slots')
+  ]);
+
+  const isVip = status.isVip;
+  const daysLeft = isVip && status.vipExpiresAt
+    ? Math.ceil((new Date(status.vipExpiresAt) - Date.now()) / 86400000)
+    : 0;
+  const ss = warrior ? warrior.soulStones : 0;
+
+  const vipBanner = isVip
+    ? `<div style="background:#3b0764;border:1px solid #7c3aed;border-radius:8px;padding:12px;margin-bottom:12px">
+        <div style="color:#c4b5fd;font-weight:bold">👑 VIP Ativo — ${daysLeft} dias restantes</div>
+        <div style="font-size:12px;color:#a78bfa;margin-top:4px">Expira em ${status.vipExpiresAt ? status.vipExpiresAt.substring(0,10) : ''}</div>
+        <div style="font-size:12px;color:#888;margin-top:6px">
+          ⚡ Missões instantâneas hoje: ${2 - status.instantQuestsRemaining}/2
+          &nbsp;·&nbsp;
+          ⚔ Lutas de arena: ${status.arenaFightLimit - status.arenaFightsRemaining}/${status.arenaFightLimit}
+        </div>
+      </div>`
+    : `<div style="background:#1a0a2e;border:1px solid #7c3aed;border-radius:8px;padding:12px;margin-bottom:12px">
+        <div style="color:#aaa;font-size:13px">Você não tem VIP ativo.</div>
+      </div>`;
+
+  const canBuyVip = ss >= 15;
+  const vipLabel = isVip ? `👑 Renovar VIP (+30 dias)` : `👑 Ativar VIP`;
+
+  const bagExpanded = slots && slots.inventoryExpanded;
+
+  el.innerHTML = `
+    <div style="padding:4px">
+      ${vipBanner}
+
+      <div style="background:#1a1a2e;border:1px solid #7c3aed;border-radius:8px;padding:16px;margin-bottom:12px">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start">
+          <div>
+            <div style="font-size:15px;font-weight:bold;color:#c4b5fd">👑 Status VIP — 30 dias</div>
+            <div style="font-size:12px;color:#888;margin-top:4px">Inclui: bag 20 slots · cura grátis · 2 missões instantâneas/dia · 10 lutas arena/dia · 2 buffs simultâneos</div>
+          </div>
+          <span style="color:#a78bfa;font-weight:bold;font-size:14px">15 💎</span>
+        </div>
+        <div style="display:flex;align-items:center;gap:8px;margin-top:10px">
+          <button onclick="buyVip()" ${!canBuyVip ? 'disabled style="opacity:.5"' : 'style="background:#7c3aed"'}>
+            ${vipLabel}
+          </button>
+          ${!canBuyVip ? `<span style="font-size:12px;color:#888">Precisa de 15 💎 (você tem ${ss})</span>` : ''}
+        </div>
+      </div>
+
+      <h4 style="color:#aaa;font-size:13px;margin:12px 0 8px">COMPRAS PERMANENTES</h4>
+
+      <div style="background:#1a1a2e;border:1px solid #444;border-radius:8px;padding:12px;margin-bottom:8px;
+                  opacity:${bagExpanded || isVip ? '0.5' : '1'}">
+        <div style="display:flex;justify-content:space-between;align-items:center">
+          <div>
+            <div style="font-size:13px;font-weight:bold">🎒 Expandir Bag (10→20 slots)</div>
+            <div style="font-size:11px;color:#888">Permanente. Incluso no VIP.</div>
+          </div>
+          <span style="color:#a78bfa;font-size:13px">3 💎</span>
+        </div>
+        ${bagExpanded || isVip
+          ? '<div style="color:#4caf50;font-size:12px;margin-top:6px">✓ Já ativado</div>'
+          : `<button onclick="expandInventory()" style="margin-top:8px;font-size:12px" ${ss < 3 ? 'disabled style="opacity:.5"' : ''}>
+               Comprar (3 💎)
+             </button>`}
+      </div>
+
+      <div style="font-size:11px;color:#666;margin-top:12px;text-align:center">
+        💎 Saldo atual: ${ss} SoulStone${ss !== 1 ? 's' : ''}
+      </div>
+      <div id="vipshop-msg" style="margin-top:8px;min-height:20px"></div>
+    </div>`;
+}
+
+async function buyVip() {
+  const r = await api('POST', '/api/vip/buy');
+  if (r.error) {
+    document.getElementById('vipshop-msg').innerHTML = `<span style="color:#f44336">${r.error}</span>`;
+    return;
+  }
+  await loadWarrior();
+  loadVipShop();
+  document.getElementById('vipshop-msg').innerHTML = `<span style="color:#4caf50">👑 ${r.message}</span>`;
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// INSTANT QUEST (VIP)
+// ═══════════════════════════════════════════════════════════════════
+
+async function instantStartQuest(kingdom, questTypeId) {
+  const r = await api('POST', `/api/world/${kingdom}/quests/instant-start`, { questType: questTypeId });
+  if (r.error) { worldMsg(r.error, false); return; }
+  const drop = r.droppedItem ? ' · Item: ' + r.droppedItem.name : '';
+  const rows = [
+    { icon:'⭐', label:'Experience', value:`+${r.xpEarned} XP`,      color:'#ffd700' },
+    { icon:'🪙', label:'Bronze',     value:fmtBronze(r.bronzeEarned), color:'#cd7f32' },
+  ];
+  if (r.droppedItem) rows.push({ icon:'🎁', label:'Item Drop', value:r.droppedItem.name, color:'#a855f7' });
+  showCollectModal({ title:'⚡ Quest Instantânea!', color:'#7c3aed', rows });
+  await enterKingdom(kingdom);
+}
+
+// VIP Heal (grátis, CD 10min)
+async function vipHeal() {
+  const data = await api('POST', '/api/temple/vip-heal');
+  if (data.error) { showMessage(data.error, true); return; }
+  showMessage(data.message);
+  await loadWarrior();
+  loadTemple();
 }
 
 // Resources tab in Commerce — shows all gathered items (fish, ores, gems, bars)

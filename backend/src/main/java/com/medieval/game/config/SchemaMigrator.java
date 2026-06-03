@@ -26,6 +26,8 @@ public class SchemaMigrator {
         patchZoneActivityRoleCheck();
         patchPlayerSoulStoneColumns();
         patchMailItemColumns();
+        patchPlayerVipColumns();
+        patchWarriorBuff2Columns();
     }
 
     // players: add SoulStone columns if not present (Hibernate adds them but needs explicit DEFAULT)
@@ -106,6 +108,50 @@ public class SchemaMigrator {
             log.info("[SchemaMigrator] zone_activities_role_check updated");
         } catch (Exception e) {
             log.warn("[SchemaMigrator] zone_activities_role_check patch failed: {}", e.getMessage());
+        }
+    }
+
+    // players: add VIP Status columns
+    private void patchPlayerVipColumns() {
+        try {
+            jdbc.execute("""
+                DO $$
+                BEGIN
+                    IF NOT EXISTS (SELECT 1 FROM information_schema.columns
+                                   WHERE table_name='players' AND column_name='vip_expires_at') THEN
+                        ALTER TABLE players ADD COLUMN vip_expires_at       timestamp;
+                        ALTER TABLE players ADD COLUMN last_vip_heal_at     timestamp;
+                        ALTER TABLE players ADD COLUMN arena_fights_today   integer NOT NULL DEFAULT 0;
+                        ALTER TABLE players ADD COLUMN last_arena_fight_date date;
+                        ALTER TABLE players ADD COLUMN vip_instant_quests_today integer NOT NULL DEFAULT 0;
+                        ALTER TABLE players ADD COLUMN last_vip_quest_date  date;
+                    END IF;
+                END
+                $$;
+                """);
+            log.info("[SchemaMigrator] players VIP columns ensured");
+        } catch (Exception e) {
+            log.warn("[SchemaMigrator] players VIP columns patch failed: {}", e.getMessage());
+        }
+    }
+
+    // warriors: add second buff slot columns (VIP)
+    private void patchWarriorBuff2Columns() {
+        try {
+            jdbc.execute("""
+                DO $$
+                BEGIN
+                    IF NOT EXISTS (SELECT 1 FROM information_schema.columns
+                                   WHERE table_name='warriors' AND column_name='active_buff2') THEN
+                        ALTER TABLE warriors ADD COLUMN active_buff2    varchar(50);
+                        ALTER TABLE warriors ADD COLUMN buff_expires_at2 timestamp;
+                    END IF;
+                END
+                $$;
+                """);
+            log.info("[SchemaMigrator] warriors buff2 columns ensured");
+        } catch (Exception e) {
+            log.warn("[SchemaMigrator] warriors buff2 columns patch failed: {}", e.getMessage());
         }
     }
 }

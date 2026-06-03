@@ -1,0 +1,292 @@
+package com.medieval.game.integration;
+
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.MediaType;
+
+import com.medieval.game.repository.PlayerRepository;
+import com.medieval.game.repository.WarriorRepository;
+
+import java.util.Map;
+
+import static org.hamcrest.Matchers.*;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
+
+// TC-176 to TC-192 — VIP Status integration tests
+@DisplayName("TC-176-192 | VIP Status — Integration")
+class VipIntegrationTest extends BaseIntegrationTest {
+
+    @Autowired PlayerRepository  playerRepository;
+    @Autowired WarriorRepository warriorRepository;
+
+    String token;
+
+    @BeforeEach
+    void setup() throws Exception {
+        token = registerAndGetToken(uniqueUser("vip"));
+    }
+
+    // ── Helpers ───────────────────────────────────────────────────────────────
+
+    private void grantStones(int amount) throws Exception {
+        mockMvc.perform(post("/api/admin/grant-soulstones")
+                .header("Authorization", bearer(token))
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(json(Map.of("amount", amount))));
+    }
+
+    private void buyVip() throws Exception {
+        grantStones(15);
+        mockMvc.perform(post("/api/vip/buy").header("Authorization", bearer(token)));
+    }
+
+    private void damageWarrior() {
+        playerRepository.findAll().stream()
+                .filter(p -> p.getUsername().startsWith("vip"))
+                .reduce((a, b) -> b.getId() > a.getId() ? b : a)
+                .ifPresent(p -> warriorRepository.findByPlayer(p).ifPresent(w -> {
+                    w.setCurrentHpSnapshot(50);
+                    w.setHpUpdatedAt(java.time.LocalDateTime.now());
+                    warriorRepository.save(w);
+                }));
+    }
+
+    // ── Compra VIP ────────────────────────────────────────────────────────────
+
+    // TC-176: comprar VIP → isVip=true, vipExpiresAt ~30 dias
+    @Test
+    @DisplayName("TC-176 | Buy VIP → isVip=true in GET /api/vip/status")
+    void tc176_buyVip_statusIsVip() throws Exception {
+        buyVip();
+
+        mockMvc.perform(get("/api/vip/status").header("Authorization", bearer(token)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.isVip").value(true))
+                .andExpect(jsonPath("$.vipExpiresAt").isNotEmpty());
+    }
+
+    // TC-177: comprar VIP sem SS suficiente → 400
+    @Test
+    @DisplayName("TC-177 | Buy VIP with insufficient stones → 400")
+    void tc177_buyVip_noStones_returns400() throws Exception {
+        grantStones(10);
+        mockMvc.perform(post("/api/vip/buy").header("Authorization", bearer(token)))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error").value(containsString("Not enough SoulStones")));
+    }
+
+    // TC-178: renovar VIP empilha dias
+    @Test
+    @DisplayName("TC-178 | Renew VIP → vipExpiresAt extends by 30 more days")
+    void tc178_renewVip_stacksDays() throws Exception {
+        buyVip();
+        String firstExpiry = objectMapper.readTree(
+                mockMvc.perform(get("/api/vip/status").header("Authorization", bearer(token)))
+                        .andReturn().getResponse().getContentAsString()
+        ).get("vipExpiresAt").asText();
+
+        grantStones(15);
+        mockMvc.perform(post("/api/vip/buy").header("Authorization", bearer(token)))
+                .andExpect(status().isOk());
+
+        String newExpiry = objectMapper.readTree(
+                mockMvc.perform(get("/api/vip/status").header("Authorization", bearer(token)))
+                        .andReturn().getResponse().getContentAsString()
+        ).get("vipExpiresAt").asText();
+
+        // New expiry must be later than first
+        org.junit.jupiter.api.Assertions.assertTrue(newExpiry.compareTo(firstExpiry) > 0);
+    }
+
+    // TC-179: comprar VIP inclui bag 20 slots
+    @Test
+    @DisplayName("TC-179 | Buy VIP → bag expanded to 20 slots")
+    void tc179_buyVip_bagExpanded() throws Exception {
+        buyVip();
+        mockMvc.perform(get("/api/inventory/slots").header("Authorization", bearer(token)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.maxSlots").value(20));
+    }
+
+    // TC-180: GET /api/vip/status → instantQuestsRemaining e arenaFightsRemaining presentes
+    @Test
+    @DisplayName("TC-180 | GET /api/vip/status → has instantQuestsRemaining and arenaFightsRemaining")
+    void tc180_vipStatus_hasCounters() throws Exception {
+        buyVip();
+        mockMvc.perform(get("/api/vip/status").header("Authorization", bearer(token)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.instantQuestsRemaining").value(2))
+                .andExpect(jsonPath("$.arenaFightsRemaining").value(10))
+                .andExpect(jsonPath("$.arenaFightLimit").value(10));
+    }
+
+    // ── VIP Heal ─────────────────────────────────────────────────────────────
+
+    // TC-181: VIP heal com HP < 100 → HP restaurado, sem custo de bronze
+    @Test
+    @DisplayName("TC-181 | VIP heal → HP 100%, bronze unchanged")
+    void tc181_vipHeal_restoresHp() throws Exception {
+        buyVip();
+        damageWarrior();
+
+        mockMvc.perform(post("/api/temple/vip-heal").header("Authorization", bearer(token)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.message").isNotEmpty());
+
+        mockMvc.perform(get("/api/warrior").header("Authorization", bearer(token)))
+                .andExpect(jsonPath("$.hpPercent").value(100));
+    }
+
+    // TC-182: VIP heal sem VIP → 400
+    @Test
+    @DisplayName("TC-182 | VIP heal without VIP → 400")
+    void tc182_vipHeal_noVip_returns400() throws Exception {
+        mockMvc.perform(post("/api/temple/vip-heal").header("Authorization", bearer(token)))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error").value(containsString("VIP required")));
+    }
+
+    // TC-183: VIP heal com HP cheio → 400
+    @Test
+    @DisplayName("TC-183 | VIP heal with full HP → 400")
+    void tc183_vipHeal_fullHp_returns400() throws Exception {
+        buyVip();
+        // New warrior starts at full HP
+        mockMvc.perform(post("/api/temple/vip-heal").header("Authorization", bearer(token)))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error").value(containsString("full HP")));
+    }
+
+    // TC-184: GET /api/temple → isVip, vipHealCooldownSecs, vipHealReady presentes
+    @Test
+    @DisplayName("TC-184 | GET /api/temple → VIP fields present")
+    void tc184_temple_hasVipFields() throws Exception {
+        buyVip();
+        mockMvc.perform(get("/api/temple").header("Authorization", bearer(token)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.isVip").value(true))
+                .andExpect(jsonPath("$.vipHealCooldownSecs").isNumber())
+                .andExpect(jsonPath("$.vipHealReady").isBoolean());
+    }
+
+    // ── Missão Instantânea ────────────────────────────────────────────────────
+
+    // TC-185: instant quest → concluída imediatamente, rewards retornados
+    @Test
+    @DisplayName("TC-185 | Instant quest → rewards returned immediately")
+    void tc185_instantQuest_rewardsReturned() throws Exception {
+        buyVip();
+        mockMvc.perform(post("/api/world/FISHING/quests/instant-start")
+                        .header("Authorization", bearer(token))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"questType\":\"PATROL_COAST\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.bronzeEarned").isNumber())
+                .andExpect(jsonPath("$.xpEarned").isNumber());
+    }
+
+    // TC-186: instant quest sem VIP → 400
+    @Test
+    @DisplayName("TC-186 | Instant quest without VIP → 400")
+    void tc186_instantQuest_noVip_returns400() throws Exception {
+        mockMvc.perform(post("/api/world/FISHING/quests/instant-start")
+                        .header("Authorization", bearer(token))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"questType\":\"PATROL_COAST\"}"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error").value(containsString("VIP required")));
+    }
+
+    // TC-187: instant quest decrementa counter
+    @Test
+    @DisplayName("TC-187 | Instant quest → instantQuestsRemaining decremented")
+    void tc187_instantQuest_decrementsCounter() throws Exception {
+        buyVip();
+        mockMvc.perform(post("/api/world/FISHING/quests/instant-start")
+                .header("Authorization", bearer(token))
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"questType\":\"PATROL_COAST\"}"));
+
+        mockMvc.perform(get("/api/vip/status").header("Authorization", bearer(token)))
+                .andExpect(jsonPath("$.instantQuestsRemaining").value(1));
+    }
+
+    // TC-188: instant quest esgotado (2/dia) → 400
+    @Test
+    @DisplayName("TC-188 | Instant quest at limit (2/day) → 400")
+    void tc188_instantQuest_atLimit_returns400() throws Exception {
+        buyVip();
+        mockMvc.perform(post("/api/world/FISHING/quests/instant-start")
+                .header("Authorization", bearer(token))
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"questType\":\"PATROL_COAST\"}"));
+        mockMvc.perform(post("/api/world/MINING/quests/instant-start")
+                .header("Authorization", bearer(token))
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"questType\":\"ESCORT_MINERS\"}"));
+
+        mockMvc.perform(post("/api/world/COMBAT/quests/instant-start")
+                        .header("Authorization", bearer(token))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"questType\":\"DEFEND_WALLS\"}"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error").value(containsString("limit reached")));
+    }
+
+    // ── Arena Daily Limit ─────────────────────────────────────────────────────
+
+    // TC-189: GET /api/vip/status free player → arenaFightLimit=5
+    @Test
+    @DisplayName("TC-189 | Free player → arenaFightLimit = 5")
+    void tc189_freePlayer_arenaLimit5() throws Exception {
+        mockMvc.perform(get("/api/vip/status").header("Authorization", bearer(token)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.arenaFightLimit").value(5));
+    }
+
+    // TC-190: VIP player → arenaFightLimit = 10
+    @Test
+    @DisplayName("TC-190 | VIP player → arenaFightLimit = 10")
+    void tc190_vipPlayer_arenaLimit10() throws Exception {
+        buyVip();
+        mockMvc.perform(get("/api/vip/status").header("Authorization", bearer(token)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.arenaFightLimit").value(10))
+                .andExpect(jsonPath("$.arenaFightsRemaining").value(10));
+    }
+
+    // ── Segundo Buff (VIP) ────────────────────────────────────────────────────
+
+    // TC-191: VIP pode aplicar 2 buffs diferentes
+    @Test
+    @DisplayName("TC-191 | VIP can have 2 simultaneous buffs")
+    void tc191_vip_twoBuffs() throws Exception {
+        buyVip();
+        // Apply first buff
+        mockMvc.perform(post("/api/temple/buff/STRENGTH").header("Authorization", bearer(token)))
+                .andExpect(status().isOk());
+        // Apply second buff (different type)
+        mockMvc.perform(post("/api/temple/buff/DEFENSE").header("Authorization", bearer(token)))
+                .andExpect(status().isOk());
+
+        mockMvc.perform(get("/api/temple").header("Authorization", bearer(token)))
+                .andExpect(jsonPath("$.activeBuff").isNotEmpty())
+                .andExpect(jsonPath("$.activeBuff2").isNotEmpty());
+    }
+
+    // TC-192: GET /api/warrior → isVip and arenaFightsToday present
+    @Test
+    @DisplayName("TC-192 | GET /api/warrior → isVip, arenaFightsToday, instantQuestsToday present")
+    void tc192_warrior_hasVipFields() throws Exception {
+        buyVip();
+        mockMvc.perform(get("/api/warrior").header("Authorization", bearer(token)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.isVip").value(true))
+                .andExpect(jsonPath("$.arenaFightsToday").isNumber())
+                .andExpect(jsonPath("$.arenaFightLimit").value(10))
+                .andExpect(jsonPath("$.instantQuestsToday").isNumber());
+    }
+}

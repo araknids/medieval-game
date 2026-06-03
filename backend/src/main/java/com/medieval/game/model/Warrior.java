@@ -77,17 +77,27 @@ public class Warrior {
     // ── Buff do Templo ──
     @Enumerated(EnumType.STRING)
     private BuffType activeBuff;
-
     private LocalDateTime buffExpiresAt;
+
+    /** Segundo slot de buff — exclusivo para jogadores VIP */
+    private BuffType activeBuff2;
+    private LocalDateTime buffExpiresAt2;
 
     public boolean hasActiveBuff() {
         return activeBuff != null && buffExpiresAt != null
                && LocalDateTime.now().isBefore(buffExpiresAt);
     }
 
+    public boolean hasActiveBuff2() {
+        return activeBuff2 != null && buffExpiresAt2 != null
+               && LocalDateTime.now().isBefore(buffExpiresAt2);
+    }
+
     public void clearBuff() {
         activeBuff    = null;
         buffExpiresAt = null;
+        activeBuff2   = null;
+        buffExpiresAt2 = null;
     }
 
     private boolean onMission = false;

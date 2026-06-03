@@ -95,7 +95,34 @@ public class Player {
     @Column(columnDefinition = "boolean default false")
     private boolean inventoryExpanded = false;
 
-    public int getMaxInventorySlots() { return inventoryExpanded ? 20 : 10; }
+    public int getMaxInventorySlots() { return inventoryExpanded || isVip() ? 20 : 10; }
+
+    // ── VIP Status ────────────────────────────────────────────────────────────
+    /** Timestamp de expiração do VIP; null = sem VIP */
+    private java.time.LocalDateTime vipExpiresAt;
+
+    /** Cura grátis VIP — CD de 10 minutos */
+    private java.time.LocalDateTime lastVipHealAt;
+
+    /** Lutas de arena feitas hoje (reset meia-noite UTC) */
+    @Column(columnDefinition = "integer default 0")
+    private int arenaFightsToday = 0;
+
+    /** Data do último reset do counter de arena */
+    private java.time.LocalDate lastArenaFightDate;
+
+    /** Missões instantâneas usadas hoje (reset meia-noite UTC) */
+    @Column(columnDefinition = "integer default 0")
+    private int vipInstantQuestsToday = 0;
+
+    /** Data do último reset do counter de missões instantâneas */
+    private java.time.LocalDate lastVipQuestDate;
+
+    public boolean isVip() {
+        return vipExpiresAt != null && java.time.LocalDateTime.now().isBefore(vipExpiresAt);
+    }
+
+    public int getArenaFightLimit() { return isVip() ? 10 : 5; }
 
     @Column(nullable = false)
     private LocalDateTime createdAt = LocalDateTime.now();

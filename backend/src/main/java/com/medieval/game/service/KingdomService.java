@@ -34,6 +34,7 @@ public class KingdomService {
     private final MailService                  mailService;
     private final ItemLoreGenerator            loreGenerator;
     private final TerritoryService             territoryService;
+    private final VipService                   vipService;
 
     @Value("${app.dev.instant-complete:false}")
     private boolean instantComplete;
@@ -189,6 +190,35 @@ public class KingdomService {
         quest.setStatus(QuestStatus.ABANDONED);
         questRepo.save(quest);
         log.info("[KingdomService] player={} action=abandonQuest OK questId={}", player.getId(), questId);
+    }
+
+    // ── Missão Instantânea VIP ───────────────────────────────────────────────
+
+    /**
+     * VIP-only: starts a quest and immediately collects it (skips the timer).
+     * Consumes one instant-quest charge from the daily VIP allowance.
+     * Returns the full CollectResult just like normal collectQuest().
+     */
+    @Transactional
+    public CollectResult instantStartQuest(Player player, Kingdom kingdom, KingdomQuestType questType) {
+        log.info("[KingdomService] player={} action=instantStartQuest kingdom={} questType={}",
+                player.getId(), kingdom, questType);
+
+        // Validates VIP + decrements daily counter (throws if limit reached or no VIP)
+        vipService.consumeInstantQuest(player);
+
+        // Start the quest (same validations as normal start)
+        KingdomActiveQuest quest = startQuest(player, kingdom, questType);
+
+        // Force-complete immediately (set completesAt to past so isReadyToCollect() = true)
+        quest.setCompletesAt(LocalDateTime.now().minusSeconds(1));
+        questRepo.save(quest);
+
+        // Collect (same logic as normal collect)
+        CollectResult result = collectQuest(player, quest.getId());
+        log.info("[KingdomService] player={} action=instantStartQuest OK questId={} bronze={} xp={}",
+                player.getId(), quest.getId(), result.bronzeEarned(), result.xpEarned());
+        return result;
     }
 
     public List<KingdomActiveQuest> getActiveQuests(Player player, Kingdom kingdom) {

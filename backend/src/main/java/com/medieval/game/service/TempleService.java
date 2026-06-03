@@ -33,6 +33,7 @@ public class TempleService {
     private final InventoryItemRepository inventoryRepository;
     private final PlayerRepository        playerRepository;
     private final PlayerService           playerService;
+    private final VipService              vipService;
 
     // ── Curar guerreiro ──
 
@@ -98,6 +99,37 @@ public class TempleService {
         log.info("[TempleService] player={} action=soulstoneHeal OK stonesLeft={}", player.getId(), player.getSoulStones());
     }
 
+    // ── VIP Heal (grátis, CD 10 min) ──
+
+    public long vipHealCooldownSecs(Player player) {
+        return vipService.vipHealCooldownSecs(player);
+    }
+
+    @Transactional
+    public void vipHeal(Player player) {
+        log.info("[TempleService] player={} action=vipHeal", player.getId());
+        if (!player.isVip()) {
+            log.warn("[TempleService] player={} REJECTED: vipHeal requires VIP", player.getId());
+            throw new IllegalStateException("VIP required for free healing.");
+        }
+        long cdSecs = vipService.vipHealCooldownSecs(player);
+        if (cdSecs > 0) {
+            log.warn("[TempleService] player={} REJECTED: vipHeal on cooldown {}s", player.getId(), cdSecs);
+            throw new IllegalStateException("VIP heal on cooldown. Wait " + (cdSecs / 60) + "m " + (cdSecs % 60) + "s.");
+        }
+        Warrior warrior = warriorRepository.findByPlayer(player)
+                .orElseThrow(() -> new IllegalStateException("Warrior not found"));
+        if (warrior.getCalculatedHpPercent() >= 100) {
+            log.warn("[TempleService] player={} REJECTED: warrior already at full HP", player.getId());
+            throw new IllegalStateException("Your warrior already has full HP!");
+        }
+        player.setLastVipHealAt(LocalDateTime.now());
+        playerRepository.save(player);
+        warrior.healFull();
+        warriorRepository.save(warrior);
+        log.info("[TempleService] player={} action=vipHeal OK", player.getId());
+    }
+
     // ── Buff / Bênção ──
 
     @Transactional
@@ -108,10 +140,31 @@ public class TempleService {
 
         playerService.spendBronze(player, buffType.bronzeCost);
 
-        warrior.setActiveBuff(buffType);
-        warrior.setBuffExpiresAt(LocalDateTime.now().plusMinutes(BUFF_DURATION_MIN));
+        // VIP: se o slot 1 já está ocupado por buff diferente, usa slot 2
+        if (warrior.hasActiveBuff() && warrior.getActiveBuff() != buffType && player.isVip()) {
+            if (warrior.hasActiveBuff2() && warrior.getActiveBuff2() == buffType) {
+                log.warn("[TempleService] player={} REJECTED: buff {} already in slot 2", player.getId(), buffType);
+                throw new IllegalStateException("This buff is already active in slot 2.");
+            }
+            warrior.setActiveBuff2(buffType);
+            warrior.setBuffExpiresAt2(LocalDateTime.now().plusMinutes(BUFF_DURATION_MIN));
+            log.info("[TempleService] player={} action=applyBuff OK (slot2) buffType={}", player.getId(), buffType);
+        } else if (warrior.hasActiveBuff() && warrior.getActiveBuff() == buffType) {
+            // Refresh do mesmo buff → renova o slot 1
+            warrior.setBuffExpiresAt(LocalDateTime.now().plusMinutes(BUFF_DURATION_MIN));
+            log.info("[TempleService] player={} action=applyBuff OK (refresh slot1) buffType={}", player.getId(), buffType);
+        } else if (!warrior.hasActiveBuff()) {
+            warrior.setActiveBuff(buffType);
+            warrior.setBuffExpiresAt(LocalDateTime.now().plusMinutes(BUFF_DURATION_MIN));
+            log.info("[TempleService] player={} action=applyBuff OK (slot1) buffType={}", player.getId(), buffType);
+        } else {
+            // Free player, slot 1 ocupado por buff diferente → substitui
+            warrior.setActiveBuff(buffType);
+            warrior.setBuffExpiresAt(LocalDateTime.now().plusMinutes(BUFF_DURATION_MIN));
+            log.info("[TempleService] player={} action=applyBuff OK (replace slot1) buffType={}", player.getId(), buffType);
+        }
         warriorRepository.save(warrior);
-        log.info("[TempleService] player={} action=applyBuff OK buffType={} cost={}", player.getId(), buffType, buffType.bronzeCost);
+        log.info("[TempleService] player={} action=applyBuff cost={}", player.getId(), buffType.bronzeCost);
     }
 
     // ── Proteger item ──

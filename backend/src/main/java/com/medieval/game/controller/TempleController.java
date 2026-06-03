@@ -53,6 +53,18 @@ public class TempleController {
 
         long ssHealCdSecs = templeService.soulstoneHealCooldownSecs(player);
 
+        boolean isVip          = player.isVip();
+        long vipHealCdSecs     = isVip ? templeService.vipHealCooldownSecs(player) : -1;
+
+        // Second buff info (VIP)
+        String activeBuff2 = null;
+        long   buff2SecsLeft = 0;
+        if (warrior != null && warrior.hasActiveBuff2()) {
+            activeBuff2 = warrior.getActiveBuff2().name();
+            buff2SecsLeft = Math.max(0, ChronoUnit.SECONDS.between(
+                    LocalDateTime.now(), warrior.getBuffExpiresAt2()));
+        }
+
         return ResponseEntity.ok(Map.ofEntries(
             Map.entry("hpPercent",          hpPct),
             Map.entry("isKnockedOut",        warrior != null && warrior.isKnockedOut()),
@@ -62,10 +74,15 @@ public class TempleController {
             Map.entry("maxProtected",        3),
             Map.entry("activeBuff",          activeBuff != null ? activeBuff : ""),
             Map.entry("buffSecondsLeft",     buffSecondsLeft),
+            Map.entry("activeBuff2",         activeBuff2 != null ? activeBuff2 : ""),
+            Map.entry("buff2SecondsLeft",    buff2SecsLeft),
             Map.entry("buffs",               buffs),
             Map.entry("soulStones",          player.getSoulStones()),
             Map.entry("ssHealCooldownSecs",  ssHealCdSecs),
-            Map.entry("ssHealReady",         ssHealCdSecs == 0)
+            Map.entry("ssHealReady",         ssHealCdSecs == 0),
+            Map.entry("isVip",               isVip),
+            Map.entry("vipHealCooldownSecs", isVip ? vipHealCdSecs : -1L),
+            Map.entry("vipHealReady",        isVip && vipHealCdSecs == 0)
         ));
     }
 
@@ -89,6 +106,18 @@ public class TempleController {
                 "message", buffType.displayName + " ativado por 1 hora!",
                 "buff",    buffType.name()
             ));
+        } catch (IllegalArgumentException | IllegalStateException e) {
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+        }
+    }
+
+    // VIP — cura grátis (CD 10 min)
+    @PostMapping("/vip-heal")
+    public ResponseEntity<?> vipHeal(Authentication auth) {
+        try {
+            Player player = getPlayer(auth);
+            templeService.vipHeal(player);
+            return ResponseEntity.ok(Map.of("message", "VIP Heal! HP restored to 100% for free."));
         } catch (IllegalArgumentException | IllegalStateException e) {
             return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
         }

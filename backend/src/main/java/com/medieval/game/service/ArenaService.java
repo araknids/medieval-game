@@ -30,6 +30,7 @@ public class ArenaService {
     private final InventoryService     inventoryService;
     private final PlayerService        playerService;
     private final BattleSimulator      battleSimulator;
+    private final VipService           vipService;
 
     @Value("${app.dev.instant-complete:false}")
     private boolean instantComplete;
@@ -62,6 +63,9 @@ public class ArenaService {
             log.warn("[ArenaService] player={} REJECTED: warrior is unconscious", challenger.getId());
             throw new IllegalStateException("Your warrior is unconscious. Visit the Temple to heal!");
         }
+
+        // Daily fight limit (5 free / 10 VIP)
+        vipService.consumeArenaFight(challenger);
 
         if (!instantComplete) {
             playerService.consumeStamina(challenger, 25);
