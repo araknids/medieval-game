@@ -4,6 +4,8 @@ import com.medieval.game.enums.Territory;
 import com.medieval.game.model.Player;
 import com.medieval.game.model.TerritoryControl;
 import com.medieval.game.model.Warrior;
+import com.medieval.game.model.Guild;
+import com.medieval.game.repository.GuildRepository;
 import com.medieval.game.repository.PlayerRepository;
 import com.medieval.game.repository.TerritoryControlRepository;
 import com.medieval.game.repository.WarriorRepository;
@@ -28,6 +30,17 @@ class TerritoryWarCycleIntegrationTest extends BaseIntegrationTest {
     @Autowired TerritoryControlRepository controlRepo;
     @Autowired WarriorRepository          warriorRepository;
     @Autowired PlayerRepository           playerRepository;
+    @Autowired GuildRepository            guildRepository;
+
+    /** Funds the controlling guild's treasury so it can pay territory upkeep. */
+    private void fundControllingGuild(Territory t, long bronze) {
+        TerritoryControl ctrl = territoryService.getTerritory(t);
+        Guild guild = ctrl.getControllingGuild();
+        if (guild != null) {
+            guild.setGold(bronze);
+            guildRepository.save(guild);
+        }
+    }
 
     String leaderToken;
 
@@ -99,6 +112,9 @@ class TerritoryWarCycleIntegrationTest extends BaseIntegrationTest {
         TerritoryControl held = territoryService.getTerritory(Territory.DESFILADEIRO_DO_OSSO);
         assertThat(held.isNeutral()).isFalse();
         int streakBefore = held.getDefenseStreak();
+
+        // Fund the treasury so the guild can pay upkeep and keep the territory
+        fundControllingGuild(Territory.DESFILADEIRO_DO_OSSO, 10_000);
 
         // Resolve a later cycle with no declarations → streak should increment
         territoryService.resolveTerritory(Territory.DESFILADEIRO_DO_OSSO, cycle + 5);

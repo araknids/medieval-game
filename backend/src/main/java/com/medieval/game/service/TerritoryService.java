@@ -23,12 +23,15 @@ public class TerritoryService {
     private static final int BASE_XP_BONUS     = 10; // % applied to all territory holders
     private static final int BASE_BRONZE_BONUS  = 10; // %
 
+    private static final long UPKEEP_BASE_BRONZE = 500; // custo base de manutenção por ciclo (6h)
+
     private final TerritoryControlRepository     controlRepo;
     private final TerritoryDeclarationRepository declarationRepo;
     private final TerritoryBattleLogRepository   battleLogRepo;
     private final PlayerRepository               playerRepository;
     private final WarriorRepository              warriorRepository;
     private final BattleSimulator                battleSimulator;
+    private final GuildRepository                guildRepository;
 
     // ── Init: ensure all 3 TerritoryControl rows exist ───────────────────────
 
@@ -141,6 +144,11 @@ public class TerritoryService {
     @Transactional
     public void resolveTerritory(Territory territory, long cycleId) {
         TerritoryControl control = getTerritory(territory);
+
+        // ── Manutenção do território (sink econômico) ──────────────────────────
+        // A guild dominante paga 500 × (1 + streak × 0.1) bronze do tesouro por ciclo.
+        // Se o tesouro não cobrir, o território é abandonado (volta a neutro).
+        chargeUpkeep(territory, control);
 
         List<TerritoryDeclaration> declarations =
                 declarationRepo.findByTerritoryAndStatusOrderByDeclaredAtAsc(territory, DeclarationStatus.PENDING)
@@ -276,6 +284,40 @@ public class TerritoryService {
             control.setDefenseStreak(control.getDefenseStreak() + 1);
         }
         controlRepo.save(control);
+    }
+
+    /** Custo de manutenção do território para a guild dominante neste ciclo. */
+    public long upkeepCost(TerritoryControl control) {
+        return Math.round(UPKEEP_BASE_BRONZE * (1.0 + control.getDefenseStreak() * 0.1));
+    }
+
+    /**
+     * Cobra a manutenção da guild dominante. Se o tesouro não cobrir o custo,
+     * o território é abandonado (volta a neutro) e o streak é zerado.
+     */
+    private void chargeUpkeep(Territory territory, TerritoryControl control) {
+        Guild holder = control.getControllingGuild();
+        if (holder == null) return; // território neutro não paga manutenção
+
+        long cost = upkeepCost(control);
+        if (holder.getGold() >= cost) {
+            holder.setGold(holder.getGold() - cost);
+            guildRepository.save(holder);
+            log.info("[TerritoryService] territory={} upkeep paid guild={} cost={} treasuryLeft={}",
+                    territory, holder.getName(), cost, holder.getGold());
+        } else {
+            // Não consegue pagar — abandona o território
+            log.info("[TerritoryService] territory={} upkeep UNPAID guild={} cost={} treasury={} → neutral",
+                    territory, holder.getName(), cost, holder.getGold());
+            saveBattleLog(territory, holder.getName(), territory.npcName + "s",
+                    territory.npcName + "s",
+                    List.of("💰 " + holder.getName() + " não pôde pagar a manutenção (" + cost
+                            + " bronze) e abandonou " + territory.displayName + "."));
+            control.setControllingGuild(null);
+            control.setDefenseStreak(0);
+            control.setDominantSince(null);
+            controlRepo.save(control);
+        }
     }
 
     // ── Guild Brawl (King of the Hill) ────────────────────────────────────────

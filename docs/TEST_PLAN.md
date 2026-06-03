@@ -3314,4 +3314,4 @@ Guild with insufficient guild gold → territory reverts to neutral, streak rese
 
 ---
 
-*Updated 2026-06-03. Total: 309 tests documented. Economic sinks: TC-239-252 (planned).*
+*Updated 2026-06-03. Total: 383 tests passing. Economic sinks TC-239-252 implementados em `EconomicSinksIntegrationTest` (TC-239, 241-252) e `InventoryItemDurabilityTest` (TC-240).*

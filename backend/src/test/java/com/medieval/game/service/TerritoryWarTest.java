@@ -26,7 +26,7 @@ class TerritoryWarTest {
 
     @BeforeEach
     void setup() {
-        service = new TerritoryService(null, null, null, null, null, new BattleSimulator());
+        service = new TerritoryService(null, null, null, null, null, new BattleSimulator(), null);
     }
 
     // Create a fighter with controlled stats (no warrior entity, NPC-style)

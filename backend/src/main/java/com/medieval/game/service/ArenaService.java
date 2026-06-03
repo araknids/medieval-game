@@ -96,6 +96,9 @@ public class ArenaService {
                 opponentName,   oStats[0], oStats[1], oStats[2], oStats[3], oStats[4], oStats[5]
         );
 
+        // Desgaste de equipamento por lutar (1-10 de durabilidade por item)
+        inventoryService.wearEquippedItems(challenger);
+
         // A tag WINNER: é a última linha — parseia para verificar vencedor
         String winnerTag = battleLog.get(battleLog.size() - 1);
         boolean challengerWon = winnerTag.contains("WINNER:" + challengerName);
@@ -196,9 +199,9 @@ public class ArenaService {
     private int[] totalStats(Player player, Warrior warrior) {
         List<InventoryItem> equipped = inventoryService.getInventory(player)
                 .stream().filter(InventoryItem::isEquipped).toList();
-        int bonusAtk = equipped.stream().mapToInt(InventoryItem::getAttackBonus).sum();
-        int bonusDef = equipped.stream().mapToInt(InventoryItem::getDefenseBonus).sum();
-        int bonusHp  = equipped.stream().mapToInt(InventoryItem::getHealthBonus).sum();
+        int bonusAtk = equipped.stream().mapToInt(InventoryItem::getEffectiveAttack).sum();
+        int bonusDef = equipped.stream().mapToInt(InventoryItem::getEffectiveDefense).sum();
+        int bonusHp  = equipped.stream().mapToInt(InventoryItem::getEffectiveHealth).sum();
         // d20 system: [atk, def, hp, dex, strBonus, luk]
         return new int[]{
             warrior.getTotalBaseAttack()  + bonusAtk,

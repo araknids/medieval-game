@@ -30,6 +30,7 @@ public class SchemaMigrator {
         patchWarriorBuff2Columns();
         patchWarriorIntellectColumn();
         patchZoneActivityAmbushColumns();
+        patchInventoryItemDurabilityColumn();
     }
 
     // zone_activities: add ambush PvP columns (each column independently — robust)
@@ -188,6 +189,16 @@ public class SchemaMigrator {
             log.info("[SchemaMigrator] warriors buff2 columns ensured");
         } catch (Exception e) {
             log.warn("[SchemaMigrator] warriors buff2 columns patch failed: {}", e.getMessage());
+        }
+    }
+
+    // inventory_items: add durability column (economic sink — items wear down in combat)
+    private void patchInventoryItemDurabilityColumn() {
+        try {
+            jdbc.execute("ALTER TABLE inventory_items ADD COLUMN IF NOT EXISTS durability integer NOT NULL DEFAULT 100");
+            log.info("[SchemaMigrator] inventory_items durability column ensured");
+        } catch (Exception e) {
+            log.warn("[SchemaMigrator] inventory_items durability column patch failed: {}", e.getMessage());
         }
     }
 }

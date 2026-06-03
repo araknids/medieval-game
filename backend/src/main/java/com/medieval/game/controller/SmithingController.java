@@ -138,6 +138,38 @@ public class SmithingController {
         }
     }
 
+    // Reparar durabilidade de um item
+    @PostMapping("/repair/{itemId}")
+    public ResponseEntity<?> repair(@PathVariable Long itemId, Authentication auth) {
+        try {
+            Player player = getPlayer(auth);
+            InventoryItem item = smithingService.repairItem(player, itemId);
+            return ResponseEntity.ok(Map.of(
+                "message",    item.getName() + " reparado! Durabilidade 100%.",
+                "durability", item.getDurability()
+            ));
+        } catch (IllegalArgumentException | IllegalStateException e) {
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+        }
+    }
+
+    // Reforjar item (re-rola stats mantendo raridade)
+    @PostMapping("/reforge/{itemId}")
+    public ResponseEntity<?> reforge(@PathVariable Long itemId, Authentication auth) {
+        try {
+            Player player = getPlayer(auth);
+            InventoryItem item = smithingService.reforgeItem(player, itemId);
+            return ResponseEntity.ok(Map.of(
+                "message",      item.getName() + " reforjado!",
+                "attackBonus",  item.getAttackBonus(),
+                "defenseBonus", item.getDefenseBonus(),
+                "healthBonus",  item.getHealthBonus()
+            ));
+        } catch (IllegalArgumentException | IllegalStateException e) {
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+        }
+    }
+
     // Joias encaixadas em um item
     @GetMapping("/gems/{itemId}")
     public ResponseEntity<?> getGems(@PathVariable Long itemId, Authentication auth) {

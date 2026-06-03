@@ -22,7 +22,6 @@ import java.util.List;
 @RequiredArgsConstructor
 public class TempleService {
 
-    private static final long HEAL_COST_BRONZE      = 100;
     private static final long PROTECT_COST          = 50;
     private static final int  MAX_PROTECTED         = 3;
     private static final long BUFF_DURATION_MIN     = 60;
@@ -37,9 +36,9 @@ public class TempleService {
 
     // ── Curar guerreiro ──
 
-    /** Retorna o custo de cura (0 se grátis) */
+    /** Retorna o custo de cura: grátis até o nível 10, depois escala (nível × 10 bronze). */
     public long healCost(Warrior warrior) {
-        return warrior.getLevel() <= 10 ? 0 : HEAL_COST_BRONZE;
+        return warrior.getLevel() <= 10 ? 0 : (long) warrior.getLevel() * 10;
     }
 
     @Transactional

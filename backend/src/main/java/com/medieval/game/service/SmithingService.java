@@ -210,6 +210,81 @@ public class SmithingService {
         return saved;
     }
 
+    // ── Reparar durabilidade de um item (sink econômico) ──
+    // Custo = pontos perdidos × raridade × 5 bronze. Restaura durabilidade para 100.
+    @Transactional
+    public InventoryItem repairItem(Player player, Long itemId) {
+        log.info("[SmithingService] player={} action=repairItem itemId={}", player.getId(), itemId);
+        InventoryItem item = inventoryRepository.findById(itemId)
+                .orElseThrow(() -> new IllegalArgumentException("Item not found"));
+        if (!item.getPlayer().getId().equals(player.getId())) {
+            log.warn("[SmithingService] player={} REJECTED: item {} does not belong to this player", player.getId(), itemId);
+            throw new IllegalStateException("Item does not belong to you");
+        }
+
+        int lostPoints = 100 - item.getDurability();
+        if (lostPoints <= 0) {
+            log.warn("[SmithingService] player={} REJECTED: item {} already at full durability", player.getId(), itemId);
+            throw new IllegalStateException("Item is already at full durability");
+        }
+
+        long cost = (long) lostPoints * item.getRarity() * 5;
+        playerService.spendBronze(player, cost);
+
+        item.setDurability(100);
+        InventoryItem saved = inventoryRepository.save(item);
+        log.info("[SmithingService] player={} action=repairItem OK itemId={} restored={} cost={}", player.getId(), itemId, lostPoints, cost);
+        return saved;
+    }
+
+    /** Custo de reparo (pontos perdidos × raridade × 5) — para exibição/validação. */
+    public long repairCost(InventoryItem item) {
+        return (long) (100 - item.getDurability()) * item.getRarity() * 5;
+    }
+
+    // ── Reforjar item: re-rola os stats mantendo a raridade (sink econômico) ──
+    // Custo = raridade² × 200 bronze.
+    @Transactional
+    public InventoryItem reforgeItem(Player player, Long itemId) {
+        log.info("[SmithingService] player={} action=reforgeItem itemId={}", player.getId(), itemId);
+        InventoryItem item = inventoryRepository.findById(itemId)
+                .orElseThrow(() -> new IllegalArgumentException("Item not found"));
+        if (!item.getPlayer().getId().equals(player.getId())) {
+            log.warn("[SmithingService] player={} REJECTED: item {} does not belong to this player", player.getId(), itemId);
+            throw new IllegalStateException("Item does not belong to you");
+        }
+
+        int rarity = item.getRarity();
+        long cost = (long) rarity * rarity * 200;
+        playerService.spendBronze(player, cost);
+
+        // Re-rola os stats com a mesma distribuição usada na geração de drops
+        java.util.Random rng = new java.util.Random();
+        int maxAtk = rarity * 3, maxDef = rarity * 3, maxHp = rarity * 12;
+        int atk = rng.nextInt(maxAtk + 1);
+        int def = rng.nextInt(maxDef + 1);
+        int hp  = rng.nextInt(maxHp  + 1);
+        if (atk == 0 && def == 0 && hp == 0) {
+            switch (rng.nextInt(3)) {
+                case 0 -> atk = 1;
+                case 1 -> def = 1;
+                default -> hp = rarity * 4;
+            }
+        }
+
+        item.setAttackBonus(atk);
+        item.setDefenseBonus(def);
+        item.setHealthBonus(hp);
+        InventoryItem saved = inventoryRepository.save(item);
+        log.info("[SmithingService] player={} action=reforgeItem OK itemId={} atk={} def={} hp={} cost={}", player.getId(), itemId, atk, def, hp, cost);
+        return saved;
+    }
+
+    /** Custo de reforja (raridade² × 200) — para exibição/validação. */
+    public long reforgeCost(InventoryItem item) {
+        return (long) item.getRarity() * item.getRarity() * 200;
+    }
+
     // ── Calcula bonus total de joias de um item ──
     public GemBonus totalGemBonus(InventoryItem item) {
         List<SocketedGem> gems = gemRepository.findAllByItem(item);

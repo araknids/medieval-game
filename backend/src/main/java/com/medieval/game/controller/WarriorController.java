@@ -71,12 +71,13 @@ public class WarriorController {
         List<InventoryItem> equipped = inventoryService.getInventory(player)
                 .stream().filter(InventoryItem::isEquipped).toList();
 
-        int bonusAtk = equipped.stream().mapToInt(InventoryItem::getAttackBonus).sum();
-        int bonusDef = equipped.stream().mapToInt(InventoryItem::getDefenseBonus).sum();
-        int bonusHp  = equipped.stream().mapToInt(InventoryItem::getHealthBonus).sum();
+        int bonusAtk = equipped.stream().mapToInt(InventoryItem::getEffectiveAttack).sum();
+        int bonusDef = equipped.stream().mapToInt(InventoryItem::getEffectiveDefense).sum();
+        int bonusHp  = equipped.stream().mapToInt(InventoryItem::getEffectiveHealth).sum();
 
-        // Soma bônus das joias encaixadas nos itens equipados
+        // Soma bônus das joias encaixadas nos itens equipados (item quebrado não conta)
         for (InventoryItem item : equipped) {
+            if (item.isBroken()) continue;
             SmithingService.GemBonus gem = smithingService.totalGemBonus(item);
             bonusAtk += gem.atk();
             bonusDef += gem.def();

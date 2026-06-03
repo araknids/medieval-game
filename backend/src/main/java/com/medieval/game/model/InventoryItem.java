@@ -48,4 +48,16 @@ public class InventoryItem {
     private String description; // lore do item
 
     private String origin; // onde foi encontrado
+
+    // ── Durabilidade (sink econômico) ──────────────────────────────────────────
+    // 0-100; começa cheia. Em 0, o item não aplica nenhum bônus até ser reparado.
+    @Column(columnDefinition = "integer default 100")
+    private int durability = 100;
+
+    /** Item dá bônus apenas se tiver durabilidade > 0. */
+    public boolean isBroken() { return durability <= 0; }
+
+    public int getEffectiveAttack()  { return isBroken() ? 0 : attackBonus; }
+    public int getEffectiveDefense() { return isBroken() ? 0 : defenseBonus; }
+    public int getEffectiveHealth()  { return isBroken() ? 0 : healthBonus; }
 }

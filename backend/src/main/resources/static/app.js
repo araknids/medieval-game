@@ -828,6 +828,7 @@ async function loadInventory() {
             <div class="slot-label">${t('inventory.slot.'+slot.id)}</div>
             <div class="slot-item-name rarity-${item.rarity}">${item.name}</div>
             <div class="slot-item-stats">${statsText(item)}</div>
+            ${durabilityBar(item)}
             <button class="btn-unequip" onclick="unequipItem(${item.id})">${t('inventory.btn.unequip')}</button>
           </div>`;
         return `
@@ -847,6 +848,7 @@ async function loadInventory() {
           <div class="bag-item-name rarity-${item.rarity}">${item.name}</div>
           <div class="bag-item-type">${(t('item.type.'+item.type)||item.typeDisplay)} · ${(t('inventory.rarity.'+item.rarity)||item.rarityName)}</div>
           <div class="bag-item-stats">${statsText(item)}</div>
+          ${durabilityBar(item)}
           ${item.sockets > 0 ? renderSockets(item) : ''}
         </div>
         <button class="btn-equip" onclick="equipItem(${item.id})">${t('inventory.btn.equip')}</button>
@@ -917,6 +919,22 @@ function statsText(item) {
   return parts.join('  ') || '–';
 }
 
+// Barra de durabilidade do item (verde→amarelo→vermelho). Quebrado (0) = aviso.
+function durabilityBar(item) {
+  const dur = item.durability ?? 100;
+  const color = dur === 0 ? '#c0392b' : dur <= 25 ? '#e67e22' : dur <= 60 ? '#d4b106' : '#4caf82';
+  const label = dur === 0 ? '⚠ QUEBRADO — sem bônus' : `Durabilidade ${dur}%`;
+  return `
+    <div class="item-durability" title="${label}" style="margin-top:.25rem">
+      <div style="display:flex;justify-content:space-between;font-size:.65rem;color:${dur===0?'#c0392b':'#888'}">
+        <span>${dur===0 ? '⚠ Quebrado' : 'Durabilidade'}</span><span>${dur}%</span>
+      </div>
+      <div style="height:5px;background:#222;border-radius:3px;overflow:hidden">
+        <div style="height:100%;width:${dur}%;background:${color}"></div>
+      </div>
+    </div>`;
+}
+
 async function equipItem(itemId) {
   const data = await api('POST', `/api/inventory/${itemId}/equip`);
   if (data.error) { showMessage(data.error, true); return; }
@@ -943,7 +961,7 @@ function renderTemple(data) {
 
   const hpColor   = data.hpPercent <= 0 ? '#cf6679' : data.hpPercent < 50 ? '#c9a84c' : '#4caf82';
   const hpLabel   = data.isKnockedOut ? '💀 Inconsciente' : `❤ ${data.hpPercent}%`;
-  const healLabel = data.healFree ? t('temple.heal_free_btn') : `${t('temple.heal_paid', {cost: fmtBronze(100)})}`;
+  const healLabel = data.healFree ? t('temple.heal_free_btn') : `${t('temple.heal_paid', {cost: fmtBronze(data.healCost ?? 100)})}`;
 
   const buffActive = data.activeBuff
     ? `<div class="temple-buff-active">
@@ -1477,11 +1495,35 @@ function renderGatheringTimer() {
 }
 
 // ── FORJA ──
+function repairCostFor(item) { return (100 - (item.durability ?? 100)) * item.rarity * 5; }
+function reforgeCostFor(item) { return item.rarity * item.rarity * 200; }
+
 async function renderSmithing() {
   const smithSkill = getSkill('SMITHING');
   const recipes = await api('GET', '/api/smithing/recipes');
   const bars = resourcesData.filter(r => r.category === 'BAR');
   const frags = resourcesData.filter(r => r.category === 'FRAGMENT');
+
+  // Itens do jogador (equipados + mochila) para reparo/reforja
+  const inv = await api('GET', '/api/inventory');
+  const equip = Array.isArray(inv) ? inv : [];
+  const maintHtml = equip.map(item => {
+    const dur = item.durability ?? 100;
+    const repairCost = repairCostFor(item);
+    const reforgeCost = reforgeCostFor(item);
+    return `
+      <div class="sk-recipe-card">
+        <div class="sk-recipe-title rarity-${item.rarity}">${item.name} ${item.equipped ? '· ⚔ equipado' : ''}</div>
+        <div style="font-size:.75rem;color:#aaa">${statsText(item)}</div>
+        ${durabilityBar(item)}
+        <div style="display:flex;gap:.4rem;margin-top:.4rem;flex-wrap:wrap">
+          ${dur < 100
+            ? `<button class="btn-equip" onclick="repairItem(${item.id})">🔧 Reparar (${fmtBronze(repairCost)})</button>`
+            : `<button class="btn-equip" disabled style="opacity:.5">🔧 Intacto</button>`}
+          <button class="btn-equip" onclick="reforgeItem(${item.id})">♻ Reforjar (${fmtBronze(reforgeCost)})</button>
+        </div>
+      </div>`;
+  }).join('') || `<p style="color:#888;font-size:.8rem">Sem itens para manutenção.</p>`;
 
   const refineHtml = recipes.refine?.map(r => `
     <div class="sk-recipe-card ${r.canCraft ? '' : 'locked'}">
@@ -1531,6 +1573,10 @@ async function renderSmithing() {
     <div class="sk-section">
       <div class="sk-title">Criar Joias</div>
       ${gemHtml}
+    </div>
+    <div class="sk-section">
+      <div class="sk-title">🔧 Manutenção (Reparar / Reforjar)</div>
+      ${maintHtml}
     </div>`;
 }
 
@@ -1626,6 +1672,23 @@ async function craftGem(fragmentType) {
   if (data.error) { showMessage(data.error, true); return; }
   showMessage(data.message);
   resourcesData = await api('GET', '/api/gathering/resources');
+  renderSmithing();
+}
+
+async function repairItem(itemId) {
+  const data = await api('POST', `/api/smithing/repair/${itemId}`);
+  if (data.error) { showMessage(data.error, true); return; }
+  showMessage(data.message);
+  await loadWarrior();
+  renderSmithing();
+}
+
+async function reforgeItem(itemId) {
+  if (!confirm('Reforjar re-rola os atributos do item (mantém a raridade). Continuar?')) return;
+  const data = await api('POST', `/api/smithing/reforge/${itemId}`);
+  if (data.error) { showMessage(data.error, true); return; }
+  showMessage(`${data.message} (+${data.attackBonus} ATK · +${data.defenseBonus} DEF · +${data.healthBonus} HP)`);
+  await loadWarrior();
   renderSmithing();
 }
 

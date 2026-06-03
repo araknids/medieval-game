@@ -23,8 +23,32 @@ public class InventoryService {
     private final PlayerRepository        playerRepository;
     private final ItemLoreGenerator       loreGenerator;
 
+    private static final java.util.Random RNG = new java.util.Random();
+
     public List<InventoryItem> getInventory(Player player) {
         return inventoryRepository.findAllByPlayer(player);
+    }
+
+    /**
+     * Desgasta os itens equipados do jogador após uma batalha.
+     * Cada item perde de 1 a 10 pontos de durabilidade (aleatório, clamp em 0).
+     * Itens já quebrados (durability 0) permanecem em 0. Retorna nº de itens desgastados.
+     */
+    @Transactional
+    public int wearEquippedItems(Player player) {
+        List<InventoryItem> equipped = inventoryRepository.findAllByPlayer(player)
+                .stream().filter(InventoryItem::isEquipped).toList();
+        for (InventoryItem item : equipped) {
+            if (item.getDurability() <= 0) continue;
+            int loss = 1 + RNG.nextInt(10); // 1..10
+            int newDur = Math.max(0, item.getDurability() - loss);
+            item.setDurability(newDur);
+            inventoryRepository.save(item);
+        }
+        if (!equipped.isEmpty()) {
+            log.info("[InventoryService] player={} action=wearEquipped items={}", player.getId(), equipped.size());
+        }
+        return equipped.size();
     }
 
     public int bagSize(Player player) {

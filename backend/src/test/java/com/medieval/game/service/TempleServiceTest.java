@@ -43,23 +43,23 @@ class TempleServiceTest {
         assertThat(templeService.healCost(warrior)).isEqualTo(0L);
     }
 
-    // ── TC-028: Cura custa 100 bronze para nível > 10 ──
+    // ── TC-028: Cura escala com o nível (nível × 10 bronze) para nível > 10 ──
     @Test
-    @DisplayName("TC-028 | healCost = 100 bronze para guerreiro nível 11")
-    void tc028_healCosts100BronzeAfterLevel10() {
+    @DisplayName("TC-028 | healCost = nível × 10 (110) para guerreiro nível 11")
+    void tc028_healCostScalesAfterLevel10() {
         Warrior warrior = new Warrior();
         warrior.setLevel(11);
 
-        assertThat(templeService.healCost(warrior)).isEqualTo(100L);
+        assertThat(templeService.healCost(warrior)).isEqualTo(110L);
     }
 
     @Test
-    @DisplayName("TC-028b | healCost = 100 bronze para guerreiro nível 50")
-    void tc028b_healCosts100BronzeForLevel50() {
+    @DisplayName("TC-028b | healCost = nível × 10 (500) para guerreiro nível 50")
+    void tc028b_healCostScalesForLevel50() {
         Warrior warrior = new Warrior();
         warrior.setLevel(50);
 
-        assertThat(templeService.healCost(warrior)).isEqualTo(100L);
+        assertThat(templeService.healCost(warrior)).isEqualTo(500L);
     }
 
     // ── TC-029: Buffs têm custo e efeito corretos ──

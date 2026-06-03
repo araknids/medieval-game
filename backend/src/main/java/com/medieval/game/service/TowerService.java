@@ -21,6 +21,7 @@ public class TowerService {
     private final InventoryItemRepository inventoryRepository;
     private final PlayerRepository        playerRepository;
     private final BattleSimulator         battleSimulator;
+    private final InventoryService        inventoryService;
 
     private static final int STAMINA_COST = 25;
 
@@ -134,13 +135,16 @@ public class TowerService {
         List<InventoryItem> equipped = inventoryRepository.findAllByPlayer(player).stream()
                 .filter(InventoryItem::isEquipped).toList();
 
-        int wAtk = warrior.getTotalBaseAttack()  + equipped.stream().mapToInt(InventoryItem::getAttackBonus).sum();
-        int wDef = warrior.getTotalBaseDefense() + equipped.stream().mapToInt(InventoryItem::getDefenseBonus).sum();
-        int wHp  = warrior.getTotalBaseHealth()  + equipped.stream().mapToInt(InventoryItem::getHealthBonus).sum();
+        int wAtk = warrior.getTotalBaseAttack()  + equipped.stream().mapToInt(InventoryItem::getEffectiveAttack).sum();
+        int wDef = warrior.getTotalBaseDefense() + equipped.stream().mapToInt(InventoryItem::getEffectiveDefense).sum();
+        int wHp  = warrior.getTotalBaseHealth()  + equipped.stream().mapToInt(InventoryItem::getEffectiveHealth).sum();
         List<String> battleLog = battleSimulator.simulate(
             warrior.getName(), wAtk, wDef, wHp, warrior.getDexterity(), warrior.getAttackBonus(), warrior.getLuck(),
             boss.name(), boss.attack(), boss.defense(), boss.health(), boss.dex(), boss.strBonus(), boss.luk()
         );
+
+        // Desgaste de equipamento por lutar (1-10 de durabilidade por item)
+        inventoryService.wearEquippedItems(player);
 
         String winnerTag = battleLog.get(battleLog.size() - 1);
         boolean won = winnerTag.contains("WINNER:" + warrior.getName());

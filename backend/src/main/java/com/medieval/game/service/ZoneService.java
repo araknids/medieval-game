@@ -28,6 +28,7 @@ public class ZoneService {
     private final BattleSimulator          battleSimulator;
     private final WarriorService           warriorService;
     private final MailService              mailService;
+    private final InventoryService         inventoryService;
 
     @Value("${app.dev.instant-complete:false}")
     private boolean instantComplete;
@@ -370,6 +371,10 @@ public class ZoneService {
                         lastLog = log;
                         lastFoe = targetWarrior.getName() + " (jogador)";
 
+                        // Desgaste de equipamento: ambos lutaram
+                        inventoryService.wearEquippedItems(player);
+                        inventoryService.wearEquippedItems(targetPlayer);
+
                         // Persist target HP from the fight
                         int tgtPct = tgtMaxHp > 0 ? Math.max(0, out.secondHpFinal() * 100 / tgtMaxHp) : 0;
                         targetWarrior.setCurrentHpSnapshot(tgtPct);
@@ -409,6 +414,9 @@ public class ZoneService {
                 atkHp = out.firstHpFinal();
                 lastLog = log;
                 lastFoe = npcName;
+
+                // Desgaste de equipamento por lutar contra o NPC
+                inventoryService.wearEquippedItems(player);
 
                 if (!out.firstWon()) {
                     long bronzeLost = applyDefeatPenalty(player, null);
@@ -542,9 +550,9 @@ public class ZoneService {
     private int[] getWarriorStats(Warrior w, Player player) {
         List<InventoryItem> equipped = inventoryRepository.findAllByPlayer(player)
                 .stream().filter(InventoryItem::isEquipped).toList();
-        int atk = w.getTotalBaseAttack()  + equipped.stream().mapToInt(InventoryItem::getAttackBonus).sum();
-        int def = w.getTotalBaseDefense() + equipped.stream().mapToInt(InventoryItem::getDefenseBonus).sum();
-        int hp  = w.getTotalBaseHealth()  + equipped.stream().mapToInt(InventoryItem::getHealthBonus).sum();
+        int atk = w.getTotalBaseAttack()  + equipped.stream().mapToInt(InventoryItem::getEffectiveAttack).sum();
+        int def = w.getTotalBaseDefense() + equipped.stream().mapToInt(InventoryItem::getEffectiveDefense).sum();
+        int hp  = w.getTotalBaseHealth()  + equipped.stream().mapToInt(InventoryItem::getEffectiveHealth).sum();
         return new int[]{atk, def, hp, w.getDexterity(), w.getAttackBonus(), w.getLuck()};
     }
 
