@@ -25,7 +25,6 @@ import org.springframework.web.bind.annotation.*;
 import java.time.LocalDateTime;
 import java.util.Map;
 import java.util.Optional;
-import java.util.UUID;
 
 @RestController
 @RequestMapping("/api/auth")
@@ -121,8 +120,13 @@ public class AuthController {
         // Retorna sempre a mesma mensagem para não revelar se o email existe
         if (playerOpt.isPresent()) {
             Player player = playerOpt.get();
+            // Invalida tokens pendentes anteriores (só um link válido por vez). [AUDITORIA B5]
+            resetTokenRepository.findByPlayerAndUsedFalse(player).forEach(t -> {
+                t.setUsed(true);
+                resetTokenRepository.save(t);
+            });
             PasswordResetToken reset = new PasswordResetToken();
-            reset.setToken(UUID.randomUUID().toString());
+            reset.setToken(secureToken()); // SecureRandom em vez de UUID v4 [AUDITORIA B5]
             reset.setPlayer(player);
             reset.setExpiresAt(LocalDateTime.now().plusMinutes(30));
             resetTokenRepository.save(reset);
@@ -138,8 +142,8 @@ public class AuthController {
         String token       = body.get("token");
         String newPassword = body.get("password");
 
-        if (token == null || newPassword == null || newPassword.length() < 6) {
-            return ResponseEntity.badRequest().body(Map.of("error", "Invalid token or password"));
+        if (token == null || newPassword == null || newPassword.length() < 8) {
+            return ResponseEntity.badRequest().body(Map.of("error", "Invalid token or password (mín. 8 caracteres)"));
         }
 
         PasswordResetToken reset = resetTokenRepository.findByToken(token)
@@ -161,6 +165,14 @@ public class AuthController {
         return ResponseEntity.ok(Map.of("message", "Password changed successfully! Please log in."));
     }
 
+    /** Token de reset seguro: 32 bytes de SecureRandom em base64url (~256 bits). [AUDITORIA B5] */
+    private static final java.security.SecureRandom SECURE_RNG = new java.security.SecureRandom();
+    private String secureToken() {
+        byte[] bytes = new byte[32];
+        SECURE_RNG.nextBytes(bytes);
+        return java.util.Base64.getUrlEncoder().withoutPadding().encodeToString(bytes);
+    }
+
     /** IP do cliente — respeita X-Forwarded-For (Railway roda atrás de proxy). */
     private String clientIp(HttpServletRequest http) {
         String fwd = http.getHeader("X-Forwarded-For");
@@ -173,7 +185,7 @@ public class AuthController {
     record RegisterRequest(
             @NotBlank @Size(min = 3, max = 20) String username,
             @NotBlank @Email String email,
-            @NotBlank @Size(min = 6) String password,
+            @NotBlank @Size(min = 8) String password,  // mín. 8 caracteres [AUDITORIA M7]
             @NotBlank String warriorName
     ) {}
 
