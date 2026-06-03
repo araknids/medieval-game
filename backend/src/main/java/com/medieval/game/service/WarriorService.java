@@ -62,6 +62,28 @@ public class WarriorService {
         warriorRepository.save(warrior);
     }
 
+    /**
+     * Tibia-style XP loss on PvP death: loses 10% of XP required for current level.
+     * Can drop levels (minimum: level 1). XP within the dropped level is preserved.
+     */
+    @Transactional
+    public void loseXp(Warrior warrior, long xpLost) {
+        log.info("[WarriorService] warriorId={} action=loseXp amount={}", warrior.getId(), xpLost);
+        long currentXp = warrior.getExperience();
+        long remaining = currentXp - xpLost;
+
+        while (remaining < 0 && warrior.getLevel() > 1) {
+            warrior.setLevel(warrior.getLevel() - 1);
+            long threshold = warrior.expNeededForNextLevel(); // XP needed for the new (lower) level
+            remaining += threshold; // carry over: was deficit, now partway through lower level
+        }
+
+        warrior.setExperience(Math.max(0, remaining));
+        warriorRepository.save(warrior);
+        log.info("[WarriorService] warriorId={} action=loseXp OK newLevel={} newXp={}",
+                warrior.getId(), warrior.getLevel(), warrior.getExperience());
+    }
+
     /** Libera o guerreiro e cancela todas as sessões ativas (emergência de suporte) */
     @Transactional
     public boolean freeIfStuck(Player player) {

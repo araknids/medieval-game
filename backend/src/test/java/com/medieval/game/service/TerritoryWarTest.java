@@ -30,8 +30,9 @@ class TerritoryWarTest {
     }
 
     // Create a fighter with controlled stats (no warrior entity, NPC-style)
+    // New d20 signature: (playerId, name, atk, def, hp, dex, strBonus, luk, warrior)
     private Fighter fighter(String name, int atk, int def, int hp) {
-        return new Fighter(null, name, atk, def, hp, 0, null);
+        return new Fighter(null, name, atk, def, hp, 0, 0, 0, null);
     }
 
     // ── 1v1: stronger fighter wins ─────────────────────────────────────────────

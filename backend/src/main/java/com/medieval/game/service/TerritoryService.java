@@ -295,8 +295,8 @@ public class TerritoryService {
             Fighter d = defs.get(0);
 
             List<String> roundLog = battleSimulator.simulate(
-                    a.name, a.atk, a.def, a.hp, a.evasion,
-                    d.name, d.atk, d.def, d.hp, d.evasion);
+                    a.name, a.atk, a.def, a.hp, a.dex, a.strBonus, a.luk,
+                    d.name, d.atk, d.def, d.hp, d.dex, d.strBonus, d.luk);
 
             // Parse result from last WINNER: line
             String winnerLine = roundLog.get(roundLog.size() - 1);
@@ -340,7 +340,9 @@ public class TerritoryService {
                         (int) Math.max(1, w.getAttack()  * debuffMult),
                         (int) Math.max(1, w.getDefense() * debuffMult),
                         hp,
-                        w.getDexterity(),
+                        (int) Math.max(0, w.getDexterity()   * (1.0 - debuffPercent / 100.0)),
+                        w.getAttackBonus(),
+                        w.getLuck(),
                         w
                 ));
             });
@@ -361,7 +363,9 @@ public class TerritoryService {
                     (int) (baseAtk * territory.npcAtkMult),
                     (int) (baseDef * territory.npcDefMult),
                     (int) (baseHp  * territory.npcHpMult),
-                    5,
+                    5,  // dex → AC 15
+                    1,  // strBonus
+                    5,  // luk
                     null
             ));
         }
@@ -415,17 +419,19 @@ public class TerritoryService {
     public static class Fighter {
         public final Long   playerId;
         public final String name;
-        public int atk, def, hp, evasion;
+        public int atk, def, hp, dex, strBonus, luk;
         public final Warrior warrior;
 
-        public Fighter(Long playerId, String name, int atk, int def, int hp, int evasion, Warrior warrior) {
-            this.playerId = playerId;
-            this.name     = name;
-            this.atk      = atk;
-            this.def      = def;
-            this.hp       = hp;
-            this.evasion  = evasion;
-            this.warrior  = warrior;
+        public Fighter(Long playerId, String name, int atk, int def, int hp, int dex, int strBonus, int luk, Warrior warrior) {
+            this.playerId  = playerId;
+            this.name      = name;
+            this.atk       = atk;
+            this.def       = def;
+            this.hp        = hp;
+            this.dex       = dex;
+            this.strBonus  = strBonus;
+            this.luk       = luk;
+            this.warrior   = warrior;
         }
     }
 

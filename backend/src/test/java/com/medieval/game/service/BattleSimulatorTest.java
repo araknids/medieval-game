@@ -8,10 +8,11 @@ import java.util.List;
 
 import static org.assertj.core.api.Assertions.*;
 
-// TC-030-031 — BattleSimulator
-@DisplayName("TC-030-031 | BattleSimulator — Log e Vencedor")
+// TC-030-031 — BattleSimulator (d20 system)
+@DisplayName("TC-030-031 | BattleSimulator — d20 Log e Vencedor")
 class BattleSimulatorTest {
 
+    // simulate(name, atk, def, hp, dex, strBonus, luk, name2, atk2, def2, hp2, dex2, strBonus2, luk2)
     BattleSimulator simulator = new BattleSimulator();
 
     // ── TC-030: Tag WINNER está sempre presente ──
@@ -19,8 +20,8 @@ class BattleSimulatorTest {
     @DisplayName("TC-030 | Tag WINNER sempre presente no log")
     void tc030_winnerTagAlwaysPresent() {
         List<String> log = simulator.simulate(
-                "Guerreiro", 20, 15, 150, 10,
-                "Inimigo",   15, 10, 120, 8
+                "Guerreiro", 20, 15, 150, 10, 1, 10,
+                "Inimigo",   15, 10, 120, 8,  0, 5
         );
 
         String lastLine = log.get(log.size() - 1);
@@ -31,10 +32,10 @@ class BattleSimulatorTest {
     @RepeatedTest(5)
     @DisplayName("TC-031 | Guerreiro muito superior sempre vence")
     void tc031_strongWarriorAlwaysWins() {
-        // Guerreiro com stats 10x maiores
+        // Guerreiro com HP 10x maior, DEX 0 no inimigo → sempre acerta
         List<String> log = simulator.simulate(
-                "Aldeão Forte", 100, 100, 1000, 0,
-                "Rato Fraco",    1,   1,   10, 0
+                "Aldeão Forte", 100, 50, 2000, 0, 3, 0,
+                "Rato Fraco",     1,  0,   10, 0, 0, 0
         );
 
         String winnerTag = log.get(log.size() - 1);
@@ -46,28 +47,25 @@ class BattleSimulatorTest {
     @DisplayName("TC-031b | Linhas visíveis do log não contêm a tag WINNER:")
     void tc031b_winnerTagIsOnlyInLastLine() {
         List<String> log = simulator.simulate(
-                "A", 15, 10, 100, 10,
-                "B", 10, 8,  80, 8
+                "A", 15, 10, 100, 5, 1, 10,
+                "B", 10,  8,  80, 5, 0, 5
         );
 
-        // Remove a última linha (tag interna)
         List<String> visibleLog = log.subList(0, log.size() - 1);
-
-        visibleLog.forEach(line ->
-                assertThat(line).doesNotStartWith("WINNER:")
-        );
+        visibleLog.forEach(line -> assertThat(line).doesNotStartWith("WINNER:"));
     }
 
     // ── TC-extra: Log começa com cabeçalho e HP dos lutadores ──
     @Test
-    @DisplayName("TC-extra | Log contém cabeçalho e linha de HP")
+    @DisplayName("TC-extra | Log contém cabeçalho vs e linha de HP com AC")
     void tcExtra_logHasHeaderAndHpLine() {
         List<String> log = simulator.simulate(
-                "Guerreiro", 15, 10, 100, 10,
-                "Boss",      12, 8,  90, 8
+                "Guerreiro", 15, 10, 100, 10, 1, 10,
+                "Boss",      12,  8,  90,  5, 0, 5
         );
 
         assertThat(log.get(0)).contains("vs");
         assertThat(log.get(1)).contains("HP");
+        assertThat(log.get(1)).contains("AC");
     }
 }

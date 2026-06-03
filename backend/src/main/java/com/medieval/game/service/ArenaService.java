@@ -92,8 +92,8 @@ public class ArenaService {
         String challengerName = cWarrior.getName();
 
         List<String> battleLog = battleSimulator.simulate(
-                challengerName, cStats[0], cStats[1], cStats[2], cStats[3],
-                opponentName, oStats[0], oStats[1], oStats[2], oStats[3]
+                challengerName, cStats[0], cStats[1], cStats[2], cStats[3], cStats[4], cStats[5],
+                opponentName,   oStats[0], oStats[1], oStats[2], oStats[3], oStats[4], oStats[5]
         );
 
         // A tag WINNER: é a última linha — parseia para verificar vencedor
@@ -199,18 +199,21 @@ public class ArenaService {
         int bonusAtk = equipped.stream().mapToInt(InventoryItem::getAttackBonus).sum();
         int bonusDef = equipped.stream().mapToInt(InventoryItem::getDefenseBonus).sum();
         int bonusHp  = equipped.stream().mapToInt(InventoryItem::getHealthBonus).sum();
-        // Inclui atributos (Força, Constituição) e evasão (Destreza)
+        // d20 system: [atk, def, hp, dex, strBonus, luk]
         return new int[]{
             warrior.getTotalBaseAttack()  + bonusAtk,
             warrior.getTotalBaseDefense() + bonusDef,
             warrior.getTotalBaseHealth()  + bonusHp,
-            warrior.getEvasionChance()  // índice [3]: % evasão
+            warrior.getDexterity(),   // [3] dex → AC = 10 + dex
+            warrior.getAttackBonus(), // [4] floor(STR/20)
+            warrior.getLuck()         // [5] luk → crit window + Fortune Save
         };
     }
 
     private int[] npcStats() {
         Random r = new Random();
-        return new int[]{ 12 + r.nextInt(8), 8 + r.nextInt(6), 90 + r.nextInt(40), 10 };
+        // NPC: atk, def, hp, dex(AC~15), strBonus(+1), luk(5)
+        return new int[]{ 12 + r.nextInt(8), 8 + r.nextInt(6), 90 + r.nextInt(40), 5, 1, 5 };
     }
 
 }

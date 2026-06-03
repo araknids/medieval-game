@@ -37,7 +37,8 @@ public class TowerService {
     };
 
     // ── Info do chefe para um andar ──
-    public record BossInfo(String name, int attack, int defense, int health, int evasion) {}
+    /** Boss stats for d20 system: dex contributes to AC, not evasion%. */
+    public record BossInfo(String name, int attack, int defense, int health, int dex, int strBonus, int luk) {}
 
     public BossInfo bossForFloor(int floor) {
         int group = Math.min((floor - 1) / 3, BOSSES.length - 1);
@@ -45,10 +46,12 @@ public class TowerService {
         String name = BOSSES[group][idx] + " (Andar " + floor + ")";
         return new BossInfo(
             name,
-            5  + floor * 3,
-            3  + floor * 2,
-            80 + floor * 25,
-            Math.min(5 + floor, 30)
+            5  + floor * 3,          // attack scales with floor
+            3  + floor * 2,          // defense scales with floor
+            80 + floor * 25,         // HP scales with floor
+            Math.min(floor / 2, 20), // dex → AC = 10+dex, cap at 30
+            Math.min(floor / 10, 3), // strBonus grows slowly, cap +3
+            Math.min(floor, 15)      // luk, cap 15 (crit on 19-20 at high floors)
         );
     }
 
@@ -134,11 +137,9 @@ public class TowerService {
         int wAtk = warrior.getTotalBaseAttack()  + equipped.stream().mapToInt(InventoryItem::getAttackBonus).sum();
         int wDef = warrior.getTotalBaseDefense() + equipped.stream().mapToInt(InventoryItem::getDefenseBonus).sum();
         int wHp  = warrior.getTotalBaseHealth()  + equipped.stream().mapToInt(InventoryItem::getHealthBonus).sum();
-        int wEva = warrior.getEvasionChance();
-
         List<String> battleLog = battleSimulator.simulate(
-            warrior.getName(), wAtk, wDef, wHp, wEva,
-            boss.name(), boss.attack(), boss.defense(), boss.health(), boss.evasion()
+            warrior.getName(), wAtk, wDef, wHp, warrior.getDexterity(), warrior.getAttackBonus(), warrior.getLuck(),
+            boss.name(), boss.attack(), boss.defense(), boss.health(), boss.dex(), boss.strBonus(), boss.luk()
         );
 
         String winnerTag = battleLog.get(battleLog.size() - 1);

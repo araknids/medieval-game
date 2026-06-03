@@ -32,7 +32,7 @@ class WarriorIntegrationTest extends BaseIntegrationTest {
                 .andExpect(jsonPath("$.silver").isNumber())
                 .andExpect(jsonPath("$.gold").isNumber())
                 .andExpect(jsonPath("$.availablePoints").isNumber())
-                .andExpect(jsonPath("$.evasionChance").isNumber());
+                .andExpect(jsonPath("$.evasionChance").isNumber()); // kept for backwards compat = armorClass
     }
 
     // ── TC-056: POST /api/warrior/attributes/STRENGTH sem pontos → 400 ──

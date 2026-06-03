@@ -166,7 +166,11 @@ public class ZoneService {
                 warriorRepository.findByPlayer(player).ifPresent(w -> {
                     w.applyDamagePercent(100);
                     w.clearBuff();
-                    warriorRepository.save(w);
+                    // XP loss: 10% of XP required for current level (Tibia-style, can drop level)
+                    long xpLost = Math.max(1, w.expNeededForNextLevel() / 10);
+                    activity.setXpGained(-xpLost); // negative = lost XP, shown in modal
+                    warriorService.loseXp(w, xpLost);
+                    log.info("[ZoneService] player={} PvP death XP loss={}", player.getId(), xpLost);
                 });
 
                 // Alto Risco: 10% de perder item equipado
@@ -327,8 +331,8 @@ public class ZoneService {
                     String atkName = attacker.getName();
 
                     List<String> log = battleSimulator.simulate(
-                            atkName,         atkStats[0], atkStats[1], atkStats[2], atkStats[3],
-                            defender.getName(), defStats[0], defStats[1], defStats[2], defStats[3]);
+                            atkName,            atkStats[0], atkStats[1], atkStats[2], atkStats[3], atkStats[4], atkStats[5],
+                            defender.getName(), defStats[0], defStats[1], defStats[2], defStats[3], defStats[4], defStats[5]);
 
                     boolean defWon = removeWinnerTag(log, defender.getName());
 
@@ -347,8 +351,8 @@ public class ZoneService {
                 int[] npcStats = npcStatsByLevel(npcLevel, rng);
 
                 List<String> log = battleSimulator.simulate(
-                        npcName,           npcStats[0], npcStats[1], npcStats[2], npcStats[3],
-                        defender.getName(), defStats[0], defStats[1], defStats[2], defStats[3]);
+                        npcName,            npcStats[0], npcStats[1], npcStats[2], npcStats[3], npcStats[4], npcStats[5],
+                        defender.getName(), defStats[0], defStats[1], defStats[2], defStats[3], defStats[4], defStats[5]);
 
                 boolean defWon = removeWinnerTag(log, defender.getName());
 
@@ -407,12 +411,15 @@ public class ZoneService {
     }
 
     /** Stats do NPC baseados no nível (até +3 do guerreiro) */
+    /** Returns [atk, def, hp, dex, strBonus, luk] for NPCs in d20 system. */
     private int[] npcStatsByLevel(int level, Random rng) {
-        int atk = 4 + level * 3 + rng.nextInt(4);
-        int def = 2 + level * 2 + rng.nextInt(3);
-        int hp  = 70 + level * 20 + rng.nextInt(30);
-        int eva = Math.min(8 + level, 25);
-        return new int[]{atk, def, hp, eva};
+        int atk      = 4 + level * 3 + rng.nextInt(4);
+        int def      = 2 + level * 2 + rng.nextInt(3);
+        int hp       = 70 + level * 20 + rng.nextInt(30);
+        int dex      = Math.min(5 + level / 2, 20); // AC = 10+dex, cap ~30
+        int strBonus = Math.min(level / 10, 3);
+        int luk      = Math.min(level / 3, 10);
+        return new int[]{atk, def, hp, dex, strBonus, luk};
     }
 
     private Warrior findHunterInZone(Zone zone, Player exclude, Random rng) {
@@ -423,13 +430,14 @@ public class ZoneService {
         return warriorRepository.findByPlayer(hunterActivity.getPlayer()).orElse(null);
     }
 
+    /** Returns [atk, def, hp, dex, strBonus, luk] for d20 simulate(). */
     private int[] getWarriorStats(Warrior w, Player player) {
         List<InventoryItem> equipped = inventoryRepository.findAllByPlayer(player)
                 .stream().filter(InventoryItem::isEquipped).toList();
         int atk = w.getTotalBaseAttack()  + equipped.stream().mapToInt(InventoryItem::getAttackBonus).sum();
         int def = w.getTotalBaseDefense() + equipped.stream().mapToInt(InventoryItem::getDefenseBonus).sum();
         int hp  = w.getTotalBaseHealth()  + equipped.stream().mapToInt(InventoryItem::getHealthBonus).sum();
-        return new int[]{atk, def, hp, w.getEvasionChance()};
+        return new int[]{atk, def, hp, w.getDexterity(), w.getAttackBonus(), w.getLuck()};
     }
 
     // Método legado mantido para compatibilidade

@@ -43,7 +43,7 @@ public class TowerController {
             "bossHp",        boss.health(),
             "bossAtk",       boss.attack(),
             "bossDef",       boss.defense(),
-            "bossEvasion",   boss.evasion()
+            "bossAc",   10 + boss.dex()
         ));
     }
 
@@ -71,7 +71,7 @@ public class TowerController {
             "hp",       boss.health(),
             "atk",      boss.attack(),
             "def",      boss.defense(),
-            "evasion",  boss.evasion()
+            "ac",  10 + boss.dex()
         ));
     }
 
@@ -91,7 +91,7 @@ public class TowerController {
                 "bossHp",       boss.health(),
                 "bossAtk",      boss.attack(),
                 "bossDef",      boss.defense(),
-                "bossEvasion",  boss.evasion()
+                "bossAc",  10 + boss.dex()
             ));
         } catch (IllegalStateException e) {
             return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
