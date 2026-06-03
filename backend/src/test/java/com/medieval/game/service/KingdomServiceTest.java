@@ -36,7 +36,8 @@ class KingdomServiceTest {
         for (Kingdom k : Kingdom.values()) {
             long count = Arrays.stream(KingdomQuestType.values())
                     .filter(q -> q.kingdom == k).count();
-            long expected = (k == Kingdom.GRUTAS_DE_CRISTAL || k == Kingdom.MAR_ABENCOADO) ? 0 : 4;
+            long expected = (k == Kingdom.GRUTAS_DE_CRISTAL || k == Kingdom.MAR_ABENCOADO
+                    || k == Kingdom.COVIL_DAS_FERAS) ? 0 : 4;
             assertThat(count).as("Kingdom %s quest count", k).isEqualTo(expected);
         }
     }

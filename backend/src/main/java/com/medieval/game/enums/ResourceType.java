@@ -44,7 +44,9 @@ public enum ResourceType {
     AMETHYST  ("Ametista", ResourceCategory.GEM, 1),
 
     // ── Materiais ──
-    LEATHER   ("Couro",    ResourceCategory.MATERIAL, 1);
+    LEATHER       ("Couro",            ResourceCategory.MATERIAL, 1),
+    MONSTER_CORE  ("Núcleo de Fera",   ResourceCategory.MATERIAL, 1),   // drop do Covil das Feras [REINOS_V2]
+    BEAST_HIDE    ("Pele de Fera",     ResourceCategory.MATERIAL, 1);   // drop raro do Covil das Feras
 
     public final String           displayName;
     public final ResourceCategory category;

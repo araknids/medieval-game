@@ -37,6 +37,13 @@ public enum Kingdom {
         null,                 // não é território de guild-war
         SkillType.FISHING,    // mesma skill da pesca, mas pool de peixe de VIDA
         "Águas sagradas onde nadam peixes que restauram a vida de quem os consome."
+    ),
+    COVIL_DAS_FERAS(
+        "Covil das Feras",
+        "👹",
+        null,                 // não é território de guild-war
+        null,                 // combate PvE — sem skill de coleta
+        "Um covil infestado de feras. Cace-as por ouro e materiais — quanto mais forte você, mais valiosas as presas."
     );
 
     public final String displayName;

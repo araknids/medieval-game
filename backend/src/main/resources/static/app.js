@@ -2776,7 +2776,8 @@ function renderWorldOverview(kingdoms, territories) {
     MINING:  ['Open Mine','Deep Tunnels','Forbidden Mines'],
     COMBAT:  ['Training Hall','Battlefield','War Zone'],
     GRUTAS_DE_CRISTAL: ['Veio Raso','Grutas Profundas','Caverna Proibida'],
-    MAR_ABENCOADO: ['Enseada Sagrada','Recife Profundo','Abismo Abençoado']
+    MAR_ABENCOADO: ['Enseada Sagrada','Recife Profundo','Abismo Abençoado'],
+    COVIL_DAS_FERAS: ['Caçada','Feras', 'Materiais']
   };
 
   const cards = kingdoms.map(k => {
@@ -2864,8 +2865,8 @@ async function enterKingdom(kingdom) {
 
 function renderKingdomDetail(kingdom, quests, activeQuests, training, gatherSession, zoneSession) {
   const el = document.getElementById('kingdom-detail');
-  const NAMES = { FISHING:'Desfiladeiro do Osso', MINING:'Minas de Ferro Negro', COMBAT:'Fortaleza Maldita', GRUTAS_DE_CRISTAL:'Grutas de Cristal', MAR_ABENCOADO:'Mar Abençoado' };
-  const ICONS = { FISHING:'🎣', MINING:'⛏', COMBAT:'⚔', GRUTAS_DE_CRISTAL:'🔎', MAR_ABENCOADO:'🐟' };
+  const NAMES = { FISHING:'Desfiladeiro do Osso', MINING:'Minas de Ferro Negro', COMBAT:'Fortaleza Maldita', GRUTAS_DE_CRISTAL:'Grutas de Cristal', MAR_ABENCOADO:'Mar Abençoado', COVIL_DAS_FERAS:'Covil das Feras' };
+  const ICONS = { FISHING:'🎣', MINING:'⛏', COMBAT:'⚔', GRUTAS_DE_CRISTAL:'🔎', MAR_ABENCOADO:'🐟', COVIL_DAS_FERAS:'👹' };
   const busy = activeQuests.length > 0
     || !!(warrior && warrior.onMission)
     || !!(gatherSession && gatherSession.active)
@@ -3074,6 +3075,24 @@ function renderKingdomDetail(kingdom, quests, activeQuests, training, gatherSess
       </div>`;
   }).join('');
 
+  // Covil das Feras — caçada PvE repetível (Reinos V2). [REINOS_V2]
+  let raidHtml = '';
+  if (kingdom === 'COVIL_DAS_FERAS') {
+    const lvl = warrior ? warrior.level : 1;
+    raidHtml = `
+      <div style="background:#2a1010;border:1px solid #7a1f1f;border-radius:8px;padding:12px;margin-bottom:12px">
+        <strong style="color:#ef5350">👹 Caçar Feras</strong>
+        <p style="font-size:12px;color:#aaa;margin:4px 0 8px">Mobs escalam com seu nível (Lv.${lvl}). Vitória rende ~${fmtBronze(lvl*10)}, ${lvl*12} XP e materiais (Núcleo de Fera). Custa 15⚡.</p>
+        ${busy
+          ? '<p style="font-size:11px;color:#f44336;margin:0">⚔ Guerreiro ocupado ou ferido</p>'
+          : `<button onclick="raidCovil()" style="background:#7a1f1f">⚔ Caçar</button>`}
+      </div>`;
+  }
+
+  const questsSection = quests.length > 0
+    ? `<h4 style="margin:0 0 8px;color:#aaa;font-size:13px">QUESTS</h4>${questCards}`
+    : '';
+
   el.innerHTML = `
     <div style="background:#111;border-radius:10px;padding:16px">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
@@ -3083,12 +3102,25 @@ function renderKingdomDetail(kingdom, quests, activeQuests, training, gatherSess
       ${activeHtml}
       ${activeGatherHtml}
       ${trainingHtml}
-      <h4 style="margin:0 0 8px;color:#aaa;font-size:13px">QUESTS</h4>
-      ${questCards}
+      ${raidHtml}
+      ${questsSection}
       ${combatZonesHtml}
       ${gatheringHtml}
       <div id="world-msg" style="margin-top:8px;min-height:20px"></div>
     </div>`;
+}
+
+// Covil das Feras — dispara uma caçada PvE e mostra o resultado. [REINOS_V2]
+async function raidCovil() {
+  const r = await api('POST', '/api/world/COVIL_DAS_FERAS/raid');
+  if (r.error) { worldMsg(r.error, false); return; }
+  await loadWarrior();
+  const mats = (r.materials || []).map(m => `${m.displayName} ×${m.quantity}`).join(', ');
+  const msg = r.won
+    ? `🏆 Você derrotou ${r.beast}! +${fmtBronze(r.goldEarned)}, +${r.xpEarned} XP${mats ? ', ' + mats : ''}.`
+    : `💀 ${r.beast} derrotou você. Cure-se no Templo.`;
+  if (worldCurrentKingdom) await enterKingdom(worldCurrentKingdom);
+  worldMsg(msg, r.won);
 }
 
 function worldMsg(text, ok = true) {

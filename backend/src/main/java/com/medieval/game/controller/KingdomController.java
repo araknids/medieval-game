@@ -20,8 +20,9 @@ import java.util.Map;
 @RequiredArgsConstructor
 public class KingdomController {
 
-    private final KingdomService kingdomService;
-    private final PlayerService  playerService;
+    private final KingdomService    kingdomService;
+    private final PlayerService     playerService;
+    private final com.medieval.game.service.CombatPveService combatPveService;
 
     // ── Kingdom overview ──────────────────────────────────────────────────────
     @GetMapping
@@ -44,6 +45,25 @@ public class KingdomController {
                             ? ks.kingdom().primarySkill.name() : "")
                 )).toList();
         return ResponseEntity.ok(kingdoms);
+    }
+
+    // ── Covil das Feras: caçada PvE repetível ─────────────────────────────────
+    @PostMapping("/{kingdom}/raid")
+    public ResponseEntity<?> raid(@PathVariable Kingdom kingdom, Authentication auth) {
+        if (kingdom != Kingdom.COVIL_DAS_FERAS) {
+            return ResponseEntity.badRequest().body(Map.of("error", "Caçada só no Covil das Feras."));
+        }
+        var r = combatPveService.raid(getPlayer(auth));
+        return ResponseEntity.ok(Map.of(
+            "won",        r.won(),
+            "beast",      r.beastName(),
+            "goldEarned", r.goldEarned(),
+            "xpEarned",   r.xpEarned(),
+            "materials",  r.materials().stream().map(m -> Map.of(
+                "type", m.type().name(), "displayName", m.type().displayName, "quantity", m.quantity()
+            )).toList(),
+            "log",        r.log()
+        ));
     }
 
     // ── Quest types for a kingdom ─────────────────────────────────────────────
