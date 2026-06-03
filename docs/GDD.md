@@ -280,20 +280,28 @@ Todo item gerado automaticamente recebe:
 - **Descrição (lore)**: texto baseado em raridade e tipo do item
 - **Origem**: onde foi encontrado (missão, loja, forjado, drop, inicial)
 
+### 6.4 Bag (Mochila)
+
+- Jogadores free têm **10 slots** na bag
+- Jogadores VIP (SoulStone) têm **20 slots** — ver seção 19
+- Slots de equipamento (10 peças equipadas) **não** contam contra o limite da bag
+- Se a bag estiver cheia ao receber um item (drop, quest, loja), o item é perdido com mensagem de aviso
+
 ---
 
 ## 7. Economia
 
-### 7.1 Sistema de Moedas (3 Tier)
+### 7.1 Sistema de Moedas (3 Tier + VIP)
 
 ```
 100 bronze = 1 prata
 100 prata  = 1 ouro (= 10.000 bronze)
+💎 SoulStone = moeda VIP separada (ver seção 19)
 ```
 
 - Novos jogadores começam com **50 prata**
 - Display: `2🥇 30🥈 45🥉`
-- Futura 4ª moeda VIP planejada (para conteúdo late-game)
+- SoulStone (💎) é obtida por compra, não por gameplay regular
 
 ### 7.2 Fontes de Bronze
 
@@ -431,6 +439,14 @@ Local de recuperação e fortalecimento.
 - Máximo 3 itens protegidos simultaneamente
 - Custo: 50 bronze por item (permanente até desproteger)
 - Itens protegidos **não caem** na Zona de Alto Risco
+
+### 8.4 Cura Instantânea via SoulStone
+
+- Cura HP para 100% imediatamente, sem custo de bronze
+- Custa **1 SoulStone** por uso
+- Cooldown de **30 minutos** entre usos
+- Disponível mesmo para guerreiros acima do nível 10 (não substitui a cura bronze — é adicional)
+- Ver seção 19 para detalhes do sistema SoulStone
 
 ---
 
@@ -871,6 +887,71 @@ O sistema atual de Guild War permanece com as mesmas mecânicas, mas a declaraç
 - **Timers no servidor**: o cliente nunca confia em horários locais
 - **instant-complete=true em dev**: torna todos os timers zero para testes rápidos
 - **3 moedas separadas no banco**: nunca misturar diretamente, sempre usar `addBronzeAmount()`
+
+---
+
+## 19. SoulStone 💎 — Moeda VIP
+
+### 19.1 Conceito e Filosofia
+
+SoulStone é a moeda premium do jogo. O princípio central é **conforto sem poder** — nenhuma compra com SoulStone deve dar vantagem de combate direta. Tudo que pode ser comprado ou reduz fricção, mas não aumenta stats permanentemente nem cria pay-to-win.
+
+A moeda pertence à **conta** (Player), não ao personagem (Warrior). Um mesmo saldo é compartilhado por todos os personagens futuros na mesma conta.
+
+### 19.2 Como Ganhar
+
+| Método | Status |
+|--------|--------|
+| Compra direta (Stripe / Steam) | Planejado — admin endpoint para testes agora |
+| Login diário consecutivo | Futuro — +1 💎 a cada 7 dias sem falhar |
+| Conquistas in-game | Futuro — matar boss X, alcançar rank Y |
+| Eventos sazonais | Futuro |
+
+### 19.3 Compras Permanentes
+
+Compras que ficam para sempre na conta. Comprar duas vezes não tem efeito (sistema valida antes de debitar).
+
+| Compra | Custo | Efeito |
+|--------|-------|--------|
+| Expandir Bag | 3 💎 | 10 → 20 slots na mochila |
+| Slot extra de buff | 8 💎 | 1 → 2 buffs ativos simultâneos no Templo |
+| Resetar atributos | 5 💎 | Redistribui todos os pontos investidos do guerreiro |
+| Trocar nome do guerreiro | 2 💎 | Uma compra = uma troca |
+
+### 19.4 Consumíveis
+
+Gastam SoulStones toda vez que usados.
+
+| Consumível | Custo | Cooldown / Limite |
+|------------|-------|-------------------|
+| Cura instantânea de HP | 1 💎 | CD 30 minutos |
+| Ticket extra de arena | 1 💎 | +1 luta além do limite diário |
+| Pular metade do CD de treino/work | 1 💎 | Uma vez por sessão ativa |
+
+### 19.5 Cosmético / Social *(planejado para o futuro)*
+
+Sem impacto em gameplay — puro visual e identidade.
+
+- Título exibido no perfil e no ranking ("Portador das Chamas", "Aniquilador", etc.)
+- Frame especial no card da guilda (visual-only)
+- Lore customizado para um item do inventário
+
+### 19.6 Princípios de Design
+
+1. **Nenhuma SoulStone compra stats permanentes** — só conveniência, tempo ou cosméticos
+2. **Todos os conteúdos são acessíveis sem SoulStones** — a moeda elimina frustração, não cria muros
+3. **Consumíveis têm CD** — para evitar que jogadores com muitas pedras dominem trivialmente
+4. **Permanentes têm estado único** — o sistema rejeita duplicatas silenciosamente
+5. **Histórico de transações futuro** — hoje só o saldo é armazenado
+
+### 19.7 Modelo de Dados
+
+| Campo | Tipo | Entidade | Notas |
+|-------|------|----------|-------|
+| `soulStones` | `int` | `Player` | Saldo atual |
+| `lastSoulstoneHealAt` | `LocalDateTime` | `Player` | Controle de CD da cura |
+| `inventoryExpanded` | `boolean` | `Player` | Flag de bag expandida |
+| `extraBuffSlot` | `boolean` | `Player` | Flag de slot extra de buff |
 
 ---
 
