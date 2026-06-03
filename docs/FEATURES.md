@@ -256,27 +256,34 @@ Capacete, Armadura, Espada, Escudo, Calça, Bota, Luva, Ombreira, Colar, Anel
 
 ---
 
-## 11. Habilidades (Pesca / Mineração / Forja)
+## 11. Habilidades (Pesca / Mineração / Garimpo / Forja)
 
 ### Skills
-- 3 habilidades por jogador (sem restrição de especialização)
+- 4 habilidades por jogador, sem restrição de especialização: **Pesca, Mineração, Garimpo, Forja**
 - Level 1-100, XP para próximo nível = level × 100
-- Multiplicador de XP e recursos por zona
+- Multiplicador de XP e recursos por zona/reino
+- **Coletar gasta estamina** (Reinos V2): pescar/minerar/garimpar consomem estamina proporcional à
+  duração (~metade dos minutos, mínimo 5) em produção. Em dev/test (`instant-complete`) é pulado.
 
 ### Pesca
 - Sessão timer: 5/10/20/30/40 min
-- Produz peixes: Peixe Pequeno, Salmão, Atum, Tubarão, Peixe Lendário
-- **Peixes consumidos restauram stamina E HP** (valores por tipo de peixe):
-  - Peixe Pequeno: +10 stamina, +5% HP
-  - Salmão: +25 stamina, +15% HP
-  - Atum: +40 stamina, +30% HP
-  - Tubarão: +60 stamina, +50% HP
-  - Peixe Lendário: +80 stamina, +100% HP (cura total)
+- **Dois tipos de peixe, por reino** (Reinos V2):
+  - **Desfiladeiro do Osso (peixe de ESTAMINA)** — Peixe Pequeno/Salmão/Atum/Tubarão/Peixe Lendário,
+    restauram **só estamina** (+10/+25/+40/+60/+80).
+  - **Mar Abençoado (peixe de VIDA)** — Coral/Anjo/Espírito/Sagrado/Fênix, restauram **só HP**
+    (+15/+30/+50/+70/+90%), **com teto de 90%** — o resto (90→100%) e reviver de KO exigem Templo/regen
+    (pra não furar o sink de cura do Templo).
 
 ### Mineração
 - Sessão timer: 10/20/30/45/60 min
-- Produz minérios: Cobre, Ferro, Prata, Ouro, Mithril
-- Chance de fragmentos de joias por tipo de minério
+- Produz **só minério**: Cobre, Ferro, Prata, Ouro, Mithril
+- (Reinos V2) Gemas **não saem mais** da mineração — agora vêm do Garimpo.
+
+### Garimpo (Reinos V2)
+- Skill nova; atividade do reino **Grutas de Cristal**
+- Sessão timer (igual mineração); cada rodada pode achar um **fragmento de joia** (ou vir vazia)
+- Fragmentos por nível: Ametista → Rubi (20) → Safira (40) → Esmeralda (60) → Diamante (80)
+- Fragmentos viram joias na Forja (3 do mesmo tipo → 1 joia)
 
 ### Forja (Smithing)
 - **Refinar**: 5 minérios + bronze → 1 barra (custo escala por nível)
@@ -610,10 +617,17 @@ Aplicados automaticamente em quests e trabalho para todos os membros:
 - Esqueletos Guerreiros (Desfiladeiro do Osso) — balanceados, alta evasão
 - Stats baseados na média dos membros atacantes × fator de dificuldade
 
+### Unificação Kingdom/Território + flag de guild-war (Reinos V2)
+- O enum `Territory` foi **removido** e fundido em `Kingdom` — **território == reino** (mesmo id).
+- Cada `Kingdom` carrega seus dados de batalha (NPC, mults) e `exclusiveBonus`.
+- **Flag de guild-war:** config `app.kingdoms.war-territories` (default `FISHING,MINING,COMBAT`) define
+  quais reinos são contestáveis. Os demais (Grutas de Cristal, Mar Abençoado) são **zonas abertas**.
+  Ligar guerra em mais reinos = trocar a config, sem deploy de código.
+
 ### Entidades
-- `Territory` (enum): FORTALEZA_MALDITA, MINAS_DE_FERRO_NEGRO, DESFILADEIRO_DO_OSSO
-- `TerritoryControl`: guilda dominante, defenseStreak, dominantSince
-- `TerritoryDeclaration`: guilda atacante, território alvo, timestamp
+- `Kingdom` (enum): FISHING, MINING, COMBAT, GRUTAS_DE_CRISTAL, MAR_ABENCOADO (territórios de guerra = os 3 primeiros, por config)
+- `TerritoryControl`: guilda dominante, defenseStreak, dominantSince (campo `territory` tipado `Kingdom`)
+- `TerritoryDeclaration`: guilda atacante, reino alvo, timestamp
 - `TerritoryBattleLog`: resultado, log de batalha, vencedor, data
 
 ---
@@ -654,74 +668,63 @@ Aplicados automaticamente em quests e trabalho para todos os membros:
 
 ---
 
-## 23. World Tab — 3 Reinos 🚧 Planejado
+## 23. World Tab — 5 Reinos (Reinos V2) ✅ Implementado
 
-Substitui as abas Taverna, Expedições, Habilidades (pesca/mineração) e Territórios por uma única aba **World** organizada em 3 reinos interdependentes.
+Aba **World** organiza as atividades em 5 reinos. Quests, zonas de coleta, treino, guerra de guild e
+caçada PvE ficam **dentro de cada reino**. (A Forja/Smithing fica no Commerce.)
 
-### Abas removidas / reorganizadas
+### Os 5 reinos
 
-| Antes | Depois |
-|-------|--------|
-| Taverna (quests) | Dentro de cada reino → Taverna do reino |
-| Expedições (zones) | Dentro de cada reino → zonas por tipo |
-| Habilidades pesca/mine | Dentro de cada reino → gathering do reino |
-| Territórios | Integrado na tela de cada reino |
-| Smithing/Forja | Move para Commerce |
+| Reino | Ícone | Atividade | Loot / Função | Guild-war? |
+|-------|-------|-----------|---------------|-----------|
+| Desfiladeiro do Osso | 🎣 | Pesca | Peixe de **ESTAMINA** | ✅ |
+| Minas de Ferro Negro | ⛏ | Mineração | **Só minério** | ✅ |
+| Fortaleza Maldita | ⚔ | Combate (guerra + treino + **caçada PvE**) | PvP de guild + treino + farm de mobs | ✅ |
+| Grutas de Cristal | 🔎 | **Garimpo** | Fragmentos de joia | ❌ aberto |
+| Mar Abençoado | 🐟 | Pesca | Peixe de **VIDA** (cap 90%) | ❌ aberto |
 
-### Estrutura dos 3 Reinos
+> Quais reinos são guild-war vem da config `app.kingdoms.war-territories` (default: os 3 primeiros).
 
-#### 🎣 Desfiladeiro do Osso — Reino da Pesca
+### Quests por reino (Reinos V2)
+- **2 quests por reino** (10 no total): uma inicial (curta/barata) + uma avançada (longa/rica).
+- Coletadas via `/api/world/{kingdom}/quests` — separadas das quests clássicas de `/api/quests`.
 
-| Zona | Level | Risco | Atividade |
-|------|-------|-------|-----------|
-| Porto Seguro | 1+ | Nenhum | Pesca básica |
-| Costa Selvagem | 10+ | PvP | Pesca com hunters |
-| Mar Profundo | 20+ | PvP + monstros | Peixes raros |
+### 🎣 Desfiladeiro do Osso / 🐟 Mar Abençoado — Reinos de Pesca
+| Zona | Level | Risco |
+|------|-------|-------|
+| Segura | 1+ | Nenhum |
+| PvP | 10+ | PvP (cosmético por enquanto) |
+| Alto risco | 20+ | PvP + raros |
 
-- **Quests:** Patrulhe a Costa, Explore os Recifes, Raid do Mar Profundo, Caça ao Monstro Marinho
-- **Futuro:** Sistema de Cozinha → refeições com buffs premium, bônus de guild
+- Desfiladeiro → peixe de estamina; Mar Abençoado → peixe de vida (cura até 90%).
 
-#### ⛏ Minas de Ferro Negro — Reino da Mineração
+### ⛏ Minas de Ferro Negro / 🔎 Grutas de Cristal — Reinos de Coleta
+- Minas → só minério (Cobre→Mithril). Grutas → fragmentos de joia (Garimpo).
+- Mesmas 3 zonas (Segura / PvP / Alto risco). Coletar gasta estamina.
 
-| Zona | Level | Risco | Atividade |
-|------|-------|-------|-----------|
-| Mina Aberta | 1+ | Nenhum | Mineração básica |
-| Túneis Profundos | 10+ | PvP | Mineração com hunters |
-| Minas Proibidas | 20+ | PvP + monstros | Minérios raros |
+### ⚔ Fortaleza Maldita — Reino do Combate
+| Recurso | Detalhe |
+|---------|---------|
+| **Treino** | Paga bronze → guerreiro treina X horas → coleta **XP puro** (timer estilo Work) |
+| **Zonas de combate** | Campo de Batalha (PvP, Lv.10+) e Zona de Guerra (HIGH_RISK, Lv.20+) |
+| **Caçada PvE** | `POST /api/world/COMBAT/raid` — mobs escalam com o nível, custa 15⚡; vitória rende gold (lv×10), XP (lv×12) e materiais (Núcleo de Fera sempre, Pele de Fera 25%) |
+| **Guild War** | Declarar ataque / ver status fica dentro da tela do reino |
 
-- **Quests:** Escolta os Mineiros, Limpe as Cavernas, Recupere o Minério Raro, Derrote a Besta das Cavernas
+> A caçada PvE era o reino "Covil das Feras" no plano original; como tinha só essa mecânica, foi
+> fundida na Fortaleza Maldita.
 
-#### ⚔ Fortaleza Maldita — Reino do Combate
-
-| Zona | Level | Risco | Atividade |
-|------|-------|-------|-----------|
-| Arena de Treino | 1+ | Nenhum | **Treino pago** — paga bronze, ganha EXP (timer) |
-| Campo de Batalha | 10+ | PvP | Monstros + players |
-| Zona de Guerra | 20+ | PvP + monstros | Combate intenso |
-
-- **Quests:** Defenda as Muralhas, Limpe a Masmorra, Raid ao Acampamento, Caça ao Senhor da Guerra
-- **Treino:** nova mecânica — paga bronze, guerreiro treina por X horas, coleta XP puro
+### Caçada PvE (antigo Covil das Feras)
+- Repetível; reusa o BattleSimulator. Chefes (boss) ficam reservados para a Torre.
+- Drop de materiais: `MONSTER_CORE` (1 + level/25, sempre na vitória) e `BEAST_HIDE` (25%).
 
 ### Interdependência forçada
-
 | Necessidade | Fonte |
 |-------------|-------|
-| Estamina premium | Peixes → Desfiladeiro |
+| Estamina | Peixe de estamina → Desfiladeiro |
+| Recuperar HP (até 90%) | Peixe de vida → Mar Abençoado |
 | Equipamento | Forja (Commerce) ← Minério ← Minas |
-| EXP/Level rápido | Treino + Quests ← Fortaleza |
-
-### Mecânica de Treino (nova — Fortaleza)
-
-- Player paga X bronze → guerreiro fica "treinando" por Y horas
-- Timer como Work, mas recompensa é **XP puro** (sem bronze, sem itens)
-- Mais eficiente em XP/hora que quests; sem outras recompensas
-- Custo e XP escalam com o nível do guerreiro
-
-### Guild War integrada
-
-- Sistema atual de Guild War permanece idêntico
-- Declarar ataque e ver status ficam **dentro da tela do reino**
-- Cada reino mantém seus bônus exclusivos para guilda dominante
+| Joias | Forja ← Fragmentos ← Garimpo (Grutas) |
+| XP/Level rápido | Treino + Quests + Caçada ← Fortaleza |
 
 ---
 

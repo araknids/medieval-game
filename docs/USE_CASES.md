@@ -777,10 +777,13 @@
 
 **Pós-condições:** Sessão de pesca ativa; guerreiro ocupado; timer em andamento.
 **Regras de Negócio:**
-- A pesca não consome stamina.
+- **(Reinos V2) A pesca consome estamina** proporcional à duração (~metade dos minutos, mín. 5) em
+  produção; em dev/test (`instant-complete`) é pulado. Estamina insuficiente → bloqueia o início.
 - Durações disponíveis: 5, 10, 20, 30, 40 minutos.
-- O multiplicador de XP e recursos pode variar conforme a zona em que o guerreiro está.
-- Pesca produz: Peixe Pequeno, Salmão, Atum, Tubarão, Peixe Lendário.
+- O multiplicador de XP e recursos pode variar conforme a zona/reino.
+- **O reino define o tipo de peixe:** Desfiladeiro do Osso → peixe de **estamina**
+  (Pequeno/Salmão/Atum/Tubarão/Lendário); Mar Abençoado → peixe de **vida**
+  (Coral/Anjo/Espírito/Sagrado/Fênix).
 
 ---
 
@@ -829,26 +832,29 @@
 
 ---
 
-## UC-31 — Consumir Peixe para Restaurar Stamina
+## UC-31 — Consumir Peixe (Estamina ou Vida)
 
 **Ator:** Jogador
-**Pré-condições:** O jogador está autenticado; o jogador possui pelo menos um peixe no inventário de recursos; o guerreiro possui stamina abaixo de 100%.
+**Pré-condições:** O jogador está autenticado; possui pelo menos um peixe no inventário de recursos.
 **Trigger:** O jogador acessa o inventário de recursos, seleciona um peixe e clica em "Usar".
 
 **Fluxo Principal:**
-1. O sistema exibe os peixes disponíveis no inventário de recursos com o bônus de stamina de cada tipo.
+1. O sistema exibe os peixes disponíveis com o efeito de cada tipo.
 2. O jogador seleciona o peixe que deseja consumir e confirma.
 3. O sistema remove 1 unidade do peixe do inventário de recursos.
-4. O sistema adiciona o bônus de stamina correspondente ao guerreiro (limitado a 100%).
-5. O sistema retorna a stamina atualizada.
+4. **Peixe de estamina** → adiciona estamina (limitado a 100%). **Peixe de vida** → cura HP (limitado ao teto de 90%).
+5. O sistema retorna a estamina/HP atualizados.
 
 **Fluxo Alternativo:**
-- FA1: Stamina já em 100% → o sistema informa que a stamina está cheia e bloqueia o consumo (ou permite mas sem efeito).
+- FA1: Recurso já no máximo → consumo não tem efeito além de gastar o peixe.
 
-**Pós-condições:** Stamina do guerreiro aumentada; peixe removido do inventário de recursos.
-**Regras de Negócio:**
-- Restauração de stamina por tipo de peixe: Peixe Pequeno (+10%), Salmão (+25%), Atum (+40%), Tubarão (+60%), Peixe Lendário (+80%).
-- A stamina não pode ultrapassar 100%; o excedente é perdido.
+**Pós-condições:** Estamina **ou** HP do guerreiro aumentado; peixe removido do inventário.
+**Regras de Negócio (Reinos V2 — split de peixe):**
+- **Peixe de estamina** (Desfiladeiro do Osso) restaura **só estamina**:
+  Pequeno (+10), Salmão (+25), Atum (+40), Tubarão (+60), Lendário (+80). Cap 100%.
+- **Peixe de vida** (Mar Abençoado) restaura **só HP**:
+  Coral (+15%), Anjo (+30%), Espírito (+50%), Sagrado (+70%), Fênix (+90%). **Teto de 90%**.
+- Fechar de 90→100% e reviver de KO exigem Templo/regen (não furar o sink de cura do Templo).
 
 ---
 
@@ -871,10 +877,11 @@
 
 **Pós-condições:** Sessão de mineração ativa; guerreiro ocupado; timer em andamento.
 **Regras de Negócio:**
-- A mineração não consome stamina.
+- **(Reinos V2) A mineração consome estamina** proporcional à duração (~metade dos minutos, mín. 5) em
+  produção; pulado em dev/test. O mesmo vale para o **Garimpo** (reino Grutas de Cristal).
 - Durações disponíveis: 10, 20, 30, 45, 60 minutos.
 - Minérios produzidos: Cobre, Ferro, Prata, Ouro, Mithril.
-- Há chance de obter fragmentos de joias dependendo do tipo de minério.
+- **(Reinos V2) Gemas não saem mais da mineração** — fragmentos de joia vêm do **Garimpo**.
 
 ---
 
@@ -887,8 +894,8 @@
 **Fluxo Principal:**
 1. O sistema verifica que o timer de mineração foi completado.
 2. O sistema calcula os minérios obtidos com base na duração, nível de Mineração e zona.
-3. O sistema verifica a chance de fragmentos de joias para cada minério coletado.
-4. O sistema adiciona minérios e eventuais fragmentos ao inventário de recursos.
+3. (Reinos V2) Mineração rende **só minério** — fragmentos de joia vêm do Garimpo (Grutas de Cristal).
+4. O sistema adiciona os minérios ao inventário de recursos.
 5. O sistema concede XP de Mineração ao jogador.
 6. O sistema define `onMission=false` no guerreiro.
 7. O sistema exibe o resumo da coleta.
@@ -1452,12 +1459,16 @@
 
 ## Guerra de Territórios
 
+> **Reinos V2 — unificação:** `Territory` foi removido e fundido em `Kingdom` (território == reino).
+> São contestáveis apenas os reinos da config `app.kingdoms.war-territories` (default: os 3 clássicos —
+> FISHING/MINING/COMBAT). Os endpoints `/api/territory/*` continuam, agora com ids de `Kingdom`.
+
 ### UC-59: Visualizar Status dos Territórios
 **Ator:** Qualquer jogador autenticado
 
 **Fluxo:**
-1. Jogador acessa aba Territórios.
-2. Sistema exibe os 3 territórios com: guilda dominante (ou "Neutro"), defenseStreak, bônus ativos e tempo até próxima batalha.
+1. Jogador acessa aba Territórios (ou a seção de guerra dentro do reino).
+2. Sistema exibe os 3 territórios de guerra com: guilda dominante (ou "Neutro"), defenseStreak, bônus ativos e tempo até próxima batalha.
 
 **Pós-condições:** Apenas leitura.
 
@@ -1604,14 +1615,19 @@
 
 ---
 
-## World Tab — 3 Reinos 🚧 Planejado
+## World Tab — 5 Reinos (Reinos V2) ✅ Implementado
+
+> O mundo tem **5 reinos**: Desfiladeiro do Osso (pesca/estamina), Minas de Ferro Negro (mineração),
+> Fortaleza Maldita (combate + treino + caçada PvE + guild-war), Grutas de Cristal (garimpo),
+> Mar Abençoado (pesca/vida). Reino e território são o mesmo conceito (`Kingdom`); 3 dos 5 são
+> guild-war por config (`app.kingdoms.war-territories`).
 
 ### UC-69: View World — Kingdom Overview
 **Actor:** Authenticated player
 
 **Flow:**
-1. Player opens World tab.
-2. System displays 3 kingdom cards (Desfiladeiro, Minas, Fortaleza) with: controlling guild, player's guild bonus (if any), next war timer.
+1. Player opens World tab (`GET /api/world`).
+2. System displays the 5 kingdom cards with: controlling guild (se reino de guerra), player's guild bonus (if any), next war timer.
 3. Player selects a kingdom.
 
 ---
@@ -1621,7 +1637,7 @@
 
 **Flow:**
 1. Player clicks a kingdom card.
-2. System displays the kingdom detail view with available zones based on player level.
+2. System displays the kingdom detail view with available zones/quests based on player level.
 3. Zones above player's level are locked with lock icon.
 
 ---
@@ -1631,9 +1647,9 @@
 **Pre-conditions:** Warrior not busy, sufficient stamina.
 
 **Flow:**
-1. Player opens kingdom tavern tab within the kingdom view.
-2. System lists quests specific to that kingdom.
-3. Player selects quest → warrior goes on mission (same timer mechanic as current quests).
+1. Player opens the kingdom's quest list (`/api/world/{kingdom}/quests`).
+2. System lists the **2 quests** specific to that kingdom (Reinos V2).
+3. Player selects quest → warrior goes on mission (same timer mechanic as current quests; consome estamina).
 
 **Alternate:**
 - Warrior busy or insufficient stamina → 400.
@@ -1644,12 +1660,14 @@
 **Actor:** Player (lv requirement met for chosen zone)
 
 **Flow:**
-1. Player selects a zone within the kingdom (e.g., Porto Seguro for fishing).
-2. Chooses duration (fishing: 5-40min; mining: 10-60min).
-3. Warrior starts gathering session. Timer runs.
+1. Player selects a zone within a gathering kingdom (pesca/mineração/garimpo).
+2. Chooses duration (fishing: 5-40min; mining/garimpo: 10-60min).
+3. Warrior starts gathering session (`/api/gathering/start`). **Consome estamina** (~metade dos minutos, mín. 5) em produção. Timer runs.
 4. Player collects on completion.
 
-**PvP zones (lv10+):** player may be attacked by hunters while gathering.
+**Reino define o loot:** Desfiladeiro → peixe de estamina; Mar Abençoado → peixe de vida;
+Minas → minério; Grutas de Cristal → fragmentos de joia (Garimpo).
+**PvP zones (lv10+):** risco cosmético por enquanto.
 
 ---
 
@@ -1669,28 +1687,33 @@
 
 ---
 
+### UC-73b: Hunt Beasts at Fortaleza (Caçada PvE — Reinos V2)
+**Actor:** Player in Fortaleza Maldita
+**Pre-conditions:** Warrior available (não ocupado, não nocauteado), 15 estamina (em produção).
+
+**Flow:**
+1. Player clicks "⚔ Caçar" (`POST /api/world/COMBAT/raid`).
+2. System gera um mob que escala com o nível do guerreiro e resolve a luta (BattleSimulator).
+3. Vitória → gold (lv×10), XP (lv×12) e materiais (Núcleo de Fera sempre, Pele de Fera 25%).
+   Derrota → guerreiro pode cair (cure-se no Templo).
+
+**Nota:** era o reino "Covil das Feras" no plano original; fundido na Fortaleza por ter só essa mecânica.
+Chefes (boss) ficam reservados para a Torre.
+
+---
+
 ### UC-74: Declare Guild War from Kingdom View
 **Actor:** Guild leader (guild without territory)
-**Pre-conditions:** Same as UC-60.
+**Pre-conditions:** Same as UC-60. Só nos reinos de guerra (FISHING/MINING/COMBAT por config).
 
 **Flow:**
-1. Player opens kingdom detail view.
+1. Player opens kingdom detail view (reino de guerra).
 2. Clicks "Declare Attack" button within the kingdom's war section.
-3. System registers declaration (same mechanic as UC-60, just accessed from kingdom UI).
+3. System registers declaration (same mechanic as UC-60, accessed from kingdom UI).
 
 ---
 
-### UC-75: View Kingdom Zone with PvP (Hunter Role)
-**Actor:** Player lv10+
-
-**Flow:**
-1. Player selects a PvP zone in any kingdom (lv10+ required).
-2. Can enter as **Gatherer** (gathering resources with risk) OR **Hunter** (hunting other players).
-3. Resolution same as current Zone system.
-
----
-
-*Updated 2026-06-02. World/3 Kingdoms: UC-69 to UC-75.*
+*Updated 2026-06-03. World/5 Reinos (Reinos V2): UC-69 to UC-74 + UC-73b.*
 
 ---
 

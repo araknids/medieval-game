@@ -1987,13 +1987,13 @@ POST /api/shop/buy/{id} (segunda compra)
 
 ---
 
-### TC-081 — GET /api/gathering/skills retorna 3 skills com level e XP
+### TC-081 — GET /api/gathering/skills retorna 4 skills com level e XP
 
 **Tipo:** Integração
 **UC Relacionado:** UC-28, UC-32
 **Prioridade:** Alta
 
-**Cenário:** O endpoint deve retornar as 3 habilidades de coleta (Pesca, Mineração, Forja) com nível e XP atual de cada uma.
+**Cenário:** O endpoint deve retornar as 4 habilidades (Pesca, Mineração, **Garimpo**, Forja) com nível e XP atual de cada uma. (Reinos V2 adicionou `GARIMPO`.)
 
 **Pré-condições:** Usuário autenticado.
 
@@ -2007,7 +2007,7 @@ GET /api/gathering/skills
 
 **Resultado Esperado:**
 - Status 200.
-- Array com 3 habilidades: FISHING, MINING, SMITHING.
+- Array com 4 habilidades: FISHING, MINING, GARIMPO, SMITHING.
 - Cada habilidade contém: `skillType`, `level`, `currentXp`, `xpToNextLevel`.
 
 **Resultado de Falha:** Lista incompleta, campos ausentes ou nível/XP negativos.
@@ -2037,9 +2037,10 @@ POST /api/gathering/start
 - Status 200 ou 201.
 - Resposta contém ID da sessão e `endsAt`.
 - `GET /api/warrior` retorna `onMission=true`.
-- Stamina não alterada (pesca não custa stamina).
+- (Reinos V2) Em produção a pesca **debita estamina** (~metade dos minutos, mín. 5). Em dev/test
+  (`instant-complete`) o débito é pulado, então a estamina não muda nos testes de integração.
 
-**Resultado de Falha:** Sessão não criada, guerreiro não marcado ou stamina debitada incorretamente.
+**Resultado de Falha:** Sessão não criada, guerreiro não marcado ou estamina debitada em modo instant.
 
 ---
 
@@ -2817,11 +2818,11 @@ Guilda já tem declaração PENDING para o mesmo ciclo → lança exceção.
 
 ## Testes de Integração — Guerra de Territórios (TC-124 a TC-133)
 
-### TC-124: GET /api/territory → lista 3 territórios com status
-Sem guilda dominante → todos neutros.
+### TC-124: GET /api/territory → lista os 3 territórios de guerra com status
+Sem guilda dominante → todos neutros. (Reinos V2: ids são `Kingdom` — FISHING/MINING/COMBAT por config.)
 
-### TC-125: POST /api/territory/FORTALEZA_MALDITA/declare → declaração criada
-**Pré:** Líder de guilda sem território.
+### TC-125: POST /api/territory/COMBAT/declare → declaração criada
+**Pré:** Líder de guilda sem território. (Reinos V2: o path usa o id `Kingdom` `COMBAT`, antes `FORTALEZA_MALDITA`.)
 
 ### TC-126: POST /api/territory/declare com guilda que já controla território → 400
 Guilda dominante não pode declarar ataque.
@@ -2863,56 +2864,63 @@ Membros de guilda dominante recebem XP e bronze com +10% base.
 
 ---
 
-## Unit Tests — World / 3 Kingdoms (TC-049 to TC-052)
+## Unit Tests — World / 5 Reinos (TC-049 to TC-052) — Reinos V2
 
-### TC-049: Kingdom.questsFor(kingdom) returns only kingdom-specific quests
+### TC-049: KingdomQuestType is kingdom-specific
 **Type:** Unit | **Class:** KingdomServiceTest
-Quests linked to DESFILADEIRO are not returned for FORTALEZA.
+Quests de FISHING não aparecem para MINING ou COMBAT.
 
-### TC-050: TrainingSession.xpReward() scales with warrior level
+### TC-050: Cada reino tem exatamente 2 quests (Reinos V2)
 **Type:** Unit
-Level 10 warrior earns more XP/h than level 1 for same duration.
+Itera os 5 reinos; cada um tem 2 quests (antes: 4 nos de combate/coleta, 0 nos novos).
 
-### TC-051: TrainingSession.bronzeCost() scales with warrior level
+### TC-051: Kingdom unificado carrega dados de território (NPC + bônus)
 **Type:** Unit
-Higher level warrior pays more bronze to train.
+Reinos de guerra (FISHING/MINING/COMBAT) têm npcName e exclusiveBonus > 0; Grutas/Mar têm bônus 0.
 
-### TC-052: Kingdom zone locking — player below min level cannot access
+### TC-052: COMBAT sem primarySkill; FISHING/MINING têm
 **Type:** Unit
-Player lv5 cannot enter zone with minLevel=10 (KingdomZone validation).
+`Kingdom.COMBAT.primarySkill == null`; pesca/mineração têm skill de coleta.
 
 ---
 
-## Integration Tests — World / 3 Kingdoms (TC-142 to TC-152)
+## Integration Tests — World / 5 Reinos (TC-142 to TC-157) — Reinos V2
 
-### TC-142: GET /api/world → returns 3 kingdoms with status
-Each kingdom has: name, controllingGuild (or null), playerGuildBonus, zones.
+### TC-142: GET /api/world → returns 5 kingdoms with status
+Cada reino tem: kingdom, displayName, icon, controllingGuild (ou ""), isMine, bônus, zonas.
+(Covil das Feras fundido na Fortaleza → 5 reinos.)
 
-### TC-143: GET /api/world/{kingdom} → returns kingdom detail with zones
-Locked zones show locked:true for player below level.
+### TC-143: GET /api/world/{kingdom}/quests → 2 quest types (Reinos V2)
+Cada reino expõe exatamente 2 quests.
 
-### TC-144: POST /api/world/{kingdom}/quest/start → quest started (warrior busy)
-Same mechanic as current quest, but kingdom-specific quest type.
+### TC-144/145: POST /api/world/{kingdom}/quests/start → quest iniciada / warrior busy → 400
+Mesma mecânica das quests clássicas, mas quest específica do reino; consome estamina.
 
-### TC-145: POST /api/world/{kingdom}/quest/start — warrior busy → 400
-### TC-146: POST /api/world/{kingdom}/gather → gathering session started
-Kingdom DESFILADEIRO → FISHING; MINAS → MINING.
+### TC-146: POST /api/gathering/start → sessão de coleta (via World)
+DESFILADEIRO/MAR → FISHING; MINAS → MINING; GRUTAS → GARIMPO. Em produção, consome estamina.
 
-### TC-147: POST /api/world/{kingdom}/gather — below zone level → 400
-Player lv5 trying to enter HIGH_RISK zone → 400.
+### TC-147: gather abaixo do nível da zona → bloqueado
+Player abaixo do nível da zona não acessa.
 
-### TC-148: POST /api/world/FORTALEZA_MALDITA/train → training session started
-Response: bronze deducted, session created with XP reward.
+### TC-148: POST /api/world/COMBAT/training/start → treino iniciado
+Bronze debitado, sessão criada com XP reward. (Path agora usa o id `COMBAT`.)
 
-### TC-149: POST /api/world/FORTALEZA_MALDITA/train — insufficient bronze → 400
-### TC-150: POST /api/world/FORTALEZA_MALDITA/train/{id}/collect → XP awarded
-No bronze or items received — XP only.
+### TC-149: training/start sem bronze → 400
+### TC-150: POST /api/world/COMBAT/training/{id}/collect → XP awarded
+Sem bronze nem itens — XP puro.
 
-### TC-151: GET /api/world → shows guild bonus for player's guild's territory
-Player in guild controlling Minas → Minas card shows bonus active.
+### TC-151: GET /api/world → mostra bônus da guilda no território dela
+Guilda controlando MINING → card de Minas mostra bônus ativo.
 
-### TC-152: POST /api/world/{kingdom}/declare — same as territory declare
-Validates guild has no territory; registers declaration for next cycle.
+### TC-152: POST /api/world/{kingdom}/quests/start com quest de outro reino → 400
+Quest de MINING em FISHING é rejeitada.
+
+### TC-157: GET /api/world/COMBAT/quests → 2 quest types
+Fortaleza também segue o padrão de 2 quests.
+
+### Caçada PvE (Fortaleza Maldita — antigo Covil das Feras)
+- `POST /api/world/COMBAT/raid` → 200 com `won`/`beast`/materiais (vitória rende gold/XP/Núcleo de Fera).
+- `POST /api/world/{outro reino}/raid` → 400 (caçada só na Fortaleza). **Class:** `CovilRaidTest`.
 
 ---
 
@@ -3314,4 +3322,24 @@ Guild with insufficient guild gold → territory reverts to neutral, streak rese
 
 ---
 
-*Updated 2026-06-03. Total: 383 tests passing. Economic sinks TC-239-252 implementados em `EconomicSinksIntegrationTest` (TC-239, 241-252) e `InventoryItemDurabilityTest` (TC-240).*
+## Seção — Reinos V2 (cobertura)
+
+Mudanças do Reinos V2 e onde estão cobertas no código (a numeração TC-xxx do código segue a própria
+suíte; abaixo resumo por área):
+
+| Área | O que verifica | Arquivo de teste |
+|------|----------------|------------------|
+| Unificação Kingdom/Território | `Territory` removido; território == reino; campos de batalha absorvidos | `KingdomServiceTest` (tc051), `TerritoryServiceTest`, `TerritoryIntegrationTest` |
+| Flag de guild-war | só reinos da config são contestáveis (3 de 5) | `TerritoryIntegrationTest`, `TerritoryCatchUpIntegrationTest` |
+| 5 reinos no World | `GET /api/world` → 5 reinos; `/quests` → 2 por reino | `WorldIntegrationTest` (tc142, tc143, tc157) |
+| 2 quests por reino | cada reino tem exatamente 2 quests | `KingdomServiceTest` (tc050) |
+| Garimpo | nova skill GARIMPO; fragmentos de joia; mineração sem gemas | `GatheringIntegrationTest`, `GatheringServiceTest` |
+| Split de peixe | peixe de estamina (só estamina) vs peixe de vida (só HP, cap 90%) | `GatheringIntegrationTest`, `ZoneAmbushIntegrationTest` |
+| Estamina na coleta | custo proporcional (~metade dos min, mín. 5); pulado em instant | `GatheringServiceTest` (`staminaCostFor`) |
+| Caçada PvE (Fortaleza) | `POST /api/world/COMBAT/raid` rende gold/XP/materiais; só em COMBAT | `CovilRaidTest` |
+
+---
+
+*Updated 2026-06-03. Total: 410 tests passing. Reinos V2 (Fases 1-4): 5 reinos unificados, Garimpo,
+split de peixe (estamina/vida), estamina na coleta, caçada PvE na Fortaleza, flag de guild-war.
+Economic sinks TC-239-252 em `EconomicSinksIntegrationTest`/`InventoryItemDurabilityTest`.*

@@ -254,28 +254,38 @@ Não existe mais "Hunter" vs "Gatherer". **Todos entram para lootear.** O risco 
 
 ## 5. Habilidades de Coleta
 
-3 habilidades independentes por jogador. Level 1-100.
+4 habilidades independentes por jogador (Pesca, Mineração, Garimpo, Forja). Level 1-100.
 
-### 5.1 Pesca
+> **Coleta gasta estamina (Reinos V2):** pescar/minerar/garimpar consomem estamina proporcional à
+> duração (~metade dos minutos, mínimo 5) em produção. Cria o loop pescar-comer-coletar.
 
-| Duração | Peixe | Stamina | HP restaurado |
-|---------|-------|---------|---------------|
-| 5 min | Peixe Pequeno | +10 | +5% |
-| 10 min | Salmão | +25 | +15% |
-| 20 min | Atum | +40 | +30% |
-| 30 min | Tubarão | +60 | +50% |
-| 40 min | Peixe Lendário | +80 | +100% (cura total) |
+### 5.1 Pesca — dois tipos de peixe por reino (Reinos V2)
 
-- Peixes são consumíveis que restauram **stamina E HP** (valores por tipo)
-- Importantes para se recuperar entre emboscadas em zonas PvP
+A pesca rende **peixe de estamina** ou **peixe de vida**, dependendo do reino:
+
+| Reino | Peixes | Efeito |
+|-------|--------|--------|
+| Desfiladeiro do Osso | Pequeno/Salmão/Atum/Tubarão/Lendário | **Só estamina** (+10/+25/+40/+60/+80) |
+| Mar Abençoado | Coral/Anjo/Espírito/Sagrado/Fênix | **Só HP** (+15/+30/+50/+70/+90%), **teto 90%** |
+
+- Peixe de vida cura até **90%** — fechar (90→100%) e reviver de KO exigem Templo/regen
+  (decisão de balance: não furar o sink de cura do Templo).
+- Durações: 5/10/20/30/40 min. Importantes para se recuperar entre emboscadas em zonas PvP.
 
 ### 5.2 Mineração
 
-- Produz: Cobre, Ferro, Prata, Ouro, Mithril
-- Chance de fragmentos de joias por tipo de minério
+- Produz **só minério**: Cobre, Ferro, Prata, Ouro, Mithril
+- (Reinos V2) Gemas **não saem mais** da mineração — migraram para o Garimpo
 - Durações: 10/20/30/45/60 min
 
-### 5.3 Forja (Smithing)
+### 5.3 Garimpo (Reinos V2)
+
+- Skill nova; atividade do reino **Grutas de Cristal**
+- Cada rodada pode achar um **fragmento de joia** (ou vir vazia) — escala por nível:
+  Ametista → Rubi (20) → Safira (40) → Esmeralda (60) → Diamante (80)
+- Fragmentos viram joias na Forja (3 do mesmo tipo → 1 joia)
+
+### 5.4 Forja (Smithing)
 
 - **Refinar**: 5 minérios + bronze → 1 barra (custo escala por tier)
 - **Craftar equipamento**: barras → item forjado com sockets garantidos
@@ -667,15 +677,24 @@ Medieval fantástico sem seriedade excessiva. Linguagem direta, textos curtos. F
 
 ### 14.1 Conceito
 
-Sistema de PvP em escala de guilda. Três territórios fixos no mapa podem ser dominados por guildas, concedendo bônus permanentes a seus membros enquanto o domínio for mantido. Batalhas acontecem automaticamente 4 vezes por dia, criando conflito constante e rotação de poder.
+Sistema de PvP em escala de guilda. Por padrão, **3 dos 5 reinos** são territórios de guild-war
+(definido pela config `app.kingdoms.war-territories` = `FISHING,MINING,COMBAT`) e podem ser dominados
+por guildas, concedendo bônus permanentes a seus membros enquanto o domínio for mantido. Batalhas
+acontecem automaticamente 4 vezes por dia, criando conflito constante e rotação de poder.
 
-### 14.2 Os Três Territórios
+> **Reinos V2 — unificação:** o enum `Territory` foi **removido** e fundido em `Kingdom`
+> (território == reino, mesmo id). Cada `Kingdom` carrega seus dados de NPC/batalha e `exclusiveBonus`.
+> Ligar guerra em mais reinos = trocar a config, sem deploy.
 
-| Território | Tema | Bônus Exclusivo | NPC Neutro |
+### 14.2 Os Três Territórios de Guerra (dos 5 reinos)
+
+| Reino (território) | Tema | Bônus Exclusivo | NPC Neutro |
 |------------|------|-----------------|------------|
-| **Fortaleza Maldita** | Fortaleza amaldiçoada por um lich antigo | +10% XP extra em quests | Cavaleiros Amaldiçoados |
-| **Minas de Ferro Negro** | Minas ancestrais de metal raro | +20% yield de mineração | Golens de Ferro |
-| **Desfiladeiro do Osso** | Passagem estratégica entre reinos | +20% yield de pesca | Esqueletos Guerreiros |
+| **Fortaleza Maldita** (COMBAT) | Fortaleza amaldiçoada por um lich antigo | +10% XP extra em quests | Cavaleiros Amaldiçoados |
+| **Minas de Ferro Negro** (MINING) | Minas ancestrais de metal raro | +20% yield de mineração | Golens de Ferro |
+| **Desfiladeiro do Osso** (FISHING) | Passagem estratégica entre reinos | +20% yield de pesca | Esqueletos Guerreiros |
+
+Os outros dois reinos (Grutas de Cristal, Mar Abençoado) são **zonas abertas** — sem guild-war por padrão.
 
 **Bônus base** para membros da guilda dominante em qualquer território: **+10% XP** e **+10% bronze** em todas as ações.
 
@@ -761,19 +780,25 @@ Stats do NPC: média dos warriors da guilda atacante × fator de dificuldade do 
 
 ---
 
-## 15. Redesign — World Tab (3 Kingdoms) 🚧 Planejado
+## 15. World Tab — 5 Reinos (Reinos V2) ✅ Implementado
 
-> **Status:** Design aprovado, não implementado. Este sistema substitui as abas Taverna, Expedições, Habilidades (pesca/mineração) e Territórios por uma aba única "World" organizada em 3 reinos interdependentes.
+> **Status:** Implementado (Fases 1-4, 410 testes verdes). A aba "World" substitui Taverna, Expedições,
+> Habilidades (coleta) e Territórios, organizada em **5 reinos** interdependentes. O plano original previa
+> 6 reinos; o "Covil das Feras" virou a caçada PvE dentro da Fortaleza Maldita.
 
 ### 15.1 Conceito Central
 
-O mundo é organizado por **localização** em vez de por mecânica. Cada reino tem uma especialidade que força troca com os outros dois — nenhum é autossuficiente.
+O mundo é organizado por **localização** em vez de por mecânica. Cada reino tem uma especialidade que força troca com os outros — nenhum é autossuficiente.
 
 ```
-Pesca     → Peixe = estamina premium   → todo mundo precisa
-Mineração → Minério = equipamento       → todo mundo precisa  
-Combate   → EXP/Level = desbloqueia    → todo mundo quer
+Pesca (estamina)  → Desfiladeiro do Osso → estamina premium    → todo mundo precisa
+Pesca (vida)      → Mar Abençoado        → recupera HP (cap 90%)→ todo mundo precisa
+Mineração         → Minas de Ferro Negro → minério = equipamento→ todo mundo precisa
+Garimpo           → Grutas de Cristal    → fragmentos = joias   → quem forja
+Combate           → Fortaleza Maldita    → XP + caçada PvE + war→ todo mundo quer
 ```
+
+> **Coleta gasta estamina** (pesca/mineração/garimpo) em produção — fecha o loop pescar-comer-coletar.
 
 ### 15.2 Abas removidas / reorganizadas
 
@@ -784,7 +809,7 @@ Combate   → EXP/Level = desbloqueia    → todo mundo quer
 | Habilidades (pesca/mine) | **Removida** — gathering vive dentro de cada reino |
 | Territórios | **Removida** — integrada na tela de cada reino |
 | Habilidades (Forja/Smithing) | **Vai para Commerce** |
-| **World** | **Criada** — tela principal com os 3 reinos |
+| **World** | **Criada** — tela principal com os 5 reinos |
 
 Resultado: -4 abas +1 = interface muito mais limpa.
 
@@ -800,11 +825,11 @@ Resultado: -4 abas +1 = interface muito mais limpa.
 | Costa Selvagem | 10 | Pesca com risco de hunters (players) | PvP |
 | Mar Profundo | 20 | Peixes raros, criaturas perigosas | PvP + monstros |
 
-**Quests do reino:** Patrulhe a Costa, Explore os Recifes, Raid do Mar Profundo, Caça ao Monstro Marinho
+**Quests do reino (2):** Patrulhe a Costa, Caça ao Monstro Marinho
 
 **Loop de valor:**
 ```
-Pesca → Peixes (restauram estamina)
+Pesca → Peixes de estamina (Desfiladeiro) / Peixes de vida (Mar Abençoado)
       → Futuro: Cozinha → Refeições premium → Buffs de guild, regen acelerada
 ```
 
@@ -825,7 +850,7 @@ Pesca → Peixes (restauram estamina)
 | Túneis Profundos | 10 | Mineração com risco de hunters | PvP |
 | Minas Proibidas | 20 | Minérios raros, alta periculosidade | PvP + monstros |
 
-**Quests do reino:** Escolta os Mineiros, Limpe as Cavernas, Recupere o Minério Raro, Derrote a Besta das Cavernas
+**Quests do reino (2):** Escolta os Mineiros, Derrote a Besta das Cavernas
 
 **Loop de valor:**
 ```
@@ -834,9 +859,39 @@ Mineração → Minério → Forja (Commerce) → Equipamento → todos os reino
 
 ---
 
+### 15.4b Reino do Garimpo — Grutas de Cristal 🔎 (Reinos V2)
+
+**Identidade:** fonte exclusiva de fragmentos de joia (gemas saíram da mineração). Zona aberta (sem guild-war).
+
+| Zona | Level mín. | Atividade | Risco |
+|------|-----------|-----------|-------|
+| Veio Raso | 1 | Garimpo básico | Nenhum |
+| Grutas Profundas | 10 | Garimpo com risco (cosmético) | PvP |
+| Caverna Proibida | 20 | Fragmentos raros | PvP |
+
+**Quests do reino (2):** Guard the Crystal Veins, Slay the Crystal Beast
+
+**Loop:** `Garimpo → Fragmentos → Forja → Joias → sockets → todo build`
+
+---
+
+### 15.4c Reino da Pesca de Vida — Mar Abençoado 🐟 (Reinos V2)
+
+**Identidade:** peixe que restaura **HP** (até 90%) em vez de estamina. Zona aberta (sem guild-war).
+
+| Zona | Level mín. | Atividade | Risco |
+|------|-----------|-----------|-------|
+| Enseada Sagrada | 1 | Pesca de vida básica | Nenhum |
+| Recife Profundo | 10 | Pesca com risco (cosmético) | PvP |
+| Abismo Abençoado | 20 | Peixes lendários de vida | PvP |
+
+**Quests do reino (2):** Cleanse the Tides, Guard the Sacred Reef
+
+---
+
 ### 15.5 Reino do Combate — Fortaleza Maldita ⚔
 
-**Identidade:** progressão de XP acelerada, combate puro, sem pesca ou mineração.
+**Identidade:** progressão de XP acelerada, combate puro, caçada PvE e guerra de guild.
 
 | Zona | Level mín. | Atividade | Risco |
 |------|-----------|-----------|-------|
@@ -844,17 +899,22 @@ Mineração → Minério → Forja (Commerce) → Equipamento → todos os reino
 | Campo de Batalha | 10 | Caça a monstros + PvP com players | PvP |
 | Zona de Guerra | 20 | Monstros e players simultaneamente | PvP + monstros |
 
-**Quests do reino:** Defenda as Muralhas, Limpe a Masmorra, Raid ao Acampamento, Caça ao Senhor da Guerra
+**Quests do reino (2):** Defenda as Muralhas, Caça ao Senhor da Guerra
 
-**Treino (mecânica nova):**
+**Treino (mecânica):**
 - Paga uma quantia de bronze → personagem "treina" por X horas (timer)
 - Ao coletar: recebe XP puro (sem bronze, sem itens)
 - Mais eficiente em XP/hora que missões, mas sem outras recompensas
 - Custo escala com o level do guerreiro
 
+**Caçada PvE (Reinos V2 — antigo Covil das Feras):**
+- `POST /api/world/COMBAT/raid` — caçada repetível contra mobs que escalam com o nível
+- Custa 15⚡; vitória rende gold (lv×10), XP (lv×12) e materiais (Núcleo de Fera sempre, Pele de Fera 25%)
+- Reusa o BattleSimulator; chefes (boss) ficam reservados para a Torre
+
 **Loop de valor:**
 ```
-Treino → EXP → Level → desbloqueia zonas de alto risco nos outros dois reinos
+Treino + Caçada → EXP → Level → desbloqueia zonas de alto risco nos outros reinos
 Zona de Guerra → combate mais intenso → itens de alta raridade
 ```
 
@@ -916,8 +976,8 @@ O sistema atual de Guild War permanece com as mesmas mecânicas, mas a declaraç
 
 ### 14.1 Estado Atual (v0.2 — Web)
 
-- 21 sistemas implementados e funcionais (incluindo Guildas)
-- 147 testes automatizados (80 unitários + 67 integração)
+- Sistemas implementados e funcionais (incluindo Guildas, Reinos V2, sinks econômicos)
+- 410 testes automatizados (unitários + integração)
 - CI/CD via GitHub Actions (mvn test em cada push)
 - Deploy automático na Railway com PostgreSQL
 - Sem monetização
