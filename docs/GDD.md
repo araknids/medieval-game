@@ -87,19 +87,33 @@ Minerar/Pescar → Guardar Recursos → Refinar → Craftar → Equipar/Vender
 Cada conta tem um único guerreiro da classe **WARRIOR**.
 
 **Stats base (nível 1):**
-- ATK: 15 | DEF: 12 | HP: 110
+- ATK: 15 | HP: 110
+- DEF: vem exclusivamente de equipamentos (não de atributo base)
 
 **Progressão por nível:**
-- +2 ATK, +2 DEF, +15 HP, +5 pontos de atributo
+- +**2 pontos de atributo** por nível para distribuir livremente
+- **Sem cap de nível** — curva exponencial inspirada em Tibia
 
-**Atributos distribuídos pelo jogador (irreversível):**
+**Curva de XP:** `XP para nível N = round(100 × N^1.8)`
 
-| Atributo | Efeito por Ponto |
-|----------|-----------------|
-| Força | +1 ATK |
-| Destreza | +1% chance de evasão |
-| Constituição | +5 HP, +0.5 DEF |
-| Sorte | +1% chance de drop de item |
+**Atributos distribuídos pelo jogador — sistema d20:**
+
+| Atributo | Cap | Efeito |
+|---------|-----|--------|
+| **Força (STR)** | 60 | +1 ATK/ponto; bônus de ataque `floor(STR/20)` (0-3) no d20 |
+| **Destreza (DEX)** | 40 | +1 Armor Class/ponto (AC = 10 + DEX); torna mais difícil ser acertado |
+| **Constituição (CON)** | ∞ | +8 HP/ponto — cresce infinitamente; razão de upar além dos outros caps |
+| **Sorte (LUK)** | 50 | +1% drop; expande janela de crítico; Fortune Save contra crits inimigos |
+| **Intelecto (INT)** | 40 | +0.5% sucesso Smithing; -0.2% custo bronze em treino; +0.3% yield coleta |
+
+**Design de progressão:**
+- Levels 1-95: distribui entre STR/DEX/LUK/INT até os caps
+- Level 95+: todo ponto em CON (HP) para sempre
+- Veterano = mais HP, não mais dano — evita one-shot em PvP late game
+
+**Reset de atributos:**
+- Compra permanente com SoulStones (ver seção VIP)
+- Ou via evento de reset global do servidor quando há mudanças de sistema
 
 **Estados do guerreiro:**
 - **Livre**: pode iniciar qualquer atividade
@@ -151,6 +165,7 @@ Duelo assíncrono contra outro jogador (ou NPC se não houver oponente real).
 - Vitória: +200 bronze, +25 rank points
 - Derrota: +50 bronze (consolação), -15 rank points
 - Derrota: HP=0, buff perdido
+- **Sem XP loss na Arena** (apenas em zonas PvP/Alto Risco)
 
 **Ranking**: Top 20 por rank points, exibe nome do guerreiro
 
@@ -450,28 +465,73 @@ Local de recuperação e fortalecimento.
 
 ---
 
-## 10. Sistema de Combate
+## 10. Sistema de Combate — d20 (D&D-inspired)
 
-O `BattleSimulator` é compartilhado por Arena, Torre e Zonas.
+O `BattleSimulator` é compartilhado por Arena, Torre e Zonas. Sistema inspirado em D&D 5e com **Bounded Accuracy** — DEX não pode tornar um personagem invulnerável.
 
-### 9.1 Fluxo de uma Rodada
+### 10.1 Conceito: Bounded Accuracy
+
+O problema do sistema antigo (evasão linear 1:1) era que 100 DEX = 100% evasão = invulnerável. A solução D&D: **d20 com bônus limitados**. O dado sempre tem chance de acertar ou errar, independente dos atributos.
+
+### 10.2 Fluxo de uma Rodada
 
 ```
-1. Atacante tenta acertar
-2. Defensor tenta evadir (chance = Destreza%)
-3. Se não evadir: dano = ATK do atacante - DEF do defensor (mín. 1)
-4. HP do defensor reduzido
-5. Turno passa para o outro combatente
-6. Combate termina quando HP de um chega a 0
+1. Atacante rola d20 (resultado 1-20, uniforme)
+2. Adiciona bônus de ataque: floor(STR / 20)   [range: 0 a +3]
+3. Compara com AC do defensor: 10 + DEX do defensor
+4. Se (d20 + bônus) ≥ AC → ACERTA
+   Se (d20 + bônus) < AC → ERRA
+5. Natural 20 (roll de 20) → Crítico: dano dobrado
+   Natural 1  (roll de 1)  → Fumble: miss automático
+6. Dano quando acerta: (ATK - DEF do defensor, mín. 1) + floor(STR/10)
+7. HP do defensor reduzido; próxima rodada
 ```
 
-### 9.2 Log de Batalha
+### 10.3 Referência de Probabilidades
 
-- Textos de ataque variados ("avança ferozmente", "desfere um golpe", etc.)
-- Partes do corpo aleatórias ("no peito", "no ombro", "na cabeça")
-- Evasões com texto descritivo
-- HP exibido em vermelho após cada dano
-- Vitória em texto dourado
+```
+Chance de acertar = (21 - max(1, AC - bônus)) / 20
+
+Exemplos:
+• DEX 0 (AC 10) vs STR 0 (bônus +0): precisa 10+ → 55%
+• DEX 20 (AC 30) vs STR 0 (+0): precisa 30+ → apenas natural 20 = 5%
+• DEX 20 (AC 30) vs STR 60 (+3): precisa 27 → apenas natural 20 = 5%
+• DEX 0 (AC 10) vs STR 60 (+3): precisa 7+ → 70%
+```
+
+> DEX alto + atacante fraco = muito difícil de acertar. Mas com STR alta e crits, ainda existe chance.
+
+### 10.4 Crítico e Fumble
+
+| Roll | Resultado |
+|------|-----------|
+| **20 (natural)** | Crítico — dano × 2 |
+| **1 (natural)** | Fumble — miss automático |
+
+**LUK expande a janela de crítico:**
+- 0 LUK: crit apenas no 20 (5%)
+- 15 LUK: crit no 19-20 (10%)
+- 30 LUK: crit no 18-20 (15%)
+- 45+ LUK: crit no 17-20 (20%, cap)
+
+**Fortune Save (LUK) — contra críticos inimigos:**
+- Ao receber um crítico: `floor(LUK/10)%` chance de converter para hit normal
+- 0 LUK = 0%, 50 LUK = 5% (cap de LUK é 50)
+
+### 10.5 XP Loss em Morte por PvP
+
+Quando derrotado em Zona PvP ou Alto Risco:
+- Perde **10% do XP necessário para o nível atual**
+- Pode dropar de nível (mínimo: nível 1, nunca vai abaixo)
+- Itens protegidos no Templo não caem (apenas Alto Risco)
+- Visível no modal de resultado: "💀 -X XP"
+
+### 10.6 Log de Batalha
+
+- Textos variados por resultado (acerto, miss, crítico, fumble)
+- Partes do corpo aleatórias
+- HP exibido em vermelho após dano; vitória em dourado
+- Tag interna `WINNER:Nome` removida antes de exibir
 
 ---
 

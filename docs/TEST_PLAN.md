@@ -3119,4 +3119,69 @@ Sem VIP → apply buff FORCA → apply buff DEFESA → 400 "VIP required for sec
 
 ---
 
-*Updated 2026-06-03. Total: 273 tests. VIP: TC-176 to TC-192.*
+---
+
+## Unit Tests — d20 Combat System (TC-193 to TC-200)
+**Class:** `BattleSimulatorTest` (extend existing)
+
+### TC-193: Natural 20 always crits regardless of AC
+Simulate with defender AC 999 and attacker roll forced to 20 → hit is a crit.
+
+### TC-194: Natural 1 always misses regardless of STR bonus
+Simulate with defender AC 1 and attacker STR 100 (max bonus) → miss (fumble).
+
+### TC-195: Attack roll formula — STR 60 gives +3 bonus
+`floor(60 / 20) = 3` → verify bônus de ataque = 3.
+
+### TC-196: AC formula — DEX 40 gives AC 50
+`10 + 40 = 50` → verify defender AC = 50.
+
+### TC-197: Hit chance — DEX 0 vs STR 0: ~55%
+Run 1000 simulations, verify hit rate between 50-60%.
+
+### TC-198: Hit chance — DEX 40 (AC 50) vs STR 0 (+0): only crits hit
+Run 100 simulations, verify only natural-20 hits land (~5% rate).
+
+### TC-199: Fortune Save triggers at correct LUK threshold
+LUK 30 → Fortune Save chance = 3%. Simulate 1000 enemy crits, verify ~3% converted.
+
+### TC-200: Crit window expands with LUK correctly
+LUK 15 → crit on 19-20. Verify crit rate ~10% in large simulation.
+
+---
+
+## Integration Tests — XP Loss on PvP Death (TC-201 to TC-205)
+**Class:** `XpLossIntegrationTest extends BaseIntegrationTest`
+
+### TC-201: XP loss 10% of current level threshold on PvP death
+Player at level 5 with 2000 XP → xpRequired for level 5 = ~3000 → loss = 300 XP → ends at 1700.
+
+### TC-202: Level drop when XP falls below level threshold
+Player at level 5, XP exactly at threshold (0 into the level) → PvP death → drops to level 4.
+
+### TC-203: Cannot drop below level 1
+Player at level 1, minimum XP → PvP death → stays at level 1, XP stays at 0.
+
+### TC-204: No XP loss in Arena (only PvP zones)
+Lose Arena fight → XP unchanged.
+
+### TC-205: Exponential XP curve — level 10 requires correct threshold
+`round(100 * 10^1.8) = round(100 * 63.1) = 6310` XP to go from 9 to 10.
+
+---
+
+## Unit Tests — XP Curve (TC-206 to TC-208)
+**Class:** `WarriorServiceTest` (extend existing)
+
+### TC-206: XP formula for level 2 = 100
+`round(100 * 1^1.8) = 100`
+
+### TC-207: XP formula for level 10 = ~6310
+`round(100 * 9^1.8) ≈ 6310`
+
+### TC-208: Level up with 2 attribute points per level
+Level up → `availablePoints` increases by 2 (not 5 as before).
+
+---
+
+*Updated 2026-06-03. Total: 289 tests. d20+XP: TC-193 to TC-208.*

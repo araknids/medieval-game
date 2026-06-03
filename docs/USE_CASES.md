@@ -168,32 +168,31 @@
 
 ---
 
-## UC-05 — Distribuir Pontos de Atributo do Guerreiro
+## UC-05 — Distribuir Pontos de Atributo do Guerreiro (d20 System)
 
 **Ator:** Jogador
-**Pré-condições:** O jogador está autenticado; o guerreiro possui pontos de atributo não distribuídos (acumulados ao subir de nível).
-**Trigger:** O jogador acessa a tela do guerreiro e clica para alocar pontos de atributo.
+**Pré-condições:** Autenticado; guerreiro possui pontos não distribuídos (2 por nível).
+**Trigger:** Jogador acessa a tela do guerreiro e aloca pontos.
 
 **Fluxo Principal:**
-1. O sistema exibe os atributos disponíveis: Força, Destreza, Constituição e Sorte, junto com a quantidade de pontos disponíveis.
-2. O jogador seleciona em qual atributo deseja investir e confirma.
-3. O sistema valida que há pontos disponíveis suficientes.
-4. O sistema aplica o efeito do atributo escolhido no guerreiro:
-   - Força: +1 ATK por ponto.
-   - Destreza: +1% evasão por ponto.
-   - Constituição: +5 HP máximo e +0,5 DEF por ponto.
-   - Sorte: +1% chance de drop por ponto.
-5. O sistema decrementa os pontos disponíveis e salva.
-6. O sistema retorna o estado atualizado do guerreiro.
+1. Sistema exibe os 5 atributos com pontos atuais, caps e efeitos:
+   - **Força (STR)** — cap 60: +1 ATK/ponto; bônus de ataque `floor(STR/20)` no d20
+   - **Destreza (DEX)** — cap 40: +1 Armor Class/ponto (AC = 10 + DEX)
+   - **Constituição (CON)** — sem cap: +8 HP/ponto
+   - **Sorte (LUK)** — cap 50: +1% drop; expande crit; Fortune Save
+   - **Intelecto (INT)** — cap 40: bônus Smithing, treino, yield coleta
+2. Jogador seleciona atributo e confirma.
+3. Sistema valida: há pontos disponíveis, atributo não atingiu cap (exceto CON).
+4. Aplica efeito e salva.
 
 **Fluxo Alternativo:**
-- FA1: Sem pontos disponíveis → o sistema exibe mensagem informando que não há pontos para distribuir.
+- FA1: Sem pontos → mensagem "Sem pontos disponíveis"
+- FA2: Atributo no cap → mensagem "Atributo já no máximo. Invista em outro."
 
-**Pós-condições:** Atributo do guerreiro atualizado permanentemente; pontos disponíveis decrementados.
 **Regras de Negócio:**
-- O guerreiro recebe 5 pontos de atributo a cada nível ganho.
-- A alocação de atributos é irreversível; não há como redistribuir pontos.
-- Ganho de nível: a cada level, o guerreiro também recebe automaticamente +2 ATK, +2 DEF e +15 HP de stats base.
+- 2 pontos por nível; nível infinito sem cap
+- Após todos os caps (~level 95): todo ponto vai obrigatoriamente para CON
+- Alocação irreversível (reset via SoulStone ou reset global do servidor)
 
 ---
 
@@ -1904,3 +1903,54 @@
 4. UI exibe "VIP expirado em DD/MM" no SoulStone Shop.
 
 *Updated 2026-06-03. VIP: UC-81 to UC-87.*
+
+---
+
+## Sistema de Combate d20 + XP Loss
+
+### UC-88: Combate com d20 (Attack Roll vs AC)
+**Actor:** Qualquer combate (Arena, Torre, Zona PvP/Alto Risco)
+
+**Flow:**
+1. Cada rodada: atacante rola d20 (1-20 uniformemente)
+2. Adiciona bônus de ataque: `floor(STR / 20)` (0 a +3)
+3. Compara com AC do defensor: `10 + DEX do defensor`
+4. Se `d20 + bônus ≥ AC` → acerta
+5. **Natural 20**: acerto crítico (dano dobrado) — LUK pode expandir janela
+6. **Natural 1**: fumble (miss automático independente de STR)
+7. Dano quando acerta: `ATK - DEF_equipamento + floor(STR/10)` (mín. 1)
+
+**Fortune Save (LUK):**
+Ao receber um crítico: `floor(LUK/10)%` de chance de converter para hit normal.
+
+---
+
+### UC-89: XP Loss ao Morrer em Zona PvP/Alto Risco
+**Actor:** Jogador derrotado em combate PvP
+
+**Pre-conditions:** Jogador morto em Zona PvP ou Alto Risco.
+
+**Flow:**
+1. `ZoneService.collect()` detecta derrota (`!survived`)
+2. Calcula XP perdido: `10% do XP necessário para o nível atual`
+3. Subtrai do XP do guerreiro
+4. Se XP cai abaixo do threshold do nível: **dropa um nível** (mínimo: nível 1)
+5. Modal de collect exibe: "💀 Você foi derrotado por [Nome]! -X XP"
+
+**Exceções:**
+- Guerreiro nível 1 com XP mínimo: não perde XP (já no mínimo possível)
+- Arena não tem XP loss (apenas zonas PvP/Alto Risco)
+
+---
+
+### UC-90: Progressão de Nível com XP Exponencial
+**Actor:** Qualquer jogador ganhando XP
+
+**Flow:**
+1. Jogador ganha XP (quest, arena, torre, gathering)
+2. Sistema verifica se `XP acumulado ≥ threshold do próximo nível`
+3. Threshold: `round(100 × N^1.8)` onde N = nível atual
+4. Se atingido: level up, +2 pontos de atributo, continue verificando
+5. Níveis infinitos — sem cap
+
+*Updated 2026-06-03. d20 + XP Loss: UC-88 to UC-90.*

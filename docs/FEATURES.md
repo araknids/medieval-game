@@ -27,28 +27,57 @@
 
 ### 2.1 Criação
 - Um guerreiro por conta, classe única: WARRIOR
-- Stats base: ATK 15, DEF 12, HP 110
-- Level começa em 1; a cada nível: +2 ATK, +2 DEF, +15 HP, +5 pontos de atributo
+- Stats base: ATK 15, HP 110
+- Level começa em 1; **sem cap de nível** (infinito)
+- A cada nível: +**2 pontos de atributo** para distribuir livremente
 
-### 2.2 Atributos (distribuídos pelo jogador)
-- **Força**: +1 ATK por ponto
-- **Destreza**: +1% evasão por ponto
-- **Constituição**: +5 HP e +0.5 DEF por ponto
-- **Sorte**: +1% chance de drop por ponto
-- 5 pontos por nível, irreversível
+### 2.2 Progressão de Nível (XP Exponencial)
 
-### 2.3 HP com Regen Passiva
-- Armazenado como % (0-100)
-- Regenera 100% em 1 hora automaticamente
+Fórmula: `XP para subir do nível N = round(100 × N^1.8)`
+
+| Nível | XP para subir | XP total acumulado |
+|-------|--------------|-------------------|
+| 2 | 100 | 100 |
+| 10 | ~4.780 | ~17.000 |
+| 20 | ~16.500 | ~100.000 |
+| 50 | ~85.000 | ~1.200.000 |
+| 95 | ~296.000 | ~26.000.000 |
+| 100+ | crescente | infinito |
+
+Sem teto — progressão exponencialmente mais difícil inspirada em Tibia.
+
+### 2.3 Atributos — Sistema D&D (d20)
+
+**2 pontos por nível, caps definidos por atributo:**
+
+| Atributo | Cap | Efeito |
+|---------|-----|--------|
+| **Força (STR)** | 60 | +1 ATK por ponto · bônus de ataque: `floor(STR/20)` (+0 a +3) |
+| **Destreza (DEX)** | 40 | +1 Armor Class por ponto · AC = `10 + DEX` (máx AC 50) |
+| **Constituição (CON)** | sem cap | +8 HP por ponto — razão de continuar upando além dos outros caps |
+| **Sorte (LUK)** | 50 | +1% drop · expande janela de crítico · Fortune Save |
+| **Intelecto (INT)** | 40 | +0.5% chance sucesso Smithing · -0.2% custo bronze treino · +0.3% yield coleta |
+
+**Efeito de cada atributo no combate:**
+
+- **Força (STR)**: Controla bônus de ataque (`floor(STR/20)`, range 0-3) e variância de dano (`+floor(STR/10)`)
+- **Destreza (DEX)**: Controla AC (Armor Class) — número que o atacante precisa superar para acertar
+- **Sorte (LUK)**: Expande janela de crit (`crit em d20 ≥ 20 - floor(LUK/15)`, cap 20% crit); Fortune Save (`floor(LUK/10)%` de anular crit inimigo)
+
+**Ao atingir todos os caps** (level ~95): cada nível adicional = 2 pontos em CON = +16 HP/nível. Veteranos têm muito mais HP — vantagem de tanque, não de dano.
+
+### 2.4 HP com Regen Passiva
+- Armazenado como % (0-100), regenera 100% em 1 hora automaticamente
 - HP=0: guerreiro inconsciente, não pode entrar em combate
 - Cura disponível no Templo
 
-### 2.4 Buff Ativo (Templo)
-- Um buff por vez, dura 1 hora
-- Buffs: Força (+5 ATK), Agilidade (+5% evasão), Defesa (+5 DEF), Vitalidade (+20 HP), Sorte (+5% drop)
+### 2.5 Buff Ativo (Templo)
+- Free: um buff por vez, dura 1 hora
+- VIP: 2 buffs ativos simultâneos
+- Buffs: Força (+5 ATK), Agilidade (+5% AC), Defesa (+5 DEF), Vitalidade (+20 HP), Sorte (+5% drop)
 - Buff é perdido ao ser derrotado em combate
 
-### 2.5 Liberar Guerreiro Travado
+### 2.6 Liberar Guerreiro Travado
 - Endpoint `POST /api/warrior/free` cancela todas sessões ativas e libera o guerreiro
 
 ---
@@ -313,14 +342,81 @@ Cada tipo tem:
 
 ---
 
-## 15. Sistema de Combate (BattleSimulator)
+## 15. Sistema de Combate — d20 (BattleSimulator)
 
-Reutilizado por Arena, Torre e Zona. Gera log dinâmico:
-- Textos de ataque variados ("avança ferozmente e desfere um golpe no peito...")
-- Partes do corpo aleatórias
-- Evasões com texto descritivo
-- HP exibido em vermelho a cada ação
-- Tag interna `WINNER:Nome` removida antes de exibir
+Reutilizado por Arena, Torre e Zonas. Inspirado em D&D 5e (Bounded Accuracy).
+
+### Fluxo de Cada Rodada
+
+```
+1. Atacante rola d20 (resultado 1-20)
+2. Adiciona bônus de ataque: floor(STR / 20)
+3. Compara com AC do defensor: 10 + DEX do defensor
+4. Se (d20 + bônus) ≥ AC → ACERTA
+   Se (d20 + bônus) < AC → ERRA
+5. Natural 20 → Crítico (dano dobrado)
+   Natural 1  → Fumble (miss automático, ignora STR)
+6. Dano quando acerta: ATK - DEF do defensor (mín. 1) + floor(STR/10) variância
+7. HP do defensor reduzido; próxima rodada começa
+```
+
+### Tabelas de Referência
+
+**Bônus de ataque por STR:**
+| STR | Bônus |
+|-----|-------|
+| 0-19 | +0 |
+| 20-39 | +1 |
+| 40-59 | +2 |
+| 60 (cap) | +3 |
+
+**AC por DEX:**
+| DEX | AC |
+|-----|-----|
+| 0 | 10 |
+| 10 | 20 |
+| 20 | 30 |
+| 40 (cap) | 50 |
+
+**Exemplos de chance de acerto (d20):**
+| Situação | Precisa de | Chance |
+|----------|-----------|--------|
+| 0 STR vs DEX 0 (AC 10) | 10+ | 55% |
+| 0 STR vs DEX 40 (AC 50) | 50+ (impossível sem bônus) | 5% (só crit natural) |
+| STR 60 (+3) vs DEX 40 (AC 50) | 47 → não alcança | ainda difícil |
+| STR 60 (+3) vs DEX 20 (AC 30) | 27 → 20+3=23 → ainda difícil | ~5% (só 20 natural) |
+
+> **Nota de design**: DEX alto + STR baixo = praticamente invulnerável. Builds focadas em STR compensam pelo aumento de dano quando acertam. Equilíbrio intencional — guerreiros tanque (CON) vs agressivos (STR) vs esquivos (DEX).
+
+### Crítico e Fumble
+
+- **Crítico** (natural 20): dano dobrado. Com LUK expande a janela:
+  - 0 LUK: crit apenas no 20 (5%)
+  - 15 LUK: crit no 19-20 (10%)
+  - 30 LUK: crit no 18-20 (15%)
+  - 45+ LUK: crit no 17-20 (20%, cap)
+- **Fumble** (natural 1): miss automático independente de bônus
+
+### Fortune Save (LUK)
+
+Quando recebe um crítico: `floor(LUK/10)%` de chance de transformá-lo em hit normal.
+- 0 LUK: 0%
+- 30 LUK: 3%
+- 50 LUK: 5% (cap em 10% com 100 LUK, mas LUK cap é 50)
+
+### Log de Batalha
+
+- Textos de ataque variados por resultado (acerto, miss, crítico, fumble)
+- HP exibido após cada ação
+- Tag interna `WINNER:Nome` removida antes de exibir ao jogador
+
+### XP Loss em Morte por PvP
+
+Quando derrotado em Zona PvP ou Alto Risco:
+- Perde **10% do XP necessário para o nível atual**
+- Pode dropar de nível (mínimo: nível 1)
+- Itens equipados protegidos no Templo não caem (Alto Risco)
+- Aparece no modal de resultado: "💀 -X XP"
 
 ---
 
