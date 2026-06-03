@@ -38,6 +38,22 @@ public class Mail {
     private LocalDateTime readAt;      // null = unread
     private LocalDateTime collectedAt; // null = gold not yet collected
 
+    // ── Item attachment (bag-full overflow) ────────────────────────────────────
+    private String itemName;
+    private String itemType;
+    private int    itemAtk     = 0;
+    private int    itemDef     = 0;
+    private int    itemHp      = 0;
+    private int    itemRarity  = 1;
+    private int    itemSockets = 0;
+    @Column(columnDefinition = "TEXT")
+    private String itemDescription;
+    private String itemOrigin;
+    private boolean itemCollected = false;
+    private LocalDateTime expiresAt;  // null = no expiry; +7 days for item mails
+
     public boolean isRead()      { return readAt      != null; }
     public boolean isCollected() { return collectedAt != null; }
+    public boolean hasItem()     { return itemName    != null; }
+    public boolean isExpired()   { return expiresAt   != null && LocalDateTime.now().isAfter(expiresAt); }
 }

@@ -31,6 +31,7 @@ public class KingdomService {
     private final PlayerService                playerService;
     private final WarriorService               warriorService;
     private final InventoryService             inventoryService;
+    private final MailService                  mailService;
     private final ItemLoreGenerator            loreGenerator;
     private final TerritoryService             territoryService;
 
@@ -335,7 +336,15 @@ public class KingdomService {
         String name   = itemName(type, rarity, rng);
         String lore   = loreGenerator.generateLore(rarity, type, rng);
         String origin = loreGenerator.originFromQuest("Kingdom Quest");
-        return inventoryService.make(player, name, type, atk, def, hp, rarity, price, lore, origin);
+
+        if (inventoryService.bagSize(player) < player.getMaxInventorySlots()) {
+            return inventoryService.make(player, name, type, atk, def, hp, rarity, price, lore, origin);
+        } else {
+            mailService.sendItemMail(player, "Drop de Kingdom Quest.",
+                    name, type, atk, def, hp, rarity, 0, lore, origin);
+            log.info("[KingdomService] player={} bag full — item '{}' sent to mail", player.getId(), name);
+            return null;
+        }
     }
 
     private String itemName(com.medieval.game.enums.ItemType type, int rarity, java.util.Random rng) {

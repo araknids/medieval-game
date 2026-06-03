@@ -4,7 +4,6 @@ import com.medieval.game.enums.ItemType;
 import com.medieval.game.model.InventoryItem;
 import com.medieval.game.model.Player;
 import com.medieval.game.model.ShopPurchase;
-import com.medieval.game.repository.InventoryItemRepository;
 import com.medieval.game.repository.ShopPurchaseRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -21,9 +20,10 @@ import java.util.Set;
 @RequiredArgsConstructor
 public class ShopService {
 
-    private final InventoryItemRepository inventoryRepository;
     private final ShopPurchaseRepository  purchaseRepository;
     private final PlayerService           playerService;
+    private final InventoryService        inventoryService;
+    private final MailService             mailService;
     private final ItemLoreGenerator       loreGenerator;
 
     private static final long ROTATION_SECONDS = 6 * 60 * 60; // 6 horas
@@ -237,20 +237,23 @@ public class ShopService {
         purchase.setSlotIndex(slot);
         purchaseRepository.save(purchase);
 
-        InventoryItem inv = new InventoryItem();
-        inv.setPlayer(player);
-        inv.setName(item.name());
-        inv.setType(item.type());
-        inv.setAttackBonus(item.atk());
-        inv.setDefenseBonus(item.def());
-        inv.setHealthBonus(item.hp());
-        inv.setRarity(item.rarity());
-        inv.setSellPrice(item.price() / 2);
-        inv.setDescription(loreGenerator.generateLore(item.rarity(), item.type(), rng));
-        inv.setOrigin(loreGenerator.originFromShop("Mercador Viajante"));
-        InventoryItem saved = inventoryRepository.save(inv);
-        log.info("[ShopService] player={} action=buy OK shopItemId={} name={} price={}", player.getId(), shopItemId, item.name(), item.price());
-        return saved;
+        String desc   = loreGenerator.generateLore(item.rarity(), item.type(), rng);
+        String origin = loreGenerator.originFromShop("Mercador Viajante");
+        long   sell   = item.price() / 2;
+
+        InventoryItem result;
+        if (inventoryService.bagSize(player) < player.getMaxInventorySlots()) {
+            result = inventoryService.make(player, item.name(), item.type(),
+                    item.atk(), item.def(), item.hp(), item.rarity(), sell, desc, origin);
+            log.info("[ShopService] player={} action=buy OK shopItemId={} name={} price={}", player.getId(), shopItemId, item.name(), item.price());
+        } else {
+            mailService.sendItemMail(player, "Comprado na Loja.",
+                    item.name(), item.type(), item.atk(), item.def(), item.hp(),
+                    item.rarity(), 0, desc, origin);
+            log.info("[ShopService] player={} action=buy OK (sent to mail — bag full) shopItemId={} name={}", player.getId(), shopItemId, item.name());
+            result = null;
+        }
+        return result;
     }
 
     // ── Helpers ──

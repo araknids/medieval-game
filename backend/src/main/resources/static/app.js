@@ -2486,6 +2486,8 @@ function renderMailPanel(letters, unread) {
             <strong style="color:${m.isRead ? '#ccc' : '#fff'}">${m.from}</strong>
             ${!m.isRead ? '<span style="color:#5c6bc0;font-size:.75em;margin-left:6px">● NEW</span>' : ''}
             ${m.goldAmount > 0 && !m.isCollected ? '<span style="color:#ffd700;font-size:.75em;margin-left:6px">💰 ' + m.goldAmount + ' gold</span>' : ''}
+            ${m.hasItem && !m.itemCollected && !m.isExpired ? '<span style="color:#a78bfa;font-size:.75em;margin-left:6px">📦 ITEM</span>' : ''}
+            ${m.hasItem && m.isExpired ? '<span style="color:#ef5350;font-size:.75em;margin-left:6px">⏰ EXPIRED</span>' : ''}
             <div style="color:#888;font-size:.8em;margin-top:2px">
               ${m.message.length > 60 ? m.message.substring(0, 60) + '…' : m.message}
             </div>
@@ -2551,6 +2553,25 @@ async function mailOpen(id) {
        </button>`
     : r.goldAmount > 0 ? `<span style="color:#888;font-size:12px">💰 ${fmtBronze(r.goldAmount)} (already collected)</span>` : '';
 
+  let itemBtn = '';
+  if (r.hasItem) {
+    if (r.isExpired) {
+      itemBtn = `<div style="color:#ef5350;font-size:12px;margin-top:10px">⏰ This item has expired and was lost.</div>`;
+    } else if (r.itemCollected) {
+      itemBtn = `<div style="color:#888;font-size:12px;margin-top:10px">📦 ${r.itemName} (already claimed)</div>`;
+    } else {
+      const exp = r.expiresAt ? r.expiresAt.substring(0, 10) : '';
+      itemBtn = `
+        <div style="background:#1a0a2e;border:1px solid #a78bfa;border-radius:6px;padding:10px;margin-top:10px">
+          <div style="color:#a78bfa;font-weight:bold">📦 ${r.itemName}</div>
+          ${exp ? `<div style="color:#888;font-size:11px">Expires: ${exp}</div>` : ''}
+          <button onclick="mailClaimItem(${id})" style="margin-top:6px;background:#5b21b6;font-size:12px">
+            📦 Add to Bag
+          </button>
+        </div>`;
+    }
+  }
+
   panel.innerHTML = `
     <div style="display:flex;justify-content:space-between;align-items:flex-start">
       <strong>From: ${r.from}</strong>
@@ -2560,6 +2581,7 @@ async function mailOpen(id) {
     <div style="background:#111;border-radius:4px;padding:10px;margin-top:8px;
                 white-space:pre-wrap;font-size:13px;line-height:1.5">${r.message}</div>
     ${goldBtn}
+    ${itemBtn}
   `;
 
   // Refresh unread badge
@@ -2573,6 +2595,15 @@ async function mailCollect(id) {
   mailMsg(r.message);
   await loadMail();
   loadWarrior();
+}
+
+async function mailClaimItem(id) {
+  const r = await api('POST', `/api/mail/${id}/claim-item`);
+  if (r.error) { mailMsg(r.error, false); return; }
+  mailMsg(`📦 ${r.message}`);
+  await loadMail();
+  loadWarrior();
+  loadInventory();
 }
 
 async function mailDelete(id) {

@@ -20,6 +20,8 @@ public class SmithingService {
 
     private final GatheringService        gatheringService;
     private final InventoryItemRepository inventoryRepository;
+    private final InventoryService        inventoryService;
+    private final MailService             mailService;
     private final SocketedGemRepository   gemRepository;
     private final PlayerService           playerService;
     private final ItemLoreGenerator       loreGenerator;
@@ -117,32 +119,33 @@ public class SmithingService {
         recipe.ingredients().forEach((res, qty) ->
             gatheringService.removeResource(player, res, qty));
 
-        // Cria o item
-        InventoryItem item = new InventoryItem();
-        item.setPlayer(player);
-        item.setName(recipe.name());
-        item.setType(com.medieval.game.enums.ItemType.WEAPON); // simplificado por enquanto
-        item.setAttackBonus(recipe.atk());
-        item.setDefenseBonus(recipe.def());
-        item.setHealthBonus(recipe.hp());
-        item.setRarity(recipe.rarity());
-        item.setSockets(recipe.sockets());
-        item.setSellPrice(recipe.smithingLevel() * 50L);
-
         // Detecta tipo pelo nome
-        if (recipe.name().toLowerCase().contains("armadura")) {
-            item.setType(com.medieval.game.enums.ItemType.ARMOR);
-        }
+        com.medieval.game.enums.ItemType itemType = recipe.name().toLowerCase().contains("armadura")
+                ? com.medieval.game.enums.ItemType.ARMOR
+                : com.medieval.game.enums.ItemType.WEAPON;
 
-        item.setDescription(loreGenerator.generateLore(recipe.rarity(), item.getType(), new java.util.Random()));
-        item.setOrigin(loreGenerator.originFromSmithing());
+        String desc   = loreGenerator.generateLore(recipe.rarity(), itemType, new java.util.Random());
+        String origin = loreGenerator.originFromSmithing();
+        long   sell   = recipe.smithingLevel() * 50L;
 
         int xp = recipe.smithingLevel() * 10;
         gatheringService.addSkillXp(smithing, xp);
 
-        InventoryItem saved = inventoryRepository.save(item);
-        log.info("[SmithingService] player={} action=craftEquipment OK recipeId={} itemId={} name={}", player.getId(), recipeId, saved.getId(), saved.getName());
-        return saved;
+        InventoryItem result;
+        if (inventoryService.bagSize(player) < player.getMaxInventorySlots()) {
+            result = inventoryService.make(player, recipe.name(), itemType,
+                    recipe.atk(), recipe.def(), recipe.hp(), recipe.rarity(), sell, desc, origin);
+            result.setSockets(recipe.sockets());
+            inventoryRepository.save(result);
+            log.info("[SmithingService] player={} action=craftEquipment OK recipeId={} itemId={} name={}", player.getId(), recipeId, result.getId(), result.getName());
+        } else {
+            mailService.sendItemMail(player, "Forjado na Oficina.",
+                    recipe.name(), itemType, recipe.atk(), recipe.def(), recipe.hp(),
+                    recipe.rarity(), recipe.sockets(), desc, origin);
+            log.info("[SmithingService] player={} action=craftEquipment OK (sent to mail — bag full) recipeId={}", player.getId(), recipeId);
+            result = null;
+        }
+        return result;
     }
 
     // ── Craftar joia (3 fragmentos → 1 joia) ──

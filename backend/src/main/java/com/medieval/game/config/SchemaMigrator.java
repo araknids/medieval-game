@@ -25,6 +25,7 @@ public class SchemaMigrator {
     public void migrate() {
         patchZoneActivityRoleCheck();
         patchPlayerSoulStoneColumns();
+        patchMailItemColumns();
     }
 
     // players: add SoulStone columns if not present (Hibernate adds them but needs explicit DEFAULT)
@@ -51,6 +52,35 @@ public class SchemaMigrator {
             log.info("[SchemaMigrator] players SoulStone columns ensured");
         } catch (Exception e) {
             log.warn("[SchemaMigrator] players SoulStone columns patch failed: {}", e.getMessage());
+        }
+    }
+
+    // mail: add item-attachment columns and expiresAt (bag-full overflow system)
+    private void patchMailItemColumns() {
+        try {
+            jdbc.execute("""
+                DO $$
+                BEGIN
+                    IF NOT EXISTS (SELECT 1 FROM information_schema.columns
+                                   WHERE table_name='mail' AND column_name='item_name') THEN
+                        ALTER TABLE mail ADD COLUMN item_name        varchar(255);
+                        ALTER TABLE mail ADD COLUMN item_type        varchar(50);
+                        ALTER TABLE mail ADD COLUMN item_atk         integer NOT NULL DEFAULT 0;
+                        ALTER TABLE mail ADD COLUMN item_def         integer NOT NULL DEFAULT 0;
+                        ALTER TABLE mail ADD COLUMN item_hp          integer NOT NULL DEFAULT 0;
+                        ALTER TABLE mail ADD COLUMN item_rarity      integer NOT NULL DEFAULT 1;
+                        ALTER TABLE mail ADD COLUMN item_sockets     integer NOT NULL DEFAULT 0;
+                        ALTER TABLE mail ADD COLUMN item_description text;
+                        ALTER TABLE mail ADD COLUMN item_origin      varchar(255);
+                        ALTER TABLE mail ADD COLUMN item_collected   boolean NOT NULL DEFAULT false;
+                        ALTER TABLE mail ADD COLUMN expires_at       timestamp;
+                    END IF;
+                END
+                $$;
+                """);
+            log.info("[SchemaMigrator] mail item columns ensured");
+        } catch (Exception e) {
+            log.warn("[SchemaMigrator] mail item columns patch failed: {}", e.getMessage());
         }
     }
 

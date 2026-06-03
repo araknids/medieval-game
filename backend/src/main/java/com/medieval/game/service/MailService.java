@@ -1,8 +1,11 @@
 package com.medieval.game.service;
 
+import com.medieval.game.enums.ItemType;
+import com.medieval.game.model.InventoryItem;
 import com.medieval.game.model.Mail;
 import com.medieval.game.model.Player;
 import com.medieval.game.model.Warrior;
+import com.medieval.game.repository.InventoryItemRepository;
 import com.medieval.game.repository.MailRepository;
 import com.medieval.game.repository.PlayerRepository;
 import com.medieval.game.repository.WarriorRepository;
@@ -22,10 +25,13 @@ public class MailService {
     // Using 1 silver as the fee keeps it meaningful without locking out new players.
     private static final long SEND_FEE_BRONZE = 100L; // 1 silver
 
-    private final MailRepository    mailRepository;
-    private final PlayerRepository  playerRepository;
-    private final WarriorRepository warriorRepository;
-    private final PlayerService     playerService;
+    private static final int ITEM_MAIL_EXPIRY_DAYS = 7;
+
+    private final MailRepository          mailRepository;
+    private final PlayerRepository        playerRepository;
+    private final WarriorRepository       warriorRepository;
+    private final InventoryItemRepository inventoryRepository;
+    private final PlayerService           playerService;
 
     // ── Send letter ───────────────────────────────────────────────────────────
     @Transactional
@@ -114,6 +120,65 @@ public class MailService {
     // ── Unread count ──────────────────────────────────────────────────────────
     public long unreadCount(Player player) {
         return mailRepository.countUnreadByRecipientPlayerId(player.getId());
+    }
+
+    // ── Item mail (bag-full overflow) ─────────────────────────────────────────
+
+    /**
+     * Sends a system mail with an item attached to the recipient's inbox.
+     * Used when a player's bag is full and they would have received an item.
+     * The item data is stored in the mail and created in the inventory only
+     * when the player explicitly claims it.
+     */
+    @Transactional
+    public Mail sendItemMail(Player recipient, String reason,
+                             String itemName, ItemType itemType,
+                             int atk, int def, int hp, int rarity, int sockets,
+                             String description, String origin) {
+        Mail mail = new Mail();
+        mail.setSenderPlayerId(0L);           // 0 = system sender
+        mail.setSenderWarriorName("Sistema");
+        mail.setRecipientPlayerId(recipient.getId());
+        mail.setMessage("📦 Item recebido! Sua bag estava cheia. " + reason
+                + "\n\n⏳ Este item expira em " + ITEM_MAIL_EXPIRY_DAYS + " dias.");
+        mail.setItemName(itemName);
+        mail.setItemType(itemType.name());
+        mail.setItemAtk(atk);
+        mail.setItemDef(def);
+        mail.setItemHp(hp);
+        mail.setItemRarity(rarity);
+        mail.setItemSockets(sockets);
+        mail.setItemDescription(description);
+        mail.setItemOrigin(origin);
+        mail.setExpiresAt(LocalDateTime.now().plusDays(ITEM_MAIL_EXPIRY_DAYS));
+        return mailRepository.save(mail);
+    }
+
+    /**
+     * Claims the item attached to a mail, adding it to the player's inventory.
+     * Fails if bag is still full or if item was already collected / mail expired.
+     */
+    @Transactional
+    public InventoryItem claimItem(Player player, Long mailId, InventoryService inventoryService) {
+        Mail mail = requireRecipient(player, mailId);
+        if (!mail.hasItem())
+            throw new IllegalStateException("This letter has no item attached.");
+        if (mail.isItemCollected())
+            throw new IllegalStateException("Item already collected.");
+        if (mail.isExpired())
+            throw new IllegalStateException("This letter has expired. The item was lost.");
+
+        ItemType type = ItemType.valueOf(mail.getItemType());
+        InventoryItem item = inventoryService.make(
+                player, mail.getItemName(), type,
+                mail.getItemAtk(), mail.getItemDef(), mail.getItemHp(),
+                mail.getItemRarity(), 0L,
+                mail.getItemDescription(), mail.getItemOrigin());
+
+        mail.setItemCollected(true);
+        if (!mail.isRead()) mail.setReadAt(LocalDateTime.now());
+        mailRepository.save(mail);
+        return item;
     }
 
     // ── Helper ────────────────────────────────────────────────────────────────

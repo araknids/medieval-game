@@ -1,7 +1,9 @@
 package com.medieval.game.controller;
 
+import com.medieval.game.model.InventoryItem;
 import com.medieval.game.model.Mail;
 import com.medieval.game.model.Player;
+import com.medieval.game.service.InventoryService;
 import com.medieval.game.service.MailService;
 import com.medieval.game.service.PlayerService;
 import lombok.RequiredArgsConstructor;
@@ -17,8 +19,9 @@ import java.util.Map;
 @RequiredArgsConstructor
 public class MailController {
 
-    private final MailService  mailService;
-    private final PlayerService playerService;
+    private final MailService     mailService;
+    private final PlayerService   playerService;
+    private final InventoryService inventoryService;
 
     // ── Inbox ─────────────────────────────────────────────────────────────────
     @GetMapping("/inbox")
@@ -79,6 +82,21 @@ public class MailController {
         }
     }
 
+    // ── Claim item from mail ──────────────────────────────────────────────────
+    @PostMapping("/{id}/claim-item")
+    public ResponseEntity<?> claimItem(@PathVariable Long id, Authentication auth) {
+        try {
+            Player player = getPlayer(auth);
+            InventoryItem item = mailService.claimItem(player, id, inventoryService);
+            return ResponseEntity.ok(Map.of(
+                "message",  "Item '" + item.getName() + "' added to your bag!",
+                "itemName", item.getName()
+            ));
+        } catch (IllegalArgumentException | IllegalStateException e) {
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+        }
+    }
+
     // ── Delete ────────────────────────────────────────────────────────────────
     @DeleteMapping("/{id}")
     public ResponseEntity<?> delete(@PathVariable Long id, Authentication auth) {
@@ -97,14 +115,19 @@ public class MailController {
 
     private Map<String, Object> toMap(Mail m, boolean isSent) {
         return Map.ofEntries(
-            Map.entry("id",          m.getId()),
-            Map.entry("from",        m.getSenderWarriorName()),
-            Map.entry("message",     m.getMessage()),
-            Map.entry("goldAmount",  m.getGoldAmount()),
-            Map.entry("sentAt",      m.getSentAt().toString()),
-            Map.entry("isRead",      m.isRead()),
-            Map.entry("isCollected", m.isCollected()),
-            Map.entry("hasGold",     m.getGoldAmount() > 0 && !m.isCollected())
+            Map.entry("id",              m.getId()),
+            Map.entry("from",            m.getSenderWarriorName()),
+            Map.entry("message",         m.getMessage()),
+            Map.entry("goldAmount",      m.getGoldAmount()),
+            Map.entry("sentAt",          m.getSentAt().toString()),
+            Map.entry("isRead",          m.isRead()),
+            Map.entry("isCollected",     m.isCollected()),
+            Map.entry("hasGold",         m.getGoldAmount() > 0 && !m.isCollected()),
+            Map.entry("hasItem",         m.hasItem()),
+            Map.entry("itemName",        m.getItemName()  != null ? m.getItemName()  : ""),
+            Map.entry("itemCollected",   m.isItemCollected()),
+            Map.entry("isExpired",       m.isExpired()),
+            Map.entry("expiresAt",       m.getExpiresAt() != null ? m.getExpiresAt().toString() : "")
         );
     }
 

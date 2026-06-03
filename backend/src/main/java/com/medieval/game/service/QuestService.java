@@ -28,6 +28,7 @@ public class QuestService {
     private final PlayerService         playerService;
     private final WarriorService        warriorService;
     private final InventoryService      inventoryService;
+    private final MailService           mailService;
     private final ItemLoreGenerator     loreGenerator;
     private final TerritoryService      territoryService;
 
@@ -204,7 +205,15 @@ public class QuestService {
         String name   = itemName(type, rarity, rng);
         String lore   = loreGenerator.generateLore(rarity, type, rng);
         String origin = loreGenerator.originFromQuest(questName);
-        return inventoryService.make(player, name, type, atk, def, hp, rarity, sellPrice, lore, origin);
+
+        if (inventoryService.bagSize(player) < player.getMaxInventorySlots()) {
+            return inventoryService.make(player, name, type, atk, def, hp, rarity, sellPrice, lore, origin);
+        } else {
+            mailService.sendItemMail(player, "Drop de: " + questName,
+                    name, type, atk, def, hp, rarity, 0, lore, origin);
+            log.info("[QuestService] player={} bag full — item '{}' sent to mail", player.getId(), name);
+            return null;
+        }
     }
 
     private String itemName(ItemType type, int rarity, Random rng) {
