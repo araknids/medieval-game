@@ -5,12 +5,14 @@ import com.medieval.game.model.InventoryItem;
 import com.medieval.game.model.Player;
 import com.medieval.game.model.Warrior;
 import com.medieval.game.repository.InventoryItemRepository;
+import com.medieval.game.repository.PlayerRepository;
 import com.medieval.game.repository.WarriorRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.Arrays;
 import java.util.List;
@@ -20,13 +22,16 @@ import java.util.List;
 @RequiredArgsConstructor
 public class TempleService {
 
-    private static final long HEAL_COST_BRONZE  = 100; // 1 prata (grátis ≤ lv 10)
-    private static final long PROTECT_COST      = 50;  // bronze por item
-    private static final int  MAX_PROTECTED     = 3;
-    private static final long BUFF_DURATION_MIN = 60;  // 1 hora
+    private static final long HEAL_COST_BRONZE      = 100;
+    private static final long PROTECT_COST          = 50;
+    private static final int  MAX_PROTECTED         = 3;
+    private static final long BUFF_DURATION_MIN     = 60;
+    private static final int  SS_HEAL_COST          = 1;   // SoulStones
+    private static final int  SS_HEAL_CD_MINUTES    = 30;
 
     private final WarriorRepository       warriorRepository;
     private final InventoryItemRepository inventoryRepository;
+    private final PlayerRepository        playerRepository;
     private final PlayerService           playerService;
 
     // ── Curar guerreiro ──
@@ -53,6 +58,44 @@ public class TempleService {
         warrior.healFull();
         warriorRepository.save(warrior);
         log.info("[TempleService] player={} action=heal OK cost={}", player.getId(), cost);
+    }
+
+    // ── Cura instantânea via SoulStone ──
+
+    public long soulstoneHealCooldownSecs(Player player) {
+        if (player.getLastSoulstoneHealAt() == null) return 0;
+        long elapsed = Duration.between(player.getLastSoulstoneHealAt(), LocalDateTime.now()).toSeconds();
+        return Math.max(0, SS_HEAL_CD_MINUTES * 60L - elapsed);
+    }
+
+    @Transactional
+    public void soulstoneHeal(Player player) {
+        log.info("[TempleService] player={} action=soulstoneHeal", player.getId());
+
+        long cdSecs = soulstoneHealCooldownSecs(player);
+        if (cdSecs > 0) {
+            log.warn("[TempleService] player={} REJECTED: soulstoneHeal on cooldown {}s", player.getId(), cdSecs);
+            throw new IllegalStateException("Instant heal on cooldown. Wait " + (cdSecs / 60) + "m " + (cdSecs % 60) + "s.");
+        }
+        if (player.getSoulStones() < SS_HEAL_COST) {
+            log.warn("[TempleService] player={} REJECTED: not enough SoulStones ({}<{})", player.getId(), player.getSoulStones(), SS_HEAL_COST);
+            throw new IllegalStateException("Not enough SoulStones. Required: " + SS_HEAL_COST);
+        }
+
+        Warrior warrior = warriorRepository.findByPlayer(player)
+                .orElseThrow(() -> new IllegalStateException("Warrior not found"));
+        if (warrior.getCalculatedHpPercent() >= 100) {
+            log.warn("[TempleService] player={} REJECTED: warrior already at full HP", player.getId());
+            throw new IllegalStateException("Your warrior already has full HP!");
+        }
+
+        player.setSoulStones(player.getSoulStones() - SS_HEAL_COST);
+        player.setLastSoulstoneHealAt(LocalDateTime.now());
+        playerRepository.save(player);
+
+        warrior.healFull();
+        warriorRepository.save(warrior);
+        log.info("[TempleService] player={} action=soulstoneHeal OK stonesLeft={}", player.getId(), player.getSoulStones());
     }
 
     // ── Buff / Bênção ──

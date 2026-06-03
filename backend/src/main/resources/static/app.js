@@ -354,6 +354,9 @@ async function loadWarrior() {
     <div style="font-size:.7rem;color:#888;margin-top:.1rem">
       ⚡ ${t('stat.stamina')} ${stamina}/100
     </div>
+    ${(warrior.soulStones ?? 0) > 0 ? `<div style="font-size:.72rem;color:#a78bfa;margin-top:.3rem;font-weight:600">
+      💎 ${warrior.soulStones} SoulStone${warrior.soulStones !== 1 ? 's' : ''}
+    </div>` : ''}
     ${busy ? `<button class="btn-cancel-work" onclick="freeWarrior()" style="margin-top:.4rem;font-size:.72rem">
       🔓 ${t('status.free_btn')}
     </button>` : ''}`;
@@ -762,9 +765,40 @@ async function spendPoint(attributeId) {
   await loadWarrior();
 }
 
+async function expandInventory() {
+  const r = await api('POST', '/api/inventory/expand');
+  if (r.error) { showMessage(r.error, true); return; }
+  showMessage(r.message);
+  await loadWarrior();
+  loadInventory();
+}
+
 async function loadInventory() {
-  const items = await api('GET', '/api/inventory');
+  const [items, slots] = await Promise.all([
+    api('GET', '/api/inventory'),
+    api('GET', '/api/inventory/slots')
+  ]);
   if (!Array.isArray(items)) return;
+
+  // Barra de slots da bag
+  const slotEl = document.getElementById('bag-slot-info');
+  if (slotEl && slots && !slots.error) {
+    const pct   = Math.min(100, Math.round(slots.bagSize / slots.maxSlots * 100));
+    const color = pct >= 90 ? '#ef5350' : pct >= 70 ? '#ffc107' : '#4caf50';
+    const expandBtn = !slots.inventoryExpanded && (slots.soulStones ?? 0) >= 3
+      ? `<button onclick="expandInventory()" style="font-size:11px;padding:3px 8px;background:#5b21b6;margin-left:8px">💎 Expand (3 SS)</button>`
+      : slots.inventoryExpanded
+      ? '<span style="font-size:11px;color:#a78bfa;margin-left:8px">💎 VIP — 20 slots</span>'
+      : '';
+    slotEl.innerHTML = `
+      <div style="display:flex;align-items:center;gap:6px;margin-bottom:8px;flex-wrap:wrap">
+        <span style="font-size:12px;color:#888">Bag: ${slots.bagSize}/${slots.maxSlots}</span>
+        <div style="flex:1;min-width:80px;height:6px;background:#333;border-radius:3px">
+          <div style="width:${pct}%;height:100%;background:${color};border-radius:3px"></div>
+        </div>
+        ${expandBtn}
+      </div>`;
+  }
 
   const equipped = {};
   const bag = [];
@@ -931,6 +965,22 @@ function renderTemple(data) {
               ${data.hpPercent >= 100 ? 'disabled' : ''}>
         ${data.hpPercent >= 100 ? '✓ HP Cheio' : healLabel}
       </button>
+      ${(() => {
+        if (!data.soulStones) return '';
+        const cdSecs = data.ssHealCooldownSecs || 0;
+        const disabled = data.hpPercent >= 100 || cdSecs > 0;
+        const label = data.hpPercent >= 100
+          ? '✓ HP Cheio'
+          : cdSecs > 0
+          ? `⏳ Cooldown ${Math.floor(cdSecs/60)}m ${cdSecs%60}s`
+          : '💎 Cura Instantânea (1 SoulStone)';
+        return `<button class="btn-collect" onclick="soulstoneHeal()"
+                  style="margin-top:.4rem;background:#5b21b6"
+                  ${disabled ? 'disabled' : ''}>${label}</button>
+                <div style="font-size:.7rem;color:#a78bfa;margin-top:.2rem">
+                  💎 ${data.soulStones} SoulStone${data.soulStones!==1?'s':''} · CD 30 min
+                </div>`;
+      })()}
     </div>
 
     <div class="sk-section">
@@ -970,6 +1020,14 @@ async function loadTempleItems() {
 
 async function healWarrior() {
   const data = await api('POST', '/api/temple/heal');
+  if (data.error) { showMessage(data.error, true); return; }
+  showMessage(data.message);
+  await loadWarrior();
+  loadTemple();
+}
+
+async function soulstoneHeal() {
+  const data = await api('POST', '/api/temple/soulstone-heal');
   if (data.error) { showMessage(data.error, true); return; }
   showMessage(data.message);
   await loadWarrior();

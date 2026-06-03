@@ -131,7 +131,8 @@ public class WarriorController {
                 player.getRankPoints(),
                 hpPercent, warrior.isKnockedOut(),
                 buffName, buffSecsLeft,
-                warrior.isOnMission()
+                warrior.isOnMission(),
+                player.getSoulStones()
         );
     }
 
@@ -149,5 +150,6 @@ public class WarriorController {
                            int rankPoints,
                            int hpPercent, boolean isKnockedOut,
                            String activeBuff, long buffSecondsLeft,
-                           boolean onMission) {}
+                           boolean onMission,
+                           int soulStones) {}
 }

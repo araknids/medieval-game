@@ -51,16 +51,21 @@ public class TempleController {
             "bronzeCost",  b.bronzeCost
         )).toList();
 
-        return ResponseEntity.ok(Map.of(
-            "hpPercent",        hpPct,
-            "isKnockedOut",     warrior != null && warrior.isKnockedOut(),
-            "healCost",         healCost,
-            "healFree",         healCost == 0,
-            "protectedCount",   protectedCount,
-            "maxProtected",     3,
-            "activeBuff",       activeBuff != null ? activeBuff : "",
-            "buffSecondsLeft",  buffSecondsLeft,
-            "buffs",            buffs
+        long ssHealCdSecs = templeService.soulstoneHealCooldownSecs(player);
+
+        return ResponseEntity.ok(Map.ofEntries(
+            Map.entry("hpPercent",          hpPct),
+            Map.entry("isKnockedOut",        warrior != null && warrior.isKnockedOut()),
+            Map.entry("healCost",            healCost),
+            Map.entry("healFree",            healCost == 0),
+            Map.entry("protectedCount",      protectedCount),
+            Map.entry("maxProtected",        3),
+            Map.entry("activeBuff",          activeBuff != null ? activeBuff : ""),
+            Map.entry("buffSecondsLeft",     buffSecondsLeft),
+            Map.entry("buffs",               buffs),
+            Map.entry("soulStones",          player.getSoulStones()),
+            Map.entry("ssHealCooldownSecs",  ssHealCdSecs),
+            Map.entry("ssHealReady",         ssHealCdSecs == 0)
         ));
     }
 
@@ -106,6 +111,21 @@ public class TempleController {
         try {
             templeService.unprotectItem(getPlayer(auth), itemId);
             return ResponseEntity.ok(Map.of("message", "Protection removed."));
+        } catch (IllegalArgumentException | IllegalStateException e) {
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+        }
+    }
+
+    // SoulStone — cura instantânea (1 💎, CD 30 min)
+    @PostMapping("/soulstone-heal")
+    public ResponseEntity<?> soulstoneHeal(Authentication auth) {
+        try {
+            Player player = getPlayer(auth);
+            templeService.soulstoneHeal(player);
+            return ResponseEntity.ok(Map.of(
+                "message",    "Warrior instantly healed! HP restored to 100%.",
+                "soulStones", player.getSoulStones()
+            ));
         } catch (IllegalArgumentException | IllegalStateException e) {
             return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
         }
