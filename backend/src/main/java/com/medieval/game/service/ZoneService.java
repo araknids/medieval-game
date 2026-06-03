@@ -335,7 +335,7 @@ public class ZoneService {
     private PvpResult resolveEncounters(Player player, ZoneActivity activity) {
         Zone   zone  = activity.getZone();
         int    hours = Math.max(1, activity.getDurationMinutes() / 60);
-        Random rng   = new Random();
+        Random rng   = java.util.concurrent.ThreadLocalRandom.current();
 
         Warrior attacker = warriorRepository.findByPlayer(player).orElse(null);
         if (attacker == null) return new PvpResult(false, true, 0, null, List.of());
@@ -557,7 +557,7 @@ public class ZoneService {
     }
 
     private String maybeDropEquippedItem(Player player) {
-        Random rng = new Random();
+        Random rng = java.util.concurrent.ThreadLocalRandom.current();
         if (rng.nextDouble() >= 0.10) return null; // 10% chance
 
         // Itens protegidos pelo Templo não caem

@@ -84,7 +84,7 @@ public class ArenaService {
             opponentName = oWarrior != null ? oWarrior.getName() : opponent.getUsername();
             oStats = oWarrior != null ? totalStats(opponent, oWarrior) : npcStats();
         } else {
-            opponentName = NPC_NAMES[new Random().nextInt(NPC_NAMES.length)];
+            opponentName = NPC_NAMES[java.util.concurrent.ThreadLocalRandom.current().nextInt(NPC_NAMES.length)];
             oStats = npcStats();
         }
 
@@ -202,7 +202,7 @@ public class ArenaService {
     }
 
     private int[] npcStats() {
-        Random r = new Random();
+        Random r = java.util.concurrent.ThreadLocalRandom.current();
         // NPC: atk, def, hp, dex(AC~15), strBonus(+1), luk(5)
         return new int[]{ 12 + r.nextInt(8), 8 + r.nextInt(6), 90 + r.nextInt(40), 5, 1, 5 };
     }

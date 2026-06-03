@@ -110,7 +110,7 @@ public class BattleSimulator {
             String oName, int oAtk, int oDef, int oHp, int oDex, int oStrBonus, int oLuk) {
 
         List<String> log = new ArrayList<>();
-        Random rng = new Random();
+        Random rng = java.util.concurrent.ThreadLocalRandom.current();
 
         int cCurrentHp = cHp;
         int oCurrentHp = oHp;

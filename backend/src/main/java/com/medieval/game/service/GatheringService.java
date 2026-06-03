@@ -259,7 +259,7 @@ public class GatheringService {
     }
 
     private List<ResourceDrop> rollDrops(SkillType skill, int level, int duration) {
-        Random rng = new Random();
+        Random rng = java.util.concurrent.ThreadLocalRandom.current();
         List<ResourceDrop> drops = new ArrayList<>();
 
         if (skill == SkillType.FISHING) {

@@ -5,7 +5,6 @@ import com.medieval.game.enums.SkillType;
 import com.medieval.game.model.InventoryItem;
 import com.medieval.game.model.Player;
 import com.medieval.game.model.SocketedGem;
-import com.medieval.game.repository.SocketedGemRepository;
 import com.medieval.game.service.GatheringService;
 import com.medieval.game.service.PlayerService;
 import com.medieval.game.service.SmithingService;
@@ -25,7 +24,6 @@ public class SmithingController {
     private final SmithingService    smithingService;
     private final GatheringService   gatheringService;
     private final PlayerService      playerService;
-    private final SocketedGemRepository gemRepository;
 
     // Receitas disponíveis
     @GetMapping("/recipes")
@@ -149,8 +147,7 @@ public class SmithingController {
     // Joias encaixadas em um item
     @GetMapping("/gems/{itemId}")
     public ResponseEntity<?> getGems(@PathVariable Long itemId, Authentication auth) {
-        getPlayer(auth); // verifica autenticação
-        var gems = gemRepository.findAllByItem(new InventoryItem() {{ setId(itemId); }})
+        var gems = smithingService.gemsForOwnedItem(getPlayer(auth), itemId)
                 .stream().map(g -> Map.of(
                     "slot",    g.getSlotIndex(),
                     "gem",     g.getGemType().name(),

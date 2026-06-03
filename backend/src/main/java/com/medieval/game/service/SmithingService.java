@@ -293,6 +293,17 @@ public class SmithingService {
         return r * r * r * 500;
     }
 
+    // ── Joias de um item do próprio jogador (valida ownership) ── [AUDITORIA B2]
+    @Transactional(readOnly = true)
+    public List<SocketedGem> gemsForOwnedItem(Player player, Long itemId) {
+        InventoryItem item = inventoryRepository.findById(itemId)
+                .orElseThrow(() -> new IllegalArgumentException("Item not found"));
+        if (!item.getPlayer().getId().equals(player.getId())) {
+            throw new IllegalStateException("Item does not belong to you");
+        }
+        return gemRepository.findAllByItem(item);
+    }
+
     // ── Calcula bonus total de joias de um item ──
     public GemBonus totalGemBonus(InventoryItem item) {
         List<SocketedGem> gems = gemRepository.findAllByItem(item);

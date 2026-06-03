@@ -90,26 +90,19 @@ public class SchemaMigrator {
     // mail: add item-attachment columns and expiresAt (bag-full overflow system)
     private void patchMailItemColumns() {
         try {
-            jdbc.execute("""
-                DO $$
-                BEGIN
-                    IF NOT EXISTS (SELECT 1 FROM information_schema.columns
-                                   WHERE table_name='mail' AND column_name='item_name') THEN
-                        ALTER TABLE mail ADD COLUMN item_name        varchar(255);
-                        ALTER TABLE mail ADD COLUMN item_type        varchar(50);
-                        ALTER TABLE mail ADD COLUMN item_atk         integer NOT NULL DEFAULT 0;
-                        ALTER TABLE mail ADD COLUMN item_def         integer NOT NULL DEFAULT 0;
-                        ALTER TABLE mail ADD COLUMN item_hp          integer NOT NULL DEFAULT 0;
-                        ALTER TABLE mail ADD COLUMN item_rarity      integer NOT NULL DEFAULT 1;
-                        ALTER TABLE mail ADD COLUMN item_sockets     integer NOT NULL DEFAULT 0;
-                        ALTER TABLE mail ADD COLUMN item_description text;
-                        ALTER TABLE mail ADD COLUMN item_origin      varchar(255);
-                        ALTER TABLE mail ADD COLUMN item_collected   boolean NOT NULL DEFAULT false;
-                        ALTER TABLE mail ADD COLUMN expires_at       timestamp;
-                    END IF;
-                END
-                $$;
-                """);
+            // ADD COLUMN IF NOT EXISTS por coluna (não agrupar num único IF — um IF
+            // que testa só a 1ª coluna pula as demais se a criação foi parcial). [AUDITORIA M3]
+            jdbc.execute("ALTER TABLE mail ADD COLUMN IF NOT EXISTS item_name        varchar(255)");
+            jdbc.execute("ALTER TABLE mail ADD COLUMN IF NOT EXISTS item_type        varchar(50)");
+            jdbc.execute("ALTER TABLE mail ADD COLUMN IF NOT EXISTS item_atk         integer NOT NULL DEFAULT 0");
+            jdbc.execute("ALTER TABLE mail ADD COLUMN IF NOT EXISTS item_def         integer NOT NULL DEFAULT 0");
+            jdbc.execute("ALTER TABLE mail ADD COLUMN IF NOT EXISTS item_hp          integer NOT NULL DEFAULT 0");
+            jdbc.execute("ALTER TABLE mail ADD COLUMN IF NOT EXISTS item_rarity      integer NOT NULL DEFAULT 1");
+            jdbc.execute("ALTER TABLE mail ADD COLUMN IF NOT EXISTS item_sockets     integer NOT NULL DEFAULT 0");
+            jdbc.execute("ALTER TABLE mail ADD COLUMN IF NOT EXISTS item_description text");
+            jdbc.execute("ALTER TABLE mail ADD COLUMN IF NOT EXISTS item_origin      varchar(255)");
+            jdbc.execute("ALTER TABLE mail ADD COLUMN IF NOT EXISTS item_collected   boolean NOT NULL DEFAULT false");
+            jdbc.execute("ALTER TABLE mail ADD COLUMN IF NOT EXISTS expires_at       timestamp");
             log.info("[SchemaMigrator] mail item columns ensured");
         } catch (Exception e) {
             log.warn("[SchemaMigrator] mail item columns patch failed: {}", e.getMessage());
@@ -144,21 +137,12 @@ public class SchemaMigrator {
     // players: add VIP Status columns
     private void patchPlayerVipColumns() {
         try {
-            jdbc.execute("""
-                DO $$
-                BEGIN
-                    IF NOT EXISTS (SELECT 1 FROM information_schema.columns
-                                   WHERE table_name='players' AND column_name='vip_expires_at') THEN
-                        ALTER TABLE players ADD COLUMN vip_expires_at       timestamp;
-                        ALTER TABLE players ADD COLUMN last_vip_heal_at     timestamp;
-                        ALTER TABLE players ADD COLUMN arena_fights_today   integer NOT NULL DEFAULT 0;
-                        ALTER TABLE players ADD COLUMN last_arena_fight_date date;
-                        ALTER TABLE players ADD COLUMN vip_instant_quests_today integer NOT NULL DEFAULT 0;
-                        ALTER TABLE players ADD COLUMN last_vip_quest_date  date;
-                    END IF;
-                END
-                $$;
-                """);
+            jdbc.execute("ALTER TABLE players ADD COLUMN IF NOT EXISTS vip_expires_at           timestamp");
+            jdbc.execute("ALTER TABLE players ADD COLUMN IF NOT EXISTS last_vip_heal_at         timestamp");
+            jdbc.execute("ALTER TABLE players ADD COLUMN IF NOT EXISTS arena_fights_today       integer NOT NULL DEFAULT 0");
+            jdbc.execute("ALTER TABLE players ADD COLUMN IF NOT EXISTS last_arena_fight_date    date");
+            jdbc.execute("ALTER TABLE players ADD COLUMN IF NOT EXISTS vip_instant_quests_today integer NOT NULL DEFAULT 0");
+            jdbc.execute("ALTER TABLE players ADD COLUMN IF NOT EXISTS last_vip_quest_date      date");
             log.info("[SchemaMigrator] players VIP columns ensured");
         } catch (Exception e) {
             log.warn("[SchemaMigrator] players VIP columns patch failed: {}", e.getMessage());
@@ -187,17 +171,8 @@ public class SchemaMigrator {
     // warriors: add second buff slot columns (VIP)
     private void patchWarriorBuff2Columns() {
         try {
-            jdbc.execute("""
-                DO $$
-                BEGIN
-                    IF NOT EXISTS (SELECT 1 FROM information_schema.columns
-                                   WHERE table_name='warriors' AND column_name='active_buff2') THEN
-                        ALTER TABLE warriors ADD COLUMN active_buff2    varchar(50);
-                        ALTER TABLE warriors ADD COLUMN buff_expires_at2 timestamp;
-                    END IF;
-                END
-                $$;
-                """);
+            jdbc.execute("ALTER TABLE warriors ADD COLUMN IF NOT EXISTS active_buff2     varchar(50)");
+            jdbc.execute("ALTER TABLE warriors ADD COLUMN IF NOT EXISTS buff_expires_at2 timestamp");
             log.info("[SchemaMigrator] warriors buff2 columns ensured");
         } catch (Exception e) {
             log.warn("[SchemaMigrator] warriors buff2 columns patch failed: {}", e.getMessage());

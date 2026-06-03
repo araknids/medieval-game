@@ -81,7 +81,9 @@ public class EmailService {
             restTemplate.postForObject("https://api.brevo.com/v3/smtp/email", request, String.class);
             log.info("Email enviado via Brevo para {}", to);
         } catch (Exception e) {
-            log.error("Erro ao enviar email via Brevo para {}: {}", to, e.getMessage());
+            // Loga com stacktrace para diagnóstico (antes só logava a mensagem). [AUDITORIA M16]
+            // Não relança: falha de email não deve quebrar registro/reset de senha.
+            log.error("Erro ao enviar email via Brevo para {}: {}", to, e.getMessage(), e);
         }
     }
 }

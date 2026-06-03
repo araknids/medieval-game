@@ -49,9 +49,9 @@ calibrados; o problema da economia é **renda escalável sem trava + impressoras
 
 | # | Status | Achado | Auditores | Local | Correção |
 |---|--------|--------|-----------|-------|----------|
-| M1 | ⬜ | Vender item ignora durabilidade ("lava" o desgaste) | Economia | `InventoryService.java:138` | `sellPrice × max(0.3, dur/100)`. |
+| M1 | ✅ | Vender item ignora durabilidade ("lava" o desgaste) | Economia | `InventoryService.java:138` | **RESOLVIDO:** preço de venda efetivo = `sellPrice × max(0.30, dur/100)`. Item a 100% não muda; surrado vende por menos (piso 30%). |
 | M2 | ⬜ | Check constraints de enum só patchados p/ `zone_activities.role` | Persistência | `SchemaMigrator.java:108` | Generalizar drop/recreate a partir de `Enum.values()` ou remover check; cobre `ResourceType`, `BuffType`, `ItemType` etc. |
-| M3 | ⬜ | 3 patches do SchemaMigrator ainda agrupam `ADD COLUMN` num só `IF` | Persistência | `SchemaMigrator.java:79,133,176` (mail/vip/buff2) | Converter p/ `ADD COLUMN IF NOT EXISTS` por coluna (como ambush/durability). |
+| M3 | ✅ | 3 patches do SchemaMigrator ainda agrupam `ADD COLUMN` num só `IF` | Persistência | `SchemaMigrator.java` (mail/vip/buff2) | **RESOLVIDO:** convertidos para `ADD COLUMN IF NOT EXISTS` por coluna (mail, players VIP, warriors buff2). |
 | M4 | ⬜ | `@Data` do Lombok em entidades JPA | 🔁 Persistência + Arquitetura | todas as `model/*.java` | Trocar por `@Getter/@Setter` + `equals/hashCode` por `id`; `TerritoryService:279` comparar por `getId()`. |
 | M5 | ⬜ | Perfil default = `dev` (instant-complete + adm/adm123) | 🔁 Economia + Arquitetura | `application.properties` | Default seguro = `prod`; abortar boot se `instant-complete=true` fora de dev. (Hoje instant está ligado de propósito p/ teste — desligar no go-live.) |
 | M6 | ⬜ | JWT: fallback hardcoded no repo, expiração 7d, reset não invalida tokens | Segurança | `config/JwtUtil.java`, `application.properties` | Falhar boot sem `JWT_SECRET` em prod; expiração menor + refresh; invalidar por `passwordChangedAt`. |
@@ -64,7 +64,7 @@ calibrados; o problema da economia é **renda escalável sem trava + impressoras
 | M13 | ⬜ | Resultado de batalha por parsing de string `WINNER:` | Arquitetura | `BattleSimulator` + consumidores | `simulate` retornar record com `winner`/`hpRestante` explícitos. |
 | M14 | ⬜ | Arena sem matchmaking; `findOpponent` carrega todos os players | Persistência + Economia | `ArenaService.java:192` | `ORDER BY RANDOM() LIMIT 1` / faixa de rank; ranking com `LIMIT` no banco. |
 | M15 | ⬜ | `getOrCreateSkill`/`getProfession` read-then-insert sem unique nem transação | Persistência | `GatheringService.java:32`, `WorkService.java:38` | Unique `(player,skill)`/`(player,work)`; tornar transacional. |
-| M16 | ⬜ | EmailService engole exceções (falha de email invisível) | Arquitetura | `EmailService.java:83` | Logar com stacktrace + sinalizar falha; considerar retry. |
+| M16 | ✅ | EmailService engole exceções (falha de email invisível) | Arquitetura | `EmailService.java:83` | **RESOLVIDO:** loga com stacktrace completo (`log.error(..., e)`). Não relança (falha de email não deve quebrar registro/reset). |
 
 ---
 
@@ -73,9 +73,9 @@ calibrados; o problema da economia é **renda escalável sem trava + impressoras
 | # | Status | Achado | Local | Nota |
 |---|--------|--------|-------|------|
 | B1 | ⬜ | Headers de segurança ausentes (CSP, nosniff, HSTS); `frameOptions` desabilitado | `SecurityConfig.java` | Defesa em profundidade. |
-| B2 | ⬜ | `GET /api/smithing/gems/{itemId}` não valida ownership | `SmithingController.java:174` | Vazamento de baixo valor (quais gemas num item alheio). |
+| B2 | ✅ | `GET /api/smithing/gems/{itemId}` não valida ownership | `SmithingController.java` | **RESOLVIDO:** novo `SmithingService.gemsForOwnedItem` valida dono (404/409 se não for seu) e elimina o anti-pattern `new InventoryItem(){{…}}` no controller. |
 | B3 | ⬜ | Campo legado `evasionChance` carrega o Armor Class (nome engana) | `Warrior.getEvasionChance`, `app.js` | Migrar front p/ `armorClass` e remover legado. |
-| B4 | ⬜ | `new Random()` por chamada (fairness/testabilidade) | vários services | Usar `ThreadLocalRandom`/instância estática. |
+| B4 | ✅ | `new Random()` por chamada (fairness/testabilidade) | vários services | **RESOLVIDO:** `ThreadLocalRandom.current()` em Arena, Zone, Gathering, Quest e BattleSimulator. |
 | B5 | ⬜ | Reset de senha usa UUIDv4 (não `SecureRandom`); não invalida tokens anteriores | `AuthController:103` | `SecureRandom` base64url + invalidar pendentes. |
 | B6 | ⬜ | Frontend monolítico (`app.js` ~3.466 linhas) + sem versionamento de API | `static/app.js` | Quebrar em módulos; introduzir `/api/v1/` antes do cliente Godot. |
 

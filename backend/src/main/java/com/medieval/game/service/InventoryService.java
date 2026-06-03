@@ -135,10 +135,14 @@ public class InventoryService {
             log.warn("[InventoryService] player={} REJECTED: item {} is equipped, unequip first", player.getId(), itemId);
             throw new IllegalStateException("Desequipe o item antes de vender");
         }
-        player.addBronzeAmount(item.getSellPrice()); // sell price é em bronze
+        // Preço efetivo escala com a durabilidade (piso 30%) — evita "lavar" o desgaste
+        // vendendo um item surrado pelo preço cheio em vez de reparar. [AUDITORIA M1]
+        long effectivePrice = Math.round(item.getSellPrice() * Math.max(0.30, item.getDurability() / 100.0));
+        player.addBronzeAmount(effectivePrice); // sell price é em bronze
         playerRepository.save(player);
         inventoryRepository.delete(item);
-        log.info("[InventoryService] player={} action=sell OK itemId={} name={} bronze={}", player.getId(), itemId, item.getName(), item.getSellPrice());
+        item.setSellPrice(effectivePrice); // reflete na resposta o valor efetivamente recebido
+        log.info("[InventoryService] player={} action=sell OK itemId={} name={} bronze={}", player.getId(), itemId, item.getName(), effectivePrice);
         return item;
     }
 

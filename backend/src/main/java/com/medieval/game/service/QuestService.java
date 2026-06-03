@@ -154,7 +154,7 @@ public class QuestService {
     // ── Drop system ──
 
     private InventoryItem rollDrop(Player player, QuestType type, int guildDropBonus) {
-        Random rng = new Random();
+        Random rng = java.util.concurrent.ThreadLocalRandom.current();
         Warrior warrior = warriorRepository.findByPlayer(player).orElse(null);
         int luckBonus = warrior != null ? warrior.getLuck() : 0;
 
