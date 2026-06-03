@@ -20,22 +20,27 @@ Nem todos os reinos são território de guild-war no início — uma **flag** li
 
 ---
 
-## Os 6 Reinos
+## Os 5 Reinos (Covil fundido na Fortaleza)
 
 | # | Reino | Ícone | Atividade | Loot / Função | Guild-war no início? |
 |---|-------|-------|-----------|---------------|----------------------|
 | 1 | Pesca — Águas Calmas | 🎣 | Pesca | Peixe que restaura **ESTAMINA** | ✅ (existente) |
 | 2 | Mar Abençoado | 🐟 | Pesca | Peixe que restaura **VIDA/HP** | ❌ aberto |
 | 3 | Minas de Ferro Negro | ⛏ | Mineração | **Só minério** (gemas saem daqui) | ✅ (existente) |
-| 4 | Grutas de Cristal | 🔎 | **Garimpo (NOVO)** | **Fragmentos de joia** | ❌ aberto |
-| 5 | Fortaleza Maldita | ⚔ | Combate (guerra/treino) | PvP de guild + treino + quests | ✅ (existente) |
-| 6 | Covil das Feras | 👹 | Combate PvE | **Farm de mobs** → gold + materiais escalando com level | ❌ aberto |
+| 4 | Grutas de Cristal | 🔎 | **Garimpo** | **Fragmentos de joia** | ❌ aberto |
+| 5 | Fortaleza Maldita | ⚔ | Combate (guerra/treino + **caçada PvE**) | PvP de guild + treino + quests + **farm de mobs** (gold/materiais) | ✅ (existente) |
 
 > **War inicial (flag) ✅ decidido:** os **3 reinos atuais** (Águas Calmas, Minas, Fortaleza) ficam
-> guild-war; os 3 novos (Mar Abençoado, Grutas de Cristal, Covil das Feras) começam como **zonas abertas**.
+> guild-war; os novos (Mar Abençoado, Grutas de Cristal) começam como **zonas abertas**.
 > Depois é só mudar a config `app.kingdoms.war-territories` pra ligar guerra em todos.
 >
-> *Nomes provisórios (Mar Abençoado / Grutas de Cristal / Covil das Feras) — mudáveis depois.*
+> **Covil das Feras → fundido na Fortaleza Maldita:** como o combate PvE tinha só a caçada de mobs
+> (um "item"), virou uma seção dentro da Fortaleza (`POST /api/world/COMBAT/raid`) em vez de reino próprio.
+>
+> **Quests:** cada reino tem **2 quests** (uma inicial curta/barata + uma avançada longa/rica).
+>
+> **Coleta gasta estamina:** pescar/minerar/garimpar consomem estamina (~metade dos minutos, mín. 5)
+> em produção — pulado em dev/test (instant-complete).
 
 ---
 

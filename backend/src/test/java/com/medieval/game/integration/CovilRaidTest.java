@@ -59,7 +59,7 @@ class CovilRaidTest extends BaseIntegrationTest {
     }
 
     @Test
-    @DisplayName("Caçada só é permitida no Covil das Feras (outro reino → 400)")
+    @DisplayName("Caçada só é permitida na Fortaleza Maldita (outro reino → 400)")
     void raid_onlyInCovil() throws Exception {
         mockMvc.perform(post("/api/world/FISHING/raid")
                         .header("Authorization", bearer(token))
@@ -68,7 +68,7 @@ class CovilRaidTest extends BaseIntegrationTest {
     }
 
     @Test
-    @DisplayName("POST /api/world/COVIL_DAS_FERAS/raid → 200 com resultado")
+    @DisplayName("POST /api/world/COMBAT/raid → 200 com resultado")
     void raid_endpoint_ok() throws Exception {
         Player p = player();
         Warrior w = warriorRepository.findByPlayer(p).orElseThrow();
@@ -76,7 +76,7 @@ class CovilRaidTest extends BaseIntegrationTest {
         w.setCurrentHpSnapshot(100); w.setHpUpdatedAt(java.time.LocalDateTime.now());
         warriorRepository.save(w);
 
-        mockMvc.perform(post("/api/world/COVIL_DAS_FERAS/raid")
+        mockMvc.perform(post("/api/world/COMBAT/raid")
                         .header("Authorization", bearer(token))
                         .contentType(MediaType.APPLICATION_JSON))
                 .andExpect(status().isOk())

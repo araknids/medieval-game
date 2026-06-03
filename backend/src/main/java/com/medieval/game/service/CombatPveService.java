@@ -17,8 +17,9 @@ import java.util.List;
 import java.util.concurrent.ThreadLocalRandom;
 
 /**
- * Combate PvE do Covil das Feras (Reinos V2 / Fase 4). Caçada repetível contra
- * mobs comuns que escalam com o nível do guerreiro e dropam gold + materiais.
+ * Combate PvE da Fortaleza Maldita (Reinos V2). Caçada repetível contra mobs
+ * comuns que escalam com o nível do guerreiro e dropam gold + materiais.
+ * (Antes era um reino próprio — Covil das Feras — fundido na Fortaleza.)
  * Chefes ficam reservados para a Tower. Reusa o BattleSimulator e o WarriorStatsService.
  */
 @Slf4j

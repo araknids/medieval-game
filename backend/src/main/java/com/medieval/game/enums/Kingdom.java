@@ -23,7 +23,7 @@ public enum Kingdom {
     COMBAT(
         "Fortaleza Maldita", "⚔", null,
         "Cavaleiro Amaldiçoado", 1.2, 1.0, 1.0, 10, // exclusiveBonus = % XP de quest
-        "An ancient fortress where warriors train and battle for glory. No mining, no fishing — only war."
+        "An ancient fortress where warriors train, battle for glory, and hunt the beasts prowling its walls. No mining, no fishing — only war."
     ),
     // ── Reinos V2 — não são guild-war por padrão (exclusiveBonus 0) ──
     GRUTAS_DE_CRISTAL(
@@ -35,11 +35,6 @@ public enum Kingdom {
         "Mar Abençoado", "🐟", SkillType.FISHING,   // mesma skill, pool de peixe de VIDA
         "Servo das Marés", 1.0, 1.0, 1.0, 0,
         "Águas sagradas onde nadam peixes que restauram a vida de quem os consome."
-    ),
-    COVIL_DAS_FERAS(
-        "Covil das Feras", "👹", null,              // combate PvE, sem skill de coleta
-        "Fera Selvagem", 1.0, 1.0, 1.0, 0,
-        "Um covil infestado de feras. Cace-as por ouro e materiais — quanto mais forte você, mais valiosas as presas."
     );
 
     public final String    displayName;

@@ -2764,7 +2764,7 @@ async function loadWorld() {
 }
 
 // Reinos V2: reino e território são o mesmo id agora (unificação Kingdom/Territory).
-// Reinos sem guild-war (Grutas/Mar/Covil) simplesmente não têm entrada em `territories`.
+// Reinos sem guild-war (Grutas/Mar) simplesmente não têm entrada em `territories`.
 
 function renderWorldOverview(kingdoms, territories) {
   const el = document.getElementById('world-content');
@@ -2773,8 +2773,7 @@ function renderWorldOverview(kingdoms, territories) {
     MINING:  ['Open Mine','Deep Tunnels','Forbidden Mines'],
     COMBAT:  ['Training Hall','Battlefield','War Zone'],
     GRUTAS_DE_CRISTAL: ['Veio Raso','Grutas Profundas','Caverna Proibida'],
-    MAR_ABENCOADO: ['Enseada Sagrada','Recife Profundo','Abismo Abençoado'],
-    COVIL_DAS_FERAS: ['Caçada','Feras', 'Materiais']
+    MAR_ABENCOADO: ['Enseada Sagrada','Recife Profundo','Abismo Abençoado']
   };
 
   const cards = kingdoms.map(k => {
@@ -2862,8 +2861,8 @@ async function enterKingdom(kingdom) {
 
 function renderKingdomDetail(kingdom, quests, activeQuests, training, gatherSession, zoneSession) {
   const el = document.getElementById('kingdom-detail');
-  const NAMES = { FISHING:'Desfiladeiro do Osso', MINING:'Minas de Ferro Negro', COMBAT:'Fortaleza Maldita', GRUTAS_DE_CRISTAL:'Grutas de Cristal', MAR_ABENCOADO:'Mar Abençoado', COVIL_DAS_FERAS:'Covil das Feras' };
-  const ICONS = { FISHING:'🎣', MINING:'⛏', COMBAT:'⚔', GRUTAS_DE_CRISTAL:'🔎', MAR_ABENCOADO:'🐟', COVIL_DAS_FERAS:'👹' };
+  const NAMES = { FISHING:'Desfiladeiro do Osso', MINING:'Minas de Ferro Negro', COMBAT:'Fortaleza Maldita', GRUTAS_DE_CRISTAL:'Grutas de Cristal', MAR_ABENCOADO:'Mar Abençoado' };
+  const ICONS = { FISHING:'🎣', MINING:'⛏', COMBAT:'⚔', GRUTAS_DE_CRISTAL:'🔎', MAR_ABENCOADO:'🐟' };
   const busy = activeQuests.length > 0
     || !!(warrior && warrior.onMission)
     || !!(gatherSession && gatherSession.active)
@@ -3072,9 +3071,9 @@ function renderKingdomDetail(kingdom, quests, activeQuests, training, gatherSess
       </div>`;
   }).join('');
 
-  // Covil das Feras — caçada PvE repetível (Reinos V2). [REINOS_V2]
+  // Fortaleza Maldita — caçada PvE repetível (antigo Covil das Feras). [REINOS_V2]
   let raidHtml = '';
-  if (kingdom === 'COVIL_DAS_FERAS') {
+  if (kingdom === 'COMBAT') {
     const lvl = warrior ? warrior.level : 1;
     raidHtml = `
       <div style="background:#2a1010;border:1px solid #7a1f1f;border-radius:8px;padding:12px;margin-bottom:12px">
@@ -3082,7 +3081,7 @@ function renderKingdomDetail(kingdom, quests, activeQuests, training, gatherSess
         <p style="font-size:12px;color:#aaa;margin:4px 0 8px">Mobs escalam com seu nível (Lv.${lvl}). Vitória rende ~${fmtBronze(lvl*10)}, ${lvl*12} XP e materiais (Núcleo de Fera). Custa 15⚡.</p>
         ${busy
           ? '<p style="font-size:11px;color:#f44336;margin:0">⚔ Guerreiro ocupado ou ferido</p>'
-          : `<button onclick="raidCovil()" style="background:#7a1f1f">⚔ Caçar</button>`}
+          : `<button onclick="raidCombat()" style="background:#7a1f1f">⚔ Caçar</button>`}
       </div>`;
   }
 
@@ -3107,9 +3106,9 @@ function renderKingdomDetail(kingdom, quests, activeQuests, training, gatherSess
     </div>`;
 }
 
-// Covil das Feras — dispara uma caçada PvE e mostra o resultado. [REINOS_V2]
-async function raidCovil() {
-  const r = await api('POST', '/api/world/COVIL_DAS_FERAS/raid');
+// Fortaleza Maldita — dispara uma caçada PvE e mostra o resultado. [REINOS_V2]
+async function raidCombat() {
+  const r = await api('POST', '/api/world/COMBAT/raid');
   if (r.error) { worldMsg(r.error, false); return; }
   await loadWarrior();
   const mats = (r.materials || []).map(m => `${m.displayName} ×${m.quantity}`).join(', ');

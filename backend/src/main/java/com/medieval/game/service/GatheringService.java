@@ -112,6 +112,21 @@ public class GatheringService {
             throw new IllegalArgumentException("Invalid duration");
         }
 
+        // Coletar (pesca/mineração/garimpo) consome estamina proporcional à duração. [REINOS_V2]
+        // Pulado em dev/test (instant-complete) pra não atrapalhar os timers zerados.
+        if (!instantComplete) {
+            int staminaCost = staminaCostFor(durationMinutes);
+            int current = player.getCalculatedStamina();
+            if (current < staminaCost) {
+                log.warn("[GatheringService] player={} REJECTED: estamina {}/{}", player.getId(), current, staminaCost);
+                throw new IllegalStateException("Estamina insuficiente (" + current + "/" + staminaCost +
+                        "). Coma um peixe ou descanse.");
+            }
+            player.setCurrentStamina(current - staminaCost);
+            player.setStaminaUpdatedAt(LocalDateTime.now());
+            playerRepository.save(player);
+        }
+
         SkillLevel skill = getOrCreateSkill(player, skillType);
         int xpReward = durationMinutes * (skill.getLevel() / 10 + 2);
 
@@ -131,6 +146,11 @@ public class GatheringService {
         GatheringSession saved = sessionRepository.save(session);
         log.info("[GatheringService] player={} action=startGathering OK id={}", player.getId(), saved.getId());
         return saved;
+    }
+
+    /** Estamina gasta por uma coleta, proporcional à duração (mín. 5, ~metade dos minutos). */
+    static int staminaCostFor(int durationMinutes) {
+        return Math.max(5, durationMinutes / 2);
     }
 
     public record ResourceDrop(ResourceType type, long quantity) {}

@@ -47,11 +47,11 @@ public class KingdomController {
         return ResponseEntity.ok(kingdoms);
     }
 
-    // ── Covil das Feras: caçada PvE repetível ─────────────────────────────────
+    // ── Fortaleza Maldita: caçada PvE repetível (antigo Covil das Feras) ───────
     @PostMapping("/{kingdom}/raid")
     public ResponseEntity<?> raid(@PathVariable Kingdom kingdom, Authentication auth) {
-        if (kingdom != Kingdom.COVIL_DAS_FERAS) {
-            return ResponseEntity.badRequest().body(Map.of("error", "Caçada só no Covil das Feras."));
+        if (kingdom != Kingdom.COMBAT) {
+            return ResponseEntity.badRequest().body(Map.of("error", "Caçada só na Fortaleza Maldita."));
         }
         var r = combatPveService.raid(getPlayer(auth));
         return ResponseEntity.ok(Map.of(

@@ -22,27 +22,27 @@ class WorldIntegrationTest extends BaseIntegrationTest {
         token = registerAndGetToken(uniqueUser("world"));
     }
 
-    // TC-142: GET /api/world returns 3 kingdoms
+    // TC-142: GET /api/world returns 5 kingdoms (Covil fundido na Fortaleza)
     @Test
-    @DisplayName("TC-142 | GET /api/world → 6 kingdoms (3 war + Grutas + Mar Abençoado + Covil)")
+    @DisplayName("TC-142 | GET /api/world → 5 kingdoms (3 war + Grutas + Mar Abençoado)")
     void tc142_listKingdoms_returns6() throws Exception {
         mockMvc.perform(get("/api/world").header("Authorization", bearer(token)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$").isArray())
-                .andExpect(jsonPath("$", hasSize(6)))
+                .andExpect(jsonPath("$", hasSize(5)))
                 .andExpect(jsonPath("$[0].kingdom").isNotEmpty())
                 .andExpect(jsonPath("$[0].displayName").isNotEmpty())
                 .andExpect(jsonPath("$[0].icon").isNotEmpty());
     }
 
-    // TC-143: GET /api/world/{kingdom}/quests returns 4 quests
+    // TC-143: GET /api/world/{kingdom}/quests returns 2 quests (Reinos V2)
     @Test
-    @DisplayName("TC-143 | GET /api/world/FISHING/quests → 4 quest types")
+    @DisplayName("TC-143 | GET /api/world/FISHING/quests → 2 quest types")
     void tc143_getFishingQuests_returns4() throws Exception {
         mockMvc.perform(get("/api/world/FISHING/quests").header("Authorization", bearer(token)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$").isArray())
-                .andExpect(jsonPath("$", hasSize(4)))
+                .andExpect(jsonPath("$", hasSize(2)))
                 .andExpect(jsonPath("$[0].displayName").isNotEmpty())
                 .andExpect(jsonPath("$[0].durationMinutes").isNumber());
     }
@@ -263,13 +263,13 @@ class WorldIntegrationTest extends BaseIntegrationTest {
                 .andExpect(jsonPath("$.status").value("IN_PROGRESS"));
     }
 
-    // TC-157: GET /api/world — COMBAT kingdom returns 4 quest types
+    // TC-157: GET /api/world — COMBAT kingdom returns 2 quest types (Reinos V2)
     @Test
-    @DisplayName("TC-157 | GET /api/world/COMBAT/quests → 4 quest types")
+    @DisplayName("TC-157 | GET /api/world/COMBAT/quests → 2 quest types")
     void tc157_getCombatQuests_returns4() throws Exception {
         mockMvc.perform(get("/api/world/COMBAT/quests").header("Authorization", bearer(token)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$").isArray())
-                .andExpect(jsonPath("$", hasSize(4)));
+                .andExpect(jsonPath("$", hasSize(2)));
     }
 }

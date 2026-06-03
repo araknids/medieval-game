@@ -28,17 +28,14 @@ class KingdomServiceTest {
         assertThat(fishingQuests).noneMatch(q -> q.kingdom == Kingdom.COMBAT);
     }
 
-    // TC-050: Cada reino de quest tem exatamente 4 quests. Reinos de coleta pura
-    // (ex.: GRUTAS_DE_CRISTAL/Garimpo) não têm quests. [REINOS_V2]
+    // TC-050: Cada reino tem exatamente 2 quests (padrão Reinos V2). [REINOS_V2]
     @Test
-    @DisplayName("TC-050 | Reinos com quest têm 4; reino de coleta (Grutas) tem 0")
+    @DisplayName("TC-050 | Cada reino tem exatamente 2 quests")
     void tc050_questKingdomsHave4() {
         for (Kingdom k : Kingdom.values()) {
             long count = Arrays.stream(KingdomQuestType.values())
                     .filter(q -> q.kingdom == k).count();
-            long expected = (k == Kingdom.GRUTAS_DE_CRISTAL || k == Kingdom.MAR_ABENCOADO
-                    || k == Kingdom.COVIL_DAS_FERAS) ? 0 : 4;
-            assertThat(count).as("Kingdom %s quest count", k).isEqualTo(expected);
+            assertThat(count).as("Kingdom %s quest count", k).isEqualTo(2);
         }
     }
 
@@ -51,7 +48,7 @@ class KingdomServiceTest {
             assertThat(war.npcName).as("%s npcName", war).isNotBlank();
             assertThat(war.exclusiveBonus).as("%s exclusiveBonus", war).isPositive();
         }
-        for (Kingdom v2 : new Kingdom[]{ Kingdom.GRUTAS_DE_CRISTAL, Kingdom.MAR_ABENCOADO, Kingdom.COVIL_DAS_FERAS }) {
+        for (Kingdom v2 : new Kingdom[]{ Kingdom.GRUTAS_DE_CRISTAL, Kingdom.MAR_ABENCOADO }) {
             assertThat(v2.exclusiveBonus).as("%s exclusiveBonus", v2).isZero();
         }
     }
