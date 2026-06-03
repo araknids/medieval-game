@@ -2980,4 +2980,67 @@ and auto-cancels the orphan before creating the new zone
 
 ---
 
-*Updated 2026-06-02. Total: 241 tests (TC-001-061 unit [includes RepeatedTests]; TC-051-160 integration; TC-096-097 regression).*
+---
+
+## Integration Tests — SoulStone VIP Currency (TC-161 to TC-175)
+**Class:** `SoulStoneIntegrationTest extends BaseIntegrationTest`
+
+### Saldo e Admin
+
+### TC-161: GET /api/warrior/me → soulStones = 0 para novo jogador
+Novo jogador registrado → `GET /api/warrior/me` → `soulStones = 0`.
+
+### TC-162: POST /api/admin/grant-soulstones → saldo aumenta
+Grant 5 stones → `GET /api/warrior/me` → `soulStones = 5`.
+
+### TC-163: POST /api/admin/grant-soulstones com amount=0 → 400
+amount ≤ 0 → 400 error.
+
+### TC-164: POST /api/admin/grant-soulstones com amount=101 → 400
+amount > 100 → 400 error.
+
+---
+
+### Cura Instantânea
+
+### TC-165: Soulstone heal sem stones → 400
+HP < 100, stones = 0 → `POST /api/temple/soulstone-heal` → 400 "Not enough SoulStones".
+
+### TC-166: Soulstone heal com HP cheio → 400
+Grant 5 stones, HP = 100 → soulstone-heal → 400 "already has full HP".
+
+### TC-167: Soulstone heal válido → HP 100%, stones -1
+Grant 5 stones, HP reduzido via arena/defeat → soulstone-heal → 200, `hpPercent = 100`, `soulStones = 4`.
+
+### TC-168: Soulstone heal em CD → 400 com mensagem de tempo
+Usar soulstone-heal → usar novamente imediatamente → 400 "on cooldown".
+
+### TC-169: GET /api/temple → ssHealCooldownSecs e ssHealReady presentes
+Após uso → `ssHealCooldownSecs > 0`, `ssHealReady = false`.
+Sem uso → `ssHealCooldownSecs = 0`, `ssHealReady = true`.
+
+---
+
+### Expansão de Bag
+
+### TC-170: Expand sem stones → 400
+`POST /api/inventory/expand` sem stones → 400 "Not enough SoulStones".
+
+### TC-171: Expand com stones suficientes → maxSlots = 20
+Grant 3 stones → expand → 200, `maxSlots = 20`, `inventoryExpanded = true`, `soulStones = 0`.
+
+### TC-172: Expand duas vezes → 400
+Grant 10 stones → expand → expand novamente → 400 "already expanded".
+
+### TC-173: GET /api/inventory/slots → campos presentes
+`slots.bagSize`, `slots.maxSlots`, `slots.inventoryExpanded`, `slots.soulStones` todos presentes.
+
+### TC-174: Bag cheia (10 slots) bloqueia novo item via quest
+Preencher 10 itens na bag (via make) → iniciar e coletar quest com drop garantido → item não adicionado, erro retornado.
+
+### TC-175: Bag expandida (20 slots) aceita além de 10
+Expand bag → adicionar 15 itens → bag aceita (não rejeita até 20).
+
+---
+
+*Updated 2026-06-02. Total: 256 tests. SoulStone: TC-161 to TC-175.*

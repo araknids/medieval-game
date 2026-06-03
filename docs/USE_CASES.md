@@ -1692,3 +1692,87 @@
 ---
 
 *Updated 2026-06-02. World/3 Kingdoms: UC-69 to UC-75.*
+
+---
+
+## SoulStone 💎 — Moeda VIP
+
+### UC-76: Verificar Saldo de SoulStones
+**Actor:** Jogador autenticado
+
+**Pre-conditions:** Jogador logado.
+
+**Flow:**
+1. Jogador abre o sidebar ou qualquer tela que exiba o saldo.
+2. Sistema retorna `soulStones` junto com os dados do guerreiro (`GET /api/warrior/me`).
+3. Saldo exibido no sidebar como `💎 N SoulStone(s)` quando > 0.
+
+**Regras:**
+- Saldo pertence à conta (Player), não ao personagem
+- Saldo nunca pode ser negativo
+
+---
+
+### UC-77: Cura Instantânea de HP via SoulStone
+**Actor:** Jogador com HP < 100% e saldo ≥ 1 SoulStone
+
+**Pre-conditions:** Guerreiro com HP incompleto, cooldown expirado (ou nunca usado).
+
+**Flow:**
+1. Jogador acessa o Templo.
+2. Sistema exibe botão "💎 Cura Instantânea (1 SoulStone)" se HP < 100% e CD = 0.
+3. Jogador clica no botão.
+4. Sistema valida: saldo ≥ 1, CD expirado, HP < 100%.
+5. HP restaurado para 100%, 1 SoulStone debitado, `lastSoulstoneHealAt` atualizado.
+6. Botão exibe countdown do CD (30 min) após uso.
+
+**Exceções:**
+- Saldo insuficiente → erro "Not enough SoulStones"
+- CD ativo → erro "Instant heal on cooldown. Wait Xm Ys"
+- HP já cheio → erro "Warrior already has full HP"
+
+---
+
+### UC-78: Expandir Bag (Mochila)
+**Actor:** Jogador free com bag não expandida e saldo ≥ 3 SoulStones
+
+**Pre-conditions:** `inventoryExpanded = false`.
+
+**Flow:**
+1. Jogador acessa Inventário.
+2. Vê barra de slots "7/10" e botão "💎 Expand (3 SoulStones)".
+3. Clica no botão.
+4. Sistema valida: não expandida, saldo ≥ 3.
+5. `inventoryExpanded = true`, 3 SoulStones debitados.
+6. Bag passa a ter limite de 20 slots. Barra exibe "7/20".
+
+**Exceções:**
+- Já expandida → erro "Inventory already expanded to 20 slots"
+- Saldo insuficiente → erro "Not enough SoulStones. Required: 3"
+
+---
+
+### UC-79: Receber Item com Bag Cheia
+**Actor:** Qualquer jogador
+
+**Pre-conditions:** Bag no limite máximo de slots (10 ou 20 conforme VIP).
+
+**Flow:**
+1. Jogador completa quest/arena/drop e seria para receber item.
+2. Sistema conta itens não-equipados na bag.
+3. Bag está no limite → item não é adicionado ao inventário.
+4. Sistema retorna aviso "Inventory full (X slots). Sell items or expand with SoulStones."
+
+---
+
+### UC-80: Dar SoulStones via Admin (Teste)
+**Actor:** Jogador autenticado (qualquer — admin endpoint temporário)
+
+**Pre-conditions:** Jogador logado.
+
+**Flow:**
+1. Request `POST /api/admin/grant-soulstones` com `{"amount": N}`.
+2. Sistema valida amount (1-100).
+3. N SoulStones adicionados ao saldo do jogador.
+
+*Updated 2026-06-02. SoulStone: UC-76 to UC-80.*
