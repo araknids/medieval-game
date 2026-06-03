@@ -62,15 +62,23 @@ let fightTimerInterval = null;
 let currentUsername = '';
 
 // ── API helper ──
+// 409 = conflito de concorrência (optimistic locking). Como toda regra de negócio
+// rejeitada virou 400, um 409 é SEMPRE seguro de repetir — então fazemos 1 retry
+// automático e transparente (cobre duplo-clique e emboscada simultânea). [AUDITORIA A8 / BL-1]
 async function api(method, path, body) {
-  const res = await fetch(path, {
+  const opts = {
     method,
     headers: {
       'Content-Type': 'application/json',
       ...(token ? { 'Authorization': 'Bearer ' + token } : {})
     },
     body: body ? JSON.stringify(body) : undefined
-  });
+  };
+  let res = await fetch(path, opts);
+  if (res.status === 409) {
+    await new Promise(r => setTimeout(r, 150)); // deixa a transação concorrente terminar
+    res = await fetch(path, opts);
+  }
   return res.json();
 }
 

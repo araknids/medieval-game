@@ -126,7 +126,7 @@ da transação do collect do atacante escreve nas linhas do alvo → conflito po
 gera deadlock AB-BA; transação aninhada conflita na própria linha do atacante (no ramo "atacante perde").
 
 **Opções (do mais barato ao mais completo):**
-1. **Retry no cliente** (1 linha no `app.js`): reenviar o collect 1× ao receber 409. Custo trivial, esconde o conflito raro. *Stopgap recomendado.*
+1. **Retry no cliente** ✅ **APLICADO (2026-06-03):** o helper `api()` do `app.js` faz 1 retry automático em 409 (após 150ms). Como toda regra de negócio virou 400, 409 é sempre seguro de repetir. Esconde o conflito raro do jogador. Resta decidir se Opção 2/3 ainda vale.
 2. **Retry transparente no servidor**: laço de retry no collect (transação nova por tentativa, ~3x). Jogador nunca vê 409. Precisa quebrar self-invocation (padrão usado no A7).
 3. **Resolução assíncrona (outbox + job)**: emboscada vira evento, processado por job serializado com retry (como o scheduler de território). Nenhum request falha. Encaixa no design de notificação por **mail** que já existe. *Refactor maior; muda o "feeling" (resultado chega depois, não no modal do collect).*
 
