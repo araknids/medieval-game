@@ -356,15 +356,15 @@ public class TerritoryService {
             Fighter a = atks.get(0);
             Fighter d = defs.get(0);
 
-            List<String> roundLog = battleSimulator.simulate(
+            BattleSimulator.BattleOutcome round = battleSimulator.simulateDetailed(
                     a.name, a.atk, a.def, a.hp, a.dex, a.strBonus, a.luk,
                     d.name, d.atk, d.def, d.hp, d.dex, d.strBonus, d.luk);
 
-            // Parse result from last WINNER: line
-            String winnerLine = roundLog.get(roundLog.size() - 1);
-            boolean attackerWon = winnerLine.contains("WINNER:" + a.name);
+            // Vencedor explícito (sem parsear string — nomes podem se conter). [AUDITORIA M13]
+            boolean attackerWon = round.firstWon();
 
             // Remove internal WINNER tag before adding to full log
+            List<String> roundLog = round.log();
             List<String> visibleLines = roundLog.subList(0, roundLog.size() - 1);
             fullLog.addAll(visibleLines);
 

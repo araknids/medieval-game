@@ -91,7 +91,7 @@ public class ArenaService {
         // Simula a batalha
         String challengerName = cWarrior.getName();
 
-        List<String> battleLog = battleSimulator.simulate(
+        BattleSimulator.BattleOutcome outcome = battleSimulator.simulateDetailed(
                 challengerName, cStats[0], cStats[1], cStats[2], cStats[3], cStats[4], cStats[5],
                 opponentName,   oStats[0], oStats[1], oStats[2], oStats[3], oStats[4], oStats[5]
         );
@@ -99,10 +99,10 @@ public class ArenaService {
         // Desgaste de equipamento por lutar (1-10 de durabilidade por item)
         inventoryService.wearEquippedItems(challenger);
 
-        // A tag WINNER: é a última linha — parseia para verificar vencedor
-        String winnerTag = battleLog.get(battleLog.size() - 1);
-        boolean challengerWon = winnerTag.contains("WINNER:" + challengerName);
-        battleLog.remove(battleLog.size() - 1); // remove a tag interna
+        // Vencedor vem explícito do simulador (sem parsear string). [AUDITORIA M13]
+        boolean challengerWon = outcome.firstWon();
+        List<String> battleLog = new java.util.ArrayList<>(outcome.log());
+        battleLog.remove(battleLog.size() - 1); // remove a tag interna WINNER
         long goldReward  = challengerWon ? 200 : 50; // bronze
         int  rankChange  = challengerWon ? (opponent != null ? 25 : 15) : (opponent != null ? -15 : -5);
 

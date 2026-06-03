@@ -144,7 +144,7 @@ public class TowerService {
                 .orElseThrow(() -> new IllegalStateException("Warrior not found"));
 
         int[] s = statsService.combatStats(player, warrior);
-        List<String> battleLog = battleSimulator.simulate(
+        BattleSimulator.BattleOutcome outcome = battleSimulator.simulateDetailed(
             warrior.getName(), s[0], s[1], s[2], s[3], s[4], s[5],
             boss.name(), boss.attack(), boss.defense(), boss.health(), boss.dex(), boss.strBonus(), boss.luk()
         );
@@ -152,8 +152,9 @@ public class TowerService {
         // Desgaste de equipamento por lutar (1-10 de durabilidade por item)
         inventoryService.wearEquippedItems(player);
 
-        String winnerTag = battleLog.get(battleLog.size() - 1);
-        boolean won = winnerTag.contains("WINNER:" + warrior.getName());
+        // Vencedor explícito do simulador (sem parsear string). [AUDITORIA M13]
+        boolean won = outcome.firstWon();
+        List<String> battleLog = new java.util.ArrayList<>(outcome.log());
         battleLog.remove(battleLog.size() - 1);
 
         long bronzeEarned = 0;
