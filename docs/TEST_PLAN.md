@@ -3184,4 +3184,76 @@ Level up → `availablePoints` increases by 2 (not 5 as before).
 
 ---
 
-*Updated 2026-06-03. Total: 289 tests. d20+XP: TC-193 to TC-208.*
+---
+
+## Integration Tests — Zone Ambush PvP (TC-209 to TC-218)
+**Class:** `ZoneAmbushIntegrationTest extends BaseIntegrationTest`
+
+### TC-209: Player IN_PROGRESS appears in zone opponent pool
+Two players enter PVP zone → repository finds each as a candidate for the other.
+
+### TC-210: findOpponentInZone excludes self
+Player A in PVP zone → opponent query for A never returns A.
+
+### TC-211: SAFE zone never triggers PvP (0% chance)
+Enter SAFE zone with another player present → collect 100x → no PvP encounters logged.
+
+### TC-212: No opponent in zone → falls back to NPC
+Single player in PVP zone → PvP roll has no target → resolves as NPC (PvE).
+
+### TC-213: Ambush winner steals 15% of loser's bronze
+Force ambush (deterministic) → winner gains 50% of stolen, loser loses 15%.
+
+### TC-214: Ambush loser dies (HP=0) and loses XP
+Force ambush where target loses → target HP=0, XP reduced by 10% of level threshold.
+
+### TC-215: Ambush loser in HIGH_RISK may lose equipped item
+Force ambush loss in HIGH_RISK → item-loss roll executed (10% chance path covered).
+
+### TC-216: Anti-ambush buff reduces chance by 5% per win
+After 1 defensive win → subsequent ambush chance is base - 5%.
+
+### TC-217: Ambush generates mail to the target
+After being ambushed → target inbox has a system mail with attacker name + bronze lost.
+
+### TC-218: Survivor sees continue/collect decision; dead does not
+Target survives → expedition still IN_PROGRESS (can continue). Target dies → status DEFEATED.
+
+---
+
+## Integration Tests — Territory War Cycle (TC-219 to TC-228)
+**Class:** `TerritoryWarCycleIntegrationTest extends BaseIntegrationTest`
+
+### TC-219: Single guild attacks neutral → wins NPCs → takes territory
+Declare + resolve → guild becomes controllingGuild.
+
+### TC-220: Single guild attacks held territory → beats defenders → takes over
+Guild B attacks Guild A's territory, B wins → B is new holder, streak reset to 0.
+
+### TC-221: All attackers lose → defender holds + streak +1
+Weak attackers vs strong defender → defender keeps territory, defenseStreak increments.
+
+### TC-222: Multiple winners → Phase 2 tiebreaker decides holder
+3 guilds beat defender in Phase 1 → Phase 2 bracket → exactly one final holder.
+
+### TC-223: Phase 1 HP carries into Phase 2 (no full heal)
+Verify Phase 2 fighters use Phase 1 remaining HP from DB.
+
+### TC-224: Declaration only by guild leader
+Non-leader declare → 400. Leader declare → 200.
+
+### TC-225: Guild already holding cannot declare attack
+Holder guild declares → rejected (must defend).
+
+### TC-226: Territory bonus applied to controlling guild members
+Holder's members get +10% XP / +10% bronze via getBonusForPlayer.
+
+### TC-227: Exclusive bonus per territory (fishing/mining/quest XP)
+Each territory's exclusiveBonus maps to the right activity.
+
+### TC-228: Defense streak debuff caps at 50%
+streak ≥ 10 → debuffPercent = 50 (already unit-tested; integration verifies via resolve).
+
+---
+
+*Updated 2026-06-03. Total: 309 tests. Ambush: TC-209-218 · Territory cycle: TC-219-228.*

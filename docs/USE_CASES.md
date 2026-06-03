@@ -1954,3 +1954,76 @@ Ao receber um crítico: `floor(LUK/10)%` de chance de converter para hit normal.
 5. Níveis infinitos — sem cap
 
 *Updated 2026-06-03. d20 + XP Loss: UC-88 to UC-90.*
+
+---
+
+## Emboscada PvP em Zonas de Loot
+
+### UC-91: Lootear em Zona PvP
+**Actor:** Jogador lv10+ (PVP) ou lv20+ (HIGH_RISK)
+
+**Pre-conditions:** Guerreiro livre, stamina suficiente.
+
+**Flow:**
+1. Jogador entra na zona para coletar (pesca/mineração) por X horas.
+2. Guerreiro fica `IN_PROGRESS` na zona — visível no pool de alvos de outros players.
+3. Ao coletar, o sistema resolve encontros por hora (PvP + NPC).
+
+---
+
+### UC-92: Emboscar outro jogador (atacante)
+**Actor:** Jogador coletando em zona PVP/HIGH_RISK
+
+**Trigger:** No `collect`, rola a probabilidade de PvP da zona e há outro player `IN_PROGRESS`.
+
+**Flow:**
+1. Sistema sorteia 1 oponente entre os players `IN_PROGRESS` na zona (exceto o próprio).
+2. Luta d20 **até a morte** com HP real de ambos.
+3. **Atacante vence:** sobrevive com HP restante, rouba 15% do bronze do alvo (50% efetivo). Continua coletando.
+4. **Atacante perde:** morre (HP=0), perde 15% bronze + 10% XP + (HIGH_RISK) 10% item. Expedição encerra em derrota.
+5. Resultado mostrado no modal de collect do atacante.
+
+**Exceções:**
+- Nenhum player `IN_PROGRESS` na zona → cai para encontro NPC (PvE).
+
+---
+
+### UC-93: Ser emboscado (alvo)
+**Actor:** Jogador com expedição `IN_PROGRESS` que foi sorteado como alvo
+
+**Flow:**
+1. Outro player embosca este guerreiro (resolvido no collect do atacante).
+2. Luta d20 até a morte com HP real.
+3. **Alvo vence a defesa:** sobrevive com HP reduzido, rouba 15% do bronze do atacante, ganha buff anti-emboscada (-5% cumulativo na chance de nova emboscada).
+4. **Alvo perde:** morre, expedição encerra; vê "Você morreu na expedição" no login.
+5. Em ambos os casos: recebe **mail automático** (atacante, bronze perdido, item roubado se houve, HP atual, vivo/morto).
+
+---
+
+### UC-94: Dialog Continuar ou Recolher
+**Actor:** Jogador que sobreviveu a emboscada(s) e volta ao jogo
+
+**Pre-conditions:** Expedição ainda `IN_PROGRESS`, HP > 0, há emboscadas não-vistas.
+
+**Flow:**
+1. Ao abrir o World/zona, o sistema detecta emboscadas não-notificadas.
+2. Abre dialog: "⚔ Você foi emboscado N vez(es)! Continuar a expedição ou recolher agora?"
+3. **Continuar** → expedição segue até o timer acabar.
+4. **Recolher** → collect imediato do que já tem.
+
+**Exceção:**
+- Se o jogador morreu numa emboscada → sem dialog; vê "Você morreu na expedição".
+
+---
+
+### UC-95: Consumir peixe para restaurar HP + Stamina
+**Actor:** Jogador com peixes no inventário de recursos
+
+**Flow:**
+1. Jogador consome um peixe.
+2. Sistema restaura stamina E HP conforme o tipo:
+   - Peixe Pequeno: +10 stamina, +5% HP
+   - Salmão: +25, +15% · Atum: +40, +30% · Tubarão: +60, +50% · Lendário: +80, +100%
+3. Útil para se recuperar entre emboscadas em zonas PvP.
+
+*Updated 2026-06-03. Emboscada PvP: UC-91 to UC-95.*

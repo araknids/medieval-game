@@ -209,27 +209,45 @@ Emprego temporário por 1-12 horas. Renda passiva em bronze.
 - Cada profissão tem XP e nível separados (+5% de bônus por nível)
 - Cancelar: recebe proporcional às horas completas
 
-### 4.5 Zonas e Expedições
+### 4.5 Zonas e Expedições (Loot com PvP por probabilidade)
 
-O guerreiro vai a uma das três zonas por até 12 horas.
+O guerreiro vai a uma das três zonas por até 12 horas para **lootear** recursos.
 
-| Zona | Level mín | Multiplicador de recursos | Risco PvP/h |
-|------|-----------|--------------------------|------------|
-| Zona Segura | 1 | ×1.0 | 0% |
-| Zona PvP | 10 | ×1.5 | 20% |
-| Zona Alto Risco | 20 | ×2.5 | 40% |
+| Zona | Level mín | Multiplicador de recursos | Risco PvP/h | Risco NPC/h |
+|------|-----------|--------------------------|------------|------------|
+| Zona Segura | 1 | ×1.0 | 0% | 15% |
+| Zona PvP | 10 | ×1.5 | 20% | 25% |
+| Zona Alto Risco | 20 | ×2.5 | 40% | 35% |
 
-**Papéis:**
-- **Gatherer**: coleta pesca ou mineração com multiplicador da zona. Pode ser atacado por hunters e NPCs
-- **Hunter**: caça gatherers ativos. Vitória rouba 15% do bronze do alvo
+**Conceito — sem papéis separados:**
+Não existe mais "Hunter" vs "Gatherer". **Todos entram para lootear.** O risco é ser **emboscado por outro jogador** que também está looteando na mesma zona. O matchmaking é por probabilidade, resolvido no `collect`.
 
-**NPCs por Zona:**
+**Resolução (modelo lazy, por hora):**
+1. Rola PvP da zona → se rolou E há outro player `IN_PROGRESS` na zona → emboscada (luta até a morte). Se não há ninguém → cai pra NPC.
+2. Rola NPC → PvE normal.
+
+**Emboscada PvP (luta d20 até nocaute):**
+- Atacante = quem está coletando; Alvo = player in-progress sorteado (HP real)
+- Vencedor sobrevive com HP restante + rouba 15% do bronze do perdedor
+- Perdedor morre (HP=0): perde 15% bronze, 10% XP, e (Alto Risco) 10% chance de item
+
+**Emboscadas múltiplas:**
+- Só pode ser re-emboscado se venceu as anteriores (continua vivo)
+- Cada vitória defensiva: -5% cumulativo na chance de nova emboscada (anti-farm)
+- HP carrega entre emboscadas (regen passiva ou consumindo peixe)
+
+**Notificação + decisão:**
+- Mail automático ao alvo a cada ataque sofrido (atacante, bronze, item, HP, vivo/morto)
+- Dialog "Continuar ou Recolher?" ao voltar ao jogo (só se sobreviveu)
+
+**NPCs por Zona (PvE em paralelo):**
 - Segura: Lobo, Bandoleiro, Urso, Javali
 - PvP: Mercenário Corrupto, Orc, Cavaleiro Renegado
 - Alto Risco: Demônio Menor, Lich, Dragão Jovem
 
-**Consequências de derrota:**
-- HP=0, stamina=0, buff perdido, perde 15% do bronze
+**Consequências de derrota (atacante ou alvo):**
+- HP=0, stamina=0, buff perdido, perde 15% do bronze (metade ao vencedor)
+- Perde 10% do XP do nível atual (pode dropar nível, mínimo 1)
 - Alto Risco: 10% de chance de perder 1 item equipado não-protegido
 
 ---
@@ -240,15 +258,16 @@ O guerreiro vai a uma das três zonas por até 12 horas.
 
 ### 5.1 Pesca
 
-| Duração | Peixe | Stamina restaurada |
-|---------|-------|--------------------|
-| 5 min | Peixe Pequeno | +10 |
-| 10 min | Salmão | +25 |
-| 20 min | Atum | +40 |
-| 30 min | Tubarão | +60 |
-| 40 min | Peixe Lendário | +80 |
+| Duração | Peixe | Stamina | HP restaurado |
+|---------|-------|---------|---------------|
+| 5 min | Peixe Pequeno | +10 | +5% |
+| 10 min | Salmão | +25 | +15% |
+| 20 min | Atum | +40 | +30% |
+| 30 min | Tubarão | +60 | +50% |
+| 40 min | Peixe Lendário | +80 | +100% (cura total) |
 
-- Peixes são consumíveis de stamina
+- Peixes são consumíveis que restauram **stamina E HP** (valores por tipo)
+- Importantes para se recuperar entre emboscadas em zonas PvP
 
 ### 5.2 Mineração
 

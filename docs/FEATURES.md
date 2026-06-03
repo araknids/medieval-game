@@ -258,7 +258,12 @@ Capacete, Armadura, Espada, Escudo, Calça, Bota, Luva, Ombreira, Colar, Anel
 ### Pesca
 - Sessão timer: 5/10/20/30/40 min
 - Produz peixes: Peixe Pequeno, Salmão, Atum, Tubarão, Peixe Lendário
-- Peixes consumidos restauram stamina: +10/+25/+40/+60/+80
+- **Peixes consumidos restauram stamina E HP** (valores por tipo de peixe):
+  - Peixe Pequeno: +10 stamina, +5% HP
+  - Salmão: +25 stamina, +15% HP
+  - Atum: +40 stamina, +30% HP
+  - Tubarão: +60 stamina, +50% HP
+  - Peixe Lendário: +80 stamina, +100% HP (cura total)
 
 ### Mineração
 - Sessão timer: 10/20/30/45/60 min
@@ -282,7 +287,7 @@ Cada tipo tem:
 
 ---
 
-## 13. Zonas e Expedições
+## 13. Zonas e Expedições (Loot com PvP por probabilidade)
 
 ### Zonas
 | Zona | Level mín | Multiplicador | NPC %/h | PvP %/h |
@@ -291,23 +296,47 @@ Cada tipo tem:
 | Zona PvP | 10 | ×1.5 | 25% | 20% |
 | Zona Alto Risco | 20 | ×2.5 | 35% | 40% |
 
-### Mecânica Gatherer
-- Escolhe zona, habilidade (pesca/mineração), duração (30 min a 12 h)
-- Ao coletar: recursos + XP com multiplicador da zona
-- NPCs e hunters podem atacar durante a expedição
+### Conceito
+Todos os jogadores entram na zona para **lootear** (coletar recursos). Não existe mais o papel de "Hunter" — o risco é ser **emboscado por outro jogador que também está looteando** na mesma zona. O matchmaking é por **probabilidade**, resolvido no `collect`.
 
-### Mecânica Hunter
-- Patrulha uma zona por 1-6 h
-- Sistema casa automaticamente com gatherers ativos
-- Vitória: rouba 15% do bronze do gatherer (recebe 50% do roubado)
-- Derrota: stamina 0, cooldown
+### Resolução no Collect (modelo lazy, por hora de expedição)
+```
+Para cada hora da expedição:
+  1. Rola probabilidade de PvP da zona (PVP=20%, HIGH_RISK=40%, SAFE=0%)
+     → SE rolou E há outro player IN_PROGRESS na mesma zona:
+        sorteia 1 oponente → EMBOSCADA (luta d20 até a morte)
+     → SE não há ninguém na zona → cai pra NPC (PvE)
+  2. Rola probabilidade de NPC (PVP=25%, HIGH_RISK=35%, SAFE=15%) → PvE
+```
 
-### Consequências de Derrota
+### Emboscada PvP (luta até a morte/nocaute)
+- Atacante = quem está coletando agora (rolou o encontro)
+- Alvo = outro player com expedição `IN_PROGRESS` na zona (HP **real** na hora)
+- Luta d20 completa até alguém chegar a 0 HP
+
+| Resultado | Vencedor | Perdedor |
+|-----------|----------|----------|
+| — | Sobrevive com HP que sobrou · rouba **15% do bronze** do perdedor (recebe 50% do roubado) | Morre (HP=0) · perde 15% bronze · **-10% XP** · (HIGH_RISK) 10% chance de perder 1 item equipado não-protegido |
+
+### Emboscadas Múltiplas
+- Você só pode ser emboscado de novo se **venceu** as anteriores (sobreviveu)
+- Cada vitória defensiva dá **-5% cumulativo** na chance de nova emboscada (anti-farm/assédio)
+- HP **carrega** entre emboscadas — regenera no tempo real (passivo) ou consumindo peixe
+
+### Notificação ao Alvo
+- Todo ataque sofrido gera **mail automático**: quem atacou, bronze perdido, item roubado (se houve), HP atual (0% se morreu), e se sobreviveu ou morreu
+- Ao voltar ao jogo com expedição ainda ativa: **dialog "Continuar ou Recolher?"** (só se sobreviveu)
+  - Continuar → expedição segue até o timer
+  - Recolher → collect imediato do que já tem
+- Se morreu numa emboscada → expedição encerra; vê "Você morreu na expedição" no login
+
+### Consequências de Derrota (vale pra atacante e alvo)
 - HP = 0 + stamina = 0 + buff perdido
-- Perde 15% do bronze
-- **Alto Risco**: 10% de chance de perder 1 item equipado (que não esteja protegido)
+- Perde 15% do bronze (metade vai pro vencedor)
+- Perde 10% do XP do nível atual (pode dropar nível, mínimo 1)
+- **Alto Risco**: 10% de chance de perder 1 item equipado não-protegido
 
-### NPCs por Zona
+### NPCs por Zona (PvE — continua em paralelo ao PvP)
 - Segura: Lobo, Bandoleiro, Urso, Javali
 - PvP: Mercenário Corrupto, Orc, Cavaleiro Renegado
 - Alto Risco: Demônio Menor, Lich, Dragão Jovem
