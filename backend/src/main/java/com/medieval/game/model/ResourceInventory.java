@@ -2,13 +2,15 @@ package com.medieval.game.model;
 
 import com.medieval.game.enums.ResourceType;
 import jakarta.persistence.*;
-import lombok.Data;
+import lombok.Getter;
+import lombok.Setter;
 import lombok.NoArgsConstructor;
 
 @Entity
 @Table(name = "resource_inventory",
        uniqueConstraints = @UniqueConstraint(columnNames = {"player_id", "resource_type"}))
-@Data
+@Getter
+@Setter
 @NoArgsConstructor
 public class ResourceInventory {
 

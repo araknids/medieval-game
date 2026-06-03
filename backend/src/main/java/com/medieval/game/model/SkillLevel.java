@@ -2,13 +2,15 @@ package com.medieval.game.model;
 
 import com.medieval.game.enums.SkillType;
 import jakarta.persistence.*;
-import lombok.Data;
+import lombok.Getter;
+import lombok.Setter;
 import lombok.NoArgsConstructor;
 
 @Entity
 @Table(name = "skill_levels",
        uniqueConstraints = @UniqueConstraint(columnNames = {"player_id", "skill_type"}))
-@Data
+@Getter
+@Setter
 @NoArgsConstructor
 public class SkillLevel {
 

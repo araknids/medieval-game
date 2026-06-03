@@ -41,7 +41,18 @@ public class SecurityConfig {
                         .requestMatchers("/lang/**").permitAll()
                         .anyRequest().authenticated()
                 )
-                .headers(h -> h.frameOptions(f -> f.disable())) // necessário para o console H2
+                // Headers de segurança. frameOptions=SAMEORIGIN (em vez de disable) ainda
+                // permite o console H2 na mesma origem e bloqueia clickjacking cross-origin.
+                // CSP estrita ficou de fora p/ não quebrar o frontend (inline) — ver backlog. [AUDITORIA B1]
+                .headers(h -> h
+                        .frameOptions(f -> f.sameOrigin())
+                        .contentTypeOptions(c -> {}) // X-Content-Type-Options: nosniff
+                        .referrerPolicy(r -> r.policy(
+                                org.springframework.security.web.header.writers.ReferrerPolicyHeaderWriter
+                                        .ReferrerPolicy.SAME_ORIGIN))
+                        .httpStrictTransportSecurity(hsts -> hsts
+                                .includeSubDomains(true)
+                                .maxAgeInSeconds(31536000)))
                 .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class)
                 .build();
     }

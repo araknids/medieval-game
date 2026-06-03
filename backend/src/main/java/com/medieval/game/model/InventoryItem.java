@@ -2,12 +2,14 @@ package com.medieval.game.model;
 
 import com.medieval.game.enums.ItemType;
 import jakarta.persistence.*;
-import lombok.Data;
+import lombok.Getter;
+import lombok.Setter;
 import lombok.NoArgsConstructor;
 
 @Entity
 @Table(name = "inventory_items")
-@Data
+@Getter
+@Setter
 @NoArgsConstructor
 public class InventoryItem {
 

@@ -4,14 +4,16 @@ import com.medieval.game.enums.Kingdom;
 import com.medieval.game.enums.KingdomQuestType;
 import com.medieval.game.enums.QuestStatus;
 import jakarta.persistence.*;
-import lombok.Data;
+import lombok.Getter;
+import lombok.Setter;
 import lombok.NoArgsConstructor;
 
 import java.time.LocalDateTime;
 
 @Entity
 @Table(name = "kingdom_active_quests")
-@Data
+@Getter
+@Setter
 @NoArgsConstructor
 public class KingdomActiveQuest {
 

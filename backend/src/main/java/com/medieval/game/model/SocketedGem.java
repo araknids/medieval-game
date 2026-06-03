@@ -2,13 +2,15 @@ package com.medieval.game.model;
 
 import com.medieval.game.enums.ResourceType;
 import jakarta.persistence.*;
-import lombok.Data;
+import lombok.Getter;
+import lombok.Setter;
 import lombok.NoArgsConstructor;
 
 @Entity
 @Table(name = "socketed_gems",
        uniqueConstraints = @UniqueConstraint(columnNames = {"inventory_item_id", "slot_index"}))
-@Data
+@Getter
+@Setter
 @NoArgsConstructor
 public class SocketedGem {
 

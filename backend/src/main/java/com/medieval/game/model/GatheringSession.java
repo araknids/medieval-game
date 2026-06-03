@@ -3,14 +3,16 @@ package com.medieval.game.model;
 import com.medieval.game.enums.GatheringStatus;
 import com.medieval.game.enums.SkillType;
 import jakarta.persistence.*;
-import lombok.Data;
+import lombok.Getter;
+import lombok.Setter;
 import lombok.NoArgsConstructor;
 
 import java.time.LocalDateTime;
 
 @Entity
 @Table(name = "gathering_sessions")
-@Data
+@Getter
+@Setter
 @NoArgsConstructor
 public class GatheringSession {
 

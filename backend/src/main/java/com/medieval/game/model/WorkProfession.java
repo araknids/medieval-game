@@ -2,13 +2,15 @@ package com.medieval.game.model;
 
 import com.medieval.game.enums.WorkType;
 import jakarta.persistence.*;
-import lombok.Data;
+import lombok.Getter;
+import lombok.Setter;
 import lombok.NoArgsConstructor;
 
 @Entity
 @Table(name = "work_professions",
        uniqueConstraints = @UniqueConstraint(columnNames = {"player_id", "work_type"}))
-@Data
+@Getter
+@Setter
 @NoArgsConstructor
 public class WorkProfession {
 

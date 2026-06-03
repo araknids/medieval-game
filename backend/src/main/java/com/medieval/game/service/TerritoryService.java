@@ -295,8 +295,10 @@ public class TerritoryService {
             newHolder = tiebreakerChampion;
         }
 
-        // Update territory control
-        if (!Objects.equals(newHolder, currentHolder)) {
+        // Update territory control — compara por id (não por referência/valor da entidade). [AUDITORIA M4]
+        Long newId = newHolder != null ? newHolder.getId() : null;
+        Long curId = currentHolder != null ? currentHolder.getId() : null;
+        if (!Objects.equals(newId, curId)) {
             control.setControllingGuild(newHolder);
             control.setDefenseStreak(0);
             control.setDominantSince(LocalDateTime.now());

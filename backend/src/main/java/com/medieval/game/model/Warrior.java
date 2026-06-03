@@ -3,7 +3,8 @@ package com.medieval.game.model;
 import com.medieval.game.enums.BuffType;
 import com.medieval.game.enums.WarriorClass;
 import jakarta.persistence.*;
-import lombok.Data;
+import lombok.Getter;
+import lombok.Setter;
 import lombok.NoArgsConstructor;
 
 import java.time.Duration;
@@ -11,7 +12,8 @@ import java.time.LocalDateTime;
 
 @Entity
 @Table(name = "warriors")
-@Data
+@Getter
+@Setter
 @NoArgsConstructor
 public class Warrior {
 
