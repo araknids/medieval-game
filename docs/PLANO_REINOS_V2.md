@@ -1,15 +1,18 @@
-# Plano — Expansão para 6 Reinos (Reinos V2)
+# Plano — Expansão de Reinos (Reinos V2)
 
 > Documento de planejamento (fase de design). Decisões tomadas com o dono em 2026-06-03.
-> Depois de aprovado, vira implementação por fases + sincroniza com FEATURES/GDD/USE_CASES/TEST_PLAN.
+> **Status: Fases 1-4 implementadas (410 testes verdes).** Resta a Fase 5.
+> ⚠️ **Pendência de doc:** FEATURES/GDD/USE_CASES/TEST_PLAN ainda **não** refletem o Reinos V2
+> (descrevem o mundo antigo de 3 reinos) — precisam de sync.
 
 ---
 
 ## Visão
 
-Expandir de **3 reinos** para **6**, cada um temático, com sua atividade própria.
-Unificar os conceitos `Kingdom` e `Territory` (hoje duplicados 1:1) num **único conceito `Kingdom`**.
-Nem todos os reinos são território de guild-war no início — uma **flag** limita a 3 (depois liga todos).
+Expandir de **3 reinos** para **5** (o plano original previa 6; o Covil das Feras virou uma seção
+PvE dentro da Fortaleza Maldita em vez de reino próprio), cada um temático, com sua atividade própria.
+Unificar os conceitos `Kingdom` e `Territory` (antes duplicados 1:1) num **único conceito `Kingdom`** ✅.
+Nem todos os reinos são território de guild-war — uma **flag** limita a 3 (depois liga todos).
 
 ### Como funciona hoje (baseline)
 - 3 reinos = 3 territórios (1:1): Pesca, Mineração, Combate/Fortaleza.
