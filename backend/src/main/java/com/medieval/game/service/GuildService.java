@@ -2,8 +2,11 @@ package com.medieval.game.service;
 
 import com.medieval.game.model.Guild;
 import com.medieval.game.model.Player;
+import com.medieval.game.model.TerritoryDeclaration.DeclarationStatus;
 import com.medieval.game.repository.GuildRepository;
 import com.medieval.game.repository.PlayerRepository;
+import com.medieval.game.repository.TerritoryControlRepository;
+import com.medieval.game.repository.TerritoryDeclarationRepository;
 import com.medieval.game.repository.WarriorRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -19,10 +22,12 @@ public class GuildService {
 
     private static final long CREATE_COST_BRONZE = 100L;
 
-    private final GuildRepository    guildRepository;
-    private final PlayerRepository   playerRepository;
-    private final WarriorRepository  warriorRepository;
-    private final PlayerService      playerService;
+    private final GuildRepository              guildRepository;
+    private final PlayerRepository             playerRepository;
+    private final WarriorRepository            warriorRepository;
+    private final PlayerService                playerService;
+    private final TerritoryControlRepository   territoryControlRepo;
+    private final TerritoryDeclarationRepository territoryDeclarationRepo;
 
     // ── Criar guilda ──────────────────────────────────────────────────────────
     @Transactional
@@ -205,6 +210,22 @@ public class GuildService {
         List<Player> members = playerRepository.findAllByGuild(guild);
         members.forEach(m -> { m.setGuild(null); m.setGuildDonatedBronze(0); });
         playerRepository.saveAll(members);
+
+        // Remove territory control if this guild holds a territory
+        territoryControlRepo.findByControllingGuild(guild).ifPresent(tc -> {
+            tc.setControllingGuild(null);
+            tc.setDefenseStreak(0);
+            territoryControlRepo.save(tc);
+        });
+
+        // Cancel pending territory declarations for this guild
+        territoryDeclarationRepo.findByGuild(guild)
+                .stream()
+                .filter(d -> d.getStatus() == DeclarationStatus.PENDING)
+                .forEach(d -> {
+                    d.setStatus(DeclarationStatus.CANCELLED);
+                    territoryDeclarationRepo.save(d);
+                });
 
         guildRepository.delete(guild);
         log.info("[GuildService] player={} action=disband OK guildId={} name={}", leader.getId(), guild.getId(), guild.getName());

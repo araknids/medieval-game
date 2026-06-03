@@ -41,14 +41,20 @@ public class Mail {
     // ── Item attachment (bag-full overflow) ────────────────────────────────────
     private String itemName;
     private String itemType;
+    @Column(columnDefinition = "integer default 0")
     private int    itemAtk     = 0;
+    @Column(columnDefinition = "integer default 0")
     private int    itemDef     = 0;
+    @Column(columnDefinition = "integer default 0")
     private int    itemHp      = 0;
+    @Column(columnDefinition = "integer default 1")
     private int    itemRarity  = 1;
+    @Column(columnDefinition = "integer default 0")
     private int    itemSockets = 0;
     @Column(columnDefinition = "TEXT")
     private String itemDescription;
     private String itemOrigin;
+    @Column(columnDefinition = "boolean default false")
     private boolean itemCollected = false;
     private LocalDateTime expiresAt;  // null = no expiry; +7 days for item mails
 

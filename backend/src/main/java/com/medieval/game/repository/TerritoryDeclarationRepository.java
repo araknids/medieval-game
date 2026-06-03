@@ -23,4 +23,6 @@ public interface TerritoryDeclarationRepository extends JpaRepository<TerritoryD
 
     boolean existsByGuildAndBattleCycleIdAndStatus(
             Guild guild, long cycleId, DeclarationStatus status);
+
+    List<TerritoryDeclaration> findByGuild(Guild guild);
 }
