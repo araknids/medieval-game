@@ -107,6 +107,15 @@
 - Timer: 1 minuto em prod (instantâneo em dev)
 - Ao coletar: vê log detalhado do combate
 
+### Limite Diário de Lutas
+| Status | Lutas/dia |
+|--------|-----------|
+| Free | 5 |
+| VIP | 10 |
+
+- Reset à meia-noite UTC
+- Tentativa além do limite retorna erro com contador restante
+
 ### Resultado
 - Vitória: +200 bronze, +25 rank points
 - Derrota: +50 bronze (consolação), -15 rank points
@@ -283,6 +292,7 @@ Cada tipo tem:
 - Restaura HP para 100% instantaneamente
 - Grátis se guerreiro ≤ level 10
 - Custa 1 prata (100 bronze) se level > 10
+- **VIP**: Grátis, cooldown de 10 minutos (`lastVipHealAt` no Player)
 
 ### Bênçãos (Buffs)
 | Buff | Efeito | Custo |
@@ -293,8 +303,9 @@ Cada tipo tem:
 | Vitalidade | +20 HP máximo | 30 bronze |
 | Sorte | +5% drop chance | 50 bronze |
 
-- Um buff por vez, dura 1 hora
-- Perdido ao ser derrotado
+- Free: um buff por vez, dura 1 hora
+- **VIP: 2 buffs ativos simultâneos** (`activeBuff2` + `buffExpiresAt2` no Warrior)
+- Buff perdido ao ser derrotado
 
 ### Proteção de Itens
 - Máximo 3 itens, 50 bronze por item, permanente
@@ -587,11 +598,11 @@ Substitui as abas Taverna, Expedições, Habilidades (pesca/mineração) e Terri
 
 ---
 
-## 25. SoulStone 💎 — Moeda VIP
+## 25. SoulStone 💎 — Moeda VIP e SoulStone Shop
 
 ### Visão Geral
 
-Moeda premium da conta (não do personagem). Obtida via compra (futuro: Stripe/Steam). Separada em **compras permanentes** e **consumíveis**.
+Moeda premium da conta (não do personagem). Obtida via compra (futuro: Stripe/Steam). Separada em **Status VIP** (principal), **compras permanentes** e **consumíveis**.
 
 ### Formas de Ganhar
 
@@ -602,12 +613,40 @@ Moeda premium da conta (não do personagem). Obtida via compra (futuro: Stripe/S
 | Conquistas | Futuro |
 | Eventos sazonais | Futuro |
 
-### Compras Permanentes (one-time — ficam para sempre)
+---
+
+### Status VIP (principal oferta)
+
+| Campo | Valor |
+|-------|-------|
+| Custo | **15 💎** |
+| Duração | **30 dias** |
+| Renovação | Empilha (+30 dias se já ativo) |
+| Bag | Expansão 20 slots **inclusa** |
+
+**Benefícios VIP:**
+
+| Benefício | Free | VIP |
+|-----------|------|-----|
+| Cura HP no Templo | Paga bronze | **Grátis, CD 10 min** |
+| Missões instantâneas | 0/dia | **2/dia** (botão ⚡ Skip) |
+| Lutas de Arena | 5/dia | **10/dia** |
+| Buffs ativos | 1 | **2 simultâneos** |
+| Bag | 10 slots | **20 slots** |
+
+**Missão Instantânea VIP:**
+- Botão "⚡ Instant (N restantes)" aparece nos quest cards
+- Clicando, a quest inicia e conclui imediatamente
+- Modal de collect abre com XP, bronze e drop — igual ao fluxo normal
+- Counter reseta à meia-noite UTC
+
+---
+
+### Compras Permanentes (one-time)
 
 | Feature | Custo | Detalhe |
 |---------|-------|---------|
-| Expandir Bag | 3 💎 | 10 slots → 20 slots na mochila |
-| Slot extra de buff | 8 💎 | 1 → 2 buffs ativos simultâneos no Templo |
+| Expandir Bag | 3 💎 | 10 slots → 20 slots (incluso no VIP) |
 | Resetar atributos do guerreiro | 5 💎 | Redistribui todos os pontos alocados |
 | Trocar nome do guerreiro | 2 💎 | Uma compra = uma troca |
 
@@ -615,8 +654,7 @@ Moeda premium da conta (não do personagem). Obtida via compra (futuro: Stripe/S
 
 | Feature | Custo | Cooldown / Limite |
 |---------|-------|-------------------|
-| Cura instantânea de HP | 1 💎 | CD 30 min |
-| Ticket extra de arena | 1 💎 | +1 luta além do limite diário |
+| Cura instantânea de HP (SoulStone) | 1 💎 | CD 30 min |
 | Pular metade do CD de treino/work | 1 💎 | Uma vez por sessão ativa |
 
 ### Cosmético / Social (planejado para o futuro)
@@ -624,22 +662,35 @@ Moeda premium da conta (não do personagem). Obtida via compra (futuro: Stripe/S
 - Frame especial no card da guilda
 - Lore customizado para um item
 
+### SoulStone Shop (aba no Commerce)
+- Mostra VIP status atual e dias restantes
+- Botão "Comprar VIP" ou "Renovar VIP (+30 dias)"
+- Lista compras permanentes disponíveis
+- Lista consumíveis
+
 ### Mecânica de Saldo
 - Campo `soulStones` em `Player` (escopo de conta, não de personagem)
 - Nunca pode ficar negativo
 - Toda operação valida saldo antes de debitar
-- Histórico de transações: futuro
 
 ### Entidades
 - `Player.soulStones` — saldo atual
-- `Player.lastSoulstoneHealAt` — controle de CD da cura instantânea
-- `Player.inventoryExpanded` — flag de expansão da bag (perm)
-- `Player.extraBuffSlot` — flag de slot extra de buff (perm)
+- `Player.vipExpiresAt` — timestamp de expiração VIP (null = sem VIP)
+- `Player.lastVipHealAt` — CD de 10 min da cura VIP grátis
+- `Player.arenaFightsToday` + `Player.lastArenaFightDate` — limite diário de arena
+- `Player.vipInstantQuestsToday` + `Player.lastVipQuestDate` — counter de missões instantâneas
+- `Player.lastSoulstoneHealAt` — CD de 30 min da cura por SoulStone
+- `Player.inventoryExpanded` — flag de bag expandida
+- `Warrior.activeBuff2` + `Warrior.buffExpiresAt2` — segundo slot de buff (VIP)
 
 ### Endpoints
 | Método | Rota | Ação |
 |--------|------|------|
-| POST | `/api/temple/soulstone-heal` | Cura instantânea (1 💎, CD 30 min) |
+| POST | `/api/vip/buy` | Compra/renova VIP (15 💎, 30 dias) |
+| GET  | `/api/vip/status` | Status VIP + benefícios restantes do dia |
+| POST | `/api/temple/vip-heal` | Cura grátis VIP (CD 10 min) |
+| POST | `/api/temple/soulstone-heal` | Cura por SoulStone (1 💎, CD 30 min) |
+| POST | `/api/world/{kingdom}/quests/instant-start` | Missão instantânea VIP (2/dia) |
 | POST | `/api/inventory/expand` | Expande bag 10→20 (3 💎, perm) |
 | GET  | `/api/inventory/slots` | Info de slots atual |
 | POST | `/api/warrior/rename` | Troca nome (2 💎, perm) |

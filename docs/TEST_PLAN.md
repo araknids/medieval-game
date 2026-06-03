@@ -3043,4 +3043,80 @@ Expand bag → adicionar 15 itens → bag aceita (não rejeita até 20).
 
 ---
 
-*Updated 2026-06-02. Total: 256 tests. SoulStone: TC-161 to TC-175.*
+---
+
+## Integration Tests — VIP Status System (TC-176 to TC-192)
+**Class:** `VipIntegrationTest extends BaseIntegrationTest`
+
+### Compra VIP
+
+### TC-176: Comprar VIP → vipExpiresAt ~30 dias no futuro
+Grant 15 SS → `POST /api/vip/buy` → 200, response tem `vipExpiresAt`, `isVip=true`.
+
+### TC-177: Comprar VIP sem SS suficiente → 400
+Grant 10 SS → buy → 400 "Not enough SoulStones".
+
+### TC-178: Renovar VIP empilha dias
+Grant 30 SS → buy VIP → buy VIP de novo → `vipExpiresAt` ≈ now + 60 dias.
+
+### TC-179: Comprar VIP inclui expansão de bag
+Grant 15 SS → buy VIP → `GET /api/inventory/slots` → `maxSlots = 20`.
+
+### TC-180: GET /api/vip/status retorna isVip + benefícios restantes
+Grant 15 SS → buy → `GET /api/vip/status` → `isVip=true`, `instantQuestsRemaining=2`, `arenaFightsRemaining=10`.
+
+---
+
+### Cura VIP Grátis
+
+### TC-181: VIP heal grátis → HP 100%, sem bronze
+Grant 15 SS → buy VIP → dano no warrior → `POST /api/temple/vip-heal` → 200, HP=100, bronze unchanged.
+
+### TC-182: VIP heal sem VIP → 400
+Sem VIP → vip-heal → 400 "VIP required".
+
+### TC-183: VIP heal em CD (10 min) → 400
+Buy VIP → dano → vip-heal → vip-heal de novo → 400 "on cooldown".
+
+### TC-184: VIP heal com HP cheio → 400
+Buy VIP → vip-heal com HP=100 → 400 "already full HP".
+
+---
+
+### Missão Instantânea VIP
+
+### TC-185: Instant quest → quest concluída imediatamente, rewards retornados
+Grant 15 SS → buy VIP → `POST /api/world/FISHING/quests/instant-start` com `{questType:"PATROL_COAST"}` → 200, response tem bronzeEarned + xpEarned.
+
+### TC-186: Instant quest sem VIP → 400
+Sem VIP → instant-start → 400 "VIP required".
+
+### TC-187: Instant quest decrementa counter
+Buy VIP → instant-start → `GET /api/vip/status` → `instantQuestsRemaining=1`.
+
+### TC-188: Instant quest esgotado (2/dia) → 400
+Buy VIP → instant-start → instant-start → instant-start → 400 "Daily instant quest limit reached (2/2)".
+
+---
+
+### Arena Daily Limit
+
+### TC-189: Free player → arena funciona até 5 lutas/dia
+Novo jogador → 5x arena → 5ª luta OK → 6ª luta → 400 "Daily fight limit reached (5/5)".
+
+### TC-190: VIP player → arena funciona até 10 lutas/dia
+Buy VIP → counter zerado → limite = 10 (verificado via `GET /api/vip/status` → `arenaFightsRemaining=10`).
+
+---
+
+### Dois Buffs VIP
+
+### TC-191: VIP pode ter 2 buffs simultâneos
+Buy VIP → apply buff FORCA → apply buff DEFESA → 200 (ambos aceitos).
+
+### TC-192: Free player não pode ter 2 buffs
+Sem VIP → apply buff FORCA → apply buff DEFESA → 400 "VIP required for second buff slot".
+
+---
+
+*Updated 2026-06-03. Total: 273 tests. VIP: TC-176 to TC-192.*

@@ -1776,3 +1776,131 @@
 3. N SoulStones adicionados ao saldo do jogador.
 
 *Updated 2026-06-02. SoulStone: UC-76 to UC-80.*
+
+---
+
+## VIP Status
+
+### UC-81: Comprar Status VIP
+**Actor:** Jogador com saldo ≥ 15 SoulStones
+
+**Pre-conditions:** Logado, sem VIP ou VIP já ativo (renovação).
+
+**Flow:**
+1. Jogador abre a aba SoulStone Shop no Commerce.
+2. Vê painel VIP com status atual e botão "Comprar VIP (15 💎)" ou "Renovar +30 dias".
+3. Clica no botão.
+4. Sistema valida saldo ≥ 15.
+5. Debita 15 SoulStones.
+6. Define `vipExpiresAt = now() + 30 dias` (ou acrescenta 30 dias se já ativo).
+7. Define `inventoryExpanded = true` (bag 20 slots inclusa).
+8. Retorna data de expiração e saldo atualizado.
+
+**Exceções:**
+- Saldo insuficiente → erro "Not enough SoulStones. Required: 15"
+
+---
+
+### UC-82: Cura Grátis VIP no Templo
+**Actor:** Jogador VIP ativo com HP < 100%
+
+**Pre-conditions:** `vipExpiresAt > now()`, HP < 100%, CD de 10 min expirado.
+
+**Flow:**
+1. Jogador abre o Templo.
+2. Vê botão "💎 VIP Heal (grátis, CD 10 min)" além do botão normal.
+3. Clica no botão VIP.
+4. Sistema valida: VIP ativo, CD expirado, HP < 100%.
+5. HP restaurado para 100%, sem custo de bronze.
+6. `lastVipHealAt` atualizado.
+
+**Exceções:**
+- VIP expirado → botão não aparece
+- CD ativo → botão mostra countdown ("Pronto em 7m 23s")
+- HP já cheio → botão desabilitado
+
+---
+
+### UC-83: Missão Instantânea VIP
+**Actor:** Jogador VIP com `vipInstantQuestsToday < 2`
+
+**Pre-conditions:** VIP ativo, guerreiro livre, missões instantâneas do dia disponíveis.
+
+**Flow:**
+1. Jogador abre detalhe de um reino no World tab.
+2. Quest card mostra dois botões: "Start Quest" e "⚡ Instant (N restantes)".
+3. Jogador clica em "⚡ Instant".
+4. Sistema valida: VIP ativo, counter < 2, guerreiro livre, stamina suficiente.
+5. Quest iniciada E concluída imediatamente.
+6. Modal de collect abre com XP, bronze e drop.
+7. Counter `vipInstantQuestsToday` decrementado.
+
+**Exceções:**
+- VIP expirado → botão não aparece
+- Counter = 0 → botão desabilitado "0 restantes hoje"
+- Guerreiro busy → botão desabilitado
+
+---
+
+### UC-84: Limite Diário de Arena
+**Actor:** Qualquer jogador
+
+**Pre-conditions:** Jogador logado.
+
+**Flow (tentativa dentro do limite):**
+1. Jogador entra na Arena.
+2. Sistema verifica `arenaFightsToday < limite` (5 free / 10 VIP).
+3. Luta iniciada normalmente.
+4. `arenaFightsToday` incrementado.
+5. UI mostra "3/5 lutas hoje" (ou "8/10 VIP").
+
+**Flow (limite atingido):**
+1. Jogador tenta entrar na Arena com counter no limite.
+2. Sistema rejeita com "Daily fight limit reached (5/5). Resets at midnight UTC."
+
+**Reset:**
+- Se `lastArenaFightDate != today`, zeramos `arenaFightsToday` antes de validar.
+
+---
+
+### UC-85: Dois Buffs Ativos Simultâneos (VIP)
+**Actor:** Jogador VIP no Templo
+
+**Pre-conditions:** VIP ativo, primeiro buff já ativo.
+
+**Flow:**
+1. Jogador abre o Templo com um buff já ativo.
+2. Vê lista de bênçãos com segundo slot disponível (VIP).
+3. Seleciona um buff diferente do primeiro.
+4. Sistema valida: VIP ativo, segundo slot vazio ou buff diferente do 1º.
+5. `activeBuff2` e `buffExpiresAt2` definidos no Warrior.
+6. UI mostra ambos os buffs ativos com seus timers.
+
+**Exceções:**
+- Free player → segundo slot bloqueado
+- Tentar aplicar o mesmo buff em ambos os slots → erro
+
+---
+
+### UC-86: Verificar Status VIP no SoulStone Shop
+**Actor:** Qualquer jogador
+
+**Flow:**
+1. Jogador abre aba SoulStone Shop no Commerce.
+2. Vê: saldo de SS, status VIP (ativo com X dias / expirado / sem VIP), benefícios ativos.
+3. Vê contadores do dia: missões instantâneas (N/2), lutas de arena (N/5 ou N/10).
+
+---
+
+### UC-87: Expiração Automática do VIP
+**Actor:** Sistema
+
+**Trigger:** Qualquer request após `vipExpiresAt < now()`
+
+**Flow:**
+1. Player faz request.
+2. Backend calcula `isVip()`: retorna false se `vipExpiresAt == null || vipExpiresAt.isBefore(now())`.
+3. Benefícios VIP não são aplicados.
+4. UI exibe "VIP expirado em DD/MM" no SoulStone Shop.
+
+*Updated 2026-06-03. VIP: UC-81 to UC-87.*

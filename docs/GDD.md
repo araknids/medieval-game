@@ -890,13 +890,13 @@ O sistema atual de Guild War permanece com as mesmas mecânicas, mas a declaraç
 
 ---
 
-## 19. SoulStone 💎 — Moeda VIP
+## 19. SoulStone 💎 — Moeda VIP e Status VIP
 
 ### 19.1 Conceito e Filosofia
 
-SoulStone é a moeda premium do jogo. O princípio central é **conforto sem poder** — nenhuma compra com SoulStone deve dar vantagem de combate direta. Tudo que pode ser comprado ou reduz fricção, mas não aumenta stats permanentemente nem cria pay-to-win.
+SoulStone é a moeda premium do jogo. O princípio central é **conforto sem poder** — nenhuma compra com SoulStone deve dar vantagem de combate direta. Tudo que pode ser comprado reduz fricção, mas não aumenta stats permanentemente nem cria pay-to-win.
 
-A moeda pertence à **conta** (Player), não ao personagem (Warrior). Um mesmo saldo é compartilhado por todos os personagens futuros na mesma conta.
+A moeda pertence à **conta** (Player), não ao personagem (Warrior).
 
 ### 19.2 Como Ganhar
 
@@ -907,51 +907,92 @@ A moeda pertence à **conta** (Player), não ao personagem (Warrior). Um mesmo s
 | Conquistas in-game | Futuro — matar boss X, alcançar rank Y |
 | Eventos sazonais | Futuro |
 
-### 19.3 Compras Permanentes
+### 19.3 Status VIP — Principal Oferta
 
-Compras que ficam para sempre na conta. Comprar duas vezes não tem efeito (sistema valida antes de debitar).
+O Status VIP é a principal compra no SoulStone Shop. É temporário (30 dias) e renovável.
+
+| Campo | Valor |
+|-------|-------|
+| Custo | **15 💎** |
+| Duração | **30 dias** |
+| Renovação | Empilha: se já ativo, adiciona +30 dias |
+| Bag | Expansão 20 slots **inclusa na compra** |
+
+**Benefícios VIP vs Free:**
+
+| Benefício | Free | VIP | Como funciona |
+|-----------|------|-----|---------------|
+| Cura HP no Templo | Paga bronze | **Grátis, CD 10 min** | `lastVipHealAt` no Player |
+| Missões instantâneas | 0/dia | **2/dia** | Counter diário + reset meia-noite UTC |
+| Lutas de Arena | **5/dia** | **10/dia** | Counter diário + reset meia-noite UTC |
+| Buffs ativos | 1 | **2 simultâneos** | `activeBuff2` + `buffExpiresAt2` no Warrior |
+| Bag | 10 slots | **20 slots** | Incluso no VIP, sem custo adicional |
+
+**Missão Instantânea VIP — Fluxo:**
+1. Player abre detalhe de um reino no World tab
+2. Quest card mostra `Start Quest` E `⚡ Instant (N restantes)`
+3. Clicando em "⚡ Instant": backend inicia + conclui a quest imediatamente
+4. Modal de collect abre com XP, bronze e drop — igual ao fluxo normal de coleta
+5. Counter decrementado; reseta à meia-noite UTC
+
+**Arena Daily Limit:**
+- Free players têm **5 lutas/dia**
+- VIP players têm **10 lutas/dia**
+- Reset à meia-noite UTC
+- Erros claros mostram quantas lutas restam
+
+### 19.4 SoulStone Shop (aba no Commerce)
+
+Tela dedicada dentro do Commerce com:
+- Status VIP atual (dias restantes ou "Sem VIP")
+- Botão "Comprar VIP" (15 💎) ou "Renovar VIP +30 dias"
+- Compras permanentes disponíveis
+- Consumíveis disponíveis
+
+### 19.5 Compras Permanentes (one-time)
 
 | Compra | Custo | Efeito |
 |--------|-------|--------|
-| Expandir Bag | 3 💎 | 10 → 20 slots na mochila |
-| Slot extra de buff | 8 💎 | 1 → 2 buffs ativos simultâneos no Templo |
-| Resetar atributos | 5 💎 | Redistribui todos os pontos investidos do guerreiro |
+| Expandir Bag | 3 💎 | 10 → 20 slots (incluso no VIP) |
+| Resetar atributos | 5 💎 | Redistribui todos os pontos investidos |
 | Trocar nome do guerreiro | 2 💎 | Uma compra = uma troca |
 
-### 19.4 Consumíveis
+### 19.6 Consumíveis (gastam toda vez)
 
-Gastam SoulStones toda vez que usados.
+| Consumível | Custo | Cooldown |
+|------------|-------|----------|
+| Cura instantânea (SoulStone) | 1 💎 | CD 30 min |
+| Pular metade do CD de treino/work | 1 💎 | Uma vez por sessão |
 
-| Consumível | Custo | Cooldown / Limite |
-|------------|-------|-------------------|
-| Cura instantânea de HP | 1 💎 | CD 30 minutos |
-| Ticket extra de arena | 1 💎 | +1 luta além do limite diário |
-| Pular metade do CD de treino/work | 1 💎 | Uma vez por sessão ativa |
+### 19.7 Cosmético / Social *(planejado)*
 
-### 19.5 Cosmético / Social *(planejado para o futuro)*
+- Título no perfil e ranking
+- Frame especial no card da guilda
+- Lore customizado para um item
 
-Sem impacto em gameplay — puro visual e identidade.
+### 19.8 Princípios de Design
 
-- Título exibido no perfil e no ranking ("Portador das Chamas", "Aniquilador", etc.)
-- Frame especial no card da guilda (visual-only)
-- Lore customizado para um item do inventário
+1. **Nenhuma SoulStone compra stats permanentes** — só conveniência e tempo
+2. **Todos os conteúdos acessíveis sem VIP** — VIP elimina fricção, não cria muros
+3. **Daily limits têm reset garantido** — contadores independentes de horário de uso
+4. **Consumíveis têm CD** — evita dominância de quem tem muitas pedras
+5. **Renovação empilha** — incentiva compra antecipada sem punir o jogador
 
-### 19.6 Princípios de Design
-
-1. **Nenhuma SoulStone compra stats permanentes** — só conveniência, tempo ou cosméticos
-2. **Todos os conteúdos são acessíveis sem SoulStones** — a moeda elimina frustração, não cria muros
-3. **Consumíveis têm CD** — para evitar que jogadores com muitas pedras dominem trivialmente
-4. **Permanentes têm estado único** — o sistema rejeita duplicatas silenciosamente
-5. **Histórico de transações futuro** — hoje só o saldo é armazenado
-
-### 19.7 Modelo de Dados
+### 19.9 Modelo de Dados
 
 | Campo | Tipo | Entidade | Notas |
 |-------|------|----------|-------|
 | `soulStones` | `int` | `Player` | Saldo atual |
-| `lastSoulstoneHealAt` | `LocalDateTime` | `Player` | Controle de CD da cura |
+| `vipExpiresAt` | `LocalDateTime` | `Player` | null = sem VIP |
+| `lastVipHealAt` | `LocalDateTime` | `Player` | CD 10 min da cura grátis VIP |
+| `lastSoulstoneHealAt` | `LocalDateTime` | `Player` | CD 30 min da cura por SS |
+| `arenaFightsToday` | `int` | `Player` | Lutas do dia (reset diário) |
+| `lastArenaFightDate` | `LocalDate` | `Player` | Data do último reset de arena |
+| `vipInstantQuestsToday` | `int` | `Player` | Missões instantâneas usadas hoje |
+| `lastVipQuestDate` | `LocalDate` | `Player` | Data do último reset de quests |
 | `inventoryExpanded` | `boolean` | `Player` | Flag de bag expandida |
-| `extraBuffSlot` | `boolean` | `Player` | Flag de slot extra de buff |
+| `activeBuff2` | `BuffType` | `Warrior` | Segundo buff ativo (VIP) |
+| `buffExpiresAt2` | `LocalDateTime` | `Warrior` | Expiração do segundo buff |
 
 ---
 
