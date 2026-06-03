@@ -275,13 +275,31 @@ public class GatheringService {
             int ores = Math.max(1, duration / 10);
             ResourceType oreType = getBestOreForLevel(level);
             drops.add(new ResourceDrop(oreType, ores));
+            // Gemas NÃO saem mais da mineração — agora vêm do Garimpo (Reinos V2).
 
-            // Chance de fragmento de joia
-            ResourceType fragment = rollFragment(oreType, rng);
-            if (fragment != null) drops.add(new ResourceDrop(fragment, 1));
+        } else if (skill == SkillType.GARIMPO) {
+            // Garimpo: cada rodada tenta achar um fragmento de joia (pode vir vazio).
+            int rounds = Math.max(1, duration / 10);
+            Map<ResourceType, Long> fragMap = new HashMap<>();
+            for (int i = 0; i < rounds; i++) {
+                ResourceType frag = rollGarimpoFragment(level, rng);
+                if (frag != null) fragMap.merge(frag, 1L, Long::sum);
+            }
+            fragMap.forEach((t, q) -> drops.add(new ResourceDrop(t, q)));
         }
 
         return drops;
+    }
+
+    /** Fragmento de joia por nível de Garimpo (pode retornar null = veio vazio). */
+    private ResourceType rollGarimpoFragment(int level, Random rng) {
+        double roll = rng.nextDouble();
+        if (level >= 80 && roll < 0.15) return ResourceType.DIAMOND_FRAGMENT;
+        if (level >= 60 && roll < 0.30) return ResourceType.EMERALD_FRAGMENT;
+        if (level >= 40 && roll < 0.45) return ResourceType.SAPPHIRE_FRAGMENT;
+        if (level >= 20 && roll < 0.60) return ResourceType.RUBY_FRAGMENT;
+        if (roll < 0.70)                return ResourceType.AMETHYST_FRAGMENT;
+        return null; // garimpo sem sucesso nesta rodada
     }
 
     private ResourceType rollFish(int level, Random rng) {
@@ -299,17 +317,6 @@ public class GatheringService {
         if (level >= 40) return ResourceType.SILVER_ORE;
         if (level >= 20) return ResourceType.IRON_ORE;
         return ResourceType.COPPER_ORE;
-    }
-
-    private ResourceType rollFragment(ResourceType ore, Random rng) {
-        double roll = rng.nextDouble();
-        return switch (ore) {
-            case IRON_ORE   -> roll < 0.08 ? ResourceType.RUBY_FRAGMENT     : null;
-            case SILVER_ORE -> roll < 0.06 ? ResourceType.SAPPHIRE_FRAGMENT  : null;
-            case GOLD_ORE   -> roll < 0.04 ? ResourceType.EMERALD_FRAGMENT   : null;
-            case MITHRIL_ORE-> roll < 0.02 ? ResourceType.DIAMOND_FRAGMENT   : null;
-            default         -> roll < 0.03 ? ResourceType.AMETHYST_FRAGMENT  : null;
-        };
     }
 
     @Transactional
