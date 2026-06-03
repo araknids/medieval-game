@@ -316,11 +316,10 @@ async function loadWarrior() {
     ${statRow(t('stat.defense'), warrior.baseDefense, warrior.itemBonusDefense ?? 0, warrior.buffBonusDefense ?? 0)}
     ${statRow(t('stat.hp'),      warrior.baseHealth,  warrior.itemBonusHealth  ?? 0, warrior.buffBonusHealth  ?? 0)}
     <div class="warrior-stat-row">
-      <span class="label">${t('stat.evasion')}</span>
-      <span class="value">${warrior.baseEvasion ?? warrior.evasionChance}%${
-        (warrior.buffBonusEvasion ?? 0) > 0
-          ? `<span style="color:#ffd700;font-size:.8em"> +${warrior.buffBonusEvasion}%</span>`
-          : ''}</span>
+      <span class="label">Armor Class (AC)</span>
+      <span class="value">${warrior.evasionChance ?? 10}
+        <span style="color:#888;font-size:.75em">(d20 hit needs ≥ AC)</span>
+      </span>
     </div>
     <div class="warrior-stat-row">
       <span class="label">${t('stat.luck')}</span>
@@ -723,10 +722,11 @@ const ALL_SLOTS = [
 ];
 
 const ATTR_INFO = {
-  STRENGTH:     { icon: '⚔',  labelKey: 'attr.strength',     effectKey: 'attr.strength.effect' },
-  DEXTERITY:    { icon: '🏹', labelKey: 'attr.dexterity',    effectKey: 'attr.dexterity.effect' },
-  CONSTITUTION: { icon: '🛡',  labelKey: 'attr.constitution', effectKey: 'attr.constitution.effect' },
-  LUCK:         { icon: '🍀', labelKey: 'attr.luck',         effectKey: 'attr.luck.effect' },
+  STRENGTH:     { icon: '⚔',  label: 'Força (STR)',       cap: 60, effect: '+1 ATK/pt · Attack Roll floor(STR/20)' },
+  DEXTERITY:    { icon: '🛡',  label: 'Destreza (DEX)',    cap: 40, effect: '+1 AC/pt · AC = 10 + DEX (defende hits)' },
+  CONSTITUTION: { icon: '❤',  label: 'Constituição (CON)', cap: null, effect: '+8 HP/pt · sem cap — cresce infinito' },
+  LUCK:         { icon: '🍀', label: 'Sorte (LUK)',        cap: 50, effect: '+1% drop · expande crítico · Fortune Save' },
+  INTELLECT:    { icon: '📚', label: 'Intelecto (INT)',    cap: 40, effect: '+0.5% Smithing · -0.2% custo treino · +0.3% yield coleta' },
 };
 
 function renderAttributes() {
@@ -736,25 +736,34 @@ function renderAttributes() {
 
   const rows = Object.entries(ATTR_INFO).map(([id, info]) => {
     const val = warrior[id.toLowerCase()] ?? 0;
+    const atCap = info.cap !== null && val >= info.cap;
+    const capLabel = info.cap === null ? '∞' : `/${info.cap}`;
     return `
       <div class="attr-row">
         <span class="attr-icon">${info.icon}</span>
-        <span class="attr-label">${t(info.labelKey)||info.labelKey}</span>
-        <span class="attr-effect">${t(info.effectKey)||info.effectKey}</span>
-        <span class="attr-val">${val}</span>
-        <button class="btn-attr" ${pts <= 0 ? 'disabled' : ''} onclick="spendPoint('${id}')">+</button>
+        <div style="flex:1;min-width:0">
+          <span class="attr-label">${info.label}</span>
+          <span class="attr-effect" style="display:block;font-size:.75rem;color:#888">${info.effect}</span>
+        </div>
+        <span class="attr-val" style="color:${atCap ? '#ffd700' : '#eee'}">${val}${capLabel}</span>
+        <button class="btn-attr" ${pts <= 0 || atCap ? 'disabled' : ''} onclick="spendPoint('${id}')">+</button>
       </div>`;
   }).join('');
+
+  const ac    = warrior.evasionChance ?? 10;
+  const bonus = warrior.attackBonus   ?? 0;
 
   el.innerHTML = `
     <div class="attr-section">
       <div class="attr-header">
-        <span>${t('char.attributes')}</span>
-        ${pts > 0 ? `<span class="attr-points-badge">⬆ ${t('char.points_available', {n: pts})}</span>` : ''}
+        <span>${t('char.attributes')} <span style="font-size:.75rem;color:#888;font-weight:normal">(d20 system)</span></span>
+        ${pts > 0 ? `<span class="attr-points-badge">⬆ ${pts} point${pts !== 1 ? 's' : ''} available</span>` : ''}
       </div>
       ${rows}
-      <div class="attr-stats-summary">
-        ${t('stat.evasion')}: <strong>${warrior.evasionChance ?? 10}%</strong>
+      <div class="attr-stats-summary" style="margin-top:8px;padding:8px;background:#1a1a2e;border-radius:6px;font-size:.8rem">
+        🛡 <strong>AC ${ac}</strong> (attackers need d20 ≥ ${ac} to hit you)
+        &nbsp;·&nbsp;
+        ⚔ <strong>Attack +${bonus}</strong> (added to your d20 attack rolls)
       </div>
     </div>`;
 }

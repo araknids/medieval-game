@@ -43,6 +43,7 @@ public class Warrior {
     private int dexterity    = 0;
     private int constitution = 0;
     private int luck         = 0;
+    private int intellect    = 0;
     private int availablePoints = 0;
 
     // ── HP com regen passiva (% 0-100, regenera 100% em 1 hora) ──

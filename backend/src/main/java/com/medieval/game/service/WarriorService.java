@@ -173,11 +173,13 @@ public class WarriorService {
             throw new IllegalStateException("No attribute points available");
         }
 
+        // Attribute caps enforcement
         switch (attribute) {
-            case STRENGTH     -> warrior.setStrength(warrior.getStrength() + 1);
-            case DEXTERITY    -> warrior.setDexterity(warrior.getDexterity() + 1);
-            case CONSTITUTION -> warrior.setConstitution(warrior.getConstitution() + 1);
-            case LUCK         -> warrior.setLuck(warrior.getLuck() + 1);
+            case STRENGTH     -> { if (warrior.getStrength()     >= 60) throw new IllegalStateException("STR is at cap (60).");     warrior.setStrength(warrior.getStrength() + 1); }
+            case DEXTERITY    -> { if (warrior.getDexterity()    >= 40) throw new IllegalStateException("DEX is at cap (40).");     warrior.setDexterity(warrior.getDexterity() + 1); }
+            case CONSTITUTION -> warrior.setConstitution(warrior.getConstitution() + 1); // no cap
+            case LUCK         -> { if (warrior.getLuck()         >= 50) throw new IllegalStateException("LUK is at cap (50).");     warrior.setLuck(warrior.getLuck() + 1); }
+            case INTELLECT    -> { if (warrior.getIntellect()    >= 40) throw new IllegalStateException("INT is at cap (40).");     warrior.setIntellect(warrior.getIntellect() + 1); }
         }
 
         warrior.setAvailablePoints(warrior.getAvailablePoints() - 1);

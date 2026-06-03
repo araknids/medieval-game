@@ -28,6 +28,7 @@ public class SchemaMigrator {
         patchMailItemColumns();
         patchPlayerVipColumns();
         patchWarriorBuff2Columns();
+        patchWarriorIntellectColumn();
     }
 
     // players: add SoulStone columns if not present (Hibernate adds them but needs explicit DEFAULT)
@@ -132,6 +133,25 @@ public class SchemaMigrator {
             log.info("[SchemaMigrator] players VIP columns ensured");
         } catch (Exception e) {
             log.warn("[SchemaMigrator] players VIP columns patch failed: {}", e.getMessage());
+        }
+    }
+
+    // warriors: add intellect attribute column (new d20 system)
+    private void patchWarriorIntellectColumn() {
+        try {
+            jdbc.execute("""
+                DO $$
+                BEGIN
+                    IF NOT EXISTS (SELECT 1 FROM information_schema.columns
+                                   WHERE table_name='warriors' AND column_name='intellect') THEN
+                        ALTER TABLE warriors ADD COLUMN intellect integer NOT NULL DEFAULT 0;
+                    END IF;
+                END
+                $$;
+                """);
+            log.info("[SchemaMigrator] warriors intellect column ensured");
+        } catch (Exception e) {
+            log.warn("[SchemaMigrator] warriors intellect column patch failed: {}", e.getMessage());
         }
     }
 
