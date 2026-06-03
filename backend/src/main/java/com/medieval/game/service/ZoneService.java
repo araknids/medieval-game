@@ -353,7 +353,10 @@ public class ZoneService {
             // ── PvP: ambush another in-progress player ──
             if (zone.encounterChancePerHour > 0 && rng.nextInt(100) < zone.encounterChancePerHour) {
                 ZoneActivity targetAct = findOpponentActivity(zone, player, rng);
-                if (targetAct != null) {
+                // Re-valida que o alvo ainda está em progresso (pode ter coletado/morrido entre
+                // a seleção e agora). Combinado com o @Version (C3) que protege contra escrita
+                // concorrente perdida, isto reduz a janela de conflito da emboscada. [AUDITORIA A8]
+                if (targetAct != null && targetAct.getStatus() == ZoneActivityStatus.IN_PROGRESS) {
                     Warrior targetWarrior = warriorRepository.findByPlayer(targetAct.getPlayer()).orElse(null);
                     // anti-farm: target escapes with 5% per past survived ambush
                     boolean escaped = rng.nextInt(100) < 5 * targetAct.getAmbushCount();
@@ -377,11 +380,10 @@ public class ZoneService {
                         inventoryService.wearEquippedItems(player);
                         inventoryService.wearEquippedItems(targetPlayer);
 
-                        // Persist target HP from the fight
+                        // Persist target HP from the fight (uma única gravação)
                         int tgtPct = tgtMaxHp > 0 ? Math.max(0, out.secondHpFinal() * 100 / tgtMaxHp) : 0;
                         targetWarrior.setCurrentHpSnapshot(tgtPct);
                         targetWarrior.setHpUpdatedAt(LocalDateTime.now());
-                        warriorRepository.save(targetWarrior);
 
                         if (out.firstWon()) {
                             // Attacker won → robs target, target dies
@@ -392,6 +394,7 @@ public class ZoneService {
                             // attacker survives, continue collecting
                         } else {
                             // Attacker lost → dies; target defended and robs the attacker
+                            warriorRepository.save(targetWarrior); // persiste o HP do defensor
                             long stolen = applyDefeatPenalty(player, targetPlayer);
                             markTargetAmbushed(targetAct, attacker.getName(), 0, log, false, zone);
                             persistAttackerHp(attacker, 0, atkMaxHp);
