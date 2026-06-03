@@ -66,10 +66,9 @@ public class TowerService {
     }
 
     public List<Player> getRanking() {
-        return playerRepository.findAll().stream()
+        // Top 20 no banco (não carrega todos os jogadores); descarta quem nunca subiu. [AUDITORIA M14]
+        return playerRepository.findTop20ByOrderByTowerBestFloorDesc().stream()
                 .filter(p -> p.getTowerBestFloor() > 0)
-                .sorted((a, b) -> Integer.compare(b.getTowerBestFloor(), a.getTowerBestFloor()))
-                .limit(20)
                 .toList();
     }
 

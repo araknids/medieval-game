@@ -2,6 +2,7 @@ package com.medieval.game.repository;
 
 import com.medieval.game.model.Guild;
 import com.medieval.game.model.Player;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -20,4 +21,12 @@ public interface PlayerRepository extends JpaRepository<Player, Long> {
     // Busca guilda do player sem passar pelo proxy lazy
     @Query("SELECT p.guild FROM Player p WHERE p.id = :playerId")
     Optional<Guild> findGuildByPlayerId(@Param("playerId") Long playerId);
+
+    // Matchmaking de arena: candidatos mais próximos em rank (limitado no banco,
+    // não carrega todos os jogadores). [AUDITORIA M14]
+    @Query("SELECT p FROM Player p WHERE p.id <> :id ORDER BY ABS(p.rankPoints - :rank)")
+    List<Player> findOpponentsByRank(@Param("id") Long id, @Param("rank") int rank, Pageable pageable);
+
+    // Ranking da Torre, limitado no banco. [AUDITORIA M14]
+    List<Player> findTop20ByOrderByTowerBestFloorDesc();
 }

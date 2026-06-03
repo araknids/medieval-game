@@ -184,16 +184,19 @@ public class ArenaService {
     }
 
     public List<Player> getRanking() {
-        return matchRepository.findTopRanked();
+        return matchRepository.findTopRanked(org.springframework.data.domain.PageRequest.of(0, 20));
     }
 
     // ── Privados ──
 
+    // Matchmaking: sorteia entre os 10 jogadores de rank mais próximo (query limitada
+    // no banco — não carrega todos os jogadores). Sem candidatos → NPC. [AUDITORIA M14]
     private Player findOpponent(Player challenger) {
-        return playerRepository.findAll().stream()
-                .filter(p -> !p.getId().equals(challenger.getId()))
-                .findAny()
-                .orElse(null);
+        List<Player> candidates = playerRepository.findOpponentsByRank(
+                challenger.getId(), challenger.getRankPoints(),
+                org.springframework.data.domain.PageRequest.of(0, 10));
+        if (candidates.isEmpty()) return null;
+        return candidates.get(java.util.concurrent.ThreadLocalRandom.current().nextInt(candidates.size()));
     }
 
     private int[] totalStats(Player player, Warrior warrior) {

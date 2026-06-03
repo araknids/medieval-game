@@ -53,17 +53,17 @@ calibrados; o problema da economia é **renda escalável sem trava + impressoras
 | M2 | ⬜ | Check constraints de enum só patchados p/ `zone_activities.role` | Persistência | `SchemaMigrator.java:108` | Generalizar drop/recreate a partir de `Enum.values()` ou remover check; cobre `ResourceType`, `BuffType`, `ItemType` etc. |
 | M3 | ✅ | 3 patches do SchemaMigrator ainda agrupam `ADD COLUMN` num só `IF` | Persistência | `SchemaMigrator.java` (mail/vip/buff2) | **RESOLVIDO:** convertidos para `ADD COLUMN IF NOT EXISTS` por coluna (mail, players VIP, warriors buff2). |
 | M4 | ⬜ | `@Data` do Lombok em entidades JPA | 🔁 Persistência + Arquitetura | todas as `model/*.java` | Trocar por `@Getter/@Setter` + `equals/hashCode` por `id`; `TerritoryService:279` comparar por `getId()`. |
-| M5 | ⬜ | Perfil default = `dev` (instant-complete + adm/adm123) | 🔁 Economia + Arquitetura | `application.properties` | Default seguro = `prod`; abortar boot se `instant-complete=true` fora de dev. (Hoje instant está ligado de propósito p/ teste — desligar no go-live.) |
-| M6 | ⬜ | JWT: fallback hardcoded no repo, expiração 7d, reset não invalida tokens | Segurança | `config/JwtUtil.java`, `application.properties` | Falhar boot sem `JWT_SECRET` em prod; expiração menor + refresh; invalidar por `passwordChangedAt`. |
-| M7 | ⬜ | Política de senha fraca (min 6, sem complexidade) | Segurança | `AuthController.java:146` | Mínimo 8–10; bloquear senhas comuns. |
-| M8 | ⬜ | Falta `@Valid`/Bean Validation em vários `@RequestBody` | Segurança | Smithing/Zone/Mail/Guild DTOs | Padronizar `@Valid` + `@Min/@Max/@Size`. |
-| M9 | ⬜ | Testes mascaram timers (todos rodam instant-complete) | 🔁 Economia + Arquitetura | `src/test/resources/application.properties` | Perfil `test` com `instant-complete=false` cobrindo cooldown/stamina/timer. |
-| M10 | ⬜ | Kingdom × Territory representam a mesma coisa (nomes duplicados) | Arquitetura | `enums/Kingdom.java` ↔ `enums/Territory.java` | Vocabulário único; `Kingdom` derivar nomes de `Territory`. |
-| M11 | ⬜ | CORS `*` em produção | 🔁 Segurança + Arquitetura | `application-prod.properties`, `SecurityConfig.java:55` | Restringir a origens conhecidas (domínio app + cliente Godot). |
+| M5 | ✅ | Perfil default = `dev` (instant-complete + adm/adm123) | 🔁 Economia + Arquitetura | `config/StartupChecks.java` | **RESOLVIDO (parcial):** `StartupChecks` loga banner WARN gritante no boot quando `instant-complete=true` (mais forte ainda se perfil=prod). Não aborta de propósito — você usa instant em prod p/ teste; `adm/adm123` já é `@Profile("dev")`. |
+| M6 | ✅ | JWT: fallback hardcoded no repo, expiração 7d, reset não invalida tokens | Segurança | `config/JwtUtil.java` | **RESOLVIDO (parcial):** boot aborta em prod sem `JWT_SECRET` (ou com o default de dev). Invalidação de sessão na troca de senha **deferida** (custaria 1 query/request no filtro JWT, hoje DB-free, ruim com pool de 5). |
+| M7 | ✅ | Política de senha fraca (min 6, sem complexidade) | Segurança | `AuthController` | **RESOLVIDO:** mínimo 6 → 8 no registro e no reset. |
+| M8 | ⬜ | Falta `@Valid`/Bean Validation em vários `@RequestBody` | Segurança | Smithing/Zone/Mail/Guild DTOs | Padronizar `@Valid` + `@Min/@Max/@Size`. *(C2 já blindou o pior — refineOre.)* |
+| M9 | ✅ | Testes mascaram timers (todos rodam instant-complete) | 🔁 Economia + Arquitetura | `TimerPathIntegrationTest` | **RESOLVIDO:** novo teste com `@TestPropertySource(instant-complete=false)` cobre o caminho de timer real (quest não coletável na hora + stamina consumida). |
+| M10 | ⬜ | Kingdom × Territory representam a mesma coisa (nomes duplicados) | Arquitetura | `enums/Kingdom.java` ↔ `enums/Territory.java` | Vocabulário único; `Kingdom` derivar nomes de `Territory`. **(Bucket D)** |
+| M11 | ✅ | CORS `*` em produção | 🔁 Segurança + Arquitetura | `application-prod.properties` | **RESOLVIDO:** prod restrito à origem do web app (overridable via `APP_CORS_ALLOWED_ORIGINS`); Godot é nativo, não afetado. |
 | M12 | ⬜ | `ddl-auto=update` + SchemaMigrator caseiro com catch-warn | Arquitetura | `application-prod.properties`, `SchemaMigrator.java` | Migrar p/ Flyway/Liquibase; enquanto isso, abortar boot em falha de patch crítico + pular migrator em dev. |
 | M13 | ⬜ | Resultado de batalha por parsing de string `WINNER:` | Arquitetura | `BattleSimulator` + consumidores | `simulate` retornar record com `winner`/`hpRestante` explícitos. |
-| M14 | ⬜ | Arena sem matchmaking; `findOpponent` carrega todos os players | Persistência + Economia | `ArenaService.java:192` | `ORDER BY RANDOM() LIMIT 1` / faixa de rank; ranking com `LIMIT` no banco. |
-| M15 | ⬜ | `getOrCreateSkill`/`getProfession` read-then-insert sem unique nem transação | Persistência | `GatheringService.java:32`, `WorkService.java:38` | Unique `(player,skill)`/`(player,work)`; tornar transacional. |
+| M14 | ✅ | Arena sem matchmaking; `findOpponent` carrega todos os players | Persistência + Economia | `ArenaService.java:192` | **RESOLVIDO:** `findOpponentsByRank` (10 mais próximos em rank, limitado no banco, sorteio entre eles); ranking de Arena e Torre com `LIMIT` no banco (`Pageable`/`findTop20…`). |
+| M15 | ✅ | `getOrCreateSkill`/`getProfession` read-then-insert sem unique nem transação | Persistência | `GatheringService.java:32`, `WorkService.java:38` | **Data-safe:** os unique `(player,skill)`/`(player,work)` **já existem** nas entidades — sem duplicatas. O único resíduo (raro 500 se o MESMO player criar o MESMO skill 2× concorrente na 1ª vez) precisa de REQUIRES_NEW p/ um edge case → **deferido** (baixo valor). |
 | M16 | ✅ | EmailService engole exceções (falha de email invisível) | Arquitetura | `EmailService.java:83` | **RESOLVIDO:** loga com stacktrace completo (`log.error(..., e)`). Não relança (falha de email não deve quebrar registro/reset). |
 
 ---
@@ -74,9 +74,9 @@ calibrados; o problema da economia é **renda escalável sem trava + impressoras
 |---|--------|--------|-------|------|
 | B1 | ⬜ | Headers de segurança ausentes (CSP, nosniff, HSTS); `frameOptions` desabilitado | `SecurityConfig.java` | Defesa em profundidade. |
 | B2 | ✅ | `GET /api/smithing/gems/{itemId}` não valida ownership | `SmithingController.java` | **RESOLVIDO:** novo `SmithingService.gemsForOwnedItem` valida dono (404/409 se não for seu) e elimina o anti-pattern `new InventoryItem(){{…}}` no controller. |
-| B3 | ⬜ | Campo legado `evasionChance` carrega o Armor Class (nome engana) | `Warrior.getEvasionChance`, `app.js` | Migrar front p/ `armorClass` e remover legado. |
+| B3 | 🕓 | Campo legado `evasionChance` carrega o Armor Class (nome engana) | `Warrior.getEvasionChance`, `app.js` | **Adiado p/ Bucket D:** os campos `evasionChance`/`armorClass`/`totalEvasion` se sobrepõem e mexer no display arrisca regressão cosmética (bônus de evasão de buff). Vai junto da limpeza de frontend (B6). |
 | B4 | ✅ | `new Random()` por chamada (fairness/testabilidade) | vários services | **RESOLVIDO:** `ThreadLocalRandom.current()` em Arena, Zone, Gathering, Quest e BattleSimulator. |
-| B5 | ⬜ | Reset de senha usa UUIDv4 (não `SecureRandom`); não invalida tokens anteriores | `AuthController:103` | `SecureRandom` base64url + invalidar pendentes. |
+| B5 | ✅ | Reset de senha usa UUIDv4 (não `SecureRandom`); não invalida tokens anteriores | `AuthController` | **RESOLVIDO:** token `SecureRandom` 256-bit base64url + invalida os pendentes do mesmo player ao emitir novo. |
 | B6 | ⬜ | Frontend monolítico (`app.js` ~3.466 linhas) + sem versionamento de API | `static/app.js` | Quebrar em módulos; introduzir `/api/v1/` antes do cliente Godot. |
 
 ---
@@ -101,6 +101,10 @@ calibrados; o problema da economia é **renda escalável sem trava + impressoras
 **Tranche 4 — Segurança & dívida:** A10, M5, M6, M7, M8, M11, M12 + baixos.
 
 ---
+
+### Progresso (continuação)
+
+- **2026-06-03 — Médios/Baixos (Buckets A+B+C):** ✅ M1, M3, M16, B2, B4 (seguros); ✅ M6, M7, B5, M11 (segurança); ✅ M14 (matchmaking+LIMIT), M15 (data-safe), M5 (banner boot), M9 (teste timer real). 🕓 Adiados p/ Bucket D: M2, M4, M8, M10, M12, M13, B1, B3, B6. **401 testes verdes.**
 
 ### Progresso
 
