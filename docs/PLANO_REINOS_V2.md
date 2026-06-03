@@ -25,15 +25,17 @@ Nem todos os reinos são território de guild-war no início — uma **flag** li
 | # | Reino | Ícone | Atividade | Loot / Função | Guild-war no início? |
 |---|-------|-------|-----------|---------------|----------------------|
 | 1 | Pesca — Águas Calmas | 🎣 | Pesca | Peixe que restaura **ESTAMINA** | ✅ (existente) |
-| 2 | Pesca — Mar Abençoado | 🐟 | Pesca | Peixe que restaura **VIDA/HP** | ❌ aberto |
+| 2 | Mar Abençoado | 🐟 | Pesca | Peixe que restaura **VIDA/HP** | ❌ aberto |
 | 3 | Minas de Ferro Negro | ⛏ | Mineração | **Só minério** (gemas saem daqui) | ✅ (existente) |
-| 4 | Pedras Preciosas | 🔎 | **Garimpo (NOVO)** | **Fragmentos de joia** | ❌ aberto |
+| 4 | Grutas de Cristal | 🔎 | **Garimpo (NOVO)** | **Fragmentos de joia** | ❌ aberto |
 | 5 | Fortaleza Maldita | ⚔ | Combate (guerra/treino) | PvP de guild + treino + quests | ✅ (existente) |
-| 6 | Covil/Incursão (Combate PvE) | 👹 | Combate PvE | **Farm de mobs** → gold + materiais escalando com level | ❌ aberto |
+| 6 | Covil das Feras | 👹 | Combate PvE | **Farm de mobs** → gold + materiais escalando com level | ❌ aberto |
 
-> **War inicial (flag):** os 3 reinos que já são território hoje (Águas Calmas, Minas, Fortaleza)
-> ficam como guild-war; os 3 novos começam como **zonas abertas**. Depois é só mudar a flag para
-> ligar guerra em todos. *(Confirmar com o dono se prefere os 3 "cobiçados" — Gemas/PvE/Mar — como war.)*
+> **War inicial (flag) ✅ decidido:** os **3 reinos atuais** (Águas Calmas, Minas, Fortaleza) ficam
+> guild-war; os 3 novos (Mar Abençoado, Grutas de Cristal, Covil das Feras) começam como **zonas abertas**.
+> Depois é só mudar a config `app.kingdoms.war-territories` pra ligar guerra em todos.
+>
+> *Nomes provisórios (Mar Abençoado / Grutas de Cristal / Covil das Feras) — mudáveis depois.*
 
 ---
 
@@ -84,9 +86,11 @@ Hoje todo peixe dá estamina + HP (teto 50%). Passa a ter **dois conjuntos**, po
   que restauram **só vida**, por nível de pesca.
 - A expedição de pesca passa a escolher **em qual reino** pesca (define o pool de peixe).
 
-⚠️ **Balance (importante — não furar o sink do Templo, A5):** peixe de HP cura **mais que o teto atual
-(50%) mas ainda limitado**. **Decisão pendente:** teto **80–90%** *(sugiro 90%)* ou cooldown? O "fechar
-100% / reviver de KO" continua favorecendo Templo (pago) e regen.
+⚠️ **Balance (não furar o sink do Templo, A5):** peixe de HP cura até o **teto de 90%** ✅ (decidido).
+Fechar os últimos 10% / reviver de KO continua favorecendo Templo (pago) e regen.
+
+**Nomes provisórios (mudáveis):** peixes de HP por nível de pesca →
+Peixe-Coral (lv1), Peixe-Anjo (lv20), Peixe-Espírito (lv40), Peixe-Sagrado (lv60), Peixe-Fênix (lv80).
 
 ---
 
@@ -137,12 +141,14 @@ Cada fase entra com testes e fica verde antes da próxima.
 
 ---
 
-## Decisões em aberto (pra fechar antes da Fase 3 / detalhe)
+## Decisões fechadas (2026-06-03)
 
-1. **Teto de cura do peixe de HP:** 80%, 90% (sugerido) ou com cooldown?
-2. **Quais 3 reinos são guild-war no início:** os 3 atuais (sugerido, menos disruptivo) ou os 3 "cobiçados"
-   (Gemas, Combate PvE, Mar Abençoado)?
-3. **Nomes/lore** definitivos dos reinos novos e dos peixes de HP (posso propor).
+1. **Teto de cura do peixe de HP:** ✅ **90%**.
+2. **Guild-war no início:** ✅ os **3 reinos atuais** (Águas Calmas, Minas, Fortaleza).
+3. **Nomes/lore:** ✅ provisórios definidos (Mar Abençoado, Grutas de Cristal, Covil das Feras; peixes
+   de HP: Coral/Anjo/Espírito/Sagrado/Fênix) — mudáveis a qualquer momento.
+
+**→ Design 100% travado. Pronto pra implementar a Fase 1.**
 
 ---
 
