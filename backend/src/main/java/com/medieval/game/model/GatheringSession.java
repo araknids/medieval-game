@@ -33,6 +33,11 @@ public class GatheringSession {
     @Column(nullable = false)
     private SkillType skillType;
 
+    // Reino onde a coleta ocorre — define o pool de drops (ex.: peixe de estamina vs
+    // de vida). null = pool padrão. [REINOS_V2 / Mar Abençoado]
+    @Enumerated(EnumType.STRING)
+    private com.medieval.game.enums.Kingdom kingdom;
+
     private int durationMinutes;
     private int xpReward;
 

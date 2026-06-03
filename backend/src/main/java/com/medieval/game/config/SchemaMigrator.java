@@ -33,6 +33,17 @@ public class SchemaMigrator {
         patchInventoryItemDurabilityColumn();
         patchOptimisticLockVersionColumns();
         patchTerritoryLastResolvedCycleColumn();
+        patchGatheringSessionKingdomColumn();
+    }
+
+    // gathering_sessions: add kingdom column (define o pool de drops — Reinos V2)
+    private void patchGatheringSessionKingdomColumn() {
+        try {
+            jdbc.execute("ALTER TABLE gathering_sessions ADD COLUMN IF NOT EXISTS kingdom varchar(40)");
+            log.info("[SchemaMigrator] gathering_sessions kingdom column ensured");
+        } catch (Exception e) {
+            log.warn("[SchemaMigrator] gathering_sessions kingdom column patch failed: {}", e.getMessage());
+        }
     }
 
     // territory_controls: add last_resolved_cycle_id (idempotent cron / catch-up)

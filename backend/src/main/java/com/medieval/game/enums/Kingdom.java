@@ -23,13 +23,20 @@ public enum Kingdom {
         null,
         "An ancient fortress where warriors train and battle for glory. No mining, no fishing — only war."
     ),
-    // Reinos V2 — reino de coleta SEM guerra de guild (territory = null). [PLANO_REINOS_V2]
+    // Reinos V2 — reinos de coleta SEM guerra de guild (territory = null). [PLANO_REINOS_V2]
     GRUTAS_DE_CRISTAL(
         "Grutas de Cristal",
         "🔎",
         null,                 // não é território de guild-war
         SkillType.GARIMPO,
         "Cavernas cintilantes onde garimpeiros escavam fragmentos de joias raras."
+    ),
+    MAR_ABENCOADO(
+        "Mar Abençoado",
+        "🐟",
+        null,                 // não é território de guild-war
+        SkillType.FISHING,    // mesma skill da pesca, mas pool de peixe de VIDA
+        "Águas sagradas onde nadam peixes que restauram a vida de quem os consome."
     );
 
     public final String displayName;

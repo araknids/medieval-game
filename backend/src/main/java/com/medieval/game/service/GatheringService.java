@@ -17,8 +17,8 @@ import java.util.*;
 @RequiredArgsConstructor
 public class GatheringService {
 
-    // Teto de HP que a cura por peixe alcança (resto exige Templo/regen). [AUDITORIA A5]
-    private static final int FISH_HP_CAP = 50;
+    // Teto de HP que o peixe de vida alcança (resto exige Templo/regen). [AUDITORIA A5 / REINOS_V2]
+    private static final int FISH_HP_CAP = 90;
 
     private final GatheringSessionRepository  sessionRepository;
     private final SkillLevelRepository        skillRepository;
@@ -88,7 +88,13 @@ public class GatheringService {
 
     @Transactional
     public GatheringSession startGathering(Player player, SkillType skillType, int durationMinutes) {
-        log.info("[GatheringService] player={} action=startGathering skillType={} duration={}", player.getId(), skillType, durationMinutes);
+        return startGathering(player, skillType, durationMinutes, null);
+    }
+
+    @Transactional
+    public GatheringSession startGathering(Player player, SkillType skillType, int durationMinutes,
+                                           com.medieval.game.enums.Kingdom kingdom) {
+        log.info("[GatheringService] player={} action=startGathering skillType={} duration={} kingdom={}", player.getId(), skillType, durationMinutes, kingdom);
         if (sessionRepository.findByPlayerAndStatus(player, GatheringStatus.IN_PROGRESS).isPresent()) {
             log.warn("[GatheringService] player={} REJECTED: already gathering", player.getId());
             throw new IllegalStateException("You are already gathering");
@@ -115,6 +121,7 @@ public class GatheringService {
         GatheringSession session = new GatheringSession();
         session.setPlayer(player);
         session.setSkillType(skillType);
+        session.setKingdom(kingdom);
         session.setDurationMinutes(durationMinutes);
         session.setXpReward(xpReward);
         session.setStartedAt(LocalDateTime.now());
@@ -157,7 +164,8 @@ public class GatheringService {
                     ? terr.miningBonus()
                     : 0;
 
-        List<ResourceDrop> drops = rollDrops(session.getSkillType(), skill.getLevel(), session.getDurationMinutes());
+        List<ResourceDrop> drops = rollDrops(session.getSkillType(), skill.getLevel(),
+                session.getDurationMinutes(), session.getKingdom());
 
         // Apply yield bonus: extra items proportional to bonus %
         List<ResourceDrop> boostedDrops = drops.stream().map(d -> {
@@ -205,6 +213,14 @@ public class GatheringService {
     /** Result of eating a fish: restored stamina and HP percent. */
     public record FishResult(int newStamina, int newHpPercent) {}
 
+    // Peixes de VIDA (Mar Abençoado) restauram HP; os demais restauram estamina. [REINOS_V2]
+    private static boolean isHpFish(ResourceType t) {
+        return switch (t) {
+            case CORAL_FISH, ANGEL_FISH, SPIRIT_FISH, SACRED_FISH, PHOENIX_FISH -> true;
+            default -> false;
+        };
+    }
+
     @Transactional
     public FishResult consumeFish(Player player, ResourceType fishType) {
         if (fishType.category != ResourceType.ResourceCategory.FISH)
@@ -212,7 +228,10 @@ public class GatheringService {
 
         removeResource(player, fishType, 1);
 
-        int stamina = switch (fishType) {
+        boolean hpFish = isHpFish(fishType);
+
+        // Peixe de estamina → só estamina; peixe de vida → só HP. [REINOS_V2]
+        int stamina = hpFish ? 0 : switch (fishType) {
             case SMALL_FISH    -> 10;
             case SALMON        -> 25;
             case TUNA          -> 40;
@@ -220,31 +239,36 @@ public class GatheringService {
             case LEGENDARY_FISH-> 80;
             default -> 0;
         };
-        int hpHeal = switch (fishType) {
-            case SMALL_FISH    -> 5;
-            case SALMON        -> 15;
-            case TUNA          -> 30;
-            case SHARK         -> 50;
-            case LEGENDARY_FISH-> 100;
+        int hpHeal = !hpFish ? 0 : switch (fishType) {
+            case CORAL_FISH  -> 15;
+            case ANGEL_FISH  -> 30;
+            case SPIRIT_FISH -> 50;
+            case SACRED_FISH -> 70;
+            case PHOENIX_FISH-> 90;
             default -> 0;
         };
 
-        int newStamina = Math.min(100, player.getCalculatedStamina() + stamina);
-        player.setCurrentStamina(newStamina);
-        player.setStaminaUpdatedAt(LocalDateTime.now());
-        playerRepository.save(player);
+        int newStamina;
+        if (stamina > 0) {
+            newStamina = Math.min(100, player.getCalculatedStamina() + stamina);
+            player.setCurrentStamina(newStamina);
+            player.setStaminaUpdatedAt(LocalDateTime.now());
+            playerRepository.save(player);
+        } else {
+            newStamina = player.getCalculatedStamina();
+        }
 
-        // Restaura HP do guerreiro, mas só até 50% — recuperação de emergência.
-        // O restante (50→100%) exige Templo (sink pago) ou regen natural, para que a
-        // cura por peixe não anule o sink de cura no late-game. [AUDITORIA A5]
+        // Peixe de vida cura HP até o teto de 90% — o restante (90→100%) e reviver de KO
+        // exigem Templo (sink pago) ou regen, pra não furar o sink de cura. [AUDITORIA A5 / REINOS_V2]
         int newHp = warriorRepository.findByPlayer(player).map(w -> {
             int cur = w.getCalculatedHpPercent();
+            if (hpHeal <= 0) return cur;
             int restored = cur >= FISH_HP_CAP ? cur : Math.min(FISH_HP_CAP, cur + hpHeal);
             w.setCurrentHpSnapshot(restored);
             w.setHpUpdatedAt(LocalDateTime.now());
             warriorRepository.save(w);
             return restored;
-        }).orElse(FISH_HP_CAP);
+        }).orElse(100);
 
         log.info("[GatheringService] player={} action=consumeFish fish={} stamina={} hp={}",
                 player.getId(), fishType, newStamina, newHp);
@@ -253,20 +277,23 @@ public class GatheringService {
 
     // ── Geração de drops (público para ZoneService) ──
 
-    /** Retorna drops sem persistir — usado pela ZoneService */
+    /** Retorna drops sem persistir — usado pela ZoneService (pool padrão, sem reino). */
     public List<ResourceDrop> collectGatheringDropsOnly(SkillType skillType, int level, int durationMinutes) {
-        return rollDrops(skillType, level, durationMinutes);
+        return rollDrops(skillType, level, durationMinutes, null);
     }
 
-    private List<ResourceDrop> rollDrops(SkillType skill, int level, int duration) {
+    private List<ResourceDrop> rollDrops(SkillType skill, int level, int duration,
+                                         com.medieval.game.enums.Kingdom kingdom) {
         Random rng = java.util.concurrent.ThreadLocalRandom.current();
         List<ResourceDrop> drops = new ArrayList<>();
 
         if (skill == SkillType.FISHING) {
             int catches = Math.max(1, duration / 5);
+            // Mar Abençoado → peixe de VIDA; demais reinos → peixe de ESTAMINA. [REINOS_V2]
+            boolean hpPool = kingdom == com.medieval.game.enums.Kingdom.MAR_ABENCOADO;
             Map<ResourceType, Long> fishMap = new HashMap<>();
             for (int i = 0; i < catches; i++) {
-                ResourceType fish = rollFish(level, rng);
+                ResourceType fish = hpPool ? rollHpFish(level, rng) : rollFish(level, rng);
                 fishMap.merge(fish, 1L, Long::sum);
             }
             fishMap.forEach((t, q) -> drops.add(new ResourceDrop(t, q)));
@@ -309,6 +336,16 @@ public class GatheringService {
         if (level >= 40 && roll < 0.40) return ResourceType.TUNA;
         if (level >= 20 && roll < 0.60) return ResourceType.SALMON;
         return ResourceType.SMALL_FISH;
+    }
+
+    /** Peixe de VIDA por nível de pesca (Reino Mar Abençoado). [REINOS_V2] */
+    private ResourceType rollHpFish(int level, Random rng) {
+        double roll = rng.nextDouble();
+        if (level >= 80 && roll < 0.05) return ResourceType.PHOENIX_FISH;
+        if (level >= 60 && roll < 0.20) return ResourceType.SACRED_FISH;
+        if (level >= 40 && roll < 0.40) return ResourceType.SPIRIT_FISH;
+        if (level >= 20 && roll < 0.60) return ResourceType.ANGEL_FISH;
+        return ResourceType.CORAL_FISH;
     }
 
     private ResourceType getBestOreForLevel(int level) {

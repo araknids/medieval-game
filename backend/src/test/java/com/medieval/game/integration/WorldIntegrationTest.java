@@ -24,12 +24,12 @@ class WorldIntegrationTest extends BaseIntegrationTest {
 
     // TC-142: GET /api/world returns 3 kingdoms
     @Test
-    @DisplayName("TC-142 | GET /api/world → 4 kingdoms returned (3 war + Grutas/Garimpo)")
-    void tc142_listKingdoms_returns4() throws Exception {
+    @DisplayName("TC-142 | GET /api/world → 5 kingdoms (3 war + Grutas/Garimpo + Mar Abençoado)")
+    void tc142_listKingdoms_returns5() throws Exception {
         mockMvc.perform(get("/api/world").header("Authorization", bearer(token)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$").isArray())
-                .andExpect(jsonPath("$", hasSize(4)))
+                .andExpect(jsonPath("$", hasSize(5)))
                 .andExpect(jsonPath("$[0].kingdom").isNotEmpty())
                 .andExpect(jsonPath("$[0].displayName").isNotEmpty())
                 .andExpect(jsonPath("$[0].icon").isNotEmpty());

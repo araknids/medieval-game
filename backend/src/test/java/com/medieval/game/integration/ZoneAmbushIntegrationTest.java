@@ -51,38 +51,38 @@ class ZoneAmbushIntegrationTest extends BaseIntegrationTest {
         return warriorRepository.findByPlayer(p).orElseThrow();
     }
 
-    // ── TC-212: Peixe Lendário cura HP só até o teto de 50% [AUDITORIA A5] ──
+    // ── TC-212: Peixe de VIDA (Fênix) cura HP até o teto de 90% [REINOS_V2] ──
     @Test
-    @DisplayName("TC-212 | Consume LEGENDARY_FISH a 20% → HP capado em 50%")
-    void tc212_legendaryFish_cappedAt50() throws Exception {
+    @DisplayName("TC-212 | Consume PHOENIX_FISH a 20% → HP capado em 90%")
+    void tc212_phoenixFish_cappedAt90() throws Exception {
         Player player = playerOf("amb");
         Warrior w = warriorOf(player);
         w.setCurrentHpSnapshot(20);
         w.setHpUpdatedAt(java.time.LocalDateTime.now());
         warriorRepository.save(w);
-        gatheringService.addResource(player, ResourceType.LEGENDARY_FISH, 1);
+        gatheringService.addResource(player, ResourceType.PHOENIX_FISH, 1);
 
-        mockMvc.perform(post("/api/gathering/consume/LEGENDARY_FISH")
+        mockMvc.perform(post("/api/gathering/consume/PHOENIX_FISH")
                         .header("Authorization", bearer(token)))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.newHpPercent").value(50));
+                .andExpect(jsonPath("$.newHpPercent").value(90)); // 20 + 90, capado em 90
     }
 
-    // ── TC-213: Peixe Pequeno cura +5% HP quando abaixo do teto ──
+    // ── TC-213: Peixe-Coral (vida) cura +15% HP quando abaixo do teto ──
     @Test
-    @DisplayName("TC-213 | Consume SMALL_FISH a 30% → +5% HP")
-    void tc213_smallFish_heals5pct() throws Exception {
+    @DisplayName("TC-213 | Consume CORAL_FISH a 30% → +15% HP")
+    void tc213_coralFish_heals15pct() throws Exception {
         Player player = playerOf("amb");
         Warrior w = warriorOf(player);
         w.setCurrentHpSnapshot(30);
         w.setHpUpdatedAt(java.time.LocalDateTime.now());
         warriorRepository.save(w);
-        gatheringService.addResource(player, ResourceType.SMALL_FISH, 1);
+        gatheringService.addResource(player, ResourceType.CORAL_FISH, 1);
 
-        mockMvc.perform(post("/api/gathering/consume/SMALL_FISH")
+        mockMvc.perform(post("/api/gathering/consume/CORAL_FISH")
                         .header("Authorization", bearer(token)))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.newHpPercent").value(greaterThanOrEqualTo(35)));
+                .andExpect(jsonPath("$.newHpPercent").value(greaterThanOrEqualTo(45)));
     }
 
     // ── TC-214: GET /api/zones/current expõe campos de emboscada ──

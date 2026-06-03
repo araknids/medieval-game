@@ -81,7 +81,8 @@ public class GatheringController {
     @PostMapping("/start")
     public ResponseEntity<?> start(@Valid @RequestBody StartRequest req, Authentication auth) {
         Player          player  = getPlayer(auth);
-        GatheringSession session = gatheringService.startGathering(player, req.skillType(), req.durationMinutes());
+        GatheringSession session = gatheringService.startGathering(
+                player, req.skillType(), req.durationMinutes(), req.kingdom());
         long secs = Math.max(0, ChronoUnit.SECONDS.between(LocalDateTime.now(), session.getFinishesAt()));
         return ResponseEntity.ok(Map.of(
             "active",           true,
@@ -132,5 +133,7 @@ public class GatheringController {
         return playerService.findById((Long) auth.getPrincipal());
     }
 
-    record StartRequest(@NotNull SkillType skillType, @Min(5) @Max(60) int durationMinutes) {}
+    // kingdom opcional — define o pool de drops (ex.: Mar Abençoado = peixe de vida). [REINOS_V2]
+    record StartRequest(@NotNull SkillType skillType, @Min(5) @Max(60) int durationMinutes,
+                        com.medieval.game.enums.Kingdom kingdom) {}
 }

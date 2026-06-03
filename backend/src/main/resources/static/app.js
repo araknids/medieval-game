@@ -2775,7 +2775,8 @@ function renderWorldOverview(kingdoms, territories) {
     FISHING: ['Safe Shore','Wild Coast','Deep Sea'],
     MINING:  ['Open Mine','Deep Tunnels','Forbidden Mines'],
     COMBAT:  ['Training Hall','Battlefield','War Zone'],
-    GRUTAS_DE_CRISTAL: ['Veio Raso','Grutas Profundas','Caverna Proibida']
+    GRUTAS_DE_CRISTAL: ['Veio Raso','Grutas Profundas','Caverna Proibida'],
+    MAR_ABENCOADO: ['Enseada Sagrada','Recife Profundo','Abismo Abençoado']
   };
 
   const cards = kingdoms.map(k => {
@@ -2850,7 +2851,7 @@ async function enterKingdom(kingdom) {
       api('GET', `/api/world/${kingdom}/quests`),
       api('GET', `/api/world/${kingdom}/quests/active`),
       kingdom === 'COMBAT' ? api('GET', '/api/world/COMBAT/training') : Promise.resolve(null),
-      (kingdom === 'FISHING' || kingdom === 'MINING' || kingdom === 'GRUTAS_DE_CRISTAL') ? api('GET', '/api/gathering/current') : Promise.resolve(null),
+      (kingdom === 'FISHING' || kingdom === 'MINING' || kingdom === 'GRUTAS_DE_CRISTAL' || kingdom === 'MAR_ABENCOADO') ? api('GET', '/api/gathering/current') : Promise.resolve(null),
       (kingdom === 'FISHING' || kingdom === 'MINING' || kingdom === 'COMBAT') ? api('GET', '/api/zones/current') : Promise.resolve(null)
     ]);
     console.log('[WORLD] enterKingdom data:', {kingdom, gatherSession, zoneSession, activeQuests: activeQuests.length});
@@ -2863,8 +2864,8 @@ async function enterKingdom(kingdom) {
 
 function renderKingdomDetail(kingdom, quests, activeQuests, training, gatherSession, zoneSession) {
   const el = document.getElementById('kingdom-detail');
-  const NAMES = { FISHING:'Desfiladeiro do Osso', MINING:'Minas de Ferro Negro', COMBAT:'Fortaleza Maldita', GRUTAS_DE_CRISTAL:'Grutas de Cristal' };
-  const ICONS = { FISHING:'🎣', MINING:'⛏', COMBAT:'⚔', GRUTAS_DE_CRISTAL:'🔎' };
+  const NAMES = { FISHING:'Desfiladeiro do Osso', MINING:'Minas de Ferro Negro', COMBAT:'Fortaleza Maldita', GRUTAS_DE_CRISTAL:'Grutas de Cristal', MAR_ABENCOADO:'Mar Abençoado' };
+  const ICONS = { FISHING:'🎣', MINING:'⛏', COMBAT:'⚔', GRUTAS_DE_CRISTAL:'🔎', MAR_ABENCOADO:'🐟' };
   const busy = activeQuests.length > 0
     || !!(warrior && warrior.onMission)
     || !!(gatherSession && gatherSession.active)
@@ -2983,23 +2984,28 @@ function renderKingdomDetail(kingdom, quests, activeQuests, training, gatherSess
       }).join('');
   }
 
-  // Gathering section for FISHING, MINING and GARIMPO kingdoms — 3 zones per kingdom
+  // Gathering section for FISHING, MAR_ABENCOADO, MINING and GARIMPO kingdoms — 3 zones per kingdom
   let gatheringHtml = '';
-  if (kingdom === 'FISHING' || kingdom === 'MINING' || kingdom === 'GRUTAS_DE_CRISTAL') {
-    const skillType = kingdom === 'FISHING' ? 'FISHING'
-                    : kingdom === 'MINING'  ? 'MINING'
+  if (kingdom === 'FISHING' || kingdom === 'MAR_ABENCOADO' || kingdom === 'MINING' || kingdom === 'GRUTAS_DE_CRISTAL') {
+    const isFishing = kingdom === 'FISHING' || kingdom === 'MAR_ABENCOADO';
+    const skillType = isFishing ? 'FISHING'
+                    : kingdom === 'MINING' ? 'MINING'
                     : 'GARIMPO';
     const wLevel    = warrior ? warrior.level : 1;
 
     // All zones use /api/gathering/start (max 60min). PvP risk = cosmetic for now.
     const fishDurations = [5, 10, 20, 30, 40];
     const mineDurations = [10, 20, 30, 45, 60];
-    const dur = kingdom === 'FISHING' ? fishDurations : mineDurations;
+    const dur = isFishing ? fishDurations : mineDurations;
 
     const zones = kingdom === 'FISHING' ? [
-      { name:'🏖 Safe Shore', minLv:1,  pvp:false, durations:dur, color:'#4caf50', desc:'Safe fishing — no PvP' },
-      { name:'🌊 Wild Coast', minLv:10, pvp:true,  durations:dur, color:'#ffc107', desc:'PvP zone — hunters may attack (coming soon)' },
-      { name:'🦈 Deep Sea',   minLv:20, pvp:true,  durations:dur, color:'#ef5350', desc:'High risk — rare fish (coming soon)' }
+      { name:'🏖 Safe Shore', minLv:1,  pvp:false, durations:dur, color:'#4caf50', desc:'Pesca segura — restaura estamina' },
+      { name:'🌊 Wild Coast', minLv:10, pvp:true,  durations:dur, color:'#ffc107', desc:'Zona PvP — caçadores podem atacar (em breve)' },
+      { name:'🦈 Deep Sea',   minLv:20, pvp:true,  durations:dur, color:'#ef5350', desc:'Alto risco — peixes raros (em breve)' }
+    ] : kingdom === 'MAR_ABENCOADO' ? [
+      { name:'🌅 Enseada Sagrada', minLv:1,  pvp:false, durations:dur, color:'#4caf50', desc:'Pesca segura — peixe que restaura VIDA' },
+      { name:'🐠 Recife Profundo', minLv:10, pvp:true,  durations:dur, color:'#ffc107', desc:'Zona PvP — caçadores podem atacar (em breve)' },
+      { name:'🔱 Abismo Abençoado', minLv:20, pvp:true,  durations:dur, color:'#ef5350', desc:'Alto risco — peixes lendários de vida (em breve)' }
     ] : kingdom === 'MINING' ? [
       { name:'⛏ Open Mine',       minLv:1,  pvp:false, durations:dur, color:'#4caf50', desc:'Safe mining — no PvP' },
       { name:'🪨 Deep Tunnels',   minLv:10, pvp:true,  durations:dur, color:'#ffc107', desc:'PvP zone — hunters may attack (coming soon)' },
@@ -3026,7 +3032,7 @@ function renderKingdomDetail(kingdom, quests, activeQuests, training, gatherSess
               : `<div style="display:flex;gap:5px;flex-wrap:wrap">
               ${z.durations.map(d => {
                 const label = d >= 60 ? (d/60)+'h' : d+'min';
-                return `<button onclick="startKingdomGathering('${skillType}',${d})" style="font-size:11px;padding:3px 8px">${label}</button>`;
+                return `<button onclick="startKingdomGathering('${skillType}',${d},'${kingdom}')" style="font-size:11px;padding:3px 8px">${label}</button>`;
               }).join('')}
             </div>`}
         </div>`;
@@ -3191,11 +3197,14 @@ async function collectTraining(sessionId) {
   worldMsg(msg);
 }
 
-// Safe zone gathering: /api/gathering/start
-async function startKingdomGathering(skillType, durationMinutes) {
-  const r = await api('POST', '/api/gathering/start', { skillType, durationMinutes });
+// Safe zone gathering: /api/gathering/start. kingdom define o pool de drops (ex.: Mar Abençoado = peixe de vida).
+async function startKingdomGathering(skillType, durationMinutes, kingdom) {
+  const body = { skillType, durationMinutes };
+  if (kingdom) body.kingdom = kingdom;
+  const r = await api('POST', '/api/gathering/start', body);
   if (r.error) { worldMsg(r.error, false); return; }
-  const msg = `${skillType === 'FISHING' ? 'Fishing' : 'Mining'} started! ${durationMinutes}min session.`;
+  const verb = skillType === 'FISHING' ? 'Fishing' : skillType === 'GARIMPO' ? 'Garimpo' : 'Mining';
+  const msg = `${verb} started! ${durationMinutes}min session.`;
   if (worldCurrentKingdom) await enterKingdom(worldCurrentKingdom);
   worldMsg(msg);
 }

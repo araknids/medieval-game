@@ -128,11 +128,12 @@ class GatheringIntegrationTest extends BaseIntegrationTest {
 
         gatheringService.addResource(player, ResourceType.SALMON, 1);
 
+        // Peixe de estamina restaura SÓ estamina; HP fica inalterado. [REINOS_V2]
         mockMvc.perform(post("/api/gathering/consume/SALMON")
                         .header("Authorization", bearer(token)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.newStamina").value(75))      // 50 + 25
-                .andExpect(jsonPath("$.newHpPercent").value(45));   // 30 + 15, abaixo do teto 50 [AUDITORIA A5]
+                .andExpect(jsonPath("$.newHpPercent").value(30));   // peixe de estamina não cura HP
     }
 
     // ── TC-237: consumeFish stamina não ultrapassa 100 ──
