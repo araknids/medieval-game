@@ -34,6 +34,42 @@ public class SchemaMigrator {
         patchOptimisticLockVersionColumns();
         patchTerritoryLastResolvedCycleColumn();
         patchGatheringSessionKingdomColumn();
+        dropStaleEnumCheckConstraints();
+    }
+
+    // Reinos V2 adicionou/alterou valores em enums (SkillType.GARIMPO, novos ResourceType,
+    // KingdomQuestType reescrito, Kingdom no lugar de Territory). Os check constraints que o
+    // Hibernate criou na 1ª vez ficam defasados e rejeitam os novos valores (ex.: GARIMPO em
+    // skill_levels). Como a validação do enum já é feita na camada JPA, derrubamos esses checks.
+    // Genérico: acha e dropa qualquer CHECK que referencie as colunas de enum afetadas. [REINOS_V2]
+    private void dropStaleEnumCheckConstraints() {
+        try {
+            jdbc.execute("""
+                DO $$
+                DECLARE r record;
+                BEGIN
+                    FOR r IN
+                        SELECT rel.relname AS tbl, con.conname AS con
+                        FROM pg_constraint con
+                        JOIN pg_class     rel ON rel.oid = con.conrelid
+                        JOIN pg_namespace nsp ON nsp.oid = rel.relnamespace
+                        WHERE con.contype = 'c'
+                          AND nsp.nspname = 'public'
+                          AND rel.relname IN (
+                              'skill_levels', 'resource_inventory', 'kingdom_active_quests',
+                              'territory_controls', 'territory_declarations', 'territory_battle_logs',
+                              'gathering_sessions')
+                          AND pg_get_constraintdef(con.oid) ~ '(skill_type|resource_type|quest_type|kingdom|territory)'
+                    LOOP
+                        EXECUTE format('ALTER TABLE %I DROP CONSTRAINT %I', r.tbl, r.con);
+                    END LOOP;
+                END
+                $$;
+                """);
+            log.info("[SchemaMigrator] stale enum check constraints dropped (Reinos V2)");
+        } catch (Exception e) {
+            log.warn("[SchemaMigrator] enum check constraint patch failed: {}", e.getMessage());
+        }
     }
 
     // gathering_sessions: add kingdom column (define o pool de drops — Reinos V2)
