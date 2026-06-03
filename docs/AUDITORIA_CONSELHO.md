@@ -112,4 +112,29 @@ calibrados; o problema da economia é **renda escalável sem trava + impressoras
 
 ---
 
+## Backlog — Tarefas dedicadas (decididas, fora da rodada atual)
+
+### BL-1 — Redesenho da resolução PvP de emboscada (origem: A8)
+
+**Decisão (2026-06-03):** adiado como tarefa dedicada. A emboscada **já é segura** (C3 garante
+que não há corrupção; um conflito vira 409 + rollback, recuperável por retry). O que falta é
+**não falhar o request do jogador sob concorrência**.
+
+**Raiz do problema:** a emboscada transfere bronze **entre dois jogadores**
+(`ZoneService.applyDefeatPenalty(perdedor, vencedor)`), tocando 2 linhas. Resolver isso dentro
+da transação do collect do atacante escreve nas linhas do alvo → conflito possível. Lock pessimista
+gera deadlock AB-BA; transação aninhada conflita na própria linha do atacante (no ramo "atacante perde").
+
+**Opções (do mais barato ao mais completo):**
+1. **Retry no cliente** (1 linha no `app.js`): reenviar o collect 1× ao receber 409. Custo trivial, esconde o conflito raro. *Stopgap recomendado.*
+2. **Retry transparente no servidor**: laço de retry no collect (transação nova por tentativa, ~3x). Jogador nunca vê 409. Precisa quebrar self-invocation (padrão usado no A7).
+3. **Resolução assíncrona (outbox + job)**: emboscada vira evento, processado por job serializado com retry (como o scheduler de território). Nenhum request falha. Encaixa no design de notificação por **mail** que já existe. *Refactor maior; muda o "feeling" (resultado chega depois, não no modal do collect).*
+
+**Pergunta de design em aberto (decide a direção):** o resultado da emboscada deve continuar
+aparecendo **na hora do collect** (modal) ou pode chegar **por mail / no próximo acesso**?
+- "Na hora" → Opção 1 ou 2.
+- "Por mail" → Opção 3 (a mais limpa de verdade).
+
+---
+
 *Documento vivo — atualizar a coluna Status conforme cada item for resolvido. Auditoria somente-leitura; nenhum arquivo de produção foi alterado durante a auditoria em si.*
