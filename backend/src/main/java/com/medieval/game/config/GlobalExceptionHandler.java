@@ -1,6 +1,7 @@
 package com.medieval.game.config;
 
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.dao.OptimisticLockingFailureException;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
@@ -32,6 +33,15 @@ public class GlobalExceptionHandler {
     public ResponseEntity<?> handleIllegalState(IllegalStateException ex) {
         log.warn("[GlobalExceptionHandler] Business rule rejected: {}", ex.getMessage());
         return ResponseEntity.status(409).body(Map.of("error", ex.getMessage()));
+    }
+
+    // Conflito de escrita concorrente (optimistic locking) — ex.: dois cliques no mesmo
+    // collect. A 2ª transação falha no commit; devolvemos 409 para o cliente tentar de novo. [AUDITORIA C3]
+    @ExceptionHandler(OptimisticLockingFailureException.class)
+    public ResponseEntity<?> handleOptimisticLock(OptimisticLockingFailureException ex) {
+        log.warn("[GlobalExceptionHandler] Concurrent modification: {}", ex.getMessage());
+        return ResponseEntity.status(409).body(Map.of(
+            "error", "Ação concorrente detectada. Tente novamente."));
     }
 
     @ExceptionHandler(Exception.class)

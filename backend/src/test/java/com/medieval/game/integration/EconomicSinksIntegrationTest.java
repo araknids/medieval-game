@@ -93,7 +93,7 @@ class EconomicSinksIntegrationTest extends BaseIntegrationTest {
         playerRepository.save(p);
         InventoryItem item = equippedItem(p, 2, 5, 0, 0, 40);
 
-        smithingService.repairItem(p, item.getId());
+        smithingService.repairItem(playerRepository.findById(p.getId()).orElseThrow(), item.getId());
 
         InventoryItem after = inventoryRepository.findById(item.getId()).orElseThrow();
         assertThat(after.getDurability()).isEqualTo(100);
@@ -112,7 +112,7 @@ class EconomicSinksIntegrationTest extends BaseIntegrationTest {
         assertThat(smithingService.repairCost(item)).isEqualTo(1000);
 
         long before = playerRepository.findById(p.getId()).orElseThrow().totalBronze();
-        smithingService.repairItem(p, item.getId());
+        smithingService.repairItem(playerRepository.findById(p.getId()).orElseThrow(), item.getId());
         long after = playerRepository.findById(p.getId()).orElseThrow().totalBronze();
 
         assertThat(before - after).isEqualTo(1000);
@@ -145,7 +145,7 @@ class EconomicSinksIntegrationTest extends BaseIntegrationTest {
         assertThat(smithingService.reforgeCost(item)).isEqualTo(3200);
 
         long before = playerRepository.findById(p.getId()).orElseThrow().totalBronze();
-        smithingService.reforgeItem(p, item.getId());
+        smithingService.reforgeItem(playerRepository.findById(p.getId()).orElseThrow(), item.getId());
         long after = playerRepository.findById(p.getId()).orElseThrow().totalBronze();
 
         assertThat(before - after).isEqualTo(3200);
@@ -160,7 +160,7 @@ class EconomicSinksIntegrationTest extends BaseIntegrationTest {
         playerRepository.save(p);
         InventoryItem item = equippedItem(p, 3, 9, 9, 36, 100); // raro
 
-        smithingService.reforgeItem(p, item.getId());
+        smithingService.reforgeItem(playerRepository.findById(p.getId()).orElseThrow(), item.getId());
 
         InventoryItem after = inventoryRepository.findById(item.getId()).orElseThrow();
         assertThat(after.getRarity()).isEqualTo(3);

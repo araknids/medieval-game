@@ -16,6 +16,11 @@ public class Mail {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
+    // Optimistic locking: impede coletar gold/item da mesma carta duas vezes. [AUDITORIA C3]
+    @Version
+    @Column(columnDefinition = "bigint default 0")
+    private long version;
+
     @Column(nullable = false)
     private Long senderPlayerId;
 

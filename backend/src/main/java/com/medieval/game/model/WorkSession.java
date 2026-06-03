@@ -18,6 +18,11 @@ public class WorkSession {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
+    // Optimistic locking: impede double-collect concorrente do trabalho. [AUDITORIA C3]
+    @Version
+    @Column(columnDefinition = "bigint default 0")
+    private long version;
+
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "player_id", nullable = false)
     private Player player;

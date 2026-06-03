@@ -17,6 +17,11 @@ public class ArenaMatch {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
+    // Optimistic locking: impede coletar a recompensa da mesma luta duas vezes. [AUDITORIA C3]
+    @Version
+    @Column(columnDefinition = "bigint default 0")
+    private long version;
+
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "challenger_id", nullable = false)
     private Player challenger;

@@ -18,6 +18,11 @@ public class ActiveQuest {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
+    // Optimistic locking: impede double-collect concorrente da mesma quest. [AUDITORIA C3]
+    @Version
+    @Column(columnDefinition = "bigint default 0")
+    private long version;
+
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "warrior_id", nullable = false)
     private Warrior warrior;

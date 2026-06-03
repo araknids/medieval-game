@@ -18,6 +18,11 @@ public class Player {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
+    // Optimistic locking: protege double-spend de moeda e contadores diários (VIP/cura). [AUDITORIA C3]
+    @Version
+    @Column(columnDefinition = "bigint default 0")
+    private long version;
+
     @Column(unique = true, nullable = false)
     private String username;
 

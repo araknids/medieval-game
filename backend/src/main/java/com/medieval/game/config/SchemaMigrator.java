@@ -31,6 +31,7 @@ public class SchemaMigrator {
         patchWarriorIntellectColumn();
         patchZoneActivityAmbushColumns();
         patchInventoryItemDurabilityColumn();
+        patchOptimisticLockVersionColumns();
     }
 
     // zone_activities: add ambush PvP columns (each column independently — robust)
@@ -190,6 +191,22 @@ public class SchemaMigrator {
         } catch (Exception e) {
             log.warn("[SchemaMigrator] warriors buff2 columns patch failed: {}", e.getMessage());
         }
+    }
+
+    // Optimistic locking: add version column to state entities (prevents double-collect/double-spend)
+    private void patchOptimisticLockVersionColumns() {
+        String[] tables = {
+            "active_quests", "work_sessions", "gathering_sessions",
+            "arena_matches", "zone_activities", "mail", "players"
+        };
+        for (String table : tables) {
+            try {
+                jdbc.execute("ALTER TABLE " + table + " ADD COLUMN IF NOT EXISTS version bigint NOT NULL DEFAULT 0");
+            } catch (Exception e) {
+                log.warn("[SchemaMigrator] {} version column patch failed: {}", table, e.getMessage());
+            }
+        }
+        log.info("[SchemaMigrator] optimistic-lock version columns ensured");
     }
 
     // inventory_items: add durability column (economic sink — items wear down in combat)

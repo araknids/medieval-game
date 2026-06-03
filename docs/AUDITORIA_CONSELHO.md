@@ -23,7 +23,7 @@ calibrados; o problema da economia é **renda escalável sem trava + impressoras
 |---|--------|--------|-----------|-------|--------------------|
 | C1 | ✅ | `/api/admin/grant-soulstones` sem proteção de role | 🔁 Segurança + Arquitetura | `controller/AdminController.java:21` | Qualquer jogador logado se concede SoulStones (💎 premium) infinitos. **RESOLVIDO:** `@Profile("dev")` na classe → bean não registra em prod (endpoint 404). |
 | C2 | ✅ | Quantidade negativa em `refineOre` imprime bronze + recursos | 🔁 Segurança + Economia | `service/SmithingService.java:80` + `controller/SmithingController.java:85` | `quantity` cru; valor negativo passava nas guardas → `spendBronze`/`removeResource` creditavam. **RESOLVIDO:** validação `1 ≤ quantity ≤ 1000` em `refineOre` + guardas `< 0` em `spendBronze`, `addResource`, `removeResource`. Testes em `ExploitRegressionTest`. |
-| C3 | ⬜ | Double-collect / double-spend (sem `@Version` ou lock em lugar nenhum) | Persistência | `QuestService`, `WorkService`, `GatheringService`, `ArenaService`, `ZoneService`, `MailService`, `TempleService`, `VipService` | Padrão `if(COLLECTED) throw … setStatus(COLLECTED)` sem lock. Requisições concorrentes (duplo-clique/retry) pagam recompensa 2×, furam cooldown e limite diário. **Fix:** `@Version` nas entidades de estado + tratar `OptimisticLockException` como 409 no handler. **(Tranche 2 — próximo)** |
+| C3 | ✅ | Double-collect / double-spend (sem `@Version` ou lock em lugar nenhum) | Persistência | `QuestService`, `WorkService`, `GatheringService`, `ArenaService`, `ZoneService`, `MailService`, `TempleService`, `VipService` | **RESOLVIDO:** `@Version` em `ActiveQuest`, `WorkSession`, `GatheringSession`, `ArenaMatch`, `ZoneActivity`, `Mail` e `Player`. A 2ª transação concorrente falha no commit (`OptimisticLockingFailureException`) → `GlobalExceptionHandler` devolve **409** "tente novamente". Coluna `version` via `@Column(columnDefinition="bigint default 0")` + `SchemaMigrator.patchOptimisticLockVersionColumns`. Testes em `OptimisticLockingTest`. |
 | C4 | ✅ | Saldo pode ficar negativo permanente | Persistência | `model/Player.java:46` (`addBronzeAmount`) | Sem `Math.max(0,…)`; no PvP de zona viraria saldo devedor irreversível. **RESOLVIDO:** clamp `Math.max(0, …)` em `addBronzeAmount`. Teste em `ExploitRegressionTest`. |
 
 ---
@@ -39,7 +39,7 @@ calibrados; o problema da economia é **renda escalável sem trava + impressoras
 | A5 | ⬜ | Cura escalável 100% contornável com peixe | Economia | `TempleService.java:41` vs `GatheringService` | Peixe lendário cura 100% grátis → sink de cura é nulo pra quem pesca. **Fix:** limitar cura por peixe (CD, teto 50%, ou custo de stamina/tempo). |
 | A6 | ⬜ | try/catch em ~60 controllers rebaixa 409→400 | Arquitetura | quase todos os controllers | `GlobalExceptionHandler` (mapeia 409) vira código morto; contrato HTTP instável (ruim p/ cliente Godot). **Fix:** remover try/catch dos controllers, deixar o handler traduzir. |
 | A7 | ⬜ | Cron de território não é idempotente | Arquitetura | `TerritoryService.java:128` | Railway reinicia em deploy → ciclo perdido nunca reprocessado; declarações órfãs + upkeep não cobrado. **Fix:** persistir `lastResolvedCycleId` e reprocessar ciclos pendentes; transação por território. |
-| A8 | ⬜ | Emboscada escreve em entidades de outro jogador sem lock | Persistência | `ZoneService.java:333` | Combinado com C3, permite roubar bronze do alvo 2×. **Fix:** `@Version` + recarregar alvo com lock; ou resolver emboscadas em job idempotente. |
+| A8 | 🔧 | Emboscada escreve em entidades de outro jogador sem lock | Persistência | `ZoneService.java:333` | **Parcial:** com C3, `@Version` em `Player`/`ZoneActivity` agora converte o lost-update em falha detectável (409) em vez de corromper o alvo. Falta o tratamento elegante (recarregar alvo com lock / resolver em job idempotente) — Tranche 3. |
 | A9 | ⬜ | N+1 ao somar bônus de joias | Persistência | `WarriorController.java:79`, `InventoryController.java:30`, `SmithingService.totalGemBonus` | 1 query por item nos endpoints quentes (`/api/warrior`, `/api/inventory`); pool prod tem só 5 conexões. **Fix:** `findAllByItemIn(equipped)` + agrupar em memória. |
 | A10 | ⬜ | Sem rate limit + enumeração de usuário no login | 🔁 Segurança | `AuthController.java:66` | Força bruta + spam de email Brevo; login distingue "User not found" de "Incorrect password". **Fix:** rate limit (bucket4j) por IP/conta; mensagem genérica única. |
 
@@ -105,6 +105,9 @@ calibrados; o problema da economia é **renda escalável sem trava + impressoras
 ### Progresso
 
 - **2026-06-03 — Tranche 1 (parcial):** C1, C2, C4 ✅ resolvidos (389 testes, 6 de regressão novos em `ExploitRegressionTest`). Falta A1 (gemas em combate) para fechar a Tranche 1.
+- **2026-06-03 — Tranche 2:** C3 ✅ resolvido + A8 🔧 parcialmente mitigado (392 testes, 3 novos em `OptimisticLockingTest`). **Todos os 4 críticos fechados.**
+  - *Deploy prod:* a coluna `version` é adicionada automaticamente (Hibernate `ddl-auto=update` via `columnDefinition default 0` + `SchemaMigrator`); linhas existentes recebem 0. **Sem SQL manual.**
+  - *Comportamento novo:* em duplo-clique/retry no mesmo collect, o cliente recebe **409** "Ação concorrente detectada. Tente novamente." (o front pode tratar reabrindo o estado atual).
 
 ---
 
