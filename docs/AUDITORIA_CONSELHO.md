@@ -104,7 +104,8 @@ calibrados; o problema da economia é **renda escalável sem trava + impressoras
 
 ### Progresso (continuação)
 
-- **2026-06-03 — Médios/Baixos (Buckets A+B+C):** ✅ M1, M3, M16, B2, B4 (seguros); ✅ M6, M7, B5, M11 (segurança); ✅ M14 (matchmaking+LIMIT), M15 (data-safe), M5 (banner boot), M9 (teste timer real). 🕓 Adiados p/ Bucket D: M2, M4, M8, M10, M12, M13, B1, B3, B6. **401 testes verdes.**
+- **2026-06-03 — Médios/Baixos (Buckets A+B+C):** ✅ M1, M3, M16, B2, B4 (seguros); ✅ M6, M7, B5, M11 (segurança); ✅ M14 (matchmaking+LIMIT), M15 (data-safe), M5 (banner boot), M9 (teste timer real).
+- **2026-06-03 — Bucket D (refactors):** ✅ M13 (vencedor explícito), M4 (@Getter/@Setter nas entidades), B1 (headers de segurança). Registrados como backlog (grandes/baixo valor): **BL-2** M10, **BL-3** M12, **BL-4** B6+B3+CSP, **BL-5** M8, **BL-6** M2. 401 testes verdes. **401 testes verdes.**
 
 ### Progresso
 
@@ -138,6 +139,34 @@ gera deadlock AB-BA; transação aninhada conflita na própria linha do atacante
 aparecendo **na hora do collect** (modal) ou pode chegar **por mail / no próximo acesso**?
 - "Na hora" → Opção 1 ou 2.
 - "Por mail" → Opção 3 (a mais limpa de verdade).
+
+### BL-2 — Unificar Kingdom × Territory (origem: M10)
+`Kingdom` e `Territory` representam a mesma coisa (mapeamento 1:1) com `displayName` duplicado.
+Refactor de clareza (sem bug): fazer `Kingdom` derivar nomes de `Territory` ou fundir. Toca enums +
+`KingdomService`/`TerritoryService` + controllers. **Risco moderado, valor = manutenção.** Não rushar.
+
+### BL-3 — Migração de schema com Flyway/Liquibase (origem: M12)
+Hoje: `ddl-auto=update` + `SchemaMigrator` caseiro (já robusto, por-coluna). Flyway daria migrações
+versionadas + fail-fast. **Mas:** introduzir Flyway num banco de prod existente exige *baseline* — se o
+baseline não casar exatamente com o schema atual, a app não sobe. **Opinião:** com o `SchemaMigrator`
+já robusto, o ganho não justifica o risco agora; reavaliar quando o schema estabilizar (ou fazer baseline
+limpo aproveitando que o banco é descartável). Decisão do dono.
+
+### BL-4 — Modularizar frontend + versionar API (origem: B6, inclui B3 e CSP do B1)
+`app.js` tem ~3.466 linhas num arquivo só; API sem versionamento (`/api/...` sem `/v1`). **Importante
+ANTES do cliente Godot** (contrato estável). Mas é grande e o versionamento quebra o frontend atual se
+não for coordenado. Inclui: limpar campo legado `evasionChance`→`armorClass` (B3) e endurecer CSP (B1).
+**Tarefa dedicada, idealmente junto do início do trabalho do cliente Godot.**
+
+### BL-5 — `@Valid` nos DTOs restantes (origem: M8) — *baixa prioridade*
+Padronizar Bean Validation (`@Valid` + `@Min/@Max/@Size`) em Smithing/Zone/Mail/Guild DTOs. O pior caso
+(quantidade negativa no refino → impressão de dinheiro) **já foi blindado no C2**; o resto é defesa em
+profundidade. Risco de quebrar testes com payloads de borda — fazer com calma.
+
+### BL-6 — Generalizar check-constraints de enum (origem: M2) — *baixa prioridade*
+Hoje só `zone_activities_role_check` é recriado. Outros enums `STRING` quebrariam inserts ao ganhar valor
+novo. Opções: dropar os `*_check` (deixar o app validar) ou recriar a partir de `Enum.values()`. Valor
+imediato baixo (a abordagem ad-hoc por-constraint funciona). Risco em prod ao dropar/recriar constraints.
 
 ---
 
