@@ -4,10 +4,8 @@ import com.medieval.game.enums.ResourceType;
 import com.medieval.game.enums.Zone;
 import com.medieval.game.model.Player;
 import com.medieval.game.model.Warrior;
-import com.medieval.game.model.ZoneActivity;
 import com.medieval.game.repository.PlayerRepository;
 import com.medieval.game.repository.WarriorRepository;
-import com.medieval.game.repository.ZoneActivityRepository;
 import com.medieval.game.service.GatheringService;
 import com.medieval.game.service.MailService;
 import org.junit.jupiter.api.BeforeEach;
@@ -20,13 +18,12 @@ import static org.hamcrest.Matchers.*;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
-// TC-212 to TC-218 — Zone Ambush PvP integration tests
-@DisplayName("TC-212-218 | Zone Ambush PvP — Integration")
+// TC-212 to TC-220 — Zone PvP (raid-by-flag) integration tests
+@DisplayName("TC-212-220 | Zone PvP (raid-by-flag) — Integration")
 class ZoneAmbushIntegrationTest extends BaseIntegrationTest {
 
     @Autowired PlayerRepository         playerRepository;
     @Autowired WarriorRepository        warriorRepository;
-    @Autowired ZoneActivityRepository   activityRepository;
     @Autowired GatheringService         gatheringService;
     @Autowired MailService              mailService;
     @Autowired com.medieval.game.service.ZoneService zoneService;
@@ -83,10 +80,10 @@ class ZoneAmbushIntegrationTest extends BaseIntegrationTest {
                 .andExpect(jsonPath("$.newHpPercent").value(greaterThanOrEqualTo(45)));
     }
 
-    // ── TC-214: GET /api/zones/current expõe campos de emboscada ──
+    // ── TC-214: GET /api/zones/current expõe a expedição ativa ──
     @Test
-    @DisplayName("TC-214 | GET /api/zones/current exposes ambush fields")
-    void tc214_currentExposesAmbushFields() throws Exception {
+    @DisplayName("TC-214 | GET /api/zones/current exposes the active expedition")
+    void tc214_currentExposesActivity() throws Exception {
         Player player = playerOf("amb");
         warriorOf(player); // ensure warrior exists
         mockMvc.perform(post("/api/zones/enter")
@@ -97,36 +94,8 @@ class ZoneAmbushIntegrationTest extends BaseIntegrationTest {
 
         mockMvc.perform(get("/api/zones/current").header("Authorization", bearer(token)))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.ambushPending").value(false))
-                .andExpect(jsonPath("$.ambushCount").value(0));
-    }
-
-    // ── TC-215: Continue endpoint limpa ambushPending ──
-    @Test
-    @DisplayName("TC-215 | POST /api/zones/{id}/continue clears ambushPending")
-    void tc215_continueClearsPending() throws Exception {
-        Player player = playerOf("amb");
-        warriorOf(player);
-        String resp = mockMvc.perform(post("/api/zones/enter")
-                .header("Authorization", bearer(token))
-                .contentType(org.springframework.http.MediaType.APPLICATION_JSON)
-                .content("{\"zone\":\"SAFE\",\"role\":\"GATHERING\",\"skillType\":\"FISHING\",\"durationMinutes\":30}"))
-                .andReturn().getResponse().getContentAsString();
-        long activityId = objectMapper.readTree(resp).get("id").asLong();
-
-        // Simulate a pending ambush
-        ZoneActivity act = activityRepository.findById(activityId).orElseThrow();
-        act.setAmbushPending(true);
-        act.setAmbushCount(1);
-        activityRepository.save(act);
-
-        mockMvc.perform(post("/api/zones/" + activityId + "/continue")
-                        .header("Authorization", bearer(token)))
-                .andExpect(status().isOk());
-
-        ZoneActivity after = activityRepository.findById(activityId).orElseThrow();
-        assertThat(after.isAmbushPending()).isFalse();
-        assertThat(after.getAmbushCount()).isEqualTo(1); // count preserved
+                .andExpect(jsonPath("$.active").value(true))
+                .andExpect(jsonPath("$.zone").value("SAFE"));
     }
 
     // ── TC-216: sendSystemMail aparece no inbox ──

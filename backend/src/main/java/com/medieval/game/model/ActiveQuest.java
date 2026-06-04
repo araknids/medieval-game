@@ -51,7 +51,9 @@ public class ActiveQuest {
     private long expReward;
 
     public boolean isReadyToCollect() {
+        // >= (não > estrito): no modo sem-timer completesAt=agora; com isAfter haveria uma corrida
+        // de mesmo-instante onde a quest fica momentaneamente "não pronta". Igual a ZoneActivity. [SEM_TIMER]
         return status == QuestStatus.IN_PROGRESS
-                && LocalDateTime.now().isAfter(completesAt);
+                && !LocalDateTime.now().isBefore(completesAt);
     }
 }

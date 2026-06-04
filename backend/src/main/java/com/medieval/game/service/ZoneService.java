@@ -285,18 +285,6 @@ public class ZoneService {
         return activityRepository.findByPlayerAndStatus(player, ZoneActivityStatus.IN_PROGRESS);
     }
 
-    /** Player viu o aviso de emboscada e escolheu CONTINUAR — limpa o flag pendente. */
-    @Transactional
-    public void acknowledgeAmbush(Player player, Long activityId) {
-        ZoneActivity activity = activityRepository.findById(activityId)
-                .orElseThrow(() -> new IllegalArgumentException("Expedition not found"));
-        if (!activity.getPlayer().getId().equals(player.getId()))
-            throw new IllegalStateException("Not yours");
-        activity.setAmbushPending(false);
-        activityRepository.save(activity);
-        log.info("[ZoneService] player={} action=acknowledgeAmbush activityId={} — continuing expedition", player.getId(), activityId);
-    }
-
     // ── Histórico ──
 
     public List<ZoneActivity> getHistory(Player player) {

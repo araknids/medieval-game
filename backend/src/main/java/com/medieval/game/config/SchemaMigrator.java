@@ -29,7 +29,6 @@ public class SchemaMigrator {
         patchPlayerVipColumns();
         patchWarriorBuff2Columns();
         patchWarriorIntellectColumn();
-        patchZoneActivityAmbushColumns();
         patchInventoryItemDurabilityColumn();
         patchOptimisticLockVersionColumns();
         patchTerritoryLastResolvedCycleColumn();
@@ -160,20 +159,9 @@ public class SchemaMigrator {
         }
     }
 
-    // zone_activities: add ambush PvP columns (each column independently — robust)
-    private void patchZoneActivityAmbushColumns() {
-        try {
-            jdbc.execute("ALTER TABLE zone_activities ADD COLUMN IF NOT EXISTS ambush_count integer NOT NULL DEFAULT 0");
-            jdbc.execute("ALTER TABLE zone_activities ADD COLUMN IF NOT EXISTS ambush_pending boolean NOT NULL DEFAULT false");
-            jdbc.execute("ALTER TABLE zone_activities ADD COLUMN IF NOT EXISTS last_ambusher_name varchar(255)");
-            jdbc.execute("ALTER TABLE zone_activities ADD COLUMN IF NOT EXISTS last_ambush_bronze_lost bigint NOT NULL DEFAULT 0");
-            jdbc.execute("ALTER TABLE zone_activities ADD COLUMN IF NOT EXISTS last_ambush_item_lost varchar(255)");
-            jdbc.execute("ALTER TABLE zone_activities ADD COLUMN IF NOT EXISTS last_ambush_log text");
-            log.info("[SchemaMigrator] zone_activities ambush columns ensured");
-        } catch (Exception e) {
-            log.warn("[SchemaMigrator] zone_activities ambush columns patch failed: {}", e.getMessage());
-        }
-    }
+    // [PVP_FLAG] As colunas de "emboscada pendente" do zone_activities foram aposentadas
+    // (PvP virou raid-by-flag; vítima saqueada direto + mail). Não dropamos as colunas
+    // existentes em prod (inofensivas); só paramos de garanti-las em DBs novos.
 
     // players: add SoulStone columns if not present (Hibernate adds them but needs explicit DEFAULT)
     private void patchPlayerSoulStoneColumns() {

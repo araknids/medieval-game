@@ -1,7 +1,5 @@
 package com.medieval.game.repository;
 
-import com.medieval.game.enums.ActivityRole;
-import com.medieval.game.enums.Zone;
 import com.medieval.game.enums.ZoneActivityStatus;
 import com.medieval.game.model.Player;
 import com.medieval.game.model.ZoneActivity;
@@ -13,17 +11,8 @@ import java.util.Optional;
 public interface ZoneActivityRepository extends JpaRepository<ZoneActivity, Long> {
     Optional<ZoneActivity> findByPlayerAndStatus(Player player, ZoneActivityStatus status);
 
-    // Hunters ativos na mesma zona
-    List<ZoneActivity> findAllByZoneAndRoleAndStatus(
-            Zone zone, ActivityRole role, ZoneActivityStatus status);
-
-    // Gatherers ativos na mesma zona (para o hunter caçar) — legado
-    List<ZoneActivity> findAllByZoneAndRoleAndStatusAndPlayerNot(
-            Zone zone, ActivityRole role, ZoneActivityStatus status, Player exclude);
-
-    // Qualquer player ativo na zona (pool de alvos de emboscada PvP), exceto o próprio
-    List<ZoneActivity> findAllByZoneAndStatusAndPlayerNot(
-            Zone zone, ZoneActivityStatus status, Player exclude);
+    // [PVP_FLAG] As queries de pool de emboscada (por zona/role IN_PROGRESS) foram removidas:
+    // o alvo do PvP agora é um player FLAGGED (PlayerRepository.findFlaggedInZone), não uma atividade.
 
     // Expedições finalizadas pelo jogador (histórico)
     List<ZoneActivity> findAllByPlayerAndStatusInOrderByStartedAtDesc(

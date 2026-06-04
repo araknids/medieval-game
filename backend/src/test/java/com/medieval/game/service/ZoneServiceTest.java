@@ -102,14 +102,4 @@ class ZoneServiceTest {
         assertThat(out.firstHpFinal()).isLessThanOrEqualTo(200);
     }
 
-    // ── TC-211: Anti-farm protection formula — 5% per past ambush ──
-    @Test
-    @DisplayName("TC-211 | Anti-farm escape chance = 5% × ambushCount")
-    void tc211_antiFarmFormula() {
-        // The escape chance is rng.nextInt(100) < 5 * ambushCount
-        assertThat(5 * 0).isEqualTo(0);   // first ambush: 0% escape
-        assertThat(5 * 1).isEqualTo(5);   // after 1: 5%
-        assertThat(5 * 4).isEqualTo(20);  // after 4: 20%
-        assertThat(5 * 10).isEqualTo(50); // after 10: 50%
-    }
 }

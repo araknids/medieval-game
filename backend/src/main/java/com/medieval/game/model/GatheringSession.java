@@ -48,7 +48,8 @@ public class GatheringSession {
     private LocalDateTime finishesAt;
 
     public boolean isReadyToCollect() {
+        // >= (não > estrito): sem-timer usa finishesAt=agora; evita corrida de mesmo-instante. [SEM_TIMER]
         return status == GatheringStatus.IN_PROGRESS
-                && LocalDateTime.now().isAfter(finishesAt);
+                && !LocalDateTime.now().isBefore(finishesAt);
     }
 }
