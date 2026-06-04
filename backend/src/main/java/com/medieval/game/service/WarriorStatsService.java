@@ -63,17 +63,37 @@ public class WarriorStatsService {
 
     /**
      * Stats totais de combate no formato do BattleSimulator:
-     * [atk, def, hp, dex, strBonus, luk]. Inclui base + atributos + itens + joias.
+     * [atk, def, hp, dex, strBonus, luk]. Inclui base + atributos + itens + joias + buffs ativos
+     * (slots do Templo + slot "Bem Alimentado" da refeição). [A1 / COZINHA]
      */
     public int[] combatStats(Player player, Warrior warrior) {
         ItemBonus b = equippedItemBonus(player);
+        int[] buff = activeBuffBonuses(warrior); // {atk, def, hp, eva}
         return new int[]{
-            warrior.getTotalBaseAttack()  + b.atk(),
-            warrior.getTotalBaseDefense() + b.def(),
-            warrior.getTotalBaseHealth()  + b.hp(),
-            warrior.getDexterity(),    // [3] dex → AC = 10 + dex
-            warrior.getAttackBonus(),  // [4] floor(STR/20)
-            warrior.getLuck()          // [5] luk → crit window + Fortune Save
+            warrior.getTotalBaseAttack()  + b.atk() + buff[0],
+            warrior.getTotalBaseDefense() + b.def() + buff[1],
+            warrior.getTotalBaseHealth()  + b.hp()  + buff[2],
+            warrior.getDexterity()        + buff[3],   // [3] dex → AC = 10 + dex (evasão de buff = AC plano)
+            warrior.getAttackBonus(),                  // [4] floor(STR/20)
+            warrior.getLuck()                          // [5] luk → crit window + Fortune Save
         };
+    }
+
+    /** Soma os bônus dos buffs ATIVOS (Templo slot 1 + 2 + refeição). [COZINHA] */
+    private int[] activeBuffBonuses(Warrior w) {
+        int atk = 0, def = 0, hp = 0, eva = 0;
+        if (w.hasActiveBuff()) {
+            var b = w.getActiveBuff();
+            atk += b.atkBonus; def += b.defBonus; hp += b.hpBonus; eva += b.evasionBonus;
+        }
+        if (w.hasActiveBuff2()) {
+            var b = w.getActiveBuff2();
+            atk += b.atkBonus; def += b.defBonus; hp += b.hpBonus; eva += b.evasionBonus;
+        }
+        if (w.hasMealBuff()) {
+            var m = w.getMealBuff();
+            atk += m.atkBonus; def += m.defBonus; hp += m.hpBonus; eva += m.evasionBonus;
+        }
+        return new int[]{atk, def, hp, eva};
     }
 }

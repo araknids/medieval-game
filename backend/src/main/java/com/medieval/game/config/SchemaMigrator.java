@@ -58,8 +58,8 @@ public class SchemaMigrator {
                           AND rel.relname IN (
                               'skill_levels', 'resource_inventory', 'kingdom_active_quests',
                               'territory_controls', 'territory_declarations', 'territory_battle_logs',
-                              'gathering_sessions')
-                          AND pg_get_constraintdef(con.oid) ~ '(skill_type|resource_type|quest_type|kingdom|territory)'
+                              'gathering_sessions', 'warriors', 'meal_inventory')
+                          AND pg_get_constraintdef(con.oid) ~ '(skill_type|resource_type|quest_type|kingdom|territory|meal)'
                     LOOP
                         EXECUTE format('ALTER TABLE %I DROP CONSTRAINT %I', r.tbl, r.con);
                     END LOOP;
@@ -221,7 +221,9 @@ public class SchemaMigrator {
         try {
             jdbc.execute("ALTER TABLE warriors ADD COLUMN IF NOT EXISTS active_buff2     varchar(50)");
             jdbc.execute("ALTER TABLE warriors ADD COLUMN IF NOT EXISTS buff_expires_at2 timestamp");
-            log.info("[SchemaMigrator] warriors buff2 columns ensured");
+            jdbc.execute("ALTER TABLE warriors ADD COLUMN IF NOT EXISTS meal_buff            varchar(40)"); // [COZINHA]
+            jdbc.execute("ALTER TABLE warriors ADD COLUMN IF NOT EXISTS meal_buff_expires_at timestamp");   // [COZINHA]
+            log.info("[SchemaMigrator] warriors buff2/meal columns ensured");
         } catch (Exception e) {
             log.warn("[SchemaMigrator] warriors buff2 columns patch failed: {}", e.getMessage());
         }

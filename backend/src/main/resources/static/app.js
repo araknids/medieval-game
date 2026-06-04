@@ -307,6 +307,19 @@ async function loadWarrior() {
             </div>`;
   })() : '';
 
+  // Buff de refeição (slot Bem Alimentado). [COZINHA]
+  const mealBuffLine = warrior.mealBuff ? (() => {
+    const secsLeft = warrior.mealBuffSecondsLeft ?? 0;
+    const timeStr  = secsLeft > 3600
+      ? `${Math.floor(secsLeft / 3600)}h ${Math.floor((secsLeft % 3600) / 60)}m`
+      : `${Math.floor(secsLeft / 60)}m`;
+    return `<div style="margin-top:.3rem;font-size:.75rem;padding:3px 6px;
+                         background:#1f1226;border:1px solid #ba68c8;border-radius:4px;
+                         color:#ce93d8;display:inline-block">
+              🍽 ${warrior.mealBuff} <span style="color:#aaa;font-size:.7em">(${timeStr})</span>
+            </div>`;
+  })() : '';
+
   const hpColor      = (warrior.hpPercent ?? 100) <= 0 ? '#cf6679'
                      : (warrior.hpPercent ?? 100) < 50  ? '#c9a84c' : '#4caf82';
   const staminaColor = stamina < 30 ? '#cf6679' : stamina < 60 ? '#c9a84c' : '#4caf82';
@@ -341,6 +354,7 @@ async function loadWarrior() {
     </div>
 
     ${buffLine}
+    ${mealBuffLine}
 
     <div style="margin-top:.4rem">
       ${warrior.isKnockedOut
@@ -615,17 +629,77 @@ function switchCommerceTab(tab) {
   document.getElementById('panel-shop').style.display      = tab === 'shop'      ? 'block' : 'none';
   document.getElementById('panel-sell').style.display      = tab === 'sell'      ? 'block' : 'none';
   document.getElementById('panel-smith').style.display     = tab === 'smith'     ? 'block' : 'none';
+  document.getElementById('panel-cooking').style.display   = tab === 'cooking'   ? 'block' : 'none';
   document.getElementById('panel-resources').style.display = tab === 'resources' ? 'block' : 'none';
   document.getElementById('panel-vipshop').style.display   = tab === 'vipshop'   ? 'block' : 'none';
   document.getElementById('tab-shop').classList.toggle('active',      tab === 'shop');
   document.getElementById('tab-sell').classList.toggle('active',      tab === 'sell');
   document.getElementById('tab-smith').classList.toggle('active',     tab === 'smith');
+  document.getElementById('tab-cooking').classList.toggle('active',   tab === 'cooking');
   document.getElementById('tab-resources').classList.toggle('active', tab === 'resources');
   document.getElementById('tab-vipshop').classList.toggle('active',   tab === 'vipshop');
   if (tab === 'sell')      loadSellList();
   if (tab === 'smith')     loadSmithingInCommerce();
+  if (tab === 'cooking')   loadCooking();
   if (tab === 'resources') loadResourcesInCommerce();
   if (tab === 'vipshop')   loadVipShop();
+}
+
+// ── Cozinha (Sistema de Cozinha): peixe → refeição → buff de combate ──
+async function loadCooking() {
+  const el = document.getElementById('cooking-content');
+  el.innerHTML = '<p>Carregando cozinha...</p>';
+  try {
+    const [recipes, meals] = await Promise.all([
+      api('GET', '/api/cooking/recipes'),
+      api('GET', '/api/cooking/meals')
+    ]);
+    const mealCount = {};
+    (meals || []).forEach(m => { mealCount[m.id] = m.quantity; });
+
+    const recipeCards = (recipes || []).map(r => {
+      const owned = `${r.fishOwned}/${r.ingredientQty}`;
+      const have  = mealCount[r.id] || 0;
+      return `
+        <div style="background:#1a1a2e;border:1px solid ${r.canCook ? '#4caf50' : '#333'};border-radius:8px;padding:12px;margin-bottom:8px">
+          <div style="display:flex;justify-content:space-between;align-items:center">
+            <strong>${r.icon} ${r.displayName}</strong>
+            <span style="font-size:12px;color:#9c27b0">${r.effect} · ${r.durationMinutes}min</span>
+          </div>
+          <div style="font-size:12px;color:#888;margin:4px 0 8px">Ingrediente: ${r.ingredient} ×${r.ingredientQty} (tem ${owned})${have ? ` · em estoque: ${have}` : ''}</div>
+          <div style="display:flex;gap:6px">
+            <button onclick="cookMeal('${r.id}')" ${r.canCook ? '' : 'disabled style="opacity:.5"'} style="font-size:12px">🍳 Cozinhar</button>
+            ${have ? `<button onclick="eatMeal('${r.id}')" style="font-size:12px;background:#7b1fa2">🍽 Comer (${have})</button>` : ''}
+          </div>
+        </div>`;
+    }).join('');
+
+    el.innerHTML = `
+      <p style="font-size:13px;color:#aaa;margin:0 0 12px">Transforme peixes em refeições que dão um buff de combate (slot <strong>Bem Alimentado</strong>, empilha com os buffs do Templo).</p>
+      ${recipeCards}
+      <div id="cooking-msg" style="margin-top:8px;min-height:20px"></div>`;
+  } catch (e) {
+    el.innerHTML = '<p style="color:red">Erro ao carregar a cozinha: ' + e.message + '</p>';
+  }
+}
+
+async function cookMeal(meal) {
+  const r = await api('POST', '/api/cooking/cook', { meal });
+  cookingMsg(r.error ? r.error : r.message, !r.error);
+  if (!r.error) { await loadResources(); await loadCooking(); }
+}
+
+async function eatMeal(meal) {
+  const r = await api('POST', '/api/cooking/eat', { meal });
+  if (r.error) { cookingMsg(r.error, false); return; }
+  await loadWarrior();
+  cookingMsg(r.message, true);
+  await loadCooking();
+}
+
+function cookingMsg(text, ok = true) {
+  const el = document.getElementById('cooking-msg');
+  if (el) el.innerHTML = `<span style="color:${ok ? '#4caf50' : '#f44336'}">${text}</span>`;
 }
 
 // Loads smithing content into the Commerce tab smithing panel

@@ -96,11 +96,29 @@ public class Warrior {
                && LocalDateTime.now().isBefore(buffExpiresAt2);
     }
 
+    // ── Buff de refeição (slot "Bem Alimentado") — separado dos slots do Templo. [COZINHA] ──
+    @Enumerated(EnumType.STRING)
+    @Column(name = "meal_buff")
+    private com.medieval.game.enums.Meal mealBuff;
+    @Column(name = "meal_buff_expires_at")
+    private LocalDateTime mealBuffExpiresAt;
+
+    public boolean hasMealBuff() {
+        return mealBuff != null && mealBuffExpiresAt != null
+               && LocalDateTime.now().isBefore(mealBuffExpiresAt);
+    }
+
+    public void clearMealBuff() {
+        mealBuff          = null;
+        mealBuffExpiresAt = null;
+    }
+
     public void clearBuff() {
         activeBuff    = null;
         buffExpiresAt = null;
         activeBuff2   = null;
         buffExpiresAt2 = null;
+        clearMealBuff(); // refeição também some na derrota/KO. [COZINHA]
     }
 
     private boolean onMission = false;

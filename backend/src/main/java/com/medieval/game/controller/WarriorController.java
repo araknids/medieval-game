@@ -79,6 +79,17 @@ public class WarriorController {
                 java.time.temporal.ChronoUnit.SECONDS.between(
                     java.time.LocalDateTime.now(), warrior.getBuffExpiresAt()));
         }
+        // Meal buff (slot "Bem Alimentado") — também entra no poder exibido + nos campos de buff. [COZINHA]
+        String mealBuffName = "";
+        long   mealBuffSecsLeft = 0;
+        if (warrior.hasMealBuff()) {
+            var m = warrior.getMealBuff();
+            buffAtk += m.atkBonus; buffDef += m.defBonus; buffHp += m.hpBonus; buffEva += m.evasionBonus;
+            mealBuffName = m.icon + " " + m.displayName;
+            mealBuffSecsLeft = Math.max(0,
+                java.time.temporal.ChronoUnit.SECONDS.between(
+                    java.time.LocalDateTime.now(), warrior.getMealBuffExpiresAt()));
+        }
         // Keep item+gem bonus separate from buff bonus for color-coding in the UI
         int itemBonusAtk = bonusAtk;
         int itemBonusDef = bonusDef;
@@ -138,7 +149,8 @@ public class WarriorController {
                 player.getSoulStones(),
                 isVip, vipExpiresAt,
                 arenaFightsToday, arenaFightLimit, instantQuestsToday,
-                buff2Name, buff2SecsLeft
+                buff2Name, buff2SecsLeft,
+                mealBuffName, mealBuffSecsLeft
         );
     }
 
@@ -161,5 +173,6 @@ public class WarriorController {
                            int soulStones,
                            boolean isVip, String vipExpiresAt,
                            int arenaFightsToday, int arenaFightLimit, int instantQuestsToday,
-                           String activeBuff2, long buff2SecondsLeft) {}
+                           String activeBuff2, long buff2SecondsLeft,
+                           String mealBuff, long mealBuffSecondsLeft) {}
 }
