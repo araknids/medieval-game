@@ -643,18 +643,15 @@ function switchCommerceTab(tab) {
   document.getElementById('panel-sell').style.display      = tab === 'sell'      ? 'block' : 'none';
   document.getElementById('panel-smith').style.display     = tab === 'smith'     ? 'block' : 'none';
   document.getElementById('panel-cooking').style.display   = tab === 'cooking'   ? 'block' : 'none';
-  document.getElementById('panel-resources').style.display = tab === 'resources' ? 'block' : 'none';
   document.getElementById('panel-vipshop').style.display   = tab === 'vipshop'   ? 'block' : 'none';
   document.getElementById('tab-shop').classList.toggle('active',      tab === 'shop');
   document.getElementById('tab-sell').classList.toggle('active',      tab === 'sell');
   document.getElementById('tab-smith').classList.toggle('active',     tab === 'smith');
   document.getElementById('tab-cooking').classList.toggle('active',   tab === 'cooking');
-  document.getElementById('tab-resources').classList.toggle('active', tab === 'resources');
   document.getElementById('tab-vipshop').classList.toggle('active',   tab === 'vipshop');
   if (tab === 'sell')      loadSellList();
   if (tab === 'smith')     loadSmithingInCommerce();
   if (tab === 'cooking')   loadCooking();
-  if (tab === 'resources') loadResourcesInCommerce();
   if (tab === 'vipshop')   loadVipShop();
 }
 
@@ -3691,21 +3688,4 @@ async function vipHeal() {
 }
 
 // Resources tab in Commerce — shows all gathered items (fish, ores, gems, bars)
-async function loadResourcesInCommerce() {
-  const el = document.getElementById('resources-content');
-  el.innerHTML = '<p>Loading resources...</p>';
-  try {
-    if (!resourcesData.length) {
-      [skillsData, resourcesData] = await Promise.all([
-        api('GET', '/api/gathering/skills'),
-        api('GET', '/api/gathering/resources')
-      ]);
-    }
-    // Reuse sk-bag-content rendering then copy
-    await renderBag();
-    const src = document.getElementById('sk-bag-content');
-    if (src) el.innerHTML = src.innerHTML;
-  } catch(e) {
-    el.innerHTML = '<p style="color:red">Error loading resources.</p>';
-  }
-}
+// (removido) loadResourcesInCommerce — recursos agora aparecem na bag unificada (Inventário V2)
