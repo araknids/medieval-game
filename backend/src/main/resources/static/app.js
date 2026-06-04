@@ -258,7 +258,7 @@ async function register() {
     username:    document.getElementById('reg-username').value.trim(),
     email:       document.getElementById('reg-email').value.trim(),
     password:    document.getElementById('reg-password').value,
-    warriorName: document.getElementById('reg-warrior-name').value.trim()
+    warriorName: document.getElementById('reg-warrior').value.trim()
   };
   const data = await api('POST', '/api/auth/register', body);
   if (data.error) { document.getElementById('auth-error').textContent = data.error; return; }
