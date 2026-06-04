@@ -104,7 +104,8 @@ public class Player {
     @Column(columnDefinition = "boolean default false")
     private boolean inventoryExpanded = false;
 
-    public int getMaxInventorySlots() { return inventoryExpanded || isVip() ? 20 : 10; }
+    // Inventário V2: bag free 30 / VIP (ou expandida com SoulStone) 50. Recursos contam slot por unidade.
+    public int getMaxInventorySlots() { return inventoryExpanded || isVip() ? 50 : 30; }
 
     // ── VIP Status ────────────────────────────────────────────────────────────
     /** Timestamp de expiração do VIP; null = sem VIP */

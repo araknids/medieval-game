@@ -27,6 +27,7 @@ public class GatheringService {
     private final PlayerRepository            playerRepository;
     private final TerritoryService            territoryService;
     private final ConcurrentEntityCreator     entityCreator;
+    private final InventoryService            inventoryService; // bag space (Inventário V2)
 
     @Value("${app.dev.instant-complete:false}")
     private boolean instantComplete;
@@ -55,28 +56,36 @@ public class GatheringService {
 
     // ── Inventário de recursos ──
 
+    /** Recursos NA BAG (stashed=false), com quantidade > 0. */
     public List<ResourceInventory> getResources(Player player) {
-        return resourceRepository.findAllByPlayer(player).stream()
+        return resourceRepository.findAllByPlayerAndStashed(player, false).stream()
                 .filter(r -> r.getQuantity() > 0).toList();
     }
 
+    /**
+     * Adiciona recurso à BAG respeitando o limite (Inventário V2: cada unidade = 1 slot).
+     * Adiciona só o que cabe; retorna a quantidade efetivamente adicionada (o excedente é perdido).
+     */
     @Transactional
-    public void addResource(Player player, ResourceType type, long qty) {
+    public long addResource(Player player, ResourceType type, long qty) {
         if (qty < 0) throw new IllegalArgumentException("qty must be >= 0"); // [AUDITORIA C2]
-        ResourceInventory inv = resourceRepository.findByPlayerAndResourceType(player, type)
+        long toAdd = Math.min(qty, inventoryService.bagSpaceLeft(player));
+        if (toAdd <= 0) return 0; // bag cheia — nada adicionado
+        ResourceInventory inv = resourceRepository.findByPlayerAndResourceTypeAndStashed(player, type, false)
                 .orElseGet(() -> {
                     ResourceInventory r = new ResourceInventory();
-                    r.setPlayer(player); r.setResourceType(type);
+                    r.setPlayer(player); r.setResourceType(type); r.setStashed(false);
                     return r;
                 });
-        inv.setQuantity(inv.getQuantity() + qty);
+        inv.setQuantity(inv.getQuantity() + toAdd);
         resourceRepository.save(inv);
+        return toAdd;
     }
 
     @Transactional
     public void removeResource(Player player, ResourceType type, long qty) {
         if (qty < 0) throw new IllegalArgumentException("qty must be >= 0"); // [AUDITORIA C2]
-        ResourceInventory inv = resourceRepository.findByPlayerAndResourceType(player, type)
+        ResourceInventory inv = resourceRepository.findByPlayerAndResourceTypeAndStashed(player, type, false)
                 .orElseThrow(() -> new IllegalStateException("Resource not found"));
         if (inv.getQuantity() < qty) throw new IllegalStateException("Insufficient quantity of " + type.displayName);
         inv.setQuantity(inv.getQuantity() - qty);

@@ -168,18 +168,18 @@ class SoulStoneIntegrationTest extends BaseIntegrationTest {
 
     // TC-171: expand com stones suficientes → maxSlots = 20
     @Test
-    @DisplayName("TC-171 | Expand with 3 stones → maxSlots = 20, stones = 0")
+    @DisplayName("TC-171 | Expand with 3 stones → maxSlots = 50, stones = 0")
     void tc171_expand_valid() throws Exception {
         grantStones(3);
 
         mockMvc.perform(post("/api/inventory/expand")
                         .header("Authorization", bearer(token)))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.maxSlots").value(20))
+                .andExpect(jsonPath("$.maxSlots").value(50))
                 .andExpect(jsonPath("$.soulStones").value(0));
 
         mockMvc.perform(get("/api/inventory/slots").header("Authorization", bearer(token)))
-                .andExpect(jsonPath("$.maxSlots").value(20))
+                .andExpect(jsonPath("$.maxSlots").value(50))
                 .andExpect(jsonPath("$.inventoryExpanded").value(true));
     }
 
@@ -206,19 +206,18 @@ class SoulStoneIntegrationTest extends BaseIntegrationTest {
         mockMvc.perform(get("/api/inventory/slots").header("Authorization", bearer(token)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.bagSize").isNumber())
-                .andExpect(jsonPath("$.maxSlots").value(10))
+                .andExpect(jsonPath("$.maxSlots").value(30))
                 .andExpect(jsonPath("$.inventoryExpanded").value(false))
                 .andExpect(jsonPath("$.soulStones").isNumber());
     }
 
-    // TC-174: bag cheia (10 slots) → item rejeitado via endpoint de bag
+    // TC-174: bag cheia (30 slots) → item rejeitado via endpoint de bag
     @Test
-    @DisplayName("TC-174 | Bag full at 10 slots → new item blocked")
+    @DisplayName("TC-174 | Bag full at 30 slots → new item blocked")
     void tc174_bagFull_itemBlocked() throws Exception {
         Player player = getPlayerFromToken(token);
-        // Add 10 items directly (starter items already count — clear them first)
-        // Easier: fill bag via make() to exactly 10
-        fillBag(player, 10);
+        // Enche a bag até o limite free (30) e tenta adicionar mais um.
+        fillBag(player, 30);
 
         // Attempt to add one more item via make (should throw → bag full)
         org.junit.jupiter.api.Assertions.assertThrows(

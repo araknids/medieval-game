@@ -101,14 +101,14 @@ class VipIntegrationTest extends BaseIntegrationTest {
         org.junit.jupiter.api.Assertions.assertTrue(newExpiry.compareTo(firstExpiry) > 0);
     }
 
-    // TC-179: comprar VIP inclui bag 20 slots
+    // TC-179: comprar VIP inclui bag 50 slots
     @Test
-    @DisplayName("TC-179 | Buy VIP → bag expanded to 20 slots")
+    @DisplayName("TC-179 | Buy VIP → bag expanded to 50 slots")
     void tc179_buyVip_bagExpanded() throws Exception {
         buyVip();
         mockMvc.perform(get("/api/inventory/slots").header("Authorization", bearer(token)))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.maxSlots").value(20));
+                .andExpect(jsonPath("$.maxSlots").value(50));
     }
 
     // TC-180: GET /api/vip/status → instantQuestsRemaining e arenaFightsRemaining presentes

@@ -31,7 +31,7 @@ public class CookingService {
 
     /** Quantos do peixe X o jogador tem (para o "canCook" das receitas). */
     public long fishOwned(Player player, ResourceType fish) {
-        return resourceRepository.findByPlayerAndResourceType(player, fish)
+        return resourceRepository.findByPlayerAndResourceTypeAndStashed(player, fish, false)
                 .map(r -> r.getQuantity()).orElse(0L);
     }
 

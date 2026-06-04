@@ -46,6 +46,10 @@ public class InventoryItem {
     @Column(columnDefinition = "boolean default false")
     private boolean guarded = false; // protegido pelo Templo
 
+    // Inventário V2: item guardado no stash (não conta na bag; não pode estar equipado).
+    @Column(columnDefinition = "boolean default false")
+    private boolean stashed = false;
+
     @Column(columnDefinition = "TEXT")
     private String description; // lore do item
 

@@ -34,8 +34,40 @@ public class SchemaMigrator {
         patchOptimisticLockVersionColumns();
         patchTerritoryLastResolvedCycleColumn();
         patchGatheringSessionKingdomColumn();
+        patchStashColumns();
         dropStaleEnumCheckConstraints();
         purgeStaleEnumRows();
+    }
+
+    // Inventário V2: coluna `stashed` (bag vs stash) em inventory_items e resource_inventory.
+    // A chave única de resource_inventory passou de (player,type) → (player,type,stashed) para
+    // permitir a mesma resource na bag E no stash. Dropa a unique antiga e recria a correta. [INVENTARIO_V2]
+    private void patchStashColumns() {
+        try {
+            jdbc.execute("ALTER TABLE inventory_items ADD COLUMN IF NOT EXISTS stashed boolean NOT NULL DEFAULT false");
+            jdbc.execute("ALTER TABLE resource_inventory ADD COLUMN IF NOT EXISTS stashed boolean NOT NULL DEFAULT false");
+            jdbc.execute("""
+                DO $$
+                DECLARE r record;
+                BEGIN
+                    FOR r IN SELECT con.conname FROM pg_constraint con
+                             JOIN pg_class     rel ON rel.oid = con.conrelid
+                             JOIN pg_namespace nsp ON nsp.oid = rel.relnamespace
+                             WHERE rel.relname = 'resource_inventory' AND nsp.nspname = 'public'
+                               AND con.contype = 'u'
+                    LOOP EXECUTE format('ALTER TABLE resource_inventory DROP CONSTRAINT %I', r.conname); END LOOP;
+                    BEGIN
+                        ALTER TABLE resource_inventory
+                            ADD CONSTRAINT uk_resource_inv_player_type_stashed
+                            UNIQUE (player_id, resource_type, stashed);
+                    EXCEPTION WHEN duplicate_table THEN NULL; WHEN duplicate_object THEN NULL;
+                    END;
+                END $$;
+                """);
+            log.info("[SchemaMigrator] stash columns + resource_inventory unique key ensured");
+        } catch (Exception e) {
+            log.warn("[SchemaMigrator] stash columns patch failed: {}", e.getMessage());
+        }
     }
 
     // Reinos V2 renomeou os valores de Kingdom (antes Territory: DESFILADEIRO_DO_OSSO…) e reescreveu

@@ -5,9 +5,11 @@ import com.medieval.game.enums.ItemType;
 import com.medieval.game.model.InventoryItem;
 import com.medieval.game.model.ItemAffix;
 import com.medieval.game.model.Player;
+import com.medieval.game.model.ResourceInventory;
 import com.medieval.game.repository.InventoryItemRepository;
 import com.medieval.game.repository.ItemAffixRepository;
 import com.medieval.game.repository.PlayerRepository;
+import com.medieval.game.repository.ResourceInventoryRepository;
 import com.medieval.game.repository.SocketedGemRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -30,6 +32,7 @@ public class InventoryService {
     private final ItemLoreGenerator       loreGenerator;
     private final ItemAffixRepository     affixRepository;
     private final SocketedGemRepository   gemRepository;
+    private final ResourceInventoryRepository resourceRepository;
 
     private static final java.util.Random RNG = new java.util.Random();
 
@@ -59,9 +62,18 @@ public class InventoryService {
         return equipped.size();
     }
 
+    // Inventário V2: bag unificada — conta itens não-equipados (na bag) + recursos na bag POR UNIDADE.
     public int bagSize(Player player) {
-        return (int) inventoryRepository.findAllByPlayer(player).stream()
-                .filter(i -> !i.isEquipped()).count();
+        long items = inventoryRepository.findAllByPlayer(player).stream()
+                .filter(i -> !i.isEquipped() && !i.isStashed()).count();
+        long resources = resourceRepository.findAllByPlayerAndStashed(player, false).stream()
+                .mapToLong(ResourceInventory::getQuantity).sum();
+        return (int) (items + resources);
+    }
+
+    /** Slots livres na bag (nunca negativo). */
+    public int bagSpaceLeft(Player player) {
+        return Math.max(0, player.getMaxInventorySlots() - bagSize(player));
     }
 
     @Transactional
