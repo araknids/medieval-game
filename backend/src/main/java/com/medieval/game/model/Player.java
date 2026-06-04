@@ -135,6 +135,22 @@ public class Player {
 
     public int getArenaFightLimit() { return isVip() ? 10 : 5; }
 
+    // ── PvP por flag (jogo sem timer): farmar zona PvP te deixa exposto por 1h. [PVP_FLAG] ──
+    @Enumerated(EnumType.STRING)
+    @Column(name = "pvp_flagged_zone")
+    private com.medieval.game.enums.Zone pvpFlaggedZone;   // zona em que está exposto (null = não)
+    private java.time.LocalDateTime pvpFlaggedUntil;        // fim do flag de exposição
+    private java.time.LocalDateTime pvpShieldUntil;         // imunidade pós-derrota (saqueado 1x)
+
+    public boolean isPvpFlagged() {
+        return pvpFlaggedZone != null && pvpFlaggedUntil != null
+               && java.time.LocalDateTime.now().isBefore(pvpFlaggedUntil);
+    }
+    public boolean isPvpShielded() {
+        return pvpShieldUntil != null && java.time.LocalDateTime.now().isBefore(pvpShieldUntil);
+    }
+    public void clearPvpFlag() { pvpFlaggedZone = null; pvpFlaggedUntil = null; }
+
     @Column(nullable = false)
     private LocalDateTime createdAt = LocalDateTime.now();
 

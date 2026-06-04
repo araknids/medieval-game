@@ -259,7 +259,10 @@ public class SchemaMigrator {
             jdbc.execute("ALTER TABLE players ADD COLUMN IF NOT EXISTS vip_instant_quests_today integer NOT NULL DEFAULT 0");
             jdbc.execute("ALTER TABLE players ADD COLUMN IF NOT EXISTS last_vip_quest_date      date");
             jdbc.execute("ALTER TABLE players ADD COLUMN IF NOT EXISTS token_valid_from         timestamp"); // M6
-            log.info("[SchemaMigrator] players VIP columns ensured");
+            jdbc.execute("ALTER TABLE players ADD COLUMN IF NOT EXISTS pvp_flagged_zone         varchar(20)");  // [PVP_FLAG]
+            jdbc.execute("ALTER TABLE players ADD COLUMN IF NOT EXISTS pvp_flagged_until        timestamp");
+            jdbc.execute("ALTER TABLE players ADD COLUMN IF NOT EXISTS pvp_shield_until         timestamp");
+            log.info("[SchemaMigrator] players VIP + PvP-flag columns ensured");
         } catch (Exception e) {
             log.warn("[SchemaMigrator] players VIP columns patch failed: {}", e.getMessage());
         }
