@@ -98,7 +98,7 @@ class OptimisticLockingTest extends BaseIntegrationTest {
         Player p = player();
         Mail m = new Mail();
         m.setSenderPlayerId(0L);
-        m.setSenderWarriorName("Sistema");
+        m.setSenderWarriorName("System");
         m.setRecipientPlayerId(p.getId());
         m.setMessage("Recompensa de teste");
         m.setGoldAmount(500);

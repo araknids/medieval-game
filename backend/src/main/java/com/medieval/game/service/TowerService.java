@@ -123,19 +123,19 @@ public class TowerService {
     public FightResult fight(Player player) {
         log.info("[TowerService] player={} action=climbToNextFloor", player.getId());
         TowerRun run = towerRunRepository.findByPlayerAndStatus(player, TowerStatus.IN_PROGRESS)
-                .orElseThrow(() -> new IllegalStateException("Você não está na torre"));
+                .orElseThrow(() -> new IllegalStateException("You are not in the tower"));
 
         int floor = run.getCurrentFloor();
         BossInfo boss = bossForFloor(floor);
 
-        // Taxa de subida (sink escalável) — a Torre deixa de ser renda pura. [AUDITORIA A3]
-        // Custo = floor × 15. Vitória rende floor × 40 (líquido floor × 25); derrota custa a taxa.
+        // Climb fee (scalable sink) — the Tower stops being pure income. [AUDITORIA A3]
+        // Cost = floor × 15. A win pays floor × 40 (net floor × 25); a loss costs the fee.
         long climbCost = (long) floor * 15;
         if (player.totalBronze() < climbCost) {
-            log.warn("[TowerService] player={} REJECTED: bronze insuficiente para subir (have={} need={})",
+            log.warn("[TowerService] player={} REJECTED: insufficient bronze to climb (have={} need={})",
                     player.getId(), player.totalBronze(), climbCost);
-            throw new IllegalStateException("Bronze insuficiente para enfrentar o andar " + floor
-                    + " (custo " + climbCost + " bronze).");
+            throw new IllegalStateException("Not enough bronze to face floor " + floor
+                    + " (cost " + climbCost + " bronze).");
         }
         playerService.spendBronze(player, climbCost);
 
@@ -200,7 +200,7 @@ public class TowerService {
     @Transactional
     public void exit(Player player) {
         TowerRun run = towerRunRepository.findByPlayerAndStatus(player, TowerStatus.IN_PROGRESS)
-                .orElseThrow(() -> new IllegalStateException("Você não está na torre"));
+                .orElseThrow(() -> new IllegalStateException("You are not in the tower"));
 
         run.setStatus(TowerStatus.EXITED);
         towerRunRepository.save(run);

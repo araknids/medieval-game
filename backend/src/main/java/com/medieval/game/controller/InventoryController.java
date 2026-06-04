@@ -57,7 +57,7 @@ public class InventoryController {
         Player        player = getPlayer(auth);
         InventoryItem item   = inventoryService.sell(player, id);
         return ResponseEntity.ok(Map.of(
-            "message",    item.getName() + " vendido!",
+            "message",    item.getName() + " sold!",
             "goldEarned", item.getSellPrice(),
             "gold",       player.getGold()
         ));

@@ -51,7 +51,7 @@ public class ShopController {
         Player        player = playerService.findById((Long) auth.getPrincipal());
         InventoryItem item   = shopService.buy(player, shopItemId);
         return ResponseEntity.ok(Map.of(
-                "message", item.getName() + " comprado com sucesso!",
+                "message", item.getName() + " bought successfully!",
                 "gold",    player.getGold(),
                 "itemId",  item.getId()
         ));

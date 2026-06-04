@@ -1,16 +1,16 @@
 package com.medieval.game.enums;
 
-// Recompensas em BRONZE (100 bronze = 1 prata, 100 prata = 1 ouro)
+// Rewards in BRONZE (100 bronze = 1 silver, 100 silver = 1 gold)
 public enum QuestType {
 
-    PATROL  ("Patrulha",         5,  100,   50, 10),
-    DUNGEON ("Masmorra",        10,  250,  150, 20),
+    PATROL  ("Patrol",          5,  100,   50, 10),
+    DUNGEON ("Dungeon",        10,  250,  150, 20),
     RAID    ("Raid",            20,  500,  300, 35),
-    BOSS_HUNT("Caça ao Chefe", 30, 1000,  750, 50);
+    BOSS_HUNT("Boss Hunt",      30, 1000,  750, 50);
 
     public final String displayName;
     public final int durationMinutes;
-    public final long bronzeReward;  // recompensa em bronze
+    public final long bronzeReward;  // reward in bronze
     public final long expReward;
     public final int staminaCost;
 

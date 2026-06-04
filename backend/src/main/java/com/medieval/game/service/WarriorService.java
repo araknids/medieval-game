@@ -42,7 +42,7 @@ public class WarriorService {
 
     public Warrior getWarrior(Player player) {
         return warriorRepository.findByPlayer(player)
-                .orElseThrow(() -> new IllegalStateException("Warrior not found para este jogador"));
+                .orElseThrow(() -> new IllegalStateException("Warrior not found for this player"));
     }
 
     @Transactional

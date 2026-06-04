@@ -30,8 +30,8 @@ public class CombatPveService {
     private static final int RAID_STAMINA = 15;
 
     private static final String[] BEASTS = {
-        "Lobo Sombrio", "Aranha Gigante", "Ogro das Cavernas", "Harpia Selvagem",
-        "Quimera Menor", "Verme das Profundezas", "Gárgula de Pedra", "Basilisco Jovem"
+        "Shadow Wolf", "Giant Spider", "Cave Ogre", "Wild Harpy",
+        "Lesser Chimera", "Deepworm", "Stone Gargoyle", "Young Basilisk"
     };
 
     private final WarriorRepository   warriorRepository;
@@ -56,10 +56,10 @@ public class CombatPveService {
         Warrior w = warriorRepository.findByPlayer(player)
                 .orElseThrow(() -> new IllegalStateException("Warrior not found"));
         if (w.isOnMission()) {
-            throw new IllegalStateException("Seu guerreiro está ocupado.");
+            throw new IllegalStateException("Your warrior is busy.");
         }
         if (w.isKnockedOut()) {
-            throw new IllegalStateException("Seu guerreiro está inconsciente. Cure-se no Templo!");
+            throw new IllegalStateException("Your warrior is unconscious. Heal at the Temple!");
         }
         if (!instantComplete) {
             playerService.consumeStamina(player, RAID_STAMINA);

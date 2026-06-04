@@ -122,8 +122,8 @@ public class GatheringService {
             int current = player.getCalculatedStamina();
             if (current < staminaCost) {
                 log.warn("[GatheringService] player={} REJECTED: estamina {}/{}", player.getId(), current, staminaCost);
-                throw new IllegalStateException("Estamina insuficiente (" + current + "/" + staminaCost +
-                        "). Coma um peixe ou descanse.");
+                throw new IllegalStateException("Not enough stamina (" + current + "/" + staminaCost +
+                        "). Eat a fish or rest.");
             }
             player.setCurrentStamina(current - staminaCost);
             player.setStaminaUpdatedAt(LocalDateTime.now());
@@ -174,7 +174,7 @@ public class GatheringService {
         if (!session.isReadyToCollect()) {
             long secs = java.time.Duration.between(LocalDateTime.now(), session.getFinishesAt()).getSeconds();
             log.warn("[GatheringService] player={} REJECTED: session {} still in progress, {}s remaining", player.getId(), sessionId, secs);
-            throw new IllegalStateException("Ainda coletando. Faltam " + secs + "s");
+            throw new IllegalStateException("Still gathering. " + secs + "s remaining");
         }
 
         SkillLevel skill = getOrCreateSkill(player, session.getSkillType());

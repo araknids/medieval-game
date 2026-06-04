@@ -1,10 +1,10 @@
 package com.medieval.game.enums;
 
 public enum SkillType {
-    FISHING ("Pesca",     "🎣"),
-    MINING  ("Mineração", "⛏"),
-    GARIMPO ("Garimpo",   "🔎"),   // coleta de fragmentos de joia (Reinos V2 — Grutas de Cristal)
-    SMITHING("Forja",     "🔨");
+    FISHING ("Fishing",     "🎣"),
+    MINING  ("Mining",      "⛏"),
+    GARIMPO ("Prospecting", "🔎"),   // gem-fragment gathering (Reinos V2 — Crystal Grottoes)
+    SMITHING("Smithing",    "🔨");
 
     public final String displayName;
     public final String icon;

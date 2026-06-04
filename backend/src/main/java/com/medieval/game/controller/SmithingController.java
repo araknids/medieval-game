@@ -91,7 +91,7 @@ public class SmithingController {
         Player player = getPlayer(auth);
         smithingService.refineOre(player, req.oreType(), req.quantity());
         return ResponseEntity.ok(Map.of("message",
-            req.quantity() + " barra(s) de " + req.oreType().displayName + " criadas!"));
+            req.quantity() + " " + req.oreType().displayName + " bar(s) created!"));
     }
 
     // Craftar equipamento
@@ -100,7 +100,7 @@ public class SmithingController {
         Player player = getPlayer(auth);
         InventoryItem item = smithingService.craftEquipment(player, req.recipeId());
         return ResponseEntity.ok(Map.of(
-            "message", item.getName() + " criado com sucesso!",
+            "message", item.getName() + " created successfully!",
             "sockets", item.getSockets()
         ));
     }
@@ -110,7 +110,7 @@ public class SmithingController {
     public ResponseEntity<?> craftGem(@Valid @RequestBody GemRequest req, Authentication auth) {
         Player player = getPlayer(auth);
         smithingService.craftGem(player, req.fragmentType());
-        return ResponseEntity.ok(Map.of("message", "Joia criada com sucesso!"));
+        return ResponseEntity.ok(Map.of("message", "Gem created successfully!"));
     }
 
     // Encaixar joia em item
@@ -121,7 +121,7 @@ public class SmithingController {
         Player     player = getPlayer(auth);
         SocketedGem gem   = smithingService.socketGem(player, itemId, gemType);
         return ResponseEntity.ok(Map.of(
-            "message",  gemType.displayName + " encaixada com sucesso!",
+            "message",  gemType.displayName + " socketed successfully!",
             "slotIndex",gem.getSlotIndex()
         ));
     }

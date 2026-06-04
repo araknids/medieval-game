@@ -51,7 +51,7 @@ public class KingdomController {
     @PostMapping("/{kingdom}/raid")
     public ResponseEntity<?> raid(@PathVariable Kingdom kingdom, Authentication auth) {
         if (kingdom != Kingdom.COMBAT) {
-            return ResponseEntity.badRequest().body(Map.of("error", "Caçada só na Fortaleza Maldita."));
+            return ResponseEntity.badRequest().body(Map.of("error", "Hunting only in the Cursed Fortress."));
         }
         var r = combatPveService.raid(getPlayer(auth));
         return ResponseEntity.ok(Map.of(

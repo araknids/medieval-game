@@ -97,7 +97,7 @@ public class GuildService {
             if (memberCount > 1) {
                 log.warn("[GuildService] player={} REJECTED: leader cannot leave while there are other members", player.getId());
                 throw new IllegalStateException(
-                        "Você é o líder. Transfira a liderança antes de sair, ou dissolva a guilda.");
+                        "You are the leader. Transfer leadership before leaving, or disband the guild.");
             }
             disband(player);
             return;

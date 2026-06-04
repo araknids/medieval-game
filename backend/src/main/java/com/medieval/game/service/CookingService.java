@@ -69,7 +69,7 @@ public class CookingService {
         log.info("[CookingService] player={} action=eat meal={}", player.getId(), meal);
         MealInventory inv = mealRepository.findByPlayerAndMeal(player, meal)
                 .filter(m -> m.getQuantity() > 0)
-                .orElseThrow(() -> new IllegalStateException("Você não tem essa refeição."));
+                .orElseThrow(() -> new IllegalStateException("You don't have that meal."));
         inv.setQuantity(inv.getQuantity() - 1);
         mealRepository.save(inv);
 

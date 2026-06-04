@@ -28,14 +28,14 @@ public class EmailService {
     private final RestTemplate restTemplate = new RestTemplate();
 
     public void sendWelcomeEmail(String to, String username, String warriorName) {
-        String subject = "⚔ Bem-vindo ao Medieval Game!";
+        String subject = "⚔ Welcome to Medieval Game!";
         String body = String.format(
-            "Olá, %s!\n\n" +
-            "Sua conta foi criada com sucesso.\n" +
-            "Seu guerreiro %s está pronto para a batalha!\n\n" +
-            "Acesse o jogo em: %s\n\n" +
-            "Boa sorte nas batalhas!\n" +
-            "— Equipe Medieval Game",
+            "Hello, %s!\n\n" +
+            "Your account was created successfully.\n" +
+            "Your warrior %s is ready for battle!\n\n" +
+            "Play the game at: %s\n\n" +
+            "Good luck in battle!\n" +
+            "— The Medieval Game Team",
             username, warriorName, baseUrl
         );
         send(to, subject, body);
@@ -43,13 +43,13 @@ public class EmailService {
 
     public void sendPasswordResetEmail(String to, String resetToken) {
         String resetUrl = baseUrl + "/?reset=" + resetToken;
-        String subject  = "🔑 Redefinição de senha — Medieval Game";
+        String subject  = "🔑 Password reset — Medieval Game";
         String body = String.format(
-            "Olá!\n\n" +
-            "Recebemos uma solicitação para redefinir sua senha.\n\n" +
-            "Clique no link abaixo (válido por 30 minutes remaining):\n%s\n\n" +
-            "Se não foi você, ignore este email.\n\n" +
-            "— Equipe Medieval Game",
+            "Hello!\n\n" +
+            "We received a request to reset your password.\n\n" +
+            "Click the link below (valid for 30 minutes):\n%s\n\n" +
+            "If this wasn't you, ignore this email.\n\n" +
+            "— The Medieval Game Team",
             resetUrl
         );
         send(to, subject, body);

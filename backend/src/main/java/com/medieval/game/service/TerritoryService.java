@@ -356,8 +356,8 @@ public class TerritoryService {
                     territory, holder.getName(), cost, holder.getGold());
             saveBattleLog(territory, holder.getName(), territory.npcName + "s",
                     territory.npcName + "s",
-                    List.of("💰 " + holder.getName() + " não pôde pagar a manutenção (" + cost
-                            + " bronze) e abandonou " + territory.displayName + "."));
+                    List.of("💰 " + holder.getName() + " could not pay upkeep (" + cost
+                            + " bronze) and abandoned " + territory.displayName + "."));
             control.setControllingGuild(null);
             control.setDefenseStreak(0);
             control.setDominantSince(null);

@@ -1,7 +1,7 @@
 package com.medieval.game.enums;
 
 public enum ActivityRole {
-    GATHERING, // coleta recursos
-    HUNTING,   // caça outros jogadores
-    COMBAT     // combate na Fortaleza Maldita — ganha XP e bronze
+    GATHERING, // gathers resources
+    HUNTING,   // hunts other players
+    COMBAT     // combat in the Cursed Fortress — earns XP and bronze
 }

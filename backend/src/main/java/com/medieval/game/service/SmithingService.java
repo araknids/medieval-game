@@ -88,7 +88,7 @@ public class SmithingService {
         RefineRecipe recipe = REFINE_RECIPES.stream()
                 .filter(r -> r.ore() == oreType)
                 .findFirst()
-                .orElseThrow(() -> new IllegalArgumentException("Receita de refino não encontrada"));
+                .orElseThrow(() -> new IllegalArgumentException("Refining recipe not found"));
 
         SkillLevel smithing = gatheringService.getOrCreateSkill(player, SkillType.SMITHING);
         if (smithing.getLevel() < recipe.smithingLevelRequired()) {
@@ -113,7 +113,7 @@ public class SmithingService {
         CraftRecipe recipe = CRAFT_RECIPES.stream()
                 .filter(r -> r.id().equals(recipeId))
                 .findFirst()
-                .orElseThrow(() -> new IllegalArgumentException("Receita não encontrada: " + recipeId));
+                .orElseThrow(() -> new IllegalArgumentException("Recipe not found: " + recipeId));
 
         SkillLevel smithing = gatheringService.getOrCreateSkill(player, SkillType.SMITHING);
         if (smithing.getLevel() < recipe.smithingLevel()) {

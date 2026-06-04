@@ -136,12 +136,12 @@ class ZoneAmbushIntegrationTest extends BaseIntegrationTest {
     @DisplayName("TC-216 | System ambush mail appears in target inbox")
     void tc216_systemMailInInbox() throws Exception {
         Player player = playerOf("amb");
-        mailService.sendSystemMail(player, "⚔ Você foi emboscado por Fulano e SOBREVIVEU!");
+        mailService.sendSystemMail(player, "⚔ You were ambushed by Someone and SURVIVED!");
 
         mockMvc.perform(get("/api/mail/inbox").header("Authorization", bearer(token)))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.letters[0].from").value("Sistema"))
-                .andExpect(jsonPath("$.letters[0].message").value(containsString("emboscado")));
+                .andExpect(jsonPath("$.letters[0].from").value("System"))
+                .andExpect(jsonPath("$.letters[0].message").value(containsString("ambushed")));
     }
 
     // ── TC-217: Pool de oponentes — 2 players IN_PROGRESS na mesma zona ──

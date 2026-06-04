@@ -1,8 +1,8 @@
 package com.medieval.game.enums;
 
 public enum Location {
-    TAVERN  ("Taverna"),
-    COMMERCE("Comércio"),
+    TAVERN  ("Tavern"),
+    COMMERCE("Commerce"),
     ARENA   ("Arena");
 
     public final String displayName;

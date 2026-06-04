@@ -127,7 +127,7 @@ public class MailService {
     public Mail sendSystemMail(Player recipient, String message) {
         Mail mail = new Mail();
         mail.setSenderPlayerId(0L);
-        mail.setSenderWarriorName("Sistema");
+        mail.setSenderWarriorName("System");
         mail.setRecipientPlayerId(recipient.getId());
         mail.setMessage(message.length() > 500 ? message.substring(0, 500) : message);
         return mailRepository.save(mail);
@@ -148,10 +148,10 @@ public class MailService {
                              String description, String origin) {
         Mail mail = new Mail();
         mail.setSenderPlayerId(0L);           // 0 = system sender
-        mail.setSenderWarriorName("Sistema");
+        mail.setSenderWarriorName("System");
         mail.setRecipientPlayerId(recipient.getId());
-        mail.setMessage("📦 Item recebido! Sua bag estava cheia. " + reason
-                + "\n\n⏳ Este item expira em " + ITEM_MAIL_EXPIRY_DAYS + " dias.");
+        mail.setMessage("📦 Item received! Your bag was full. " + reason
+                + "\n\n⏳ This item expires in " + ITEM_MAIL_EXPIRY_DAYS + " days.");
         mail.setItemName(itemName);
         mail.setItemType(itemType.name());
         mail.setItemAtk(atk);

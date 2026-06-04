@@ -117,7 +117,7 @@ public class ZoneService {
     public CollectResult collect(Player player, Long activityId) {
         log.info("[ZoneService] player={} action=collect activityId={}", player.getId(), activityId);
         ZoneActivity activity = activityRepository.findById(activityId)
-                .orElseThrow(() -> new IllegalArgumentException("Expedição não encontrada"));
+                .orElseThrow(() -> new IllegalArgumentException("Expedition not found"));
 
         if (!activity.getPlayer().getId().equals(player.getId())) {
             log.warn("[ZoneService] player={} REJECTED: activity {} does not belong to this player", player.getId(), activityId);
@@ -243,7 +243,7 @@ public class ZoneService {
     public void cancel(Player player, Long activityId) {
         log.info("[ZoneService] player={} action=cancel activityId={}", player.getId(), activityId);
         ZoneActivity activity = activityRepository.findById(activityId)
-                .orElseThrow(() -> new IllegalArgumentException("Expedição não encontrada"));
+                .orElseThrow(() -> new IllegalArgumentException("Expedition not found"));
         if (!activity.getPlayer().getId().equals(player.getId())) {
             log.warn("[ZoneService] player={} REJECTED: activity {} does not belong to this player", player.getId(), activityId);
             throw new IllegalStateException("Not yours");
@@ -273,7 +273,7 @@ public class ZoneService {
     @Transactional
     public void acknowledgeAmbush(Player player, Long activityId) {
         ZoneActivity activity = activityRepository.findById(activityId)
-                .orElseThrow(() -> new IllegalArgumentException("Expedição não encontrada"));
+                .orElseThrow(() -> new IllegalArgumentException("Expedition not found"));
         if (!activity.getPlayer().getId().equals(player.getId()))
             throw new IllegalStateException("Not yours");
         activity.setAmbushPending(false);
@@ -374,7 +374,7 @@ public class ZoneService {
                         List<String> log = stripWinnerTag(out.log());
                         atkHp = out.firstHpFinal();
                         lastLog = log;
-                        lastFoe = targetWarrior.getName() + " (jogador)";
+                        lastFoe = targetWarrior.getName() + " (player)";
 
                         // Desgaste de equipamento: ambos lutaram
                         inventoryService.wearEquippedItems(player);
@@ -473,8 +473,8 @@ public class ZoneService {
             targetPlayer.setStaminaUpdatedAt(LocalDateTime.now());
             playerRepository.save(targetPlayer);
             mailService.sendSystemMail(targetPlayer,
-                "💀 Você foi emboscado e MORTO por " + attackerName + " na " + zone.displayName + "! "
-                + "Perdeu " + bronzeLost + " bronze." + itemMsg + " HP: 0%. Sua expedição foi encerrada.");
+                "💀 You were ambushed and KILLED by " + attackerName + " in the " + zone.displayName + "! "
+                + "Lost " + bronzeLost + " bronze." + itemMsg + " HP: 0%. Your expedition has ended.");
         } else {
             // Survived: anti-farm counter + pending dialog
             targetAct.setAmbushCount(targetAct.getAmbushCount() + 1);
@@ -483,8 +483,8 @@ public class ZoneService {
             int hpPct = warriorRepository.findByPlayer(targetPlayer)
                     .map(Warrior::getCalculatedHpPercent).orElse(0);
             mailService.sendSystemMail(targetPlayer,
-                "⚔ Você foi emboscado por " + attackerName + " na " + zone.displayName + " e SOBREVIVEU! "
-                + "HP: " + hpPct + "%. Recuperou bronze do atacante. Entre no jogo para continuar ou recolher.");
+                "⚔ You were ambushed by " + attackerName + " in the " + zone.displayName + " and SURVIVED! "
+                + "HP: " + hpPct + "%. You recovered bronze from the attacker. Log in to continue or collect.");
         }
         activityRepository.save(targetAct);
     }
@@ -519,15 +519,15 @@ public class ZoneService {
         return bronzeLost;
     }
 
-    // ── Geração de NPCs ──
+    // ── NPC generation ──
 
     private static final String[][] NPC_NAMES = {
         // SAFE
-        {"Lobo Selvagem", "Bandoleiro", "Saqueador da Estrada", "Urso Enfurecido", "Javali Gigante"},
+        {"Wild Wolf", "Brigand", "Road Plunderer", "Enraged Bear", "Giant Boar"},
         // PVP
-        {"Mercenário Corrupto", "Orc Guerreiro", "Cavaleiro Renegado", "Golem de Pedra", "Troll da Montanha"},
+        {"Corrupt Mercenary", "Orc Warrior", "Renegade Knight", "Stone Golem", "Mountain Troll"},
         // HIGH_RISK
-        {"Demônio Menor", "Lich das Trevas", "Dragão Jovem", "Campeão Infernal", "Espectro da Morte"},
+        {"Lesser Demon", "Dark Lich", "Young Dragon", "Infernal Champion", "Death Specter"},
     };
 
     private String npcName(Zone zone, Random rng) {

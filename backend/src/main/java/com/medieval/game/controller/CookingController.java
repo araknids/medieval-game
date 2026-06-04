@@ -66,7 +66,7 @@ public class CookingController {
         Player player = getPlayer(auth);
         var inv = cookingService.cook(player, req.meal());
         return ResponseEntity.ok(Map.of(
-            "message",  req.meal().displayName + " cozido!",
+            "message",  req.meal().displayName + " cooked!",
             "meal",     req.meal().name(),
             "quantity", inv.getQuantity()
         ));
@@ -81,7 +81,7 @@ public class CookingController {
                 ? Math.max(0, ChronoUnit.MINUTES.between(LocalDateTime.now(), w.getMealBuffExpiresAt()))
                 : 0;
         return ResponseEntity.ok(Map.of(
-            "message",       "Você comeu " + req.meal().displayName + "! " + req.meal().effectText(),
+            "message",       "You ate " + req.meal().displayName + "! " + req.meal().effectText(),
             "mealBuff",      req.meal().name(),
             "effect",        req.meal().effectText(),
             "minutesLeft",   minutesLeft
