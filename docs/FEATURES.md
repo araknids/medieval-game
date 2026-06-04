@@ -231,7 +231,8 @@ Capacete, Armadura, Espada, Escudo, Calça, Bota, Luva, Ombreira, Colar, Anel
 ### Afixos (Itens V2 — Fase A)
 - Cada item rola **afixos aleatórios** pela raridade: Comum 0 · Incomum 1 · Raro 2 · Épico 3 · **Lendário 4**
 - Afixo concede **stat plano** (ATK/DEF/HP) **ou atributo** (+STR/+DEX/+LUK), reusando o sistema D&D
-  (STR→+1 ATK/pt, DEX→AC, LUK→crit/drop). Magnitude escala com a raridade.
+  (STR→+1 ATK/pt, DEX→AC, LUK→crit/drop). **Magnitude escala com o NÍVEL do item** (raridade dá só
+  ~+15%/tier) — um Lendário Lv1 tem afixos minúsculos; um Comum Lv40 vence. [Itens V3]
 - **Prefixo** vira adjetivo no nome ("Sharp Sword of Steel"); todos os afixos aparecem como linhas no card.
 - Pool: prefixos (Sharp/Heavy/Sturdy/Brutal/Swift/Lucky) + sufixos (of the Tiger/Turtle/Bear/Ox/Fox/Cat).
 - **Reforjar na Forja re-rola os afixos** (mantém o nome) — caça ao roll perfeito + dreno de bronze.

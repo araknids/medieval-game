@@ -275,7 +275,7 @@ public class InventoryService {
             ItemAffix ia = new ItemAffix();
             ia.setItem(item);
             ia.setAffix(a);
-            ia.setMagnitude(a.rollMagnitude(item.getRarity()));
+            ia.setMagnitude(a.rollMagnitude(item.getItemLevel(), item.getRarity()));
             affixRepository.save(ia);
         }
 

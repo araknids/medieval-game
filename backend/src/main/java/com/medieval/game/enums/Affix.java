@@ -49,15 +49,18 @@ public enum Affix {
     }
 
     /**
-     * Rola a magnitude do afixo escalando com a raridade do item.
-     * Planos (ATK/DEF/HP) são maiores; atributos (STR/DEX/LUK) ficam pequenos (são fortes).
+     * Rola a magnitude do afixo escalando com o NÍVEL DO ITEM (raridade só dá um empurrão leve). [ITENS_V3]
+     * Assim um Lendário Lv1 tem afixos minúsculos (~1) e um Comum Lv40 vence — a regra
+     * "nível alto > raridade alta de nível baixo" passa a valer também nos afixos.
+     * Planos (ATK/DEF/HP) maiores; atributos (STR/DEX/LUK) pequenos (são fortes).
      */
-    public int rollMagnitude(int rarity) {
+    public int rollMagnitude(int itemLevel, int rarity) {
         ThreadLocalRandom rng = ThreadLocalRandom.current();
+        double scale = Math.max(1, itemLevel) * (1.0 + rarity * 0.15); // nível domina; raridade ~+15%/tier
         return switch (stat) {
-            case ATK, DEF      -> rarity + rng.nextInt(rarity * 2 + 1);     // r2:2–6  · r5:5–15
-            case HP            -> rarity * 4 + rng.nextInt(rarity * 6 + 1); // r2:8–20 · r5:20–50
-            case STR, DEX, LUK -> 1 + rng.nextInt(Math.max(1, rarity));     // r2:1–2  · r5:1–5
+            case ATK, DEF      -> 1 + rng.nextInt((int) Math.round(scale * 0.25) + 1);
+            case HP            -> 2 + rng.nextInt((int) Math.round(scale * 0.9)  + 1);
+            case STR, DEX, LUK -> 1 + rng.nextInt((int) Math.max(1, Math.round(scale / 15.0)));
         };
     }
 }

@@ -47,7 +47,11 @@ com o nível**, e um lvl1 compra um **Épico na loja** e equipa na hora (sem req
 3. **Frontend** (nível + requisito + gate do botão).
 4. **Testes** (lvl100 Comum > lvl1 Épico; equip bloqueado acima do nível) + docs.
 
+## Feito depois (pós-MVP)
+- ✅ Afixos escalam com o nível do item (`Affix.rollMagnitude(itemLevel, rarity)`) — Lendário Lv1 = afixos minúsculos.
+- ✅ Loja só Comum/Incomum no nível do jogador ±5, stats escalam.
+
 ## Fora de escopo (futuro)
-- Escalar afixos e stats da loja/craft pelo itemLevel; preço da loja por nível.
+- Escalar stats de craft pelo itemLevel; preço da loja por nível; gatear sockets por nível.
 
 *Decisões travadas 2026-06-04.*
