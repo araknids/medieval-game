@@ -314,12 +314,14 @@ public class SchemaMigrator {
     }
 
     // inventory_items: add durability column (economic sink — items wear down in combat)
+    // + item_level (Itens V3: nível do item, requisito pra equipar).
     private void patchInventoryItemDurabilityColumn() {
         try {
             jdbc.execute("ALTER TABLE inventory_items ADD COLUMN IF NOT EXISTS durability integer NOT NULL DEFAULT 100");
-            log.info("[SchemaMigrator] inventory_items durability column ensured");
+            jdbc.execute("ALTER TABLE inventory_items ADD COLUMN IF NOT EXISTS item_level integer NOT NULL DEFAULT 1");
+            log.info("[SchemaMigrator] inventory_items durability + item_level columns ensured");
         } catch (Exception e) {
-            log.warn("[SchemaMigrator] inventory_items durability column patch failed: {}", e.getMessage());
+            log.warn("[SchemaMigrator] inventory_items durability/item_level column patch failed: {}", e.getMessage());
         }
     }
 }

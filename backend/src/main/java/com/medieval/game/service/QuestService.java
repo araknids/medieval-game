@@ -181,23 +181,10 @@ public class QuestService {
     private InventoryItem generateItem(Player player, int rarity, Random rng, String questName) {
         ItemType type = ItemType.values()[rng.nextInt(ItemType.values().length)];
 
-        // Stats escalam com raridade
-        int maxAtk = rarity * 3;
-        int maxDef = rarity * 3;
-        int maxHp  = rarity * 12;
-
-        int atk = rng.nextInt(maxAtk + 1);
-        int def = rng.nextInt(maxDef + 1);
-        int hp  = rng.nextInt(maxHp  + 1);
-
-        // Garante pelo menos 1 stat
-        if (atk == 0 && def == 0 && hp == 0) {
-            switch (rng.nextInt(3)) {
-                case 0 -> atk = 1;
-                case 1 -> def = 1;
-                default -> hp = rarity * 4;
-            }
-        }
+        // Itens V3: nível do item = nível do guerreiro; stats escalam com nível × raridade. [ITENS_V3]
+        int itemLevel = warriorRepository.findByPlayer(player).map(Warrior::getLevel).orElse(1);
+        int[] s = inventoryService.rollItemStats(itemLevel, rarity);
+        int atk = s[0], def = s[1], hp = s[2];
 
         long sellPrice = switch (rarity) {
             case 2 -> 150; case 3 -> 400; case 4 -> 1000; case 5 -> 2500; default -> 25;
@@ -208,7 +195,7 @@ public class QuestService {
         String origin = loreGenerator.originFromQuest(questName);
 
         if (inventoryService.bagSize(player) < player.getMaxInventorySlots()) {
-            return inventoryService.make(player, name, type, atk, def, hp, rarity, sellPrice, lore, origin);
+            return inventoryService.make(player, name, type, atk, def, hp, rarity, sellPrice, itemLevel, lore, origin);
         } else {
             mailService.sendItemMail(player, "Drop de: " + questName,
                     name, type, atk, def, hp, rarity, 0, lore, origin);

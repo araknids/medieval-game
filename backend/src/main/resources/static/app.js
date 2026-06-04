@@ -944,14 +944,16 @@ async function loadInventory() {
     <div class="bag-item" style="flex-direction:column;align-items:flex-start;gap:.3rem">
       <div style="display:flex;justify-content:space-between;width:100%;align-items:center">
         <div>
-          <div class="bag-item-name rarity-${item.rarity}">${item.name}</div>
+          <div class="bag-item-name rarity-${item.rarity}">${item.name} <span style="font-size:.7rem;color:#888">Lv.${item.itemLevel}</span></div>
           <div class="bag-item-type">${(t('item.type.'+item.type)||item.typeDisplay)} · ${(t('inventory.rarity.'+item.rarity)||item.rarityName)}</div>
           <div class="bag-item-stats">${statsText(item)}</div>
           ${affixLines(item)}
           ${durabilityBar(item)}
           ${item.sockets > 0 ? renderSockets(item) : ''}
         </div>
-        <button class="btn-equip" onclick="equipItem(${item.id})">${t('inventory.btn.equip')}</button>
+        ${item.itemLevel > (warrior?.level || 1)
+          ? `<button class="btn-equip" disabled style="opacity:.5;cursor:not-allowed" title="Requires level ${item.itemLevel}">🔒 Lv.${item.itemLevel}</button>`
+          : `<button class="btn-equip" onclick="equipItem(${item.id})">${t('inventory.btn.equip')}</button>`}
       </div>
       ${item.description ? `<p class="item-lore">"${item.description}"</p>` : ''}
       ${item.origin ? `<p class="item-origin">📍 ${item.origin}</p>` : ''}
@@ -1051,7 +1053,7 @@ async function openStash() {
   const bagRes   = (Array.isArray(resources) ? resources : []).filter(r => r.quantity > 0);
 
   const itemRow = (i, fn, label) => `<div class="sk-resource-row">
-      <span class="rarity-${i.rarity}">${i.name} <span style="color:#888;font-size:.72rem">(${statsText(i)})</span></span>
+      <span class="rarity-${i.rarity}">${i.name} <span style="color:#888;font-size:.72rem">Lv.${i.itemLevel} (${statsText(i)})</span></span>
       <button class="btn-equip" onclick="${fn}(${i.id})">${label}</button></div>`;
   const resRow = (r, fn, label) => `<div class="sk-resource-row">
       <span>${RESOURCE_ICONS[r.type]||'📦'} ${r.displayName} ×${r.quantity}</span>

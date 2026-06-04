@@ -6,11 +6,13 @@ import com.medieval.game.model.InventoryItem;
 import com.medieval.game.model.ItemAffix;
 import com.medieval.game.model.Player;
 import com.medieval.game.model.ResourceInventory;
+import com.medieval.game.model.Warrior;
 import com.medieval.game.repository.InventoryItemRepository;
 import com.medieval.game.repository.ItemAffixRepository;
 import com.medieval.game.repository.PlayerRepository;
 import com.medieval.game.repository.ResourceInventoryRepository;
 import com.medieval.game.repository.SocketedGemRepository;
+import com.medieval.game.repository.WarriorRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -33,6 +35,7 @@ public class InventoryService {
     private final ItemAffixRepository     affixRepository;
     private final SocketedGemRepository   gemRepository;
     private final ResourceInventoryRepository resourceRepository;
+    private final WarriorRepository       warriorRepository;
 
     private static final java.util.Random RNG = new java.util.Random();
 
@@ -106,6 +109,15 @@ public class InventoryService {
         if (item.isEquipped()) {
             log.warn("[InventoryService] player={} REJECTED: item {} already equipped", player.getId(), itemId);
             throw new IllegalStateException("Item already equipped");
+        }
+        if (item.isStashed()) {
+            throw new IllegalStateException("Withdraw the item from the stash first.");
+        }
+        // Itens V3: requisito de nível — só equipa se itemLevel ≤ nível do guerreiro. [ITENS_V3]
+        int level = warriorRepository.findByPlayer(player).map(Warrior::getLevel).orElse(1);
+        if (item.getItemLevel() > level) {
+            log.warn("[InventoryService] player={} REJECTED: item {} requires level {} (have {})", player.getId(), itemId, item.getItemLevel(), level);
+            throw new IllegalStateException("Requires level " + item.getItemLevel() + " to equip.");
         }
 
         // Desequipa o item atual do mesmo slot, se houver
@@ -191,6 +203,14 @@ public class InventoryService {
     public InventoryItem make(Player player, String name, ItemType type,
                               int atk, int def, int hp, int rarity, long sellPrice,
                               String description, String origin) {
+        return make(player, name, type, atk, def, hp, rarity, sellPrice, 1, description, origin);
+    }
+
+    // Itens V3: overload com nível do item (itemLevel). [ITENS_V3]
+    @Transactional
+    public InventoryItem make(Player player, String name, ItemType type,
+                              int atk, int def, int hp, int rarity, long sellPrice,
+                              int itemLevel, String description, String origin) {
         int max = player.getMaxInventorySlots();
         if (bagSize(player) >= max) {
             log.warn("[InventoryService] player={} bag full ({}/{}) — item '{}' not added", player.getId(), bagSize(player), max, name);
@@ -204,6 +224,7 @@ public class InventoryService {
         item.setDefenseBonus(def);
         item.setHealthBonus(hp);
         item.setRarity(rarity);
+        item.setItemLevel(Math.max(1, itemLevel));
         item.setSellPrice(sellPrice);
         item.setDescription(description);
         item.setOrigin(origin);
@@ -211,6 +232,21 @@ public class InventoryService {
         InventoryItem saved = inventoryRepository.save(item);
         rollAffixesFor(saved, true); // Itens V2: afixos por raridade (no-op p/ Comum), renomeia com prefixo
         return saved;
+    }
+
+    /**
+     * Itens V3: rola {atk, def, hp} a partir do NÍVEL DO ITEM × multiplicador de raridade.
+     * Poder cresce com o nível; raridade é um multiplicador → "lvl100 Comum > lvl1 Épico".
+     */
+    public int[] rollItemStats(int itemLevel, int rarity) {
+        double mult = switch (rarity) { case 2 -> 1.2; case 3 -> 1.45; case 4 -> 1.75; case 5 -> 2.1; default -> 1.0; };
+        double scale = Math.max(1, itemLevel) * mult;
+        var rng = java.util.concurrent.ThreadLocalRandom.current();
+        int atk = rng.nextInt((int) Math.round(scale * 0.6) + 1);
+        int def = rng.nextInt((int) Math.round(scale * 0.6) + 1);
+        int hp  = rng.nextInt((int) Math.round(scale * 2.2) + 1);
+        if (atk == 0 && def == 0 && hp == 0) hp = (int) Math.round(scale); // garante ≥1 stat
+        return new int[]{atk, def, hp};
     }
 
     // ── Afixos (Itens V2) ───────────────────────────────────────────────────────

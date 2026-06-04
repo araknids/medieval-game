@@ -140,7 +140,7 @@ public class SmithingService {
         InventoryItem result;
         if (inventoryService.bagSize(player) < player.getMaxInventorySlots()) {
             result = inventoryService.make(player, recipe.name(), itemType,
-                    recipe.atk(), recipe.def(), recipe.hp(), recipe.rarity(), sell, desc, origin);
+                    recipe.atk(), recipe.def(), recipe.hp(), recipe.rarity(), sell, recipe.smithingLevel(), desc, origin); // Itens V3: nível = nível do recipe
             result.setSockets(recipe.sockets());
             inventoryRepository.save(result);
             log.info("[SmithingService] player={} action=craftEquipment OK recipeId={} itemId={} name={}", player.getId(), recipeId, result.getId(), result.getName());

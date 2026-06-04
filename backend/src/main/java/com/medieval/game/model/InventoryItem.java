@@ -32,8 +32,13 @@ public class InventoryItem {
     private int defenseBonus;
     private int healthBonus;
 
-    // 1=Comum, 2=Incomum, 3=Raro, 4=Épico
+    // 1=Comum, 2=Incomum, 3=Raro, 4=Épico, 5=Lendário
     private int rarity = 1;
+
+    // Itens V3: nível do item (fixo). Poder = nível × multiplicador de raridade.
+    // Requisito pra equipar: itemLevel ≤ nível do guerreiro.
+    @Column(columnDefinition = "integer default 1")
+    private int itemLevel = 1;
 
     private long sellPrice = 0;
 

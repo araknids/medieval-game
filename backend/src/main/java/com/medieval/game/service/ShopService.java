@@ -241,10 +241,13 @@ public class ShopService {
         String origin = loreGenerator.originFromShop("Mercador Viajante");
         long   sell   = item.price() / 2;
 
+        // Itens V3: loja mantém os stats curados, mas o item ganha um NÍVEL por faixa de raridade
+        // (requisito pra equipar gateia o "lvl1 compra Épico e atropela"). [ITENS_V3]
+        int ilvl = switch (item.rarity()) { case 2 -> 5; case 3 -> 15; case 4 -> 30; case 5 -> 50; default -> 1; };
         InventoryItem result;
         if (inventoryService.bagSize(player) < player.getMaxInventorySlots()) {
             result = inventoryService.make(player, item.name(), item.type(),
-                    item.atk(), item.def(), item.hp(), item.rarity(), sell, desc, origin);
+                    item.atk(), item.def(), item.hp(), item.rarity(), sell, ilvl, desc, origin);
             log.info("[ShopService] player={} action=buy OK shopItemId={} name={} price={}", player.getId(), shopItemId, item.name(), item.price());
         } else {
             mailService.sendItemMail(player, "Comprado na Loja.",

@@ -439,11 +439,10 @@ public class KingdomService {
                 com.medieval.game.enums.ItemType.values()[rng.nextInt(
                 com.medieval.game.enums.ItemType.values().length)];
 
-        int maxAtk = rarity * 3, maxDef = rarity * 3, maxHp = rarity * 12;
-        int atk = rng.nextInt(maxAtk + 1);
-        int def = rng.nextInt(maxDef + 1);
-        int hp  = rng.nextInt(maxHp  + 1);
-        if (atk == 0 && def == 0 && hp == 0) { switch(rng.nextInt(3)){case 0->atk=1;case 1->def=1;default->hp=rarity*4;} }
+        // Itens V3: nível do item = nível do guerreiro; stats escalam com nível × raridade. [ITENS_V3]
+        int itemLevel = warrior != null ? warrior.getLevel() : 1;
+        int[] s = inventoryService.rollItemStats(itemLevel, rarity);
+        int atk = s[0], def = s[1], hp = s[2];
 
         long price = switch (rarity) { case 2->150L; case 3->400L; case 4->1000L; case 5->2500L; default->25L; };
         String name   = itemName(type, rarity, rng);
@@ -451,7 +450,7 @@ public class KingdomService {
         String origin = loreGenerator.originFromQuest("Kingdom Quest");
 
         if (inventoryService.bagSize(player) < player.getMaxInventorySlots()) {
-            return inventoryService.make(player, name, type, atk, def, hp, rarity, price, lore, origin);
+            return inventoryService.make(player, name, type, atk, def, hp, rarity, price, itemLevel, lore, origin);
         } else {
             mailService.sendItemMail(player, "Drop de Kingdom Quest.",
                     name, type, atk, def, hp, rarity, 0, lore, origin);

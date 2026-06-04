@@ -219,6 +219,15 @@ Capacete, Armadura, Espada, Escudo, Calça, Bota, Luva, Ombreira, Colar, Anel
 - Cada item tem: `description` (lore) e `origin` (onde foi encontrado) — gerados automaticamente
 - Itens craftados têm 1-2 sockets garantidos
 
+### Nível de Item (Itens V3)
+- Todo item tem um **nível fixo** (`itemLevel`). **Poder = nível × multiplicador de raridade**
+  (Comum 1.0 · Incomum 1.2 · Raro 1.45 · Épico 1.75 · Lendário 2.1) → **lvl100 Comum > lvl1 Épico**.
+  A raridade continua dando **afixos + sockets + o multiplicador** — no mesmo nível, Épico > Comum.
+- **Requisito pra equipar:** só equipa se `itemLevel ≤ nível do guerreiro` (UI mostra 🔒 Lv.X e bloqueia).
+- **De onde vem o nível:** drop de quest/reino = **nível do guerreiro** (loot escala com você);
+  loja = faixa por raridade (Comum 1 · Incomum 5 · Raro 15 · Épico 30 · Lendário 50) — resolve o
+  "lvl1 compra Épico e atropela" (compra mas só equipa no nível); craft = nível do recipe; iniciais = 1.
+
 ### Afixos (Itens V2 — Fase A)
 - Cada item rola **afixos aleatórios** pela raridade: Comum 0 · Incomum 1 · Raro 2 · Épico 3 · **Lendário 4**
 - Afixo concede **stat plano** (ATK/DEF/HP) **ou atributo** (+STR/+DEX/+LUK), reusando o sistema D&D

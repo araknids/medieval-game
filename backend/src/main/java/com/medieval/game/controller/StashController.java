@@ -33,6 +33,7 @@ public class StashController {
                 "typeDisplay",  i.getType().displayName,
                 "rarity",       i.getRarity(),
                 "rarityName",   rarityName(i.getRarity()),
+                "itemLevel",    i.getItemLevel(),
                 "attackBonus",  i.getAttackBonus(),
                 "defenseBonus", i.getDefenseBonus(),
                 "healthBonus",  i.getHealthBonus()
