@@ -2133,4 +2133,30 @@ Ao receber um crítico: `floor(LUK/10)%` de chance de converter para hit normal.
 4. Se **não cobre** → território vira neutro, defenseStreak zera (perda por inadimplência).
 5. Registro no log de batalha do território.
 
-*Updated 2026-06-03. Sinks econômicos: UC-96 to UC-100.*
+---
+
+## Cozinha (Cooking) — UC-101 a UC-102
+
+### UC-101: Cozinhar uma refeição
+**Actor:** Jogador (na aba 🍳 Cozinha do Commerce)
+**Pré-condições:** tem o peixe da receita na quantidade necessária.
+
+**Flow:**
+1. Jogador escolhe uma receita e clica em Cozinhar (`POST /api/cooking/cook {meal}`).
+2. Sistema consome o peixe do inventário de recursos → +1 refeição em estoque (`MealInventory`). Instantâneo.
+
+**Alternate:** sem peixe suficiente → 400.
+
+### UC-102: Comer uma refeição (buff Bem Alimentado)
+**Actor:** Jogador
+**Pré-condições:** tem ≥1 da refeição em estoque.
+
+**Flow:**
+1. Jogador clica em Comer (`POST /api/cooking/eat {meal}`).
+2. Sistema consome 1 refeição → aplica o **buff de combate** no slot **"Bem Alimentado"** por X min
+   (substitui o anterior). O buff entra no `combatStats` (empilha com os 2 buffs do Templo).
+3. Perdido na derrota/KO (junto com os buffs do Templo).
+
+**Alternate:** não tem a refeição → 400.
+
+*Updated 2026-06-03. Sinks econômicos: UC-96 to UC-100. Cozinha: UC-101 to UC-102.*

@@ -3351,7 +3351,30 @@ suíte; abaixo resumo por área):
 
 ---
 
-*Updated 2026-06-03. Total: 418 tests passing. Reinos V2: 5 reinos unificados, Garimpo, split de peixe
+## Seção — Cozinha (cobertura)
+
+| Área | Verifica | Arquivo |
+|------|----------|---------|
+| Cozinhar | consome o peixe certo, +1 refeição; sem peixe → 400 | `CookingIntegrationTest` |
+| Comer | consome 1 refeição, seta o buff Bem Alimentado; sem refeição → 400 | `CookingIntegrationTest` |
+| Buff no combate | `combatStats` soma o buff de refeição (e os 2 do Templo) quando ativo | `CookingIntegrationTest` |
+| Some na derrota | `clearBuff()` limpa o slot Bem Alimentado | `CookingIntegrationTest` |
+| Receitas | `GET /api/cooking/recipes` lista as 10 receitas com efeito/canCook | `CookingIntegrationTest` |
+
+## Seção — Auditoria (fechamento de deferrals)
+
+| Item | Verifica | Arquivo |
+|------|----------|---------|
+| BL-5 (@Valid DTOs) | payload inválido → 400 em Smithing/Zone/Mail/Guild | `DtoValidationTest` |
+| BL-1 (retry emboscada) | collect refaz sob 409, esgota → relança | `ZoneCollectCoordinatorTest` |
+| M6 (JWT no reset) | token antigo → 401 após reset; novo login → 200 | `JwtInvalidationTest` |
+| M15 (getOrCreate concorrente) | idempotência + recovery do conflito | `ConcurrentCreateTest` |
+| A4 (piso da reforja) | total ≥ 45% do máx em 30 reforjas | `EconomicSinksIntegrationTest` |
+
+---
+
+*Updated 2026-06-03. Total: 441 tests passing. Reinos V2: 5 reinos unificados, Garimpo, split de peixe
 (estamina/vida), estamina na coleta, caçada PvE na Fortaleza, flag de guild-war. Quests V2: 6 quests/reino
-com vitrine rotativa de 2 (6h), encontro de monstro na coleta (vencer = recompensa) e lore narrada.
-Economic sinks TC-239-252 em `EconomicSinksIntegrationTest`/`InventoryItemDurabilityTest`.*
+com vitrine rotativa de 2 (6h), encontro de monstro na coleta e lore narrada. Cozinha: peixe → refeição →
+buff de combate (slot Bem Alimentado); buffs agora entram no combate. Auditoria: BL-1/BL-5/M6/M15/A4 + A9
+fechados. Economic sinks TC-239-252 em `EconomicSinksIntegrationTest`/`InventoryItemDurabilityTest`.*

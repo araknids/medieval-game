@@ -1,8 +1,7 @@
 # Plano — Sistema de Cozinha (Cooking)
 
 > Documento de design. Decisões tomadas com o dono em 2026-06-03.
-> Status: **✅ aprovado** (fix de buffs no combate OK; números à minha escolha; refeição some na derrota).
-> Depois de implementar: sincronizar FEATURES/GDD/USE_CASES/TEST_PLAN.
+> Status: **✅ IMPLEMENTADO** (441 testes verdes). FEATURES/GDD/USE_CASES/TEST_PLAN sincronizados.
 
 ---
 

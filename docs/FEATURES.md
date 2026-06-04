@@ -76,6 +76,8 @@ Sem teto — progressão exponencialmente mais difícil inspirada em Tibia.
 - VIP: 2 buffs ativos simultâneos
 - Buffs: Força (+5 ATK), Agilidade (+5% AC), Defesa (+5 DEF), Vitalidade (+20 HP), Sorte (+5% drop)
 - Buff é perdido ao ser derrotado em combate
+- **Os buffs ativos entram de fato no combate** (`WarriorStatsService.combatStats` soma slot 1 + 2 +
+  slot Bem Alimentado da Cozinha). Há ainda um 3º slot **Bem Alimentado** (refeição) — ver Cozinha (§26).
 
 ### 2.6 Liberar Guerreiro Travado
 - Endpoint `POST /api/warrior/free` cancela todas sessões ativas e libera o guerreiro
@@ -847,6 +849,30 @@ Moeda premium da conta (não do personagem). Obtida via compra (futuro: Stripe/S
 | POST | `/api/warrior/rename` | Troca nome (2 💎, perm) |
 | POST | `/api/warrior/reset-attributes` | Reseta atributos (5 💎, perm) |
 | POST | `/api/admin/grant-soulstones` | Dar SoulStones (testes/admin) |
+
+---
+
+## 26. Cozinha (Cooking) ✅
+
+Transforma peixes em **refeições** que dão um **buff de combate temporário** no slot **"Bem Alimentado"**
+(separado dos 2 slots do Templo — empilha). Cozinhar é **instantâneo** (sem skill nem timer), na aba
+**🍳 Cozinha** do Commerce.
+
+- **10 receitas** (enum `Meal`): linha **ofensiva** (peixe de estamina do Desfiladeiro → +ATK/+DEF) e
+  **defensiva** (peixe de vida do Mar Abençoado → +HP/+DEF/+evasão). Ex.: Filé de Salmão (+10 ATK/+5 DEF, 40min),
+  Prato Lendário (+18/+12/+40, 60min), Assado da Fênix (+100 HP/+15 DEF/+8% evasão, 60min).
+- **Cozinhar:** consome o peixe da receita → +1 refeição no estoque (`MealInventory`).
+- **Comer:** consome 1 refeição → aplica o buff por X min (substitui a refeição ativa anterior).
+- **Combate:** o buff entra no `combatStats` enquanto ativo. **Perdido na derrota/KO** (junto com os do Templo).
+- **Balanço:** ~1.5-2× mais forte que o Templo, mas custa **peixe** (estamina + tempo de coleta) — sink de esforço.
+
+### Endpoints
+| Método | Rota | Ação |
+|--------|------|------|
+| GET | `/api/cooking/recipes` | Receitas + ingrediente/efeito/duração + se dá pra cozinhar |
+| GET | `/api/cooking/meals` | Refeições cozidas em estoque |
+| POST | `/api/cooking/cook` | Cozinha `{meal}` (consome peixe) |
+| POST | `/api/cooking/eat` | Come `{meal}` (aplica o buff Bem Alimentado) |
 
 ---
 

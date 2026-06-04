@@ -504,9 +504,11 @@ Local de recuperação e fortalecimento.
 
 ### 8.2 Bênçãos (Buffs)
 
-- Um buff por vez, dura **1 hora**
+- Um buff por vez (VIP: 2), dura **1 hora**
 - Buff é **perdido ao ser derrotado** em qualquer combate
 - Ativado no Templo por bronze
+- **Os buffs entram de fato no combate** (somados em `WarriorStatsService.combatStats`). Além dos 2
+  slots do Templo, existe um 3º slot **"Bem Alimentado"** vindo da **Cozinha** (refeições) — ver §3.x.
 
 ### 8.3 Proteção de Itens
 
@@ -835,13 +837,15 @@ Resultado: -4 abas +1 = interface muito mais limpa.
 **Loop de valor:**
 ```
 Pesca → Peixes de estamina (Desfiladeiro) / Peixes de vida (Mar Abençoado)
-      → Futuro: Cozinha → Refeições premium → Buffs de guild, regen acelerada
+      → Cozinha → Refeição → buff de combate "Bem Alimentado"
 ```
 
-**Futuro — Sistema de Cozinha:**
-- Refeições criadas com peixes do Mar Profundo
-- Buffs mais fortes que peixe cru (+estamina, bônus de guild, XP por tempo)
-- Ingredientes raros exclusivos do Mar Profundo
+**Sistema de Cozinha ✅ (implementado):**
+- Peixes viram **refeições** (aba 🍳 Cozinha no Commerce) que dão um **buff de combate** no slot
+  **"Bem Alimentado"** (empilha com os 2 do Templo), ~1.5-2× mais fortes que os do Templo.
+- Linha **ofensiva** (peixe de estamina) e **defensiva** (peixe de vida). Cozinhar é instantâneo (sem skill).
+- Custa peixe (estamina + tempo de coleta); perdido na derrota. Detalhe: `docs/PLANO_COZINHA.md`.
+- *Futuro:* refeições de guild (feast), buffs de utilidade (XP/yield), ingredientes raros.
 
 ---
 
