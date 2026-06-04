@@ -267,6 +267,10 @@ Capacete, Armadura, Espada, Escudo, Calça, Bota, Luva, Ombreira, Colar, Anel
 - **Coletar gasta estamina** (Reinos V2): pescar/minerar/garimpar consomem estamina proporcional à
   duração (~metade dos minutos, mínimo 5). Consumido **sempre** — `instant-complete` zera só o timer,
   não o custo (estamina é mecânica de economia). Fecha o loop pescar→comer→coletar.
+  - O **botão de cada duração mostra o custo** (ex.: `30min · 15⚡`) antes de iniciar.
+- **Lore dinâmica na coleta** (Reinos V2): ao coletar, mostra uma frase curta de ambientação
+  (em inglês), variando por skill (pesca/mineração/garimpo) e citando o reino — o equivalente ao
+  log de batalha para a coleta. Gerada no backend (`GatheringNarrator`), aleatória de um pool por skill.
 
 ### Pesca
 - Sessão timer: 5/10/20/30/40 min
@@ -709,7 +713,8 @@ caçada PvE ficam **dentro de cada reino**. (A Forja/Smithing fica no Commerce.)
 
 ### ⛏ Minas de Ferro Negro / 🔎 Grutas de Cristal — Reinos de Coleta
 - Minas → só minério (Cobre→Mithril). Grutas → fragmentos de joia (Garimpo).
-- Mesmas 3 zonas (Segura / PvP / Alto risco). Coletar gasta estamina.
+- Mesmas 3 zonas (Segura / PvP / Alto risco). Coletar gasta estamina (custo mostrado no botão) e
+  exibe uma **lore curta** no resultado da coleta.
 
 ### ⚔ Fortaleza Maldita — Reino do Combate
 | Recurso | Detalhe |

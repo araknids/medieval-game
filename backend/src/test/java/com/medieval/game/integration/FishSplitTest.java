@@ -47,7 +47,7 @@ class FishSplitTest extends BaseIntegrationTest {
     void marAbencoado_yieldsHpFish() {
         // instant-complete (perfil dev) → sessão pronta na hora
         GatheringSession s = gatheringService.startGathering(player, SkillType.FISHING, 30, Kingdom.MAR_ABENCOADO);
-        List<GatheringService.ResourceDrop> drops = gatheringService.collectGathering(player, s.getId());
+        List<GatheringService.ResourceDrop> drops = gatheringService.collectGathering(player, s.getId()).drops();
         assertThat(drops).isNotEmpty();
         assertThat(drops).allMatch(d -> HP_FISH.contains(d.type()));
     }
@@ -56,7 +56,7 @@ class FishSplitTest extends BaseIntegrationTest {
     @DisplayName("Águas Calmas (FISHING) rende peixe de ESTAMINA")
     void aguasCalmas_yieldsStaminaFish() {
         GatheringSession s = gatheringService.startGathering(player, SkillType.FISHING, 30, Kingdom.FISHING);
-        List<GatheringService.ResourceDrop> drops = gatheringService.collectGathering(player, s.getId());
+        List<GatheringService.ResourceDrop> drops = gatheringService.collectGathering(player, s.getId()).drops();
         assertThat(drops).isNotEmpty();
         assertThat(drops).allMatch(d -> STAMINA_FISH.contains(d.type()));
     }

@@ -1705,7 +1705,7 @@ async function collectGathering(id) {
   const dropsHtml = data.drops.map(d =>
     `${RESOURCE_ICONS[d.type]||'?'} ${d.displayName} ×${d.quantity}`
   ).join('  ');
-  showMessage('Coletado! ' + dropsHtml);
+  showMessage((data.narrative ? data.narrative + ' — ' : '') + 'Collected! ' + dropsHtml);
 
   gatheringState = { active: false };
   resourcesData = await api('GET', '/api/gathering/resources');
@@ -3103,7 +3103,8 @@ function renderKingdomDetail(kingdom, quests, activeQuests, training, gatherSess
               : `<div style="display:flex;gap:5px;flex-wrap:wrap">
               ${z.durations.map(d => {
                 const label = d >= 60 ? (d/60)+'h' : d+'min';
-                return `<button onclick="startKingdomGathering('${skillType}',${d},'${kingdom}')" style="font-size:11px;padding:3px 8px">${label}</button>`;
+                const stamCost = Math.max(5, Math.floor(d/2)); // mirrors GatheringService.staminaCostFor
+                return `<button onclick="startKingdomGathering('${skillType}',${d},'${kingdom}')" style="font-size:11px;padding:3px 8px">${label} · ${stamCost}⚡</button>`;
               }).join('')}
             </div>`}
         </div>`;
@@ -3371,7 +3372,7 @@ async function collectKingdomGather(sessionId) {
         color: '#4db6ac'
       }))
     : [];
-  showCollectModal({ title:'🎣 Gathering Results!', color:'#00897b', rows });
+  showCollectModal({ title:'🎣 Gathering Results!', color:'#00897b', note:r.narrative, rows });
   if (worldCurrentKingdom) await enterKingdom(worldCurrentKingdom);
 }
 

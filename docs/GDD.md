@@ -801,6 +801,8 @@ Combate           → Fortaleza Maldita    → XP + caçada PvE + war→ todo mu
 ```
 
 > **Coleta gasta estamina** (pesca/mineração/garimpo) em produção — fecha o loop pescar-comer-coletar.
+> O custo aparece no botão de cada duração, e o resultado da coleta traz uma **lore curta** (variando
+> por skill + reino) — o equivalente ao log de batalha para a coleta (`GatheringNarrator`).
 
 > **Quests V2 (todos os reinos):** cada reino tem **6 quests**; a UI mostra **2 por vez**, revezando a
 > cada 6h. Na coleta há uma **chance de encontro de monstro** (escala com a dificuldade) — é preciso

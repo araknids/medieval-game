@@ -2066,6 +2066,8 @@ POST /api/gathering/{id}/collect
 **Resultado Esperado:**
 - Status 200.
 - Resposta contém `drops` (array de peixes, pode ser vazio dependendo do RNG) e `xpEarned` (> 0).
+- Resposta contém `narrative` (string não-vazia) — lore curta da coleta gerada por `GatheringNarrator`,
+  variando por skill (pesca/mineração/garimpo) e reino.
 - `GET /api/warrior` retorna `onMission=false`.
 
 **Resultado de Falha:** Campos ausentes, XP não creditado ou guerreiro ainda onMission.

@@ -157,8 +157,11 @@ public class GatheringService {
 
     public record ResourceDrop(ResourceType type, long quantity) {}
 
+    /** Result of collecting a gathering session: the drops plus a short flavour line. */
+    public record CollectResult(List<ResourceDrop> drops, String narrative) {}
+
     @Transactional
-    public List<ResourceDrop> collectGathering(Player player, Long sessionId) {
+    public CollectResult collectGathering(Player player, Long sessionId) {
         log.info("[GatheringService] player={} action=collectGathering sessionId={}", player.getId(), sessionId);
         GatheringSession session = sessionRepository.findById(sessionId)
                 .orElseThrow(() -> new IllegalArgumentException("Session not found"));
@@ -206,8 +209,12 @@ public class GatheringService {
 
         session.setStatus(GatheringStatus.COLLECTED);
         sessionRepository.save(session);
+
+        // Short dynamic flavour line for the collect screen (gathering's "battle log"). [REINOS_V2]
+        String narrative = GatheringNarrator.narrate(session.getSkillType(), session.getKingdom());
+
         log.info("[GatheringService] player={} action=collectGathering OK sessionId={} drops={}", player.getId(), sessionId, drops.size());
-        return drops;
+        return new CollectResult(boostedDrops, narrative);
     }
 
     @Transactional

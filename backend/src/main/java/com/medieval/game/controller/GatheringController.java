@@ -17,7 +17,6 @@ import org.springframework.web.bind.annotation.*;
 
 import java.time.LocalDateTime;
 import java.time.temporal.ChronoUnit;
-import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
@@ -100,14 +99,17 @@ public class GatheringController {
     @PostMapping("/{id}/collect")
     public ResponseEntity<?> collect(@PathVariable Long id, Authentication auth) {
         Player player = getPlayer(auth);
-        List<GatheringService.ResourceDrop> drops = gatheringService.collectGathering(player, id);
-        var dropsResponse = drops.stream().map(d -> Map.of(
+        GatheringService.CollectResult result = gatheringService.collectGathering(player, id);
+        var dropsResponse = result.drops().stream().map(d -> Map.of(
             "type",        d.type().name(),
             "displayName", d.type().displayName,
             "category",    d.type().category.name(),
             "quantity",    d.quantity()
         )).toList();
-        return ResponseEntity.ok(Map.of("drops", dropsResponse));
+        return ResponseEntity.ok(Map.of(
+            "drops",     dropsResponse,
+            "narrative", result.narrative()
+        ));
     }
 
     // Cancela coleta
