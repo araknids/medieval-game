@@ -115,20 +115,19 @@ public class GatheringService {
             throw new IllegalArgumentException("Invalid duration");
         }
 
-        // Coletar (pesca/mineração/garimpo) consome estamina proporcional à duração. [REINOS_V2]
-        // Pulado em dev/test (instant-complete) pra não atrapalhar os timers zerados.
-        if (!instantComplete) {
-            int staminaCost = staminaCostFor(durationMinutes);
-            int current = player.getCalculatedStamina();
-            if (current < staminaCost) {
-                log.warn("[GatheringService] player={} REJECTED: estamina {}/{}", player.getId(), current, staminaCost);
-                throw new IllegalStateException("Not enough stamina (" + current + "/" + staminaCost +
-                        "). Eat a fish or rest.");
-            }
-            player.setCurrentStamina(current - staminaCost);
-            player.setStaminaUpdatedAt(LocalDateTime.now());
-            playerRepository.save(player);
+        // Gathering (fishing/mining/prospecting) consumes stamina proportional to duration. [REINOS_V2]
+        // Consumed ALWAYS — instant-complete only zeroes the timer, not the cost (stamina is an
+        // economy mechanic, not a timer). Consistent with quests, which also consume unconditionally.
+        int staminaCost = staminaCostFor(durationMinutes);
+        int current = player.getCalculatedStamina();
+        if (current < staminaCost) {
+            log.warn("[GatheringService] player={} REJECTED: stamina {}/{}", player.getId(), current, staminaCost);
+            throw new IllegalStateException("Not enough stamina (" + current + "/" + staminaCost +
+                    "). Eat a fish or rest.");
         }
+        player.setCurrentStamina(current - staminaCost);
+        player.setStaminaUpdatedAt(LocalDateTime.now());
+        playerRepository.save(player);
 
         SkillLevel skill = getOrCreateSkill(player, skillType);
         int xpReward = durationMinutes * (skill.getLevel() / 10 + 2);
