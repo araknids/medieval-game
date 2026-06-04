@@ -23,7 +23,11 @@ public class GlobalExceptionHandler {
         String errors = ex.getBindingResult().getFieldErrors().stream()
                 .map(e -> e.getField() + ": " + e.getDefaultMessage())
                 .collect(Collectors.joining(", "));
-        log.warn("[GlobalExceptionHandler] Validation failed: {}", errors);
+        // Loga o valor rejeitado (só no servidor) para diagnóstico — ex.: descobrir qual char bloqueou.
+        String rejected = ex.getBindingResult().getFieldErrors().stream()
+                .map(e -> e.getField() + "='" + e.getRejectedValue() + "'")
+                .collect(Collectors.joining(", "));
+        log.warn("[GlobalExceptionHandler] Validation failed: {} | rejected: {}", errors, rejected);
         return ResponseEntity.badRequest().body(Map.of("error", errors));
     }
 

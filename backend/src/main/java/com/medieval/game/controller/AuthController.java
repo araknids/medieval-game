@@ -19,6 +19,7 @@ import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.web.bind.annotation.*;
@@ -27,6 +28,7 @@ import java.time.LocalDateTime;
 import java.util.Map;
 import java.util.Optional;
 
+@Slf4j
 @RestController
 @RequestMapping("/api/auth")
 @RequiredArgsConstructor
@@ -49,6 +51,8 @@ public class AuthController {
 
     @PostMapping("/register")
     public ResponseEntity<?> register(@Valid @RequestBody RegisterRequest req) {
+        log.info("[AuthController] register attempt username='{}' warriorName='{}' emailLen={}",
+                req.username(), req.warriorName(), req.email() != null ? req.email().length() : 0);
         Player  player  = playerService.register(req.username(), req.email(), req.password());
         Warrior warrior = warriorService.create(player, req.warriorName(), WarriorClass.WARRIOR);
         inventoryService.giveStarterItems(player);
