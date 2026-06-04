@@ -184,16 +184,17 @@ public class AuthController {
         return http.getRemoteAddr();
     }
 
-    // Charset restrito em username/warriorName: defesa em profundidade contra XSS — esses nomes
-    // aparecem para outros jogadores (ranking, mail, arena) e serão renderizados também pelo cliente
-    // Godot. Texto livre (mail/descrição de guild) é tratado por escape na exibição, não aqui. [XSS]
+    // Charset AMIGÁVEL: aceita acento, espaço, ponto, _ e - (nomes BR/internacionais), mas bloqueia
+    // os chars de HTML perigosos (< > & " ' /). A defesa REAL de XSS é o escape na exibição
+    // (escapeHtml no front); isto é só uma rede extra. Não usar allowlist ASCII estrita (bloqueava
+    // cadastro legítimo, ex.: "joão", "Zé"). [XSS / fix cadastro]
     record RegisterRequest(
             @NotBlank @Size(min = 3, max = 20)
-            @Pattern(regexp = "[A-Za-z0-9_]+", message = "Username: only letters, numbers and underscore")
+            @Pattern(regexp = "[\\p{L}\\p{N} ._-]+", message = "Username: letters, numbers, space . _ - only")
             String username,
             @NotBlank @Email String email,
             @NotBlank @Size(min = 8) String password,  // mín. 8 caracteres [AUDITORIA M7]
-            @NotBlank @Size(min = 3, max = 30)
+            @NotBlank @Size(max = 30)
             @Pattern(regexp = "[\\p{L}\\p{N} ._'-]+", message = "Warrior name has invalid characters")
             String warriorName
     ) {}

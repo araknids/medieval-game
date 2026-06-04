@@ -44,6 +44,7 @@ class CovilRaidTest extends BaseIntegrationTest {
         Warrior w = warriorRepository.findByPlayer(p).orElseThrow();
         w.setLevel(50);
         w.setAttack(500);   // esmaga o mob → vitória garantida
+        w.setStrength(60);  // Combate V2: STR dá precisão (strBonus +3) — sem acerto não mata em 40 rounds
         w.setHealth(5000);
         w.setCurrentHpSnapshot(100);
         w.setHpUpdatedAt(java.time.LocalDateTime.now());

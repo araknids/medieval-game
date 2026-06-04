@@ -121,7 +121,7 @@ public class CombatPveService {
         int atk      = 3 + level * 2 + rng.nextInt(3);
         int def      = 1 + level + rng.nextInt(2);
         int hp       = 50 + level * 14 + rng.nextInt(20);
-        int dex      = Math.min(level / 3, 14);
+        int dex      = Math.min(level / 6, 8);  // AC = 10+dex, cap 18 (bounded accuracy — hit viável) [COMBATE_V2]
         int strBonus = Math.min(level / 15, 3);
         int luk      = Math.min(level / 5, 8);
         return new int[]{atk, def, hp, dex, strBonus, luk};

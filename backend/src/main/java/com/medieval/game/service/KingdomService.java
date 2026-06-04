@@ -414,7 +414,7 @@ public class KingdomService {
         int atk = (int) Math.round((3 + level * 2) * diff) + rng.nextInt(3);
         int def = (int) Math.round((1 + level)     * diff) + rng.nextInt(2);
         int hp  = (int) Math.round((40 + level * 12) * diff) + rng.nextInt(20);
-        int dex = Math.min(level / 3, 14);
+        int dex = Math.min(level / 6, 8);  // AC = 10+dex, cap 18 (bounded accuracy) [COMBATE_V2]
         int str = Math.min(level / 15, 3);
         int luk = Math.min(level / 5, 8);
         return new int[]{atk, def, hp, dex, str, luk};
