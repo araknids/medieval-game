@@ -30,6 +30,7 @@ public class WorkService {
     private final WarriorRepository        warriorRepository;
     private final PlayerRepository         playerRepository;
     private final TerritoryService         territoryService;
+    private final ConcurrentEntityCreator  entityCreator;
 
     @Value("${app.dev.instant-complete:false}")
     private boolean instantComplete;
@@ -38,10 +39,12 @@ public class WorkService {
     public WorkProfession getProfession(Player player, WorkType workType) {
         return professionRepository.findByPlayerAndWorkType(player, workType)
                 .orElseGet(() -> {
-                    WorkProfession p = new WorkProfession();
-                    p.setPlayer(player);
-                    p.setWorkType(workType);
-                    return professionRepository.save(p);
+                    try {
+                        return entityCreator.createProfession(player, workType); // tx própria (REQUIRES_NEW)
+                    } catch (org.springframework.dao.DataIntegrityViolationException e) {
+                        // criada concorrentemente por outra requisição → relê a linha existente. [AUDITORIA M15]
+                        return professionRepository.findByPlayerAndWorkType(player, workType).orElseThrow();
+                    }
                 });
     }
 

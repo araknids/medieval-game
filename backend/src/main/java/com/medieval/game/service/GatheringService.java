@@ -26,6 +26,7 @@ public class GatheringService {
     private final WarriorRepository           warriorRepository;
     private final PlayerRepository            playerRepository;
     private final TerritoryService            territoryService;
+    private final ConcurrentEntityCreator     entityCreator;
 
     @Value("${app.dev.instant-complete:false}")
     private boolean instantComplete;
@@ -35,10 +36,12 @@ public class GatheringService {
     public SkillLevel getOrCreateSkill(Player player, SkillType skillType) {
         return skillRepository.findByPlayerAndSkillType(player, skillType)
                 .orElseGet(() -> {
-                    SkillLevel s = new SkillLevel();
-                    s.setPlayer(player);
-                    s.setSkillType(skillType);
-                    return skillRepository.save(s);
+                    try {
+                        return entityCreator.createSkill(player, skillType); // tx própria (REQUIRES_NEW)
+                    } catch (org.springframework.dao.DataIntegrityViolationException e) {
+                        // criada concorrentemente por outra requisição → relê a linha existente. [AUDITORIA M15]
+                        return skillRepository.findByPlayerAndSkillType(player, skillType).orElseThrow();
+                    }
                 });
     }
 
