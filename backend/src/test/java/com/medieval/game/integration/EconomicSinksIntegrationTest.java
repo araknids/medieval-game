@@ -186,6 +186,25 @@ class EconomicSinksIntegrationTest extends BaseIntegrationTest {
                 .andExpect(jsonPath("$.error").isNotEmpty());
     }
 
+    // ── A4: reforja respeita um piso de qualidade (nunca arruína um item caro) ──
+    @Test
+    @DisplayName("A4 | Reforge nunca cai abaixo do piso (45% do máximo da raridade)")
+    void a4_reforgeRespectsFloor() {
+        Player p = playerOf("sink");
+        p.addBronzeAmount(2_000_000);
+        playerRepository.save(p);
+        InventoryItem item = equippedItem(p, 2, 6, 6, 24, 100); // raridade 2: máx total 36
+        int floorTotal = (int) Math.round((2 * 3 + 2 * 3 + 2 * 12) * 0.45); // = 16
+
+        for (int i = 0; i < 30; i++) {
+            smithingService.reforgeItem(playerRepository.findById(p.getId()).orElseThrow(), item.getId());
+            InventoryItem after = inventoryRepository.findById(item.getId()).orElseThrow();
+            int total = after.getAttackBonus() + after.getDefenseBonus() + after.getHealthBonus();
+            assertThat(total).as("reforge #%d total", i).isGreaterThanOrEqualTo(floorTotal);
+            assertThat(after.getHealthBonus()).isLessThanOrEqualTo(2 * 12); // não estoura o máximo de HP
+        }
+    }
+
     // ── TC-248: cura custa nível × 10 para nível > 10 ──
     @Test
     @DisplayName("TC-248 | Heal custa nível × 10 para nível > 10")

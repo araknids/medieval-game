@@ -248,6 +248,9 @@ public class SmithingService {
         return (long) (100 - item.getDurability()) * item.getRarity() * 5;
     }
 
+    // Piso de qualidade da reforja: total mínimo = 45% do máximo possível para a raridade. [AUDITORIA A4]
+    private static final double REFORGE_FLOOR_PCT = 0.45;
+
     // ── Reforjar item: re-rola os stats mantendo a raridade (sink econômico) ──
     // Custo = raridade³ × 500 bronze (encarecido para conter re-roll abusivo). [AUDITORIA A4]
     @Transactional
@@ -266,17 +269,18 @@ public class SmithingService {
         int rarity = item.getRarity();
 
         // Re-rola os stats com a mesma distribuição usada na geração de drops
-        java.util.Random rng = new java.util.Random();
+        java.util.concurrent.ThreadLocalRandom rng = java.util.concurrent.ThreadLocalRandom.current();
         int maxAtk = rarity * 3, maxDef = rarity * 3, maxHp = rarity * 12;
         int atk = rng.nextInt(maxAtk + 1);
         int def = rng.nextInt(maxDef + 1);
         int hp  = rng.nextInt(maxHp  + 1);
-        if (atk == 0 && def == 0 && hp == 0) {
-            switch (rng.nextInt(3)) {
-                case 0 -> atk = 1;
-                case 1 -> def = 1;
-                default -> hp = rarity * 4;
-            }
+
+        // A4: piso de qualidade — uma reforja (cara) nunca entrega um item abaixo de ~45% do máximo
+        // possível para a raridade. Protege itens de loja/craft de virarem lixo num re-roll ruim.
+        int floorTotal = (int) Math.round((maxAtk + maxDef + maxHp) * REFORGE_FLOOR_PCT);
+        int deficit = floorTotal - (atk + def + hp);
+        if (deficit > 0) {
+            hp = Math.min(maxHp, hp + deficit); // completa no HP (maior orçamento) até atingir o piso
         }
 
         item.setAttackBonus(atk);
