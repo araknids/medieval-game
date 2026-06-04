@@ -215,7 +215,7 @@ async function resetPassword() {
   const password  = document.getElementById('reset-password').value;
   const password2 = document.getElementById('reset-password2').value;
   if (password !== password2) {
-    document.getElementById('auth-error').textContent = 'As senhas não coincidem';
+    document.getElementById('auth-error').textContent = 'Passwords do not match';
     return;
   }
   const token = new URLSearchParams(window.location.search).get('reset');
@@ -666,16 +666,16 @@ async function loadCooking() {
             <strong>${r.icon} ${r.displayName}</strong>
             <span style="font-size:12px;color:#9c27b0">${r.effect} · ${r.durationMinutes}min</span>
           </div>
-          <div style="font-size:12px;color:#888;margin:4px 0 8px">Ingrediente: ${r.ingredient} ×${r.ingredientQty} (tem ${owned})${have ? ` · em estoque: ${have}` : ''}</div>
+          <div style="font-size:12px;color:#888;margin:4px 0 8px">Ingrediente: ${r.ingredient} ×${r.ingredientQty} (tem ${owned})${have ? ` · in stock: ${have}` : ''}</div>
           <div style="display:flex;gap:6px">
             <button onclick="cookMeal('${r.id}')" ${r.canCook ? '' : 'disabled style="opacity:.5"'} style="font-size:12px">🍳 Cozinhar</button>
-            ${have ? `<button onclick="eatMeal('${r.id}')" style="font-size:12px;background:#7b1fa2">🍽 Comer (${have})</button>` : ''}
+            ${have ? `<button onclick="eatMeal('${r.id}')" style="font-size:12px;background:#7b1fa2">🍽 Eat (${have})</button>` : ''}
           </div>
         </div>`;
     }).join('');
 
     el.innerHTML = `
-      <p style="font-size:13px;color:#aaa;margin:0 0 12px">Transforme peixes em refeições que dão um buff de combate (slot <strong>Bem Alimentado</strong>, empilha com os buffs do Templo).</p>
+      <p style="font-size:13px;color:#aaa;margin:0 0 12px">Turn fish into meals that grant a combat buff (<strong>Well Fed</strong> slot, stacks with Temple buffs).</p>
       ${recipeCards}
       <div id="cooking-msg" style="margin-top:8px;min-height:20px"></div>`;
   } catch (e) {
@@ -770,7 +770,7 @@ async function loadShop() {
     if (secs <= 0) {
       clearInterval(shopTimerInterval);
       const el = document.getElementById('shop-timer');
-      if (el) el.textContent = '🛒 A carroça chegou! Novos itens disponíveis!';
+      if (el) el.textContent = '🛒 The cart has arrived! New items available!';
       setTimeout(() => loadShop(), 2000);
     } else {
       renderShopTimer();
@@ -804,11 +804,11 @@ const ALL_SLOTS = [
 ];
 
 const ATTR_INFO = {
-  STRENGTH:     { icon: '⚔',  label: 'Força (STR)',       cap: 60, effect: '+1 ATK/pt · Attack Roll floor(STR/20)' },
-  DEXTERITY:    { icon: '🛡',  label: 'Destreza (DEX)',    cap: 40, effect: '+1 AC/pt · AC = 10 + DEX (defende hits)' },
-  CONSTITUTION: { icon: '❤',  label: 'Constituição (CON)', cap: null, effect: '+8 HP/pt · sem cap — cresce infinito' },
-  LUCK:         { icon: '🍀', label: 'Sorte (LUK)',        cap: 50, effect: '+1% drop · expande crítico · Fortune Save' },
-  INTELLECT:    { icon: '📚', label: 'Intelecto (INT)',    cap: 40, effect: '+0.5% Smithing · -0.2% custo treino · +0.3% yield coleta' },
+  STRENGTH:     { icon: '⚔',  label: 'Strength (STR)',     cap: 60, effect: '+1 ATK/pt · Attack Roll floor(STR/20)' },
+  DEXTERITY:    { icon: '🛡',  label: 'Dexterity (DEX)',    cap: 40, effect: '+1 AC/pt · AC = 10 + DEX (defends hits)' },
+  CONSTITUTION: { icon: '❤',  label: 'Constitution (CON)', cap: null, effect: '+8 HP/pt · no cap — grows infinitely' },
+  LUCK:         { icon: '🍀', label: 'Luck (LUK)',         cap: 50, effect: '+1% drop · widens crit · Fortune Save' },
+  INTELLECT:    { icon: '📚', label: 'Intellect (INT)',    cap: 40, effect: '+0.5% Smithing · -0.2% training cost · +0.3% gathering yield' },
 };
 
 function renderAttributes() {
@@ -986,7 +986,7 @@ function renderSockets(item) {
             </select>
           </span>`;
       } else {
-        slots += `<span class="socket-slot empty" title="Socket vazio (sem joias)">◯</span>`;
+        slots += `<span class="socket-slot empty" title="Empty socket (no gems)">◯</span>`;
       }
     }
   }
@@ -1005,11 +1005,11 @@ function statsText(item) {
 function durabilityBar(item) {
   const dur = item.durability ?? 100;
   const color = dur === 0 ? '#c0392b' : dur <= 25 ? '#e67e22' : dur <= 60 ? '#d4b106' : '#4caf82';
-  const label = dur === 0 ? '⚠ QUEBRADO — sem bônus' : `Durabilidade ${dur}%`;
+  const label = dur === 0 ? '⚠ BROKEN — no bonus' : `Durabilidade ${dur}%`;
   return `
     <div class="item-durability" title="${label}" style="margin-top:.25rem">
       <div style="display:flex;justify-content:space-between;font-size:.65rem;color:${dur===0?'#c0392b':'#888'}">
-        <span>${dur===0 ? '⚠ Quebrado' : 'Durabilidade'}</span><span>${dur}%</span>
+        <span>${dur===0 ? '⚠ Broken' : 'Durabilidade'}</span><span>${dur}%</span>
       </div>
       <div style="height:5px;background:#222;border-radius:3px;overflow:hidden">
         <div style="height:100%;width:${dur}%;background:${color}"></div>
@@ -1042,7 +1042,7 @@ function renderTemple(data) {
   if (!el) return;
 
   const hpColor   = data.hpPercent <= 0 ? '#cf6679' : data.hpPercent < 50 ? '#c9a84c' : '#4caf82';
-  const hpLabel   = data.isKnockedOut ? '💀 Inconsciente' : `❤ ${data.hpPercent}%`;
+  const hpLabel   = data.isKnockedOut ? '💀 Unconscious' : `❤ ${data.hpPercent}%`;
   const healLabel = data.healFree ? t('temple.heal_free_btn') : `${t('temple.heal_paid', {cost: fmtBronze(data.healCost ?? 100)})}`;
 
   const buffActive = data.activeBuff
@@ -1058,7 +1058,7 @@ function renderTemple(data) {
         — ${Math.floor(data.buff2SecondsLeft / 60)}min restantes
        </div>`
     : data.isVip
-    ? `<div class="temple-buff-active" style="color:#7c3aed">👑 Slot 2 VIP disponível</div>`
+    ? `<div class="temple-buff-active" style="color:#7c3aed">👑 VIP slot 2 available</div>`
     : '';
 
   const buffsHtml = data.buffs.map(b => `
@@ -1087,16 +1087,16 @@ function renderTemple(data) {
       <button class="btn-collect" onclick="healWarrior()"
               style="margin-top:.6rem"
               ${data.hpPercent >= 100 ? 'disabled' : ''}>
-        ${data.hpPercent >= 100 ? '✓ HP Cheio' : healLabel}
+        ${data.hpPercent >= 100 ? '✓ Full HP' : healLabel}
       </button>
       ${data.isVip ? (() => {
         const cdSecs = data.vipHealCooldownSecs || 0;
         const disabled = data.hpPercent >= 100 || cdSecs > 0;
         const label = data.hpPercent >= 100
-          ? '✓ HP Cheio'
+          ? '✓ Full HP'
           : cdSecs > 0
           ? `⏳ VIP Heal CD ${Math.floor(cdSecs/60)}m ${cdSecs%60}s`
-          : '👑 VIP Heal (grátis)';
+          : '👑 VIP Heal (free)';
         return `<button class="btn-collect" onclick="vipHeal()"
                   style="margin-top:.4rem;background:#7c3aed"
                   ${disabled ? 'disabled' : ''}>${label}</button>
@@ -1107,10 +1107,10 @@ function renderTemple(data) {
         const cdSecs = data.ssHealCooldownSecs || 0;
         const disabled = data.hpPercent >= 100 || cdSecs > 0;
         const label = data.hpPercent >= 100
-          ? '✓ HP Cheio'
+          ? '✓ Full HP'
           : cdSecs > 0
           ? `⏳ Cooldown ${Math.floor(cdSecs/60)}m ${cdSecs%60}s`
-          : '💎 Cura Instantânea (1 SoulStone)';
+          : '💎 Instant Heal (1 SoulStone)';
         return `<button class="btn-collect" onclick="soulstoneHeal()"
                   style="margin-top:.4rem;background:#5b21b6"
                   ${disabled ? 'disabled' : ''}>${label}</button>
@@ -1282,7 +1282,7 @@ function renderZoneActive(state) {
   const el    = document.getElementById('zones-content');
   const color = ZONE_COLORS[state.zone] || '#888';
   const icon  = ZONE_ICONS[state.zone]  || '🗺';
-  const role  = state.role === 'HUNTING' ? '🗡 Caçando' :
+  const role  = state.role === 'HUNTING' ? '🗡 Hunting' :
                 state.skillType === 'FISHING' ? t('zone.active_fish') : t('zone.active_mine');
 
   let timerSecs = state.secondsRemaining ?? 0;
@@ -1423,7 +1423,7 @@ const FISH_DESCRIPTIONS = {
   SALMON:         '+25 stamina',
   TUNA:           '+40 stamina',
   SHARK:          '+60 stamina',
-  LEGENDARY_FISH: '+80 estamina + buff temporário de XP',
+  LEGENDARY_FISH: '+80 stamina + temporary XP buff',
 };
 
 const RESOURCE_ICONS = {
@@ -1595,17 +1595,17 @@ async function renderSmithing() {
     const reforgeCost = reforgeCostFor(item);
     return `
       <div class="sk-recipe-card">
-        <div class="sk-recipe-title rarity-${item.rarity}">${item.name} ${item.equipped ? '· ⚔ equipado' : ''}</div>
+        <div class="sk-recipe-title rarity-${item.rarity}">${item.name} ${item.equipped ? '· ⚔ equipped' : ''}</div>
         <div style="font-size:.75rem;color:#aaa">${statsText(item)}</div>
         ${durabilityBar(item)}
         <div style="display:flex;gap:.4rem;margin-top:.4rem;flex-wrap:wrap">
           ${dur < 100
-            ? `<button class="btn-equip" onclick="repairItem(${item.id})">🔧 Reparar (${fmtBronze(repairCost)})</button>`
-            : `<button class="btn-equip" disabled style="opacity:.5">🔧 Intacto</button>`}
+            ? `<button class="btn-equip" onclick="repairItem(${item.id})">🔧 Repair (${fmtBronze(repairCost)})</button>`
+            : `<button class="btn-equip" disabled style="opacity:.5">🔧 Intact</button>`}
           <button class="btn-equip" onclick="reforgeItem(${item.id})">♻ Reforjar (${fmtBronze(reforgeCost)})</button>
         </div>
       </div>`;
-  }).join('') || `<p style="color:#888;font-size:.8rem">Sem itens para manutenção.</p>`;
+  }).join('') || `<p style="color:#888;font-size:.8rem">No items to maintain.</p>`;
 
   const refineHtml = recipes.refine?.map(r => `
     <div class="sk-recipe-card ${r.canCraft ? '' : 'locked'}">
@@ -1725,7 +1725,7 @@ async function consumeFish(resourceType) {
   const data = await api('POST', `/api/gathering/consume/${resourceType}`);
   if (data.error) { showMessage(data.error, true); return; }
   const hpPart = data.newHpPercent != null ? ` · ❤ HP: ${data.newHpPercent}%` : '';
-  showMessage(`${data.message} ⚡ Estamina: ${data.newStamina}/100${hpPart}`);
+  showMessage(`${data.message} ⚡ Stamina: ${data.newStamina}/100${hpPart}`);
   resourcesData = await api('GET', '/api/gathering/resources');
   await loadWarrior();
   renderFishing();
@@ -1766,7 +1766,7 @@ async function repairItem(itemId) {
 }
 
 async function reforgeItem(itemId) {
-  if (!confirm('Reforjar re-rola os atributos do item (mantém a raridade). Continuar?')) return;
+  if (!confirm('Reforging re-rolls the item\'s stats (keeps the rarity). Continue?')) return;
   const data = await api('POST', `/api/smithing/reforge/${itemId}`);
   if (data.error) { showMessage(data.error, true); return; }
   showMessage(`${data.message} (+${data.attackBonus} ATK · +${data.defenseBonus} DEF · +${data.healthBonus} HP)`);
@@ -1881,7 +1881,7 @@ function renderWorkProgress(session) {
         <span>⏱ ${session.hours}h</span>
       </div>
       <div class="qp-timer ${done ? 'done' : ''}" id="work-timer">
-        ${done ? 'Concluído!' : formatTime(session.secondsRemaining)}
+        ${done ? 'Done!' : formatTime(session.secondsRemaining)}
       </div>
       <button class="btn-collect qp-collect-btn" id="work-btn"
               ${done ? '' : 'disabled'}
@@ -1902,7 +1902,7 @@ function renderWorkProgress(session) {
       const b = document.getElementById('work-btn');
       if (!t) { clearInterval(workTimerInterval); return; }
       if (secs <= 0) {
-        t.textContent = 'Concluído!';
+        t.textContent = 'Done!';
         t.classList.add('done');
         b.disabled = false;
         b.textContent = t('work.collect_money');
@@ -2035,7 +2035,7 @@ function showTowerFloor(state) {
   document.getElementById('tower-floor-content').innerHTML = `
     <div class="tower-floor-box">
       <div class="tower-floor-num">🏰 Andar ${state.currentFloor}</div>
-      ${state.highestFloor > 0 ? `<div class="tower-cleared">✓ Último andar completado: ${state.highestFloor}</div>` : ''}
+      ${state.highestFloor > 0 ? `<div class="tower-cleared">✓ Highest floor cleared: ${state.highestFloor}</div>` : ''}
       <div class="tower-boss-card">
         <div class="tower-boss-name">${state.bossName}</div>
         <div class="tower-boss-stats">
@@ -2077,7 +2077,7 @@ function showTowerResult(result) {
 
   const logHtml = renderBattleLog(result.log);
 
-  const title   = result.won ? `🏆 Andar ${result.floor} Completado!` : `💀 Derrotado no Andar ${result.floor}`;
+  const title   = result.won ? `🏆 Floor ${result.floor} Completed!` : `💀 Defeated on Floor ${result.floor}`;
   const color   = result.won ? '#4caf82' : '#cf6679';
 
   let actions = '';
@@ -2107,7 +2107,7 @@ async function nextFloor() {
 }
 
 async function exitTower() {
-  if (!confirm('Sair da torre? Você mantém os ganhos dos andares já completados.')) return;
+  if (!confirm('Leave the tower? You keep the gains from floors already completed.')) return;
   const data = await api('POST', '/api/tower/exit');
   if (data.error) { showMessage(data.error, true); return; }
   await loadWarrior();
@@ -2196,7 +2196,7 @@ function renderFightArea(data) {
         te.textContent = t('quest.ready_short');
         te.classList.add('done');
         clearInterval(fightTimerInterval);
-        el.innerHTML += `<button class="btn-collect" onclick="collectFight(${data.id})" style="margin-top:.5rem">🎁 Coletar resultado</button>`;
+        el.innerHTML += `<button class="btn-collect" onclick="collectFight(${data.id})" style="margin-top:.5rem">🎁 Collect result</button>`;
       } else { te.textContent = formatTime(secs); }
     }, 1000);
   }
@@ -2215,7 +2215,7 @@ async function collectFight(matchId) {
 
   const result = data.won
     ? `🏆 Vitória contra ${data.opponent}!`
-    : `💀 Derrota para ${data.opponent}`;
+    : `💀 Defeat to ${data.opponent}`;
   const log = renderBattleLog(data.log || []);
 
   document.getElementById('fight-area').innerHTML = `
@@ -2413,7 +2413,7 @@ async function renderNoGuildPanel() {
       <h4 style="margin:0 0 10px">Criar nova guilda <span style="font-size:12px;color:#aaa">(custa 100 bronze)</span></h4>
       <input id="guild-name"  type="text" placeholder="Nome (3-30 chars)" maxlength="30"
         style="width:100%;padding:7px;background:#111;color:#eee;border:1px solid #555;border-radius:4px;margin-bottom:6px;box-sizing:border-box">
-      <input id="guild-desc"  type="text" placeholder="Descrição (opcional)" maxlength="120"
+      <input id="guild-desc"  type="text" placeholder="Description (optional)" maxlength="120"
         style="width:100%;padding:7px;background:#111;color:#eee;border:1px solid #555;border-radius:4px;margin-bottom:8px;box-sizing:border-box">
       <button onclick="guildCreate()">🛡 Criar Guilda</button>
     </div>
@@ -2846,8 +2846,8 @@ function renderWorldOverview(kingdoms, territories) {
     FISHING: ['Safe Shore','Wild Coast','Deep Sea'],
     MINING:  ['Open Mine','Deep Tunnels','Forbidden Mines'],
     COMBAT:  ['Training Hall','Battlefield','War Zone'],
-    GRUTAS_DE_CRISTAL: ['Veio Raso','Grutas Profundas','Caverna Proibida'],
-    MAR_ABENCOADO: ['Enseada Sagrada','Recife Profundo','Abismo Abençoado']
+    GRUTAS_DE_CRISTAL: ['Shallow Vein','Deep Grottoes','Forbidden Cavern'],
+    MAR_ABENCOADO: ['Sacred Cove','Deep Reef','Blessed Abyss']
   };
 
   const cards = kingdoms.map(k => {
@@ -2935,7 +2935,7 @@ async function enterKingdom(kingdom) {
 
 function renderKingdomDetail(kingdom, quests, activeQuests, training, gatherSession, zoneSession) {
   const el = document.getElementById('kingdom-detail');
-  const NAMES = { FISHING:'Desfiladeiro do Osso', MINING:'Minas de Ferro Negro', COMBAT:'Fortaleza Maldita', GRUTAS_DE_CRISTAL:'Grutas de Cristal', MAR_ABENCOADO:'Mar Abençoado' };
+  const NAMES = { FISHING:'Bone Gorge', MINING:'Black Iron Mines', COMBAT:'Cursed Fortress', GRUTAS_DE_CRISTAL:'Crystal Grottoes', MAR_ABENCOADO:'Blessed Sea' };
   const ICONS = { FISHING:'🎣', MINING:'⛏', COMBAT:'⚔', GRUTAS_DE_CRISTAL:'🔎', MAR_ABENCOADO:'🐟' };
   const busy = activeQuests.length > 0
     || !!(warrior && warrior.onMission)
@@ -3025,13 +3025,13 @@ function renderKingdomDetail(kingdom, quests, activeQuests, training, gatherSess
   if (kingdom === 'COMBAT') {
     const wLevel = warrior ? warrior.level : 1;
     const combatZones = [
-      { name:'⚔ Campo de Batalha', zone:'PVP',       minLv:10, color:'#ffc107',
-        desc:'Monstros e hunters — ganha XP e bronze pelo tempo passado.' },
-      { name:'🔥 Zona de Guerra',  zone:'HIGH_RISK',  minLv:20, color:'#ef5350',
-        desc:'Combate intenso — recompensas altas, risco de perder item.' }
+      { name:'⚔ Battlefield', zone:'PVP',       minLv:10, color:'#ffc107',
+        desc:'Monsters and hunters — earn XP and bronze over time.' },
+      { name:'🔥 War Zone',    zone:'HIGH_RISK',  minLv:20, color:'#ef5350',
+        desc:'Intense combat — high rewards, risk of losing an item.' }
     ];
     const combatDurations = [30, 60, 120, 240, 360];
-    combatZonesHtml = `<h4 style="margin:12px 0 8px;color:#aaa;font-size:13px">ZONAS DE COMBATE</h4>` +
+    combatZonesHtml = `<h4 style="margin:12px 0 8px;color:#aaa;font-size:13px">COMBAT ZONES</h4>` +
       combatZones.map(z => {
         const locked = wLevel < z.minLv;
         return `
@@ -3042,7 +3042,7 @@ function renderKingdomDetail(kingdom, quests, activeQuests, training, gatherSess
             </div>
             <p style="font-size:11px;color:#888;margin:3px 0 6px">${z.desc}</p>
             ${locked
-              ? `<p style="font-size:11px;color:#555;margin:0">Alcance o nível ${z.minLv} para desbloquear.</p>`
+              ? `<p style="font-size:11px;color:#555;margin:0">Reach level ${z.minLv} to unlock.</p>`
               : busy
               ? '<p style="font-size:11px;color:#f44336;margin:0">⚔ Warrior is busy</p>'
               : `<div style="display:flex;gap:5px;flex-wrap:wrap">
@@ -3070,21 +3070,21 @@ function renderKingdomDetail(kingdom, quests, activeQuests, training, gatherSess
     const dur = isFishing ? fishDurations : mineDurations;
 
     const zones = kingdom === 'FISHING' ? [
-      { name:'🏖 Safe Shore', minLv:1,  pvp:false, durations:dur, color:'#4caf50', desc:'Pesca segura — restaura estamina' },
-      { name:'🌊 Wild Coast', minLv:10, pvp:true,  durations:dur, color:'#ffc107', desc:'Zona PvP — caçadores podem atacar (em breve)' },
-      { name:'🦈 Deep Sea',   minLv:20, pvp:true,  durations:dur, color:'#ef5350', desc:'Alto risco — peixes raros (em breve)' }
+      { name:'🏖 Safe Shore', minLv:1,  pvp:false, durations:dur, color:'#4caf50', desc:'Safe fishing — restores stamina' },
+      { name:'🌊 Wild Coast', minLv:10, pvp:true,  durations:dur, color:'#ffc107', desc:'PvP zone — hunters may attack (coming soon)' },
+      { name:'🦈 Deep Sea',   minLv:20, pvp:true,  durations:dur, color:'#ef5350', desc:'High risk — rare fish (coming soon)' }
     ] : kingdom === 'MAR_ABENCOADO' ? [
-      { name:'🌅 Enseada Sagrada', minLv:1,  pvp:false, durations:dur, color:'#4caf50', desc:'Pesca segura — peixe que restaura VIDA' },
-      { name:'🐠 Recife Profundo', minLv:10, pvp:true,  durations:dur, color:'#ffc107', desc:'Zona PvP — caçadores podem atacar (em breve)' },
-      { name:'🔱 Abismo Abençoado', minLv:20, pvp:true,  durations:dur, color:'#ef5350', desc:'Alto risco — peixes lendários de vida (em breve)' }
+      { name:'🌅 Sacred Cove',   minLv:1,  pvp:false, durations:dur, color:'#4caf50', desc:'Safe fishing — fish that restore LIFE' },
+      { name:'🐠 Deep Reef',     minLv:10, pvp:true,  durations:dur, color:'#ffc107', desc:'PvP zone — hunters may attack (coming soon)' },
+      { name:'🔱 Blessed Abyss', minLv:20, pvp:true,  durations:dur, color:'#ef5350', desc:'High risk — legendary life fish (coming soon)' }
     ] : kingdom === 'MINING' ? [
       { name:'⛏ Open Mine',       minLv:1,  pvp:false, durations:dur, color:'#4caf50', desc:'Safe mining — no PvP' },
       { name:'🪨 Deep Tunnels',   minLv:10, pvp:true,  durations:dur, color:'#ffc107', desc:'PvP zone — hunters may attack (coming soon)' },
       { name:'💎 Forbidden Mines', minLv:20, pvp:true,  durations:dur, color:'#ef5350', desc:'High risk — rare ores (coming soon)' }
     ] : [
-      { name:'🔎 Veio Raso',        minLv:1,  pvp:false, durations:dur, color:'#4caf50', desc:'Garimpo seguro — sem PvP' },
-      { name:'💠 Grutas Profundas', minLv:10, pvp:true,  durations:dur, color:'#ffc107', desc:'Zona PvP — caçadores podem atacar (em breve)' },
-      { name:'💎 Caverna Proibida', minLv:20, pvp:true,  durations:dur, color:'#ef5350', desc:'Alto risco — gemas raras (em breve)' }
+      { name:'🔎 Shallow Vein',     minLv:1,  pvp:false, durations:dur, color:'#4caf50', desc:'Safe prospecting — no PvP' },
+      { name:'💠 Deep Grottoes',    minLv:10, pvp:true,  durations:dur, color:'#ffc107', desc:'PvP zone — hunters may attack (coming soon)' },
+      { name:'💎 Forbidden Cavern', minLv:20, pvp:true,  durations:dur, color:'#ef5350', desc:'High risk — rare gems (coming soon)' }
     ];
 
     gatheringHtml = zones.map(z => {
@@ -3151,11 +3151,11 @@ function renderKingdomDetail(kingdom, quests, activeQuests, training, gatherSess
     const lvl = warrior ? warrior.level : 1;
     raidHtml = `
       <div style="background:#2a1010;border:1px solid #7a1f1f;border-radius:8px;padding:12px;margin-bottom:12px">
-        <strong style="color:#ef5350">👹 Caçar Feras</strong>
-        <p style="font-size:12px;color:#aaa;margin:4px 0 8px">Mobs escalam com seu nível (Lv.${lvl}). Vitória rende ~${fmtBronze(lvl*10)}, ${lvl*12} XP e materiais (Núcleo de Fera). Custa 15⚡.</p>
+        <strong style="color:#ef5350">👹 Hunt Beasts</strong>
+        <p style="font-size:12px;color:#aaa;margin:4px 0 8px">Mobs scale with your level (Lv.${lvl}). A win pays ~${fmtBronze(lvl*10)}, ${lvl*12} XP and materials (Monster Core). Costs 15⚡.</p>
         ${busy
-          ? '<p style="font-size:11px;color:#f44336;margin:0">⚔ Guerreiro ocupado ou ferido</p>'
-          : `<button onclick="raidCombat()" style="background:#7a1f1f">⚔ Caçar</button>`}
+          ? '<p style="font-size:11px;color:#f44336;margin:0">⚔ Warrior busy or wounded</p>'
+          : `<button onclick="raidCombat()" style="background:#7a1f1f">⚔ Hunt</button>`}
       </div>`;
   }
 
@@ -3187,8 +3187,8 @@ async function raidCombat() {
   await loadWarrior();
   const mats = (r.materials || []).map(m => `${m.displayName} ×${m.quantity}`).join(', ');
   const msg = r.won
-    ? `🏆 Você derrotou ${r.beast}! +${fmtBronze(r.goldEarned)}, +${r.xpEarned} XP${mats ? ', ' + mats : ''}.`
-    : `💀 ${r.beast} derrotou você. Cure-se no Templo.`;
+    ? `🏆 You defeated ${r.beast}! +${fmtBronze(r.goldEarned)}, +${r.xpEarned} XP${mats ? ', ' + mats : ''}.`
+    : `💀 ${r.beast} defeated you. Heal at the Temple.`;
   if (worldCurrentKingdom) await enterKingdom(worldCurrentKingdom);
   worldMsg(msg, r.won);
 }
@@ -3354,7 +3354,7 @@ async function enterCombatZone(zone, durationMinutes) {
   const r = await api('POST', '/api/zones/enter', { zone, role: 'COMBAT', durationMinutes });
   if (r.error) { worldMsg(r.error, false); return; }
   const label = durationMinutes >= 60 ? (durationMinutes/60)+'h' : durationMinutes+'min';
-  const zoneName = zone === 'HIGH_RISK' ? 'Zona de Guerra' : 'Campo de Batalha';
+  const zoneName = zone === 'HIGH_RISK' ? 'War Zone' : 'Battlefield';
   await enterKingdom('COMBAT');
   worldMsg(`⚔ Entered ${zoneName}! Fighting for ${label}. Watch your back!`);
 }
@@ -3390,10 +3390,10 @@ function showAmbushDialog() {
   closeCollectModal();
 
   const rows = [];
-  if (s.lastAmbusherName)      rows.push({ icon:'⚔', label:'Emboscado por', value:s.lastAmbusherName, color:'#ff6b6b' });
-  if (s.lastAmbushBronzeLost)  rows.push({ icon:'💸', label:'Bronze perdido', value:fmtBronze(s.lastAmbushBronzeLost), color:'#ef5350' });
-  if (s.lastAmbushItemLost)    rows.push({ icon:'📦', label:'Item roubado', value:s.lastAmbushItemLost, color:'#ef5350' });
-  rows.push({ icon:'🛡', label:'Você sobreviveu!', value:`${s.ambushCount}ª emboscada`, color:'#4caf50' });
+  if (s.lastAmbusherName)      rows.push({ icon:'⚔', label:'Ambushed by', value:s.lastAmbusherName, color:'#ff6b6b' });
+  if (s.lastAmbushBronzeLost)  rows.push({ icon:'💸', label:'Bronze lost', value:fmtBronze(s.lastAmbushBronzeLost), color:'#ef5350' });
+  if (s.lastAmbushItemLost)    rows.push({ icon:'📦', label:'Item stolen', value:s.lastAmbushItemLost, color:'#ef5350' });
+  rows.push({ icon:'🛡', label:'You survived!', value:`ambush #${s.ambushCount}`, color:'#4caf50' });
 
   const rowsHtml = rows.map(r => `
     <div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid #2a2a3a">
@@ -3433,7 +3433,7 @@ async function ambushContinue(activityId) {
   closeCollectModal();
   window.__pendingAmbushSession = null;
   if (r.error) { worldMsg(r.error, false); return; }
-  worldMsg('Expedição continua. Boa sorte!');
+  worldMsg('Expedition continues. Good luck!');
   if (worldCurrentKingdom) await enterKingdom(worldCurrentKingdom);
 }
 
@@ -3531,7 +3531,7 @@ async function loadVipShop() {
           <button onclick="buyVip()" ${!canBuyVip ? 'disabled style="opacity:.5"' : 'style="background:#7c3aed"'}>
             ${vipLabel}
           </button>
-          ${!canBuyVip ? `<span style="font-size:12px;color:#888">Precisa de 15 💎 (você tem ${ss})</span>` : ''}
+          ${!canBuyVip ? `<span style="font-size:12px;color:#888">Need 15 💎 (you have ${ss})</span>` : ''}
         </div>
       </div>
 
@@ -3547,7 +3547,7 @@ async function loadVipShop() {
           <span style="color:#a78bfa;font-size:13px">3 💎</span>
         </div>
         ${bagExpanded || isVip
-          ? '<div style="color:#4caf50;font-size:12px;margin-top:6px">✓ Já ativado</div>'
+          ? '<div style="color:#4caf50;font-size:12px;margin-top:6px">✓ Already active</div>'
           : `<button onclick="expandInventory()" style="margin-top:8px;font-size:12px" ${ss < 3 ? 'disabled style="opacity:.5"' : ''}>
                Comprar (3 💎)
              </button>`}
