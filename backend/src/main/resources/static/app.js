@@ -1950,10 +1950,9 @@ async function showWorkJobList() {
                 <span>${t('work.hours') || 'Hours:'}</span>
                 <div class="hours-btns">
                   ${[1,2,4,6,8,12].map(h => `
-                    <button class="btn-hour" onclick="startWork('${job.id}', ${h})" ${disabled ? 'disabled' : ''} title="⚡ ${h * 5} stamina">
-                      ${h}h
-                      <span class="hour-gold">${fmtBronze(Math.round(job.goldPerHourWithBonus * h))}</span>
+                    <button class="btn-hour" onclick="startWork('${job.id}', ${h})" ${disabled ? 'disabled' : ''} title="${h}h de trabalho">
                       <span class="stamina-cost">⚡ ${h * 5}</span>
+                      <span class="hour-gold">${fmtBronze(Math.round(job.goldPerHourWithBonus * h))}</span>
                     </button>
                   `).join('')}
                 </div>
@@ -1988,7 +1987,7 @@ function renderWorkProgress(session) {
       <div class="wj-stats" style="margin-bottom:.8rem">
         <span>${fmtBronze(session.goldReward)}</span>
         <span>⭐ ${session.xpReward} xp de trabalho</span>
-        <span>⏱ ${session.hours}h</span>
+        <span class="stamina-cost">⚡ ${session.hours * 5}</span>
       </div>
       <div class="qp-timer ${done ? 'done' : ''}" id="work-timer">
         ${done ? 'Done!' : formatTime(session.secondsRemaining)}
