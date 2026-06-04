@@ -3171,9 +3171,8 @@ function renderKingdomDetail(kingdom, quests, activeQuests, training, gatherSess
               ? '<p style="font-size:11px;color:#f44336;margin:0">⚔ Warrior is busy</p>'
               : `<div style="display:flex;gap:5px;flex-wrap:wrap">
               ${z.durations.map(d => {
-                const label = d >= 60 ? (d/60)+'h' : d+'min';
                 const stamCost = Math.max(5, Math.floor(d/2)); // mirrors GatheringService.staminaCostFor
-                return `<button onclick="startKingdomGathering('${skillType}',${d},'${kingdom}')" style="font-size:11px;padding:3px 8px">${label} · ${stamCost}⚡</button>`;
+                return `<button onclick="startKingdomGathering('${skillType}',${d},'${kingdom}')" style="font-size:12px;padding:3px 10px" title="${d>=60?(d/60)+'h':d+'min'} de coleta">${stamCost}⚡</button>`;
               }).join('')}
             </div>`}
         </div>`;
