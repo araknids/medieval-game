@@ -35,6 +35,42 @@ public class SchemaMigrator {
         patchTerritoryLastResolvedCycleColumn();
         patchGatheringSessionKingdomColumn();
         dropStaleEnumCheckConstraints();
+        purgeStaleEnumRows();
+    }
+
+    // Reinos V2 renomeou os valores de Kingdom (antes Territory: DESFILADEIRO_DO_OSSO…) e reescreveu
+    // KingdomQuestType. Linhas antigas no banco ainda guardam nomes que o enum atual não tem mais; o
+    // Hibernate ESTOURA ao carregá-las via findAll() (ex.: abrir a aba World em getAllTerritories(),
+    // ou o soft-wipe). Self-heal no boot: apaga qualquer linha cujo valor de enum não exista mais.
+    // Os nomes válidos vêm do próprio enum (não hardcode → sobrevive a renomeações futuras).
+    // Idempotente e independente do APP_MAINTENANCE_SOFT_WIPE. [REINOS_V2]
+    private void purgeStaleEnumRows() {
+        String validKingdoms = inList(java.util.Arrays.stream(com.medieval.game.enums.Kingdom.values())
+                .map(Enum::name).toList());
+        purgeWhereNotIn("territory_controls",     "territory",  validKingdoms);
+        purgeWhereNotIn("territory_declarations", "territory",  validKingdoms);
+        purgeWhereNotIn("territory_battle_logs",  "territory",  validKingdoms);
+        purgeWhereNotIn("gathering_sessions",     "kingdom",    validKingdoms);
+        purgeWhereNotIn("kingdom_active_quests",  "kingdom",    validKingdoms);
+
+        String validQuestTypes = inList(java.util.Arrays.stream(com.medieval.game.enums.KingdomQuestType.values())
+                .map(Enum::name).toList());
+        purgeWhereNotIn("kingdom_active_quests",  "quest_type", validQuestTypes);
+    }
+
+    // Monta "'A','B','C'" a partir dos nomes do enum (alfanumérico + underscore → seguro p/ SQL).
+    private static String inList(java.util.List<String> names) {
+        return names.stream().map(n -> "'" + n + "'").collect(java.util.stream.Collectors.joining(","));
+    }
+
+    private void purgeWhereNotIn(String table, String col, String validCsv) {
+        try {
+            int n = jdbc.update("DELETE FROM " + table + " WHERE " + col +
+                    " IS NOT NULL AND " + col + " NOT IN (" + validCsv + ")");
+            if (n > 0) log.warn("[SchemaMigrator] purged {} stale-enum row(s) from {}.{}", n, table, col);
+        } catch (Exception e) {
+            log.warn("[SchemaMigrator] stale-enum purge on {}.{} failed: {}", table, col, e.getMessage());
+        }
     }
 
     // Reinos V2 adicionou/alterou valores em enums (SkillType.GARIMPO, novos ResourceType,

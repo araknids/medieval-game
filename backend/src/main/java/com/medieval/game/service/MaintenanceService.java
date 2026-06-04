@@ -76,14 +76,12 @@ public class MaintenanceService {
         territoryDeclarationRepository.deleteAllInBatch();
         territoryBattleLogRepository.deleteAllInBatch();
 
-        // 2) Territórios voltam a neutro (some a FK p/ guild)
-        territoryControlRepository.findAll().forEach(c -> {
-            c.setControllingGuild(null);
-            c.setDefenseStreak(0);
-            c.setDominantSince(null);
-            c.setLastResolvedCycleId(0);
-            territoryControlRepository.save(c);
-        });
+        // 2) Territórios: apaga TODAS as linhas de controle em lote. Não usar findAll()/save()
+        //    aqui — linhas órfãs com nomes de enum antigos de Territory (ex.: DESFILADEIRO_DO_OSSO)
+        //    não mapeiam pra Kingdom e fariam o ORM estourar ao carregar. O bulk delete não
+        //    desserializa a coluna. TerritoryService.ensureInitialized() recria as linhas neutras
+        //    dos reinos de guerra sob demanda. [REINOS_V2]
+        territoryControlRepository.deleteAllInBatch();
 
         // 3) Tira todos das guildas + reseta os jogadores
         List<Player> players = playerRepository.findAll();
