@@ -88,6 +88,20 @@ public class WorkService {
         long goldReward = Math.round(workType.goldPerHour * hours * profession.goldBonus());
         int  xpReward   = workType.xpPerHour * hours;
 
+        // [SEM_TIMER] Trabalho instantâneo → custa estamina (horas × 5). Sem o timer, a estamina é o gate
+        // (senão seria bronze infinito). O nº de horas vira o dial recompensa × estamina. Pulado no modo de teste.
+        if (!instantComplete) {
+            int staminaCost = hours * 5;
+            int cur = player.getCalculatedStamina();
+            if (cur < staminaCost) {
+                log.warn("[WorkService] player={} REJECTED: stamina {}/{}", player.getId(), cur, staminaCost);
+                throw new IllegalStateException("Not enough stamina (" + cur + "/" + staminaCost + "). Rest to recover.");
+            }
+            player.setCurrentStamina(cur - staminaCost);
+            player.setStaminaUpdatedAt(LocalDateTime.now());
+            playerRepository.save(player);
+        }
+
         warrior.setOnMission(true);
         warriorRepository.save(warrior);
 
@@ -98,9 +112,7 @@ public class WorkService {
         session.setGoldReward(goldReward);
         session.setXpReward(xpReward);
         session.setStartedAt(LocalDateTime.now());
-        session.setFinishesAt(instantComplete
-                ? LocalDateTime.now()
-                : LocalDateTime.now().plusHours(hours));
+        session.setFinishesAt(LocalDateTime.now()); // [SEM_TIMER] trabalho instantâneo (gate = estamina)
         WorkSession saved = workRepository.save(session);
         log.info("[WorkService] player={} action=startWork OK id={} goldReward={}", player.getId(), saved.getId(), goldReward);
         return saved;

@@ -70,16 +70,17 @@ public class Player {
     @Column(nullable = false)
     private LocalDateTime staminaUpdatedAt = LocalDateTime.now();
 
+    // Estamina regenera 100% em 1h (jogo sem timer — estamina é o gate). [SEM_TIMER]
     public int getCalculatedStamina() {
         long minutes = Duration.between(staminaUpdatedAt, LocalDateTime.now()).toMinutes();
-        int regen = (int) (minutes * 100.0 / 120.0);
+        int regen = (int) (minutes * 100.0 / 60.0);
         return Math.min(100, currentStamina + regen);
     }
 
     public long getMinutesToFullStamina() {
         int stamina = getCalculatedStamina();
         if (stamina >= 100) return 0;
-        return (long) Math.ceil((100 - stamina) * 120.0 / 100.0);
+        return (long) Math.ceil((100 - stamina) * 60.0 / 100.0);
     }
 
     @Enumerated(EnumType.STRING)

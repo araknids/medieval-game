@@ -17,11 +17,11 @@ class PlayerModelTest {
     void tc005_calculatedStamina_regenOverTime() {
         Player player = new Player();
         player.setCurrentStamina(0);
-        player.setStaminaUpdatedAt(LocalDateTime.now().minusMinutes(60)); // 1h atrás
+        player.setStaminaUpdatedAt(LocalDateTime.now().minusMinutes(30)); // 30 min atrás
 
         int stamina = player.getCalculatedStamina();
 
-        // 1h = 60 min → 60 * (100/120) = 50
+        // SEM_TIMER: regen 100% em 1h → 30 min = 50. (1h cheia = 100)
         assertThat(stamina).isEqualTo(50);
     }
 

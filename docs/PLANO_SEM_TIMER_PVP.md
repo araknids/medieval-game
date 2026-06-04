@@ -37,9 +37,11 @@ ser o gate; a **estamina** é. Sem espera, sem "coletar depois".
 - Combate: `BattleSimulator.simulateDetailed(..., false)` (PvP, %HP) — atacante = quem entrou; defensor = flagged.
 
 ## Fases de implementação
-1. **Fase 1 — Sem timer + estamina 1h.** Quest/Trabalho/Coleta resolvem na hora (start = ação + recompensa,
-   sem session/collect-later); remover contagem/espera no front; regen 100% em 1h. (instant-complete já fazia
-   isso no modo teste — vira o comportamento padrão.)
+1. **Fase 1 — Sem timer + estamina 1h.** ✅ **FEITA.** Quest/Coleta/Quest-de-reino/Treino → `finishesAt=agora`
+   (coleta imediata, sem espera, independente do flag). Trabalho → instantâneo + **custo de estamina (horas×5)**
+   (senão seria bronze infinito; nº de horas = dial recompensa×estamina). Regen 100% em 1h. O flag
+   `instant-complete` agora controla só o **bypass de estamina** (teste). Front já lidava com instantâneo.
+   *(Polish pendente: labels de duração nas quests viraram cosméticos; mostrar custo de estamina do trabalho.)*
 2. **Fase 2 — PvP de Zona com Flag.** Campos de flag/escudo; flag ao farmar zona PvP; encontro ao entrar;
    roubo de loot (bag+equip não-protegidos; stash/templo imunes); escudo pós-derrota; NPC flagged de preenchimento.
    Remove a emboscada-no-collect atual.

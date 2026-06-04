@@ -26,9 +26,10 @@ public class StartupChecks {
         if (!instantComplete) return;
         boolean prod = activeProfile != null && activeProfile.contains("prod");
         log.warn("==================================================================");
-        log.warn("  ⚠  app.dev.instant-complete=TRUE — TODOS os timers estão ZERADOS");
-        log.warn("     (quest/arena/trabalho/torre/coleta completam na hora).");
-        log.warn("     Perfil ativo: {}", activeProfile);
+        log.warn("  ⚠  app.dev.instant-complete=TRUE — ESTAMINA IGNORADA (modo de teste)");
+        log.warn("     (quest/arena/trabalho/torre/coleta não consomem estamina).");
+        log.warn("     Obs.: o jogo agora é SEM TIMER (instantâneo) pra todos — o flag");
+        log.warn("     controla só o bypass de estamina. Perfil ativo: {}", activeProfile);
         if (prod) {
             log.warn("  ⚠  Isto está LIGADO EM PRODUÇÃO. Desligue (false) antes do go-live!");
         }

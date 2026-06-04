@@ -153,9 +153,7 @@ public class GatheringService {
         session.setDurationMinutes(durationMinutes);
         session.setXpReward(xpReward);
         session.setStartedAt(LocalDateTime.now());
-        session.setFinishesAt(instantComplete
-                ? LocalDateTime.now()
-                : LocalDateTime.now().plusMinutes(durationMinutes));
+        session.setFinishesAt(LocalDateTime.now()); // [SEM_TIMER] coleta instantânea
         GatheringSession saved = sessionRepository.save(session);
         log.info("[GatheringService] player={} action=startGathering OK id={}", player.getId(), saved.getId());
         return saved;

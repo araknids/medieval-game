@@ -58,9 +58,7 @@ public class QuestService {
         quest.setWarrior(warrior);
         quest.setQuestType(questType);
         quest.setStartedAt(LocalDateTime.now());
-        quest.setCompletesAt(instantComplete
-                ? LocalDateTime.now()
-                : LocalDateTime.now().plusMinutes(questType.durationMinutes));
+        quest.setCompletesAt(LocalDateTime.now()); // [SEM_TIMER] quest instantânea — coleta imediata
         quest.setGoldReward(questType.bronzeReward);
         quest.setExpReward(questType.expReward);
         quest.setStatus(QuestStatus.IN_PROGRESS);
