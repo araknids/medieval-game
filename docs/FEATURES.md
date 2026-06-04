@@ -248,10 +248,18 @@ Capacete, Armadura, Espada, Escudo, Calça, Bota, Luva, Ombreira, Colar, Anel
 - Até 3 itens podem ser protegidos (50 bronze cada)
 - Itens protegidos NÃO caem em morte no Alto Risco
 
-### Bag (Mochila)
-- Capacidade: **10 slots** para jogadores free, **20 slots** para VIP (SoulStone — ver seção 25)
-- Itens equipados **não** contam contra o limite da bag
-- Ao tentar receber item com bag cheia: item é perdido (drop bloqueado com mensagem de erro)
+### Bag (Mochila) — unificada (Inventário V2)
+- Capacidade: **30 slots** free, **50** para VIP ou expandida com SoulStone (ver seção 25).
+- **Bag unificada:** itens E recursos dividem o mesmo pool. **Cada recurso ocupa 1 slot POR UNIDADE**
+  (5 salmões = 5 slots), todos os tipos (peixe/minério/fragmento/barra/gema/material).
+- Itens equipados **não** contam contra o limite da bag.
+- Coleta/drop **respeita o limite**: adiciona só o que cabe, o excedente é **perdido** (use o Stash).
+
+### Stash (Inventário V2)
+- Armazenamento extra de **100 slots** (mesma contagem por unidade), fora da bag.
+- **Taxa fixa de 50 bronze por operação** de depositar OU retirar (1 item, ou um recurso de um tipo).
+- Itens/recursos no stash não contam na bag e não podem ser equipados/consumidos até retornar.
+- UI: botão **🏛 Stash** na aba de inventário abre o painel Bag ↔ Stash. Endpoints `/api/stash/**`.
 
 ### Itens Iniciais
 7 itens Comuns ao criar conta: Elmo, Armadura, Espada, Escudo, Botas, Luvas, Calça (todos de Ferro/Couro)

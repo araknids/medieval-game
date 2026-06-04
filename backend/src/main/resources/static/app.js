@@ -884,9 +884,10 @@ async function expandInventory() {
 }
 
 async function loadInventory() {
-  const [items, slots] = await Promise.all([
+  const [items, slots, resources] = await Promise.all([
     api('GET', '/api/inventory'),
-    api('GET', '/api/inventory/slots')
+    api('GET', '/api/inventory/slots'),
+    api('GET', '/api/gathering/resources')
   ]);
   if (!Array.isArray(items)) return;
 
@@ -898,7 +899,7 @@ async function loadInventory() {
     const expandBtn = !slots.inventoryExpanded && (slots.soulStones ?? 0) >= 3
       ? `<button onclick="expandInventory()" style="font-size:11px;padding:3px 8px;background:#5b21b6;margin-left:8px">💎 Expand (3 SS)</button>`
       : slots.inventoryExpanded
-      ? '<span style="font-size:11px;color:#a78bfa;margin-left:8px">💎 VIP — 20 slots</span>'
+      ? '<span style="font-size:11px;color:#a78bfa;margin-left:8px">💎 VIP — 50 slots</span>'
       : '';
     slotEl.innerHTML = `
       <div style="display:flex;align-items:center;gap:6px;margin-bottom:8px;flex-wrap:wrap">
@@ -906,6 +907,7 @@ async function loadInventory() {
         <div style="flex:1;min-width:80px;height:6px;background:#333;border-radius:3px">
           <div style="width:${pct}%;height:100%;background:${color};border-radius:3px"></div>
         </div>
+        <button onclick="openStash()" style="font-size:11px;padding:3px 8px;background:#00695c">🏛 Stash</button>
         ${expandBtn}
       </div>`;
   }
@@ -936,8 +938,9 @@ async function loadInventory() {
     </div>`;
 
   const bagEl = document.getElementById('bag-items');
-  if (!bag.length) { bagEl.innerHTML = `<p style="color:#555;font-size:.8rem">${t('inventory.bag_empty')}</p>`; return; }
-  bagEl.innerHTML = bag.map(item => `
+  const resList = Array.isArray(resources) ? resources.filter(r => r.quantity > 0) : [];
+  if (!bag.length && !resList.length) { bagEl.innerHTML = `<p style="color:#555;font-size:.8rem">${t('inventory.bag_empty')}</p>`; return; }
+  const itemsHtml = bag.map(item => `
     <div class="bag-item" style="flex-direction:column;align-items:flex-start;gap:.3rem">
       <div style="display:flex;justify-content:space-between;width:100%;align-items:center">
         <div>
@@ -953,6 +956,17 @@ async function loadInventory() {
       ${item.description ? `<p class="item-lore">"${item.description}"</p>` : ''}
       ${item.origin ? `<p class="item-origin">📍 ${item.origin}</p>` : ''}
     </div>`).join('');
+  // Inventário V2: recursos compartilham a bag (cada unidade = 1 slot).
+  const resHtml = resList.length ? `
+    <div style="margin-top:10px;border-top:1px solid #2a2a3a;padding-top:8px">
+      <div style="font-size:11px;color:#888;margin-bottom:4px">📦 Resources (count toward bag slots)</div>
+      ${resList.map(r => `
+        <div class="sk-resource-row">
+          <span>${RESOURCE_ICONS[r.type]||'📦'} ${r.displayName} ×${r.quantity}</span>
+          ${r.category === 'FISH' ? `<button class="btn-equip" onclick="consumeFish('${r.type}')">${t('btn.consume')||'Consume'}</button>` : ''}
+        </div>`).join('')}
+    </div>` : '';
+  bagEl.innerHTML = itemsHtml + resHtml;
 }
 
 async function loadSellList() {
@@ -1023,6 +1037,61 @@ function affixLines(item) {
   return `<div class="item-affixes">${a.map(x =>
     `<span class="affix-line">✦ ${x.word} <b>+${x.magnitude} ${x.stat}</b></span>`
   ).join('')}</div>`;
+}
+
+// ── Stash (Inventário V2): 100 slots, taxa fixa por operação ──
+async function openStash() {
+  const [s, invItems, resources] = await Promise.all([
+    api('GET', '/api/stash'),
+    api('GET', '/api/inventory'),
+    api('GET', '/api/gathering/resources')
+  ]);
+  if (s.error) { showMessage(s.error, true); return; }
+  const bagItems = (Array.isArray(invItems) ? invItems : []).filter(i => !i.equipped);
+  const bagRes   = (Array.isArray(resources) ? resources : []).filter(r => r.quantity > 0);
+
+  const itemRow = (i, fn, label) => `<div class="sk-resource-row">
+      <span class="rarity-${i.rarity}">${i.name} <span style="color:#888;font-size:.72rem">(${statsText(i)})</span></span>
+      <button class="btn-equip" onclick="${fn}(${i.id})">${label}</button></div>`;
+  const resRow = (r, fn, label) => `<div class="sk-resource-row">
+      <span>${RESOURCE_ICONS[r.type]||'📦'} ${r.displayName} ×${r.quantity}</span>
+      <button class="btn-equip" onclick="${fn}('${r.type}',${r.quantity})">${label}</button></div>`;
+
+  const bagBody = bagItems.map(i => itemRow(i, 'stashDepositItem', '→ Stash')).join('')
+                + bagRes.map(r => resRow(r, 'stashDepositResource', '→ Stash')).join('') || '<p style="color:#555;font-size:.8rem">empty</p>';
+  const stBody  = (s.items||[]).map(i => itemRow(i, 'stashWithdrawItem', '→ Bag')).join('')
+                + (s.resources||[]).map(r => resRow(r, 'stashWithdrawResource', '→ Bag')).join('') || '<p style="color:#555;font-size:.8rem">empty</p>';
+
+  const col = (title, sub, body) => `<div style="flex:1;min-width:250px;background:#1a1a2e;border:1px solid #333;border-radius:8px;padding:12px">
+      <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:6px"><strong>${title}</strong><span style="font-size:11px;color:#888">${sub}</span></div>
+      <div style="max-height:48vh;overflow:auto">${body}</div></div>`;
+
+  let modal = document.getElementById('stash-modal');
+  if (!modal) { modal = document.createElement('div'); modal.id = 'stash-modal'; document.body.appendChild(modal); }
+  modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.7);display:flex;align-items:center;justify-content:center;z-index:1000;padding:16px';
+  modal.innerHTML = `<div style="background:#12121e;border:1px solid #444;border-radius:10px;padding:16px;max-width:780px;width:100%">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
+        <h3 style="margin:0">🏛 Stash</h3>
+        <button onclick="closeStash()" style="background:#333;padding:3px 10px">✕</button>
+      </div>
+      <p style="font-size:11px;color:#ffc107;margin:0 0 10px">Fee: ${s.fee} bronze per move (deposit/withdraw)</p>
+      <div style="display:flex;gap:12px;flex-wrap:wrap">
+        ${col('Bag', s.bagUsed + '/' + s.bagMax, bagBody)}
+        ${col('Stash', s.used + '/' + s.max, stBody)}
+      </div></div>`;
+  modal.style.display = 'flex';
+}
+function closeStash() { const m = document.getElementById('stash-modal'); if (m) m.style.display = 'none'; }
+
+async function stashDepositItem(id)  { _afterStash(await api('POST', `/api/stash/deposit/item/${id}`)); }
+async function stashWithdrawItem(id) { _afterStash(await api('POST', `/api/stash/withdraw/item/${id}`)); }
+async function stashDepositResource(type, max)  { const q = _askQty(max); if (q) _afterStash(await api('POST', `/api/stash/deposit/resource/${type}`,  { quantity: q })); }
+async function stashWithdrawResource(type, max) { const q = _askQty(max); if (q) _afterStash(await api('POST', `/api/stash/withdraw/resource/${type}`, { quantity: q })); }
+function _askQty(max) { const v = prompt('Quantity to move:', max); const q = parseInt(v); return (q > 0) ? Math.min(q, max) : 0; }
+async function _afterStash(r) {
+  if (r && r.error) { showMessage(r.error, true); return; }
+  await loadWarrior();
+  await openStash(); // re-render com os números atualizados
 }
 
 // Barra de durabilidade do item (verde→amarelo→vermelho). Quebrado (0) = aviso.

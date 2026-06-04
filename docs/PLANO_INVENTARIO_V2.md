@@ -1,6 +1,7 @@
 # Plano — Inventário V2 (bag unificada + stash)
 
-> Planejamento. Decisões aprovadas com o dono em 2026-06-04. **Implementar em etapas (verde+commit).**
+> Planejamento. Decisões aprovadas com o dono em 2026-06-04.
+> **Status: IMPLEMENTADO (459 testes verdes) — backend + frontend.**
 > Regra: discutir + documentar ANTES de codar.
 
 ## Decisões (2026-06-04)
