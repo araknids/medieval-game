@@ -197,7 +197,7 @@ public class KingdomService {
 
             BattleSimulator.BattleOutcome out = battleSimulator.simulateDetailed(
                 warrior.getName(), s[0], s[1], curHp, s[3], s[4], s[5],
-                monsterName, mob[0], mob[1], mob[2], mob[3], mob[4], mob[5]);
+                monsterName, mob[0], mob[1], mob[2], mob[3], mob[4], mob[5], true); // PvE: timeout = derrota [COMBATE_V2]
 
             monsterDefeated = out.firstWon();
             List<String> lg = new java.util.ArrayList<>(out.log());

@@ -152,7 +152,8 @@ public class TowerService {
         int[] s = statsService.combatStats(player, warrior);
         BattleSimulator.BattleOutcome outcome = battleSimulator.simulateDetailed(
             warrior.getName(), s[0], s[1], s[2], s[3], s[4], s[5],
-            boss.name(), boss.attack(), boss.defense(), boss.health(), boss.dex(), boss.strBonus(), boss.luk()
+            boss.name(), boss.attack(), boss.defense(), boss.health(), boss.dex(), boss.strBonus(), boss.luk(),
+            true // PvE: não matou o chefe em 40 rounds = derrota [COMBATE_V2]
         );
 
         // Desgaste de equipamento por lutar (1-10 de durabilidade por item)

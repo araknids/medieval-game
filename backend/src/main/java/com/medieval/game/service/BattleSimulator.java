@@ -104,10 +104,24 @@ public class BattleSimulator {
                 oName, oAtk, oDef, oHp, oDex, oStrBonus, oLuk).log();
     }
 
-    /** Full fight to the death. Returns log + winner + final HP of both (clamped ≥ 0). */
+    /** PvP default: no timeout (40 rounds), desempate por %HP restante. [COMBATE_V2] */
     public BattleOutcome simulateDetailed(
             String cName, int cAtk, int cDef, int cHp, int cDex, int cStrBonus, int cLuk,
             String oName, int oAtk, int oDef, int oHp, int oDex, int oStrBonus, int oLuk) {
+        return simulateDetailed(cName, cAtk, cDef, cHp, cDex, cStrBonus, cLuk,
+                                oName, oAtk, oDef, oHp, oDex, oStrBonus, oLuk, false);
+    }
+
+    /**
+     * Full fight to the death. Returns log + winner + final HP of both (clamped ≥ 0).
+     *
+     * @param firstLosesOnTimeout PvE: se ninguém morrer em 40 rounds, o 1º combatente (desafiante/jogador)
+     *                            PERDE — obriga a ter dano, não só HP. PvP (false): desempate por %HP. [COMBATE_V2]
+     */
+    public BattleOutcome simulateDetailed(
+            String cName, int cAtk, int cDef, int cHp, int cDex, int cStrBonus, int cLuk,
+            String oName, int oAtk, int oDef, int oHp, int oDex, int oStrBonus, int oLuk,
+            boolean firstLosesOnTimeout) {
 
         List<String> log = new ArrayList<>();
         Random rng = java.util.concurrent.ThreadLocalRandom.current();
@@ -144,7 +158,7 @@ public class BattleSimulator {
                     log.add("  ✨ " + oName + " gets a Fortune Save — critical negated!");
                 }
                 if (total >= oAc || isCrit) {
-                    int dmg = Math.max(1, cAtk - oDef);
+                    int dmg = mitigatedDamage(cAtk, oDef); // Combate V2: mitigação %
                     String bodyPart = BODY_PARTS[rng.nextInt(BODY_PARTS.length)];
                     int oAfter = Math.max(0, oCurrentHp - dmg);
                     if (isCrit) {
@@ -177,7 +191,7 @@ public class BattleSimulator {
                     log.add("  ✨ " + cName + " gets a Fortune Save — critical negated!");
                 }
                 if (total >= cAc || isCrit) {
-                    int dmg = Math.max(1, oAtk - cDef);
+                    int dmg = mitigatedDamage(oAtk, cDef); // Combate V2: mitigação %
                     if (isCrit) dmg *= 2;
                     String bodyPart = BODY_PARTS[rng.nextInt(BODY_PARTS.length)];
                     int cAfter = Math.max(0, cCurrentHp - dmg);
@@ -198,7 +212,13 @@ public class BattleSimulator {
         }
 
         log.add("─────────────────────────");
-        boolean cWon = cCurrentHp > oCurrentHp;
+        // Vitória (Combate V2): quem morreu perde; no timeout (40 rounds, ambos vivos),
+        // PvE → desafiante (1º) perde; PvP → desempate por % de HP restante.
+        boolean cWon;
+        if (oCurrentHp <= 0)      cWon = true;
+        else if (cCurrentHp <= 0) cWon = false;
+        else cWon = firstLosesOnTimeout ? false
+                  : ((double) cCurrentHp / cHp) > ((double) oCurrentHp / oHp);
         String winner = cWon ? cName : oName;
         String loser  = cWon ? oName : cName;
         log.add("🏆 " + winner + " " + VICTORY_TEXTS[rng.nextInt(VICTORY_TEXTS.length)]);
@@ -209,5 +229,14 @@ public class BattleSimulator {
     /** d20 roll >= this threshold = critical hit. LUK expands window down from 20. */
     public static int critThreshold(int luk) {
         return Math.max(17, 20 - (luk / 15)); // 0 luk=20, 15=19, 30=18, 45+=17 (cap 20%)
+    }
+
+    /**
+     * Mitigação de dano por % (Combate V2): {@code dano = ATK × 100/(100+DEF)}, mínimo 1.
+     * DEF dá redução com retornos decrescentes — nunca zera o dano, nunca vira irrelevante.
+     */
+    public static int mitigatedDamage(int atk, int def) {
+        int d = Math.max(0, def);
+        return Math.max(1, (int) Math.round(atk * 100.0 / (100 + d)));
     }
 }

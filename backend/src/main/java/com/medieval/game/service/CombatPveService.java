@@ -76,7 +76,7 @@ public class CombatPveService {
 
         BattleSimulator.BattleOutcome out = battleSimulator.simulateDetailed(
             w.getName(), s[0], s[1], curHp, s[3], s[4], s[5],
-            beast, mob[0], mob[1], mob[2], mob[3], mob[4], mob[5]);
+            beast, mob[0], mob[1], mob[2], mob[3], mob[4], mob[5], true); // PvE: timeout = derrota [COMBATE_V2]
 
         // Desgaste de equipamento por lutar
         inventoryService.wearEquippedItems(player);
