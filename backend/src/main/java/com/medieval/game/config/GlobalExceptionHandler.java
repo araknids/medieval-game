@@ -1,11 +1,15 @@
 package com.medieval.game.config;
 
+import jakarta.servlet.http.HttpServletRequest;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.dao.OptimisticLockingFailureException;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.HttpRequestMethodNotSupportedException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.servlet.resource.NoResourceFoundException;
 
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -45,6 +49,25 @@ public class GlobalExceptionHandler {
         log.warn("[GlobalExceptionHandler] Concurrent modification: {}", ex.getMessage());
         return ResponseEntity.status(409).body(Map.of(
             "error", "Ação concorrente detectada. Tente novamente."));
+    }
+
+    // Método HTTP errado para a rota (ex.: GET num endpoint POST). Em URL pública isto é
+    // basicamente ruído de bots/scanners varrendo endpoints (GET /api/auth/login, etc.).
+    // É erro de CLIENTE → 405, com 1 linha de log (sem stack trace) que mostra método+rota.
+    // Sem este handler cairia no handleGeneric e logaria ERROR 500 + stack a cada hit. [LOG NOISE]
+    @ExceptionHandler(HttpRequestMethodNotSupportedException.class)
+    public ResponseEntity<?> handleMethodNotSupported(HttpRequestMethodNotSupportedException ex, HttpServletRequest req) {
+        log.warn("[GlobalExceptionHandler] 405 {} {} (suportado: {})",
+                req.getMethod(), req.getRequestURI(), ex.getSupportedHttpMethods());
+        return ResponseEntity.status(HttpStatus.METHOD_NOT_ALLOWED).body(Map.of("error", "Method not allowed"));
+    }
+
+    // Path inexistente (bots probando /wp-login.php, /.env, etc.). Mesma classe de ruído:
+    // 404 com 1 linha de log, em vez de cair no handleGeneric como ERROR 500. [LOG NOISE]
+    @ExceptionHandler(NoResourceFoundException.class)
+    public ResponseEntity<?> handleNotFound(NoResourceFoundException ex, HttpServletRequest req) {
+        log.warn("[GlobalExceptionHandler] 404 {} {}", req.getMethod(), req.getRequestURI());
+        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of("error", "Not found"));
     }
 
     @ExceptionHandler(Exception.class)
