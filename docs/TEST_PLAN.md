@@ -2037,10 +2037,10 @@ POST /api/gathering/start
 - Status 200 ou 201.
 - Resposta contém ID da sessão e `endsAt`.
 - `GET /api/warrior` retorna `onMission=true`.
-- (Reinos V2) Em produção a pesca **debita estamina** (~metade dos minutos, mín. 5). Em dev/test
-  (`instant-complete`) o débito é pulado, então a estamina não muda nos testes de integração.
+- (Reinos V2) A pesca **debita estamina sempre** (~metade dos minutos, mín. 5); `instant-complete`
+  zera só o timer, não o custo. Um player fresco (100) tem estamina de sobra p/ uma coleta.
 
-**Resultado de Falha:** Sessão não criada, guerreiro não marcado ou estamina debitada em modo instant.
+**Resultado de Falha:** Sessão não criada, guerreiro não marcado ou estamina não debitada.
 
 ---
 
@@ -3346,7 +3346,7 @@ suíte; abaixo resumo por área):
 | Combate na coleta (Quests V2) | encontro de monstro: vencer → XP/bronze; perder → 0 recompensa; narrativa sempre presente | `KingdomQuestCombatTest`, `KingdomQuestNarratorTest` |
 | Garimpo | nova skill GARIMPO; fragmentos de joia; mineração sem gemas | `GatheringIntegrationTest`, `GatheringServiceTest` |
 | Split de peixe | peixe de estamina (só estamina) vs peixe de vida (só HP, cap 90%) | `GatheringIntegrationTest`, `ZoneAmbushIntegrationTest` |
-| Estamina na coleta | custo proporcional (~metade dos min, mín. 5); pulado em instant | `GatheringServiceTest` (`staminaCostFor`) |
+| Estamina na coleta | custo proporcional (~metade dos min, mín. 5); consumido SEMPRE (instant zera só o timer) | `GatheringServiceTest` (`staminaCostFor`) |
 | Caçada PvE (Fortaleza) | `POST /api/world/COMBAT/raid` rende gold/XP/materiais; só em COMBAT | `CovilRaidTest` |
 
 ---

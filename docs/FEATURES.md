@@ -265,7 +265,8 @@ Capacete, Armadura, Espada, Escudo, Calça, Bota, Luva, Ombreira, Colar, Anel
 - Level 1-100, XP para próximo nível = level × 100
 - Multiplicador de XP e recursos por zona/reino
 - **Coletar gasta estamina** (Reinos V2): pescar/minerar/garimpar consomem estamina proporcional à
-  duração (~metade dos minutos, mínimo 5) em produção. Em dev/test (`instant-complete`) é pulado.
+  duração (~metade dos minutos, mínimo 5). Consumido **sempre** — `instant-complete` zera só o timer,
+  não o custo (estamina é mecânica de economia). Fecha o loop pescar→comer→coletar.
 
 ### Pesca
 - Sessão timer: 5/10/20/30/40 min
