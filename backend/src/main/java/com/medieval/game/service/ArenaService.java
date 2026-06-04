@@ -44,13 +44,16 @@ public class ArenaService {
         return matchRepository.findByChallengerAndStatus(challenger, MatchStatus.FIGHTING);
     }
 
+    /**
+     * [SEM_TIMER] Duelo instantâneo: simula a batalha e aplica TUDO de uma vez (bronze, rank,
+     * V/D do desafiante e do oponente, HP, desgaste). Sem timer nem etapa de collect.
+     */
     @Transactional
-    public ArenaMatch startFight(Player challenger) {
-        log.info("[ArenaService] player={} action=startFight", challenger.getId());
-        if (matchRepository.findByChallengerAndStatus(challenger, MatchStatus.FIGHTING).isPresent()) {
-            log.warn("[ArenaService] player={} REJECTED: already in a battle", challenger.getId());
-            throw new IllegalStateException("You are already in a battle");
-        }
+    public ArenaMatch startFight(Player challengerArg) {
+        log.info("[ArenaService] player={} action=fight", challengerArg.getId());
+        // Recarrega como MANAGED (o controller passa um detached; aqui aplicamos recompensa + rank,
+        // salvando o player mais de uma vez → sem isto haveria merge de versão velha). [SEM_TIMER/PVP_FLAG]
+        final Player challenger = playerRepository.findById(challengerArg.getId()).orElse(challengerArg);
 
         Warrior cWarrior = warriorRepository.findByPlayer(challenger)
                 .orElseThrow(() -> new IllegalStateException("Warrior not found"));
@@ -64,21 +67,18 @@ public class ArenaService {
             throw new IllegalStateException("Your warrior is unconscious. Visit the Temple to heal!");
         }
 
-        // Daily fight limit (5 free / 10 VIP)
+        // Daily fight limit (5 free / 10 VIP) + estamina (gate, pulado no modo de teste)
         vipService.consumeArenaFight(challenger);
-
         if (!instantComplete) {
             playerService.consumeStamina(challenger, 25);
         }
 
-        // Calcula stats totais do desafiante (base + atributos + itens equipados)
         int[] cStats = totalStats(challenger, cWarrior);
 
-        // Escolhe oponente: outro jogador real ou NPC
+        // Oponente: outro jogador real (rank próximo) ou NPC
         Player opponent = findOpponent(challenger);
         String opponentName;
-        int[] oStats;
-
+        int[]  oStats;
         if (opponent != null) {
             Warrior oWarrior = warriorRepository.findByPlayer(opponent).orElse(null);
             opponentName = oWarrior != null ? oWarrior.getName() : opponent.getUsername();
@@ -88,23 +88,38 @@ public class ArenaService {
             oStats = npcStats();
         }
 
-        // Simula a batalha
-        String challengerName = cWarrior.getName();
-
         BattleSimulator.BattleOutcome outcome = battleSimulator.simulateDetailed(
-                challengerName, cStats[0], cStats[1], cStats[2], cStats[3], cStats[4], cStats[5],
-                opponentName,   oStats[0], oStats[1], oStats[2], oStats[3], oStats[4], oStats[5]
+                cWarrior.getName(), cStats[0], cStats[1], cStats[2], cStats[3], cStats[4], cStats[5],
+                opponentName,       oStats[0], oStats[1], oStats[2], oStats[3], oStats[4], oStats[5]
         );
-
-        // Desgaste de equipamento por lutar (1-10 de durabilidade por item)
         inventoryService.wearEquippedItems(challenger);
 
-        // Vencedor vem explícito do simulador (sem parsear string). [AUDITORIA M13]
-        boolean challengerWon = outcome.firstWon();
+        boolean challengerWon = outcome.firstWon(); // vencedor explícito do simulador [AUDITORIA M13]
         List<String> battleLog = new java.util.ArrayList<>(outcome.log());
         battleLog.remove(battleLog.size() - 1); // remove a tag interna WINNER
-        long goldReward  = challengerWon ? 200 : 50; // bronze
-        int  rankChange  = challengerWon ? (opponent != null ? 25 : 15) : (opponent != null ? -15 : -5);
+        long goldReward = challengerWon ? 200 : 50; // bronze
+        int  rankChange = challengerWon ? (opponent != null ? 25 : 15) : (opponent != null ? -15 : -5);
+
+        // ── Aplica o resultado na hora ──
+        playerService.addGold(challenger, goldReward);
+        challenger.setRankPoints(Math.max(0, challenger.getRankPoints() + rankChange));
+        if (challengerWon) challenger.setArenaWins(challenger.getArenaWins() + 1);
+        else               challenger.setArenaLosses(challenger.getArenaLosses() + 1);
+        playerRepository.save(challenger);
+
+        if (opponent != null) {
+            int oppChange = challengerWon ? -15 : 25;
+            opponent.setRankPoints(Math.max(0, opponent.getRankPoints() + oppChange));
+            if (challengerWon) opponent.setArenaLosses(opponent.getArenaLosses() + 1);
+            else               opponent.setArenaWins(opponent.getArenaWins() + 1);
+            playerRepository.save(opponent);
+        }
+
+        // HP: derrota = KO (0%) + perde buff; vitória = leve desgaste. Sem onMission (duelo instantâneo).
+        if (challengerWon) cWarrior.applyDamagePercent(10);
+        else { cWarrior.applyDamagePercent(100); cWarrior.clearBuff(); }
+        cWarrior.setOnMission(false);
+        warriorRepository.save(cWarrior);
 
         ArenaMatch match = new ArenaMatch();
         match.setChallenger(challenger);
@@ -115,72 +130,12 @@ public class ArenaService {
         match.setGoldReward(goldReward);
         match.setRankChange(rankChange);
         match.setStartedAt(LocalDateTime.now());
-        match.setFinishesAt(instantComplete
-                ? LocalDateTime.now()
-                : LocalDateTime.now().plusSeconds(60));
-        match.setStatus(MatchStatus.FIGHTING);
-
-        cWarrior.setOnMission(true);
-        warriorRepository.save(cWarrior);
+        match.setFinishesAt(LocalDateTime.now());
+        match.setStatus(MatchStatus.COLLECTED);
 
         ArenaMatch saved = matchRepository.save(match);
-        log.info("[ArenaService] player={} action=startFight OK id={} opponent={} won={}", challenger.getId(), saved.getId(), opponentName, challengerWon);
+        log.info("[ArenaService] player={} action=fight OK id={} opponent={} won={}", challenger.getId(), saved.getId(), opponentName, challengerWon);
         return saved;
-    }
-
-    @Transactional
-    public ArenaMatch collectResult(Player challenger, Long matchId) {
-        log.info("[ArenaService] player={} action=collectFight matchId={}", challenger.getId(), matchId);
-        ArenaMatch match = matchRepository.findById(matchId)
-                .orElseThrow(() -> new IllegalArgumentException("Battle not found"));
-
-        if (!match.getChallenger().getId().equals(challenger.getId())) {
-            log.warn("[ArenaService] player={} REJECTED: match {} does not belong to this player", challenger.getId(), matchId);
-            throw new IllegalStateException("This battle does not belong to you");
-        }
-        if (match.getStatus() == MatchStatus.COLLECTED) {
-            log.warn("[ArenaService] player={} REJECTED: match {} reward already collected", challenger.getId(), matchId);
-            throw new IllegalStateException("Reward already collected");
-        }
-        if (LocalDateTime.now().isBefore(match.getFinishesAt())) {
-            long secsLeft = java.time.Duration.between(LocalDateTime.now(), match.getFinishesAt()).getSeconds();
-            log.warn("[ArenaService] player={} REJECTED: match {} still in progress, {}s remaining", challenger.getId(), matchId, secsLeft);
-            throw new IllegalStateException("Battle still in progress. " + secsLeft + "s");
-        }
-
-        playerService.addGold(challenger, match.getGoldReward());
-
-        challenger.setRankPoints(Math.max(0, challenger.getRankPoints() + match.getRankChange()));
-        if (match.isChallengerWon()) challenger.setArenaWins(challenger.getArenaWins() + 1);
-        else                         challenger.setArenaLosses(challenger.getArenaLosses() + 1);
-        playerRepository.save(challenger);
-
-        // Aplica rank no oponente real (se houver)
-        if (match.getOpponent() != null) {
-            Player opp = match.getOpponent();
-            int oppChange = match.isChallengerWon() ? -15 : 25;
-            opp.setRankPoints(Math.max(0, opp.getRankPoints() + oppChange));
-            if (!match.isChallengerWon()) opp.setArenaWins(opp.getArenaWins() + 1);
-            else                          opp.setArenaLosses(opp.getArenaLosses() + 1);
-            playerRepository.save(opp);
-        }
-
-        // Libera guerreiro; derrota = HP 0 + perde buff
-        warriorRepository.findByPlayer(challenger).ifPresent(w -> {
-            w.setOnMission(false);
-            if (!match.isChallengerWon()) {
-                w.applyDamagePercent(100); // HP = 0
-                w.clearBuff();             // perde o buff
-            } else {
-                w.applyDamagePercent(10);  // leve desgaste por lutar
-            }
-            warriorRepository.save(w);
-        });
-
-        match.setStatus(MatchStatus.COLLECTED);
-        ArenaMatch result = matchRepository.save(match);
-        log.info("[ArenaService] player={} action=collectFight OK matchId={} won={} bronze={}", challenger.getId(), matchId, match.isChallengerWon(), match.getGoldReward());
-        return result;
     }
 
     public List<Player> getRanking() {

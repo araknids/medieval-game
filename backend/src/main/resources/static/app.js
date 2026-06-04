@@ -2266,10 +2266,9 @@ async function loadCurrentFight() {
   renderFightArea(data);
 }
 
-function renderFightArea(data) {
+function renderFightArea() {
   const el = document.getElementById('fight-area');
-  if (!data.active && !data.id) {
-    const stamina = warrior?.stamina ?? 100;
+  const stamina = warrior?.stamina ?? 100;
   const noStamina = stamina < 25;
   el.innerHTML = `
       <div class="fight-box">
@@ -2278,55 +2277,23 @@ function renderFightArea(data) {
           Cost: <span class="stamina-cost">⚡ 25 stamina</span> &nbsp;·&nbsp; ${t('tower.your_stamina')} <strong>${stamina}/100</strong>
         </p>
         <p style="color:#888;font-size:.83rem;margin-bottom:.8rem">
-          Batalha dura 1 minuto. Vitória: +25 rank, ${fmtBronze(200)}.
+          Duelo instantâneo. Vitória: +25 rank, ${fmtBronze(200)}.
         </p>
         <button class="btn-fight" ${noStamina ? 'disabled style="opacity:.5;cursor:not-allowed"' : ''} onclick="startFight()">
           ${noStamina ? t('tower.no_stamina') : '⚔ Lutar'}
         </button>
       </div>`;
-    return;
-  }
-
-  if (data.id && data.status === 'FIGHTING') {
-    let secs = data.secondsRemaining;
-    clearInterval(fightTimerInterval);
-
-    el.innerHTML = `
-      <div class="fight-box">
-        <h3>Em batalha!</h3>
-        <div class="fight-vs">vs <strong>${escapeHtml(data.opponentName)}</strong></div>
-        <div class="fight-timer" id="fight-timer">${formatTime(secs)}</div>
-        <p style="color:#888;font-size:.8rem">Volte quando o timer acabar para coletar o resultado.</p>
-      </div>`;
-
-    fightTimerInterval = setInterval(() => {
-      secs--;
-      const te = document.getElementById('fight-timer');
-      if (!te) { clearInterval(fightTimerInterval); return; }
-      if (secs <= 0) {
-        te.textContent = t('quest.ready_short');
-        te.classList.add('done');
-        clearInterval(fightTimerInterval);
-        el.innerHTML += `<button class="btn-collect" onclick="collectFight(${data.id})" style="margin-top:.5rem">🎁 Collect result</button>`;
-      } else { te.textContent = formatTime(secs); }
-    }, 1000);
-  }
 }
 
+// [SEM_TIMER] Duelo instantâneo: o /fight já resolve e retorna o resultado completo.
 async function startFight() {
   const data = await api('POST', '/api/arena/fight');
   if (data.error) { showMessage(data.error, true); return; }
   switchArenaTab('fight');
-  renderFightArea(data);
-}
-
-async function collectFight(matchId) {
-  const data = await api('POST', `/api/arena/${matchId}/collect`);
-  if (data.error) { showMessage(data.error, true); return; }
 
   const result = data.won
-    ? `🏆 Vitória contra ${data.opponent}!`
-    : `💀 Defeat to ${data.opponent}`;
+    ? `🏆 Vitória contra ${escapeHtml(data.opponent)}!`
+    : `💀 Defeat to ${escapeHtml(data.opponent)}`;
   const log = renderBattleLog(data.log || []);
 
   document.getElementById('fight-area').innerHTML = `

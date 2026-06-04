@@ -30,24 +30,17 @@ class ArenaIntegrationTest extends BaseIntegrationTest {
                 .andExpect(jsonPath("$").isArray());
     }
 
-    // ── TC-067: POST /api/arena/fight → inicia duelo, collect → log de batalha ──
+    // ── TC-067: POST /api/arena/fight → duelo instantâneo, retorna o resultado completo [SEM_TIMER] ──
     @Test
-    @DisplayName("TC-067 | POST /api/arena/fight → collect → log com won/opponent")
-    void tc067_fightAndCollect_returnsBattleLog() throws Exception {
-        // inicia duelo
-        String fightResponse = mockMvc.perform(post("/api/arena/fight")
+    @DisplayName("TC-067 | POST /api/arena/fight → resultado instantâneo (won/opponent/log)")
+    void tc067_fight_returnsInstantResult() throws Exception {
+        mockMvc.perform(post("/api/arena/fight")
                         .header("Authorization", bearer(token)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.id").isNumber())
-                .andReturn().getResponse().getContentAsString();
-
-        long matchId = objectMapper.readTree(fightResponse).get("id").asLong();
-
-        // coleta resultado (instant-complete → já finalizado)
-        mockMvc.perform(post("/api/arena/" + matchId + "/collect")
-                        .header("Authorization", bearer(token)))
-                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.won").exists())
                 .andExpect(jsonPath("$.opponent").isNotEmpty())
+                .andExpect(jsonPath("$.rankChange").exists())
                 .andExpect(jsonPath("$.log").isArray());
     }
 }

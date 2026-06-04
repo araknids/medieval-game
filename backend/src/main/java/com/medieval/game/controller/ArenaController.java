@@ -49,18 +49,13 @@ public class ArenaController {
         return ResponseEntity.ok(MatchResponse.from(active.get()));
     }
 
+    // [SEM_TIMER] Duelo instantâneo: resolve e retorna o resultado completo numa chamada só.
     @PostMapping("/fight")
     public ResponseEntity<?> startFight(Authentication auth) {
         Player player = getPlayer(auth);
         ArenaMatch match = arenaService.startFight(player);
-        return ResponseEntity.ok(MatchResponse.from(match));
-    }
-
-    @PostMapping("/{id}/collect")
-    public ResponseEntity<?> collect(@PathVariable Long id, Authentication auth) {
-        Player player = getPlayer(auth);
-        ArenaMatch match = arenaService.collectResult(player, id);
         return ResponseEntity.ok(Map.of(
+                "id",         match.getId(),
                 "won",        match.isChallengerWon(),
                 "opponent",   match.getOpponentName(),
                 "goldEarned", match.getGoldReward(),

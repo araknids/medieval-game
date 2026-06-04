@@ -52,9 +52,15 @@ ser o gate; a **estamina** é. Sem espera, sem "coletar depois".
    resumo do raid no battle log. **Bug corrigido de quebra:** `collect` recarrega o `player` como *managed* (o detached
    do controller, salvo 2x num raid-win, dava `OptimisticLockException`). 466 testes verdes (TC-217..220 cobrem pool de
    flag, flag-on-farm e raid ponta-a-ponta).
-3. **Fase 3 — Arena instantânea.** Converter a arena assíncrona (timer 1min) em duelo instantâneo por rank.
+3. **Fase 3 — Arena instantânea.** ✅ **FEITA.** A arena era "assíncrona" só na aparência: o `startFight`
+   já simulava e decidia tudo, e o `finishesAt=now+60s` era um atraso artificial antes do `collect` aplicar
+   recompensa/rank. Agora `startFight` **resolve e aplica tudo numa chamada** (bronze, rank do desafiante +
+   oponente, V/D, HP/KO, desgaste) e o `POST /api/arena/fight` retorna o **resultado completo** (`won`,
+   `opponent`, `goldEarned`, `rankChange`, `log`). Removidos `collectResult` + `POST /{id}/collect` + o
+   timer/etapa-de-collect do front (mostra o resultado direto). Gate: estamina (25) + limite diário (5/10 VIP).
+   `startFight` recarrega o player como *managed* (mesmo fix de lock da Fase 2). 464 testes verdes.
 
-Cada fase: verde (full suite) + docs + commit.
+Cada fase: verde (full suite) + docs + commit. **Plano concluído (Fases 1–3).**
 
 ## Riscos / pontos de atenção
 - **Perder item equipado** é hardcore — mitigado por Templo (guardar) + Stash + escudo. Acompanhar o "feel".
