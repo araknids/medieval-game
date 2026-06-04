@@ -442,7 +442,6 @@ function renderQuestTypes() {
     <div class="quest-card">
       <h3>${t('quest.type.'+q.id)||q.displayName}</h3>
       <div class="quest-rewards">
-        <span>⏱ ${q.durationMinutes} min</span>
         <span>${fmtBronze(q.goldReward)}</span>
         <span>⭐ ${q.expReward} exp</span>
         <span class="stamina-cost">⚡ ${q.staminaCost}</span>
@@ -1951,9 +1950,10 @@ async function showWorkJobList() {
                 <span>${t('work.hours') || 'Hours:'}</span>
                 <div class="hours-btns">
                   ${[1,2,4,6,8,12].map(h => `
-                    <button class="btn-hour" onclick="startWork('${job.id}', ${h})" ${disabled ? 'disabled' : ''}>
+                    <button class="btn-hour" onclick="startWork('${job.id}', ${h})" ${disabled ? 'disabled' : ''} title="⚡ ${h * 5} stamina">
                       ${h}h
                       <span class="hour-gold">${fmtBronze(Math.round(job.goldPerHourWithBonus * h))}</span>
+                      <span class="stamina-cost">⚡ ${h * 5}</span>
                     </button>
                   `).join('')}
                 </div>

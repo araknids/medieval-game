@@ -288,6 +288,7 @@ section {
 .btn-hour:hover:not(:disabled) { border-color: #c9a84c; color: #c9a84c; }
 .btn-hour:disabled { opacity: 0.4; cursor: not-allowed; }
 .hour-gold { font-size: 0.68rem; color: #4caf82; margin-top: 0.1rem; }
+.btn-hour .stamina-cost { font-size: 0.68rem; margin-top: 0.05rem; }
 
 .btn-cancel-work {
   padding: 0.3rem 0.8rem;
