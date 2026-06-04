@@ -24,6 +24,19 @@ function t(key, params) {
   return s;
 }
 
+// Escapa texto controlado por jogador (nome de guerreiro/guild, mensagem de mail) ANTES de
+// interpolar em innerHTML. Sem isto, um jogador pode injetar HTML/script via mail ou nome e
+// roubar o token de quem visualiza (XSS armazenado). Use em TODO valor vindo de outro usuário.
+function escapeHtml(s) {
+  if (s == null) return '';
+  return String(s)
+    .replaceAll('&', '&amp;')
+    .replaceAll('<', '&lt;')
+    .replaceAll('>', '&gt;')
+    .replaceAll('"', '&quot;')
+    .replaceAll("'", '&#39;');
+}
+
 // Apply translations to elements with data-i18n attribute
 function applyStaticTranslations() {
   document.querySelectorAll('[data-i18n]').forEach(el => {
@@ -325,7 +338,7 @@ async function loadWarrior() {
   const staminaColor = stamina < 30 ? '#cf6679' : stamina < 60 ? '#c9a84c' : '#4caf82';
 
   document.getElementById('warrior-card').innerHTML = `
-    <div class="warrior-name">${warrior.name}</div>
+    <div class="warrior-name">${escapeHtml(warrior.name)}</div>
     <div class="warrior-class">${warrior.warriorClass}</div>
     <div class="warrior-stat-row"><span class="label">${t('stat.level')}</span><span class="value">${warrior.level}</span></div>
     <div class="xp-bar-wrap">
@@ -1301,9 +1314,9 @@ function renderZoneActive(state) {
       <div class="qp-timer" id="zone-timer" style="font-size:2rem">${timerHtml()}</div>
       <p style="color:#888;font-size:.78rem;margin:.4rem 0">
         ${state.attacked && !state.survived
-          ? `${t('zone.attacked', {name: state.attackerName})}`
+          ? `${t('zone.attacked', {name: escapeHtml(state.attackerName)})}`
           : state.attacked
-          ? `${t('zone.survived', {name: state.attackerName})}`
+          ? `${t('zone.survived', {name: escapeHtml(state.attackerName)})}`
           : ''}
       </p>
       <div style="display:flex;gap:.5rem;margin-top:.6rem;flex-wrap:wrap">
@@ -1363,7 +1376,7 @@ async function collectZone(activityId) {
       <div class="tower-result-box" style="border-color:#cf6679">
         <div class="tower-result-title" style="color:#cf6679">💀 Você foi derrotado!</div>
         <p style="color:#888;font-size:.82rem;margin:.4rem 0">
-          Atacado por: <strong>${data.attackerName}</strong><br>
+          Atacado por: <strong>${escapeHtml(data.attackerName)}</strong><br>
           Bronze perdido: ${fmtBronze(data.bronzeLost)}
           ${data.lostItemName ? `<br>Item perdido: <span style="color:#c97ddb">${data.lostItemName}</span>` : ''}
         </p>
@@ -1999,7 +2012,7 @@ async function showTowerLobby() {
           ${ranking.map((r, i) => `
             <tr class="${r.warriorName === warrior?.name ? 'me' : ''}">
               <td class="rank-pos">${i + 1}</td>
-              <td class="rank-name">${r.warriorName}</td>
+              <td class="rank-name">${escapeHtml(r.warriorName)}</td>
               <td class="rank-pts">🏰 ${r.bestFloor}</td>
             </tr>`).join('')}
         </tbody>
@@ -2142,7 +2155,7 @@ async function loadRank() {
         ${rank.map((r, i) => `
           <tr class="${r.warriorName === warrior?.name ? 'me' : ''}">
             <td class="rank-pos">${i + 1}</td>
-            <td class="rank-name">${r.warriorName}</td>
+            <td class="rank-name">${escapeHtml(r.warriorName)}</td>
             <td class="rank-pts">${r.rankPoints}</td>
             <td class="rank-wl">${r.wins}/${r.losses}</td>
           </tr>`).join('')}
@@ -2183,7 +2196,7 @@ function renderFightArea(data) {
     el.innerHTML = `
       <div class="fight-box">
         <h3>Em batalha!</h3>
-        <div class="fight-vs">vs <strong>${data.opponentName}</strong></div>
+        <div class="fight-vs">vs <strong>${escapeHtml(data.opponentName)}</strong></div>
         <div class="fight-timer" id="fight-timer">${formatTime(secs)}</div>
         <p style="color:#888;font-size:.8rem">Volte quando o timer acabar para coletar o resultado.</p>
       </div>`;
@@ -2322,15 +2335,15 @@ function renderGuildPanel(g) {
       ? `<button onclick="guildTransfer(${m.playerId})" style="font-size:11px;padding:2px 6px;background:#555">Transfer</button>`
       : '';
     return `<tr>
-      <td>${m.warriorName}${badge}${m.isMe ? ' <em>(you)</em>' : ''}</td>
+      <td>${escapeHtml(m.warriorName)}${badge}${m.isMe ? ' <em>(you)</em>' : ''}</td>
       <td style="text-align:right">${kickBtn} ${transferBtn}</td>
     </tr>`;
   }).join('');
 
   el.innerHTML = `
     <div style="background:#1a1a2e;border:1px solid #444;border-radius:8px;padding:16px;margin-bottom:12px">
-      <h3 style="margin:0 0 4px">${g.name} <span style="font-size:12px;color:#aaa">Lv.${g.level}</span></h3>
-      <p style="color:#aaa;margin:0 0 8px;font-size:13px">${g.description || 'No description.'}</p>
+      <h3 style="margin:0 0 4px">${escapeHtml(g.name)} <span style="font-size:12px;color:#aaa">Lv.${g.level}</span></h3>
+      <p style="color:#aaa;margin:0 0 8px;font-size:13px">${escapeHtml(g.description || 'No description.')}</p>
       <div style="display:flex;gap:24px;font-size:13px;flex-wrap:wrap">
         <span>🏦 Treasury: <strong>${treasuryFmt}</strong></span>
         <span>👥 Members: <strong>${g.members.length}/${g.maxMembers}</strong></span>
@@ -2368,7 +2381,7 @@ function renderDonationRank(rank) {
     const medal  = i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : `${i+1}.`;
     const style  = r.isMe ? 'color:#ffd700;font-weight:bold' : '';
     return `<tr style="${style}">
-      <td style="padding:4px 0">${medal} ${r.warriorName}${r.isMe ? ' (you)' : ''}</td>
+      <td style="padding:4px 0">${medal} ${escapeHtml(r.warriorName)}${r.isMe ? ' (you)' : ''}</td>
       <td style="text-align:right;padding:4px 0">${fmtBronze(r.donatedBronze)}</td>
     </tr>`;
   }).join('');
@@ -2392,8 +2405,8 @@ async function renderNoGuildPanel() {
       listHtml = guilds.map(g => `
         <div style="background:#1a1a2e;border:1px solid #444;border-radius:6px;padding:10px;margin-bottom:8px;display:flex;justify-content:space-between;align-items:center">
           <div>
-            <strong>${g.name}</strong> <span style="font-size:11px;color:#aaa">Nv.${g.level}</span><br>
-            <span style="font-size:12px;color:#888">${g.description || ''}</span><br>
+            <strong>${escapeHtml(g.name)}</strong> <span style="font-size:11px;color:#aaa">Nv.${g.level}</span><br>
+            <span style="font-size:12px;color:#888">${escapeHtml(g.description || '')}</span><br>
             <span style="font-size:12px">👥 ${g.members}/${g.maxMembers}</span>
           </div>
           <button onclick="guildJoin(${g.id})" ${g.members >= g.maxMembers ? 'disabled' : ''}>
@@ -2667,13 +2680,13 @@ function renderMailPanel(letters, unread) {
           border-radius:6px;padding:10px 12px;margin-bottom:8px;cursor:pointer;
           display:flex;justify-content:space-between;align-items:center">
           <div>
-            <strong style="color:${m.isRead ? '#ccc' : '#fff'}">${m.from}</strong>
+            <strong style="color:${m.isRead ? '#ccc' : '#fff'}">${escapeHtml(m.from)}</strong>
             ${!m.isRead ? '<span style="color:#5c6bc0;font-size:.75em;margin-left:6px">● NEW</span>' : ''}
             ${m.goldAmount > 0 && !m.isCollected ? '<span style="color:#ffd700;font-size:.75em;margin-left:6px">💰 ' + m.goldAmount + ' gold</span>' : ''}
             ${m.hasItem && !m.itemCollected && !m.isExpired ? '<span style="color:#a78bfa;font-size:.75em;margin-left:6px">📦 ITEM</span>' : ''}
             ${m.hasItem && m.isExpired ? '<span style="color:#ef5350;font-size:.75em;margin-left:6px">⏰ EXPIRED</span>' : ''}
             <div style="color:#888;font-size:.8em;margin-top:2px">
-              ${m.message.length > 60 ? m.message.substring(0, 60) + '…' : m.message}
+              ${escapeHtml(m.message.length > 60 ? m.message.substring(0, 60) + '…' : m.message)}
             </div>
           </div>
           <div style="font-size:.7em;color:#666;text-align:right;white-space:nowrap;margin-left:8px">
@@ -2758,12 +2771,12 @@ async function mailOpen(id) {
 
   panel.innerHTML = `
     <div style="display:flex;justify-content:space-between;align-items:flex-start">
-      <strong>From: ${r.from}</strong>
+      <strong>From: ${escapeHtml(r.from)}</strong>
       <button onclick="mailDelete(${id})" style="background:#333;font-size:11px;padding:3px 8px">🗑 Delete</button>
     </div>
     <div style="color:#888;font-size:.75em;margin:.3rem 0">${r.sentAt.substring(0, 16).replace('T', ' ')}</div>
     <div style="background:#111;border-radius:4px;padding:10px;margin-top:8px;
-                white-space:pre-wrap;font-size:13px;line-height:1.5">${r.message}</div>
+                white-space:pre-wrap;font-size:13px;line-height:1.5">${escapeHtml(r.message)}</div>
     ${goldBtn}
     ${itemBtn}
   `;
@@ -2814,7 +2827,8 @@ async function mailSend() {
 
 function mailMsg(text, ok = true) {
   const el = document.getElementById('mail-msg-area');
-  if (el) el.innerHTML = `<span style="color:${ok ? '#4caf50' : '#f44336'}">${text}</span>`;
+  // escapeHtml: a msg "Letter sent to <nome>!" ecoa o nome digitado (innerHTML aqui).
+  if (el) el.innerHTML = `<span style="color:${ok ? '#4caf50' : '#f44336'}">${escapeHtml(text)}</span>`;
 }
 
 // ═══════════════════════════════════════════════════════════════════
@@ -3391,7 +3405,7 @@ function showAmbushDialog() {
   closeCollectModal();
 
   const rows = [];
-  if (s.lastAmbusherName)      rows.push({ icon:'⚔', label:'Ambushed by', value:s.lastAmbusherName, color:'#ff6b6b' });
+  if (s.lastAmbusherName)      rows.push({ icon:'⚔', label:'Ambushed by', value:escapeHtml(s.lastAmbusherName), color:'#ff6b6b' });
   if (s.lastAmbushBronzeLost)  rows.push({ icon:'💸', label:'Bronze lost', value:fmtBronze(s.lastAmbushBronzeLost), color:'#ef5350' });
   if (s.lastAmbushItemLost)    rows.push({ icon:'📦', label:'Item stolen', value:s.lastAmbushItemLost, color:'#ef5350' });
   rows.push({ icon:'🛡', label:'You survived!', value:`ambush #${s.ambushCount}`, color:'#4caf50' });
@@ -3452,13 +3466,13 @@ async function collectKingdomZoneSession(activityId) {
   if (r.wasAttacked && !r.survived) {
     title = '💀 Defeated in Expedition!';
     color = '#ef5350';
-    if (r.attackerName) rows.push({ icon:'⚔', label:'Defeated by', value:r.attackerName, color:'#ef9a9a' });
+    if (r.attackerName) rows.push({ icon:'⚔', label:'Defeated by', value:escapeHtml(r.attackerName), color:'#ef9a9a' });
     if (r.lostItemName) rows.push({ icon:'💸', label:'Item stolen', value:r.lostItemName,  color:'#ef5350' });
   } else {
     title = r.wasAttacked ? '⚔ Survived the Expedition!' : '✅ Expedition Completed!';
     color = r.wasAttacked ? '#ffc107' : '#4caf50';
     if (r.wasAttacked && r.attackerName)
-      rows.push({ icon:'⚔', label:'Survived attack by', value:r.attackerName, color:'#ffc107' });
+      rows.push({ icon:'⚔', label:'Survived attack by', value:escapeHtml(r.attackerName), color:'#ffc107' });
     (r.drops || []).forEach(d =>
       rows.push({ icon:'📦', label:d.displayName, value:`x${d.quantity}`, color:'#4db6ac' }));
     if (r.bronzeGained > 0)

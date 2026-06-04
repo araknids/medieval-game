@@ -16,6 +16,7 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
@@ -183,11 +184,18 @@ public class AuthController {
         return http.getRemoteAddr();
     }
 
+    // Charset restrito em username/warriorName: defesa em profundidade contra XSS — esses nomes
+    // aparecem para outros jogadores (ranking, mail, arena) e serão renderizados também pelo cliente
+    // Godot. Texto livre (mail/descrição de guild) é tratado por escape na exibição, não aqui. [XSS]
     record RegisterRequest(
-            @NotBlank @Size(min = 3, max = 20) String username,
+            @NotBlank @Size(min = 3, max = 20)
+            @Pattern(regexp = "[A-Za-z0-9_]+", message = "Username: only letters, numbers and underscore")
+            String username,
             @NotBlank @Email String email,
             @NotBlank @Size(min = 8) String password,  // mín. 8 caracteres [AUDITORIA M7]
-            @NotBlank String warriorName
+            @NotBlank @Size(min = 3, max = 30)
+            @Pattern(regexp = "[\\p{L}\\p{N} ._'-]+", message = "Warrior name has invalid characters")
+            String warriorName
     ) {}
 
     record LoginRequest(

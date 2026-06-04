@@ -12,6 +12,7 @@ import org.springframework.web.bind.annotation.*;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
 
 import java.util.List;
@@ -189,6 +190,12 @@ public class GuildController {
         );
     }
 
-    record CreateRequest(@NotBlank @Size(min = 3, max = 30) String name, @Size(max = 200) String description) {}
+    // Nome da guild com charset restrito (defesa em profundidade contra XSS — aparece p/ outros).
+    // A descrição é texto livre e é escapada na exibição. [XSS]
+    record CreateRequest(
+            @NotBlank @Size(min = 3, max = 30)
+            @Pattern(regexp = "[\\p{L}\\p{N} ._'-]+", message = "Guild name has invalid characters")
+            String name,
+            @Size(max = 200) String description) {}
     record DonateRequest(@Min(1) long amount) {}
 }
