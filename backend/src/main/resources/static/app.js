@@ -765,8 +765,8 @@ async function loadShop() {
         return `
           <div class="shop-card ${i.purchased ? 'shop-card-sold' : ''}">
             <div class="shop-item-info">
-              <h3 class="rarity-${i.rarity}">${i.name}</h3>
-              <div class="shop-stats">${(t('item.type.'+i.type)||i.typeDisplay)} · ${(t('inventory.rarity.'+i.rarity)||i.rarityName)} · ${stats}</div>
+              <h3 class="rarity-${i.rarity}">${i.name} <span style="font-size:.7rem;color:#888">Lv.${i.itemLevel}</span></h3>
+              <div class="shop-stats">${(t('item.type.'+i.type)||i.typeDisplay)} · ${(t('inventory.rarity.'+i.rarity)||i.rarityName)} · ${stats}${i.itemLevel > (warrior?.level||1) ? ` · <span style="color:#ef5350">🔒 Req. Lv.${i.itemLevel}</span>` : ''}</div>
             </div>
             <span class="shop-price">${fmtBronze(i.price)}</span>
             ${i.purchased

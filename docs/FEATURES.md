@@ -225,8 +225,8 @@ Capacete, Armadura, Espada, Escudo, Calça, Bota, Luva, Ombreira, Colar, Anel
   A raridade continua dando **afixos + sockets + o multiplicador** — no mesmo nível, Épico > Comum.
 - **Requisito pra equipar:** só equipa se `itemLevel ≤ nível do guerreiro` (UI mostra 🔒 Lv.X e bloqueia).
 - **De onde vem o nível:** drop de quest/reino = **nível do guerreiro** (loot escala com você);
-  loja = faixa por raridade (Comum 1 · Incomum 5 · Raro 15 · Épico 30 · Lendário 50) — resolve o
-  "lvl1 compra Épico e atropela" (compra mas só equipa no nível); craft = nível do recipe; iniciais = 1.
+  **loja = nível do jogador ±5** (gear básico de nível); craft = nível do recipe; iniciais = 1.
+- **Loja vende só Comum/Incomum** (Itens V3) — gear básico no teu nível; **Raro/Épico/Lendário só dropam.**
 
 ### Afixos (Itens V2 — Fase A)
 - Cada item rola **afixos aleatórios** pela raridade: Comum 0 · Incomum 1 · Raro 2 · Épico 3 · **Lendário 4**
@@ -278,13 +278,15 @@ Capacete, Armadura, Espada, Escudo, Calça, Bota, Luva, Ombreira, Colar, Anel
 ## 10. Loja (Comércio)
 
 ### Rotação Dinâmica
-- 10 itens novos a cada 6 horas (mesma loja para todos ao mesmo tempo)
+- 10 itens novos a cada 6 horas (nomes/tipos iguais p/ todos; **nível/stats escalam com o jogador**)
 - Baseada em `rotationId = epochSeconds / 21600`
 - Cada jogador pode comprar cada item uma vez por rotação
 
-### Distribuição de Raridade por Sorteio
-- 60% Comum, 25% Incomum, 12% Raro, 3% Épico
-- Pool: 57+ itens cobrindo todos os 10 slots de equipamento
+### Sorteio (Itens V3)
+- **Só Comum (65%) e Incomum (35%)** — gear básico de nível. **Raro/Épico/Lendário só dropam.**
+- **Nível do item = nível do jogador ±5**; stats escalam com o nível (geração determinística por rotação,
+  então preview == compra). Preço curado do template mantido.
+- Pool de nomes/tipos cobrindo os 10 slots de equipamento.
 
 ### Mercador
 - Nome muda a cada rotação ("Gareth, o Mercador Andarilho", etc.)

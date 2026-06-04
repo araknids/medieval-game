@@ -239,9 +239,13 @@ public class InventoryService {
      * Poder cresce com o nível; raridade é um multiplicador → "lvl100 Comum > lvl1 Épico".
      */
     public int[] rollItemStats(int itemLevel, int rarity) {
+        return rollItemStats(itemLevel, rarity, java.util.concurrent.ThreadLocalRandom.current());
+    }
+
+    /** Overload com Random próprio (semeado) — usado pela loja p/ preview == compra serem idênticos. */
+    public int[] rollItemStats(int itemLevel, int rarity, java.util.Random rng) {
         double mult = switch (rarity) { case 2 -> 1.2; case 3 -> 1.45; case 4 -> 1.75; case 5 -> 2.1; default -> 1.0; };
         double scale = Math.max(1, itemLevel) * mult;
-        var rng = java.util.concurrent.ThreadLocalRandom.current();
         int atk = rng.nextInt((int) Math.round(scale * 0.6) + 1);
         int def = rng.nextInt((int) Math.round(scale * 0.6) + 1);
         int hp  = rng.nextInt((int) Math.round(scale * 2.2) + 1);

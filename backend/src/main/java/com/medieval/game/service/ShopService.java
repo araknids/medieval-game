@@ -4,7 +4,9 @@ import com.medieval.game.enums.ItemType;
 import com.medieval.game.model.InventoryItem;
 import com.medieval.game.model.Player;
 import com.medieval.game.model.ShopPurchase;
+import com.medieval.game.model.Warrior;
 import com.medieval.game.repository.ShopPurchaseRepository;
+import com.medieval.game.repository.WarriorRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -25,6 +27,7 @@ public class ShopService {
     private final InventoryService        inventoryService;
     private final MailService             mailService;
     private final ItemLoreGenerator       loreGenerator;
+    private final WarriorRepository       warriorRepository;
 
     private static final long ROTATION_SECONDS = 6 * 60 * 60; // 6 horas
     private static final int SHOP_SIZE = 10;
@@ -168,28 +171,30 @@ public class ShopService {
     public List<ShopItem> getItems(Player player) {
         long rotationId = currentRotationId();
         Random rng = new Random(rotationId);
+        int level = warriorRepository.findByPlayer(player).map(Warrior::getLevel).orElse(1);
         Set<Integer> bought = purchaseRepository.purchasedSlots(player, rotationId);
         List<ShopItem> items = new ArrayList<>();
-
         for (int slot = 0; slot < SHOP_SIZE; slot++) {
-            int rarity = rollRarity(rng);
-            Object[][] pool = poolFor(rarity);
-            Object[] template = pool[rng.nextInt(pool.length)];
-
-            long itemId = rotationId * SHOP_SIZE + slot;
-            items.add(new ShopItem(
-                itemId,
-                (String)    template[0],
-                (ItemType)  template[1],
-                (int)       template[2],
-                (int)       template[3],
-                (int)       template[4],
-                rarity,
-                (int)       template[5],
-                bought.contains(slot)
-            ));
+            items.add(buildSlot(rng, rotationId, slot, level, bought.contains(slot)));
         }
         return items;
+    }
+
+    /**
+     * Constrói o item de um slot de forma DETERMINÍSTICA (mesma sequência de rng em preview e compra).
+     * Itens V3: loja vende só Comum/Incomum, nível ≈ nível do jogador ±5, stats escalam com o nível. [ITENS_V3]
+     */
+    private ShopItem buildSlot(Random rng, long rotationId, int slot, int playerLevel, boolean purchased) {
+        int rarity = rollRarity(rng);                 // só 1 (Comum) ou 2 (Incomum)
+        Object[][] pool = poolFor(rarity);
+        Object[] template = pool[rng.nextInt(pool.length)];
+        int offset = rng.nextInt(11) - 5;             // -5..+5
+        int itemLevel = Math.max(1, playerLevel + offset);
+        int[] s = inventoryService.rollItemStats(itemLevel, rarity, rng); // semeado → preview == compra
+        int price = (int) template[5];                // mantém o preço curado do template
+        long itemId = rotationId * SHOP_SIZE + slot;
+        return new ShopItem(itemId, (String) template[0], (ItemType) template[1],
+                s[0], s[1], s[2], rarity, price, itemLevel, purchased);
     }
 
     // ── Compra ──
@@ -205,15 +210,11 @@ public class ShopService {
         }
 
         Random rng = new Random(rotationId);
+        int level = warriorRepository.findByPlayer(player).map(Warrior::getLevel).orElse(1);
         ShopItem item = null;
         for (int i = 0; i <= slot; i++) {
-            int rarity = rollRarity(rng);
-            Object[][] pool = poolFor(rarity);
-            Object[] template = pool[rng.nextInt(pool.length)];
-            if (i == slot) {
-                item = new ShopItem(shopItemId, (String) template[0], (ItemType) template[1],
-                        (int) template[2], (int) template[3], (int) template[4], rarity, (int) template[5], false);
-            }
+            ShopItem si = buildSlot(rng, rotationId, i, level, false);
+            if (i == slot) item = si;
         }
 
         if (item == null) {
@@ -241,13 +242,10 @@ public class ShopService {
         String origin = loreGenerator.originFromShop("Mercador Viajante");
         long   sell   = item.price() / 2;
 
-        // Itens V3: loja mantém os stats curados, mas o item ganha um NÍVEL por faixa de raridade
-        // (requisito pra equipar gateia o "lvl1 compra Épico e atropela"). [ITENS_V3]
-        int ilvl = switch (item.rarity()) { case 2 -> 5; case 3 -> 15; case 4 -> 30; case 5 -> 50; default -> 1; };
         InventoryItem result;
         if (inventoryService.bagSize(player) < player.getMaxInventorySlots()) {
             result = inventoryService.make(player, item.name(), item.type(),
-                    item.atk(), item.def(), item.hp(), item.rarity(), sell, ilvl, desc, origin);
+                    item.atk(), item.def(), item.hp(), item.rarity(), sell, item.itemLevel(), desc, origin);
             log.info("[ShopService] player={} action=buy OK shopItemId={} name={} price={}", player.getId(), shopItemId, item.name(), item.price());
         } else {
             mailService.sendItemMail(player, "Comprado na Loja.",
@@ -260,12 +258,9 @@ public class ShopService {
     }
 
     // ── Helpers ──
+    // Itens V3: a loja vende SÓ Comum/Incomum (gear básico de nível). Raro+ só dropa.
     private int rollRarity(Random rng) {
-        double roll = rng.nextDouble();
-        if (roll < 0.03) return 4;       // Épico 3%
-        if (roll < 0.15) return 3;       // Raro 12%
-        if (roll < 0.40) return 2;       // Incomum 25%
-        return 1;                         // Comum 60%
+        return rng.nextDouble() < 0.35 ? 2 : 1; // 35% Incomum, 65% Comum
     }
 
     private Object[][] poolFor(int rarity) {
@@ -279,7 +274,7 @@ public class ShopService {
 
     public record ShopItem(long id, String name, ItemType type,
                            int atk, int def, int hp, int rarity, int price,
-                           boolean purchased) {
+                           int itemLevel, boolean purchased) {
         public String rarityName() {
             return switch (rarity) {
                 case 2 -> "Incomum"; case 3 -> "Raro"; case 4 -> "Épico"; default -> "Comum";

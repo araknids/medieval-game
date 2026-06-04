@@ -33,6 +33,7 @@ public class ShopController {
                 Map.entry("healthBonus",  i.hp()),
                 Map.entry("rarity",       i.rarity()),
                 Map.entry("rarityName",   i.rarityName()),
+                Map.entry("itemLevel",    i.itemLevel()),
                 Map.entry("price",        i.price()),
                 Map.entry("purchased",    i.purchased())
         )).toList();
@@ -50,6 +51,12 @@ public class ShopController {
     public ResponseEntity<?> buy(@PathVariable long shopItemId, Authentication auth) {
         Player        player = playerService.findById((Long) auth.getPrincipal());
         InventoryItem item   = shopService.buy(player, shopItemId);
+        if (item == null) { // bag cheia → item foi pro mail
+            return ResponseEntity.ok(Map.of(
+                    "message", "Bag full — the item was sent to your mail.",
+                    "gold",    player.getGold()
+            ));
+        }
         return ResponseEntity.ok(Map.of(
                 "message", item.getName() + " bought successfully!",
                 "gold",    player.getGold(),
