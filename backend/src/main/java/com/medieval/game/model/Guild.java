@@ -36,9 +36,9 @@ public class Guild {
     @Column(nullable = false)
     private LocalDateTime createdAt = LocalDateTime.now();
 
-    // Max members: 15 at level 1, +5 per additional level
+    // Max members: 10 at level 1, +5 per additional level, capped at 50.
     public int maxMembers() {
-        return 10 + level * 5;
+        return Math.min(50, 10 + (level - 1) * 5);
     }
 
     // Cost in bronze to level up: level 1→2 = 1000, level 2→3 = 2000, etc.

@@ -570,7 +570,7 @@ Enviado via Brevo HTTP API (não SMTP, evita bloqueios de hosting):
 - Criador torna-se líder automaticamente
 
 ### Mecânica de Membros
-- Capacidade: `10 + level × 5` (nível 1 = 15 membros)
+- Capacidade: `min(50, 10 + (level-1) × 5)` — **10 no nível 1, +5/nível, teto de 50** (chega no lv9)
 - Entrar: qualquer jogador sem guilda pode entrar se houver vaga
 - Sair: membro sai livremente; líder só sai se for o único membro (dissolve) ou transferir liderança
 
@@ -585,12 +585,12 @@ Aplicados automaticamente em quests e trabalho para todos os membros:
 
 | Nível | Membros | XP Bonus | Drop Bonus | Bronze Bonus |
 |-------|---------|----------|------------|--------------|
-| 1 | 15 | +0% | +0% | +0% |
-| 2 | 20 | +5% | +0% | +0% |
-| 3 | 25 | +10% | +3% | +0% |
-| 4 | 30 | +15% | +5% | +5% |
-| 5 | 35 | +20% | +7% | +10% |
-| 6+ | +5/lv | +20% (cap) | +7% (cap) | +10% (cap) |
+| 1 | 10 | +0% | +0% | +0% |
+| 2 | 15 | +5% | +0% | +0% |
+| 3 | 20 | +10% | +3% | +0% |
+| 4 | 25 | +15% | +5% | +5% |
+| 5 | 30 | +20% | +7% | +10% |
+| 9+ | 50 (teto) | +20% (cap) | +7% (cap) | +10% (cap) |
 
 - `xpBonus    = min(20, (level-1) × 5)` %
 - `dropBonus  = min(7, max(0, level-2) × 2)` %

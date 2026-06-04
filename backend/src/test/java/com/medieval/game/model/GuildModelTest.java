@@ -64,13 +64,15 @@ class GuildModelTest {
         assertThat(guild(10).bronzeBonus()).isEqualTo(10); // still capped
     }
 
-    // Extra: maxMembers formula
+    // Extra: maxMembers formula — 10 no nível 1, +5/nível, teto 50.
     @Test
-    @DisplayName("TC-extra | maxMembers level 1 → 15, level 2 → 20, level 3 → 25")
+    @DisplayName("TC-extra | maxMembers: lv1→10, lv2→15, lv3→20, teto 50")
     void tcExtra_maxMembers_formula() {
-        assertThat(guild(1).maxMembers()).isEqualTo(15);
-        assertThat(guild(2).maxMembers()).isEqualTo(20);
-        assertThat(guild(3).maxMembers()).isEqualTo(25);
+        assertThat(guild(1).maxMembers()).isEqualTo(10);
+        assertThat(guild(2).maxMembers()).isEqualTo(15);
+        assertThat(guild(3).maxMembers()).isEqualTo(20);
+        assertThat(guild(9).maxMembers()).isEqualTo(50);   // 10 + 8×5 = 50
+        assertThat(guild(20).maxMembers()).isEqualTo(50);  // teto
     }
 
     // Extra: levelUpCost formula
