@@ -311,12 +311,21 @@ Capacete · Armadura · Espada · Escudo · Calça · Bota · Luva · Ombreira �
 
 ### 6.2 Raridades
 
-| Raridade | Cor | Sockets máx | Fonte típica |
-|----------|-----|-------------|--------------|
-| Comum | Cinza | 0 | Patrulha, Loja |
-| Incomum | Verde | 1 | Masmorra, Loja |
-| Raro | Azul | 2 | Raid, Loja |
-| Épico | Roxo | 3 | Caça ao Chefe, Forja |
+| Raridade | Cor | Sockets máx | Afixos | Fonte típica |
+|----------|-----|-------------|--------|--------------|
+| Comum | Cinza | 0 | 0 | Patrulha, Loja |
+| Incomum | Verde | 1 | 1 | Masmorra, Loja |
+| Raro | Azul | 2 | 2 | Raid, Loja |
+| Épico | Roxo | 3 | 3 | Caça ao Chefe, Forja |
+| **Lendário** | Dourado | 3 | 4 | Caça ao Chefe (~6%), raid de reino (~5%) |
+
+### 6.2.1 Afixos (Itens V2 — Fase A)
+
+Cada item rola afixos aleatórios pela raridade (tabela acima). Um afixo dá **stat plano** (ATK/DEF/HP)
+ou **atributo** (+STR/+DEX/+LUK, reusando o sistema D&D). Prefixo vira adjetivo no nome
+("Sharp Sword of Steel"); todos aparecem como linhas no card. **Reforjar na Forja re-rola os afixos**
+(dreno de bronze, caça ao roll perfeito). Sets de itens (bônus de conjunto) ficam pra Fase B.
+Detalhe: `docs/PLANO_ITENS_V2.md`.
 
 ### 6.3 Lore de Itens
 

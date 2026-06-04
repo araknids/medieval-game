@@ -923,6 +923,7 @@ async function loadInventory() {
             <div class="slot-label">${t('inventory.slot.'+slot.id)}</div>
             <div class="slot-item-name rarity-${item.rarity}">${item.name}</div>
             <div class="slot-item-stats">${statsText(item)}</div>
+            ${affixLines(item)}
             ${durabilityBar(item)}
             <button class="btn-unequip" onclick="unequipItem(${item.id})">${t('inventory.btn.unequip')}</button>
           </div>`;
@@ -943,6 +944,7 @@ async function loadInventory() {
           <div class="bag-item-name rarity-${item.rarity}">${item.name}</div>
           <div class="bag-item-type">${(t('item.type.'+item.type)||item.typeDisplay)} · ${(t('inventory.rarity.'+item.rarity)||item.rarityName)}</div>
           <div class="bag-item-stats">${statsText(item)}</div>
+          ${affixLines(item)}
           ${durabilityBar(item)}
           ${item.sockets > 0 ? renderSockets(item) : ''}
         </div>
@@ -1012,6 +1014,15 @@ function statsText(item) {
   if (item.defenseBonus > 0) parts.push(`+${item.defenseBonus} DEF`);
   if (item.healthBonus  > 0) parts.push(`+${item.healthBonus} HP`);
   return parts.join('  ') || '–';
+}
+
+// Itens V2: linhas de afixo do item (prefixo/sufixo + bônus). Vazio se não tiver.
+function affixLines(item) {
+  const a = item.affixes || [];
+  if (!a.length) return '';
+  return `<div class="item-affixes">${a.map(x =>
+    `<span class="affix-line">✦ ${x.word} <b>+${x.magnitude} ${x.stat}</b></span>`
+  ).join('')}</div>`;
 }
 
 // Barra de durabilidade do item (verde→amarelo→vermelho). Quebrado (0) = aviso.

@@ -1,8 +1,10 @@
 package com.medieval.game.controller;
 
 import com.medieval.game.model.InventoryItem;
+import com.medieval.game.model.ItemAffix;
 import com.medieval.game.model.Player;
 import com.medieval.game.model.SocketedGem;
+import com.medieval.game.repository.ItemAffixRepository;
 import com.medieval.game.repository.SocketedGemRepository;
 import com.medieval.game.service.InventoryService;
 import com.medieval.game.service.PlayerService;
@@ -23,19 +25,26 @@ public class InventoryController {
     private final InventoryService      inventoryService;
     private final PlayerService         playerService;
     private final SocketedGemRepository gemRepository;
+    private final ItemAffixRepository   affixRepository;
 
     @GetMapping
     public ResponseEntity<List<ItemResponse>> getInventory(Authentication auth) {
         Player player = getPlayer(auth);
         List<InventoryItem> items = inventoryService.getInventory(player);
-        // A9: carrega as joias de TODOS os itens em 1 query só (evita N+1: era 1 query por item).
+        // A9: carrega joias e afixos de TODOS os itens em 1 query cada (evita N+1).
         Map<Long, List<SocketedGem>> gemsByItem = items.isEmpty()
                 ? Map.of()
                 : gemRepository.findAllByItemIn(items).stream()
                         .collect(Collectors.groupingBy(g -> g.getItem().getId()));
+        Map<Long, List<ItemAffix>> affixesByItem = items.isEmpty()
+                ? Map.of()
+                : affixRepository.findAllByItemIn(items).stream()
+                        .collect(Collectors.groupingBy(a -> a.getItem().getId()));
         return ResponseEntity.ok(
             items.stream()
-                .map(i -> ItemResponse.from(i, gemsByItem.getOrDefault(i.getId(), List.of())))
+                .map(i -> ItemResponse.from(i,
+                        gemsByItem.getOrDefault(i.getId(), List.of()),
+                        affixesByItem.getOrDefault(i.getId(), List.of())))
                 .toList()
         );
     }
@@ -43,13 +52,13 @@ public class InventoryController {
     @PostMapping("/{id}/equip")
     public ResponseEntity<?> equip(@PathVariable Long id, Authentication auth) {
         InventoryItem item = inventoryService.equip(getPlayer(auth), id);
-        return ResponseEntity.ok(ItemResponse.from(item, gemRepository.findAllByItem(item)));
+        return ResponseEntity.ok(ItemResponse.from(item, gemRepository.findAllByItem(item), affixRepository.findAllByItem(item)));
     }
 
     @PostMapping("/{id}/unequip")
     public ResponseEntity<?> unequip(@PathVariable Long id, Authentication auth) {
         InventoryItem item = inventoryService.unequip(getPlayer(auth), id);
-        return ResponseEntity.ok(ItemResponse.from(item, gemRepository.findAllByItem(item)));
+        return ResponseEntity.ok(ItemResponse.from(item, gemRepository.findAllByItem(item), affixRepository.findAllByItem(item)));
     }
 
     @PostMapping("/{id}/sell")
@@ -94,21 +103,25 @@ public class InventoryController {
     record ItemResponse(Long id, String name, String type, String typeDisplay,
                         int attackBonus, int defenseBonus, int healthBonus,
                         int rarity, String rarityName, long sellPrice,
-                        int sockets, List<GemSlot> gems,
+                        int sockets, List<GemSlot> gems, List<AffixLine> affixes,
                         boolean equipped, boolean guarded,
                         String description, String origin,
                         int durability) {
 
-        static ItemResponse from(InventoryItem i, List<SocketedGem> socketedGems) {
+        static ItemResponse from(InventoryItem i, List<SocketedGem> socketedGems, List<ItemAffix> itemAffixes) {
             List<GemSlot> gems = socketedGems.stream()
                     .map(g -> new GemSlot(g.getSlotIndex(), g.getGemType().name(), g.getGemType().displayName))
+                    .toList();
+            List<AffixLine> affixes = itemAffixes.stream()
+                    .map(a -> new AffixLine(a.getAffix().name(), a.getAffix().word,
+                            a.getAffix().stat.name(), a.getMagnitude()))
                     .toList();
             return new ItemResponse(
                 i.getId(), i.getName(),
                 i.getType().name(), i.getType().displayName,
                 i.getAttackBonus(), i.getDefenseBonus(), i.getHealthBonus(),
                 i.getRarity(), rarityName(i.getRarity()), i.getSellPrice(),
-                i.getSockets(), gems,
+                i.getSockets(), gems, affixes,
                 i.isEquipped(), i.isGuarded(),
                 i.getDescription() != null ? i.getDescription() : "",
                 i.getOrigin()      != null ? i.getOrigin()      : "",
@@ -118,10 +131,13 @@ public class InventoryController {
 
         static String rarityName(int r) {
             return switch (r) {
-                case 2 -> "Incomum"; case 3 -> "Raro"; case 4 -> "Épico"; default -> "Comum";
+                case 2 -> "Incomum"; case 3 -> "Raro"; case 4 -> "Épico"; case 5 -> "Lendário"; default -> "Comum";
             };
         }
     }
 
     record GemSlot(int slot, String gem, String gemName) {}
+
+    // Itens V2: linha de afixo p/ a UI — word ("Sharp"/"of the Bear"), stat (ATK…), magnitude.
+    record AffixLine(String affix, String word, String stat, int magnitude) {}
 }

@@ -222,7 +222,9 @@ class MailIntegrationTest extends BaseIntegrationTest {
         mockMvc.perform(post("/api/mail/" + mail.getId() + "/claim-item")
                         .header("Authorization", bearer(recipientToken)))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.itemName").value("Espada Reivindicada"));
+                // Itens V2: ao reivindicar, os afixos são rolados pela raridade — o nome pode ganhar
+                // um prefixo (ex.: "Lucky Espada Reivindicada"). Checamos que contém o nome base.
+                .andExpect(jsonPath("$.itemName").value(org.hamcrest.Matchers.containsString("Espada Reivindicada")));
 
         assertBagGrew(recip, bagBefore);
     }

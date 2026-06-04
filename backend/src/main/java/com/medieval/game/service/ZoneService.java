@@ -23,6 +23,8 @@ public class ZoneService {
     private final ZoneActivityRepository   activityRepository;
     private final WarriorRepository        warriorRepository;
     private final InventoryItemRepository  inventoryRepository;
+    private final com.medieval.game.repository.SocketedGemRepository gemRepository;
+    private final com.medieval.game.repository.ItemAffixRepository   affixRepository;
     private final PlayerRepository         playerRepository;
     private final GatheringService         gatheringService;
     private final BattleSimulator          battleSimulator;
@@ -567,6 +569,8 @@ public class ZoneService {
 
         InventoryItem item = equipped.get(rng.nextInt(equipped.size()));
         String name = item.getName();
+        gemRepository.deleteAllByItem(item);   // limpa joias (FK) antes de remover o item
+        affixRepository.deleteByItem(item);    // limpa afixos (FK) — Itens V2
         inventoryRepository.delete(item);
         return name;
     }

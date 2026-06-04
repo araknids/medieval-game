@@ -381,6 +381,30 @@ raridades permitidas = [UNCOMMON, RARE]
 
 ---
 
+### TC-011b — Itens V2: afixos por raridade + tier Lendário (`ItemAffixTest`)
+
+**Tipo:** Integração
+**UC Relacionado:** UC-11 (inventário/loot)
+**Prioridade:** Alta
+
+**Cenário:** Verificar a itemização profunda (Fase A): contagem de afixos por raridade, atributos do
+Lendário e o efeito dos afixos no combate.
+
+**Pré-condições:** Player novo com a bag limpa (itens iniciais removidos).
+
+**Passos / Asserções:**
+1. `make(...)` raridade 1 → **0 afixos**.
+2. `make(...)` raridades 2–5 → afixos = **raridade − 1** (1, 2, 3, 4).
+3. `make(...)` raridade 5 (Lendário) → **4 afixos** e **sockets = 3**.
+4. Equipar item Lendário → `combatStats` reflete os afixos: ATK += base+afixoATK+afixoSTR;
+   DEF += base+afixoDEF; HP += base+afixoHP; DEX(AC) += afixoDEX; LUK += afixoLUK.
+
+**Resultado Esperado:** Todas as asserções acima passam (4 testes verdes).
+
+**Resultado de Falha:** Contagem de afixos errada, Lendário sem sockets/afixos, ou afixos não entram no combate.
+
+---
+
 ### TC-012 — Arena: BattleSimulator determina corretamente o vencedor
 
 **Tipo:** Unitário

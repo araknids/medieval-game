@@ -1,10 +1,12 @@
 package com.medieval.game.service;
 
 import com.medieval.game.model.InventoryItem;
+import com.medieval.game.model.ItemAffix;
 import com.medieval.game.model.Player;
 import com.medieval.game.model.SocketedGem;
 import com.medieval.game.model.Warrior;
 import com.medieval.game.repository.InventoryItemRepository;
+import com.medieval.game.repository.ItemAffixRepository;
 import com.medieval.game.repository.SocketedGemRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -28,26 +30,34 @@ public class WarriorStatsService {
 
     private final InventoryItemRepository inventoryRepository;
     private final SocketedGemRepository   gemRepository;
+    private final ItemAffixRepository     affixRepository;
 
-    /** Bônus agregado de ATK/DEF/HP dos itens equipados (base efetiva + joias). */
+    /** Bônus plano de ATK/DEF/HP dos itens equipados (base efetiva + joias + afixos planos). */
     public record ItemBonus(int atk, int def, int hp) {
         public static final ItemBonus NONE = new ItemBonus(0, 0, 0);
     }
 
+    /** Bônus completo do gear: planos (atk/def/hp) + atributos de afixo (str/dex/luk). [ITENS_V2] */
+    public record GearBonus(int atk, int def, int hp, int str, int dex, int luk) {
+        static final GearBonus NONE = new GearBonus(0, 0, 0, 0, 0, 0);
+    }
+
     /**
-     * Soma o bônus dos itens equipados do jogador. Itens quebrados (durabilidade 0)
-     * não contribuem — nem a base nem as joias.
+     * Soma TUDO do gear equipado numa só passada: itens efetivos + joias + afixos.
+     * Itens quebrados (durabilidade 0) não contribuem (nem base, nem joias, nem afixos).
+     * Joias e afixos carregados em batch (findAllByItemIn) — sem N+1. [AUDITORIA A9 / ITENS_V2]
      */
-    public ItemBonus equippedItemBonus(Player player) {
+    public GearBonus equippedGear(Player player) {
         List<InventoryItem> equipped = inventoryRepository.findAllByPlayer(player).stream()
                 .filter(InventoryItem::isEquipped)
                 .filter(i -> !i.isBroken())
                 .toList();
-        if (equipped.isEmpty()) return ItemBonus.NONE;
+        if (equipped.isEmpty()) return GearBonus.NONE;
 
         int atk = equipped.stream().mapToInt(InventoryItem::getEffectiveAttack).sum();
         int def = equipped.stream().mapToInt(InventoryItem::getEffectiveDefense).sum();
         int hp  = equipped.stream().mapToInt(InventoryItem::getEffectiveHealth).sum();
+        int str = 0, dex = 0, luk = 0;
 
         // Joias de todos os itens equipados em uma única query (evita N+1)
         Map<Long, List<SocketedGem>> gemsByItem = gemRepository.findAllByItemIn(equipped).stream()
@@ -58,7 +68,30 @@ public class WarriorStatsService {
                 atk += b.atk(); def += b.def(); hp += b.hp();
             }
         }
-        return new ItemBonus(atk, def, hp);
+
+        // Afixos de todos os itens equipados em uma única query (Itens V2). [ITENS_V2]
+        Map<Long, List<ItemAffix>> affByItem = affixRepository.findAllByItemIn(equipped).stream()
+                .collect(Collectors.groupingBy(a -> a.getItem().getId()));
+        for (InventoryItem item : equipped) {
+            for (ItemAffix a : affByItem.getOrDefault(item.getId(), List.of())) {
+                int m = a.getMagnitude();
+                switch (a.getAffix().stat) {
+                    case ATK -> atk += m;
+                    case DEF -> def += m;
+                    case HP  -> hp  += m;
+                    case STR -> str += m;
+                    case DEX -> dex += m;
+                    case LUK -> luk += m;
+                }
+            }
+        }
+        return new GearBonus(atk, def, hp, str, dex, luk);
+    }
+
+    /** Compat: bônus plano (atk/def/hp) do gear equipado, já incluindo afixos planos. */
+    public ItemBonus equippedItemBonus(Player player) {
+        GearBonus g = equippedGear(player);
+        return new ItemBonus(g.atk(), g.def(), g.hp());
     }
 
     /**
@@ -67,15 +100,15 @@ public class WarriorStatsService {
      * (slots do Templo + slot "Bem Alimentado" da refeição). [A1 / COZINHA]
      */
     public int[] combatStats(Player player, Warrior warrior) {
-        ItemBonus b = equippedItemBonus(player);
-        int[] buff = activeBuffBonuses(warrior); // {atk, def, hp, eva}
+        GearBonus g = equippedGear(player);          // planos + atributos de afixo [ITENS_V2]
+        int[] buff = activeBuffBonuses(warrior);     // {atk, def, hp, eva}
         return new int[]{
-            warrior.getTotalBaseAttack()  + b.atk() + buff[0],
-            warrior.getTotalBaseDefense() + b.def() + buff[1],
-            warrior.getTotalBaseHealth()  + b.hp()  + buff[2],
-            warrior.getDexterity()        + buff[3],   // [3] dex → AC = 10 + dex (evasão de buff = AC plano)
-            warrior.getAttackBonus(),                  // [4] floor(STR/20)
-            warrior.getLuck()                          // [5] luk → crit window + Fortune Save
+            warrior.getTotalBaseAttack()  + g.atk() + g.str() + buff[0], // afixo STR = +1 ATK/pt
+            warrior.getTotalBaseDefense() + g.def() + buff[1],
+            warrior.getTotalBaseHealth()  + g.hp()  + buff[2],
+            warrior.getDexterity()        + g.dex() + buff[3],   // [3] dex → AC = 10 + dex
+            (warrior.getStrength() + g.str()) / 20,              // [4] floor(STR efetivo/20)
+            warrior.getLuck()             + g.luk()              // [5] luk → crit window + Fortune Save
         };
     }
 

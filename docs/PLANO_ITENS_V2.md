@@ -1,8 +1,17 @@
 # Plano — Itemização Profunda (Itens V2)
 
-> Documento de planejamento (fase de design). Decisões tomadas com o dono em 2026-06-04.
-> **Status: design travado para a Fase A. Não implementado ainda.**
-> Regra do projeto: discutir + documentar ANTES de codar (este doc) — implementar depois.
+> Documento de planejamento. Decisões tomadas com o dono em 2026-06-04.
+> **Status: Fase A IMPLEMENTADA (445 testes verdes). Fase B (Sets) pendente.**
+> Regra do projeto: discutir + documentar ANTES de codar.
+>
+> **Ajustes feitos na implementação (vs. design original):**
+> - **Nome:** só o 1º **prefixo** vira adjetivo no nome (evita "of X of the Y" duplo); todos os afixos
+>   (prefixo+sufixo) aparecem como **linhas de bônus** no card.
+> - **Fontes do Lendário:** **Caça ao Chefe** (~6%) + **raid de reino** top-tier (~5%). A Torre não
+>   dropa item hoje (escada de chefe sem loot), então ficou de fora — vira fonte numa rodada futura.
+> - **Mail:** itens só vão pro mail em "bag cheia" (auto-envio pra si). Afixos são rolados **no claim**
+>   (mesma raridade → mesmo resultado aleatório), sem precisar de coluna de afixo no mail.
+> - **Atributos de afixo:** STR = +1 ATK/pt (+ floor(STR/20)); DEX = +AC; LUK = +crit/drop.
 
 ---
 

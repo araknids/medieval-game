@@ -429,7 +429,8 @@ public class KingdomService {
         int total = dropChance + luck + guildBonus;
         if (rng.nextInt(100) >= total) return null;
 
-        int rarity = dropChance >= 60 ? (rng.nextBoolean() ? 3 : 4)
+        // Top tier (dropChance>=60) tem ~5% de chance de Lendário (5). [ITENS_V2]
+        int rarity = dropChance >= 60 ? (rng.nextInt(100) < 5 ? 5 : (rng.nextBoolean() ? 3 : 4))
                    : dropChance >= 40 ? (rng.nextBoolean() ? 2 : 3)
                    : dropChance >= 25 ? (rng.nextBoolean() ? 1 : 2)
                    : 1;
@@ -444,7 +445,7 @@ public class KingdomService {
         int hp  = rng.nextInt(maxHp  + 1);
         if (atk == 0 && def == 0 && hp == 0) { switch(rng.nextInt(3)){case 0->atk=1;case 1->def=1;default->hp=rarity*4;} }
 
-        long price = switch (rarity) { case 2->150L; case 3->400L; case 4->1000L; default->25L; };
+        long price = switch (rarity) { case 2->150L; case 3->400L; case 4->1000L; case 5->2500L; default->25L; };
         String name   = itemName(type, rarity, rng);
         String lore   = loreGenerator.generateLore(rarity, type, rng);
         String origin = loreGenerator.originFromQuest("Kingdom Quest");
@@ -475,7 +476,8 @@ public class KingdomService {
         String[] suffixes = switch (rarity) {
             case 2 -> new String[]{"of Steel", "of Chainmail", "of Silver"};
             case 3 -> new String[]{"of the Elves", "of the Warrior", "Enchanted"};
-            case 4 -> new String[]{"Legendary", "of the Dragon", "Cursed"};
+            case 4 -> new String[]{"of the Dragon", "Cursed", "of Valor"};
+            case 5 -> new String[]{"of the Ancients", "Mythic", "of Eternity"}; // Lendário [ITENS_V2]
             default -> new String[]{"of Iron", "of Leather", "of Wood"};
         };
         return bases[rng.nextInt(bases.length)] + " " + suffixes[rng.nextInt(suffixes.length)];

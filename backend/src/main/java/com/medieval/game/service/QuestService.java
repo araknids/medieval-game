@@ -171,7 +171,8 @@ public class QuestService {
             case PATROL    -> 1;
             case DUNGEON   -> rng.nextBoolean() ? 1 : 2;
             case RAID      -> rng.nextBoolean() ? 2 : 3;
-            case BOSS_HUNT -> rng.nextBoolean() ? 3 : 4;
+            // BOSS_HUNT: ~6% Lendário (5), resto dividido entre Épico (4) e Raro (3). [ITENS_V2]
+            case BOSS_HUNT -> { int r = rng.nextInt(100); yield r < 6 ? 5 : (r < 53 ? 4 : 3); }
         };
 
         return generateItem(player, rarity, rng, type.displayName);
@@ -199,7 +200,7 @@ public class QuestService {
         }
 
         long sellPrice = switch (rarity) {
-            case 2 -> 150; case 3 -> 400; case 4 -> 1000; default -> 25;
+            case 2 -> 150; case 3 -> 400; case 4 -> 1000; case 5 -> 2500; default -> 25;
         };
 
         String name   = itemName(type, rarity, rng);
@@ -232,7 +233,8 @@ public class QuestService {
         String[] suffixes = switch (rarity) {
             case 2 -> new String[]{"of Steel", "of Chainmail", "of Silver"};
             case 3 -> new String[]{"of the Elves", "of the Warrior", "Enchanted"};
-            case 4 -> new String[]{"Legendary", "of the Dragon", "Cursed"};
+            case 4 -> new String[]{"of the Dragon", "Cursed", "of Valor"};
+            case 5 -> new String[]{"of the Ancients", "Mythic", "of Eternity"}; // Lendário [ITENS_V2]
             default -> new String[]{"of Iron", "of Leather", "of Wood"};
         };
         return bases[rng.nextInt(bases.length)] + " " + suffixes[rng.nextInt(suffixes.length)];

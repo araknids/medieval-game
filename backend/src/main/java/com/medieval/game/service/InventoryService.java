@@ -1,15 +1,21 @@
 package com.medieval.game.service;
 
+import com.medieval.game.enums.Affix;
 import com.medieval.game.enums.ItemType;
 import com.medieval.game.model.InventoryItem;
+import com.medieval.game.model.ItemAffix;
 import com.medieval.game.model.Player;
 import com.medieval.game.repository.InventoryItemRepository;
+import com.medieval.game.repository.ItemAffixRepository;
 import com.medieval.game.repository.PlayerRepository;
+import com.medieval.game.repository.SocketedGemRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 
 @Slf4j
@@ -22,6 +28,8 @@ public class InventoryService {
     private final InventoryItemRepository inventoryRepository;
     private final PlayerRepository        playerRepository;
     private final ItemLoreGenerator       loreGenerator;
+    private final ItemAffixRepository     affixRepository;
+    private final SocketedGemRepository   gemRepository;
 
     private static final java.util.Random RNG = new java.util.Random();
 
@@ -140,6 +148,8 @@ public class InventoryService {
         long effectivePrice = Math.round(item.getSellPrice() * Math.max(0.30, item.getDurability() / 100.0));
         player.addBronzeAmount(effectivePrice); // sell price é em bronze
         playerRepository.save(player);
+        gemRepository.deleteAllByItem(item);    // limpa joias (FK) antes de remover o item
+        affixRepository.deleteByItem(item);     // limpa afixos (FK) — Itens V2
         inventoryRepository.delete(item);
         item.setSellPrice(effectivePrice); // reflete na resposta o valor efetivamente recebido
         log.info("[InventoryService] player={} action=sell OK itemId={} name={} bronze={}", player.getId(), itemId, item.getName(), effectivePrice);
@@ -185,6 +195,46 @@ public class InventoryService {
         item.setSellPrice(sellPrice);
         item.setDescription(description);
         item.setOrigin(origin);
-        return inventoryRepository.save(item);
+        if (rarity >= 5) item.setSockets(3); // Lendário: sockets no máximo [ITENS_V2]
+        InventoryItem saved = inventoryRepository.save(item);
+        rollAffixesFor(saved, true); // Itens V2: afixos por raridade (no-op p/ Comum), renomeia com prefixo
+        return saved;
+    }
+
+    // ── Afixos (Itens V2) ───────────────────────────────────────────────────────
+
+    /**
+     * Rola os afixos do item conforme a raridade (Comum 0 … Lendário 4), substituindo os anteriores.
+     * Distintos, sorteados de um pool embaralhado. Se {@code rename}, prefixa o 1º adjetivo (PREFIX)
+     * no nome (usado na criação; reforge mantém o nome). Atributos (STR/DEX/LUK) entram no combate
+     * via WarriorStatsService. No-op para raridade < 2.
+     */
+    @Transactional
+    public void rollAffixesFor(InventoryItem item, boolean rename) {
+        affixRepository.deleteByItem(item); // limpa antigos (reforge re-rola)
+        int count = item.getRarity() - 1;   // 1→0, 2→1, 3→2, 4→3, 5→4
+        if (count <= 0) return;
+
+        List<Affix> pool = new ArrayList<>(List.of(Affix.values()));
+        Collections.shuffle(pool, RNG);
+        List<Affix> chosen = pool.subList(0, Math.min(count, pool.size()));
+
+        for (Affix a : chosen) {
+            ItemAffix ia = new ItemAffix();
+            ia.setItem(item);
+            ia.setAffix(a);
+            ia.setMagnitude(a.rollMagnitude(item.getRarity()));
+            affixRepository.save(ia);
+        }
+
+        if (rename) {
+            chosen.stream()
+                    .filter(a -> a.position == Affix.Position.PREFIX)
+                    .findFirst()
+                    .ifPresent(p -> {
+                        item.setName(p.word + " " + item.getName());
+                        inventoryRepository.save(item);
+                    });
+        }
     }
 }

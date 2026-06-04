@@ -429,6 +429,12 @@ section {
 .item-origin { color: #5b9bd5; font-size: .68rem; margin-top: .05rem; }
 .rarity-1 { color: #aaa; } .rarity-2 { color: #4caf82; }
 .rarity-3 { color: #5b9bd5; } .rarity-4 { color: #c97ddb; }
+.rarity-5 { color: #e6a23c; text-shadow: 0 0 6px rgba(230,162,60,.45); } /* Lendário [ITENS_V2] */
+
+/* Afixos de item (Itens V2) */
+.item-affixes { display: flex; flex-direction: column; gap: 1px; margin-top: .15rem; }
+.affix-line   { color: #9d7bd8; font-size: .68rem; }
+.affix-line b { color: #c9a84c; font-weight: 600; }
 .btn-equip {
   padding: 0.2rem 0.55rem; background: transparent;
   border: 1px solid #c9a84c; color: #c9a84c;

@@ -25,6 +25,7 @@ import java.util.List;
 public class MaintenanceService {
 
     private final SocketedGemRepository        socketedGemRepository;
+    private final ItemAffixRepository          itemAffixRepository;
     private final InventoryItemRepository      inventoryItemRepository;
     private final ActiveQuestRepository        activeQuestRepository;
     private final WorkSessionRepository        workSessionRepository;
@@ -58,6 +59,7 @@ public class MaintenanceService {
     public int softWipe() {
         // 1) Apaga progressão (filhos antes dos pais por causa das FKs)
         socketedGemRepository.deleteAllInBatch();
+        itemAffixRepository.deleteAllInBatch(); // Itens V2: afixos antes dos itens (FK)
         inventoryItemRepository.deleteAllInBatch();
         activeQuestRepository.deleteAllInBatch();
         workSessionRepository.deleteAllInBatch();

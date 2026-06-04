@@ -211,9 +211,22 @@ Sem teto — progressão exponencialmente mais difícil inspirada em Tibia.
 Capacete, Armadura, Espada, Escudo, Calça, Bota, Luva, Ombreira, Colar, Anel
 
 ### Itens
-- Raridades: Comum (cinza), Incomum (verde), Raro (azul), Épico (roxo)
+- Raridades: Comum (cinza), Incomum (verde), Raro (azul), Épico (roxo), **Lendário (dourado)** — Itens V2
 - Cada item tem: `description` (lore) e `origin` (onde foi encontrado) — gerados automaticamente
 - Itens craftados têm 1-2 sockets garantidos
+
+### Afixos (Itens V2 — Fase A)
+- Cada item rola **afixos aleatórios** pela raridade: Comum 0 · Incomum 1 · Raro 2 · Épico 3 · **Lendário 4**
+- Afixo concede **stat plano** (ATK/DEF/HP) **ou atributo** (+STR/+DEX/+LUK), reusando o sistema D&D
+  (STR→+1 ATK/pt, DEX→AC, LUK→crit/drop). Magnitude escala com a raridade.
+- **Prefixo** vira adjetivo no nome ("Sharp Sword of Steel"); todos os afixos aparecem como linhas no card.
+- Pool: prefixos (Sharp/Heavy/Sturdy/Brutal/Swift/Lucky) + sufixos (of the Tiger/Turtle/Bear/Ox/Fox/Cat).
+- **Reforjar na Forja re-rola os afixos** (mantém o nome) — caça ao roll perfeito + dreno de bronze.
+- Afixos de item **quebrado** (durabilidade 0) não contam, como base e joias.
+
+### Tier Lendário (Itens V2)
+- Raridade 5, cor dourada; **sempre com 3 sockets** e **4 afixos**. Stats escalam (orçamento × raridade).
+- Fontes raras: **Caça ao Chefe** (~6%) e **raid de reino** top-tier (~5%). Topo da cadeia de loot.
 
 ### Sockets e Joias
 - Itens podem ter 0-3 sockets dependendo da raridade
