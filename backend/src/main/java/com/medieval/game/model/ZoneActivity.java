@@ -78,8 +78,10 @@ public class ZoneActivity {
     private String lastAmbushLog;
 
     public boolean isReadyToCollect() {
+        // >= em vez de > estrito: pronta quando o tempo chega (consistente com KingdomActiveQuest/
+        // GatheringSession). Evita flake no instant-complete, onde endsAt == now() no mesmo instante.
         return status == ZoneActivityStatus.IN_PROGRESS
-                && LocalDateTime.now().isAfter(endsAt);
+                && !LocalDateTime.now().isBefore(endsAt);
     }
 
     public boolean isDefeated() {

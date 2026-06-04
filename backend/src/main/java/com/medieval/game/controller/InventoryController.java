@@ -13,6 +13,7 @@ import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 @RestController
 @RequestMapping("/api/inventory")
@@ -26,9 +27,15 @@ public class InventoryController {
     @GetMapping
     public ResponseEntity<List<ItemResponse>> getInventory(Authentication auth) {
         Player player = getPlayer(auth);
+        List<InventoryItem> items = inventoryService.getInventory(player);
+        // A9: carrega as joias de TODOS os itens em 1 query só (evita N+1: era 1 query por item).
+        Map<Long, List<SocketedGem>> gemsByItem = items.isEmpty()
+                ? Map.of()
+                : gemRepository.findAllByItemIn(items).stream()
+                        .collect(Collectors.groupingBy(g -> g.getItem().getId()));
         return ResponseEntity.ok(
-            inventoryService.getInventory(player).stream()
-                .map(i -> ItemResponse.from(i, gemRepository.findAllByItem(i)))
+            items.stream()
+                .map(i -> ItemResponse.from(i, gemsByItem.getOrDefault(i.getId(), List.of())))
                 .toList()
         );
     }
