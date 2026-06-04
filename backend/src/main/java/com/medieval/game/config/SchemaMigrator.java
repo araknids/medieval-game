@@ -190,6 +190,7 @@ public class SchemaMigrator {
             jdbc.execute("ALTER TABLE players ADD COLUMN IF NOT EXISTS last_arena_fight_date    date");
             jdbc.execute("ALTER TABLE players ADD COLUMN IF NOT EXISTS vip_instant_quests_today integer NOT NULL DEFAULT 0");
             jdbc.execute("ALTER TABLE players ADD COLUMN IF NOT EXISTS last_vip_quest_date      date");
+            jdbc.execute("ALTER TABLE players ADD COLUMN IF NOT EXISTS token_valid_from         timestamp"); // M6
             log.info("[SchemaMigrator] players VIP columns ensured");
         } catch (Exception e) {
             log.warn("[SchemaMigrator] players VIP columns patch failed: {}", e.getMessage());

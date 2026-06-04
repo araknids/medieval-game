@@ -22,6 +22,11 @@ public interface PlayerRepository extends JpaRepository<Player, Long> {
     @Query("SELECT p.guild FROM Player p WHERE p.id = :playerId")
     Optional<Guild> findGuildByPlayerId(@Param("playerId") Long playerId);
 
+    // M6: lê só o instante de invalidação de token (projeção leve, 1 coluna) p/ o filtro JWT.
+    // Optional vazio = sem restrição (valor null) OU player inexistente — ambos tratados como "sem trava".
+    @Query("SELECT p.tokenValidFrom FROM Player p WHERE p.id = :playerId")
+    Optional<java.time.LocalDateTime> findTokenValidFrom(@Param("playerId") Long playerId);
+
     // Matchmaking de arena: candidatos mais próximos em rank (limitado no banco,
     // não carrega todos os jogadores). [AUDITORIA M14]
     @Query("SELECT p FROM Player p WHERE p.id <> :id ORDER BY ABS(p.rankPoints - :rank)")

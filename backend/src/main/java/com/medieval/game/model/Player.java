@@ -135,4 +135,8 @@ public class Player {
 
     @Column(nullable = false)
     private LocalDateTime createdAt = LocalDateTime.now();
+
+    // M6: tokens emitidos ANTES deste instante são rejeitados (setado ao trocar/resetar a senha).
+    // null = sem restrição (registro novo / nunca trocou a senha).
+    private LocalDateTime tokenValidFrom;
 }

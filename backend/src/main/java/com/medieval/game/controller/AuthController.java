@@ -157,6 +157,7 @@ public class AuthController {
         Player player = playerRepository.findById(reset.getPlayer().getId())
                 .orElseThrow(() -> new IllegalArgumentException("Player not found"));
         player.setPasswordHash(passwordEncoder.encode(newPassword));
+        player.setTokenValidFrom(java.time.LocalDateTime.now()); // M6: invalida tokens emitidos antes do reset
         playerRepository.save(player);
 
         reset.setUsed(true);
