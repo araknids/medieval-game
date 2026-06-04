@@ -51,6 +51,23 @@ public class ZoneController {
         return ResponseEntity.ok(zones);
     }
 
+    // Status de PvP por flag do jogador (exposto/protegido). [PVP_FLAG]
+    @GetMapping("/pvp-status")
+    public ResponseEntity<?> pvpStatus(Authentication auth) {
+        Player player = getPlayer(auth);
+        long flagMin = player.isPvpFlagged()
+                ? Math.max(0, ChronoUnit.MINUTES.between(LocalDateTime.now(), player.getPvpFlaggedUntil()) + 1) : 0;
+        long shieldMin = player.isPvpShielded()
+                ? Math.max(0, ChronoUnit.MINUTES.between(LocalDateTime.now(), player.getPvpShieldUntil()) + 1) : 0;
+        return ResponseEntity.ok(Map.of(
+            "flagged",           player.isPvpFlagged(),
+            "flaggedZone",       player.getPvpFlaggedZone() != null ? player.getPvpFlaggedZone().displayName : "",
+            "flagMinutesLeft",   flagMin,
+            "shielded",          player.isPvpShielded(),
+            "shieldMinutesLeft", shieldMin
+        ));
+    }
+
     // Expedição ativa do jogador
     @GetMapping("/current")
     public ResponseEntity<?> getCurrent(Authentication auth) {

@@ -2,7 +2,6 @@ package com.medieval.game.integration;
 
 import com.medieval.game.enums.ResourceType;
 import com.medieval.game.enums.Zone;
-import com.medieval.game.enums.ZoneActivityStatus;
 import com.medieval.game.model.Player;
 import com.medieval.game.model.Warrior;
 import com.medieval.game.model.ZoneActivity;
@@ -15,8 +14,6 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-
-import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.hamcrest.Matchers.*;
@@ -32,6 +29,7 @@ class ZoneAmbushIntegrationTest extends BaseIntegrationTest {
     @Autowired ZoneActivityRepository   activityRepository;
     @Autowired GatheringService         gatheringService;
     @Autowired MailService              mailService;
+    @Autowired com.medieval.game.service.ZoneService zoneService;
 
     String token;
 
@@ -144,55 +142,126 @@ class ZoneAmbushIntegrationTest extends BaseIntegrationTest {
                 .andExpect(jsonPath("$.letters[0].message").value(containsString("ambushed")));
     }
 
-    // ── TC-217: Pool de oponentes — 2 players IN_PROGRESS na mesma zona ──
+    // ── TC-217: Pool de FLAGGED — 2 players expostos na mesma zona PvP [PVP_FLAG] ──
     @Test
-    @DisplayName("TC-217 | Two players IN_PROGRESS → each is in the other's opponent pool")
-    void tc217_opponentPool() throws Exception {
-        // Player A (this test's token) enters PVP zone
+    @DisplayName("TC-217 | Two flagged players → each is in the other's flag pool")
+    void tc217_flaggedPool() throws Exception {
         Player a = playerOf("amb");
         warriorOf(a);
-        createInProgressActivity(a, Zone.PVP);
+        flagPlayer(a, Zone.PVP);
 
-        // Player B
         registerAndGetToken(uniqueUser("amb"));
         Player b = playerOf("amb");
-        createInProgressActivity(b, Zone.PVP);
+        flagPlayer(b, Zone.PVP);
 
-        List<ZoneActivity> poolForA = activityRepository.findAllByZoneAndStatusAndPlayerNot(
-                Zone.PVP, ZoneActivityStatus.IN_PROGRESS, a);
-        List<ZoneActivity> poolForB = activityRepository.findAllByZoneAndStatusAndPlayerNot(
-                Zone.PVP, ZoneActivityStatus.IN_PROGRESS, b);
+        var poolForA = playerRepository.findFlaggedInZone(Zone.PVP, java.time.LocalDateTime.now(), a.getId());
+        var poolForB = playerRepository.findFlaggedInZone(Zone.PVP, java.time.LocalDateTime.now(), b.getId());
 
-        assertThat(poolForA).anyMatch(act -> act.getPlayer().getId().equals(b.getId()));
-        assertThat(poolForB).anyMatch(act -> act.getPlayer().getId().equals(a.getId()));
-        // self-exclusion
-        assertThat(poolForA).noneMatch(act -> act.getPlayer().getId().equals(a.getId()));
+        assertThat(poolForA).anyMatch(p -> p.getId().equals(b.getId()));
+        assertThat(poolForB).anyMatch(p -> p.getId().equals(a.getId()));
+        assertThat(poolForA).noneMatch(p -> p.getId().equals(a.getId())); // self-exclusion
     }
 
-    // ── TC-218: Pool vazio — único player na zona ──
+    // ── TC-218: Flag de outra zona / expirado não aparece no pool [PVP_FLAG] ──
     @Test
-    @DisplayName("TC-218 | Single player in zone → opponent pool is empty")
-    void tc218_emptyPool() {
+    @DisplayName("TC-218 | Other-zone or expired flag → not in pool")
+    void tc218_expiredOrOtherZoneExcluded() {
         Player a = playerOf("amb");
         warriorOf(a);
-        createInProgressActivity(a, Zone.HIGH_RISK);
 
-        List<ZoneActivity> pool = activityRepository.findAllByZoneAndStatusAndPlayerNot(
-                Zone.HIGH_RISK, ZoneActivityStatus.IN_PROGRESS, a);
-        assertThat(pool).isEmpty();
+        // flag em HIGH_RISK → não aparece ao consultar PVP
+        flagPlayer(a, Zone.HIGH_RISK);
+        assertThat(playerRepository.findFlaggedInZone(Zone.PVP, java.time.LocalDateTime.now(), -1L))
+                .noneMatch(p -> p.getId().equals(a.getId()));
+
+        // flag expirado em PVP → não aparece (re-busca fresco p/ evitar version stale)
+        Player a2 = playerRepository.findById(a.getId()).orElseThrow();
+        a2.setPvpFlaggedZone(Zone.PVP);
+        a2.setPvpFlaggedUntil(java.time.LocalDateTime.now().minusMinutes(1));
+        playerRepository.save(a2);
+        assertThat(playerRepository.findFlaggedInZone(Zone.PVP, java.time.LocalDateTime.now(), -1L))
+                .noneMatch(p -> p.getId().equals(a.getId()));
     }
 
-    // Helper: create an IN_PROGRESS zone activity directly
-    private void createInProgressActivity(Player p, Zone zone) {
-        ZoneActivity act = new ZoneActivity();
-        act.setPlayer(p);
-        act.setZone(zone);
-        act.setRole(com.medieval.game.enums.ActivityRole.GATHERING);
-        act.setSkillType(com.medieval.game.enums.SkillType.FISHING);
-        act.setDurationMinutes(60);
-        act.setStartedAt(java.time.LocalDateTime.now());
-        act.setEndsAt(java.time.LocalDateTime.now().plusHours(1));
-        act.setStatus(ZoneActivityStatus.IN_PROGRESS);
-        activityRepository.save(act);
+    // ── TC-219: Farmar zona PvP e sobreviver → fica flagged por 1h [PVP_FLAG] ──
+    @Test
+    @DisplayName("TC-219 | Farming a PvP zone flags the player")
+    void tc219_farmingFlagsPlayer() throws Exception {
+        Player player = playerOf("amb");
+        Warrior w = warriorOf(player);
+        // guerreiro forte: flag só é setado se sobreviver ao encontro (NPC/raid)
+        w.setLevel(15); w.setAttack(500); w.setDefense(500); w.setHealth(500);
+        w.setStrength(100); w.setConstitution(100);
+        w.setCurrentHpSnapshot(100); w.setHpUpdatedAt(java.time.LocalDateTime.now());
+        warriorRepository.save(w);
+
+        String resp = mockMvc.perform(post("/api/zones/enter")
+                .header("Authorization", bearer(token))
+                .contentType(org.springframework.http.MediaType.APPLICATION_JSON)
+                .content("{\"zone\":\"PVP\",\"role\":\"GATHERING\",\"skillType\":\"FISHING\",\"durationMinutes\":60}"))
+                .andExpect(status().isOk())
+                .andReturn().getResponse().getContentAsString();
+        long activityId = objectMapper.readTree(resp).get("id").asLong();
+
+        mockMvc.perform(post("/api/zones/" + activityId + "/collect")
+                .header("Authorization", bearer(token)))
+                .andExpect(status().isOk());
+
+        Player after = playerRepository.findById(player.getId()).orElseThrow();
+        assertThat(after.isPvpFlagged()).isTrue();
+        assertThat(after.getPvpFlaggedZone()).isEqualTo(Zone.PVP);
+    }
+
+    // ── TC-220: Raid de player flagged → vítima perde bronze, ganha escudo e flag cai [PVP_FLAG] ──
+    @Test
+    @DisplayName("TC-220 | Raiding a flagged victim steals bronze + shields victim")
+    void tc220_raidLootsFlaggedVictim() throws Exception {
+        // Vítima: exposta em HIGH_RISK com bronze na bolsa
+        Player victim = playerOf("amb");
+        warriorOf(victim);
+        victim.addBronzeAmount(10_000);
+        flagPlayer(victim, Zone.HIGH_RISK); // também salva
+        long bronzeBefore = playerRepository.findById(victim.getId()).orElseThrow().totalBronze();
+
+        // Atacante: separado e imbatível (flag só lhe é setado se sobreviver; raid só se vencer)
+        registerAndGetToken(uniqueUser("amb"));
+        Player attacker = playerOf("amb");
+        Warrior aw = warriorOf(attacker);
+        aw.setLevel(25); aw.setAttack(800); aw.setDefense(800); aw.setHealth(800);
+        aw.setStrength(200); aw.setConstitution(200);
+        warriorRepository.save(aw);
+
+        boolean raided = false;
+        for (int i = 0; i < 120 && !raided; i++) {
+            try {
+                Player atk = playerRepository.findById(attacker.getId()).orElseThrow();
+                Warrior w = warriorRepository.findByPlayer(atk).orElseThrow();
+                w.setOnMission(false);
+                w.setCurrentHpSnapshot(100);
+                w.setHpUpdatedAt(java.time.LocalDateTime.now());
+                warriorRepository.save(w);
+
+                var act = zoneService.enter(atk, Zone.HIGH_RISK,
+                        com.medieval.game.enums.ActivityRole.GATHERING,
+                        com.medieval.game.enums.SkillType.FISHING, 60);
+                zoneService.collect(playerRepository.findById(attacker.getId()).orElseThrow(), act.getId());
+            } catch (Exception ignore) {
+                // conflito transitório de versão → tenta de novo
+            }
+            raided = playerRepository.findById(victim.getId()).orElseThrow().isPvpShielded();
+        }
+
+        assertThat(raided).as("vítima deveria ter sido saqueada em até 120 farms").isTrue();
+        Player v = playerRepository.findById(victim.getId()).orElseThrow();
+        assertThat(v.isPvpShielded()).isTrue();              // escudo pós-derrota
+        assertThat(v.isPvpFlagged()).isFalse();              // flag caiu (saqueado 1x por ciclo)
+        assertThat(v.totalBronze()).isLessThan(bronzeBefore); // bronze roubado no raid
+    }
+
+    // Helper: expõe um player numa zona (flagged por 1h)
+    private void flagPlayer(Player p, Zone zone) {
+        p.setPvpFlaggedZone(zone);
+        p.setPvpFlaggedUntil(java.time.LocalDateTime.now().plusHours(1));
+        playerRepository.save(p);
     }
 }

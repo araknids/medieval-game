@@ -42,9 +42,16 @@ ser o gate; a **estamina** é. Sem espera, sem "coletar depois".
    (senão seria bronze infinito; nº de horas = dial recompensa×estamina). Regen 100% em 1h. O flag
    `instant-complete` agora controla só o **bypass de estamina** (teste). Front já lidava com instantâneo.
    *(Polish pendente: labels de duração nas quests viraram cosméticos; mostrar custo de estamina do trabalho.)*
-2. **Fase 2 — PvP de Zona com Flag.** Campos de flag/escudo; flag ao farmar zona PvP; encontro ao entrar;
-   roubo de loot (bag+equip não-protegidos; stash/templo imunes); escudo pós-derrota; NPC flagged de preenchimento.
-   Remove a emboscada-no-collect atual.
+2. **Fase 2 — PvP de Zona com Flag.** ✅ **FEITA.** `Player` ganhou `pvpFlaggedZone`/`pvpFlaggedUntil`/`pvpShieldUntil`
+   (+ migração). Farm de zona = **instantâneo** (`endsAt=agora`); sobreviver numa zona PvP/Alto-Risco te deixa
+   **flagged 1h**. No `collect`, o roll de encontro busca um **player flagged** na zona (`findFlaggedInZone`, sem
+   escudo) → combate (PvP %HP); vencendo, o atacante **saqueia** bronze (15%) + 1 item não-protegido (35%, `!stashed`
+   `!guarded`) + ~25% dos recursos da bag → tudo transferido (clamp na bag). A vítima ganha **escudo 1h** + o flag cai
+   (saqueado 1x/ciclo) + mail. Sem player flagged → **NPC ambusher** de preenchimento (PvP solo/early funciona).
+   Stash + Templo imunes (`!stashed`/`!guarded`). UI: banner de exposto/protegido (`GET /api/zones/pvp-status`) +
+   resumo do raid no battle log. **Bug corrigido de quebra:** `collect` recarrega o `player` como *managed* (o detached
+   do controller, salvo 2x num raid-win, dava `OptimisticLockException`). 466 testes verdes (TC-217..220 cobrem pool de
+   flag, flag-on-farm e raid ponta-a-ponta).
 3. **Fase 3 — Arena instantânea.** Converter a arena assíncrona (timer 1min) em duelo instantâneo por rank.
 
 Cada fase: verde (full suite) + docs + commit.

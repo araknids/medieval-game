@@ -32,9 +32,13 @@ public class ZoneService {
     private final MailService              mailService;
     private final InventoryService         inventoryService;
     private final WarriorStatsService      statsService;
+    private final ResourceInventoryRepository resourceRepo; // raid de recursos [PVP_FLAG]
 
     @Value("${app.dev.instant-complete:false}")
     private boolean instantComplete;
+
+    private static final int PVP_FLAG_MINUTES   = 60; // exposto por 1h após farmar zona PvP
+    private static final int PVP_SHIELD_MINUTES  = 60; // imune por 1h após ser saqueado (1x por ciclo)
 
     // ── Entrar na zona ──
 
@@ -100,9 +104,7 @@ public class ZoneService {
         activity.setSkillType(skillType);
         activity.setDurationMinutes(durationMinutes);
         activity.setStartedAt(LocalDateTime.now());
-        activity.setEndsAt(instantComplete
-                ? LocalDateTime.now()
-                : LocalDateTime.now().plusMinutes(durationMinutes));
+        activity.setEndsAt(LocalDateTime.now()); // [SEM_TIMER] farm de zona instantâneo
         ZoneActivity saved = activityRepository.save(activity);
         log.info("[ZoneService] player={} action=enter OK id={}", player.getId(), saved.getId());
         return saved;
@@ -116,7 +118,11 @@ public class ZoneService {
                                 String lostItemName) {}
 
     @Transactional
-    public CollectResult collect(Player player, Long activityId) {
+    public CollectResult collect(Player playerArg, Long activityId) {
+        // Recarrega o player como MANAGED nesta tx. O controller passa um detached; sem isto,
+        // salvá-lo mais de uma vez (ex.: vencedor do raid + flag) faria merges de versão velha
+        // com auto-flush no meio → OptimisticLockException. [PVP_FLAG]
+        final Player player = playerRepository.findById(playerArg.getId()).orElse(playerArg);
         log.info("[ZoneService] player={} action=collect activityId={}", player.getId(), activityId);
         ZoneActivity activity = activityRepository.findById(activityId)
                 .orElseThrow(() -> new IllegalArgumentException("Expedition not found"));
@@ -228,6 +234,14 @@ public class ZoneService {
             });
         }
 
+        // [PVP_FLAG] Farmou zona PvP/Alto Risco e sobreviveu → fica EXPOSTO por 1h (vira alvo de raid).
+        if ((activity.getZone() == Zone.PVP || activity.getZone() == Zone.HIGH_RISK)
+                && activity.getStatus() == ZoneActivityStatus.COMPLETED) {
+            player.setPvpFlaggedZone(activity.getZone());
+            player.setPvpFlaggedUntil(LocalDateTime.now().plusMinutes(PVP_FLAG_MINUTES));
+            playerRepository.save(player);
+        }
+
         // Libera o guerreiro
         warriorRepository.findByPlayer(player).ifPresent(w -> {
             w.setOnMission(false);
@@ -335,160 +349,144 @@ public class ZoneService {
      * between encounters. Returns the attacker's overall outcome.
      */
     private PvpResult resolveEncounters(Player player, ZoneActivity activity) {
-        Zone   zone  = activity.getZone();
-        int    hours = Math.max(1, activity.getDurationMinutes() / 60);
-        Random rng   = java.util.concurrent.ThreadLocalRandom.current();
+        Zone   zone = activity.getZone();
+        Random rng  = java.util.concurrent.ThreadLocalRandom.current();
 
         Warrior attacker = warriorRepository.findByPlayer(player).orElse(null);
         if (attacker == null) return new PvpResult(false, true, 0, null, List.of());
 
         int[] atkStats = getWarriorStats(attacker, player);
         int   atkMaxHp = atkStats[2];
-        int   atkHp    = attacker.getCalculatedHpPercent() * atkMaxHp / 100; // current absolute HP
+        int   atkHp    = attacker.getCalculatedHpPercent() * atkMaxHp / 100;
 
-        boolean anyEncounter = false;
-        List<String> lastLog  = List.of();
-        String       lastFoe  = null;
-
-        for (int h = 0; h < hours; h++) {
-
-            // ── PvP: ambush another in-progress player ──
-            if (zone.encounterChancePerHour > 0 && rng.nextInt(100) < zone.encounterChancePerHour) {
-                ZoneActivity targetAct = findOpponentActivity(zone, player, rng);
-                // Re-valida que o alvo ainda está em progresso (pode ter coletado/morrido entre
-                // a seleção e agora). Combinado com o @Version (C3) que protege contra escrita
-                // concorrente perdida, isto reduz a janela de conflito da emboscada. [AUDITORIA A8]
-                if (targetAct != null && targetAct.getStatus() == ZoneActivityStatus.IN_PROGRESS) {
-                    Warrior targetWarrior = warriorRepository.findByPlayer(targetAct.getPlayer()).orElse(null);
-                    // anti-farm: target escapes with 5% per past survived ambush
-                    boolean escaped = rng.nextInt(100) < 5 * targetAct.getAmbushCount();
-                    if (targetWarrior != null && !escaped) {
-                        anyEncounter = true;
-                        Player  targetPlayer = targetAct.getPlayer();
-                        int[]   tgtStats = getWarriorStats(targetWarrior, targetPlayer);
-                        int     tgtMaxHp = tgtStats[2];
-                        int     tgtHp    = targetWarrior.getCalculatedHpPercent() * tgtMaxHp / 100;
-
-                        BattleSimulator.BattleOutcome out = battleSimulator.simulateDetailed(
-                            attacker.getName(),      atkStats[0], atkStats[1], atkHp, atkStats[3], atkStats[4], atkStats[5],
-                            targetWarrior.getName(), tgtStats[0], tgtStats[1], tgtHp, tgtStats[3], tgtStats[4], tgtStats[5]);
-
-                        List<String> log = stripWinnerTag(out.log());
-                        atkHp = out.firstHpFinal();
-                        lastLog = log;
-                        lastFoe = targetWarrior.getName() + " (player)";
-
-                        // Desgaste de equipamento: ambos lutaram
-                        inventoryService.wearEquippedItems(player);
-                        inventoryService.wearEquippedItems(targetPlayer);
-
-                        // Persist target HP from the fight (uma única gravação)
-                        int tgtPct = tgtMaxHp > 0 ? Math.max(0, out.secondHpFinal() * 100 / tgtMaxHp) : 0;
-                        targetWarrior.setCurrentHpSnapshot(tgtPct);
-                        targetWarrior.setHpUpdatedAt(LocalDateTime.now());
-
-                        if (out.firstWon()) {
-                            // Attacker won → robs target, target dies
-                            long stolen = applyDefeatPenalty(targetPlayer, player);
-                            targetWarrior.clearBuff();
-                            warriorRepository.save(targetWarrior);
-                            markTargetAmbushed(targetAct, attacker.getName(), stolen, log, true, zone);
-                            // attacker survives, continue collecting
-                        } else {
-                            // Attacker lost → dies; target defended and robs the attacker
-                            warriorRepository.save(targetWarrior); // persiste o HP do defensor
-                            long stolen = applyDefeatPenalty(player, targetPlayer);
-                            markTargetAmbushed(targetAct, attacker.getName(), 0, log, false, zone);
-                            persistAttackerHp(attacker, 0, atkMaxHp);
-                            return new PvpResult(true, false, stolen, lastFoe, log);
-                        }
-                    }
-                }
-            }
-
-            // ── NPC encounter (PvE) ──
-            if (rng.nextInt(100) < zone.npcEncounterChancePerHour) {
-                anyEncounter = true;
-                int    npcLevel = attacker.getLevel() + rng.nextInt(4);
-                String npcName  = npcName(zone, rng);
-                int[]  npcStats = npcStatsByLevel(npcLevel, rng);
+        // ── PvP: cruza com um player FLAGGED na zona (raid de loot). [PVP_FLAG] ──
+        if (zone.encounterChancePerHour > 0 && rng.nextInt(100) < zone.encounterChancePerHour) {
+            Player  victim  = findFlaggedOpponent(zone, player, rng);
+            Warrior victimW = victim != null ? warriorRepository.findByPlayer(victim).orElse(null) : null;
+            if (victimW != null) {
+                int[] vStats = getWarriorStats(victimW, victim);
+                int   vMaxHp = vStats[2];
+                int   vHp    = victimW.getCalculatedHpPercent() * vMaxHp / 100;
 
                 BattleSimulator.BattleOutcome out = battleSimulator.simulateDetailed(
-                        attacker.getName(), atkStats[0], atkStats[1], atkHp, atkStats[3], atkStats[4], atkStats[5],
-                        npcName,            npcStats[0], npcStats[1], npcStats[2], npcStats[3], npcStats[4], npcStats[5]);
+                    attacker.getName(), atkStats[0], atkStats[1], atkHp, atkStats[3], atkStats[4], atkStats[5],
+                    victimW.getName(),  vStats[0],   vStats[1],   vHp,   vStats[3],   vStats[4],   vStats[5]); // PvP %HP
 
                 List<String> log = stripWinnerTag(out.log());
-                atkHp = out.firstHpFinal();
-                lastLog = log;
-                lastFoe = npcName;
-
-                // Desgaste de equipamento por lutar contra o NPC
+                String foe = victimW.getName() + " (player)";
                 inventoryService.wearEquippedItems(player);
+                inventoryService.wearEquippedItems(victim);
+                int vPct = vMaxHp > 0 ? Math.max(0, out.secondHpFinal() * 100 / vMaxHp) : 0;
+                victimW.setCurrentHpSnapshot(vPct);
+                victimW.setHpUpdatedAt(LocalDateTime.now());
+                warriorRepository.save(victimW);
 
-                if (!out.firstWon()) {
-                    long bronzeLost = applyDefeatPenalty(player, null);
+                if (out.firstWon()) {
+                    raidVictim(player, attacker.getName(), victim, victimW, zone, log); // loot + escudo + mail
+                    persistAttackerHp(attacker, out.firstHpFinal(), atkMaxHp);
+                    return new PvpResult(true, true, 0, foe, log); // venceu e saqueou
+                } else {
+                    long lost = applyDefeatPenalty(player, victim); // você perdeu; a vítima defendeu
                     persistAttackerHp(attacker, 0, atkMaxHp);
-                    return new PvpResult(true, false, bronzeLost, npcName, log);
+                    return new PvpResult(true, false, lost, foe, log);
                 }
             }
+            // Nenhum flagged → NPC ambusher (preenchimento). [PVP_FLAG]
+            return fightNpc(player, attacker, atkStats, atkHp, atkMaxHp, zone, rng);
         }
 
-        // Survived all encounters — persist reduced HP
+        // ── NPC selvagem (PvE) ──
+        if (rng.nextInt(100) < zone.npcEncounterChancePerHour) {
+            return fightNpc(player, attacker, atkStats, atkHp, atkMaxHp, zone, rng);
+        }
+
         persistAttackerHp(attacker, atkHp, atkMaxHp);
-        return new PvpResult(anyEncounter, true, 0, lastFoe, lastLog);
+        return new PvpResult(false, true, 0, null, List.of());
     }
 
-    /** Sorteia uma expedição IN_PROGRESS de outro player na mesma zona (pool de alvos). */
-    private ZoneActivity findOpponentActivity(Zone zone, Player exclude, Random rng) {
-        List<ZoneActivity> pool = activityRepository.findAllByZoneAndStatusAndPlayerNot(
-                zone, ZoneActivityStatus.IN_PROGRESS, exclude);
+    /** Luta contra um NPC (monstro selvagem ou "ambusher" de preenchimento). */
+    private PvpResult fightNpc(Player player, Warrior attacker, int[] atkStats, int atkHp, int atkMaxHp, Zone zone, Random rng) {
+        int    npcLevel = attacker.getLevel() + rng.nextInt(4);
+        String npcName  = npcName(zone, rng);
+        int[]  npcStats = npcStatsByLevel(npcLevel, rng);
+        BattleSimulator.BattleOutcome out = battleSimulator.simulateDetailed(
+                attacker.getName(), atkStats[0], atkStats[1], atkHp, atkStats[3], atkStats[4], atkStats[5],
+                npcName,            npcStats[0], npcStats[1], npcStats[2], npcStats[3], npcStats[4], npcStats[5]);
+        List<String> log = stripWinnerTag(out.log());
+        inventoryService.wearEquippedItems(player);
+        if (!out.firstWon()) {
+            long lost = applyDefeatPenalty(player, null);
+            persistAttackerHp(attacker, 0, atkMaxHp);
+            return new PvpResult(true, false, lost, npcName, log);
+        }
+        persistAttackerHp(attacker, out.firstHpFinal(), atkMaxHp);
+        return new PvpResult(true, true, 0, npcName, log);
+    }
+
+    /** Sorteia um player FLAGGED (exposto) na zona, sem escudo, que não seja o atacante. [PVP_FLAG] */
+    private Player findFlaggedOpponent(Zone zone, Player exclude, Random rng) {
+        List<Player> pool = playerRepository.findFlaggedInZone(zone, LocalDateTime.now(), exclude.getId())
+                .stream().filter(p -> !p.isPvpShielded()).toList();
         if (pool.isEmpty()) return null;
         return pool.get(rng.nextInt(pool.size()));
     }
 
-    /** Aplica o resultado da emboscada no alvo (persistente) e notifica por mail. */
-    private void markTargetAmbushed(ZoneActivity targetAct, String attackerName, long bronzeLost,
-                                    List<String> log, boolean targetDied, Zone zone) {
-        Player targetPlayer = targetAct.getPlayer();
-        targetAct.setLastAmbusherName(attackerName);
-        targetAct.setLastAmbushBronzeLost(bronzeLost);
-        targetAct.setLastAmbushLog(String.join("\n", log));
-        targetAct.setAttacked(true);
-        targetAct.setAttackerWarriorName(attackerName);
+    /** Atacante venceu o raid → saqueia a vítima (bronze + item + recursos), aplica escudo e mail. [PVP_FLAG] */
+    private void raidVictim(Player attacker, String attackerName, Player victim, Warrior victimW, Zone zone, List<String> log) {
+        long   bronze     = applyDefeatPenalty(victim, attacker);  // vítima −15%, atacante +metade
+        String stolenItem = stealOneItem(attacker, victim);        // 35% chance — bag/equip não-protegidos
+        long   stolenRes  = stealResources(attacker, victim);      // ~25% dos recursos da bag
 
-        if (targetDied) {
-            targetAct.setStatus(ZoneActivityStatus.DEFEATED);
-            targetAct.setSurvivedAttack(false);
-            targetAct.setResolvedAt(LocalDateTime.now());
-            // Death penalties for the target (it is not collecting, so apply here)
-            warriorRepository.findByPlayer(targetPlayer).ifPresent(w -> {
-                long xpLost = Math.max(1, w.expNeededForNextLevel() / 10);
-                warriorService.loseXp(w, xpLost);
-            });
-            String itemMsg = "";
-            if (zone == Zone.HIGH_RISK) {
-                String lost = maybeDropEquippedItem(targetPlayer);
-                if (lost != null) { targetAct.setLastAmbushItemLost(lost); targetAct.setLostEquippedItem(lost);
-                    itemMsg = " Item perdido: " + lost + "."; }
+        victimW.clearBuff();
+        victim.setPvpShieldUntil(LocalDateTime.now().plusMinutes(PVP_SHIELD_MINUTES)); // saqueado 1x por ciclo
+        victim.clearPvpFlag();
+        warriorRepository.findByPlayer(victim).ifPresent(w -> {
+            long xpLost = Math.max(1, w.expNeededForNextLevel() / 20); // perda menor que morte em quest
+            warriorService.loseXp(w, xpLost);
+        });
+        playerRepository.save(victim);
+
+        String summary = "💰 You raided " + victimW.getName() + "! Stole " + bronze + " bronze"
+                + (stolenItem != null ? ", " + stolenItem : "")
+                + (stolenRes > 0 ? ", +" + stolenRes + " resources" : "") + ".";
+        log.add(summary);
+        mailService.sendSystemMail(victim,
+            "💀 You were RAIDED by " + attackerName + " in the " + zone.displayName + "! Lost " + bronze + " bronze"
+            + (stolenItem != null ? ", " + stolenItem : "") + (stolenRes > 0 ? ", " + stolenRes + " resources" : "")
+            + ". You have a protection shield for " + PVP_SHIELD_MINUTES + " min.");
+    }
+
+    /** Rouba 1 item não-protegido (bag/equip, não-stashed, não-guarded) e transfere ao atacante se couber. */
+    private String stealOneItem(Player attacker, Player victim) {
+        Random rng = java.util.concurrent.ThreadLocalRandom.current();
+        if (rng.nextInt(100) >= 35) return null; // 35% chance
+        List<InventoryItem> pool = inventoryRepository.findAllByPlayer(victim).stream()
+                .filter(i -> !i.isStashed() && !i.isGuarded()).toList();
+        if (pool.isEmpty() || inventoryService.bagSpaceLeft(attacker) < 1) return null;
+        InventoryItem item = pool.get(rng.nextInt(pool.size()));
+        String name = item.getName();
+        item.setEquipped(false);
+        item.setStashed(false);
+        item.setPlayer(attacker); // transfere (joias/afixos vão junto via FK)
+        inventoryRepository.save(item);
+        return name;
+    }
+
+    /** Rouba ~25% de cada recurso da bag da vítima e dá ao atacante (clamp na bag dele). */
+    private long stealResources(Player attacker, Player victim) {
+        long total = 0;
+        for (ResourceInventory r : resourceRepo.findAllByPlayerAndStashed(victim, false)) {
+            if (r.getQuantity() <= 0) continue;
+            if (inventoryService.bagSpaceLeft(attacker) <= 0) break;
+            long take  = Math.max(1, r.getQuantity() / 4);
+            long added = gatheringService.addResource(attacker, r.getResourceType(), take);
+            if (added > 0) {
+                r.setQuantity(r.getQuantity() - added);
+                resourceRepo.save(r);
+                total += added;
             }
-            targetPlayer.setCurrentStamina(0);
-            targetPlayer.setStaminaUpdatedAt(LocalDateTime.now());
-            playerRepository.save(targetPlayer);
-            mailService.sendSystemMail(targetPlayer,
-                "💀 You were ambushed and KILLED by " + attackerName + " in the " + zone.displayName + "! "
-                + "Lost " + bronzeLost + " bronze." + itemMsg + " HP: 0%. Your expedition has ended.");
-        } else {
-            // Survived: anti-farm counter + pending dialog
-            targetAct.setAmbushCount(targetAct.getAmbushCount() + 1);
-            targetAct.setAmbushPending(true);
-            targetAct.setSurvivedAttack(true);
-            int hpPct = warriorRepository.findByPlayer(targetPlayer)
-                    .map(Warrior::getCalculatedHpPercent).orElse(0);
-            mailService.sendSystemMail(targetPlayer,
-                "⚔ You were ambushed by " + attackerName + " in the " + zone.displayName + " and SURVIVED! "
-                + "HP: " + hpPct + "%. You recovered bronze from the attacker. Log in to continue or collect.");
         }
-        activityRepository.save(targetAct);
+        return total;
     }
 
     /** Persiste o HP absoluto do atacante como % no snapshot. */

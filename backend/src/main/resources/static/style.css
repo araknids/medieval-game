@@ -208,6 +208,7 @@ section {
 .zone-desc   { color: #888; font-size: .78rem; margin-bottom: .5rem; }
 .zone-stats  { display: flex; gap: .8rem; font-size: .78rem; color: #aaa; margin-bottom: .6rem; }
 .zone-pvp-badge { color: #cf6679; font-size: .72rem; border: 1px solid #cf6679; border-radius: 10px; padding: .1rem .4rem; }
+.zone-pvp-status { border: 1px solid #c0392b; border-radius: 8px; padding: .6rem .8rem; margin-bottom: .8rem; font-size: .82rem; line-height: 1.35; }
 .zone-roles       { border-top: 1px solid #2a2a4a; padding-top: .6rem; }
 .zone-role-section { }
 

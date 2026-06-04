@@ -34,4 +34,10 @@ public interface PlayerRepository extends JpaRepository<Player, Long> {
 
     // Ranking da Torre, limitado no banco. [AUDITORIA M14]
     List<Player> findTop20ByOrderByTowerBestFloorDesc();
+
+    // PvP por flag: players atualmente expostos numa zona (vítimas potenciais de raid). [PVP_FLAG]
+    @Query("SELECT p FROM Player p WHERE p.pvpFlaggedZone = :zone AND p.pvpFlaggedUntil > :now AND p.id <> :excludeId")
+    List<Player> findFlaggedInZone(@Param("zone") com.medieval.game.enums.Zone zone,
+                                   @Param("now") java.time.LocalDateTime now,
+                                   @Param("excludeId") Long excludeId);
 }

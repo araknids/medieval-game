@@ -1293,14 +1293,32 @@ const ZONE_COLORS = { SAFE:'#4caf82', PVP:'#c9a84c', HIGH_RISK:'#cf6679' };
 const ZONE_ICONS  = { SAFE:'🌿', PVP:'⚔', HIGH_RISK:'💀' };
 
 async function loadZones() {
-  const [zones, current] = await Promise.all([
+  const [zones, current, pvp] = await Promise.all([
     api('GET', '/api/zones'),
     api('GET', '/api/zones/current'),
+    api('GET', '/api/zones/pvp-status').catch(() => ({})),
   ]);
-  renderZones(zones, current);
+  renderZones(zones, current, pvp);
 }
 
-function renderZones(zones, current) {
+// Banner de status PvP: exposto (alvo de raid) ou protegido (escudo pós-derrota). [PVP_FLAG]
+function pvpStatusBanner(pvp) {
+  if (!pvp) return '';
+  if (pvp.shielded) {
+    return `<div class="zone-pvp-status" style="border-color:#4caf50;background:#1b3a1b">
+      🛡 ${t('zones.shielded')||'Protegido'} — ${pvp.shieldMinutesLeft} min. ${t('zones.shielded_desc')||'Imune a raids enquanto durar.'}
+    </div>`;
+  }
+  if (pvp.flagged) {
+    return `<div class="zone-pvp-status" style="border-color:#c0392b;background:#3a1b1b">
+      ⚠ ${t('zones.exposed')||'Exposto'} (${escapeHtml(pvp.flaggedZone)}) — ${pvp.flagMinutesLeft} min.
+      ${t('zones.exposed_desc')||'Bolsa + equipados (não-guardados) podem ser saqueados. Guarde no Stash/Templo.'}
+    </div>`;
+  }
+  return '';
+}
+
+function renderZones(zones, current, pvp) {
   const el = document.getElementById('zones-content');
   const warriorLevel = warrior?.level ?? 1;
   const busy = warrior?.onMission ?? false;
@@ -1367,7 +1385,7 @@ function renderZones(zones, current) {
       </div>`;
   }).join('');
 
-  el.innerHTML = zonesHtml;
+  el.innerHTML = pvpStatusBanner(pvp) + zonesHtml;
 }
 
 function renderZoneActive(state) {
