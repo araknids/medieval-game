@@ -1,7 +1,9 @@
 # Plano — Rebalance de Combate + Economia (Combate V2)
 
 > Documento de planejamento. Decisões/pilares aprovados com o dono em 2026-06-04.
-> **Status: design aprovado. Implementação em fases (cada uma verde + commitada antes da próxima).**
+> **Status: TODAS as 4 fases IMPLEMENTADAS (452 testes verdes).**
+> - Fase 1 ✅ Combate (mitigação % + timeout PvE/PvP) · Fase 2 ✅ Torre V2 (lvl1 não passa) ·
+>   Fase 3 ✅ Pesca (não é mais fonte infinita) · Fase 4 ✅ Quests com nicho (curtas=bronze, longas=XP).
 > Regra do projeto: discutir + documentar ANTES de codar.
 
 Origem: análise de balanceamento (2026-06-04) que apontou:

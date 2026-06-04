@@ -143,10 +143,13 @@ Timer-based. O guerreiro vai e volta. O jogador coleta depois.
 
 | Missão | Duração | Bronze | XP | Stamina | Drop% | Drop Raridade |
 |--------|---------|--------|-----|---------|-------|--------------|
-| Patrulha | 5 min | 100 | 50 | 10 | 10% | Comum |
-| Masmorra | 10 min | 250 | 150 | 20 | 25% | Comum/Incomum |
-| Raid | 20 min | 500 | 300 | 35 | 40% | Incomum/Raro |
-| Caça ao Chefe | 30 min | 1.000 | 750 | 50 | 60% | Raro/Épico |
+| Patrulha | 5 min | 180 | 40 | 10 | 10% | Comum |
+| Masmorra | 10 min | 320 | 110 | 20 | 25% | Comum/Incomum |
+| Raid | 20 min | 480 | 320 | 35 | 40% | Incomum/Raro |
+| Caça ao Chefe | 30 min | 600 | 750 | 50 | 60% | Raro/Épico (+Lendário ~6%) |
+
+> Combate V2 — **nichos**: curtas (Patrulha/Masmorra) = melhor **bronze** por estamina/tempo;
+> longas (Raid/Caça) = melhor **XP**. Nenhum tipo domina os dois eixos.
 
 - Drop: quantidade de sorte do guerreiro soma ao % base
 - Item gerado com lore e origem automáticos

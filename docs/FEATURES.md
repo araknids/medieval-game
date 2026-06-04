@@ -105,13 +105,16 @@ Sem teto — progressão exponencialmente mais difícil inspirada em Tibia.
 
 ## 5. Missões (Quests)
 
-### Tipos
-| Missão | Duração | Bronze | XP | Stamina | Drop% |
-|--------|---------|--------|-----|---------|-------|
-| Patrulha | 5 min | 100 | 50 | 10 | 10% |
-| Masmorra | 10 min | 250 | 150 | 20 | 25% |
-| Raid | 20 min | 500 | 300 | 35 | 40% |
-| Caça ao Chefe | 30 min | 1000 | 750 | 50 | 60% |
+### Tipos (Combate V2 — nichos: curtas = bronze, longas = XP)
+| Missão | Duração | Bronze | XP | Stamina | Drop% | Bronze/⚡ | XP/⚡ |
+|--------|---------|--------|-----|---------|-------|----------|------|
+| Patrulha | 5 min | 180 | 40 | 10 | 10% | **18** | 4 |
+| Masmorra | 10 min | 320 | 110 | 20 | 25% | 16 | 5.5 |
+| Raid | 20 min | 480 | 320 | 35 | 40% | 13.7 | 9.1 |
+| Caça ao Chefe | 30 min | 600 | 750 | 50 | 60% | 12 | **15** |
+
+> **Nichos:** quer **bronze rápido** → Patrulha/Masmorra (melhor bronze por estamina e por tempo).
+> Quer **subir de nível** → Raid/Caça ao Chefe (melhor XP). Nenhum tipo domina os dois eixos. [Combate V2]
 
 ### Mecânica
 - Timer-based: envia guerreiro, volta depois para coletar

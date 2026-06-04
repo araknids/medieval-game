@@ -38,17 +38,21 @@ class QuestServiceTest {
         warrior.setLuck(0);
     }
 
-    // ── TC-009: Recompensa de bronze por tipo de quest ──
+    // ── TC-009: Nichos de recompensa (Combate V2) ──
     @Test
-    @DisplayName("TC-009 | PATROL dá 100 bronze de recompensa")
-    void tc009_patrolReward_is100Bronze() {
-        assertThat(QuestType.PATROL.bronzeReward).isEqualTo(100L);
+    @DisplayName("TC-009 | Curtas são reis de BRONZE/estamina (PATROL > BOSS_HUNT por estamina)")
+    void tc009_shortQuests_bestBronzePerStamina() {
+        double patrol = (double) QuestType.PATROL.bronzeReward / QuestType.PATROL.staminaCost;
+        double boss   = (double) QuestType.BOSS_HUNT.bronzeReward / QuestType.BOSS_HUNT.staminaCost;
+        assertThat(patrol).isGreaterThan(boss); // 18 vs 12
     }
 
     @Test
-    @DisplayName("TC-009b | BOSS_HUNT dá 1000 bronze de recompensa")
-    void tc009b_bossHuntReward_is1000Bronze() {
-        assertThat(QuestType.BOSS_HUNT.bronzeReward).isEqualTo(1000L);
+    @DisplayName("TC-009b | Longas são reis de XP/estamina (BOSS_HUNT > PATROL por estamina)")
+    void tc009b_longQuests_bestXpPerStamina() {
+        double patrol = (double) QuestType.PATROL.expReward / QuestType.PATROL.staminaCost;
+        double boss   = (double) QuestType.BOSS_HUNT.expReward / QuestType.BOSS_HUNT.staminaCost;
+        assertThat(boss).isGreaterThan(patrol); // 15 vs 4
     }
 
     // ── TC-010: Bônus de Sorte aumenta chance de drop ──
