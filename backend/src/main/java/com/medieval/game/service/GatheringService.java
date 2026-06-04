@@ -262,12 +262,14 @@ public class GatheringService {
         boolean hpFish = isHpFish(fishType);
 
         // Peixe de estamina → só estamina; peixe de vida → só HP. [REINOS_V2]
+        // Combate V2: restauro ACHATADO e reduzido — a pesca deixa de ser fonte infinita de estamina.
+        // O tier do peixe agora vale por VENDA e COZINHA, não por estamina (que é só um top-up leve). [COMBATE_V2]
         int stamina = hpFish ? 0 : switch (fishType) {
-            case SMALL_FISH    -> 10;
-            case SALMON        -> 25;
-            case TUNA          -> 40;
-            case SHARK         -> 60;
-            case LEGENDARY_FISH-> 80;
+            case SMALL_FISH    -> 5;
+            case SALMON        -> 8;
+            case TUNA          -> 11;
+            case SHARK         -> 14;
+            case LEGENDARY_FISH-> 18;
             default -> 0;
         };
         int hpHeal = !hpFish ? 0 : switch (fishType) {
@@ -319,7 +321,7 @@ public class GatheringService {
         List<ResourceDrop> drops = new ArrayList<>();
 
         if (skill == SkillType.FISHING) {
-            int catches = Math.max(1, duration / 5);
+            int catches = Math.max(1, duration / 10); // Combate V2: haul reduzido (alinhado à mineração)
             // Mar Abençoado → peixe de VIDA; demais reinos → peixe de ESTAMINA. [REINOS_V2]
             boolean hpPool = kingdom == com.medieval.game.enums.Kingdom.MAR_ABENCOADO;
             Map<ResourceType, Long> fishMap = new HashMap<>();

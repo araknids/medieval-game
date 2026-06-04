@@ -288,9 +288,11 @@ Capacete, Armadura, Espada, Escudo, Calça, Bota, Luva, Ombreira, Colar, Anel
 
 ### Pesca
 - Sessão timer: 5/10/20/30/40 min
+- **Haul** = `max(1, duração/10)` peixes (Combate V2: reduzido p/ a pesca não ser fonte infinita de estamina).
 - **Dois tipos de peixe, por reino** (Reinos V2):
   - **Desfiladeiro do Osso (peixe de ESTAMINA)** — Peixe Pequeno/Salmão/Atum/Tubarão/Peixe Lendário,
-    restauram **só estamina** (+10/+25/+40/+60/+80).
+    restauram **só estamina** (+5/+8/+11/+14/+18, Combate V2: achatado e reduzido — o tier vale por
+    **venda/cozinha**, não por estamina; a pesca virou top-up leve ≈ regen passiva, não fountain).
   - **Mar Abençoado (peixe de VIDA)** — Coral/Anjo/Espírito/Sagrado/Fênix, restauram **só HP**
     (+15/+30/+50/+70/+90%), **com teto de 90%** — o resto (90→100%) e reviver de KO exigem Templo/regen
     (pra não furar o sink de cura do Templo).

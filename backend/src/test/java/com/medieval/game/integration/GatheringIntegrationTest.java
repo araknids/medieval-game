@@ -132,19 +132,19 @@ class GatheringIntegrationTest extends BaseIntegrationTest {
         mockMvc.perform(post("/api/gathering/consume/SALMON")
                         .header("Authorization", bearer(token)))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.newStamina").value(75))      // 50 + 25
+                .andExpect(jsonPath("$.newStamina").value(58))      // 50 + 8 (Combate V2: restauro reduzido)
                 .andExpect(jsonPath("$.newHpPercent").value(30));   // peixe de estamina não cura HP
     }
 
     // ── TC-237: consumeFish stamina não ultrapassa 100 ──
     @Test
-    @DisplayName("TC-237 | consume with stamina 90 → caps at 100")
+    @DisplayName("TC-237 | consume with stamina 95 → caps at 100")
     void tc237_consumeFish_staminaCapsAt100() throws Exception {
         Player player = gatherPlayer();
-        player.setCurrentStamina(90);
+        player.setCurrentStamina(95);
         player.setStaminaUpdatedAt(java.time.LocalDateTime.now());
         playerRepository.save(player);
-        gatheringService.addResource(player, ResourceType.SALMON, 1); // +25 → would be 115
+        gatheringService.addResource(player, ResourceType.SALMON, 1); // +8 → would be 103, cap 100
 
         mockMvc.perform(post("/api/gathering/consume/SALMON")
                         .header("Authorization", bearer(token)))
