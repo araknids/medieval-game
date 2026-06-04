@@ -52,13 +52,18 @@ public class TowerService {
         String name = BOSSES[group][idx] + " (Andar " + floor + ")";
         return new BossInfo(
             name,
-            5  + floor * 3,          // attack scales with floor
-            3  + floor * 2,          // defense scales with floor
-            80 + floor * 25,         // HP scales with floor
-            Math.min(floor / 2, 20), // dex → AC = 10+dex, cap at 30
-            Math.min(floor / 10, 3), // strBonus grows slowly, cap +3
-            Math.min(floor, 15)      // luk, cap 15 (crit on 19-20 at high floors)
+            12 + floor * 5,           // ATK — escala forte: Andar 1 já é parede p/ lvl1 [COMBATE_V2]
+            5  + floor * 3,           // DEF
+            120 + floor * 45,         // HP
+            Math.min(floor / 2, 8),   // dex → AC = 10+dex, cap 18 (bounded accuracy — manter hit viável)
+            Math.min(floor / 10, 3),  // strBonus, cap +3
+            Math.min(floor, 18)       // luk
         );
+    }
+
+    /** Nível recomendado para encarar o andar (referência de dificuldade exibida na UI). [COMBATE_V2] */
+    public static int recommendedLevel(int floor) {
+        return Math.max(1, floor * 3);
     }
 
     // ── Resultado de um combate ──

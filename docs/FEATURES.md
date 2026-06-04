@@ -167,13 +167,14 @@ Sem teto — progressão exponencialmente mais difícil inspirada em Tibia.
 - Perder: expulso, HP=0, buff perdido
 - Checkpoint: na próxima entrada, começa do andar seguinte ao melhor completo
 
-### Chefes por Andar
-- Andares 1-3: Esqueleto, Goblin, Rato Gigante
-- Andares 4-6: Aranha, Orc, Troll
-- Andares 7-9: Zumbi, Vampiro, Golem
-- Andares 10-12: Cavaleiro Negro, Arqueiro, Ogro
-- Andares 13-15: Xamã, Wyvern, Lich Menor
-- Andares 16+: Dragão, Titan, Lich Ancião, Guardiões Lendários
+### Chefes por Andar (curva Combate V2)
+- Andares 1-3: Esqueleto, Goblin, Rato Gigante · 4-6: Aranha, Orc, Troll · 7-9: Zumbi, Vampiro, Golem
+- 10-12: Cavaleiro Negro, Arqueiro, Ogro · 13-15: Xamã, Wyvern, Lich Menor · 16+: Dragão, Titan, Lich Ancião…
+- **Stats do chefe (andar `f`):** ATK `12+5f` · DEF `5+3f` · HP `120+45f` · AC `10+min(f/2,8)` ·
+  strBonus `min(f/10,3)` · luk `min(f,18)`.
+- **É de verdade um chefe:** com a mitigação % + timeout=derrota (Combate V2), um **lvl1 pelado PERDE o Andar 1**
+  (validado em `TowerBalanceTest`). Precisa investir (nível/atributos/gear) pra avançar.
+- **Nível recomendado** por andar exibido na UI: `≈ andar × 3` (`TowerService.recommendedLevel`).
 
 ### Recompensas
 - Bronze: andar × 40
@@ -423,9 +424,16 @@ Reutilizado por Arena, Torre e Zonas. Inspirado em D&D 5e (Bounded Accuracy).
    Se (d20 + bônus) < AC → ERRA
 5. Natural 20 → Crítico (dano dobrado)
    Natural 1  → Fumble (miss automático, ignora STR)
-6. Dano quando acerta: ATK - DEF do defensor (mín. 1) + floor(STR/10) variância
+6. Dano quando acerta (Combate V2): MITIGAÇÃO % → `ATK × 100/(100+DEF)` (mín. 1); crítico ×2 depois
 7. HP do defensor reduzido; próxima rodada começa
 ```
+
+**Combate V2 — mitigação % e teto de rounds:**
+- Dano = `round(ATK × 100/(100+DEF))`, mínimo 1. DEF dá redução com retornos decrescentes —
+  **nunca zera o dano, nunca vira inútil** (antes era `ATK − DEF` com piso 1, que virava imunidade).
+- **Teto de 40 rounds:** **PvE** (Torre/Combate PvE/Quest de Reino) → se o chefe não morrer, o
+  **desafiante PERDE** (precisa de dano, não só HP). **PvP** (Arena/Guerra/Emboscada) → desempate por **% de HP**.
+- Detalhe e racional: `docs/PLANO_COMBATE_V2.md`.
 
 ### Tabelas de Referência
 

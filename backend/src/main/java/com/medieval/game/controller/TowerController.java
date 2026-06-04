@@ -43,7 +43,8 @@ public class TowerController {
             "bossHp",        boss.health(),
             "bossAtk",       boss.attack(),
             "bossDef",       boss.defense(),
-            "bossAc",   10 + boss.dex()
+            "bossAc",   10 + boss.dex(),
+            "recommendedLevel", TowerService.recommendedLevel(r.getCurrentFloor())
         ));
     }
 
@@ -71,7 +72,8 @@ public class TowerController {
             "hp",       boss.health(),
             "atk",      boss.attack(),
             "def",      boss.defense(),
-            "ac",  10 + boss.dex()
+            "ac",  10 + boss.dex(),
+            "recommendedLevel", TowerService.recommendedLevel(floor)
         ));
     }
 

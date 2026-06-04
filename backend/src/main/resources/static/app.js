@@ -2062,11 +2062,12 @@ function showTowerFloor(state) {
       ${state.highestFloor > 0 ? `<div class="tower-cleared">✓ Highest floor cleared: ${state.highestFloor}</div>` : ''}
       <div class="tower-boss-card">
         <div class="tower-boss-name">${state.bossName}</div>
+        ${state.recommendedLevel ? `<div style="font-size:11px;color:#e6a23c;margin:2px 0">⚑ Recommended Lv.${state.recommendedLevel}+</div>` : ''}
         <div class="tower-boss-stats">
           <span>❤ ${state.bossHp} HP</span>
           <span>⚔ ${state.bossAtk} ATK</span>
           <span>🛡 ${state.bossDef} DEF</span>
-          <span>💨 ${state.bossEvasion}% evasão</span>
+          <span>🎯 AC ${state.bossAc}</span>
         </div>
         <div class="tower-rewards-preview">
           Recompensa: ${fmtBronze(state.currentFloor * 40)} · ⭐ ${state.currentFloor * 20} exp
