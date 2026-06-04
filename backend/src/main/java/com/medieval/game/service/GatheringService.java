@@ -116,18 +116,20 @@ public class GatheringService {
         }
 
         // Gathering (fishing/mining/prospecting) consumes stamina proportional to duration. [REINOS_V2]
-        // Consumed ALWAYS — instant-complete only zeroes the timer, not the cost (stamina is an
-        // economy mechanic, not a timer). Consistent with quests, which also consume unconditionally.
-        int staminaCost = staminaCostFor(durationMinutes);
-        int current = player.getCalculatedStamina();
-        if (current < staminaCost) {
-            log.warn("[GatheringService] player={} REJECTED: stamina {}/{}", player.getId(), current, staminaCost);
-            throw new IllegalStateException("Not enough stamina (" + current + "/" + staminaCost +
-                    "). Eat a fish or rest.");
+        // Ignorado quando instant-complete (modo de teste) — consistente com quests/arena/torre, que
+        // também pulam a estamina nesse modo. Em produção real (flag off) é cobrado normalmente. [TESTE]
+        if (!instantComplete) {
+            int staminaCost = staminaCostFor(durationMinutes);
+            int current = player.getCalculatedStamina();
+            if (current < staminaCost) {
+                log.warn("[GatheringService] player={} REJECTED: stamina {}/{}", player.getId(), current, staminaCost);
+                throw new IllegalStateException("Not enough stamina (" + current + "/" + staminaCost +
+                        "). Eat a fish or rest.");
+            }
+            player.setCurrentStamina(current - staminaCost);
+            player.setStaminaUpdatedAt(LocalDateTime.now());
+            playerRepository.save(player);
         }
-        player.setCurrentStamina(current - staminaCost);
-        player.setStaminaUpdatedAt(LocalDateTime.now());
-        playerRepository.save(player);
 
         SkillLevel skill = getOrCreateSkill(player, skillType);
         int xpReward = durationMinutes * (skill.getLevel() / 10 + 2);

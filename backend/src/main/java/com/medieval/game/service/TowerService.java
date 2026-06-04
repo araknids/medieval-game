@@ -5,6 +5,7 @@ import com.medieval.game.model.*;
 import com.medieval.game.repository.*;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -23,6 +24,9 @@ public class TowerService {
     private final InventoryService        inventoryService;
     private final WarriorStatsService     statsService;
     private final PlayerService           playerService;
+
+    @Value("${app.dev.instant-complete:false}")
+    private boolean instantComplete;
 
     private static final int STAMINA_COST = 25;
 
@@ -92,15 +96,17 @@ public class TowerService {
             throw new IllegalStateException("Your warrior is unconscious. Visit the Temple to heal!");
         }
 
-        int stamina = player.getCalculatedStamina();
-        if (stamina < STAMINA_COST) {
-            log.warn("[TowerService] player={} REJECTED: insufficient stamina {}/{}", player.getId(), stamina, STAMINA_COST);
-            throw new IllegalStateException("Insufficient stamina (" + stamina + "/" + STAMINA_COST + ")");
+        // Estamina ignorada quando instant-complete (modo de teste). [TESTE]
+        if (!instantComplete) {
+            int stamina = player.getCalculatedStamina();
+            if (stamina < STAMINA_COST) {
+                log.warn("[TowerService] player={} REJECTED: insufficient stamina {}/{}", player.getId(), stamina, STAMINA_COST);
+                throw new IllegalStateException("Insufficient stamina (" + stamina + "/" + STAMINA_COST + ")");
+            }
+            player.setCurrentStamina(stamina - STAMINA_COST);
+            player.setStaminaUpdatedAt(java.time.LocalDateTime.now());
+            playerRepository.save(player);
         }
-
-        player.setCurrentStamina(stamina - STAMINA_COST);
-        player.setStaminaUpdatedAt(java.time.LocalDateTime.now());
-        playerRepository.save(player);
 
         warrior.setOnMission(true);
         warriorRepository.save(warrior);

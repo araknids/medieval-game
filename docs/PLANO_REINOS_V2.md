@@ -43,7 +43,7 @@ Nem todos os reinos são território de guild-war — uma **flag** limita a 3 (d
 > **Quests:** cada reino tem **2 quests** (uma inicial curta/barata + uma avançada longa/rica).
 >
 > **Coleta gasta estamina:** pescar/minerar/garimpar consomem estamina (~metade dos minutos, mín. 5)
-> **sempre** — instant-complete zera só o timer, não o custo.
+> em produção. No modo de teste (`instant-complete=true`) a estamina é **ignorada** — igual a quests/arena/torre.
 
 ---
 

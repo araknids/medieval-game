@@ -2061,10 +2061,10 @@ POST /api/gathering/start
 - Status 200 ou 201.
 - Resposta contém ID da sessão e `endsAt`.
 - `GET /api/warrior` retorna `onMission=true`.
-- (Reinos V2) A pesca **debita estamina sempre** (~metade dos minutos, mín. 5); `instant-complete`
-  zera só o timer, não o custo. Um player fresco (100) tem estamina de sobra p/ uma coleta.
+- (Reinos V2) A pesca **debita estamina** (~metade dos minutos, mín. 5) **quando `instant-complete=false`**
+  (produção). Em modo de teste (`instant-complete=true`) a estamina é **ignorada** — igual a quests/arena/torre.
 
-**Resultado de Falha:** Sessão não criada, guerreiro não marcado ou estamina não debitada.
+**Resultado de Falha:** Sessão não criada, guerreiro não marcado, ou estamina não debitada (com flag off).
 
 ---
 

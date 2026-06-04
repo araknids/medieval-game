@@ -278,8 +278,8 @@ Capacete, Armadura, Espada, Escudo, Calça, Bota, Luva, Ombreira, Colar, Anel
 - Level 1-100, XP para próximo nível = level × 100
 - Multiplicador de XP e recursos por zona/reino
 - **Coletar gasta estamina** (Reinos V2): pescar/minerar/garimpar consomem estamina proporcional à
-  duração (~metade dos minutos, mínimo 5). Consumido **sempre** — `instant-complete` zera só o timer,
-  não o custo (estamina é mecânica de economia). Fecha o loop pescar→comer→coletar.
+  duração (~metade dos minutos, mínimo 5). **Ignorado quando `instant-complete` (modo de teste)** —
+  igual a quests/arena/torre; em produção (flag off) é cobrado normalmente. Fecha o loop pescar→comer→coletar.
   - O **botão de cada duração mostra o custo** (ex.: `30min · 15⚡`) antes de iniciar.
 - **Lore dinâmica na coleta** (Reinos V2): ao coletar, mostra uma frase curta de ambientação
   (em inglês), variando por skill (pesca/mineração/garimpo) e citando o reino — o equivalente ao

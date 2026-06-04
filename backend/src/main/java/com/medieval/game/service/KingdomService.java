@@ -129,7 +129,7 @@ public class KingdomService {
             throw new IllegalStateException("Your warrior is already busy.");
         }
 
-        playerService.consumeStamina(player, questType.staminaCost);
+        if (!instantComplete) playerService.consumeStamina(player, questType.staminaCost); // estamina ignorada no modo de teste [TESTE]
 
         warrior.setOnMission(true);
         warriorRepo.save(warrior);
