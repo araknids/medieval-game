@@ -38,6 +38,9 @@ class SoftWipeIntegrationTest extends BaseIntegrationTest {
         p.addBronzeAmount(1_000_000);
         p.setSoulStones(15);
         p.setTowerBestFloor(40);
+        p.setPvpFlaggedZone(com.medieval.game.enums.Zone.HIGH_RISK);   // [PVP_FLAG] não pode sobreviver ao wipe
+        p.setPvpFlaggedUntil(java.time.LocalDateTime.now().plusHours(1));
+        p.setPvpShieldUntil(java.time.LocalDateTime.now().plusHours(1));
         Guild g = new Guild();
         g.setName("WipeGuild-" + System.nanoTime());
         g.setLeaderId(playerId);
@@ -64,6 +67,8 @@ class SoftWipeIntegrationTest extends BaseIntegrationTest {
         assertThat(after.getSoulStones()).isZero();
         assertThat(after.getTowerBestFloor()).isZero();
         assertThat(after.getGuild()).isNull();
+        assertThat(after.isPvpFlagged()).isFalse();   // [PVP_FLAG] não acorda "Exposed" após o wipe
+        assertThat(after.isPvpShielded()).isFalse();
 
         Warrior wAfter = warriorRepository.findByPlayer(after).orElseThrow();
         assertThat(wAfter.getLevel()).isEqualTo(1);
