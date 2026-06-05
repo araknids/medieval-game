@@ -2,7 +2,7 @@
 
 ## Visão Geral
 
-Jogo RPG idle/browser no estilo de jogos medievais antigos. O jogador cria um guerreiro, envia para missões com timer, coleta recompensas e progride. O projeto visa lançamento na Steam via cliente Godot (futuro), mas atualmente roda como web app.
+Jogo RPG idle/browser no estilo de jogos medievais antigos. O jogador cria um guerreiro, gasta **estamina** em ações **instantâneas** (missões, coleta, trabalho, zona, arena), pega a recompensa na hora e progride; **sem timers** — a estamina (regen 100% em 1h) é o gate. O projeto visa lançamento na Steam via cliente Godot (futuro), mas atualmente roda como web app.
 
 **URL de produção:** `https://medieval-game-production.up.railway.app`
 
@@ -52,8 +52,14 @@ backend/
 ### Sistema de Moedas
 Três moedas separadas no banco: `bronze`, `silver`, `gold`. 100 bronze = 1 prata, 100 prata = 1 ouro. Nunca use `player.setGold()` diretamente — use `player.addBronzeAmount(n)` ou `playerService.spendBronze(player, n)`.
 
-### Instant-Complete (Dev)
-`app.dev.instant-complete=true` em dev zera todos os timers de missão, arena, trabalho, torre e coleta. Em produção é `false`.
+### Sem Timer (estamina é o gate) — [SEM_TIMER]
+O jogo é **instantâneo**: missão/coleta/trabalho/zona/treino/arena resolvem na hora (sem `finishesAt` futuro; `=agora`). O custo é **estamina** (não tempo). `isReadyToCollect()` usa `>=` (`!isBefore`) p/ evitar corrida de mesmo-instante. Vários docs/PLANO_SEM_TIMER_PVP.md descrevem o modelo.
+
+### Instant-Complete (flag de teste)
+`app.dev.instant-complete=true` agora controla só o **bypass de estamina** (teste) — NÃO há mais timers p/ zerar. Em prod o flag pode estar ligado de propósito (teste solo). Em dev/teste o default é `true`.
+
+### PvP de Zona com Flag + Tiers — [PVP_FLAG]
+Farmar uma zona 🟡PVP/🔴HIGH_RISK = instantâneo + **flagga o player 1h** (`Player.pvpFlaggedZone/Until`). Outro player farmando a mesma zona (±10 níveis) pode **cruzar e saquear** o flagged (matchmaking `PlayerRepository.findFlaggedInZone`). Tiers: 🟢SAFE (só PvE NPC), 🟡 (−50% recursos +10% bronze, recursos travados), 🔴 (+ item travado `InventoryItem.pvpLocked` + XP pro killer). Item/recurso travado não vende/stasha/guarda enquanto flagged. **Toda coleta** (Pesca/Mineração/Mar Abençoado/Grutas) passa pelo ZoneService (drops por reino via `ZoneActivity.kingdom`). `/api/gathering` só p/ consumo de peixe.
 
 ### HP do Guerreiro
 HP é armazenado como porcentagem (0-100) em `warrior.currentHpSnapshot`. Usa o mesmo padrão da stamina (snapshot + tempo decorrido). Regen: 100% em 1 hora. Guerreiro com HP=0 está inconsciente e não pode entrar em combate.
@@ -132,15 +138,15 @@ ALTER TABLE tabela ADD CONSTRAINT tabela_coluna_check CHECK (coluna IN ('VAL1','
 |---------|---------|-----------|-------|
 | Autenticação | `PlayerService` | `AuthController` | JWT, registro, reset de senha |
 | Guerreiro | `WarriorService` | `WarriorController` | Stats, atributos, HP, buff |
-| Missões | `QuestService` | `QuestController` | Timer, drops, narrativa |
-| Arena PvP | `ArenaService` | `ArenaController` | Assíncrono, ranking |
+| Missões | `QuestService` (legado) / `KingdomService` | `QuestController` / `KingdomController` | Instantâneo (gate=estamina), drops, narrativa. As missões vivas são as do reino (`/api/world/{kingdom}/quests`). |
+| Arena PvP | `ArenaService` | `ArenaController` | Duelo instantâneo por ranking (1 chamada resolve tudo) |
 | Torre | `TowerService` | `TowerController` | Andares, chefes escalonados |
 | Trabalho | `WorkService` | `WorkController` | Por profissão, level separado |
 | Inventário | `InventoryService` | `InventoryController` | Equip, sell, sockets, guarded |
 | Loja | `ShopService` | `ShopController` | Rotação 6h, raridade, compra única |
-| Habilidades | `GatheringService` | `GatheringController` | Pesca, Mineração |
+| Coleta | `GatheringService` | `GatheringController` | Roller de drops por reino + consumo de peixe. A coleta em si roda pelo ZoneService (unificada). |
 | Forja | `SmithingService` | `SmithingController` | Refino, craft, joias, sockets |
-| Zonas | `ZoneService` | `ZoneController` | Expedições, PvP, NPCs |
+| Zonas | `ZoneService` | `ZoneController` | Coleta + combate instantâneos; PvP por flag/tiers, raid, item-lock; drops por reino (`kingdom`) |
 | Templo | `TempleService` | `TempleController` | Cura HP, buffs, proteção de itens |
 | Email | `EmailService` | — | Brevo HTTP API |
 | Batalha | `BattleSimulator` | — | Reutilizado por Arena, Torre, Zona |
@@ -150,6 +156,5 @@ ALTER TABLE tabela ADD CONSTRAINT tabela_coluna_check CHECK (coluna IN ('VAL1','
 
 ## Documentos Relacionados
 
-- `docs/FEATURES.md` — Lista completa de funcionalidades implementadas
-- `docs/USE_CASES.md` — Casos de uso (gerado por agente)
-- `docs/TEST_PLAN.md` — Plano de testes (gerado por agente)
+- `docs/PLANO_SEM_TIMER_PVP.md` — **fonte da verdade atual** do modelo sem-timer + PvP de zona (flag, tiers, item-lock, coleta unificada). Mantido atualizado.
+- `docs/FEATURES.md`, `docs/GDD.md`, `docs/USE_CASES.md`, `docs/TEST_PLAN.md` — ⚠️ **parcialmente desatualizados** (escritos antes do sem-timer/PvP de zona/coleta unificada; descrevem timers e zonas "coming soon"). Use o código + o PLANO acima como verdade.
