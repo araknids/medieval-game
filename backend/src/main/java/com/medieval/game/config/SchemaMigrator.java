@@ -33,6 +33,7 @@ public class SchemaMigrator {
         patchOptimisticLockVersionColumns();
         patchTerritoryLastResolvedCycleColumn();
         patchWarFatigueAndRosterColumns();
+        patchGuildLifetimeGoldColumn();
         patchStashColumns();
         patchKingdomQuestWindowColumn();
         dropWarriorOnMissionColumn();
@@ -148,6 +149,18 @@ public class SchemaMigrator {
             log.info("[SchemaMigrator] territory_controls last_resolved_cycle_id column ensured");
         } catch (Exception e) {
             log.warn("[SchemaMigrator] territory_controls last_resolved_cycle_id patch failed: {}", e.getMessage());
+        }
+    }
+
+    // Nível da guild derivado do gold acumulado. [GUILD_LEVEL_GOLD]
+    // Adiciona lifetime_gold e faz seed = gold atual (baseline; recompute é monotônico → não rebaixa).
+    private void patchGuildLifetimeGoldColumn() {
+        try {
+            jdbc.execute("ALTER TABLE guilds ADD COLUMN IF NOT EXISTS lifetime_gold bigint NOT NULL DEFAULT 0");
+            int n = jdbc.update("UPDATE guilds SET lifetime_gold = gold WHERE lifetime_gold = 0 AND gold > 0");
+            log.info("[SchemaMigrator] guilds.lifetime_gold column ensured (seeded {} row(s))", n);
+        } catch (Exception e) {
+            log.warn("[SchemaMigrator] guilds.lifetime_gold patch failed: {}", e.getMessage());
         }
     }
 

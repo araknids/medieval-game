@@ -1764,15 +1764,22 @@ function renderGuildPanel(g) {
   const el = document.getElementById('guild-content');
 
   const treasuryFmt   = fmtBronze(g.treasuryBronze ?? 0);
-  const costFmt       = fmtBronze(g.levelUpCost ?? 0);
-  const canLevelUp    = (g.treasuryBronze ?? 0) >= (g.levelUpCost ?? Infinity);
+  const lifetimeFmt   = fmtBronze(g.lifetimeGold ?? 0);
 
-  const levelUpBtn = g.isLeader
-    ? `<button onclick="guildLevelUp()" ${canLevelUp ? '' : 'disabled title="Tesouro insuficiente"'}
-         style="margin-top:8px">
-         ⬆ Level Up (precisa ${costFmt})
-       </button>`
-    : '';
+  // [GUILD_LEVEL_GOLD] Nível é derivado do gold acumulado (doações) — sem botão de level-up.
+  const maxed = (g.level ?? 1) >= (g.maxLevel ?? 10);
+  const levelProgress = maxed
+    ? `<div style="font-size:12px;color:#ffd700;margin-top:8px">⭐ Max level (Lv.${g.maxLevel}) — total contributed: ${lifetimeFmt}</div>`
+    : `<div style="margin-top:8px">
+         <div style="display:flex;justify-content:space-between;font-size:12px;color:#aaa">
+           <span>Lv.${g.level} → Lv.${(g.level ?? 1) + 1}</span>
+           <span>${fmtBronze(g.goldToNextLevel ?? 0)} to go</span>
+         </div>
+         <div style="background:#0d0d1a;border:1px solid #444;border-radius:6px;height:10px;margin-top:3px;overflow:hidden">
+           <div style="background:#ffd700;height:100%;width:${g.levelProgressPct ?? 0}%"></div>
+         </div>
+         <div style="font-size:11px;color:#888;margin-top:2px">Accumulated ${lifetimeFmt} · next level at ${fmtBronze(g.nextLevelGold ?? 0)}</div>
+       </div>`;
 
   const disbandBtn = g.isLeader
     ? `<button onclick="guildDisband()" style="background:#8b0000;margin-top:8px">💀 Dissolve Guild</button>`
@@ -1831,7 +1838,7 @@ function renderGuildPanel(g) {
         <span>👥 Members: <strong>${g.members.length}/${g.maxMembers}</strong></span>
       </div>
       ${bonusLine}
-      ${levelUpBtn}
+      ${levelProgress}
     </div>
 
     <h4 style="margin:0 0 8px">Members</h4>
@@ -1999,17 +2006,11 @@ async function guildDonate() {
   if (!amount || amount <= 0) { guildMsg('Enter a valid amount.', false); return; }
   const r = await api('POST', '/api/guild/donate', { amount });
   if (r.error) { guildMsg(r.error, false); return; }
-  guildMsg(`Donated! Treasury: ${fmtBronze(r.guildGold ?? 0)}`);
+  // [GUILD_LEVEL_GOLD] doar pode subir o nível da guild automaticamente
+  guildMsg(r.leveledUp ? `🎉 Donation pushed the guild to level ${r.level}!`
+                       : `Donated! Treasury: ${fmtBronze(r.guildGold ?? 0)}`);
   await loadGuild();
   loadWarrior();
-}
-
-async function guildLevelUp() {
-  if (!confirm('Spend guild gold to level up?')) return;
-  const r = await api('POST', '/api/guild/levelup');
-  if (r.error) { guildMsg(r.error, false); return; }
-  guildMsg(r.message);
-  await loadGuild();
 }
 
 // ═══════════════════════════════════════════════════════════════════

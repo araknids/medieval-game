@@ -194,9 +194,12 @@ public class GuildService {
                 .map(w -> w.currentFatiguePct(currentCycleId)).orElse(0);
     }
 
-    // ── Doar bronze para a guilda ─────────────────────────────────────────────
+    // ── Doar bronze para a guilda (sobe o nível automaticamente) ─────────────── [GUILD_LEVEL_GOLD]
+    /** Resultado da doação: guild atualizada + se cruzou um limiar de nível. */
+    public record DonateResult(Guild guild, boolean leveledUp, int newLevel) {}
+
     @Transactional
-    public Guild donate(Player player, long bronzeAmount) {
+    public DonateResult donate(Player player, long bronzeAmount) {
         log.info("[GuildService] player={} action=donate amount={}", player.getId(), bronzeAmount);
         if (bronzeAmount <= 0) {
             log.warn("[GuildService] player={} REJECTED: invalid donation amount={}", player.getId(), bronzeAmount);
@@ -204,39 +207,29 @@ public class GuildService {
         }
 
         Guild guild = requireGuild(player);
+        int beforeLevel = guild.getLevel();
+
         playerService.spendBronze(player, bronzeAmount);
 
-        guild.setGold(guild.getGold() + bronzeAmount);
+        guild.setGold(guild.getGold() + bronzeAmount);                       // tesouro gastável
+        guild.setLifetimeGold(guild.getLifetimeGold() + bronzeAmount);       // acumulado (só cresce)
+        guild.recomputeLevel();                                              // nível derivado do acumulado
         guildRepository.save(guild);
+
+        boolean leveledUp = guild.getLevel() > beforeLevel;
+        if (leveledUp) {
+            log.info("[GuildService] guild={} action=guildLevelUp {} → {} (lifetimeGold={})",
+                    guild.getId(), beforeLevel, guild.getLevel(), guild.getLifetimeGold());
+        }
 
         // Track individual donation for the ranking
         Player managed = playerRepository.findById(player.getId()).orElse(player);
         managed.setGuildDonatedBronze(managed.getGuildDonatedBronze() + bronzeAmount);
         playerRepository.save(managed);
 
-        log.info("[GuildService] player={} action=donate OK guildId={} amount={}", player.getId(), guild.getId(), bronzeAmount);
-        return guild;
-    }
-
-    // ── Subir nível da guilda (líder) ─────────────────────────────────────────
-    @Transactional
-    public Guild levelUp(Player leader) {
-        log.info("[GuildService] player={} action=levelUp", leader.getId());
-        Guild guild = requireGuild(leader);
-        requireLeader(leader, guild);
-
-        long cost = guild.levelUpCost();
-        if (guild.getGold() < cost) {
-            log.warn("[GuildService] player={} REJECTED: insufficient guild gold (have={} need={})", leader.getId(), guild.getGold(), cost);
-            throw new IllegalStateException(
-                    "Insufficient guild gold. Required: " + cost + ", available: " + guild.getGold());
-        }
-
-        guild.setGold(guild.getGold() - cost);
-        guild.setLevel(guild.getLevel() + 1);
-        Guild saved = guildRepository.save(guild);
-        log.info("[GuildService] player={} action=levelUp OK guildId={} newLevel={}", leader.getId(), guild.getId(), guild.getLevel());
-        return saved;
+        log.info("[GuildService] player={} action=donate OK guildId={} amount={} lifetimeGold={}",
+                player.getId(), guild.getId(), bronzeAmount, guild.getLifetimeGold());
+        return new DonateResult(guild, leveledUp, guild.getLevel());
     }
 
     // ── Dissolver guilda (líder) ──────────────────────────────────────────────

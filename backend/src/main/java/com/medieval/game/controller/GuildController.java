@@ -100,26 +100,17 @@ public class GuildController {
         return ResponseEntity.ok(Map.of("message", "Leadership transferred."));
     }
 
-    // ── Doar bronze para a guilda ─────────────────────────────────────────────
+    // ── Doar bronze para a guilda (sobe o nível automaticamente) ──────────────── [GUILD_LEVEL_GOLD]
     @PostMapping("/donate")
     public ResponseEntity<?> donate(@Valid @RequestBody DonateRequest req, Authentication auth) {
         Player player = getPlayer(auth);
-        Guild guild = guildService.donate(player, req.amount());
+        GuildService.DonateResult res = guildService.donate(player, req.amount());
+        Guild guild = res.guild();
         return ResponseEntity.ok(Map.of(
-            "message",  "Donation successful!",
-            "guildGold", guild.getGold()
-        ));
-    }
-
-    // ── Subir nível da guilda ─────────────────────────────────────────────────
-    @PostMapping("/levelup")
-    public ResponseEntity<?> levelUp(Authentication auth) {
-        Guild guild = guildService.levelUp(getPlayer(auth));
-        return ResponseEntity.ok(Map.of(
-            "message",    "Guild leveled up to level " + guild.getLevel() + "!",
-            "level",      guild.getLevel(),
-            "maxMembers", guild.maxMembers(),
-            "guildGold",  guild.getGold()
+            "message",   "Donation successful!",
+            "guildGold", guild.getGold(),
+            "level",     res.newLevel(),
+            "leveledUp", res.leveledUp()
         ));
     }
 
@@ -177,21 +168,20 @@ public class GuildController {
         long tSilver     = (rawBronze % 10000) / 100;
         long tBronze     = rawBronze % 100;
 
-        long costBronze  = guild.levelUpCost();
-        long cGold       = costBronze / 10000;
-        long cSilver     = (costBronze % 10000) / 100;
-        long cBronze     = costBronze % 100;
-
         return Map.ofEntries(
             Map.entry("inGuild",          true),
             Map.entry("id",               guild.getId()),
             Map.entry("name",             guild.getName()),
             Map.entry("description",      guild.getDescription() != null ? guild.getDescription() : ""),
             Map.entry("level",            guild.getLevel()),
+            Map.entry("maxLevel",         Guild.MAX_LEVEL),
             Map.entry("treasuryBronze",   rawBronze),
             Map.entry("treasury",         Map.of("bronze", tBronze, "silver", tSilver, "gold", tGold)),
-            Map.entry("levelUpCost",      costBronze),
-            Map.entry("levelUpCostFmt",   Map.of("bronze", cBronze, "silver", cSilver, "gold", cGold)),
+            // [GUILD_LEVEL_GOLD] nível derivado do gold acumulado (progresso pro próximo nível)
+            Map.entry("lifetimeGold",     guild.getLifetimeGold()),
+            Map.entry("nextLevelGold",    guild.goldForNextLevel()),   // -1 se já no nível máximo
+            Map.entry("goldToNextLevel",  guild.goldToNextLevel()),
+            Map.entry("levelProgressPct", guild.levelProgressPct()),
             Map.entry("maxMembers",       guild.maxMembers()),
             Map.entry("members",          memberList),
             Map.entry("isLeader",         isLeader),

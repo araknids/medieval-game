@@ -75,12 +75,64 @@ class GuildModelTest {
         assertThat(guild(20).maxMembers()).isEqualTo(50);  // teto
     }
 
-    // Extra: levelUpCost formula
+    // ── [GUILD_LEVEL_GOLD] Nível derivado do gold acumulado ──
+
     @Test
-    @DisplayName("TC-extra | levelUpCost level 1 = 1000, level 2 = 2000, level 3 = 3000")
-    void tcExtra_levelUpCost_formula() {
-        assertThat(guild(1).levelUpCost()).isEqualTo(1000L);
-        assertThat(guild(2).levelUpCost()).isEqualTo(2000L);
-        assertThat(guild(3).levelUpCost()).isEqualTo(3000L);
+    @DisplayName("goldThreshold | curva prestígio (Lv2=10k, Lv5=100k, Lv10=450k, cap)")
+    void goldThreshold_curve() {
+        assertThat(Guild.goldThreshold(1)).isZero();
+        assertThat(Guild.goldThreshold(2)).isEqualTo(10_000L);
+        assertThat(Guild.goldThreshold(5)).isEqualTo(100_000L);
+        assertThat(Guild.goldThreshold(10)).isEqualTo(450_000L);
+        assertThat(Guild.goldThreshold(11)).isEqualTo(450_000L); // cap no MAX_LEVEL
+    }
+
+    @Test
+    @DisplayName("levelForGold | limiares exatos e cap no Lv10")
+    void levelForGold_thresholds() {
+        assertThat(Guild.levelForGold(0)).isEqualTo(1);
+        assertThat(Guild.levelForGold(9_999)).isEqualTo(1);
+        assertThat(Guild.levelForGold(10_000)).isEqualTo(2);
+        assertThat(Guild.levelForGold(449_999)).isEqualTo(9);
+        assertThat(Guild.levelForGold(450_000)).isEqualTo(10);
+        assertThat(Guild.levelForGold(9_999_999)).isEqualTo(10); // cap
+    }
+
+    @Test
+    @DisplayName("recomputeLevel | sobe conforme o acumulado e NUNCA rebaixa")
+    void recomputeLevel_monotonic() {
+        Guild g = new Guild();
+        g.setLifetimeGold(100_000); // Lv5
+        g.recomputeLevel();
+        assertThat(g.getLevel()).isEqualTo(5);
+        g.recomputeLevel(); // estável
+        assertThat(g.getLevel()).isEqualTo(5);
+
+        // guild legada com nível alto e pouco acumulado NÃO é rebaixada
+        Guild legacy = new Guild();
+        legacy.setLevel(8);
+        legacy.setLifetimeGold(0);
+        legacy.recomputeLevel();
+        assertThat(legacy.getLevel()).isEqualTo(8);
+    }
+
+    @Test
+    @DisplayName("goldForNextLevel / goldToNextLevel / levelProgressPct")
+    void nextLevelHelpers() {
+        Guild g = new Guild();
+        g.setLifetimeGold(10_000); // exatamente Lv2
+        g.recomputeLevel();
+        assertThat(g.getLevel()).isEqualTo(2);
+        assertThat(g.goldForNextLevel()).isEqualTo(30_000L); // Lv3
+        assertThat(g.goldToNextLevel()).isEqualTo(20_000L);  // 30k - 10k
+        assertThat(g.levelProgressPct()).isZero();           // início do Lv2
+
+        Guild maxg = new Guild();
+        maxg.setLifetimeGold(450_000);
+        maxg.recomputeLevel();
+        assertThat(maxg.getLevel()).isEqualTo(10);
+        assertThat(maxg.goldForNextLevel()).isEqualTo(-1L);
+        assertThat(maxg.goldToNextLevel()).isZero();
+        assertThat(maxg.levelProgressPct()).isEqualTo(100);
     }
 }
