@@ -2051,6 +2051,8 @@ GET /api/gathering/skills
 
 ### TC-082 — POST /api/gathering/start FISHING 5min cria sessão de pesca
 
+> ⚠️ **REMOVIDO (2026-06-05)** — O endpoint `/api/gathering/start` (sessão de coleta) foi removido na unificação da coleta no sistema de zona. A coleta agora roda via `POST /api/zones/enter` com `role=GATHERING` (ver PLANO_SEM_TIMER_PVP.md). Cenário coberto por TC-223 (drops por reino) e pela suíte de zona.
+
 **Tipo:** Integração
 **UC Relacionado:** UC-28
 **Prioridade:** Alta
@@ -2080,6 +2082,8 @@ POST /api/gathering/start
 ---
 
 ### TC-083 — POST /api/gathering/{id}/collect retorna drops array
+
+> ⚠️ **REMOVIDO (2026-06-05)** — O endpoint `/api/gathering/{id}/collect` foi removido na unificação da coleta no sistema de zona. A coleta/loot agora vem de `POST /api/zones/{id}/collect`. O roller por reino (drops + narrativa) é testado direto via `collectGatheringDropsOnly` no FishSplitTest.
 
 **Tipo:** Integração
 **UC Relacionado:** UC-29
@@ -2939,6 +2943,7 @@ O endpoint retorna a vitrine de 2 quests (de um pool de 6 por reino, rotacionand
 Mesma mecânica das quests clássicas, mas quest específica do reino; consome estamina.
 
 ### TC-146: POST /api/gathering/start → sessão de coleta (via World)
+> ⚠️ **REMOVIDO (2026-06-05)** — coleta unificada na zona: agora é `POST /api/zones/enter` `role=GATHERING` (drops por reino via `ZoneActivity.kingdom`). Ver PLANO_SEM_TIMER_PVP.md.
 DESFILADEIRO/MAR → FISHING; MINAS → MINING; GRUTAS → GARIMPO. Em produção, consome estamina.
 
 ### TC-147: gather abaixo do nível da zona → bloqueado

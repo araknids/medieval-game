@@ -51,10 +51,11 @@ class TowerIntegrationTest extends BaseIntegrationTest {
     @Test
     @DisplayName("TC-070 | POST /api/tower/enter com guerreiro em missao → 400")
     void tc070_enterTower_whenOnQuest_returns400() throws Exception {
-        mockMvc.perform(post("/api/quests/start")
+        // ocupa o guerreiro com trabalho (onMission=true)
+        mockMvc.perform(post("/api/work/start")
                 .header("Authorization", bearer(token))
                 .contentType(MediaType.APPLICATION_JSON)
-                .content(json(Map.of("questType", "PATROL"))));
+                .content(json(Map.of("workType", "TAVERN_HELPER", "hours", 1))));
 
         mockMvc.perform(post("/api/tower/enter")
                         .header("Authorization", bearer(token)))

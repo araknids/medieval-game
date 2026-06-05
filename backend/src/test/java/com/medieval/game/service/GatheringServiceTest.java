@@ -82,14 +82,4 @@ class GatheringServiceTest {
         assertThat(skill.expNeededForNextLevel()).isEqualTo(500L);
     }
 
-    // ── Custo de estamina ao coletar (Reinos V2): mín. 5, ~metade dos minutos ──
-    @Test
-    @DisplayName("Coletar gasta estamina proporcional à duração (mín. 5)")
-    void gather_staminaCost_isProportionalWithFloor() {
-        assertThat(GatheringService.staminaCostFor(5)).isEqualTo(5);   // piso
-        assertThat(GatheringService.staminaCostFor(10)).isEqualTo(5);  // piso
-        assertThat(GatheringService.staminaCostFor(20)).isEqualTo(10);
-        assertThat(GatheringService.staminaCostFor(30)).isEqualTo(15);
-        assertThat(GatheringService.staminaCostFor(60)).isEqualTo(30); // teto prático
-    }
 }

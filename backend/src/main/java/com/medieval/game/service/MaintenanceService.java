@@ -27,9 +27,7 @@ public class MaintenanceService {
     private final SocketedGemRepository        socketedGemRepository;
     private final ItemAffixRepository          itemAffixRepository;
     private final InventoryItemRepository      inventoryItemRepository;
-    private final ActiveQuestRepository        activeQuestRepository;
     private final WorkSessionRepository        workSessionRepository;
-    private final GatheringSessionRepository   gatheringSessionRepository;
     private final ArenaMatchRepository         arenaMatchRepository;
     private final ZoneActivityRepository       zoneActivityRepository;
     private final TowerRunRepository           towerRunRepository;
@@ -61,9 +59,7 @@ public class MaintenanceService {
         socketedGemRepository.deleteAllInBatch();
         itemAffixRepository.deleteAllInBatch(); // Itens V2: afixos antes dos itens (FK)
         inventoryItemRepository.deleteAllInBatch();
-        activeQuestRepository.deleteAllInBatch();
         workSessionRepository.deleteAllInBatch();
-        gatheringSessionRepository.deleteAllInBatch();
         arenaMatchRepository.deleteAllInBatch();
         zoneActivityRepository.deleteAllInBatch();
         towerRunRepository.deleteAllInBatch();

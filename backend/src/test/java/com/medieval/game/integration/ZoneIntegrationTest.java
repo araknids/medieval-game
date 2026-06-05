@@ -50,10 +50,11 @@ class ZoneIntegrationTest extends BaseIntegrationTest {
     @Test
     @DisplayName("TC-094 | POST /api/zones/enter com guerreiro em missao - 400")
     void tc094_enterZone_whenOnQuest_returns400() throws Exception {
-        mockMvc.perform(post("/api/quests/start")
+        // ocupa o guerreiro com trabalho (deixa onMission=true)
+        mockMvc.perform(post("/api/work/start")
                 .header("Authorization", bearer(token))
                 .contentType(MediaType.APPLICATION_JSON)
-                .content("{\"questType\":\"PATROL\"}"));
+                .content("{\"workType\":\"TAVERN_HELPER\",\"hours\":1}"));
 
         mockMvc.perform(post("/api/zones/enter")
                         .header("Authorization", bearer(token))

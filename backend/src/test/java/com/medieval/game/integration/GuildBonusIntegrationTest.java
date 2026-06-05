@@ -53,26 +53,7 @@ class GuildBonusIntegrationTest extends BaseIntegrationTest {
                 .andExpect(jsonPath("$.bronzeBonus").value(0));
     }
 
-    // TC-119: Quest collect with level 1 guild — rewards unchanged
-    @Test
-    @DisplayName("TC-119 | Quest collect with level 1 guild → no bonus applied")
-    void tc119_questCollect_level1_noBonus() throws Exception {
-        String questResp = mockMvc.perform(post("/api/quests/start")
-                        .header("Authorization", bearer(leaderToken))
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(json(Map.of("questType", "PATROL"))))
-                .andExpect(status().isOk())
-                .andReturn().getResponse().getContentAsString();
-
-        long questId = objectMapper.readTree(questResp).get("id").asLong();
-
-        // With instant-complete and level 1 guild — should succeed normally
-        mockMvc.perform(post("/api/quests/" + questId + "/collect")
-                        .header("Authorization", bearer(leaderToken)))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.goldEarned").isNumber())
-                .andExpect(jsonPath("$.expEarned").isNumber());
-    }
+    // (TC-119 removido: testava o /api/quests legado; TC-120 já cobre bônus-de-guilda no reward via Work.)
 
     // TC-120: Work collect with level 1 guild — rewards unchanged
     @Test

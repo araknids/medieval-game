@@ -4,7 +4,6 @@ import com.medieval.game.enums.*;
 import com.medieval.game.model.Player;
 import com.medieval.game.model.Warrior;
 import com.medieval.game.repository.*;
-import java.util.Optional;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -16,9 +15,7 @@ import org.springframework.transaction.annotation.Transactional;
 public class WarriorService {
 
     private final WarriorRepository              warriorRepository;
-    private final ActiveQuestRepository          questRepository;
     private final WorkSessionRepository          workRepository;
-    private final GatheringSessionRepository     gatheringRepository;
     private final ArenaMatchRepository           arenaRepository;
     private final TowerRunRepository             towerRepository;
     private final TrainingSessionRepository      trainingRepository;
@@ -91,30 +88,12 @@ public class WarriorService {
         Warrior warrior = getWarrior(player);
         if (!warrior.isOnMission()) return false;
 
-        // Cancela quest ativa
-        questRepository.findAllByPlayerAndStatusNot(player, QuestStatus.COLLECTED)
-                .forEach(q -> {
-                    if (q.getStatus() == QuestStatus.IN_PROGRESS) {
-                        q.setStatus(QuestStatus.ABANDONED);
-                        questRepository.save(q);
-                        log.info("[WarriorService] player={} action=freeIfStuck cancelled quest id={}", player.getId(), q.getId());
-                    }
-                });
-
         // Cancela sessão de trabalho
         workRepository.findByPlayerAndStatus(player, WorkStatus.IN_PROGRESS)
                 .ifPresent(w -> {
                     w.setStatus(WorkStatus.CANCELLED);
                     workRepository.save(w);
                     log.info("[WarriorService] player={} action=freeIfStuck cancelled workSession id={}", player.getId(), w.getId());
-                });
-
-        // Cancela sessão de coleta (pesca/mineração)
-        gatheringRepository.findByPlayerAndStatus(player, GatheringStatus.IN_PROGRESS)
-                .ifPresent(g -> {
-                    g.setStatus(GatheringStatus.CANCELLED);
-                    gatheringRepository.save(g);
-                    log.info("[WarriorService] player={} action=freeIfStuck cancelled gatheringSession id={}", player.getId(), g.getId());
                 });
 
         // Cancela batalha na arena

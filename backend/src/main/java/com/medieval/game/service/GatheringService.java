@@ -20,17 +20,12 @@ public class GatheringService {
     // Teto de HP que o peixe de vida alcança (resto exige Templo/regen). [AUDITORIA A5 / REINOS_V2]
     private static final int FISH_HP_CAP = 90;
 
-    private final GatheringSessionRepository  sessionRepository;
     private final SkillLevelRepository        skillRepository;
     private final ResourceInventoryRepository resourceRepository;
     private final WarriorRepository           warriorRepository;
     private final PlayerRepository            playerRepository;
-    private final TerritoryService            territoryService;
     private final ConcurrentEntityCreator     entityCreator;
     private final InventoryService            inventoryService; // bag space (Inventário V2)
-
-    @Value("${app.dev.instant-complete:false}")
-    private boolean instantComplete;
 
     // ── Habilidades ──
 
@@ -94,158 +89,7 @@ public class GatheringService {
 
     // ── Sessão de coleta ──
 
-    public Optional<GatheringSession> getCurrentSession(Player player) {
-        return sessionRepository.findByPlayerAndStatus(player, GatheringStatus.IN_PROGRESS);
-    }
-
-    @Transactional
-    public GatheringSession startGathering(Player player, SkillType skillType, int durationMinutes) {
-        return startGathering(player, skillType, durationMinutes, null);
-    }
-
-    @Transactional
-    public GatheringSession startGathering(Player player, SkillType skillType, int durationMinutes,
-                                           com.medieval.game.enums.Kingdom kingdom) {
-        log.info("[GatheringService] player={} action=startGathering skillType={} duration={} kingdom={}", player.getId(), skillType, durationMinutes, kingdom);
-        if (sessionRepository.findByPlayerAndStatus(player, GatheringStatus.IN_PROGRESS).isPresent()) {
-            log.warn("[GatheringService] player={} REJECTED: already gathering", player.getId());
-            throw new IllegalStateException("You are already gathering");
-        }
-        Warrior warrior = warriorRepository.findByPlayer(player)
-                .orElseThrow(() -> new IllegalStateException("Warrior not found"));
-        if (warrior.isOnMission()) {
-            log.warn("[GatheringService] player={} REJECTED: warrior is busy", player.getId());
-            throw new IllegalStateException("Your warrior is busy");
-        }
-
-        int minDuration = skillType == SkillType.FISHING ? 5 : 10;
-        if (durationMinutes < minDuration || durationMinutes > 60) {
-            log.warn("[GatheringService] player={} REJECTED: invalid duration={} for skillType={}", player.getId(), durationMinutes, skillType);
-            throw new IllegalArgumentException("Invalid duration");
-        }
-
-        // Gathering (fishing/mining/prospecting) consumes stamina proportional to duration. [REINOS_V2]
-        // Ignorado quando instant-complete (modo de teste) — consistente com quests/arena/torre, que
-        // também pulam a estamina nesse modo. Em produção real (flag off) é cobrado normalmente. [TESTE]
-        if (!instantComplete) {
-            int staminaCost = staminaCostFor(durationMinutes);
-            int current = player.getCalculatedStamina();
-            if (current < staminaCost) {
-                log.warn("[GatheringService] player={} REJECTED: stamina {}/{}", player.getId(), current, staminaCost);
-                throw new IllegalStateException("Not enough stamina (" + current + "/" + staminaCost +
-                        "). Eat a fish or rest.");
-            }
-            player.setCurrentStamina(current - staminaCost);
-            player.setStaminaUpdatedAt(LocalDateTime.now());
-            playerRepository.save(player);
-        }
-
-        SkillLevel skill = getOrCreateSkill(player, skillType);
-        int xpReward = durationMinutes * (skill.getLevel() / 10 + 2);
-
-        warrior.setOnMission(true);
-        warriorRepository.save(warrior);
-
-        GatheringSession session = new GatheringSession();
-        session.setPlayer(player);
-        session.setSkillType(skillType);
-        session.setKingdom(kingdom);
-        session.setDurationMinutes(durationMinutes);
-        session.setXpReward(xpReward);
-        session.setStartedAt(LocalDateTime.now());
-        session.setFinishesAt(LocalDateTime.now()); // [SEM_TIMER] coleta instantânea
-        GatheringSession saved = sessionRepository.save(session);
-        log.info("[GatheringService] player={} action=startGathering OK id={}", player.getId(), saved.getId());
-        return saved;
-    }
-
-    /** Estamina gasta por uma coleta, proporcional à duração (mín. 5, ~metade dos minutos). */
-    static int staminaCostFor(int durationMinutes) {
-        return Math.max(5, durationMinutes / 2);
-    }
-
     public record ResourceDrop(ResourceType type, long quantity) {}
-
-    /** Result of collecting a gathering session: the drops plus a short flavour line. */
-    public record CollectResult(List<ResourceDrop> drops, String narrative) {}
-
-    @Transactional
-    public CollectResult collectGathering(Player player, Long sessionId) {
-        log.info("[GatheringService] player={} action=collectGathering sessionId={}", player.getId(), sessionId);
-        GatheringSession session = sessionRepository.findById(sessionId)
-                .orElseThrow(() -> new IllegalArgumentException("Session not found"));
-        if (!session.getPlayer().getId().equals(player.getId())) {
-            log.warn("[GatheringService] player={} REJECTED: session {} does not belong to this player", player.getId(), sessionId);
-            throw new IllegalStateException("This session does not belong to you");
-        }
-        if (session.getStatus() == GatheringStatus.COLLECTED) {
-            log.warn("[GatheringService] player={} REJECTED: session {} already collected", player.getId(), sessionId);
-            throw new IllegalStateException("Already collected");
-        }
-        if (!session.isReadyToCollect()) {
-            long secs = java.time.Duration.between(LocalDateTime.now(), session.getFinishesAt()).getSeconds();
-            log.warn("[GatheringService] player={} REJECTED: session {} still in progress, {}s remaining", player.getId(), sessionId, secs);
-            throw new IllegalStateException("Still gathering. " + secs + "s remaining");
-        }
-
-        SkillLevel skill = getOrCreateSkill(player, session.getSkillType());
-
-        // Territory bonus: fishing or mining yield
-        TerritoryService.TerritoryBonus terr = territoryService.getBonusForPlayer(player);
-        int yieldBonusPct = session.getSkillType() == com.medieval.game.enums.SkillType.FISHING
-                ? terr.fishingBonus()
-                : session.getSkillType() == com.medieval.game.enums.SkillType.MINING
-                    ? terr.miningBonus()
-                    : 0;
-
-        List<ResourceDrop> drops = rollDrops(session.getSkillType(), skill.getLevel(),
-                session.getDurationMinutes(), session.getKingdom());
-
-        // Apply yield bonus: extra items proportional to bonus %
-        List<ResourceDrop> boostedDrops = drops.stream().map(d -> {
-            int bonus = (int) Math.round(d.quantity() * yieldBonusPct / 100.0);
-            return bonus > 0 ? new ResourceDrop(d.type(), d.quantity() + bonus) : d;
-        }).toList();
-
-        for (ResourceDrop drop : boostedDrops) addResource(player, drop.type(), drop.quantity());
-
-        // XP da skill (also apply territory xp bonus)
-        int xpBonus = (int) Math.round(session.getXpReward() * terr.xpBonus() / 100.0);
-        addSkillXp(skill, session.getXpReward() + xpBonus);
-
-        // Libera guerreiro
-        warriorRepository.findByPlayer(player).ifPresent(w -> { w.setOnMission(false); warriorRepository.save(w); });
-
-        session.setStatus(GatheringStatus.COLLECTED);
-        sessionRepository.save(session);
-
-        // Short dynamic flavour line for the collect screen (gathering's "battle log"). [REINOS_V2]
-        String narrative = GatheringNarrator.narrate(session.getSkillType(), session.getKingdom());
-
-        log.info("[GatheringService] player={} action=collectGathering OK sessionId={} drops={}", player.getId(), sessionId, drops.size());
-        return new CollectResult(boostedDrops, narrative);
-    }
-
-    @Transactional
-    public void cancelGathering(Player player, Long sessionId) {
-        log.info("[GatheringService] player={} action=cancelGathering sessionId={}", player.getId(), sessionId);
-        GatheringSession session = sessionRepository.findById(sessionId)
-                .orElseThrow(() -> new IllegalArgumentException("Session not found"));
-        if (!session.getPlayer().getId().equals(player.getId())) {
-            log.warn("[GatheringService] player={} REJECTED: session {} does not belong to this player", player.getId(), sessionId);
-            throw new IllegalStateException("This session does not belong to you");
-        }
-        if (session.getStatus() != GatheringStatus.IN_PROGRESS) {
-            log.warn("[GatheringService] player={} REJECTED: session {} already finished (status={})", player.getId(), sessionId, session.getStatus());
-            throw new IllegalStateException("Session already finished");
-        }
-
-        session.setStatus(GatheringStatus.CANCELLED);
-        sessionRepository.save(session);
-        warriorRepository.findByPlayer(player).ifPresent(w -> { w.setOnMission(false); warriorRepository.save(w); });
-        log.info("[GatheringService] player={} action=cancelGathering OK sessionId={}", player.getId(), sessionId);
-    }
-
     // ── Consumir peixe (restaura stamina) ──
 
     /** Result of eating a fish: restored stamina and HP percent. */

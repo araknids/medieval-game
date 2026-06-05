@@ -69,7 +69,6 @@ async function toggleLanguage() {
 let token    = localStorage.getItem('token');
 let player   = null;
 let warrior  = null;
-let questTypes = [];
 let timerIntervals = {};
 let fightTimerInterval = null;
 let currentUsername = '';
@@ -133,47 +132,6 @@ function renderBattleLog(lines) {
     if (line.startsWith('—'))           return `<span class="log-round">${line}</span>`;
     return `<span class="log-hit">${line}</span>`;
   }).join('\n');
-}
-
-// ── Quest narratives ──
-const QUEST_NARRATIVES = {
-  PATROL: [
-    'Your warrior patrolled the surroundings, keeping the peace and driving off bandits.',
-    'A quiet round through the city outskirts. The night was calm.',
-    'The warrior crossed every street with care, ensuring the region\'s safety.',
-  ],
-  DUNGEON: [
-    'The darkness of the dungeon was swept aside with determination. Enemies fell along the way.',
-    'Battles in the depths echoed through the caverns. The warrior emerged victorious.',
-    'Shadow creatures tried to block the path, but were defeated one by one.',
-  ],
-  RAID: [
-    'The raid was intense — multiple enemies were defeated in open combat.',
-    'Blood and glory: the raid was a resounding success.',
-    'Leading the assault, the warrior left a trail of victories across the field.',
-  ],
-  BOSS_HUNT: [
-    'The boss roared menacingly, but fell before the warrior\'s determination.',
-    'An epic battle that will be remembered. The boss was slain.',
-    'After a legendary confrontation, the boss was finally defeated.',
-  ],
-};
-
-const DROP_NARRATIVES = [
-  'While searching through the enemy\'s remains, something shiny caught the eye...',
-  'In a forgotten corner of the dungeon, an item lay abandoned for years...',
-  'Victory brought an unexpected surprise hidden among the enemy\'s belongings...',
-  'Among the rubble of battle, a glimmer caught the warrior\'s attention...',
-  'Carefully examining the fallen enemy, something valuable was discovered...',
-];
-
-function questNarrative(questType) {
-  const key = questType?.toUpperCase().replace(' ', '_') ||
-    (questType?.includes('Patrulha') ? 'PATROL' :
-     questType?.includes('Masmorra') ? 'DUNGEON' :
-     questType?.includes('Raid') ? 'RAID' : 'BOSS_HUNT');
-  const arr = QUEST_NARRATIVES[key] || QUEST_NARRATIVES.PATROL;
-  return arr[Math.floor(Math.random() * arr.length)];
 }
 
 function showMessage(text, isError = false, isDrop = false) {
@@ -414,226 +372,6 @@ function goTo(loc) {
   if (loc === 'guild')     { loadGuild(); }
   if (loc === 'world')      { loadWorld(); }
   if (loc === 'mail')      { loadMail(); }
-}
-
-// ── TAVERNA: missões ──
-function switchQuestTab(tab) {
-  document.getElementById('panel-available').style.display = tab === 'available' ? 'block' : 'none';
-  document.getElementById('panel-active').style.display    = tab === 'active'    ? 'block' : 'none';
-  document.getElementById('tab-available').classList.toggle('active', tab === 'available');
-  document.getElementById('tab-active').classList.toggle('active',    tab === 'active');
-}
-
-async function loadQuestTypes() {
-  questTypes = await api('GET', '/api/quests/types');
-  renderQuestTypes();
-}
-
-function renderQuestTypes() {
-  const busy = warrior?.onMission ?? false;
-  const el = document.getElementById('quest-types-list');
-  if (!questTypes.length) { el.innerHTML = t('misc.loading'); return; }
-  const stamina = warrior?.stamina ?? 100;
-  el.innerHTML = questTypes.map(q => {
-    const noStamina = stamina < q.staminaCost;
-    const disabled  = busy || noStamina;
-    const btnLabel  = busy ? t('status.busy') : noStamina ? `⚡ ${stamina}/${q.staminaCost}` : t('quest.btn.send');
-    return `
-    <div class="quest-card">
-      <h3>${t('quest.type.'+q.id)||q.displayName}</h3>
-      <div class="quest-rewards">
-        <span>${fmtBronze(q.goldReward)}</span>
-        <span>⭐ ${q.expReward} exp</span>
-        <span class="stamina-cost">⚡ ${q.staminaCost}</span>
-      </div>
-      <button class="btn-send" ${disabled ? 'disabled' : ''} onclick="sendOnMission('${q.id}')">
-        ${btnLabel}
-      </button>
-    </div>`;
-  }).join('');
-}
-
-async function loadActiveQuests() {
-  const quests = await api('GET', '/api/quests');
-  if (!Array.isArray(quests)) return;
-  Object.values(timerIntervals).forEach(clearInterval);
-  timerIntervals = {};
-
-  const el = document.getElementById('active-quests-list');
-  if (!quests.length) { el.innerHTML = `<p style="color:#888;font-size:.82rem">${t('quest.none_active')}</p>`; return; }
-
-  el.innerHTML = quests.map(q => `
-    <div class="quest-card" id="quest-card-${q.id}">
-      <div class="quest-card-top">
-        <h3>${t('quest.type.'+q.questType)||q.questType}</h3>
-        <span class="timer ${q.secondsRemaining <= 0 ? 'done' : ''}" id="timer-${q.id}">
-          ${q.secondsRemaining <= 0 ? t('quest.ready_short') : formatTime(q.secondsRemaining)}
-        </span>
-      </div>
-      <div class="quest-rewards">
-        <span>${fmtBronze(q.goldReward)}</span>
-        <span>⭐ ${q.expReward} exp</span>
-      </div>
-      <button class="btn-collect" id="btn-collect-${q.id}" ${q.secondsRemaining > 0 ? 'disabled' : ''} onclick="collectReward(${q.id})">
-        ${q.secondsRemaining > 0 ? t('quest.waiting') : t('quest.btn.collect_icon')}
-      </button>
-    </div>`).join('');
-
-  quests.forEach(q => {
-    if (q.secondsRemaining <= 0) return;
-    let secs = q.secondsRemaining;
-    timerIntervals[q.id] = setInterval(() => {
-      secs--;
-      const te = document.getElementById(`timer-${q.id}`);
-      const be = document.getElementById(`btn-collect-${q.id}`);
-      if (!te) { clearInterval(timerIntervals[q.id]); return; }
-      if (secs <= 0) {
-        te.textContent = t('quest.ready_short'); te.classList.add('done');
-        be.disabled = false; be.textContent = t('quest.btn.collect_icon');
-        clearInterval(timerIntervals[q.id]);
-        loadWarrior();
-      } else { te.textContent = formatTime(secs); }
-    }, 1000);
-  });
-}
-
-async function sendOnMission(questType) {
-  const quest = await api('POST', '/api/quests/start', { questType });
-  if (quest.error) { showMessage(quest.error, true); return; }
-  await loadWarrior();
-  openQuestProgress(quest);
-}
-
-function openQuestProgress(quest) {
-  document.getElementById('tavern-normal').style.display   = 'none';
-  document.getElementById('tavern-progress').style.display = 'block';
-  renderQuestProgress(quest);
-}
-
-function closeQuestProgress() {
-  document.getElementById('tavern-progress').style.display = 'none';
-  document.getElementById('tavern-normal').style.display   = 'block';
-  loadQuestTypes();
-  loadActiveQuests();
-}
-
-async function abandonQuest(questId) {
-  if (!confirm(t('quest.confirm_abandon'))) return;
-  const data = await api('POST', `/api/quests/${questId}/abandon`);
-  if (data.error) { showMessage(data.error, true); return; }
-  showMessage(t('quest.abandoned'));
-  closeQuestProgress();
-  await loadWarrior();
-}
-
-function renderQuestProgress(quest) {
-  const done = quest.secondsRemaining <= 0;
-  document.getElementById('qp-content').innerHTML = `
-    <div class="qp-box">
-      <div class="qp-quest-name">${t('quest.type.'+quest.questType)||quest.questType}</div>
-      <div class="qp-rewards-preview">
-        ${fmtBronze(quest.goldReward)} &nbsp;&nbsp; ⭐ ${quest.expReward} exp
-      </div>
-      <div class="qp-timer ${done ? 'done' : ''}" id="qp-timer">
-        ${done ? t('quest.complete') : formatTime(quest.secondsRemaining)}
-      </div>
-      <button class="btn-collect qp-collect-btn" id="qp-btn"
-              ${done ? '' : 'disabled'}
-              onclick="collectFromProgress(${quest.id})">
-        ${done ? t('quest.btn.collect_icon') : t('quest.waiting')}
-      </button>
-      ${!done ? `
-      <button class="btn-cancel-work" onclick="abandonQuest(${quest.id})" style="margin-top:.5rem">
-        Abandonar (não recebe nada)
-      </button>` : ''}
-    </div>`;
-
-  if (!done) {
-    let secs = quest.secondsRemaining;
-    const interval = setInterval(() => {
-      secs--;
-      const t = document.getElementById('qp-timer');
-      const b = document.getElementById('qp-btn');
-      if (!t) { clearInterval(interval); return; }
-      if (secs <= 0) {
-        t.textContent = t('quest.complete');
-        t.classList.add('done');
-        b.disabled = false;
-        b.textContent = t('quest.btn.collect_icon');
-        clearInterval(interval);
-      } else {
-        t.textContent = formatTime(secs);
-      }
-    }, 1000);
-  }
-}
-
-async function collectFromProgress(questId) {
-  const data = await api('POST', `/api/quests/${questId}/collect`);
-  if (data.error) { showMessage(data.error, true); return; }
-
-  let rewardsHtml = `
-    <div class="qp-result-row">
-      <span class="cr-gold">${fmtBronze(data.goldEarned)}</span>
-      <span class="cr-exp">+${data.expReward ?? data.expEarned} exp</span>
-    </div>`;
-
-  if (data.droppedItem) {
-    const d = data.droppedItem;
-    const stats = [
-      d.attackBonus  > 0 ? `+${d.attackBonus} ATK`  : '',
-      d.defenseBonus > 0 ? `+${d.defenseBonus} DEF` : '',
-      d.healthBonus  > 0 ? `+${d.healthBonus} HP`   : '',
-    ].filter(Boolean).join('  ');
-    rewardsHtml += `
-      <div class="qp-result-drop">
-        ✨ <strong>${d.name}</strong>
-        <span class="drop-stats">${(t('item.type.'+d.type)||d.typeDisplay)} · ${stats}</span>
-      </div>`;
-  }
-
-  document.getElementById('qp-content').innerHTML = `
-    <div class="qp-box">
-      <div class="qp-quest-name">${t('quest.complete_title')}</div>
-      ${rewardsHtml}
-      <button class="btn-send qp-collect-btn" onclick="closeQuestProgress()" style="margin-top:1rem">
-        Voltar às Missões
-      </button>
-    </div>`;
-
-  await loadWarrior();
-}
-
-async function collectReward(questId) {
-  const data = await api('POST', `/api/quests/${questId}/collect`);
-  if (data.error) { showMessage(data.error, true); return; }
-
-  const card = document.getElementById(`quest-card-${questId}`);
-  if (card) {
-    let line = `${fmtBronze(data.goldEarned)}   +${data.expEarned} exp`;
-    if (data.droppedItem) {
-      const d = data.droppedItem;
-      const stats = [
-        d.attackBonus  > 0 ? `+${d.attackBonus} ATK`  : '',
-        d.defenseBonus > 0 ? `+${d.defenseBonus} DEF` : '',
-        d.healthBonus  > 0 ? `+${d.healthBonus} HP`   : '',
-      ].filter(Boolean).join(' ');
-      line += `\n✨ ${d.name} (${stats})`;
-    }
-    const narrative = questNarrative(data.questType || '');
-    const dropNarrative = data.droppedItem
-      ? DROP_NARRATIVES[Math.floor(Math.random() * DROP_NARRATIVES.length)]
-      : '';
-    card.innerHTML = `<div class="collect-result">
-      <p style="color:#888;font-size:.76rem;font-style:italic;margin-bottom:.2rem">${narrative}</p>
-      ${line.replace('\n', '<br>')}
-      ${dropNarrative ? `<p style="color:#c97ddb;font-size:.76rem;margin-top:.2rem;font-style:italic">${dropNarrative}</p>` : ''}
-    </div>`;
-  }
-
-  setTimeout(async () => {
-    await Promise.all([loadWarrior(), loadActiveQuests()]);
-  }, data.droppedItem ? 5000 : 2000);
 }
 
 // ── COMÉRCIO: loja ──
@@ -1937,9 +1675,6 @@ loadLanguage(_currentLang).finally(() => {
       document.getElementById('login-screen').style.display = 'none';
       document.getElementById('game-screen').style.display = 'block';
       loadWarrior();
-      loadQuestTypes();
-      loadActiveQuests();
-      setInterval(loadActiveQuests, 10000);
     });
   } else {
     document.getElementById('login-screen').style.display = 'flex';
@@ -2595,35 +2330,32 @@ async function enterKingdom(kingdom, _depth = 0) {
   if (!el) return;
   el.innerHTML = '<p>Loading kingdom...</p>';
   try {
-    const [, quests, activeQuests, training, gatherSession, zoneSession, pvpStatus] = await Promise.all([
+    const [, quests, activeQuests, training, zoneSession, pvpStatus] = await Promise.all([
       loadWarrior(),
       api('GET', `/api/world/${kingdom}/quests`),
       api('GET', `/api/world/${kingdom}/quests/active`),
       kingdom === 'COMBAT' ? api('GET', '/api/world/COMBAT/training') : Promise.resolve(null),
-      (kingdom === 'FISHING' || kingdom === 'MINING' || kingdom === 'GRUTAS_DE_CRISTAL' || kingdom === 'MAR_ABENCOADO') ? api('GET', '/api/gathering/current') : Promise.resolve(null),
-      api('GET', '/api/zones/current'), // [UNIFICAÇÃO_ZONA] coleta de todo reino agora é zona
+      api('GET', '/api/zones/current'), // [UNIFICAÇÃO_ZONA] coleta de todo reino (pesca/mineração/combate) é zona
       api('GET', '/api/zones/pvp-status').catch(() => null)
     ]);
-    // [SEM_TIMER] Auto-coleta sessão pendurada pronta (sem banner/Collect manual). Recursão limitada.
-    if (_depth < 2 && ((gatherSession?.active && gatherSession.readyToCollect) || (zoneSession?.active && zoneSession.readyToCollect))) {
-      if (gatherSession?.active) await api('POST', `/api/gathering/${gatherSession.id}/collect`).catch(() => {});
-      if (zoneSession?.active)   await api('POST', `/api/zones/${zoneSession.id}/collect`).catch(() => {});
+    // [SEM_TIMER] Auto-coleta sessão de zona pendurada pronta (sem banner/Collect manual). Recursão limitada.
+    if (_depth < 2 && zoneSession?.active && zoneSession.readyToCollect) {
+      await api('POST', `/api/zones/${zoneSession.id}/collect`).catch(() => {});
       return enterKingdom(kingdom, _depth + 1);
     }
-    renderKingdomDetail(kingdom, quests, activeQuests, training, gatherSession, zoneSession, pvpStatus);
+    renderKingdomDetail(kingdom, quests, activeQuests, training, zoneSession, pvpStatus);
   } catch(e) {
     console.error('[WORLD] enterKingdom ERROR:', e);
     el.innerHTML = '<p style="color:red">Error loading kingdom: ' + e.message + '</p>';
   }
 }
 
-function renderKingdomDetail(kingdom, quests, activeQuests, training, gatherSession, zoneSession, pvpStatus) {
+function renderKingdomDetail(kingdom, quests, activeQuests, training, zoneSession, pvpStatus) {
   const el = document.getElementById('kingdom-detail');
   const NAMES = { FISHING:'Bone Gorge', MINING:'Black Iron Mines', COMBAT:'Cursed Fortress', GRUTAS_DE_CRISTAL:'Crystal Grottoes', MAR_ABENCOADO:'Blessed Sea' };
   const ICONS = { FISHING:'🎣', MINING:'⛏', COMBAT:'⚔', GRUTAS_DE_CRISTAL:'🔎', MAR_ABENCOADO:'🐟' };
   const busy = activeQuests.length > 0
     || !!(warrior && warrior.onMission)
-    || !!(gatherSession && gatherSession.active)
     || !!(zoneSession && zoneSession.active)
     || !!(training && training.active && !training.readyToCollect);
 
@@ -2669,20 +2401,9 @@ function renderKingdomDetail(kingdom, quests, activeQuests, training, gatherSess
     }
   }
 
-  // Active gathering / zone session banner
+  // Active zone session banner (coleta/expedição unificada em zona)
   let activeGatherHtml = '';
-  if (gatherSession && gatherSession.active) {
-    const secsLeft = gatherSession.secondsRemaining || 0;
-    const timeStr  = secsLeft > 3600 ? `${Math.floor(secsLeft/3600)}h ${Math.floor((secsLeft%3600)/60)}m` : `${Math.floor(secsLeft/60)}m`;
-    activeGatherHtml = `
-      <div style="background:#0f2f2f;border:1px solid #00897b;border-radius:8px;padding:12px;margin-bottom:12px">
-        <strong style="color:#4db6ac">🎣 Gathering in Progress</strong>
-        <div style="font-size:13px;color:#aaa;margin-top:4px">${gatherSession.displayName} · ${secsLeft <= 0 ? 'Ready!' : timeStr + ' remaining'}</div>
-        ${secsLeft <= 0
-          ? `<button onclick="collectKingdomGather(${gatherSession.id})" style="margin-top:8px;background:#00695c">Collect</button>`
-          : `<button onclick="cancelKingdomGather(${gatherSession.id})" style="margin-top:8px;background:#555;font-size:12px">✕ Cancel</button>`}
-      </div>`;
-  } else if (zoneSession && zoneSession.active) {
+  if (zoneSession && zoneSession.active) {
     const secsLeft = zoneSession.secondsRemaining || 0;
     const timeStr  = secsLeft > 3600 ? `${Math.floor(secsLeft/3600)}h ${Math.floor((secsLeft%3600)/60)}m` : `${Math.floor(secsLeft/60)}m`;
     activeGatherHtml = `
@@ -2935,8 +2656,6 @@ function closeCollectModal() {
   document.getElementById('collect-modal-overlay')?.remove();
 }
 
-const GATHER_CATEGORY_ICON = { FISH:'🐟', ORE:'🪨', GEM:'💎', BAR:'🔩', CRYSTAL:'🔮' };
-
 async function startKingdomQuest(kingdom, questTypeId) {
   const r = await api('POST', `/api/world/${kingdom}/quests/start`, { questType: questTypeId });
   if (r.error) { worldMsg(r.error, false); return; }
@@ -3003,15 +2722,6 @@ async function collectTraining(sessionId) {
   await enterKingdom('COMBAT');
 }
 
-// Safe zone gathering: /api/gathering/start. kingdom define o pool de drops (ex.: Mar Abençoado = peixe de vida).
-async function startKingdomGathering(skillType, durationMinutes, kingdom) {
-  const body = { skillType, durationMinutes };
-  if (kingdom) body.kingdom = kingdom;
-  const r = await api('POST', '/api/gathering/start', body);
-  if (r.error) { worldMsg(r.error, false); return; }
-  await collectKingdomGather(r.id); // [SEM_TIMER] instantâneo: resolve e abre o resultado direto
-}
-
 // [UNIFICAÇÃO_ZONA] Coleta por zona (SAFE/PVP/HIGH_RISK) com drops do reino — /api/zones/enter GATHERING.
 async function enterKingdomZone(zone, skillType, durationMinutes, kingdom) {
   const r = await api('POST', '/api/zones/enter', { zone, role: 'GATHERING', skillType, durationMinutes, kingdom });
@@ -3023,30 +2733,6 @@ async function enterCombatZone(zone, durationMinutes) {
   const r = await api('POST', '/api/zones/enter', { zone, role: 'COMBAT', durationMinutes });
   if (r.error) { worldMsg(r.error, false); return; }
   await collectKingdomZoneSession(r.id); // [SEM_TIMER] instantâneo: resolve e abre o resultado direto
-}
-
-// Kingdom gathering session helpers
-async function collectKingdomGather(sessionId) {
-  const r = await api('POST', `/api/gathering/${sessionId}/collect`);
-  if (r.error) { worldMsg(r.error, false); return; }
-  const rows = (r.drops && r.drops.length > 0)
-    ? r.drops.map(d => ({
-        icon: GATHER_CATEGORY_ICON[d.category] || '📦',
-        label: d.displayName,
-        value: `x${d.quantity}`,
-        color: '#4db6ac'
-      }))
-    : [];
-  showCollectModal({ title:'🎣 Gathering Results!', color:'#00897b', note:r.narrative, rows });
-  if (worldCurrentKingdom) await enterKingdom(worldCurrentKingdom);
-}
-
-async function cancelKingdomGather(sessionId) {
-  if (!confirm('Cancel gathering session? You lose all collected resources.')) return;
-  const r = await api('POST', `/api/gathering/${sessionId}/cancel`);
-  if (r.error) { worldMsg(r.error, false); return; }
-  if (worldCurrentKingdom) await enterKingdom(worldCurrentKingdom);
-  worldMsg('Gathering cancelled.');
 }
 
 async function collectKingdomZoneSession(activityId) {

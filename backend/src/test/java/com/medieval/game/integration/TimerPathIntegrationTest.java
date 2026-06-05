@@ -35,32 +35,33 @@ class TimerPathIntegrationTest extends BaseIntegrationTest {
                 .reduce((a, b) -> b.getId() > a.getId() ? b : a).orElseThrow();
     }
 
-    // Sem timer: a quest está pronta na hora e pode ser coletada imediatamente (mesmo flag off).
+    // Sem timer: o trabalho é coletável na hora (collect logo após o start funciona).
     @Test
-    @DisplayName("Quest é coletável na hora (sem timer)")
-    void quest_instantlyCollectable() throws Exception {
-        String resp = mockMvc.perform(post("/api/quests/start")
+    @DisplayName("Trabalho é coletável na hora (sem timer)")
+    void work_instantlyCollectable() throws Exception {
+        String resp = mockMvc.perform(post("/api/work/start")
                         .header("Authorization", bearer(token))
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"questType\":\"PATROL\"}"))
+                        .content("{\"workType\":\"TAVERN_HELPER\",\"hours\":1}"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.readyToCollect").value(true))
                 .andReturn().getResponse().getContentAsString();
-        long questId = objectMapper.readTree(resp).get("id").asLong();
+        long sessionId = objectMapper.readTree(resp).get("id").asLong();
 
-        mockMvc.perform(post("/api/quests/" + questId + "/collect")
+        // sem espera: coleta imediata já funciona (gate é estamina, não tempo)
+        mockMvc.perform(post("/api/work/" + sessionId + "/collect")
                         .header("Authorization", bearer(token)))
-                .andExpect(status().isOk());
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.goldEarned").isNumber());
     }
 
-    // A estamina É consumida ao iniciar a quest (PATROL = 10) — a estamina é o gate.
+    // A estamina É consumida ao iniciar o trabalho (horas×5) — a estamina é o gate.
     @Test
-    @DisplayName("Stamina é consumida ao iniciar quest (não fica em 100)")
+    @DisplayName("Stamina é consumida ao iniciar trabalho (não fica em 100)")
     void staminaConsumed() throws Exception {
-        mockMvc.perform(post("/api/quests/start")
+        mockMvc.perform(post("/api/work/start")
                         .header("Authorization", bearer(token))
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"questType\":\"PATROL\"}"))
+                        .content("{\"workType\":\"TAVERN_HELPER\",\"hours\":2}"))
                 .andExpect(status().isOk());
 
         assertThat(player().getCalculatedStamina()).isLessThan(100);

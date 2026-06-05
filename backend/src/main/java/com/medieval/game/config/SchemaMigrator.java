@@ -32,7 +32,6 @@ public class SchemaMigrator {
         patchInventoryItemDurabilityColumn();
         patchOptimisticLockVersionColumns();
         patchTerritoryLastResolvedCycleColumn();
-        patchGatheringSessionKingdomColumn();
         patchStashColumns();
         dropStaleEnumCheckConstraints();
         purgeStaleEnumRows();
@@ -136,16 +135,6 @@ public class SchemaMigrator {
             log.info("[SchemaMigrator] stale enum check constraints dropped (Reinos V2)");
         } catch (Exception e) {
             log.warn("[SchemaMigrator] enum check constraint patch failed: {}", e.getMessage());
-        }
-    }
-
-    // gathering_sessions: add kingdom column (define o pool de drops — Reinos V2)
-    private void patchGatheringSessionKingdomColumn() {
-        try {
-            jdbc.execute("ALTER TABLE gathering_sessions ADD COLUMN IF NOT EXISTS kingdom varchar(40)");
-            log.info("[SchemaMigrator] gathering_sessions kingdom column ensured");
-        } catch (Exception e) {
-            log.warn("[SchemaMigrator] gathering_sessions kingdom column patch failed: {}", e.getMessage());
         }
     }
 

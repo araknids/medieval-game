@@ -133,12 +133,15 @@ class WarriorExclusivityTest extends BaseIntegrationTest {
     // ── Gathering + Kingdom quest (cross-system) ──────────────────────────────
 
     @Test
-    @DisplayName("Cannot start Kingdom quest while gathering")
+    @DisplayName("Cannot start Kingdom quest while gathering (zone)")
     void cannotStartKingdomQuest_whileGathering() throws Exception {
-        mockMvc.perform(post("/api/gathering/start")
+        // [UNIFICAÇÃO_ZONA] coleta agora é uma expedição de zona (role GATHERING),
+        // que ocupa o guerreiro (onMission) até ser coletada.
+        mockMvc.perform(post("/api/zones/enter")
                 .header("Authorization", bearer(token))
                 .contentType(MediaType.APPLICATION_JSON)
-                .content("{\"skillType\":\"FISHING\",\"durationMinutes\":5}"));
+                .content("{\"zone\":\"SAFE\",\"role\":\"GATHERING\",\"skillType\":\"FISHING\",\"durationMinutes\":20}"))
+                .andExpect(status().isOk());
 
         mockMvc.perform(post("/api/world/FISHING/quests/start")
                         .header("Authorization", bearer(token))

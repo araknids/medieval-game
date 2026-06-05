@@ -1682,15 +1682,17 @@ Muitos casos abaixo descrevem o fluxo antigo **start → timer/espera → collec
 ### UC-72: Gather Resources in Kingdom Zone
 **Actor:** Player (lv requirement met for chosen zone)
 
+> ⚠️ **ATUALIZADO (2026-06-05)** — coleta unificada no sistema de zona (sem-timer). O endpoint `/api/gathering/start` e a "gathering session" foram removidos. Fluxo real abaixo.
+
 **Flow:**
-1. Player selects a zone within a gathering kingdom (pesca/mineração/garimpo).
-2. Chooses duration (fishing: 5-40min; mining/garimpo: 10-60min).
-3. Warrior starts gathering session (`/api/gathering/start`). **Consome estamina** (~metade dos minutos, mín. 5) em produção. Timer runs.
-4. Player collects on completion.
+1. Player selects a zone tier within a gathering kingdom (🟢 Safe / 🟡 Wild=PVP / 🔴 Deep=HIGH_RISK).
+2. Entra na zona via `POST /api/zones/enter` com `role=GATHERING`, `skillType`, `kingdom` e `durationMinutes` (mín. 5). **Instantâneo** — resolve na hora; **consome estamina** (~metade dos minutos, mín. 5) quando `instant-complete=false`.
+3. O loot vem no `POST /api/zones/{id}/collect` (drops por reino + narrativa).
+4. Em 🟡/🔴 o player fica **flagged** 1h e pode ser saqueado por quem farmar a mesma zona (±10 níveis).
 
 **Reino define o loot:** Desfiladeiro → peixe de estamina; Mar Abençoado → peixe de vida;
 Minas → minério; Grutas de Cristal → fragmentos de joia (Garimpo).
-**PvP zones (lv10+):** risco cosmético por enquanto.
+**PvP zones (🟡 lv10+ / 🔴 lv20+):** loot real via flag/lock/raid (ver PLANO_SEM_TIMER_PVP.md).
 
 ---
 

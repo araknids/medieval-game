@@ -19,6 +19,15 @@ ser o gate; a **estamina** é. Sem espera, sem "coletar depois".
 ## Coleta unificada no sistema de zona (2026-06-05)
 Toda coleta (Pesca/Mineração/Mar Abençoado/Grutas) agora passa pelo `/api/zones/enter` GATHERING — **ganhou PvP** nas zonas amarela/vermelha de cada reino, mantendo os **drops específicos do reino**. `ZoneActivity.kingdom` (novo, + migração) leva o reino até `resolveGathering` → `gatheringService.collectGatheringDropsOnly(..., kingdom)` (Mar Abençoado = peixe de vida). As 3 zonas viram tiers: Safe→SAFE, Wild→PVP, Deep→HIGH_RISK. 🟢 SAFE roda só NPC (PvE 20%, sem perda de XP); 🟡🔴 rodam PvP+NPC + flag/lock/raid. Estamina role-aware: coleta `~d/2` (10⚡ por ação de 20min), combate `~d/8`. Duração mínima da zona baixada 30→5 (coleta usa chunk curto). Narrativa de coleta no modal de resultado. Front: botões de zona de coleta → `enterKingdomZone(tier, skill, d, kingdom)`. O `/api/gathering` segue só pro consumo de peixe + recursos. TC-223 cobre drops por reino. 468 verdes.
 
+## Limpeza de endpoints legados (2026-06-05)
+Com a coleta unificada na zona e Arena/quests já instantâneas, removi os fluxos legados/duplicados que ficaram órfãos na UI:
+- **Quest legado**: `/api/quests`, `QuestService`/`QuestController`, `ActiveQuest(Repository)`, `enums/QuestType`. As missões vivas são as do reino (`/api/world/{kingdom}/quests`).
+- **Sessão de coleta**: `GatheringSession(Repository)`, `enums/GatheringStatus`, `/api/gathering/start|collect|cancel|current` + os métodos de sessão do `GatheringService` (start/collect/cancel + `staminaCostFor`). A coleta roda 100% pela zona; `/api/gathering` ficou só com `skills`/`resources`/`consume`.
+
+Limpezas de borda: `MaintenanceService`/`WarriorService` perderam os repos/blocos dessas sessões; `SchemaMigrator` perdeu o patch da coluna `gathering_sessions.kingdom`; front perdeu `startKingdomGathering`/`collect|cancelKingdomGather` e o banner "🎣 Gathering in Progress" (a expedição de zona é o único banner). Testes migrados: os de "guerreiro ocupado" usam `/api/work`; `FishSplitTest` chama `collectGatheringDropsOnly(..., kingdom)` direto; `WarriorExclusivityTest` ocupa o guerreiro via zona GATHERING. A tabela órfã `gathering_sessions` fica inerte em prod (não é dropada — dado preservado). **453 verdes.**
+
+**Front legado de quest da taverna removido:** a tela antiga de missões da taverna já estava escondida (divs `display:none`), mas o boot ainda chamava `loadQuestTypes()`/`loadActiveQuests()` + `setInterval(…, 10s)` contra os `/api/quests/*` deletados — disparando **404 a cada login + a cada 10s**. Removi todo o bloco (`switchQuestTab`, `loadQuestTypes`, `renderQuestTypes`, `loadActiveQuests`, `sendOnMission`, `open/closeQuestProgress`, `abandonQuest`, `renderQuestProgress`, `collectFromProgress`, `collectReward`) + os helpers órfãos (`QUEST_NARRATIVES`, `DROP_NARRATIVES`, `questNarrative`, `questTypes`) + as chamadas no boot + os divs ocultos (`quest-types-list`/`active-quests-list`/`qp-content`). As missões vivas seguem 100% no World (`/api/world/{kingdom}/quests`).
+
 ## Tiers de zona (balance — 2026-06-05)
 | Zona | PvP/NPC | Ao perder | Lock | Reward |
 |---|---|---|---|---|
