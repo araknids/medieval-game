@@ -106,7 +106,7 @@ public class InventoryController {
                         int sockets, List<GemSlot> gems, List<AffixLine> affixes,
                         boolean equipped, boolean guarded,
                         String description, String origin,
-                        int durability, int itemLevel) {
+                        int durability, int itemLevel, boolean pvpLocked) {
 
         static ItemResponse from(InventoryItem i, List<SocketedGem> socketedGems, List<ItemAffix> itemAffixes) {
             List<GemSlot> gems = socketedGems.stream()
@@ -125,7 +125,7 @@ public class InventoryController {
                 i.isEquipped(), i.isGuarded(),
                 i.getDescription() != null ? i.getDescription() : "",
                 i.getOrigin()      != null ? i.getOrigin()      : "",
-                i.getDurability(), i.getItemLevel()
+                i.getDurability(), i.getItemLevel(), i.isPvpLocked()
             );
         }
 

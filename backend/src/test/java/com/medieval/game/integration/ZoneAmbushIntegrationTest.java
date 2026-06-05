@@ -27,6 +27,8 @@ class ZoneAmbushIntegrationTest extends BaseIntegrationTest {
     @Autowired GatheringService         gatheringService;
     @Autowired MailService              mailService;
     @Autowired com.medieval.game.service.ZoneService zoneService;
+    @Autowired com.medieval.game.service.InventoryService inventoryService;
+    @Autowired com.medieval.game.repository.InventoryItemRepository itemRepo;
 
     String token;
 
@@ -225,6 +227,36 @@ class ZoneAmbushIntegrationTest extends BaseIntegrationTest {
         assertThat(v.isPvpShielded()).isTrue();              // escudo pós-derrota
         assertThat(v.isPvpFlagged()).isFalse();              // flag caiu (saqueado 1x por ciclo)
         assertThat(v.totalBronze()).isLessThan(bronzeBefore); // bronze roubado no raid
+    }
+
+    // ── TC-221: Farmar zona PvP trava os itens expostos + bloqueia venda [PVP_FLAG] ──
+    @Test
+    @DisplayName("TC-221 | Farming a PvP zone locks bag items + blocks selling")
+    void tc221_farmingLocksItems() {
+        Player player = playerOf("amb");
+        Warrior w = warriorOf(player);
+        w.setLevel(15); w.setAttack(500); w.setDefense(500); w.setHealth(500);
+        w.setStrength(100); w.setConstitution(100);
+        w.setCurrentHpSnapshot(100); w.setHpUpdatedAt(java.time.LocalDateTime.now());
+        warriorRepository.save(w);
+
+        // item na bag (não-stashed, não-guarded → exposto)
+        com.medieval.game.model.InventoryItem item =
+            inventoryService.make(player, "Test Ring", com.medieval.game.enums.ItemType.RING, 0, 0, 0, 1, 10);
+        long itemId = item.getId();
+
+        // farma zona PvP (instantâneo) → trava os itens expostos + flagga
+        var act = zoneService.enter(player, Zone.PVP,
+                com.medieval.game.enums.ActivityRole.GATHERING,
+                com.medieval.game.enums.SkillType.FISHING, 60);
+        zoneService.collect(playerRepository.findById(player.getId()).orElseThrow(), act.getId());
+
+        assertThat(itemRepo.findById(itemId).orElseThrow().isPvpLocked()).isTrue();
+
+        // não pode vender enquanto flagged
+        Player flagged = playerRepository.findById(player.getId()).orElseThrow();
+        org.assertj.core.api.Assertions.assertThatThrownBy(() -> inventoryService.sell(flagged, itemId))
+                .isInstanceOf(IllegalStateException.class);
     }
 
     // Helper: expõe um player numa zona (flagged por 1h)

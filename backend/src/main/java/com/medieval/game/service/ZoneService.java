@@ -254,11 +254,14 @@ public class ZoneService {
         }
 
         // [PVP_FLAG] Farmou zona PvP/Alto Risco e sobreviveu → fica EXPOSTO por 1h (vira alvo de raid).
+        // Trava (snapshot) os itens bag+equipados expostos: enquanto flagged não pode vender/stashar/
+        // guardar e são exatamente esses que podem ser saqueados.
         if ((activity.getZone() == Zone.PVP || activity.getZone() == Zone.HIGH_RISK)
                 && activity.getStatus() == ZoneActivityStatus.COMPLETED) {
             player.setPvpFlaggedZone(activity.getZone());
             player.setPvpFlaggedUntil(LocalDateTime.now().plusMinutes(PVP_FLAG_MINUTES));
             playerRepository.save(player);
+            lockExposedItems(player);
         }
 
         // Libera o guerreiro
@@ -447,6 +450,10 @@ public class ZoneService {
         victimW.clearBuff();
         victim.setPvpShieldUntil(LocalDateTime.now().plusMinutes(PVP_SHIELD_MINUTES)); // saqueado 1x por ciclo
         victim.clearPvpFlag();
+        // raidado → ganha escudo e os itens travados restantes DESTRAVAM (fim do ciclo).
+        List<InventoryItem> remaining = inventoryRepository.findAllByPlayer(victim);
+        unlockAllItems(remaining);
+        inventoryRepository.saveAll(remaining);
         warriorRepository.findByPlayer(victim).ifPresent(w -> {
             long xpLost = Math.max(1, w.expNeededForNextLevel() / 20); // perda menor que morte em quest
             warriorService.loseXp(w, xpLost);
@@ -463,20 +470,35 @@ public class ZoneService {
             + ". You have a protection shield for " + PVP_SHIELD_MINUTES + " min.");
     }
 
-    /** Rouba 1 item não-protegido (bag/equip, não-stashed, não-guarded) e transfere ao atacante se couber. */
+    /** Rouba 1 item TRAVADO (pvpLocked = exposto no snapshot da entrada) e transfere ao atacante. */
     private String stealOneItem(Player attacker, Player victim) {
         Random rng = java.util.concurrent.ThreadLocalRandom.current();
         if (rng.nextInt(100) >= 35) return null; // 35% chance
         List<InventoryItem> pool = inventoryRepository.findAllByPlayer(victim).stream()
-                .filter(i -> !i.isStashed() && !i.isGuarded()).toList();
+                .filter(InventoryItem::isPvpLocked).toList();
         if (pool.isEmpty() || inventoryService.bagSpaceLeft(attacker) < 1) return null;
         InventoryItem item = pool.get(rng.nextInt(pool.size()));
         String name = item.getName();
         item.setEquipped(false);
         item.setStashed(false);
-        item.setPlayer(attacker); // transfere (joias/afixos vão junto via FK)
+        item.setPvpLocked(false);  // ao trocar de dono, destrava
+        item.setPlayer(attacker);  // transfere (joias/afixos vão junto via FK)
         inventoryRepository.save(item);
         return name;
+    }
+
+    /** Trava (snapshot) os itens bag+equipados EXPOSTOS (não-stashed, não-guarded) ao farmar zona PvP. */
+    private void lockExposedItems(Player player) {
+        List<InventoryItem> items = inventoryRepository.findAllByPlayer(player);
+        for (InventoryItem i : items) {
+            i.setPvpLocked(!i.isStashed() && !i.isGuarded()); // re-snapshot: expostos travam, resto destrava
+        }
+        inventoryRepository.saveAll(items);
+    }
+
+    /** Destrava todos os itens do player (fim do flag / pós-raid). [PVP_FLAG] */
+    static void unlockAllItems(java.util.List<InventoryItem> items) {
+        items.forEach(i -> i.setPvpLocked(false));
     }
 
     /** Rouba ~25% de cada recurso da bag da vítima e dá ao atacante (clamp na bag dele). */

@@ -310,7 +310,8 @@ public class SchemaMigrator {
         try {
             jdbc.execute("ALTER TABLE inventory_items ADD COLUMN IF NOT EXISTS durability integer NOT NULL DEFAULT 100");
             jdbc.execute("ALTER TABLE inventory_items ADD COLUMN IF NOT EXISTS item_level integer NOT NULL DEFAULT 1");
-            log.info("[SchemaMigrator] inventory_items durability + item_level columns ensured");
+            jdbc.execute("ALTER TABLE inventory_items ADD COLUMN IF NOT EXISTS pvp_locked boolean NOT NULL DEFAULT false"); // [PVP_FLAG]
+            log.info("[SchemaMigrator] inventory_items durability + item_level + pvp_locked columns ensured");
         } catch (Exception e) {
             log.warn("[SchemaMigrator] inventory_items durability/item_level column patch failed: {}", e.getMessage());
         }

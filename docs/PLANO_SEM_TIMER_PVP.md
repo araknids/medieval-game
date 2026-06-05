@@ -48,7 +48,11 @@ ser o gate; a **estamina** é. Sem espera, sem "coletar depois".
    escudo) → combate (PvP %HP); vencendo, o atacante **saqueia** bronze (15%) + 1 item não-protegido (35%, `!stashed`
    `!guarded`) + ~25% dos recursos da bag → tudo transferido (clamp na bag). A vítima ganha **escudo 1h** + o flag cai
    (saqueado 1x/ciclo) + mail. Sem player flagged → **NPC ambusher** de preenchimento (PvP solo/early funciona).
-   Stash + Templo imunes (`!stashed`/`!guarded`). UI: banner de exposto/protegido (`GET /api/zones/pvp-status`) +
+   Stash + Templo imunes (`!stashed`/`!guarded`). **Item-lock [PVP_FLAG]:** ao farmar, os itens bag+equipados
+   expostos ganham `pvpLocked=true` (snapshot na entrada) — enquanto flagged **não podem ser vendidos, stashados
+   nem guardados no Templo** (fecha o exploit de "stashar o gear bom depois de farmar"), e são exatamente esses
+   que o raid sorteia. Destrava ao ser saqueado (escudo) ou quando o flag expira (lazy no `getInventory`). UI:
+   badge 🔒 PvP no item. UI: banner de exposto/protegido (`GET /api/zones/pvp-status`) +
    resumo do raid no battle log. **Bug corrigido de quebra:** `collect` recarrega o `player` como *managed* (o detached
    do controller, salvo 2x num raid-win, dava `OptimisticLockException`). 466 testes verdes (TC-217..220 cobrem pool de
    flag, flag-on-farm e raid ponta-a-ponta).

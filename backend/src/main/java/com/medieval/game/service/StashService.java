@@ -56,6 +56,8 @@ public class StashService {
         InventoryItem item = ownedItem(player, itemId);
         if (item.isStashed())  throw new IllegalStateException("Item already in the stash.");
         if (item.isEquipped()) throw new IllegalStateException("Unequip the item before stashing it.");
+        if (item.isPvpLocked() && player.isPvpFlagged())
+            throw new IllegalStateException("Item exposto no PvP — não pode guardar no stash enquanto flagged.");
         if (stashSpaceLeft(player) < 1) throw new IllegalStateException("Stash full (" + STASH_MAX + " slots).");
         playerService.spendBronze(player, STASH_FEE);
         item.setStashed(true);

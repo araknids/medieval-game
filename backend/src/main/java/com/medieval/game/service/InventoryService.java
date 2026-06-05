@@ -39,8 +39,16 @@ public class InventoryService {
 
     private static final java.util.Random RNG = new java.util.Random();
 
+    @Transactional
     public List<InventoryItem> getInventory(Player player) {
-        return inventoryRepository.findAllByPlayer(player);
+        List<InventoryItem> items = inventoryRepository.findAllByPlayer(player);
+        // [PVP_FLAG] Flag expirou → destrava os itens travados (lazy, sem scheduler).
+        if (!player.isPvpFlagged()) {
+            boolean any = false;
+            for (InventoryItem i : items) if (i.isPvpLocked()) { i.setPvpLocked(false); any = true; }
+            if (any) inventoryRepository.saveAll(items);
+        }
+        return items;
     }
 
     /**
@@ -166,6 +174,10 @@ public class InventoryService {
         if (item.isEquipped()) {
             log.warn("[InventoryService] player={} REJECTED: item {} is equipped, unequip first", player.getId(), itemId);
             throw new IllegalStateException("Desequipe o item antes de vender");
+        }
+        if (item.isPvpLocked() && player.isPvpFlagged()) {
+            log.warn("[InventoryService] player={} REJECTED: item {} is PvP-locked (exposed)", player.getId(), itemId);
+            throw new IllegalStateException("Item exposto no PvP — não pode vender enquanto você está flagged.");
         }
         // Preço efetivo escala com a durabilidade (piso 30%) — evita "lavar" o desgaste
         // vendendo um item surrado pelo preço cheio em vez de reparar. [AUDITORIA M1]

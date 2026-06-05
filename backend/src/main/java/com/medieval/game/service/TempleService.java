@@ -186,6 +186,10 @@ public class TempleService {
             log.warn("[TempleService] player={} REJECTED: item {} is already protected", player.getId(), itemId);
             throw new IllegalStateException("Item is already protected");
         }
+        if (item.isPvpLocked() && player.isPvpFlagged()) {
+            log.warn("[TempleService] player={} REJECTED: item {} is PvP-locked (exposed)", player.getId(), itemId);
+            throw new IllegalStateException("Item exposto no PvP — não pode proteger no Templo enquanto flagged.");
+        }
         if (countProtected(player) >= MAX_PROTECTED) {
             log.warn("[TempleService] player={} REJECTED: max {} protected items reached", player.getId(), MAX_PROTECTED);
             throw new IllegalStateException("Maximum of " + MAX_PROTECTED + " protected items reached");

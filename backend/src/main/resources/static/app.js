@@ -918,7 +918,7 @@ async function loadInventory() {
         const item = equipped[slot.id];
         if (item) return `
           <div class="equip-slot filled">
-            <div class="slot-label">${t('inventory.slot.'+slot.id)}</div>
+            <div class="slot-label">${t('inventory.slot.'+slot.id)}${item.pvpLocked ? ' <span class="pvp-lock-badge" title="Exposto no PvP">🔒 PvP</span>' : ''}</div>
             <div class="slot-item-name rarity-${item.rarity}">${item.name}</div>
             <div class="slot-item-stats">${statsText(item)}</div>
             ${affixLines(item)}
@@ -940,7 +940,7 @@ async function loadInventory() {
     <div class="bag-item" style="flex-direction:column;align-items:flex-start;gap:.3rem">
       <div style="display:flex;justify-content:space-between;width:100%;align-items:center">
         <div>
-          <div class="bag-item-name rarity-${item.rarity}">${item.name} <span style="font-size:.7rem;color:#888">Lv.${item.itemLevel}</span></div>
+          <div class="bag-item-name rarity-${item.rarity}">${item.name} <span style="font-size:.7rem;color:#888">Lv.${item.itemLevel}</span>${item.pvpLocked ? ` <span class="pvp-lock-badge" title="${t('inventory.pvp_locked')||'Exposto no PvP — pode ser saqueado; não pode vender/guardar enquanto flagged'}">🔒 PvP</span>` : ''}</div>
           <div class="bag-item-type">${(t('item.type.'+item.type)||item.typeDisplay)} · ${(t('inventory.rarity.'+item.rarity)||item.rarityName)}</div>
           <div class="bag-item-stats">${statsText(item)}</div>
           ${affixLines(item)}

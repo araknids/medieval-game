@@ -55,6 +55,11 @@ public class InventoryItem {
     @Column(columnDefinition = "boolean default false")
     private boolean stashed = false;
 
+    // [PVP_FLAG] Travado por entrar numa zona PvP: o item ficou EXPOSTO (snapshot na entrada).
+    // Enquanto o dono está flagged, não pode vender/stashar/guardar e pode ser saqueado num raid.
+    @Column(columnDefinition = "boolean default false")
+    private boolean pvpLocked = false;
+
     @Column(columnDefinition = "TEXT")
     private String description; // lore do item
 
