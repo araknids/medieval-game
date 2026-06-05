@@ -59,7 +59,7 @@ class KingdomQuestCombatTest extends BaseIntegrationTest {
                 questRepository.findByPlayerAndStatusNotOrderByStartedAtDesc(p, QuestStatus.ABANDONED));
     }
 
-    /** Inicia HUNT_SEA_MONSTER (FISHING, 90% de monstro) e coleta na hora; devolve o JSON do collect. */
+    /** Inicia HUNT_SEA_MONSTER e coleta escolhendo a opção 0 ("face" = combate direto). [QUESTS_INTERATIVAS] */
     private JsonNode startAndCollect() throws Exception {
         resetForStart();
         String startResp = mockMvc.perform(post("/api/world/FISHING/quests/start")
@@ -68,10 +68,14 @@ class KingdomQuestCombatTest extends BaseIntegrationTest {
                         .content("{\"questType\":\"HUNT_SEA_MONSTER\"}"))
                 .andExpect(status().isOk())
                 .andReturn().getResponse().getContentAsString();
-        long questId = objectMapper.readTree(startResp).get("id").asLong();
+        JsonNode start = objectMapper.readTree(startResp);
+        long questId    = start.get("id").asLong();
+        String optionId = start.get("dialog").get("options").get(0).get("id").asText(); // opção 0 = combate
 
         String collectResp = mockMvc.perform(post("/api/world/FISHING/quests/" + questId + "/collect")
-                        .header("Authorization", bearer(token)))
+                        .header("Authorization", bearer(token))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"optionId\":\"" + optionId + "\"}"))
                 .andExpect(status().isOk())
                 .andReturn().getResponse().getContentAsString();
         return objectMapper.readTree(collectResp);
@@ -163,9 +167,12 @@ class KingdomQuestCombatTest extends BaseIntegrationTest {
                         .header("Authorization", bearer(token)).contentType(MediaType.APPLICATION_JSON)
                         .content("{\"questType\":\"" + questType + "\"}"))
                 .andExpect(status().isOk()).andReturn().getResponse().getContentAsString();
-        long questId = objectMapper.readTree(startResp).get("id").asLong();
+        JsonNode start = objectMapper.readTree(startResp);
+        long questId    = start.get("id").asLong();
+        String optionId = start.get("dialog").get("options").get(0).get("id").asText(); // [QUESTS_INTERATIVAS]
         mockMvc.perform(post("/api/world/FISHING/quests/" + questId + "/collect")
-                        .header("Authorization", bearer(token)))
+                        .header("Authorization", bearer(token)).contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"optionId\":\"" + optionId + "\"}"))
                 .andExpect(status().isOk());
 
         // vitrine agora: a quest aparece feita (doneToday=true, canStart=false)

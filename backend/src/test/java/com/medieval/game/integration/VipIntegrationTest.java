@@ -111,14 +111,14 @@ class VipIntegrationTest extends BaseIntegrationTest {
                 .andExpect(jsonPath("$.maxSlots").value(50));
     }
 
-    // TC-180: GET /api/vip/status → instantQuestsRemaining e arenaFightsRemaining presentes
+    // TC-180: GET /api/vip/status → arenaFightsRemaining/arenaFightLimit presentes
+    // [QUESTS_INTERATIVAS] instantQuestsRemaining removido (instant-start aposentado)
     @Test
-    @DisplayName("TC-180 | GET /api/vip/status → has instantQuestsRemaining and arenaFightsRemaining")
+    @DisplayName("TC-180 | GET /api/vip/status → has arena counters")
     void tc180_vipStatus_hasCounters() throws Exception {
         buyVip();
         mockMvc.perform(get("/api/vip/status").header("Authorization", bearer(token)))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.instantQuestsRemaining").value(2))
                 .andExpect(jsonPath("$.arenaFightsRemaining").value(10))
                 .andExpect(jsonPath("$.arenaFightLimit").value(10));
     }
@@ -172,69 +172,8 @@ class VipIntegrationTest extends BaseIntegrationTest {
                 .andExpect(jsonPath("$.vipHealReady").isBoolean());
     }
 
-    // ── Missão Instantânea ────────────────────────────────────────────────────
-
-    // TC-185: instant quest → concluída imediatamente, rewards retornados
-    @Test
-    @DisplayName("TC-185 | Instant quest → rewards returned immediately")
-    void tc185_instantQuest_rewardsReturned() throws Exception {
-        buyVip();
-        mockMvc.perform(post("/api/world/FISHING/quests/instant-start")
-                        .header("Authorization", bearer(token))
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"questType\":\"PATROL_COAST\"}"))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.bronzeEarned").isNumber())
-                .andExpect(jsonPath("$.xpEarned").isNumber());
-    }
-
-    // TC-186: instant quest sem VIP → 400
-    @Test
-    @DisplayName("TC-186 | Instant quest without VIP → 400")
-    void tc186_instantQuest_noVip_returns400() throws Exception {
-        mockMvc.perform(post("/api/world/FISHING/quests/instant-start")
-                        .header("Authorization", bearer(token))
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"questType\":\"PATROL_COAST\"}"))
-                .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.error").value(containsString("VIP required")));
-    }
-
-    // TC-187: instant quest decrementa counter
-    @Test
-    @DisplayName("TC-187 | Instant quest → instantQuestsRemaining decremented")
-    void tc187_instantQuest_decrementsCounter() throws Exception {
-        buyVip();
-        mockMvc.perform(post("/api/world/FISHING/quests/instant-start")
-                .header("Authorization", bearer(token))
-                .contentType(MediaType.APPLICATION_JSON)
-                .content("{\"questType\":\"PATROL_COAST\"}"));
-
-        mockMvc.perform(get("/api/vip/status").header("Authorization", bearer(token)))
-                .andExpect(jsonPath("$.instantQuestsRemaining").value(1));
-    }
-
-    // TC-188: instant quest esgotado (2/dia) → 400
-    @Test
-    @DisplayName("TC-188 | Instant quest at limit (2/day) → 400")
-    void tc188_instantQuest_atLimit_returns400() throws Exception {
-        buyVip();
-        mockMvc.perform(post("/api/world/FISHING/quests/instant-start")
-                .header("Authorization", bearer(token))
-                .contentType(MediaType.APPLICATION_JSON)
-                .content("{\"questType\":\"PATROL_COAST\"}"));
-        mockMvc.perform(post("/api/world/MINING/quests/instant-start")
-                .header("Authorization", bearer(token))
-                .contentType(MediaType.APPLICATION_JSON)
-                .content("{\"questType\":\"ESCORT_MINERS\"}"));
-
-        mockMvc.perform(post("/api/world/COMBAT/quests/instant-start")
-                        .header("Authorization", bearer(token))
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"questType\":\"DEFEND_WALLS\"}"))
-                .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.error").value(containsString("limit reached")));
-    }
+    // [QUESTS_INTERATIVAS] TC-185..188 removidos: o instant-start VIP foi aposentado (as dailies viraram
+    // interativas — exigem escolha). O perk de VIP virou "1× a mais por daily" (ver QuestInteractiveTest).
 
     // ── Arena Daily Limit ─────────────────────────────────────────────────────
 
@@ -277,16 +216,15 @@ class VipIntegrationTest extends BaseIntegrationTest {
                 .andExpect(jsonPath("$.activeBuff2").isNotEmpty());
     }
 
-    // TC-192: GET /api/warrior → isVip and arenaFightsToday present
+    // TC-192: GET /api/warrior → isVip and arena fields present
     @Test
-    @DisplayName("TC-192 | GET /api/warrior → isVip, arenaFightsToday, instantQuestsToday present")
+    @DisplayName("TC-192 | GET /api/warrior → isVip, arenaFightsToday, arenaFightLimit present")
     void tc192_warrior_hasVipFields() throws Exception {
         buyVip();
         mockMvc.perform(get("/api/warrior").header("Authorization", bearer(token)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.isVip").value(true))
                 .andExpect(jsonPath("$.arenaFightsToday").isNumber())
-                .andExpect(jsonPath("$.arenaFightLimit").value(10))
-                .andExpect(jsonPath("$.instantQuestsToday").isNumber());
+                .andExpect(jsonPath("$.arenaFightLimit").value(10));
     }
 }

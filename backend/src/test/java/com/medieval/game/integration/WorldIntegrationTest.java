@@ -99,10 +99,14 @@ class WorldIntegrationTest extends BaseIntegrationTest {
                 .andExpect(status().isOk())
                 .andReturn().getResponse().getContentAsString();
 
-        long questId = objectMapper.readTree(startResp).get("id").asLong();
+        var start = objectMapper.readTree(startResp);
+        long questId    = start.get("id").asLong();
+        String optionId = start.get("dialog").get("options").get(0).get("id").asText(); // [QUESTS_INTERATIVAS]
 
         mockMvc.perform(post("/api/world/FISHING/quests/" + questId + "/collect")
-                        .header("Authorization", bearer(token)))
+                        .header("Authorization", bearer(token))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"optionId\":\"" + optionId + "\"}"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.bronzeEarned").isNumber())
                 .andExpect(jsonPath("$.xpEarned").isNumber());

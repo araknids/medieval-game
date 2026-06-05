@@ -2,6 +2,10 @@ package com.medieval.game.service;
 
 import com.medieval.game.enums.*;
 import com.medieval.game.model.*;
+import com.medieval.game.quest.InteractiveQuests;
+import com.medieval.game.quest.QuestDialog;
+import com.medieval.game.quest.QuestDialog.QuestOption;
+import com.medieval.game.quest.QuestOutcome;
 import com.medieval.game.repository.*;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -10,9 +14,11 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
+import java.util.concurrent.ThreadLocalRandom;
 
 @Slf4j
 @Service
@@ -34,7 +40,6 @@ public class KingdomService {
     private final MailService                  mailService;
     private final ItemLoreGenerator            loreGenerator;
     private final TerritoryService             territoryService;
-    private final VipService                   vipService;
     private final WarriorStatsService          statsService;
     private final BattleSimulator              battleSimulator;
     private final KingdomQuestNarrator         narrator;
@@ -119,10 +124,12 @@ public class KingdomService {
         return QUEST_ROTATION_SECONDS - (java.time.Instant.now().getEpochSecond() % QUEST_ROTATION_SECONDS);
     }
 
-    /** Player já completou esta quest na janela diária atual? (lock da daily) [DAILY_QUESTS] */
+    /** Player já atingiu o limite desta daily na janela atual? Limite = 1× (normal) ou 2× (VIP). [DAILY_QUESTS] */
     public boolean isQuestDoneThisPeriod(Player player, KingdomQuestType questType) {
-        return questRepo.existsByPlayerAndQuestTypeAndStatusAndCompletedWindowId(
+        int limit = player.isVip() ? 2 : 1; // [VIP] VIP pode fazer 1× a mais por janela
+        long done = questRepo.countByPlayerAndQuestTypeAndStatusAndCompletedWindowId(
                 player, questType, QuestStatus.COLLECTED, currentQuestWindowId());
+        return done >= limit;
     }
 
     @Transactional
@@ -167,9 +174,14 @@ public class KingdomService {
         return saved;
     }
 
-    @Transactional
+    /** Coleta padrão (não-interativa) — compat. */
     public CollectResult collectQuest(Player player, Long questId) {
-        log.info("[KingdomService] player={} action=collectQuest questId={}", player.getId(), questId);
+        return collectQuest(player, questId, null);
+    }
+
+    @Transactional
+    public CollectResult collectQuest(Player player, Long questId, String optionId) {
+        log.info("[KingdomService] player={} action=collectQuest questId={} option={}", player.getId(), questId, optionId);
         KingdomActiveQuest quest = questRepo.findById(questId)
                 .orElseThrow(() -> new IllegalArgumentException("Quest not found."));
 
@@ -197,63 +209,141 @@ public class KingdomService {
         KingdomQuestType qt = quest.getQuestType();
         Warrior warrior = warriorRepo.findByPlayer(player)
                 .orElseThrow(() -> new IllegalStateException("Warrior not found."));
-        var rng = java.util.concurrent.ThreadLocalRandom.current();
+        ThreadLocalRandom rng = ThreadLocalRandom.current();
 
-        // Encontro de monstro: chance escala com a dificuldade, sorteada na coleta. [Quests V2]
-        boolean encountered     = rng.nextInt(100) < qt.monsterChance;
-        boolean monsterDefeated = true;             // paz conta como "sem derrota"
-        String  monsterName     = null;
-        List<String> battleLog  = List.of();
-
-        if (encountered) {
-            monsterName = narrator.pickMonster(quest.getKingdom(), rng);
-            int[] s   = statsService.combatStats(player, warrior);
-            int maxHp = s[2];
-            int curHp = warrior.getCalculatedHpPercent() * maxHp / 100;
-            int[] mob = questMobStats(warrior.getLevel(), qt, rng);
-
-            BattleSimulator.BattleOutcome out = battleSimulator.simulateDetailed(
-                warrior.getName(), s[0], s[1], curHp, s[3], s[4], s[5],
-                monsterName, mob[0], mob[1], mob[2], mob[3], mob[4], mob[5], true); // PvE: timeout = derrota [COMBATE_V2]
-
-            monsterDefeated = out.firstWon();
-            List<String> lg = new java.util.ArrayList<>(out.log());
-            if (!lg.isEmpty()) lg.remove(lg.size() - 1); // remove tag WINNER
-            battleLog = lg;
-
-            inventoryService.wearEquippedItems(player); // lutar desgasta equipamento
-
-            int finalPct = maxHp > 0 ? Math.max(0, out.firstHpFinal() * 100 / maxHp) : 0;
-            warrior.setCurrentHpSnapshot(finalPct);    // 0 = nocauteado
-            warrior.setHpUpdatedAt(LocalDateTime.now());
+        OutcomeResult res;
+        if (InteractiveQuests.isInteractive(qt)) {
+            // [QUESTS_INTERATIVAS] a escolha do jogador decide o desfecho (substitui o monsterChance)
+            QuestDialog dialog = InteractiveQuests.dialogFor(qt).orElseThrow();
+            if (optionId == null || optionId.isBlank()) {
+                log.warn("[KingdomService] player={} REJECTED: interactive quest {} needs a choice", player.getId(), qt);
+                throw new IllegalArgumentException("This quest requires you to make a choice.");
+            }
+            QuestOption option = dialog.options().stream().filter(o -> o.id().equals(optionId)).findFirst()
+                    .orElseThrow(() -> new IllegalArgumentException("Invalid choice for this quest."));
+            log.info("[KingdomService] player={} interactive quest={} chose option={}", player.getId(), qt, optionId);
+            res = resolveOutcome(option.outcome(), player, warrior, qt, rng);
+        } else {
+            // Não-interativa: encontro de monstro aleatório (escala com a dificuldade). [Quests V2]
+            res = new OutcomeResult();
+            res.encountered = rng.nextInt(100) < qt.monsterChance;
+            res.bronzeMult = 1; res.xpMult = 1; res.dropChance = qt.dropChance;
+            if (res.encountered) {
+                MonsterFight fr = fightQuestMonster(player, warrior, qt, rng);
+                res.won = fr.won(); res.monsterName = fr.monsterName(); res.battleLog = fr.battleLog();
+            }
+            res.rewarded = res.won;
+            res.narrative = narrator.narrate(qt, res.encountered, res.won, res.monsterName, rng);
         }
 
         long totalBronze = 0, totalXp = 0;
         InventoryItem drop = null;
-
-        if (monsterDefeated) { // travessia em paz OU monstro derrotado → recompensa cheia
-            totalBronze = quest.getBronzeReward() + Math.round(quest.getBronzeReward() * bronzePct / 100.0);
-            totalXp     = quest.getExpReward()    + Math.round(quest.getExpReward()    * xpPct     / 100.0);
+        if (res.rewarded) {
+            totalBronze = Math.round(qt.bronzeReward * res.bronzeMult * (1 + bronzePct / 100.0));
+            totalXp     = Math.round(qt.expReward    * res.xpMult     * (1 + xpPct     / 100.0));
             playerService.addGold(player, totalBronze);
             warriorService.addExperience(warrior, totalXp);
             int guildDrop = guild != null ? guild.dropBonus() : 0;
-            drop = rollDrop(player, qt.dropChance, guildDrop);
+            drop = rollDrop(player, res.dropChance, guildDrop);
         }
 
         warriorRepo.save(warrior); // persiste HP/desgaste do combate da quest
 
         quest.setStatus(QuestStatus.COLLECTED);
-        // [DAILY_QUESTS] coletar = consumir a daily (1x por janela de 12h), vencendo OU perdendo.
-        // "Fazer a quest" trava ela até o reset; o risco do monstro afeta a recompensa, não as tentativas.
+        // [DAILY_QUESTS] coletar = consumir a daily (conta pro limite da janela: 1× normal, 2× VIP).
         quest.setCompletedWindowId(currentQuestWindowId());
         questRepo.save(quest);
 
-        String narrative = narrator.narrate(qt, encountered, monsterDefeated, monsterName, rng);
-        log.info("[KingdomService] player={} action=collectQuest OK encountered={} won={} bronze={} xp={} drop={}",
-                player.getId(), encountered, monsterDefeated, totalBronze, totalXp, drop != null ? drop.getName() : "none");
+        log.info("[KingdomService] player={} action=collectQuest OK interactive={} encountered={} won={} bronze={} xp={} drop={} roll={}",
+                player.getId(), InteractiveQuests.isInteractive(qt), res.encountered, res.won, totalBronze, totalXp,
+                drop != null ? drop.getName() : "none", res.roll);
         return new CollectResult(quest, drop, totalBronze, totalXp,
-                narrative, encountered, monsterDefeated, monsterName, battleLog);
+                res.narrative, res.encountered, res.won, res.monsterName, res.battleLog, res.roll);
     }
+
+    // ── Resolução de outcome interativo (recursivo p/ Check) [QUESTS_INTERATIVAS] ──
+
+    private OutcomeResult resolveOutcome(QuestOutcome outcome, Player player, Warrior warrior,
+                                         KingdomQuestType qt, ThreadLocalRandom rng) {
+        if (outcome instanceof QuestOutcome.Peaceful p) {
+            OutcomeResult r = new OutcomeResult();
+            r.rewarded = true; r.bronzeMult = p.bronzeMult(); r.xpMult = p.xpMult();
+            r.dropChance = p.dropChance(); r.narrative = p.narrative();
+            return r;
+        }
+        if (outcome instanceof QuestOutcome.Fight f) {
+            MonsterFight fr = fightQuestMonster(player, warrior, qt, rng);
+            OutcomeResult r = new OutcomeResult();
+            r.encountered = true; r.won = fr.won(); r.rewarded = fr.won();
+            r.bronzeMult = f.bronzeMult(); r.xpMult = f.xpMult(); r.dropChance = f.dropChance();
+            r.narrative = fr.won() ? f.winNarrative() : f.loseNarrative();
+            r.monsterName = fr.monsterName(); r.battleLog = fr.battleLog();
+            return r;
+        }
+        if (outcome instanceof QuestOutcome.Check c) {
+            int mod = attrValue(warrior, c.attr()) / 4;             // 1d20 + floor(attr/4) vs DC
+            int d20 = rng.nextInt(20) + 1;
+            boolean passed = d20 == 20 || (d20 != 1 && d20 + mod >= c.dc()); // nat 1 falha / nat 20 passa
+            RollInfo roll = new RollInfo(attrAbbrev(c.attr()), d20, mod, c.dc(), passed);
+            log.info("[KingdomService] player={} attr-check {} d20={}+{} vs DC{} -> {}",
+                    player.getId(), roll.attr(), d20, mod, c.dc(), passed ? "PASS" : "FAIL");
+            OutcomeResult r = resolveOutcome(passed ? c.onSuccess() : c.onFail(), player, warrior, qt, rng);
+            r.roll = roll;
+            return r;
+        }
+        throw new IllegalStateException("Unknown outcome type: " + outcome);
+    }
+
+    /** Roda uma luta contra o monstro temático da quest; aplica HP/desgaste. */
+    private MonsterFight fightQuestMonster(Player player, Warrior warrior, KingdomQuestType qt, ThreadLocalRandom rng) {
+        String monsterName = narrator.pickMonster(qt.kingdom, rng);
+        int[] s   = statsService.combatStats(player, warrior);
+        int maxHp = s[2];
+        int curHp = warrior.getCalculatedHpPercent() * maxHp / 100;
+        int[] mob = questMobStats(warrior.getLevel(), qt, rng);
+
+        BattleSimulator.BattleOutcome out = battleSimulator.simulateDetailed(
+            warrior.getName(), s[0], s[1], curHp, s[3], s[4], s[5],
+            monsterName, mob[0], mob[1], mob[2], mob[3], mob[4], mob[5], true); // PvE: timeout = derrota [COMBATE_V2]
+
+        boolean won = out.firstWon();
+        List<String> lg = new ArrayList<>(out.log());
+        if (!lg.isEmpty()) lg.remove(lg.size() - 1); // remove tag WINNER
+
+        inventoryService.wearEquippedItems(player); // lutar desgasta equipamento
+        int finalPct = maxHp > 0 ? Math.max(0, out.firstHpFinal() * 100 / maxHp) : 0;
+        warrior.setCurrentHpSnapshot(finalPct);     // 0 = nocauteado
+        warrior.setHpUpdatedAt(LocalDateTime.now());
+        return new MonsterFight(won, monsterName, lg);
+    }
+
+    private static int attrValue(Warrior w, Attribute a) {
+        return switch (a) {
+            case STRENGTH     -> w.getStrength();
+            case DEXTERITY    -> w.getDexterity();
+            case CONSTITUTION -> w.getConstitution();
+            case LUCK         -> w.getLuck();
+            case INTELLECT    -> w.getIntellect();
+        };
+    }
+
+    private static String attrAbbrev(Attribute a) {
+        return switch (a) {
+            case STRENGTH -> "STR"; case DEXTERITY -> "DEX"; case CONSTITUTION -> "CON";
+            case LUCK -> "LUCK"; case INTELLECT -> "INT";
+        };
+    }
+
+    /** Estado mutável da resolução de um outcome. */
+    private static final class OutcomeResult {
+        boolean rewarded = false, encountered = false, won = true;
+        double bronzeMult = 1, xpMult = 1; int dropChance = 0;
+        String narrative = "", monsterName = null;
+        List<String> battleLog = List.of();
+        RollInfo roll = null;
+    }
+
+    private record MonsterFight(boolean won, String monsterName, List<String> battleLog) {}
 
     @Transactional
     public void abandonQuest(Player player, Long questId) {
@@ -275,34 +365,8 @@ public class KingdomService {
         log.info("[KingdomService] player={} action=abandonQuest OK questId={}", player.getId(), questId);
     }
 
-    // ── Missão Instantânea VIP ───────────────────────────────────────────────
-
-    /**
-     * VIP-only: starts a quest and immediately collects it (skips the timer).
-     * Consumes one instant-quest charge from the daily VIP allowance.
-     * Returns the full CollectResult just like normal collectQuest().
-     */
-    @Transactional
-    public CollectResult instantStartQuest(Player player, Kingdom kingdom, KingdomQuestType questType) {
-        log.info("[KingdomService] player={} action=instantStartQuest kingdom={} questType={}",
-                player.getId(), kingdom, questType);
-
-        // Validates VIP + decrements daily counter (throws if limit reached or no VIP)
-        vipService.consumeInstantQuest(player);
-
-        // Start the quest (same validations as normal start)
-        KingdomActiveQuest quest = startQuest(player, kingdom, questType);
-
-        // Force-complete immediately (set completesAt to past so isReadyToCollect() = true)
-        quest.setCompletesAt(LocalDateTime.now().minusSeconds(1));
-        questRepo.save(quest);
-
-        // Collect (same logic as normal collect)
-        CollectResult result = collectQuest(player, quest.getId());
-        log.info("[KingdomService] player={} action=instantStartQuest OK questId={} bronze={} xp={}",
-                player.getId(), quest.getId(), result.bronzeEarned(), result.xpEarned());
-        return result;
-    }
+    // [QUESTS_INTERATIVAS] instant-start VIP removido: as dailies agora são interativas (exigem escolha).
+    // O perk de VIP virou "1× a mais por daily" (ver isQuestDoneThisPeriod).
 
     public List<KingdomActiveQuest> getActiveQuests(Player player, Kingdom kingdom) {
         return questRepo.findByPlayerAndKingdomAndStatusNot(player, kingdom, QuestStatus.COLLECTED)
@@ -488,6 +552,10 @@ public class KingdomService {
             boolean monsterEncountered,
             boolean monsterDefeated,
             String monsterName,
-            List<String> battleLog
+            List<String> battleLog,
+            RollInfo roll              // [QUESTS_INTERATIVAS] null se não houve teste de atributo
     ) {}
+
+    /** Resultado do roll d20 de um teste de atributo (pro modal). [QUESTS_INTERATIVAS] */
+    public record RollInfo(String attr, int rolled, int mod, int dc, boolean passed) {}
 }

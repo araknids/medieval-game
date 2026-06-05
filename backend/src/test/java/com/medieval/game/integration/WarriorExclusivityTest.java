@@ -39,10 +39,14 @@ class WarriorExclusivityTest extends BaseIntegrationTest {
                 .andExpect(status().isOk())
                 .andReturn().getResponse().getContentAsString();
 
-        long q1Id = objectMapper.readTree(r1).get("id").asLong();
+        var start = objectMapper.readTree(r1);
+        long q1Id       = start.get("id").asLong();
+        String optionId = start.get("dialog").get("options").get(0).get("id").asText(); // [QUESTS_INTERATIVAS]
 
         mockMvc.perform(post("/api/world/FISHING/quests/" + q1Id + "/collect")
-                        .header("Authorization", bearer(token)))
+                        .header("Authorization", bearer(token))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"optionId\":\"" + optionId + "\"}"))
                 .andExpect(status().isOk());
 
         // After collecting, must be able to start a new quest immediately

@@ -51,7 +51,7 @@ public class EstabuloController {
         Player player = getPlayer(auth);
         estabuloService.buy(player, mountType);
         return ResponseEntity.ok(Map.of(
-            "message",    mountType.displayName + " comprado!",
+            "message",    mountType.displayName + " bought!",
             "gold",       player.getGold(),
             "soulStones", player.getSoulStones()
         ));
@@ -60,13 +60,13 @@ public class EstabuloController {
     @PostMapping("/equip/{mountType}")
     public ResponseEntity<?> equip(@PathVariable MountType mountType, Authentication auth) {
         estabuloService.equip(getPlayer(auth), mountType);
-        return ResponseEntity.ok(Map.of("message", mountType.displayName + " equipado!"));
+        return ResponseEntity.ok(Map.of("message", mountType.displayName + " equipped!"));
     }
 
     @PostMapping("/unequip")
     public ResponseEntity<?> unequip(Authentication auth) {
         estabuloService.unequip(getPlayer(auth));
-        return ResponseEntity.ok(Map.of("message", "Montaria desequipada."));
+        return ResponseEntity.ok(Map.of("message", "Mount unequipped."));
     }
 
     private Player getPlayer(Authentication auth) {

@@ -107,7 +107,6 @@ public class WarriorController {
                                ? player.getVipExpiresAt().toString() : "";
         int arenaFightsToday = player.getArenaFightsToday();
         int arenaFightLimit  = player.getArenaFightLimit();
-        int instantQuestsToday = player.getVipInstantQuestsToday();
 
         // Buff2 (VIP second slot)
         String buff2Name    = "";
@@ -147,7 +146,7 @@ public class WarriorController {
                 buffName, buffSecsLeft,
                 player.getSoulStones(),
                 isVip, vipExpiresAt,
-                arenaFightsToday, arenaFightLimit, instantQuestsToday,
+                arenaFightsToday, arenaFightLimit,
                 buff2Name, buff2SecsLeft,
                 mealBuffName, mealBuffSecsLeft,
                 equippedMount
@@ -175,7 +174,7 @@ public class WarriorController {
                            String activeBuff, long buffSecondsLeft,
                            int soulStones,
                            boolean isVip, String vipExpiresAt,
-                           int arenaFightsToday, int arenaFightLimit, int instantQuestsToday,
+                           int arenaFightsToday, int arenaFightLimit,
                            String activeBuff2, long buff2SecondsLeft,
                            String mealBuff, long mealBuffSecondsLeft,
                            MountInfo equippedMount) {}

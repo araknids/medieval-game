@@ -417,25 +417,25 @@ function switchCommerceTab(tab) {
 // ── Estábulo: montarias que reduzem estamina (ver docs/PLANO_ESTABULO.md) ──
 async function loadEstabulo() {
   const el = document.getElementById('estabulo-content');
-  el.innerHTML = '<p>Carregando estábulo...</p>';
+  el.innerHTML = '<p>Loading stable...</p>';
   const data = await api('GET', '/api/stable');
-  if (!data || data.error) { el.innerHTML = `<p style="color:#cf6679">${data?.error || 'Erro ao carregar.'}</p>`; return; }
+  if (!data || data.error) { el.innerHTML = `<p style="color:#cf6679">${data?.error || 'Failed to load.'}</p>`; return; }
 
   const gold = data.gold ?? 0;
   const cards = data.mounts.map(m => {
-    // Compra: gold (Estábulo) ou — pro VIP — só nota apontando pra VIP Shop
+    // Buy: gold (Stable) or — for the VIP mount — a note pointing to the VIP Shop
     let action;
     if (m.equipped) {
-      action = `<button onclick="unequipMount()" style="font-size:12px;background:#555">Desequipar</button>
-                <span style="color:#4caf50;font-size:12px;margin-left:6px">✓ Equipado</span>`;
+      action = `<button onclick="unequipMount()" style="font-size:12px;background:#555">Unequip</button>
+                <span style="color:#4caf50;font-size:12px;margin-left:6px">✓ Equipped</span>`;
     } else if (m.owned) {
-      action = `<button onclick="equipMount('${m.id}')" style="font-size:12px;background:#2e7d32">Equipar</button>`;
+      action = `<button onclick="equipMount('${m.id}')" style="font-size:12px;background:#2e7d32">Equip</button>`;
     } else if (m.vipOnly) {
-      action = `<span style="font-size:12px;color:#a78bfa">💎 ${m.priceSoulStones} · compre na aba 💎 VIP Shop</span>`;
+      action = `<span style="font-size:12px;color:#a78bfa">💎 ${m.priceSoulStones} · buy it in the 💎 VIP Shop tab</span>`;
     } else {
       const canBuy = gold >= m.priceGold;
       action = `<button onclick="buyMount('${m.id}')" ${canBuy ? '' : 'disabled style="opacity:.5"'} style="font-size:12px">
-                  Comprar · ${m.priceGold} 🪙
+                  Buy · ${m.priceGold} 🪙
                 </button>`;
     }
     const border = m.equipped ? '#2e7d32' : m.owned ? '#555' : m.vipOnly ? '#7c3aed' : '#333';
@@ -446,7 +446,7 @@ async function loadEstabulo() {
     ].filter(Boolean).join(' &nbsp; ');
     const statsLine = mstats
       ? `<div style="font-size:12px;margin-top:4px">${mstats}</div>`
-      : `<div style="font-size:11px;color:#777;margin-top:4px">Sem bônus de stats — pura estamina</div>`;
+      : `<div style="font-size:11px;color:#777;margin-top:4px">No stat bonus — pure stamina</div>`;
     return `
       <div style="background:#1a1a2e;border:1px solid ${border};border-radius:8px;padding:12px;margin-bottom:8px${m.owned && !m.equipped ? ';opacity:.85' : ''}">
         <div style="display:flex;justify-content:space-between;align-items:center">
@@ -461,8 +461,8 @@ async function loadEstabulo() {
   el.innerHTML = `
     <div style="padding:4px">
       <p style="font-size:12px;color:#888;margin:0 0 10px">
-        Equipe uma montaria pra gastar <strong>menos estamina</strong> nas ações (quests, zonas, trabalho, torre, arena).
-        Você possui o cavalo pra sempre — equipa o que quiser. Saldo: <strong>${gold} 🪙</strong>
+        Equip a mount to spend <strong>less stamina</strong> on actions (quests, zones, work, tower, arena).
+        You own the horse forever — equip whichever you like. Balance: <strong>${gold} 🪙</strong>
       </p>
       ${cards}
     </div>`;
@@ -471,14 +471,14 @@ async function loadEstabulo() {
 async function buyMount(mountType) {
   const r = await api('POST', `/api/stable/buy/${mountType}`);
   if (r.error) { showMessage(r.error, true); return; }
-  showMessage(r.message || 'Montaria comprada!');
+  showMessage(r.message || 'Mount bought!');
   await Promise.all([loadWarrior(), loadEstabulo()]);
 }
 
 async function equipMount(mountType) {
   const r = await api('POST', `/api/stable/equip/${mountType}`);
   if (r.error) { showMessage(r.error, true); return; }
-  showMessage(r.message || 'Montaria equipada!');
+  showMessage(r.message || 'Mount equipped!');
   await loadEstabulo();
 }
 
@@ -1635,11 +1635,11 @@ function showTowerFightModal(r) {
     rows.push({ icon:'🪙', label:'Bronze',     value:fmtBronze(r.bronzeEarned), color:'#cd7f32' });
     rows.push({ icon:'⭐', label:'Experience', value:`+${r.expEarned} XP`,       color:'#ffd700' });
   } else {
-    rows.push({ icon:'☠', label:'Resultado', value:'Derrotado — cure no Templo', color:'#ef5350' });
+    rows.push({ icon:'☠', label:'Result', value:'Defeated — heal at the Temple', color:'#ef5350' });
   }
-  const title = r.won ? `🏆 Andar ${r.floor} vencido!` : `💀 Derrotado no Andar ${r.floor}`;
+  const title = r.won ? `🏆 Floor ${r.floor} cleared!` : `💀 Defeated on Floor ${r.floor}`;
   const color = r.won ? '#4caf82' : '#ef5350';
-  const note  = r.won && !r.runOver ? 'Chefe derrotado! Suba pro próximo andar quando quiser.' : '';
+  const note  = r.won && !r.runOver ? 'Boss down! Climb to the next floor whenever you like.' : '';
   showCollectModal({ title, color, rows, note, log: r.log || [] });
 }
 
@@ -2453,7 +2453,7 @@ function renderKingdomDetail(kingdom, quests, activeQuests, training, zoneSessio
           <strong style="color:#7986cb">🏋 Training Hall</strong>
           <p style="font-size:12px;color:#888;margin:4px 0 8px">Pague bronze por XP puro. Custo: ${fmtBronze(lvl*20)} · Recompensa: ${lvl*50} XP</p>
           ${hasActiveTask
-            ? `<p style="font-size:12px;color:#f44336;margin:0">⏳ Colete sua tarefa ativa primeiro</p>`
+            ? `<p style="font-size:12px;color:#f44336;margin:0">⏳ Collect your active task first</p>`
             : `<div style="display:flex;gap:6px;flex-wrap:wrap">
             ${(() => { const h = 2; return `<button onclick="startTraining(${h})" style="font-size:12px;padding:4px 14px">🏋 Treinar · ${fmtBronze(lvl*10*h)}</button>`; })()}
           </div>`}
@@ -2499,7 +2499,7 @@ function renderKingdomDetail(kingdom, quests, activeQuests, training, zoneSessio
             ${locked
               ? `<p style="font-size:11px;color:#555;margin:0">Reach level ${z.minLv} to unlock.</p>`
               : hasActiveTask
-              ? '<p style="font-size:11px;color:#f44336;margin:0">⏳ Colete sua tarefa ativa primeiro</p>'
+              ? '<p style="font-size:11px;color:#f44336;margin:0">⏳ Collect your active task first</p>'
               : `<div style="display:flex;gap:5px;flex-wrap:wrap">
                 ${(() => {
                   const d = 120; const stamCost = Math.min(100, Math.max(5, Math.round(d/8))); // ação fixa instantânea
@@ -2554,7 +2554,7 @@ function renderKingdomDetail(kingdom, quests, activeQuests, training, zoneSessio
           ${locked
             ? '<p style="font-size:11px;color:#555;margin:0">Reach level '+z.minLv+' to unlock.</p>'
             : hasActiveTask
-              ? '<p style="font-size:11px;color:#f44336;margin:0">⏳ Colete sua tarefa ativa primeiro</p>'
+              ? '<p style="font-size:11px;color:#f44336;margin:0">⏳ Collect your active task first</p>'
               : `<div style="display:flex;gap:5px;flex-wrap:wrap">
               ${(() => {
                 const d = 20; // ação instantânea de tamanho fixo (10⚡ via d/2)
@@ -2568,20 +2568,9 @@ function renderKingdomDetail(kingdom, quests, activeQuests, training, zoneSessio
     }).join('');
   }
 
-  const vipInstantLeft = warrior && warrior.isVip
-    ? Math.max(0, 2 - (warrior.instantQuestsToday ?? 0)) : 0;
-
   const questCards = quests.map(q => {
-    const done = !!q.doneToday;                              // [DAILY_QUESTS] já feita nesta janela de 12h
+    const done = !!q.doneToday;                              // [DAILY_QUESTS] limite da janela atingido
     const disabled = hasActiveTask || !q.canStart;
-    const canInstant = warrior && warrior.isVip && !hasActiveTask && q.canStart && vipInstantLeft > 0;
-    const instantBtn = (warrior && warrior.isVip && !hasActiveTask && !done)
-      ? `<button onclick="instantStartQuest('${kingdom}','${q.id}')"
-           style="margin-top:8px;font-size:12px;background:#7c3aed;margin-left:6px"
-           ${!canInstant ? 'disabled style="opacity:.5;margin-left:6px"' : ''}>
-           ⚡ Instant${vipInstantLeft > 0 ? ' (' + vipInstantLeft + ')' : ' (0)'}
-         </button>`
-      : '';
     const actionHtml = done
       ? `<span style="font-size:12px;color:#4caf50;display:inline-flex;align-items:center;gap:6px">
            ✓ Done <span style="color:#888">· resets in ${fmtResetCountdown(q.secondsUntilReset)}</span>
@@ -2589,9 +2578,8 @@ function renderKingdomDetail(kingdom, quests, activeQuests, training, zoneSessio
       : `<button onclick="startKingdomQuest('${kingdom}','${q.id}')"
             ${disabled ? 'disabled style="opacity:.5"' : ''}
             style="font-size:12px">
-            ${hasActiveTask ? 'Finish your task' : !q.canStart ? 'Low stamina' : 'Start Quest'}
-          </button>
-          ${instantBtn}`;
+            ${hasActiveTask ? 'Finish your task' : !q.canStart ? 'Low stamina' : (q.interactive ? '📜 Begin' : 'Start Quest')}
+          </button>`;
     return `
       <div style="background:#1a1a2e;border:1px solid ${done ? '#2e4d2e' : '#333'};border-radius:8px;padding:12px;margin-bottom:8px${done ? ';opacity:.7' : ''}">
         <div style="display:flex;justify-content:space-between;align-items:center">
@@ -2617,7 +2605,7 @@ function renderKingdomDetail(kingdom, quests, activeQuests, training, zoneSessio
         <strong style="color:#ef5350">👹 Hunt Beasts</strong>
         <p style="font-size:12px;color:#aaa;margin:4px 0 8px">Mobs scale with your level (Lv.${lvl}). A win pays ~${fmtBronze(lvl*10)}, ${lvl*12} XP and materials (Monster Core). Costs 15⚡.</p>
         ${warrior && warrior.isKnockedOut
-          ? '<p style="font-size:11px;color:#f44336;margin:0">⚔ Guerreiro ferido — cure no Templo</p>'
+          ? '<p style="font-size:11px;color:#f44336;margin:0">⚔ Warrior wounded — heal at the Temple</p>'
           : `<button onclick="raidCombat()" style="background:#7a1f1f">⚔ Hunt</button>`}
       </div>`;
   }
@@ -2727,30 +2715,82 @@ function closeCollectModal() {
 async function startKingdomQuest(kingdom, questTypeId) {
   const r = await api('POST', `/api/world/${kingdom}/quests/start`, { questType: questTypeId });
   if (r.error) { worldMsg(r.error, false); return; }
-  await collectKingdomQuest(kingdom, r.id); // [SEM_TIMER] instantâneo: resolve e abre o resultado direto
+  if (r.interactive && r.dialog) {
+    showQuestDialogModal(kingdom, r.id, r.dialog);  // [QUESTS_INTERATIVAS] escolhe antes de resolver
+  } else {
+    await collectKingdomQuest(kingdom, r.id);       // não-interativa: resolve direto
+  }
 }
 
-async function collectKingdomQuest(kingdom, questId) {
-  const r = await api('POST', `/api/world/${kingdom}/quests/${questId}/collect`);
+// Modal de diálogo (livro-jogo): narrativa + opções. Tem que escolher (ou ✕ pra desistir → abandona).
+function showQuestDialogModal(kingdom, questId, dialog) {
+  closeCollectModal();
+  const optsHtml = (dialog.options || []).map(o => `
+    <button onclick="chooseQuestOption('${kingdom}', ${questId}, '${o.id}')"
+            style="display:block;width:100%;text-align:left;margin-top:8px;padding:10px 12px;
+                   background:#1f1f33;border:1px solid #3a3a52;border-radius:8px;color:#e6e6f2;
+                   cursor:pointer;font-size:13px">
+      ${o.label}${o.hint ? ` <span style="color:#7fd1b9;font-size:11px">· 🎲 ${o.hint}</span>` : ''}
+    </button>`).join('');
+  const el = document.createElement('div');
+  el.id = 'collect-modal-overlay';
+  el.setAttribute('style',
+    'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.82);' +
+    'z-index:9999;display:flex;align-items:center;justify-content:center;padding:16px;box-sizing:border-box');
+  el.innerHTML = `
+    <div style="background:#16162a;border:2px solid #c9a84c;border-radius:14px;padding:24px;
+      max-width:460px;width:100%;max-height:85vh;overflow-y:auto;position:relative;box-shadow:0 8px 32px rgba(0,0,0,0.6)">
+      <button onclick="abandonQuestFromDialog('${kingdom}', ${questId})" title="Give up"
+        style="position:absolute;top:10px;right:10px;background:#333;border:none;color:#aaa;
+               padding:4px 10px;border-radius:4px;cursor:pointer;font-size:13px">✕</button>
+      <h3 style="margin:0 0 14px;color:#c9a84c;font-size:16px">📜 Choose your path</h3>
+      <div style="background:#0d0d18;border-left:3px solid #c9a84c;border-radius:6px;padding:10px 12px;
+        margin-bottom:6px;font-size:13px;color:#cdd;font-style:italic;line-height:1.5">${dialog.intro}</div>
+      ${optsHtml}
+    </div>`;
+  document.body.appendChild(el);
+}
+
+async function chooseQuestOption(kingdom, questId, optionId) {
+  closeCollectModal();
+  await collectKingdomQuest(kingdom, questId, optionId);
+}
+
+async function abandonQuestFromDialog(kingdom, questId) {
+  closeCollectModal();
+  await api('POST', `/api/world/${kingdom}/quests/${questId}/abandon`).catch(() => {});
+  await enterKingdom(kingdom);
+}
+
+async function collectKingdomQuest(kingdom, questId, optionId) {
+  const r = await api('POST', `/api/world/${kingdom}/quests/${questId}/collect`, optionId ? { optionId } : undefined);
   if (r.error) { worldMsg(r.error, false); return; }
   showQuestResultModal(r);
   await enterKingdom(kingdom);
 }
 
-// Modal de resultado da quest: narrativa + (se houve) combate; derrota = sem recompensa.
+// Modal de resultado da quest: roll (se houve) + narrativa + combate; derrota = sem recompensa.
 function showQuestResultModal(r) {
+  const rollRow = r.roll ? [{
+    icon: '🎲',
+    label: `${r.roll.attr} check`,
+    value: `${r.roll.rolled} + ${r.roll.mod} = ${r.roll.rolled + r.roll.mod} vs DC ${r.roll.dc}`,
+    sub: r.roll.passed ? '✓ Success' : '✗ Failure',
+    color: r.roll.passed ? '#7fd1b9' : '#ef9a9a'
+  }] : [];
+
   const lost = r.monsterEncountered && !r.monsterDefeated;
   if (lost) {
     showCollectModal({
       title: `💀 Defeated by the ${r.monsterName || 'monster'}!`,
       color: '#ef5350',
       note:  r.narrative,
-      rows:  [{ icon:'☠', label:'Reward', value:'None — you were beaten', color:'#ef5350' }],
+      rows:  [...rollRow, { icon:'☠', label:'Reward', value:'None — you were beaten', color:'#ef5350' }],
       log:   r.battleLog || []
     });
     return;
   }
-  const rows = [
+  const rows = [...rollRow,
     { icon:'⭐', label:'Experience', value:`+${r.xpEarned} XP`,    color:'#ffd700' },
     { icon:'🪙', label:'Bronze',     value:fmtBronze(r.bronzeEarned), color:'#cd7f32' },
   ];
@@ -2761,7 +2801,7 @@ function showQuestResultModal(r) {
       icon:  '🎁',
       label: 'Item Drop',
       value: d.name,
-      color: rarityColor(d.rarity),                       // cor real da raridade (rare=azul, epic=roxo…)
+      color: rarityColor(d.rarity),
       sub:   `${rarityName(d.rarity)} · ${typeName} · ${statsText(d)}`
     });
   }
@@ -2870,20 +2910,18 @@ async function loadVipShop() {
 
   const vipBanner = isVip
     ? `<div style="background:#3b0764;border:1px solid #7c3aed;border-radius:8px;padding:12px;margin-bottom:12px">
-        <div style="color:#c4b5fd;font-weight:bold">👑 VIP Ativo — ${daysLeft} dias restantes</div>
-        <div style="font-size:12px;color:#a78bfa;margin-top:4px">Expira em ${status.vipExpiresAt ? status.vipExpiresAt.substring(0,10) : ''}</div>
+        <div style="color:#c4b5fd;font-weight:bold">👑 VIP Active — ${daysLeft} days left</div>
+        <div style="font-size:12px;color:#a78bfa;margin-top:4px">Expires ${status.vipExpiresAt ? status.vipExpiresAt.substring(0,10) : ''}</div>
         <div style="font-size:12px;color:#888;margin-top:6px">
-          ⚡ Missões instantâneas hoje: ${2 - status.instantQuestsRemaining}/2
-          &nbsp;·&nbsp;
-          ⚔ Lutas de arena: ${status.arenaFightLimit - status.arenaFightsRemaining}/${status.arenaFightLimit}
+          ⚔ Arena fights: ${status.arenaFightLimit - status.arenaFightsRemaining}/${status.arenaFightLimit}
         </div>
       </div>`
     : `<div style="background:#1a0a2e;border:1px solid #7c3aed;border-radius:8px;padding:12px;margin-bottom:12px">
-        <div style="color:#aaa;font-size:13px">Você não tem VIP ativo.</div>
+        <div style="color:#aaa;font-size:13px">You don't have VIP active.</div>
       </div>`;
 
   const canBuyVip = ss >= 15;
-  const vipLabel = isVip ? `👑 Renovar VIP (+30 dias)` : `👑 Ativar VIP`;
+  const vipLabel = isVip ? `👑 Renew VIP (+30 days)` : `👑 Activate VIP`;
 
   const bagExpanded = slots && slots.inventoryExpanded;
 
@@ -2894,8 +2932,8 @@ async function loadVipShop() {
       <div style="background:#1a1a2e;border:1px solid #7c3aed;border-radius:8px;padding:16px;margin-bottom:12px">
         <div style="display:flex;justify-content:space-between;align-items:flex-start">
           <div>
-            <div style="font-size:15px;font-weight:bold;color:#c4b5fd">👑 Status VIP — 30 dias</div>
-            <div style="font-size:12px;color:#888;margin-top:4px">Inclui: bag 20 slots · cura grátis · 2 missões instantâneas/dia · 10 lutas arena/dia · 2 buffs simultâneos</div>
+            <div style="font-size:15px;font-weight:bold;color:#c4b5fd">👑 VIP Status — 30 days</div>
+            <div style="font-size:12px;color:#888;margin-top:4px">Includes: 20-slot bag · free heal · 10 arena fights/day · 2 simultaneous buffs · 1 extra daily quest run</div>
           </div>
           <span style="color:#a78bfa;font-weight:bold;font-size:14px">15 💎</span>
         </div>
@@ -2907,21 +2945,21 @@ async function loadVipShop() {
         </div>
       </div>
 
-      <h4 style="color:#aaa;font-size:13px;margin:12px 0 8px">COMPRAS PERMANENTES</h4>
+      <h4 style="color:#aaa;font-size:13px;margin:12px 0 8px">PERMANENT PURCHASES</h4>
 
       <div style="background:#1a1a2e;border:1px solid #444;border-radius:8px;padding:12px;margin-bottom:8px;
                   opacity:${bagExpanded || isVip ? '0.5' : '1'}">
         <div style="display:flex;justify-content:space-between;align-items:center">
           <div>
-            <div style="font-size:13px;font-weight:bold">🎒 Expandir Bag (10→20 slots)</div>
-            <div style="font-size:11px;color:#888">Permanente. Incluso no VIP.</div>
+            <div style="font-size:13px;font-weight:bold">🎒 Expand Bag (10→20 slots)</div>
+            <div style="font-size:11px;color:#888">Permanent. Included with VIP.</div>
           </div>
           <span style="color:#a78bfa;font-size:13px">3 💎</span>
         </div>
         ${bagExpanded || isVip
           ? '<div style="color:#4caf50;font-size:12px;margin-top:6px">✓ Already active</div>'
           : `<button onclick="expandInventory()" style="margin-top:8px;font-size:12px" ${ss < 3 ? 'disabled style="opacity:.5"' : ''}>
-               Comprar (3 💎)
+               Buy (3 💎)
              </button>`}
       </div>
 
@@ -2930,23 +2968,23 @@ async function loadVipShop() {
         <div style="display:flex;justify-content:space-between;align-items:center">
           <div>
             <div style="font-size:13px;font-weight:bold">${celestial.icon} ${celestial.displayName} <span style="color:#7fd1b9">−${celestial.staminaReductionPct}% ⚡</span></div>
-            <div style="font-size:11px;color:#888">Montaria VIP — a maior redução de estamina. Equipa no 🐴 Estábulo.</div>
+            <div style="font-size:11px;color:#888">VIP mount — the biggest stamina cut. Equip it in the 🐴 Stable.</div>
           </div>
           <span style="color:#a78bfa;font-size:13px">${celestial.priceSoulStones} 💎</span>
         </div>
         ${celestial.equipped
-          ? '<div style="color:#4caf50;font-size:12px;margin-top:6px">✓ Equipada</div>'
+          ? '<div style="color:#4caf50;font-size:12px;margin-top:6px">✓ Equipped</div>'
           : celestial.owned
-            ? `<button onclick="equipMountFromVip('CELESTIAL_MOUNT')" style="margin-top:8px;font-size:12px;background:#2e7d32">Equipar</button>`
+            ? `<button onclick="equipMountFromVip('CELESTIAL_MOUNT')" style="margin-top:8px;font-size:12px;background:#2e7d32">Equip</button>`
             : !isVip
-              ? '<div style="color:#888;font-size:12px;margin-top:6px">🔒 Requer VIP ativo</div>'
+              ? '<div style="color:#888;font-size:12px;margin-top:6px">🔒 Requires active VIP</div>'
               : `<button onclick="buyMountFromVip('CELESTIAL_MOUNT')" style="margin-top:8px;font-size:12px;background:#7c3aed" ${ss < celestial.priceSoulStones ? 'disabled style="opacity:.5"' : ''}>
-                   Comprar (${celestial.priceSoulStones} 💎)
+                   Buy (${celestial.priceSoulStones} 💎)
                  </button>`}
       </div>` : ''}
 
       <div style="font-size:11px;color:#666;margin-top:12px;text-align:center">
-        💎 Saldo atual: ${ss} SoulStone${ss !== 1 ? 's' : ''}
+        💎 Balance: ${ss} SoulStone${ss !== 1 ? 's' : ''}
       </div>
       <div id="vipshop-msg" style="margin-top:8px;min-height:20px"></div>
     </div>`;
@@ -2978,17 +3016,7 @@ async function equipMountFromVip(mountType) {
   loadVipShop();
 }
 
-// ═══════════════════════════════════════════════════════════════════
-// INSTANT QUEST (VIP)
-// ═══════════════════════════════════════════════════════════════════
-
-async function instantStartQuest(kingdom, questTypeId) {
-  const r = await api('POST', `/api/world/${kingdom}/quests/instant-start`, { questType: questTypeId });
-  if (r.error) { worldMsg(r.error, false); return; }
-  // Instantânea também pode encontrar monstro — usa o mesmo modal de resultado.
-  showQuestResultModal(r);
-  await enterKingdom(kingdom);
-}
+// [QUESTS_INTERATIVAS] instantStartQuest removido (instant-start aposentado; dailies viraram interativas).
 
 // VIP Heal (grátis, CD 10min)
 async function vipHeal() {

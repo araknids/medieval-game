@@ -20,7 +20,6 @@ public class VipService {
     private static final int  VIP_COST_STONES   = 15;
     private static final int  VIP_DAYS          = 30;
     private static final int  VIP_HEAL_CD_MIN   = 10;
-    private static final int  VIP_INSTANT_LIMIT = 2;
 
     private final PlayerRepository playerRepository;
 
@@ -58,7 +57,6 @@ public class VipService {
             Map.entry("vipExpiresAt",          vip && player.getVipExpiresAt() != null
                                                ? player.getVipExpiresAt().toString() : ""),
             Map.entry("soulStones",            player.getSoulStones()),
-            Map.entry("instantQuestsRemaining", vip ? VIP_INSTANT_LIMIT - player.getVipInstantQuestsToday() : 0),
             Map.entry("arenaFightsRemaining",   player.getArenaFightLimit() - player.getArenaFightsToday()),
             Map.entry("arenaFightLimit",        player.getArenaFightLimit()),
             Map.entry("vipHealCooldownSecs",    vipHealCooldownSecs(player)),
@@ -93,44 +91,17 @@ public class VipService {
         playerRepository.save(player);
     }
 
-    // ── Instant quest counter ─────────────────────────────────────────────────
-
-    /** Verifica e incrementa o counter de missões instantâneas. */
-    @Transactional
-    public void consumeInstantQuest(Player player) {
-        if (!player.isVip()) {
-            log.warn("[VipService] player={} REJECTED: instant quest requires VIP", player.getId());
-            throw new IllegalStateException("VIP required for instant quests.");
-        }
-        resetDailyCountersIfNeeded(player);
-        if (player.getVipInstantQuestsToday() >= VIP_INSTANT_LIMIT) {
-            log.warn("[VipService] player={} REJECTED: instant quest daily limit ({}/{})",
-                    player.getId(), player.getVipInstantQuestsToday(), VIP_INSTANT_LIMIT);
-            throw new IllegalStateException(
-                "Daily instant quest limit reached (" + player.getVipInstantQuestsToday()
-                + "/" + VIP_INSTANT_LIMIT + ").");
-        }
-        player.setVipInstantQuestsToday(player.getVipInstantQuestsToday() + 1);
-        player.setLastVipQuestDate(LocalDate.now());
-        playerRepository.save(player);
-    }
-
     // ── Reset diário ─────────────────────────────────────────────────────────
+    // [QUESTS_INTERATIVAS] o counter de missão instantânea foi removido (instant-start aposentado);
+    // sobra só o reset do limite de arena.
 
     /** Zera counters se a data mudou (meia-noite UTC). Chamado antes de qualquer validação diária. */
     public void resetDailyCountersIfNeeded(Player player) {
         LocalDate today = LocalDate.now();
-        boolean save = false;
         if (!today.equals(player.getLastArenaFightDate())) {
             player.setArenaFightsToday(0);
             player.setLastArenaFightDate(today);
-            save = true;
+            playerRepository.save(player);
         }
-        if (!today.equals(player.getLastVipQuestDate())) {
-            player.setVipInstantQuestsToday(0);
-            player.setLastVipQuestDate(today);
-            save = true;
-        }
-        if (save) playerRepository.save(player);
     }
 }

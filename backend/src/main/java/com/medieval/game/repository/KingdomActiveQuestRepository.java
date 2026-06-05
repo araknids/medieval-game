@@ -24,8 +24,8 @@ public interface KingdomActiveQuestRepository extends JpaRepository<KingdomActiv
     Optional<KingdomActiveQuest> findByPlayerAndStatusIn(
             Player player, List<QuestStatus> statuses);
 
-    // [DAILY_QUESTS] Player já completou esta quest na janela de 12h dada? (lock da daily)
-    boolean existsByPlayerAndQuestTypeAndStatusAndCompletedWindowId(
+    // [DAILY_QUESTS] Quantas vezes o player completou esta quest na janela de 12h (limite 1× / 2× VIP).
+    long countByPlayerAndQuestTypeAndStatusAndCompletedWindowId(
             Player player, KingdomQuestType questType, QuestStatus status, long completedWindowId);
 
     // [SEM_TIMER] Player tem alguma quest IN_PROGRESS? (substitui o antigo guard onMission p/ quest)

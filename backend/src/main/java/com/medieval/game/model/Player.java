@@ -122,12 +122,8 @@ public class Player {
     /** Data do último reset do counter de arena */
     private java.time.LocalDate lastArenaFightDate;
 
-    /** Missões instantâneas usadas hoje (reset meia-noite UTC) */
-    @Column(columnDefinition = "integer default 0")
-    private int vipInstantQuestsToday = 0;
-
-    /** Data do último reset do counter de missões instantâneas */
-    private java.time.LocalDate lastVipQuestDate;
+    // [QUESTS_INTERATIVAS] vipInstantQuestsToday/lastVipQuestDate removidos com o instant-start.
+    // As colunas órfãs em prod (integer default 0 / date) são inofensivas (não dropadas).
 
     public boolean isVip() {
         return vipExpiresAt != null && java.time.LocalDateTime.now().isBefore(vipExpiresAt);

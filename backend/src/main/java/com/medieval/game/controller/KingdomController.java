@@ -4,6 +4,7 @@ import com.medieval.game.enums.Kingdom;
 import com.medieval.game.enums.KingdomQuestType;
 import com.medieval.game.enums.QuestStatus;
 import com.medieval.game.model.*;
+import com.medieval.game.quest.InteractiveQuests;
 import com.medieval.game.service.KingdomService;
 import com.medieval.game.service.PlayerService;
 import lombok.RequiredArgsConstructor;
@@ -76,17 +77,18 @@ public class KingdomController {
         List<?> quests = kingdomService.getQuestsForKingdom(kingdom).stream()
                 .map(qt -> {
                     boolean done = kingdomService.isQuestDoneThisPeriod(player, qt); // [DAILY_QUESTS]
-                    return Map.of(
-                        "id",                qt.name(),
-                        "displayName",       qt.displayName,
-                        "durationMinutes",   qt.durationMinutes,
-                        "bronzeReward",      qt.bronzeReward,
-                        "expReward",         qt.expReward,
-                        "staminaCost",       qt.staminaCost,
-                        "dropChance",        qt.dropChance,
-                        "doneToday",         done,
-                        "secondsUntilReset", secondsUntilReset,
-                        "canStart",          !done && stamina >= qt.staminaCost
+                    return Map.ofEntries(
+                        Map.entry("id",                qt.name()),
+                        Map.entry("displayName",       qt.displayName),
+                        Map.entry("durationMinutes",   qt.durationMinutes),
+                        Map.entry("bronzeReward",      qt.bronzeReward),
+                        Map.entry("expReward",         qt.expReward),
+                        Map.entry("staminaCost",       qt.staminaCost),
+                        Map.entry("dropChance",        qt.dropChance),
+                        Map.entry("interactive",       InteractiveQuests.isInteractive(qt)), // [QUESTS_INTERATIVAS]
+                        Map.entry("doneToday",         done),
+                        Map.entry("secondsUntilReset", secondsUntilReset),
+                        Map.entry("canStart",          !done && stamina >= qt.staminaCost)
                     );
                 }).toList();
         return ResponseEntity.ok(quests);
@@ -109,7 +111,18 @@ public class KingdomController {
             Authentication auth) {
         Player player = getPlayer(auth);
         KingdomActiveQuest quest = kingdomService.startQuest(player, kingdom, req.questType());
-        return ResponseEntity.ok(questToMap(quest));
+        var resp = new java.util.HashMap<String, Object>(questToMap(quest));
+        // [QUESTS_INTERATIVAS] se a quest tem diálogo, devolve história + opções (sem vazar os outcomes)
+        KingdomQuestType qt = quest.getQuestType();
+        InteractiveQuests.dialogFor(qt).ifPresent(d -> {
+            resp.put("interactive", true);
+            resp.put("dialog", Map.of(
+                "intro", d.intro(),
+                "options", d.options().stream().map(o -> Map.of(
+                    "id", o.id(), "label", o.label(), "hint", o.hint())).toList()
+            ));
+        });
+        return ResponseEntity.ok(resp);
     }
 
     // ── Collect quest reward ──────────────────────────────────────────────────
@@ -117,9 +130,11 @@ public class KingdomController {
     public ResponseEntity<?> collectQuest(
             @PathVariable Kingdom kingdom,
             @PathVariable Long id,
+            @RequestBody(required = false) CollectQuestRequest req,
             Authentication auth) {
         Player player = getPlayer(auth);
-        KingdomService.CollectResult result = kingdomService.collectQuest(player, id);
+        String optionId = req != null ? req.optionId() : null; // [QUESTS_INTERATIVAS] escolha do diálogo
+        KingdomService.CollectResult result = kingdomService.collectQuest(player, id, optionId);
         var resp = new java.util.HashMap<String, Object>();
         resp.put("bronzeEarned", result.bronzeEarned());
         resp.put("xpEarned",     result.xpEarned());
@@ -129,37 +144,11 @@ public class KingdomController {
         resp.put("monsterDefeated",    result.monsterDefeated());
         if (result.monsterName() != null) resp.put("monsterName", result.monsterName());
         resp.put("battleLog",          result.battleLog());
-        if (result.droppedItem() != null) {
-            InventoryItem d = result.droppedItem();
-            resp.put("droppedItem", Map.of(
-                "name",        d.getName(),
-                "type",        d.getType().name(),
-                "rarity",      d.getRarity(),
-                "attackBonus", d.getAttackBonus(),
-                "defenseBonus",d.getDefenseBonus(),
-                "healthBonus", d.getHealthBonus()
-            ));
+        if (result.roll() != null) { // [QUESTS_INTERATIVAS] resultado do teste de atributo (d20)
+            KingdomService.RollInfo r = result.roll();
+            resp.put("roll", Map.of(
+                "attr", r.attr(), "rolled", r.rolled(), "mod", r.mod(), "dc", r.dc(), "passed", r.passed()));
         }
-        return ResponseEntity.ok(resp);
-    }
-
-    // ── Instant-start quest (VIP only) ───────────────────────────────────────
-    @PostMapping("/{kingdom}/quests/instant-start")
-    public ResponseEntity<?> instantStartQuest(
-            @PathVariable Kingdom kingdom,
-            @RequestBody StartQuestRequest req,
-            Authentication auth) {
-        Player player = getPlayer(auth);
-        KingdomService.CollectResult result = kingdomService.instantStartQuest(player, kingdom, req.questType());
-        var resp = new java.util.HashMap<String, Object>();
-        resp.put("bronzeEarned", result.bronzeEarned());
-        resp.put("xpEarned",     result.xpEarned());
-        resp.put("questId",      result.quest().getId());
-        resp.put("narrative",          result.narrative());
-        resp.put("monsterEncountered", result.monsterEncountered());
-        resp.put("monsterDefeated",    result.monsterDefeated());
-        if (result.monsterName() != null) resp.put("monsterName", result.monsterName());
-        resp.put("battleLog",          result.battleLog());
         if (result.droppedItem() != null) {
             InventoryItem d = result.droppedItem();
             resp.put("droppedItem", Map.of(
@@ -254,5 +243,6 @@ public class KingdomController {
     }
 
     record StartQuestRequest(KingdomQuestType questType) {}
+    record CollectQuestRequest(String optionId) {} // [QUESTS_INTERATIVAS] escolha do diálogo (null = não-interativa)
     record TrainingRequest(int hours) {}
 }
