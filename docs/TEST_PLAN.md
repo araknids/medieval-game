@@ -4,6 +4,17 @@
 
 ---
 
+## ⚠️ ATUALIZAÇÃO 2026-06-05 — A verdade é a suíte automatizada (468 testes verdes)
+
+Este plano (escrito à mão antes do modelo sem-timer) está parcialmente desatualizado: casos que assumem **timer/espera/collect** agora são **instantâneos** (gate = estamina). Os testes que **realmente rodam** estão em `backend/src/test/...` (**468 verdes**) e cobrem o estado atual, incluindo:
+- Sem-timer: `TimerPathIntegrationTest` (atividade instantânea + estamina cobrada com instant-complete=false).
+- PvP de Zona: `ZoneAmbushIntegrationTest` TC-217..223 (pool de flag, flag-on-farm, raid ponta-a-ponta com loot+escudo, item-lock só na vermelha, amarela sem lock, drops por reino na coleta por zona).
+- Combate/balance: `CombatV2Test`, `D20CombatTest`, `ZoneServiceTest`, `TowerBalanceTest`, etc.
+
+Para o estado real dos testes, rode `mvn test` (a suíte) — não confie linha-a-linha neste doc abaixo. Os IDs TC-xxx abaixo são o plano histórico; vários foram superados.
+
+---
+
 ## Introdução
 
 ### Estratégia de Testes

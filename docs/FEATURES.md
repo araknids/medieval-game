@@ -4,6 +4,19 @@
 
 ---
 
+## ⚠️ ATUALIZAÇÃO 2026-06-05 — Modelo Sem-Timer + PvP de Zona (leia primeiro)
+
+Mudanças grandes que **superam** várias descrições antigas abaixo (que ainda falam de "timer", "coletar depois", zonas "coming soon"). Fonte da verdade: o código + `docs/PLANO_SEM_TIMER_PVP.md`.
+
+- **Sem timer — tudo instantâneo.** Missão, coleta, trabalho, zona, treino e arena resolvem **na hora**. Onde havia espera/timer, agora é **1 clique → resultado** (modal). O gate é a **estamina** (regen 100% em 1h), não o tempo. `app.dev.instant-complete` agora só faz **bypass de estamina** (teste).
+- **Arena instantânea:** `POST /api/arena/fight` resolve o duelo e retorna o resultado completo (era start→timer→collect).
+- **PvP de Zona com Flag + Tiers:** farmar uma zona 🟡PVP/🔴HIGH_RISK flagga o player por 1h; outro player (±10 níveis) pode cruzar e **saquear**. Tiers: 🟢SAFE (só PvE NPC 20%), 🟡 (−50% recursos +10% bronze, recursos travados), 🔴 (+ 1 item travado + XP pro killer). Itens/recursos **travados** (`pvpLocked`) não vendem/stasham/guardam enquanto flagged. Stash/Templo imunes. Escudo de 1h pós-derrota. NPC de preenchimento p/ PvP solo.
+- **Coleta unificada:** TODA coleta (Pesca/Mineração/Mar Abençoado/Grutas) roda pelo sistema de **Zona** (`/api/zones`), ganhando PvP nas zonas amarela/vermelha, mantendo os drops específicos do reino. `/api/gathering` ficou só p/ consumo de peixe + recursos.
+- **Itens V2/V3:** itens têm afixos + `itemLevel` (trava de equipar) + raridade Lendária; lock de PvP.
+- **Inventário V2:** bag única (itens + recursos por unidade), free 30 / VIP 50; **Stash** (100 slots, taxa de bronze).
+
+---
+
 ## 1. Sistema de Contas
 
 ### 1.1 Cadastro
@@ -135,11 +148,10 @@ Sem teto — progressão exponencialmente mais difícil inspirada em Tibia.
 ## 6. Arena PvP
 
 ### Mecânica
-- Assíncrono: guerreiro patrulha, combate resolvido automaticamente
+- **Duelo instantâneo** (sem timer): `POST /api/arena/fight` resolve tudo e retorna o resultado (won, oponente, rank, bronze, log) numa chamada — mostra no modal.
 - Custa 25 stamina
-- Oponente: jogador real da mesma zona OU NPC gerado
-- Timer: 1 minuto em prod (instantâneo em dev)
-- Ao coletar: vê log detalhado do combate
+- Oponente: jogador real de rank próximo OU NPC gerado
+- Ranking por rankPoints (sem loot — PvP de loot é nas Zonas)
 
 ### Limite Diário de Lutas
 | Status | Lutas/dia |
@@ -309,8 +321,10 @@ Capacete, Armadura, Espada, Escudo, Calça, Bota, Luva, Ombreira, Colar, Anel
   (em inglês), variando por skill (pesca/mineração/garimpo) e citando o reino — o equivalente ao
   log de batalha para a coleta. Gerada no backend (`GatheringNarrator`), aleatória de um pool por skill.
 
+> ⚠️ **Atualização (sem-timer/unificação):** a coleta é **instantânea** e roda pelo **sistema de Zona** (`/api/zones/enter` GATHERING) — as 3 zonas de cada reino viram tiers 🟢SAFE/🟡PVP/🔴HIGH_RISK com PvP nas amarela/vermelha. As "Sessão timer: X min" abaixo são históricas; hoje a ação é um **chunk fixo (~20min → ~10⚡)**, 1 clique → resultado.
+
 ### Pesca
-- Sessão timer: 5/10/20/30/40 min
+- ~~Sessão timer: 5/10/20/30/40 min~~ → ação instantânea (chunk ~20min)
 - **Haul** = `max(1, duração/10)` peixes (Combate V2: reduzido p/ a pesca não ser fonte infinita de estamina).
 - **Dois tipos de peixe, por reino** (Reinos V2):
   - **Desfiladeiro do Osso (peixe de ESTAMINA)** — Peixe Pequeno/Salmão/Atum/Tubarão/Peixe Lendário,
@@ -351,14 +365,16 @@ Cada tipo tem:
 
 ---
 
-## 13. Zonas e Expedições (Loot com PvP por probabilidade)
+## 13. Zonas e Expedições — PvP com Flag (REESCRITO 2026-06-05)
 
-### Zonas
-| Zona | Level mín | Multiplicador | NPC %/h | PvP %/h |
-|------|-----------|--------------|---------|---------|
-| Zona Segura | 1 | ×1.0 | 15% | 0% |
-| Zona PvP | 10 | ×1.5 | 25% | 20% |
-| Zona Alto Risco | 20 | ×2.5 | 35% | 40% |
+> ⚠️ **Modelo atual (supera o de baixo):** farmar é **instantâneo** e custa estamina. Farmar 🟡/🔴 **flagga o player 1h** e expõe bag+equipados (🔴) / recursos (🟡🔴). Quem entra na zona (±10 níveis) pode **cruzar e saquear** um flagged (matchmaking `findFlaggedInZone`), ou um **NPC flagged** de preenchimento. Ao perder: 🟡 −50% recursos +10% bronze; 🔴 + 1 item travado (`pvpLocked`) + XP pro killer. Stash/Templo imunes; **escudo 1h** pós-derrota (saqueado 1x/ciclo). Itens/recursos travados não vendem/stasham/guardam enquanto flagged. **Toda coleta** (Pesca/Mineração/Mar Abençoado/Grutas) roda por aqui, com drops por reino (`ZoneActivity.kingdom`). Detalhes: `docs/PLANO_SEM_TIMER_PVP.md`.
+
+### Zonas (tiers)
+| Zona | Level mín | Multiplicador | NPC %/h | PvP %/h | Ao perder |
+|------|-----------|--------------|---------|---------|-----------|
+| 🟢 Segura (SAFE) | 1 | ×1.0 | 20% | 0% | só dano/KO (PvE), sem perda de XP |
+| 🟡 PvP | 10 | ×1.5 | 25% | 20% | −50% recursos + 10% bronze (gear/XP seguros) |
+| 🔴 Alto Risco | 20 | ×2.5 | 35% | 40% | recursos + 15% bronze + 1 item + XP; itens travados |
 
 ### Conceito
 Todos os jogadores entram na zona para **lootear** (coletar recursos). Não existe mais o papel de "Hunter" — o risco é ser **emboscado por outro jogador que também está looteando** na mesma zona. O matchmaking é por **probabilidade**, resolvido no `collect`.

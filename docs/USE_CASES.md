@@ -4,6 +4,12 @@
 
 ---
 
+## ⚠️ ATUALIZAÇÃO 2026-06-05 — Modelo Sem-Timer + PvP de Zona (leia primeiro)
+
+Muitos casos abaixo descrevem o fluxo antigo **start → timer/espera → collect**. Isso mudou: agora as ações (missão, coleta, trabalho, zona, treino, arena) são **instantâneas** — o caso de uso colapsa em **1 clique → resultado** (gate = estamina, não tempo). Além disso, a coleta foi unificada no sistema de **Zona** (com PvP nas zonas amarela/vermelha: flag por 1h, raid, item/recurso travado, escudo). Onde os casos falam de "aguardar o timer / coletar depois", leia "resolve na hora". Fonte da verdade: o código + `docs/PLANO_SEM_TIMER_PVP.md`. Este doc não foi regenerado caso a caso; use-o como mapa geral, não como contrato exato.
+
+---
+
 ## Índice
 
 | ID | Nome |

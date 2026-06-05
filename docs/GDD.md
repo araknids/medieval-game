@@ -1,9 +1,20 @@
 # Game Design Document — Medieval Chronicles
 
-**Versão:** 1.0  
-**Data:** Junho 2026  
+**Versão:** 1.1 (atualizado 2026-06-05)  
 **Autor:** Rodrigo  
 **Status:** Em desenvolvimento ativo
+
+---
+
+## ⚠️ ATUALIZAÇÃO 2026-06-05 — Pilar mudou: Sem-Timer + PvP de Zona (leia primeiro)
+
+O pilar do jogo deixou de ser "envia com timer, volta depois" e passou a ser **burst play centrado em estamina**: chega, gasta estamina em ações **instantâneas**, pega a recompensa na hora, sai e volta quando a estamina regenera (100% em 1h). Isso supera várias seções abaixo. Fonte da verdade: o código + `docs/PLANO_SEM_TIMER_PVP.md`.
+
+- **Sem timers de atividade.** Missão/coleta/trabalho/zona/treino/arena = instantâneo. Sem espera, sem "coletar depois". Gate = estamina.
+- **PvP de Zona com Flag (loot do late):** farmar zona 🟡/🔴 flagga o player 1h e expõe seus itens/recursos; quem entra na zona pode cruzar e saquear (matchmaking ±10 níveis). Tiers de risco/recompensa: 🟢SAFE (PvE), 🟡 (recursos+bronze), 🔴 (+ item + XP). Stash/Templo protegem; escudo pós-derrota.
+- **Coleta = zona:** toda coleta roda pelo sistema de zona (PvP nas amarelas/vermelhas), com drops por reino.
+- **Arena:** duelo instantâneo por ranking (sem loot).
+- **Guerra de guild/territórios:** segue por ciclos agendados (não é "timer de atividade").
 
 ---
 
