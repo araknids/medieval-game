@@ -1355,7 +1355,7 @@ function renderZones(zones, current, pvp) {
                 ${durations.map(d => `
                   <button class="btn-hour" ${busy ? 'disabled' : ''}
                           onclick="enterZone('${z.id}','GATHERING','FISHING',${d})">
-                    ${d >= 60 ? d/60+'h' : d+'m'}
+                    ${Math.min(100,Math.max(5,Math.round(d/8)))}⚡
                   </button>`).join('')}
               </div>
             </div>
@@ -1365,7 +1365,7 @@ function renderZones(zones, current, pvp) {
                 ${durations.map(d => `
                   <button class="btn-hour" ${busy ? 'disabled' : ''}
                           onclick="enterZone('${z.id}','GATHERING','MINING',${d})">
-                    ${d >= 60 ? d/60+'h' : d+'m'}
+                    ${Math.min(100,Math.max(5,Math.round(d/8)))}⚡
                   </button>`).join('')}
               </div>
             </div>
@@ -1376,7 +1376,7 @@ function renderZones(zones, current, pvp) {
                 ${[60,120,180,360].map(d => `
                   <button class="btn-hour" ${busy ? 'disabled' : ''}
                           onclick="enterZone('${z.id}','HUNTING',null,${d})">
-                    ${d/60}h
+                    ${Math.min(100,Math.max(5,Math.round(d/8)))}⚡
                   </button>`).join('')}
               </div>
             </div>` : ''}
@@ -3116,8 +3116,8 @@ function renderKingdomDetail(kingdom, quests, activeQuests, training, gatherSess
               ? '<p style="font-size:11px;color:#f44336;margin:0">⚔ Warrior is busy</p>'
               : `<div style="display:flex;gap:5px;flex-wrap:wrap">
                 ${combatDurations.map(d => {
-                  const label = d >= 60 ? (d/60)+'h' : d+'min';
-                  return `<button onclick="enterCombatZone('${z.zone}',${d})" style="font-size:11px;padding:3px 8px">${label}</button>`;
+                  const stamCost = Math.min(100, Math.max(5, Math.round(d/8)));
+                  return `<button onclick="enterCombatZone('${z.zone}',${d})" style="font-size:12px;padding:3px 10px" title="${d>=60?(d/60)+'h':d+'min'} de combate">${stamCost}⚡</button>`;
                 }).join('')}
               </div>`}
           </div>`;

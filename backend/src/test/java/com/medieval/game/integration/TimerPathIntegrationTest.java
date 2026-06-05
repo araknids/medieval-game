@@ -65,4 +65,18 @@ class TimerPathIntegrationTest extends BaseIntegrationTest {
 
         assertThat(player().getCalculatedStamina()).isLessThan(100);
     }
+
+    // Sem timer: o farm de zona é instantâneo, então a estamina é o gate (antes era o timer).
+    // Garante que entrar numa zona consome estamina (fecha o exploit de farm grátis). [SEM_TIMER]
+    @Test
+    @DisplayName("Entrar numa zona consome estamina (gate = estamina, sem timer)")
+    void zoneEnterConsumesStamina() throws Exception {
+        mockMvc.perform(post("/api/zones/enter")
+                        .header("Authorization", bearer(token))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"zone\":\"SAFE\",\"role\":\"GATHERING\",\"skillType\":\"FISHING\",\"durationMinutes\":240}"))
+                .andExpect(status().isOk());
+
+        assertThat(player().getCalculatedStamina()).isLessThan(100);
+    }
 }

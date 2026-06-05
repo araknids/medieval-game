@@ -94,6 +94,20 @@ public class ZoneService {
             throw new IllegalArgumentException("Use the Training Hall for safe training. Combat zones start at Campo de Batalha (Lv.10+).");
         }
 
+        // [SEM_TIMER] Farm de zona instantâneo → custa estamina (o timer era o gate; sem ele, a estamina é).
+        // ~duração/8 (cabe no teto de 100 mesmo em 12h). Pulado no modo de teste (instant-complete).
+        if (!instantComplete) {
+            int staminaCost = staminaCostFor(durationMinutes);
+            int cur = player.getCalculatedStamina();
+            if (cur < staminaCost) {
+                log.warn("[ZoneService] player={} REJECTED: stamina {}/{}", player.getId(), cur, staminaCost);
+                throw new IllegalStateException("Not enough stamina (" + cur + "/" + staminaCost + "). Rest to recover.");
+            }
+            player.setCurrentStamina(cur - staminaCost);
+            player.setStaminaUpdatedAt(LocalDateTime.now());
+            playerRepository.save(player);
+        }
+
         warrior.setOnMission(true);
         warriorRepository.save(warrior);
 
@@ -108,6 +122,11 @@ public class ZoneService {
         ZoneActivity saved = activityRepository.save(activity);
         log.info("[ZoneService] player={} action=enter OK id={}", player.getId(), saved.getId());
         return saved;
+    }
+
+    /** Estamina de um farm de zona: ~duração/8, mín. 5, teto 100 (cabe mesmo num farm de 12h). [SEM_TIMER] */
+    static int staminaCostFor(int durationMinutes) {
+        return Math.min(100, Math.max(5, Math.round(durationMinutes / 8f)));
     }
 
     // ── Coleta da expedição ──
