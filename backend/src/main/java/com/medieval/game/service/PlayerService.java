@@ -1,6 +1,7 @@
 package com.medieval.game.service;
 
 import com.medieval.game.model.Player;
+import com.medieval.game.repository.MountRepository;
 import com.medieval.game.repository.PlayerRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -17,6 +18,7 @@ public class PlayerService {
 
     private final PlayerRepository playerRepository;
     private final PasswordEncoder  passwordEncoder;
+    private final MountRepository  mountRepository;
 
     @Transactional
     public Player register(String username, String email, String rawPassword) {
@@ -107,6 +109,7 @@ public class PlayerService {
 
     @Transactional
     public void consumeStamina(Player player, int cost) {
+        cost = discountStamina(player, cost); // [ESTABULO] desconto da montaria equipada (cobre quest/arena)
         int current = player.getCalculatedStamina();
         if (current < cost) {
             long minutesLeft = player.getMinutesToFullStamina();
@@ -118,5 +121,21 @@ public class PlayerService {
         player.setCurrentStamina(current - cost);
         player.setStaminaUpdatedAt(LocalDateTime.now());
         playerRepository.save(player);
+    }
+
+    // ── [ESTABULO] Desconto de estamina da montaria equipada ────────────────────
+
+    /** Redução de estamina (%) da montaria equipada; 0 se nenhuma. */
+    public int staminaReductionPct(Player player) {
+        return mountRepository.findByPlayerAndEquippedTrue(player)
+                .map(m -> m.getMountType().staminaReductionPct)
+                .orElse(0);
+    }
+
+    /** Aplica o desconto da montaria a um custo-base de estamina (piso de 1). */
+    public int discountStamina(Player player, int baseCost) {
+        int pct = staminaReductionPct(player);
+        if (pct <= 0) return baseCost;
+        return Math.max(1, (int) Math.round(baseCost * (1 - pct / 100.0)));
     }
 }

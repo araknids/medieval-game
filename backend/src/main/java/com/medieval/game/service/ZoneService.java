@@ -26,6 +26,7 @@ public class ZoneService {
     private final com.medieval.game.repository.SocketedGemRepository gemRepository;
     private final com.medieval.game.repository.ItemAffixRepository   affixRepository;
     private final PlayerRepository         playerRepository;
+    private final PlayerService            playerService;
     private final GatheringService         gatheringService;
     private final BattleSimulator          battleSimulator;
     private final WarriorService           warriorService;
@@ -104,7 +105,7 @@ public class ZoneService {
         // [SEM_TIMER] Farm de zona instantâneo → custa estamina (o timer era o gate; sem ele, a estamina é).
         // ~duração/8 (cabe no teto de 100 mesmo em 12h). Pulado no modo de teste (instant-complete).
         if (!instantComplete) {
-            int staminaCost = staminaCostFor(role, durationMinutes);
+            int staminaCost = playerService.discountStamina(player, staminaCostFor(role, durationMinutes)); // [ESTABULO]
             int cur = player.getCalculatedStamina();
             if (cur < staminaCost) {
                 log.warn("[ZoneService] player={} REJECTED: stamina {}/{}", player.getId(), cur, staminaCost);

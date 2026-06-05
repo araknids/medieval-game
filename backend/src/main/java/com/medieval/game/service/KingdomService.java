@@ -160,7 +160,9 @@ public class KingdomService {
         quest.setBronzeReward(questType.bronzeReward);
         quest.setExpReward(questType.expReward);
         quest.setStartedAt(LocalDateTime.now());
-        quest.setCompletesAt(LocalDateTime.now()); // [SEM_TIMER] quest de reino instantânea
+        // [SEM_TIMER] quest de reino instantânea (já pronta). -1s evita a corrida de sub-segundo
+        // do isReadyToCollect quando o collect vem logo após o start (igual ao fix da zona). [FLAKE_FIX]
+        quest.setCompletesAt(LocalDateTime.now().minusSeconds(1));
         KingdomActiveQuest saved = questRepo.save(quest);
         log.info("[KingdomService] player={} action=startQuest OK id={}", player.getId(), saved.getId());
         return saved;
@@ -355,7 +357,7 @@ public class KingdomService {
         session.setBronzeCost(bronzeCost);
         session.setXpReward(xpReward);
         session.setStartedAt(LocalDateTime.now());
-        session.setFinishesAt(LocalDateTime.now()); // [SEM_TIMER] treino instantâneo (gate = bronze)
+        session.setFinishesAt(LocalDateTime.now().minusSeconds(1)); // [SEM_TIMER] treino instantâneo; -1s evita corrida de sub-segundo [FLAKE_FIX]
         TrainingSession saved = trainingRepo.save(session);
         log.info("[KingdomService] player={} action=startTraining OK id={} xpReward={}", player.getId(), saved.getId(), xpReward);
         return saved;

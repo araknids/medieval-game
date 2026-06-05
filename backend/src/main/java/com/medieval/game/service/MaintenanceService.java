@@ -28,6 +28,7 @@ public class MaintenanceService {
     private final ItemAffixRepository          itemAffixRepository;
     private final InventoryItemRepository      inventoryItemRepository;
     private final WorkSessionRepository        workSessionRepository;
+    private final MountRepository              mountRepository;
     private final ArenaMatchRepository         arenaMatchRepository;
     private final ZoneActivityRepository       zoneActivityRepository;
     private final TowerRunRepository           towerRunRepository;
@@ -60,6 +61,7 @@ public class MaintenanceService {
         itemAffixRepository.deleteAllInBatch(); // Itens V2: afixos antes dos itens (FK)
         inventoryItemRepository.deleteAllInBatch();
         workSessionRepository.deleteAllInBatch();
+        mountRepository.deleteAllInBatch();
         arenaMatchRepository.deleteAllInBatch();
         zoneActivityRepository.deleteAllInBatch();
         towerRunRepository.deleteAllInBatch();

@@ -103,12 +103,13 @@ public class TowerService {
 
         // Estamina ignorada quando instant-complete (modo de teste). [TESTE]
         if (!instantComplete) {
+            int cost = playerService.discountStamina(player, STAMINA_COST); // [ESTABULO] desconto da montaria
             int stamina = player.getCalculatedStamina();
-            if (stamina < STAMINA_COST) {
-                log.warn("[TowerService] player={} REJECTED: insufficient stamina {}/{}", player.getId(), stamina, STAMINA_COST);
-                throw new IllegalStateException("Insufficient stamina (" + stamina + "/" + STAMINA_COST + ")");
+            if (stamina < cost) {
+                log.warn("[TowerService] player={} REJECTED: insufficient stamina {}/{}", player.getId(), stamina, cost);
+                throw new IllegalStateException("Insufficient stamina (" + stamina + "/" + cost + ")");
             }
-            player.setCurrentStamina(stamina - STAMINA_COST);
+            player.setCurrentStamina(stamina - cost);
             player.setStaminaUpdatedAt(java.time.LocalDateTime.now());
             playerRepository.save(player);
         }

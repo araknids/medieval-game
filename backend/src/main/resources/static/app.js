@@ -388,16 +388,84 @@ function switchCommerceTab(tab) {
   document.getElementById('panel-sell').style.display      = tab === 'sell'      ? 'block' : 'none';
   document.getElementById('panel-smith').style.display     = tab === 'smith'     ? 'block' : 'none';
   document.getElementById('panel-cooking').style.display   = tab === 'cooking'   ? 'block' : 'none';
+  document.getElementById('panel-estabulo').style.display  = tab === 'estabulo'  ? 'block' : 'none';
   document.getElementById('panel-vipshop').style.display   = tab === 'vipshop'   ? 'block' : 'none';
   document.getElementById('tab-shop').classList.toggle('active',      tab === 'shop');
   document.getElementById('tab-sell').classList.toggle('active',      tab === 'sell');
   document.getElementById('tab-smith').classList.toggle('active',     tab === 'smith');
   document.getElementById('tab-cooking').classList.toggle('active',   tab === 'cooking');
+  document.getElementById('tab-estabulo').classList.toggle('active',  tab === 'estabulo');
   document.getElementById('tab-vipshop').classList.toggle('active',   tab === 'vipshop');
   if (tab === 'sell')      loadSellList();
   if (tab === 'smith')     loadSmithingInCommerce();
   if (tab === 'cooking')   loadCooking();
+  if (tab === 'estabulo')  loadEstabulo();
   if (tab === 'vipshop')   loadVipShop();
+}
+
+// ── Estábulo: montarias que reduzem estamina (ver docs/PLANO_ESTABULO.md) ──
+async function loadEstabulo() {
+  const el = document.getElementById('estabulo-content');
+  el.innerHTML = '<p>Carregando estábulo...</p>';
+  const data = await api('GET', '/api/stable');
+  if (!data || data.error) { el.innerHTML = `<p style="color:#cf6679">${data?.error || 'Erro ao carregar.'}</p>`; return; }
+
+  const gold = data.gold ?? 0;
+  const cards = data.mounts.map(m => {
+    // Compra: gold (Estábulo) ou — pro VIP — só nota apontando pra VIP Shop
+    let action;
+    if (m.equipped) {
+      action = `<button onclick="unequipMount()" style="font-size:12px;background:#555">Desequipar</button>
+                <span style="color:#4caf50;font-size:12px;margin-left:6px">✓ Equipado</span>`;
+    } else if (m.owned) {
+      action = `<button onclick="equipMount('${m.id}')" style="font-size:12px;background:#2e7d32">Equipar</button>`;
+    } else if (m.vipOnly) {
+      action = `<span style="font-size:12px;color:#a78bfa">💎 ${m.priceSoulStones} · compre na aba 💎 VIP Shop</span>`;
+    } else {
+      const canBuy = gold >= m.priceGold;
+      action = `<button onclick="buyMount('${m.id}')" ${canBuy ? '' : 'disabled style="opacity:.5"'} style="font-size:12px">
+                  Comprar · ${m.priceGold} 🪙
+                </button>`;
+    }
+    const border = m.equipped ? '#2e7d32' : m.owned ? '#555' : m.vipOnly ? '#7c3aed' : '#333';
+    return `
+      <div style="background:#1a1a2e;border:1px solid ${border};border-radius:8px;padding:12px;margin-bottom:8px${m.owned && !m.equipped ? ';opacity:.85' : ''}">
+        <div style="display:flex;justify-content:space-between;align-items:center">
+          <strong style="font-size:14px">${m.icon} ${m.displayName}${m.vipOnly ? ' <span style="color:#a78bfa;font-size:11px">VIP</span>' : ''}</strong>
+          <span style="color:#7fd1b9;font-size:13px;font-weight:bold">−${m.staminaReductionPct}% ⚡</span>
+        </div>
+        <div style="margin-top:8px">${action}</div>
+      </div>`;
+  }).join('');
+
+  el.innerHTML = `
+    <div style="padding:4px">
+      <p style="font-size:12px;color:#888;margin:0 0 10px">
+        Equipe uma montaria pra gastar <strong>menos estamina</strong> nas ações (quests, zonas, trabalho, torre, arena).
+        Você possui o cavalo pra sempre — equipa o que quiser. Saldo: <strong>${gold} 🪙</strong>
+      </p>
+      ${cards}
+    </div>`;
+}
+
+async function buyMount(mountType) {
+  const r = await api('POST', `/api/stable/buy/${mountType}`);
+  if (r.error) { showMessage(r.error, true); return; }
+  showMessage(r.message || 'Montaria comprada!');
+  await Promise.all([loadWarrior(), loadEstabulo()]);
+}
+
+async function equipMount(mountType) {
+  const r = await api('POST', `/api/stable/equip/${mountType}`);
+  if (r.error) { showMessage(r.error, true); return; }
+  showMessage(r.message || 'Montaria equipada!');
+  await loadEstabulo();
+}
+
+async function unequipMount() {
+  const r = await api('POST', '/api/stable/unequip');
+  if (r.error) { showMessage(r.error, true); return; }
+  await loadEstabulo();
 }
 
 // ── Cozinha (Sistema de Cozinha): peixe → refeição → buff de combate ──
@@ -2809,12 +2877,14 @@ async function cancelKingdomZoneSession(activityId) {
 async function loadVipShop() {
   const el = document.getElementById('vipshop-content');
   el.innerHTML = '<p>Loading VIP Shop...</p>';
-  const [status, slots] = await Promise.all([
+  const [status, slots, stable] = await Promise.all([
     api('GET', '/api/vip/status'),
-    api('GET', '/api/inventory/slots')
+    api('GET', '/api/inventory/slots'),
+    api('GET', '/api/stable')
   ]);
 
   const isVip = status.isVip;
+  const celestial = (stable && stable.mounts || []).find(m => m.id === 'CELESTIAL_MOUNT');
   const daysLeft = isVip && status.vipExpiresAt
     ? Math.ceil((new Date(status.vipExpiresAt) - Date.now()) / 86400000)
     : 0;
@@ -2877,6 +2947,26 @@ async function loadVipShop() {
              </button>`}
       </div>
 
+      ${celestial ? `
+      <div style="background:#1a1a2e;border:1px solid #7c3aed;border-radius:8px;padding:12px;margin-bottom:8px">
+        <div style="display:flex;justify-content:space-between;align-items:center">
+          <div>
+            <div style="font-size:13px;font-weight:bold">${celestial.icon} ${celestial.displayName} <span style="color:#7fd1b9">−${celestial.staminaReductionPct}% ⚡</span></div>
+            <div style="font-size:11px;color:#888">Montaria VIP — a maior redução de estamina. Equipa no 🐴 Estábulo.</div>
+          </div>
+          <span style="color:#a78bfa;font-size:13px">${celestial.priceSoulStones} 💎</span>
+        </div>
+        ${celestial.equipped
+          ? '<div style="color:#4caf50;font-size:12px;margin-top:6px">✓ Equipada</div>'
+          : celestial.owned
+            ? `<button onclick="equipMountFromVip('CELESTIAL_MOUNT')" style="margin-top:8px;font-size:12px;background:#2e7d32">Equipar</button>`
+            : !isVip
+              ? '<div style="color:#888;font-size:12px;margin-top:6px">🔒 Requer VIP ativo</div>'
+              : `<button onclick="buyMountFromVip('CELESTIAL_MOUNT')" style="margin-top:8px;font-size:12px;background:#7c3aed" ${ss < celestial.priceSoulStones ? 'disabled style="opacity:.5"' : ''}>
+                   Comprar (${celestial.priceSoulStones} 💎)
+                 </button>`}
+      </div>` : ''}
+
       <div style="font-size:11px;color:#666;margin-top:12px;text-align:center">
         💎 Saldo atual: ${ss} SoulStone${ss !== 1 ? 's' : ''}
       </div>
@@ -2893,6 +2983,21 @@ async function buyVip() {
   await loadWarrior();
   loadVipShop();
   document.getElementById('vipshop-msg').innerHTML = `<span style="color:#4caf50">👑 ${r.message}</span>`;
+}
+
+// Montaria Celestial comprada/equipada pela VIP Shop (recarrega a própria VIP Shop). [ESTABULO]
+async function buyMountFromVip(mountType) {
+  const r = await api('POST', `/api/stable/buy/${mountType}`);
+  if (r.error) { document.getElementById('vipshop-msg').innerHTML = `<span style="color:#f44336">${r.error}</span>`; return; }
+  await loadWarrior();
+  loadVipShop();
+  document.getElementById('vipshop-msg').innerHTML = `<span style="color:#4caf50">${r.message}</span>`;
+}
+
+async function equipMountFromVip(mountType) {
+  const r = await api('POST', `/api/stable/equip/${mountType}`);
+  if (r.error) { document.getElementById('vipshop-msg').innerHTML = `<span style="color:#f44336">${r.error}</span>`; return; }
+  loadVipShop();
 }
 
 // ═══════════════════════════════════════════════════════════════════

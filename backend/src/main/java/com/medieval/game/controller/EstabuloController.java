@@ -1,0 +1,72 @@
+package com.medieval.game.controller;
+
+import com.medieval.game.enums.MountType;
+import com.medieval.game.model.Player;
+import com.medieval.game.service.EstabuloService;
+import com.medieval.game.service.PlayerService;
+import lombok.RequiredArgsConstructor;
+import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.Authentication;
+import org.springframework.web.bind.annotation.*;
+
+import java.util.List;
+import java.util.Map;
+
+// Estábulo: compra/equipa montarias que reduzem estamina. Ver docs/PLANO_ESTABULO.md.
+@RestController
+@RequestMapping("/api/stable")
+@RequiredArgsConstructor
+public class EstabuloController {
+
+    private final EstabuloService estabuloService;
+    private final PlayerService   playerService;
+
+    @GetMapping
+    public ResponseEntity<?> list(Authentication auth) {
+        Player player = getPlayer(auth);
+        List<?> mounts = estabuloService.list(player).stream().map(v -> Map.of(
+            "id",                  v.type().name(),
+            "displayName",         v.type().displayName,
+            "icon",                v.type().icon,
+            "staminaReductionPct", v.type().staminaReductionPct,
+            "priceGold",           v.type().priceGold,
+            "priceSoulStones",     v.type().priceSoulStones,
+            "vipOnly",             v.type().vipOnly,
+            "owned",               v.owned(),
+            "equipped",            v.equipped()
+        )).toList();
+        return ResponseEntity.ok(Map.of(
+            "mounts",     mounts,
+            "gold",       player.getGold(),
+            "soulStones", player.getSoulStones(),
+            "isVip",      player.isVip()
+        ));
+    }
+
+    @PostMapping("/buy/{mountType}")
+    public ResponseEntity<?> buy(@PathVariable MountType mountType, Authentication auth) {
+        Player player = getPlayer(auth);
+        estabuloService.buy(player, mountType);
+        return ResponseEntity.ok(Map.of(
+            "message",    mountType.displayName + " comprado!",
+            "gold",       player.getGold(),
+            "soulStones", player.getSoulStones()
+        ));
+    }
+
+    @PostMapping("/equip/{mountType}")
+    public ResponseEntity<?> equip(@PathVariable MountType mountType, Authentication auth) {
+        estabuloService.equip(getPlayer(auth), mountType);
+        return ResponseEntity.ok(Map.of("message", mountType.displayName + " equipado!"));
+    }
+
+    @PostMapping("/unequip")
+    public ResponseEntity<?> unequip(Authentication auth) {
+        estabuloService.unequip(getPlayer(auth));
+        return ResponseEntity.ok(Map.of("message", "Montaria desequipada."));
+    }
+
+    private Player getPlayer(Authentication auth) {
+        return playerService.findById((Long) auth.getPrincipal());
+    }
+}

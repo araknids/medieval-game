@@ -29,6 +29,7 @@ public class WorkService {
     private final WorkProfessionRepository professionRepository;
     private final WarriorRepository        warriorRepository;
     private final PlayerRepository         playerRepository;
+    private final PlayerService            playerService;
     private final TerritoryService         territoryService;
     private final ConcurrentEntityCreator  entityCreator;
 
@@ -91,7 +92,7 @@ public class WorkService {
         // [SEM_TIMER] Trabalho instantâneo → custa estamina (horas × 5). Sem o timer, a estamina é o gate
         // (senão seria bronze infinito). O nº de horas vira o dial recompensa × estamina. Pulado no modo de teste.
         if (!instantComplete) {
-            int staminaCost = hours * 5;
+            int staminaCost = playerService.discountStamina(player, hours * 5); // [ESTABULO]
             int cur = player.getCalculatedStamina();
             if (cur < staminaCost) {
                 log.warn("[WorkService] player={} REJECTED: stamina {}/{}", player.getId(), cur, staminaCost);
@@ -112,7 +113,7 @@ public class WorkService {
         session.setGoldReward(goldReward);
         session.setXpReward(xpReward);
         session.setStartedAt(LocalDateTime.now());
-        session.setFinishesAt(LocalDateTime.now()); // [SEM_TIMER] trabalho instantâneo (gate = estamina)
+        session.setFinishesAt(LocalDateTime.now().minusSeconds(1)); // [SEM_TIMER] instantâneo; -1s evita corrida de sub-segundo no collect [FLAKE_FIX]
         WorkSession saved = workRepository.save(session);
         log.info("[WorkService] player={} action=startWork OK id={} goldReward={}", player.getId(), saved.getId(), goldReward);
         return saved;
