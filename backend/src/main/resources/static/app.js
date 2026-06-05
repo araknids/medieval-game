@@ -1332,7 +1332,6 @@ function renderZones(zones, current, pvp) {
     const color     = ZONE_COLORS[z.id] || '#888';
     const icon      = ZONE_ICONS[z.id]  || '🗺';
     const pvp       = z.encounterChancePerHour > 0;
-    const durations = [30, 60, 120, 240, 360, 720];
 
     return `
       <div class="zone-card ${locked ? 'locked' : ''}" style="border-color:${color}20">
@@ -1350,36 +1349,22 @@ function renderZones(zones, current, pvp) {
         ${!locked ? `
           <div class="zone-roles">
             <div class="zone-role-section">
-              <div class="sk-title" style="margin-bottom:.4rem">🎣 ${t('zone.gathering_fish')||'Gather (Fishing)'}</div>
               <div class="sk-duration-btns">
-                ${durations.map(d => `
-                  <button class="btn-hour" ${busy ? 'disabled' : ''}
-                          onclick="enterZone('${z.id}','GATHERING','FISHING',${d})">
-                    ${Math.min(100,Math.max(5,Math.round(d/8)))}⚡
-                  </button>`).join('')}
+                <button class="btn-hour" ${busy ? 'disabled' : ''}
+                        onclick="enterZone('${z.id}','GATHERING','FISHING',120)">
+                  🎣 ${t('zone.gathering_fish')||'Pescar'} · ⚡15
+                </button>
+                <button class="btn-hour" ${busy ? 'disabled' : ''}
+                        onclick="enterZone('${z.id}','GATHERING','MINING',120)">
+                  ⛏ ${t('zone.gathering_mine')||'Minerar'} · ⚡15
+                </button>
+                ${pvp ? `
+                <button class="btn-hour" ${busy ? 'disabled' : ''}
+                        onclick="enterZone('${z.id}','HUNTING',null,120)">
+                  🗡 ${t('zone.hunt_section')||'Caçar'} · ⚡15
+                </button>` : ''}
               </div>
             </div>
-            <div class="zone-role-section" style="margin-top:.5rem">
-              <div class="sk-title" style="margin-bottom:.4rem">⛏ ${t('zone.gathering_mine')||'Gather (Mining)'}</div>
-              <div class="sk-duration-btns">
-                ${durations.map(d => `
-                  <button class="btn-hour" ${busy ? 'disabled' : ''}
-                          onclick="enterZone('${z.id}','GATHERING','MINING',${d})">
-                    ${Math.min(100,Math.max(5,Math.round(d/8)))}⚡
-                  </button>`).join('')}
-              </div>
-            </div>
-            ${pvp ? `
-            <div class="zone-role-section" style="margin-top:.5rem">
-              <div class="sk-title" style="margin-bottom:.4rem">🗡 ${t('zone.hunt_section')||'Hunt (Hunter)'}</div>
-              <div class="sk-duration-btns">
-                ${[60,120,180,360].map(d => `
-                  <button class="btn-hour" ${busy ? 'disabled' : ''}
-                          onclick="enterZone('${z.id}','HUNTING',null,${d})">
-                    ${Math.min(100,Math.max(5,Math.round(d/8)))}⚡
-                  </button>`).join('')}
-              </div>
-            </div>` : ''}
           </div>` : ''}
       </div>`;
   }).join('');
@@ -1524,8 +1509,6 @@ let skillsData     = [];
 let resourcesData  = [];
 let gatheringState = null;
 let gatheringTimer = null;
-const FISH_DURATIONS = [5, 10, 20, 30, 40];
-const MINE_DURATIONS = [10, 20, 30, 45, 60];
 
 const FISH_DESCRIPTIONS = {
   SMALL_FISH:     '+10 stamina',
@@ -1589,14 +1572,12 @@ function renderFishing() {
     <div class="sk-section">
       <div class="sk-title">🎣 Pesca ${skillBar(skill)}</div>
       ${activeFish ? renderGatheringTimer() : `
-        <p class="sk-desc">${t('skills.duration')} (${t('skills.tab.fish').toLowerCase()})</p>
         <div class="sk-duration-btns">
-          ${FISH_DURATIONS.map(d => `
-            <button class="btn-hour ${busy || (gatheringState?.active && !activeFish) ? 'disabled' : ''}"
-                    onclick="startGathering('FISHING', ${d})"
-                    ${busy || (gatheringState?.active && !activeFish) ? 'disabled' : ''}>
-              ${d}min
-            </button>`).join('')}
+          <button class="btn-hour ${busy || (gatheringState?.active && !activeFish) ? 'disabled' : ''}"
+                  onclick="startGathering('FISHING', 20)"
+                  ${busy || (gatheringState?.active && !activeFish) ? 'disabled' : ''}>
+            🎣 Pescar · ⚡10
+          </button>
         </div>`}
     </div>
     ${fish.length > 0 ? `
@@ -1624,14 +1605,12 @@ function renderMining() {
     <div class="sk-section">
       <div class="sk-title">⛏ Mineração ${skillBar(skill)}</div>
       ${activeMine ? renderGatheringTimer() : `
-        <p class="sk-desc">${t('skills.duration')}</p>
         <div class="sk-duration-btns">
-          ${MINE_DURATIONS.map(d => `
-            <button class="btn-hour ${busy || (gatheringState?.active && !activeMine) ? 'disabled' : ''}"
-                    onclick="startGathering('MINING', ${d})"
-                    ${busy || (gatheringState?.active && !activeMine) ? 'disabled' : ''}>
-              ${d}min
-            </button>`).join('')}
+          <button class="btn-hour ${busy || (gatheringState?.active && !activeMine) ? 'disabled' : ''}"
+                  onclick="startGathering('MINING', 20)"
+                  ${busy || (gatheringState?.active && !activeMine) ? 'disabled' : ''}>
+            ⛏ Minerar · ⚡10
+          </button>
         </div>`}
     </div>
     ${ores.length > 0 ? `
@@ -1670,7 +1649,7 @@ function renderGatheringTimer() {
 
   return `
     <div class="gathering-active-box">
-      <div class="gathering-active-title">${t('skills.tab.'+(gatheringState.skillType||'').toLowerCase())||gatheringState.displayName} — ${gatheringState.durationMinutes}min</div>
+      <div class="gathering-active-title">${t('skills.tab.'+(gatheringState.skillType||'').toLowerCase())||gatheringState.displayName}</div>
       <div class="qp-timer ${done ? 'done' : ''}" id="gathering-timer">
         ${done ? t('quest.ready_short') : formatTime(secs)}
       </div>
@@ -1947,14 +1926,14 @@ async function showWorkJobList() {
             </div>
             ${!locked ? `
               <div class="wj-hours">
-                <span>${t('work.hours') || 'Hours:'}</span>
                 <div class="hours-btns">
-                  ${[1,2,4,6,8,12].map(h => `
-                    <button class="btn-hour" onclick="startWork('${job.id}', ${h})" ${disabled ? 'disabled' : ''} title="${h}h de trabalho">
+                  ${(() => {
+                    const h = 2; // ação fixa instantânea — a estamina é o gate, sem timer
+                    return `<button class="btn-hour" onclick="startWork('${job.id}', ${h})" ${disabled ? 'disabled' : ''}>
                       <span class="stamina-cost">⚡ ${h * 5}</span>
                       <span class="hour-gold">${fmtBronze(Math.round(job.goldPerHourWithBonus * h))}</span>
-                    </button>
-                  `).join('')}
+                    </button>`;
+                  })()}
                 </div>
               </div>
             ` : ''}
@@ -3053,11 +3032,11 @@ function renderKingdomDetail(kingdom, quests, activeQuests, training, gatherSess
       trainingHtml = `
         <div style="background:#1a1a2e;border:1px solid #333;border-radius:8px;padding:12px;margin-bottom:12px">
           <strong style="color:#7986cb">🏋 Training Hall</strong>
-          <p style="font-size:12px;color:#888;margin:4px 0 8px">Pay bronze to earn pure XP. Cost: ${lvl*10} bronze/h · Reward: ${lvl*25} XP/h</p>
+          <p style="font-size:12px;color:#888;margin:4px 0 8px">Pague bronze por XP puro. Custo: ${fmtBronze(lvl*20)} · Recompensa: ${lvl*50} XP</p>
           ${busy
             ? `<p style="font-size:12px;color:#f44336;margin:0">⚔ Warrior is busy</p>`
             : `<div style="display:flex;gap:6px;flex-wrap:wrap">
-            ${[1,2,4,6,8,12].map(h => `<button onclick="startTraining(${h})" style="font-size:12px">${h}h</button>`).join('')}
+            ${(() => { const h = 2; return `<button onclick="startTraining(${h})" style="font-size:12px;padding:4px 14px">🏋 Treinar · ${fmtBronze(lvl*10*h)}</button>`; })()}
           </div>`}
         </div>`;
     }
@@ -3099,7 +3078,6 @@ function renderKingdomDetail(kingdom, quests, activeQuests, training, gatherSess
       { name:'🔥 War Zone',    zone:'HIGH_RISK',  minLv:20, color:'#ef5350',
         desc:'Intense combat — high rewards, risk of losing an item.' }
     ];
-    const combatDurations = [30, 60, 120, 240, 360];
     combatZonesHtml = `<h4 style="margin:12px 0 8px;color:#aaa;font-size:13px">COMBAT ZONES</h4>` +
       combatZones.map(z => {
         const locked = wLevel < z.minLv;
@@ -3115,10 +3093,10 @@ function renderKingdomDetail(kingdom, quests, activeQuests, training, gatherSess
               : busy
               ? '<p style="font-size:11px;color:#f44336;margin:0">⚔ Warrior is busy</p>'
               : `<div style="display:flex;gap:5px;flex-wrap:wrap">
-                ${combatDurations.map(d => {
-                  const stamCost = Math.min(100, Math.max(5, Math.round(d/8)));
-                  return `<button onclick="enterCombatZone('${z.zone}',${d})" style="font-size:12px;padding:3px 10px" title="${d>=60?(d/60)+'h':d+'min'} de combate">${stamCost}⚡</button>`;
-                }).join('')}
+                ${(() => {
+                  const d = 120; const stamCost = Math.min(100, Math.max(5, Math.round(d/8))); // ação fixa instantânea
+                  return `<button onclick="enterCombatZone('${z.zone}',${d})" style="font-size:12px;padding:4px 14px">⚔ Farmar · ⚡${stamCost}</button>`;
+                })()}
               </div>`}
           </div>`;
       }).join('');
@@ -3170,10 +3148,12 @@ function renderKingdomDetail(kingdom, quests, activeQuests, training, gatherSess
             : busy
               ? '<p style="font-size:11px;color:#f44336;margin:0">⚔ Warrior is busy</p>'
               : `<div style="display:flex;gap:5px;flex-wrap:wrap">
-              ${z.durations.map(d => {
-                const stamCost = Math.max(5, Math.floor(d/2)); // mirrors GatheringService.staminaCostFor
-                return `<button onclick="startKingdomGathering('${skillType}',${d},'${kingdom}')" style="font-size:12px;padding:3px 10px" title="${d>=60?(d/60)+'h':d+'min'} de coleta">${stamCost}⚡</button>`;
-              }).join('')}
+              ${(() => {
+                const d = 20; // ação instantânea de tamanho fixo — a estamina é o gate, sem timer
+                const stamCost = Math.max(5, Math.floor(d/2));
+                const verb = isFishing ? '🎣 Pescar' : skillType === 'MINING' ? '⛏ Minerar' : '🔎 Garimpar';
+                return `<button onclick="startKingdomGathering('${skillType}',${d},'${kingdom}')" style="font-size:12px;padding:4px 14px">${verb} · ⚡${stamCost}</button>`;
+              })()}
             </div>`}
         </div>`;
     }).join('');
