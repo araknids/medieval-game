@@ -58,17 +58,18 @@ class EconomicSinksIntegrationTest extends BaseIntegrationTest {
         return inventoryRepository.save(i);
     }
 
-    // ── TC-239: combate reduz durabilidade em 1-10 ──
+    // ── TC-239: combate desgasta no máx. 1% por batalha (70% de chance) ──
     @Test
-    @DisplayName("TC-239 | wearEquippedItems reduz durabilidade entre 1 e 10")
+    @DisplayName("TC-239 | wearEquippedItems tira no máximo 1% de durabilidade por batalha")
     void tc239_battleReducesDurability() {
         Player p = playerOf("sink");
         InventoryItem item = equippedItem(p, 2, 5, 0, 0, 100);
 
         inventoryService.wearEquippedItems(p);
 
+        // Por batalha: 70% perde 1 (→99), 30% não perde nada (→100).
         InventoryItem after = inventoryRepository.findById(item.getId()).orElseThrow();
-        assertThat(after.getDurability()).isBetween(90, 99);
+        assertThat(after.getDurability()).isBetween(99, 100);
     }
 
     // ── TC-241: durabilidade nunca fica negativa ──

@@ -53,8 +53,9 @@ public class InventoryService {
 
     /**
      * Desgasta os itens equipados do jogador após uma batalha.
-     * Cada item perde de 1 a 10 pontos de durabilidade (aleatório, clamp em 0).
-     * Itens já quebrados (durability 0) permanecem em 0. Retorna nº de itens desgastados.
+     * Cada item tem 70% de chance de perder 1 ponto de durabilidade por batalha (desgaste lento;
+     * 30% das vezes não perde nada). Itens já quebrados (durability 0) permanecem em 0.
+     * Retorna nº de itens equipados verificados.
      */
     @Transactional
     public int wearEquippedItems(Player player) {
@@ -62,10 +63,10 @@ public class InventoryService {
                 .stream().filter(InventoryItem::isEquipped).toList();
         for (InventoryItem item : equipped) {
             if (item.getDurability() <= 0) continue;
-            int loss = 1 + RNG.nextInt(10); // 1..10
-            int newDur = Math.max(0, item.getDurability() - loss);
-            item.setDurability(newDur);
-            inventoryRepository.save(item);
+            if (RNG.nextInt(100) < 70) { // 70% de chance de perder 1% por batalha
+                item.setDurability(Math.max(0, item.getDurability() - 1));
+                inventoryRepository.save(item);
+            }
         }
         if (!equipped.isEmpty()) {
             log.info("[InventoryService] player={} action=wearEquipped items={}", player.getId(), equipped.size());
