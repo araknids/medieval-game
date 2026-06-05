@@ -1607,7 +1607,6 @@ function showTowerFloor(state) {
       </div>
       <div style="display:flex;gap:.5rem;margin-top:.8rem">
         <button class="btn-fight" onclick="fightTower()">⚔ Lutar</button>
-        <button class="btn-cancel-work" onclick="exitTower()">Sair da Torre</button>
       </div>
     </div>`;
 }
@@ -1624,56 +1623,24 @@ async function fightTower() {
   const data = await api('POST', '/api/tower/fight');
   if (data.error) { showMessage(data.error, true); return; }
   await loadWarrior();
-  showTowerResult(data);
+  await loadTower();             // atualiza a tela atrás do modal (próximo andar OU lobby se perdeu)
+  showTowerFightModal(data);     // resultado no modal padrão (igual zonas)
 }
 
-function showTowerResult(result) {
-  document.getElementById('tower-floor').style.display  = 'none';
-  document.getElementById('tower-lobby').style.display  = 'none';
-  document.getElementById('tower-result').style.display = 'block';
-
-  const logHtml = renderBattleLog(result.log);
-
-  const title   = result.won ? `🏆 Floor ${result.floor} Completed!` : `💀 Defeated on Floor ${result.floor}`;
-  const color   = result.won ? '#4caf82' : '#cf6679';
-
-  let actions = '';
-  if (result.won && !result.runOver) {
-    actions = `
-      <button class="btn-fight" onclick="nextFloor()" style="margin-right:.5rem">Próximo Andar →</button>
-      <button class="btn-cancel-work" onclick="exitTower()">Sair com os ganhos</button>`;
+// Resultado da luta da torre no modal padrão. Sem "sair com os ganhos" — os ganhos já foram
+// creditados por andar; pra continuar é só ⚔ Lutar no próximo andar; pra parar, fecha o modal.
+function showTowerFightModal(r) {
+  const rows = [];
+  if (r.won) {
+    rows.push({ icon:'🪙', label:'Bronze',     value:fmtBronze(r.bronzeEarned), color:'#cd7f32' });
+    rows.push({ icon:'⭐', label:'Experience', value:`+${r.expEarned} XP`,       color:'#ffd700' });
   } else {
-    actions = `<button class="btn-send" onclick="closeTowerResult()">Fechar</button>`;
+    rows.push({ icon:'☠', label:'Resultado', value:'Derrotado — cure no Templo', color:'#ef5350' });
   }
-
-  document.getElementById('tower-result-content').innerHTML = `
-    <div class="tower-result-box">
-      <div class="tower-result-title" style="color:${color}">${title}</div>
-      ${result.won ? `
-        <div class="tower-result-rewards">
-          ${fmtBronze(result.bronzeEarned)} &nbsp; ⭐ ${result.expEarned} exp
-        </div>` : ''}
-      <div class="battle-log" style="margin:.6rem 0">${logHtml}</div>
-      <div style="display:flex;gap:.5rem;flex-wrap:wrap">${actions}</div>
-    </div>`;
-}
-
-async function nextFloor() {
-  // Avança para o próximo andar e luta automaticamente
-  await fightTower();
-}
-
-async function exitTower() {
-  if (!confirm('Leave the tower? You keep the gains from floors already completed.')) return;
-  const data = await api('POST', '/api/tower/exit');
-  if (data.error) { showMessage(data.error, true); return; }
-  await loadWarrior();
-  await closeTowerResult();
-}
-
-async function closeTowerResult() {
-  document.getElementById('tower-result').style.display = 'none';
-  await showTowerLobby();
+  const title = r.won ? `🏆 Andar ${r.floor} vencido!` : `💀 Derrotado no Andar ${r.floor}`;
+  const color = r.won ? '#4caf82' : '#ef5350';
+  const note  = r.won && !r.runOver ? 'Chefe derrotado! Suba pro próximo andar quando quiser.' : '';
+  showCollectModal({ title, color, rows, note, log: r.log || [] });
 }
 
 // ── ARENA ──

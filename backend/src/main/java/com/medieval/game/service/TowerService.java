@@ -202,13 +202,4 @@ public class TowerService {
                 run.getStatus() == TowerStatus.DEFEATED);
     }
 
-    @Transactional
-    public void exit(Player player) {
-        TowerRun run = towerRunRepository.findByPlayerAndStatus(player, TowerStatus.IN_PROGRESS)
-                .orElseThrow(() -> new IllegalStateException("You are not in the tower"));
-
-        run.setStatus(TowerStatus.EXITED);
-        towerRunRepository.save(run);
-    }
-
 }

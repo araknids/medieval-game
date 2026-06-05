@@ -112,13 +112,6 @@ public class TowerController {
         ));
     }
 
-    // Sai da torre voluntariamente
-    @PostMapping("/exit")
-    public ResponseEntity<?> exit(Authentication auth) {
-        towerService.exit(getPlayer(auth));
-        return ResponseEntity.ok(Map.of("message", "You left the tower."));
-    }
-
     private Player getPlayer(Authentication auth) {
         return playerService.findById((Long) auth.getPrincipal());
     }

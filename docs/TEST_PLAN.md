@@ -1713,6 +1713,7 @@ POST /api/tower/enter
 ---
 
 ### TC-070 — POST /api/tower/exit encerra sessão de torre e libera guerreiro
+> ⚠️ **REMOVIDO (2026-06-05)** — o endpoint `/api/tower/exit` e o botão "sair com os ganhos" foram aposentados: as recompensas já são creditadas por andar (não há o que "sacar"); o resultado de cada luta agora abre na modal padrão e a run fica resumível. O TC-070 do código virou "entrar na torre 2x → 400".
 
 **Tipo:** Integração
 **UC Relacionado:** UC-19
