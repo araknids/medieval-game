@@ -42,8 +42,10 @@ public class KingdomService {
     @Value("${app.dev.instant-complete:false}")
     private boolean instantComplete;
 
-    // Vitrine de quests gira a cada 6h (igual à Loja). [Quests V2]
-    private static final long QUEST_ROTATION_SECONDS = 21600;
+    // [DAILY_QUESTS] Vitrine de quests = daily: gira E reseta a cada 12h (janela global fixa,
+    // 00:00/12:00 UTC). epoch/43200 alinha exatamente nesses horários. Ver docs/PLANO_QUESTS.md.
+    // NÃO confundir com o 21600 do território/guild-war (getAllKingdomStatus) nem com a Loja.
+    private static final long QUEST_ROTATION_SECONDS = 43200;
 
     // ── Kingdom status overview ───────────────────────────────────────────────
 
@@ -93,12 +95,11 @@ public class KingdomService {
     }
 
     /**
-     * Vitrine de quests: mostra 2 das 6 do reino, revezando a cada 6h (janela global, igual à Loja).
-     * Avança 1 posição por janela → cada quest aparece em 2 janelas consecutivas. [Quests V2]
+     * Vitrine de quests (daily): mostra 2 das 6 do reino, revezando a cada 12h (janela global fixa).
+     * Avança 1 posição por janela → cada quest aparece em 2 janelas consecutivas. [DAILY_QUESTS]
      */
     public List<KingdomQuestType> getQuestsForKingdom(Kingdom kingdom) {
-        long rotationId = java.time.Instant.now().getEpochSecond() / QUEST_ROTATION_SECONDS;
-        return rotatingWindow(allQuestsForKingdom(kingdom), rotationId);
+        return rotatingWindow(allQuestsForKingdom(kingdom), currentQuestWindowId());
     }
 
     /** Janela de 2 quests para a rotação dada (determinística — testável). [Quests V2] */
@@ -108,9 +109,20 @@ public class KingdomService {
         return List.of(all.get(start), all.get((start + 1) % all.size()));
     }
 
-    /** Segundos até a próxima rotação da vitrine de quests. */
+    /** Id da janela diária de 12h atual (epoch/43200). Reset/rotação acontecem quando isto muda. [DAILY_QUESTS] */
+    public long currentQuestWindowId() {
+        return java.time.Instant.now().getEpochSecond() / QUEST_ROTATION_SECONDS;
+    }
+
+    /** Segundos até o próximo reset/rotação diária (boundary de 12h). */
     public long secondsUntilQuestRotation() {
         return QUEST_ROTATION_SECONDS - (java.time.Instant.now().getEpochSecond() % QUEST_ROTATION_SECONDS);
+    }
+
+    /** Player já completou esta quest na janela diária atual? (lock da daily) [DAILY_QUESTS] */
+    public boolean isQuestDoneThisPeriod(Player player, KingdomQuestType questType) {
+        return questRepo.existsByPlayerAndQuestTypeAndStatusAndCompletedWindowId(
+                player, questType, QuestStatus.COLLECTED, currentQuestWindowId());
     }
 
     @Transactional
@@ -127,6 +139,12 @@ public class KingdomService {
         if (warrior.isOnMission()) {
             log.warn("[KingdomService] player={} REJECTED: warrior is already busy", player.getId());
             throw new IllegalStateException("Your warrior is already busy.");
+        }
+
+        // [DAILY_QUESTS] daily 1x por janela de 12h — cobre normal E VIP instant (que chama este start)
+        if (isQuestDoneThisPeriod(player, questType)) {
+            log.warn("[KingdomService] player={} REJECTED: daily quest {} já feita nesta janela", player.getId(), questType);
+            throw new IllegalStateException("You already did this daily quest. Comes back on the next reset.");
         }
 
         if (!instantComplete) playerService.consumeStamina(player, questType.staminaCost); // estamina ignorada no modo de teste [TESTE]
@@ -225,6 +243,9 @@ public class KingdomService {
         warriorRepo.save(warrior);
 
         quest.setStatus(QuestStatus.COLLECTED);
+        // [DAILY_QUESTS] só trava a daily quando de fato concluiu (vitória ou sem encontro);
+        // derrota pro monstro NÃO consome a daily — pode tentar de novo (gastando estamina).
+        if (monsterDefeated) quest.setCompletedWindowId(currentQuestWindowId());
         questRepo.save(quest);
 
         String narrative = narrator.narrate(qt, encountered, monsterDefeated, monsterName, rng);

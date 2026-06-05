@@ -152,6 +152,14 @@ function formatTime(seconds) {
   return `${m}:${s.toString().padStart(2, '0')}`;
 }
 
+// Countdown longo (reset de daily quest, até 12h): "7h 12m" / "45m". [DAILY_QUESTS]
+function fmtResetCountdown(seconds) {
+  seconds = Math.max(0, Math.floor(seconds || 0));
+  const h = Math.floor(seconds / 3600);
+  const m = Math.floor((seconds % 3600) / 60);
+  return h > 0 ? `${h}h ${m}m` : `${m}m`;
+}
+
 // Colors: item bonus = green (uncommon), buff bonus = gold
 function statRow(label, base, itemBonus, buffBonus) {
   let display = `${base}`;
@@ -2518,33 +2526,38 @@ function renderKingdomDetail(kingdom, quests, activeQuests, training, zoneSessio
     ? Math.max(0, 2 - (warrior.instantQuestsToday ?? 0)) : 0;
 
   const questCards = quests.map(q => {
+    const done = !!q.doneToday;                              // [DAILY_QUESTS] já feita nesta janela de 12h
     const disabled = busy || !q.canStart;
     const canInstant = warrior && warrior.isVip && !busy && q.canStart && vipInstantLeft > 0;
-    const instantBtn = warrior && warrior.isVip && !busy
+    const instantBtn = (warrior && warrior.isVip && !busy && !done)
       ? `<button onclick="instantStartQuest('${kingdom}','${q.id}')"
            style="margin-top:8px;font-size:12px;background:#7c3aed;margin-left:6px"
            ${!canInstant ? 'disabled style="opacity:.5;margin-left:6px"' : ''}>
            ⚡ Instant${vipInstantLeft > 0 ? ' (' + vipInstantLeft + ')' : ' (0)'}
          </button>`
       : '';
+    const actionHtml = done
+      ? `<span style="font-size:12px;color:#4caf50;display:inline-flex;align-items:center;gap:6px">
+           ✓ Done <span style="color:#888">· resets in ${fmtResetCountdown(q.secondsUntilReset)}</span>
+         </span>`
+      : `<button onclick="startKingdomQuest('${kingdom}','${q.id}')"
+            ${disabled ? 'disabled style="opacity:.5"' : ''}
+            style="font-size:12px">
+            ${busy ? 'Warrior busy' : !q.canStart ? 'Low stamina' : 'Start Quest'}
+          </button>
+          ${instantBtn}`;
     return `
-      <div style="background:#1a1a2e;border:1px solid #333;border-radius:8px;padding:12px;margin-bottom:8px">
+      <div style="background:#1a1a2e;border:1px solid ${done ? '#2e4d2e' : '#333'};border-radius:8px;padding:12px;margin-bottom:8px${done ? ';opacity:.7' : ''}">
         <div style="display:flex;justify-content:space-between;align-items:center">
           <strong style="font-size:14px">${q.displayName}</strong>
           <div style="display:flex;gap:8px;align-items:center;font-size:12px;color:#888">
-            <span>⏱ ${q.durationMinutes}m</span>
             <span>${fmtBronze(q.bronzeReward)}</span>
             <span>⭐ ${q.expReward} XP</span>
             <span>⚡ ${q.staminaCost}</span>
           </div>
         </div>
-        <div style="display:flex;flex-wrap:wrap;gap:4px;margin-top:8px">
-          <button onclick="startKingdomQuest('${kingdom}','${q.id}')"
-            ${disabled ? 'disabled style="opacity:.5"' : ''}
-            style="font-size:12px">
-            ${busy ? 'Warrior busy' : !q.canStart ? 'Low stamina' : 'Start Quest'}
-          </button>
-          ${instantBtn}
+        <div style="display:flex;flex-wrap:wrap;gap:4px;margin-top:8px;align-items:center">
+          ${actionHtml}
         </div>
       </div>`;
   }).join('');
@@ -2564,7 +2577,7 @@ function renderKingdomDetail(kingdom, quests, activeQuests, training, zoneSessio
   }
 
   const questsSection = quests.length > 0
-    ? `<h4 style="margin:0 0 8px;color:#aaa;font-size:13px">QUESTS</h4>${questCards}`
+    ? `<h4 style="margin:0 0 8px;color:#aaa;font-size:13px">🗓 DAILY QUESTS <span style="color:#666;font-weight:normal">· reset in ${fmtResetCountdown(quests[0].secondsUntilReset)}</span></h4>${questCards}`
     : '';
 
   el.innerHTML = `

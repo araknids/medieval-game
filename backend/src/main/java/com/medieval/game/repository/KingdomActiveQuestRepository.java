@@ -1,6 +1,7 @@
 package com.medieval.game.repository;
 
 import com.medieval.game.enums.Kingdom;
+import com.medieval.game.enums.KingdomQuestType;
 import com.medieval.game.enums.QuestStatus;
 import com.medieval.game.model.KingdomActiveQuest;
 import com.medieval.game.model.Player;
@@ -22,4 +23,8 @@ public interface KingdomActiveQuestRepository extends JpaRepository<KingdomActiv
 
     Optional<KingdomActiveQuest> findByPlayerAndStatusIn(
             Player player, List<QuestStatus> statuses);
+
+    // [DAILY_QUESTS] Player já completou esta quest na janela de 12h dada? (lock da daily)
+    boolean existsByPlayerAndQuestTypeAndStatusAndCompletedWindowId(
+            Player player, KingdomQuestType questType, QuestStatus status, long completedWindowId);
 }

@@ -53,6 +53,11 @@ public class KingdomActiveQuest {
     @Column(nullable = false)
     private LocalDateTime completesAt;
 
+    // [DAILY_QUESTS] Janela de 12h (epoch/43200) em que a quest foi COLLECTED.
+    // 0 = legado/nunca coletada. Usado pra travar a daily 1x por janela. Ver docs/PLANO_QUESTS.md.
+    @Column(columnDefinition = "bigint default 0")
+    private long completedWindowId = 0;
+
     public boolean isReadyToCollect() {
         return !LocalDateTime.now().isBefore(completesAt);
     }

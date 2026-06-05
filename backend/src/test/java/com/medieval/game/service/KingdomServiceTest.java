@@ -39,7 +39,7 @@ class KingdomServiceTest {
         }
     }
 
-    // TC-050b: a vitrine mostra 2 das 6 e revezа conforme a janela de rotação (6h). [Quests V2]
+    // TC-050b: a vitrine mostra 2 das 6 e revezа conforme a janela de rotação (12h, daily). [DAILY_QUESTS]
     @Test
     @DisplayName("TC-050b | rotatingWindow mostra 2 e cobre todas as 6 ao longo das janelas")
     void tc050b_rotatingWindowShows2AndCyclesAll() {

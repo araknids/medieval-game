@@ -33,6 +33,7 @@ public class SchemaMigrator {
         patchOptimisticLockVersionColumns();
         patchTerritoryLastResolvedCycleColumn();
         patchStashColumns();
+        patchKingdomQuestWindowColumn();
         dropStaleEnumCheckConstraints();
         purgeStaleEnumRows();
     }
@@ -145,6 +146,16 @@ public class SchemaMigrator {
             log.info("[SchemaMigrator] territory_controls last_resolved_cycle_id column ensured");
         } catch (Exception e) {
             log.warn("[SchemaMigrator] territory_controls last_resolved_cycle_id patch failed: {}", e.getMessage());
+        }
+    }
+
+    // kingdom_active_quests: add completed_window_id (lock da daily quest por janela de 12h) [DAILY_QUESTS]
+    private void patchKingdomQuestWindowColumn() {
+        try {
+            jdbc.execute("ALTER TABLE kingdom_active_quests ADD COLUMN IF NOT EXISTS completed_window_id bigint NOT NULL DEFAULT 0");
+            log.info("[SchemaMigrator] kingdom_active_quests completed_window_id column ensured");
+        } catch (Exception e) {
+            log.warn("[SchemaMigrator] kingdom_active_quests completed_window_id patch failed: {}", e.getMessage());
         }
     }
 

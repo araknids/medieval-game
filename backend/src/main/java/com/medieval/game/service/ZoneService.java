@@ -126,7 +126,10 @@ public class ZoneService {
         activity.setKingdom(kingdom);
         activity.setDurationMinutes(durationMinutes);
         activity.setStartedAt(LocalDateTime.now());
-        activity.setEndsAt(LocalDateTime.now()); // [SEM_TIMER] farm de zona instantâneo
+        // [SEM_TIMER] farm de zona é instantâneo (já pronto pra coletar). endsAt 1s no passado
+        // mata a corrida de sub-segundo do isReadyToCollect quando o collect vem logo após o enter
+        // (persistência/relógio podem deixar endsAt um tico no futuro → "still in progress 0s"). [FLAKE_FIX]
+        activity.setEndsAt(LocalDateTime.now().minusSeconds(1));
         ZoneActivity saved = activityRepository.save(activity);
         log.info("[ZoneService] player={} action=enter OK id={}", player.getId(), saved.getId());
         return saved;

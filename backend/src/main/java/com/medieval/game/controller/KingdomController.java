@@ -71,18 +71,24 @@ public class KingdomController {
     public ResponseEntity<?> getQuestTypes(@PathVariable Kingdom kingdom, Authentication auth) {
         Player player = getPlayer(auth);
         int stamina = player.getCalculatedStamina();
+        long secondsUntilReset = kingdomService.secondsUntilQuestRotation(); // [DAILY_QUESTS] boundary de 12h
 
         List<?> quests = kingdomService.getQuestsForKingdom(kingdom).stream()
-                .map(qt -> Map.of(
-                    "id",              qt.name(),
-                    "displayName",     qt.displayName,
-                    "durationMinutes", qt.durationMinutes,
-                    "bronzeReward",    qt.bronzeReward,
-                    "expReward",       qt.expReward,
-                    "staminaCost",     qt.staminaCost,
-                    "dropChance",      qt.dropChance,
-                    "canStart",        stamina >= qt.staminaCost
-                )).toList();
+                .map(qt -> {
+                    boolean done = kingdomService.isQuestDoneThisPeriod(player, qt); // [DAILY_QUESTS]
+                    return Map.of(
+                        "id",                qt.name(),
+                        "displayName",       qt.displayName,
+                        "durationMinutes",   qt.durationMinutes,
+                        "bronzeReward",      qt.bronzeReward,
+                        "expReward",         qt.expReward,
+                        "staminaCost",       qt.staminaCost,
+                        "dropChance",        qt.dropChance,
+                        "doneToday",         done,
+                        "secondsUntilReset", secondsUntilReset,
+                        "canStart",          !done && stamina >= qt.staminaCost
+                    );
+                }).toList();
         return ResponseEntity.ok(quests);
     }
 

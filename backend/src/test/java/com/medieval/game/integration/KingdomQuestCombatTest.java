@@ -1,7 +1,9 @@
 package com.medieval.game.integration;
 
+import com.medieval.game.enums.QuestStatus;
 import com.medieval.game.model.Player;
 import com.medieval.game.model.Warrior;
+import com.medieval.game.repository.KingdomActiveQuestRepository;
 import com.medieval.game.repository.PlayerRepository;
 import com.medieval.game.repository.WarriorRepository;
 import com.fasterxml.jackson.databind.JsonNode;
@@ -14,6 +16,7 @@ import org.springframework.http.MediaType;
 import java.time.LocalDateTime;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -21,8 +24,9 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @DisplayName("Quests V2 | Kingdom Quest — combate na coleta + narrativa")
 class KingdomQuestCombatTest extends BaseIntegrationTest {
 
-    @Autowired PlayerRepository  playerRepository;
-    @Autowired WarriorRepository warriorRepository;
+    @Autowired PlayerRepository             playerRepository;
+    @Autowired WarriorRepository            warriorRepository;
+    @Autowired KingdomActiveQuestRepository questRepository;
 
     String token;
 
@@ -50,6 +54,10 @@ class KingdomQuestCombatTest extends BaseIntegrationTest {
             w.setHpUpdatedAt(LocalDateTime.now());
             warriorRepository.save(w);
         });
+        // [DAILY_QUESTS] limpa conclusões da daily para repetir a MESMA quest no loop do teste
+        // (sem isso, o lock 1x/janela bloquearia a 2ª chamada de startAndCollect).
+        questRepository.deleteAll(
+                questRepository.findByPlayerAndStatusNotOrderByStartedAtDesc(p, QuestStatus.ABANDONED));
     }
 
     /** Inicia HUNT_SEA_MONSTER (FISHING, 90% de monstro) e coleta na hora; devolve o JSON do collect. */
@@ -129,5 +137,54 @@ class KingdomQuestCombatTest extends BaseIntegrationTest {
             }
         }
         assertThat(sawMonsterWin).as("esperava observar ao menos uma vitória com monstro em 25 tentativas").isTrue();
+    }
+
+    // ── [DAILY_QUESTS] daily trava 1x por janela após CONCLUIR (vitória/sem encontro) ──
+    @Test
+    @DisplayName("Daily concluída trava na janela: doneToday=true, canStart=false, re-start → 400")
+    void dailyQuest_lockedAfterSuccessInSameWindow() throws Exception {
+        Player p = player();
+        Warrior w = warriorRepository.findByPlayer(p).orElseThrow();
+        w.setLevel(50); w.setAttack(9999); w.setHealth(99999);          // garante vitória → conclui → trava
+        w.setCurrentHpSnapshot(100); w.setHpUpdatedAt(LocalDateTime.now());
+        warriorRepository.save(w);
+
+        // 1ª quest da vitrine do reino FISHING (fresh → não feita ainda)
+        String showcase = mockMvc.perform(get("/api/world/FISHING/quests")
+                        .header("Authorization", bearer(token)))
+                .andExpect(status().isOk()).andReturn().getResponse().getContentAsString();
+        JsonNode q0 = objectMapper.readTree(showcase).get(0);
+        String questType = q0.get("id").asText();
+        assertThat(q0.get("doneToday").asBoolean()).isFalse();
+        assertThat(q0.get("canStart").asBoolean()).isTrue();
+        assertThat(q0.has("secondsUntilReset")).isTrue();
+
+        // start + collect (vitória garantida → daily consumida nesta janela)
+        String startResp = mockMvc.perform(post("/api/world/FISHING/quests/start")
+                        .header("Authorization", bearer(token)).contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"questType\":\"" + questType + "\"}"))
+                .andExpect(status().isOk()).andReturn().getResponse().getContentAsString();
+        long questId = objectMapper.readTree(startResp).get("id").asLong();
+        mockMvc.perform(post("/api/world/FISHING/quests/" + questId + "/collect")
+                        .header("Authorization", bearer(token)))
+                .andExpect(status().isOk());
+
+        // vitrine agora: a quest aparece feita (doneToday=true, canStart=false)
+        String showcase2 = mockMvc.perform(get("/api/world/FISHING/quests")
+                        .header("Authorization", bearer(token)))
+                .andExpect(status().isOk()).andReturn().getResponse().getContentAsString();
+        JsonNode locked = null;
+        for (JsonNode q : objectMapper.readTree(showcase2)) {
+            if (q.get("id").asText().equals(questType)) locked = q;
+        }
+        assertThat(locked).as("quest %s presente na vitrine", questType).isNotNull();
+        assertThat(locked.get("doneToday").asBoolean()).isTrue();
+        assertThat(locked.get("canStart").asBoolean()).isFalse();
+
+        // re-start na MESMA janela → 400 (lock diário; guerreiro já livre após o collect)
+        mockMvc.perform(post("/api/world/FISHING/quests/start")
+                        .header("Authorization", bearer(token)).contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"questType\":\"" + questType + "\"}"))
+                .andExpect(status().isBadRequest());
     }
 }
