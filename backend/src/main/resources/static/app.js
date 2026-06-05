@@ -2871,12 +2871,19 @@ async function raidCombat() {
   const r = await api('POST', '/api/world/COMBAT/raid');
   if (r.error) { worldMsg(r.error, false); return; }
   await loadWarrior();
-  const mats = (r.materials || []).map(m => `${m.displayName} ×${m.quantity}`).join(', ');
-  const msg = r.won
-    ? `🏆 You defeated ${r.beast}! +${fmtBronze(r.goldEarned)}, +${r.xpEarned} XP${mats ? ', ' + mats : ''}.`
-    : `💀 ${r.beast} defeated you. Heal at the Temple.`;
+  if (r.won) {
+    const rows = [
+      { icon:'🪙', label:'Bronze',     value:fmtBronze(r.goldEarned), color:'#cd7f32' },
+      { icon:'⭐', label:'Experience', value:`+${r.xpEarned} XP`,      color:'#ffd700' },
+    ];
+    (r.materials || []).forEach(m => rows.push({ icon:'🧩', label:m.displayName, value:`x${m.quantity}`, color:'#4db6ac' }));
+    showCollectModal({ title:`🏆 ${escapeHtml(r.beast)} slain!`, color:'#4caf50', rows, log:r.log || [] });
+  } else {
+    showCollectModal({ title:`💀 Defeated by ${escapeHtml(r.beast)}!`, color:'#ef5350',
+      rows:[{ icon:'☠', label:'Result', value:'You were beaten — heal at the Temple', color:'#ef5350' }],
+      log:r.log || [] });
+  }
   if (worldCurrentKingdom) await enterKingdom(worldCurrentKingdom);
-  worldMsg(msg, r.won);
 }
 
 function worldMsg(text, ok = true) {
