@@ -147,5 +147,7 @@ public class MaintenanceService {
         p.setLastArenaFightDate(null);
         p.setVipInstantQuestsToday(0);
         p.setLastVipQuestDate(null);
+        p.clearPvpFlag();           // [PVP_FLAG] não pode acordar "exposto" depois do wipe
+        p.setPvpShieldUntil(null);
     }
 }
