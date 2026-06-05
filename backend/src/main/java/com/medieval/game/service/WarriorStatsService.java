@@ -2,11 +2,13 @@ package com.medieval.game.service;
 
 import com.medieval.game.model.InventoryItem;
 import com.medieval.game.model.ItemAffix;
+import com.medieval.game.model.Mount;
 import com.medieval.game.model.Player;
 import com.medieval.game.model.SocketedGem;
 import com.medieval.game.model.Warrior;
 import com.medieval.game.repository.InventoryItemRepository;
 import com.medieval.game.repository.ItemAffixRepository;
+import com.medieval.game.repository.MountRepository;
 import com.medieval.game.repository.SocketedGemRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -31,6 +33,7 @@ public class WarriorStatsService {
     private final InventoryItemRepository inventoryRepository;
     private final SocketedGemRepository   gemRepository;
     private final ItemAffixRepository     affixRepository;
+    private final MountRepository         mountRepository;
 
     /** Bônus plano de ATK/DEF/HP dos itens equipados (base efetiva + joias + afixos planos). */
     public record ItemBonus(int atk, int def, int hp) {
@@ -48,15 +51,21 @@ public class WarriorStatsService {
      * Joias e afixos carregados em batch (findAllByItemIn) — sem N+1. [AUDITORIA A9 / ITENS_V2]
      */
     public GearBonus equippedGear(Player player) {
+        // Montaria equipada (Estábulo): bônus plano de ATK/DEF/HP — entra no combate e na ficha. [ESTABULO]
+        Mount mount = mountRepository.findByPlayerAndEquippedTrue(player).orElse(null);
+        int matk = mount != null ? mount.getMountType().attackBonus  : 0;
+        int mdef = mount != null ? mount.getMountType().defenseBonus : 0;
+        int mhp  = mount != null ? mount.getMountType().healthBonus  : 0;
+
         List<InventoryItem> equipped = inventoryRepository.findAllByPlayer(player).stream()
                 .filter(InventoryItem::isEquipped)
                 .filter(i -> !i.isBroken())
                 .toList();
-        if (equipped.isEmpty()) return GearBonus.NONE;
+        if (equipped.isEmpty()) return new GearBonus(matk, mdef, mhp, 0, 0, 0); // só a montaria (se houver)
 
-        int atk = equipped.stream().mapToInt(InventoryItem::getEffectiveAttack).sum();
-        int def = equipped.stream().mapToInt(InventoryItem::getEffectiveDefense).sum();
-        int hp  = equipped.stream().mapToInt(InventoryItem::getEffectiveHealth).sum();
+        int atk = equipped.stream().mapToInt(InventoryItem::getEffectiveAttack).sum()  + matk;
+        int def = equipped.stream().mapToInt(InventoryItem::getEffectiveDefense).sum() + mdef;
+        int hp  = equipped.stream().mapToInt(InventoryItem::getEffectiveHealth).sum()  + mhp;
         int str = 0, dex = 0, luk = 0;
 
         // Joias de todos os itens equipados em uma única query (evita N+1)

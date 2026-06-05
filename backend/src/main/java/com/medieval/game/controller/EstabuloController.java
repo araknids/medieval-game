@@ -24,16 +24,19 @@ public class EstabuloController {
     @GetMapping
     public ResponseEntity<?> list(Authentication auth) {
         Player player = getPlayer(auth);
-        List<?> mounts = estabuloService.list(player).stream().map(v -> Map.of(
-            "id",                  v.type().name(),
-            "displayName",         v.type().displayName,
-            "icon",                v.type().icon,
-            "staminaReductionPct", v.type().staminaReductionPct,
-            "priceGold",           v.type().priceGold,
-            "priceSoulStones",     v.type().priceSoulStones,
-            "vipOnly",             v.type().vipOnly,
-            "owned",               v.owned(),
-            "equipped",            v.equipped()
+        List<?> mounts = estabuloService.list(player).stream().map(v -> Map.ofEntries(
+            Map.entry("id",                  v.type().name()),
+            Map.entry("displayName",         v.type().displayName),
+            Map.entry("icon",                v.type().icon),
+            Map.entry("staminaReductionPct", v.type().staminaReductionPct),
+            Map.entry("attackBonus",         v.type().attackBonus),
+            Map.entry("defenseBonus",        v.type().defenseBonus),
+            Map.entry("healthBonus",         v.type().healthBonus),
+            Map.entry("priceGold",           v.type().priceGold),
+            Map.entry("priceSoulStones",     v.type().priceSoulStones),
+            Map.entry("vipOnly",             v.type().vipOnly),
+            Map.entry("owned",               v.owned()),
+            Map.entry("equipped",            v.equipped())
         )).toList();
         return ResponseEntity.ok(Map.of(
             "mounts",     mounts,

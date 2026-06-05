@@ -10,14 +10,25 @@
 - Buff atual = **só redução de estamina**. **Bônus de stats = FUTURO** (estrutura extensível).
 
 ## Catálogo (`MountType`)
-| Cavalo | Redução | Preço | Onde compra |
-|---|---|---|---|
-| 🐴 Cavalo de Carga | −3% | 10 g | Estábulo |
-| 🐎 Cavalo de Montaria | −6% | 30 g | Estábulo |
-| 🐎 Corcel de Guerra | −9% | 75 g | Estábulo |
-| 🐎 Corcel Real | −12% | 150 g | Estábulo |
-| 🏇 Corcel Lendário | −15% | 300 g | Estábulo |
-| 💎 Montaria Celestial (VIP) | −20% | 12 💎 SoulStones | **VIP Shop** (só VIP) |
+Stats **diferenciados por perfil** (decidido em 2026-06-05). O VIP fica **sem stats** — é a
+montaria 100% estamina (o trade-off: VIP = rei da estamina, Lendário = rei do combate).
+
+| Cavalo | Redução | ATK | DEF | HP | Preço | Onde / perfil |
+|---|---|---|---|---|---|---|
+| 🐴 Cavalo de Carga | −3% | 0 | 2 | 15 | 10 g | Estábulo · tanque leve |
+| 🐎 Cavalo de Montaria | −6% | 4 | 4 | 20 | 30 g | Estábulo · equilibrado |
+| 🐎 Corcel de Guerra | −9% | 12 | 3 | 20 | 75 g | Estábulo · ofensivo |
+| 🐎 Corcel Real | −12% | 6 | 12 | 40 | 150 g | Estábulo · defensivo |
+| 🏇 Corcel Lendário | −15% | 14 | 12 | 60 | 300 g | Estábulo · completo |
+| 💎 Montaria Celestial (VIP) | −20% | — | — | — | 12 💎 | **VIP Shop** (só VIP) · só estamina |
+
+### Stats da montaria (implementado)
+- `MountType` carrega `attackBonus/defenseBonus/healthBonus`. O cavalo equipado entra na **fonte
+  única** `WarriorStatsService.equippedGear()` → flui pro **combate** (Arena/Torre/Zona/quest via
+  `combatStats`) E pra **ficha** (bônus verde no `/api/warrior`, somado aos itens). Trata o caso
+  "só montaria, sem itens equipados" (não dá early-return).
+- `/api/warrior` expõe `equippedMount` (id/nome/ícone/−%/ATK/DEF/HP); a aba **Character** mostra o
+  cavalo equipado (ícone, nome, −X% ⚡, +stats). Os cards do Estábulo mostram os stats de cada cavalo.
 
 ## Modelo de dados
 - **`enums/MountType`**: displayName, icon, `staminaReductionPct`, `priceGold`, `priceSoulStones`,
@@ -64,5 +75,6 @@
   instant-complete pula a estamina no fluxo normal).
 
 ## Futuro (não nesta fase)
-- Bônus de stats nas montarias (ATK/DEF/HP) — adicionar campos no `MountType` + somar no efetivo do
-  guerreiro (espelhar itens). Possíveis montarias raras dropáveis em vez de só compráveis.
+- Montarias raras **dropáveis** (de boss/zona) em vez de só compráveis.
+- Possíveis efeitos extras (ex.: bônus de drop, evasão) além de ATK/DEF/HP.
+- (Stats por perfil já foram implementados em 2026-06-05 — ver tabela acima.)

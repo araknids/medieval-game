@@ -3,6 +3,7 @@ package com.medieval.game.controller;
 import com.medieval.game.enums.Attribute;
 import com.medieval.game.model.Player;
 import com.medieval.game.model.Warrior;
+import com.medieval.game.repository.MountRepository;
 import com.medieval.game.service.PlayerService;
 import com.medieval.game.service.WarriorService;
 import com.medieval.game.service.WarriorStatsService;
@@ -22,6 +23,7 @@ public class WarriorController {
     private final WarriorService     warriorService;
     private final PlayerService      playerService;
     private final WarriorStatsService statsService;
+    private final MountRepository    mountRepository;
 
     @GetMapping
     public ResponseEntity<WarriorResponse> getMyWarrior(Authentication auth) {
@@ -127,6 +129,13 @@ public class WarriorController {
                     java.time.LocalDateTime.now(), warrior.getBuffExpiresAt2()));
         }
 
+        // Montaria equipada (Estábulo) — exibida na ficha do personagem. [ESTABULO]
+        MountInfo equippedMount = mountRepository.findByPlayerAndEquippedTrue(player)
+                .map(m -> { var mt = m.getMountType();
+                    return new MountInfo(mt.name(), mt.displayName, mt.icon, mt.staminaReductionPct,
+                            mt.attackBonus, mt.defenseBonus, mt.healthBonus); })
+                .orElse(null);
+
         return new WarriorResponse(
                 warrior.getId(), warrior.getName(), warrior.getWarriorClass().displayName,
                 warrior.getLevel(), warrior.getExperience(), warrior.expNeededForNextLevel(),
@@ -150,9 +159,14 @@ public class WarriorController {
                 isVip, vipExpiresAt,
                 arenaFightsToday, arenaFightLimit, instantQuestsToday,
                 buff2Name, buff2SecsLeft,
-                mealBuffName, mealBuffSecsLeft
+                mealBuffName, mealBuffSecsLeft,
+                equippedMount
         );
     }
+
+    /** Montaria equipada exibida na ficha (null se nenhuma). [ESTABULO] */
+    record MountInfo(String id, String name, String icon, int staminaReductionPct,
+                     int attackBonus, int defenseBonus, int healthBonus) {}
 
     record WarriorResponse(Long id, String name, String warriorClass, int level,
                            long experience, long expNeeded,
@@ -174,5 +188,6 @@ public class WarriorController {
                            boolean isVip, String vipExpiresAt,
                            int arenaFightsToday, int arenaFightLimit, int instantQuestsToday,
                            String activeBuff2, long buff2SecondsLeft,
-                           String mealBuff, long mealBuffSecondsLeft) {}
+                           String mealBuff, long mealBuffSecondsLeft,
+                           MountInfo equippedMount) {}
 }

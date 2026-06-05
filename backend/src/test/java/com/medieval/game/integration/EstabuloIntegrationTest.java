@@ -113,4 +113,34 @@ class EstabuloIntegrationTest extends BaseIntegrationTest {
         assertThat(playerService.staminaReductionPct(player())).isZero();
         assertThat(playerService.discountStamina(player(), 100)).isEqualTo(100); // sem montaria
     }
+
+    // ── Stats do cavalo equipado entram no /api/warrior (combate + ficha) ──
+    @Test
+    @DisplayName("Cavalo equipado soma stats no /api/warrior + aparece em equippedMount")
+    void equippedMount_addsStatsAndShowsInWarrior() throws Exception {
+        giveGold(400);
+        mockMvc.perform(post("/api/stable/buy/LEGENDARY_STEED").header("Authorization", bearer(token))).andExpect(status().isOk());
+        mockMvc.perform(post("/api/stable/equip/LEGENDARY_STEED").header("Authorization", bearer(token))).andExpect(status().isOk());
+
+        // LEGENDARY_STEED = +14 ATK / +12 DEF / +60 HP, −15% estamina (guerreiro fresco não tem itens equipados)
+        mockMvc.perform(get("/api/warrior").header("Authorization", bearer(token)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.equippedMount.id").value("LEGENDARY_STEED"))
+                .andExpect(jsonPath("$.equippedMount.staminaReductionPct").value(15))
+                .andExpect(jsonPath("$.equippedMount.attackBonus").value(14))
+                .andExpect(jsonPath("$.itemBonusAttack").value(14))
+                .andExpect(jsonPath("$.itemBonusDefense").value(12))
+                .andExpect(jsonPath("$.itemBonusHealth").value(60));
+    }
+
+    // ── Montaria VIP (Celestial) não dá stats — só estamina ──
+    @Test
+    @DisplayName("Celestial só dá estamina (sem stats) na listagem do estábulo")
+    void celestial_hasNoStats() throws Exception {
+        mockMvc.perform(get("/api/stable").header("Authorization", bearer(token)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.mounts[?(@.id=='CELESTIAL_MOUNT')].staminaReductionPct", contains(20)))
+                .andExpect(jsonPath("$.mounts[?(@.id=='CELESTIAL_MOUNT')].attackBonus", contains(0)))
+                .andExpect(jsonPath("$.mounts[?(@.id=='CELESTIAL_MOUNT')].healthBonus", contains(0)));
+    }
 }

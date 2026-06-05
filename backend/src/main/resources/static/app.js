@@ -299,6 +299,22 @@ async function loadWarrior() {
             </div>`;
   })() : '';
 
+  // Montaria equipada (Estábulo): −X% estamina + stats. [ESTABULO]
+  const mountLine = warrior.equippedMount ? (() => {
+    const m = warrior.equippedMount;
+    const stats = [
+      m.attackBonus  > 0 ? `+${m.attackBonus} ATK`  : '',
+      m.defenseBonus > 0 ? `+${m.defenseBonus} DEF` : '',
+      m.healthBonus  > 0 ? `+${m.healthBonus} HP`   : '',
+    ].filter(Boolean).join(' ');
+    return `<div style="margin-top:.3rem;font-size:.75rem;padding:3px 6px;
+                         background:#13241f;border:1px solid #4db8a8;border-radius:4px;
+                         color:#7fd1b9;display:inline-block">
+              ${m.icon} ${m.displayName}
+              <span style="color:#aaa;font-size:.7em">−${m.staminaReductionPct}% ⚡${stats ? ' · ' + stats : ''}</span>
+            </div>`;
+  })() : '';
+
   const hpColor      = (warrior.hpPercent ?? 100) <= 0 ? '#cf6679'
                      : (warrior.hpPercent ?? 100) < 50  ? '#c9a84c' : '#4caf82';
   const staminaColor = stamina < 30 ? '#cf6679' : stamina < 60 ? '#c9a84c' : '#4caf82';
@@ -334,6 +350,7 @@ async function loadWarrior() {
 
     ${buffLine}
     ${mealBuffLine}
+    ${mountLine}
 
     <div style="margin-top:.4rem">
       ${warrior.isKnockedOut
@@ -428,12 +445,21 @@ async function loadEstabulo() {
                 </button>`;
     }
     const border = m.equipped ? '#2e7d32' : m.owned ? '#555' : m.vipOnly ? '#7c3aed' : '#333';
+    const mstats = [
+      m.attackBonus  > 0 ? `<span style="color:#e57373">+${m.attackBonus} ATK</span>`  : '',
+      m.defenseBonus > 0 ? `<span style="color:#64b5f6">+${m.defenseBonus} DEF</span>` : '',
+      m.healthBonus  > 0 ? `<span style="color:#81c784">+${m.healthBonus} HP</span>`   : '',
+    ].filter(Boolean).join(' &nbsp; ');
+    const statsLine = mstats
+      ? `<div style="font-size:12px;margin-top:4px">${mstats}</div>`
+      : `<div style="font-size:11px;color:#777;margin-top:4px">Sem bônus de stats — pura estamina</div>`;
     return `
       <div style="background:#1a1a2e;border:1px solid ${border};border-radius:8px;padding:12px;margin-bottom:8px${m.owned && !m.equipped ? ';opacity:.85' : ''}">
         <div style="display:flex;justify-content:space-between;align-items:center">
           <strong style="font-size:14px">${m.icon} ${m.displayName}${m.vipOnly ? ' <span style="color:#a78bfa;font-size:11px">VIP</span>' : ''}</strong>
           <span style="color:#7fd1b9;font-size:13px;font-weight:bold">−${m.staminaReductionPct}% ⚡</span>
         </div>
+        ${statsLine}
         <div style="margin-top:8px">${action}</div>
       </div>`;
   }).join('');
