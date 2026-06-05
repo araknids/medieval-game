@@ -62,6 +62,7 @@ public class ZoneController {
         return ResponseEntity.ok(Map.of(
             "flagged",           player.isPvpFlagged(),
             "flaggedZone",       player.getPvpFlaggedZone() != null ? player.getPvpFlaggedZone().displayName : "",
+            "flaggedZoneId",     player.getPvpFlaggedZone() != null ? player.getPvpFlaggedZone().name() : "",
             "flagMinutesLeft",   flagMin,
             "shielded",          player.isPvpShielded(),
             "shieldMinutesLeft", shieldMin

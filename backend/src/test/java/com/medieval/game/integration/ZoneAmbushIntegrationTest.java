@@ -187,9 +187,11 @@ class ZoneAmbushIntegrationTest extends BaseIntegrationTest {
     @Test
     @DisplayName("TC-220 | Raiding a flagged victim steals bronze + shields victim")
     void tc220_raidLootsFlaggedVictim() throws Exception {
-        // Vítima: exposta em HIGH_RISK com bronze na bolsa
+        // Vítima: exposta em HIGH_RISK com bronze na bolsa (nível 45 — banda alta isolada de outros testes)
         Player victim = playerOf("amb");
-        warriorOf(victim);
+        Warrior vw = warriorOf(victim);
+        vw.setLevel(45);
+        warriorRepository.save(vw);
         victim.addBronzeAmount(10_000);
         flagPlayer(victim, Zone.HIGH_RISK); // também salva
         long bronzeBefore = playerRepository.findById(victim.getId()).orElseThrow().totalBronze();
@@ -198,7 +200,7 @@ class ZoneAmbushIntegrationTest extends BaseIntegrationTest {
         registerAndGetToken(uniqueUser("amb"));
         Player attacker = playerOf("amb");
         Warrior aw = warriorOf(attacker);
-        aw.setLevel(25); aw.setAttack(800); aw.setDefense(800); aw.setHealth(800);
+        aw.setLevel(50); aw.setAttack(2000); aw.setDefense(2000); aw.setHealth(5000); // banda 40-60, esmaga tudo
         aw.setStrength(200); aw.setConstitution(200);
         warriorRepository.save(aw);
 
@@ -231,12 +233,13 @@ class ZoneAmbushIntegrationTest extends BaseIntegrationTest {
 
     // ── TC-221: Farmar zona PvP trava os itens expostos + bloqueia venda [PVP_FLAG] ──
     @Test
-    @DisplayName("TC-221 | Farming a PvP zone locks bag items + blocks selling")
+    @DisplayName("TC-221 | Farming the RED zone locks bag items + blocks selling")
     void tc221_farmingLocksItems() {
         Player player = playerOf("amb");
         Warrior w = warriorOf(player);
-        w.setLevel(15); w.setAttack(500); w.setDefense(500); w.setHealth(500);
-        w.setStrength(100); w.setConstitution(100);
+        // lvl 30 (banda 20-40, isolada do TC-220 que usa 45/50) + stats esmagadores → sempre vence o encontro
+        w.setLevel(30); w.setAttack(2000); w.setDefense(2000); w.setHealth(5000);
+        w.setStrength(200); w.setConstitution(200);
         w.setCurrentHpSnapshot(100); w.setHpUpdatedAt(java.time.LocalDateTime.now());
         warriorRepository.save(w);
 
@@ -245,8 +248,8 @@ class ZoneAmbushIntegrationTest extends BaseIntegrationTest {
             inventoryService.make(player, "Test Ring", com.medieval.game.enums.ItemType.RING, 0, 0, 0, 1, 10);
         long itemId = item.getId();
 
-        // farma zona PvP (instantâneo) → trava os itens expostos + flagga
-        var act = zoneService.enter(player, Zone.PVP,
+        // farma a zona VERMELHA (HIGH_RISK) → trava os itens expostos + flagga (item-lock só na vermelha)
+        var act = zoneService.enter(player, Zone.HIGH_RISK,
                 com.medieval.game.enums.ActivityRole.GATHERING,
                 com.medieval.game.enums.SkillType.FISHING, 60);
         zoneService.collect(playerRepository.findById(player.getId()).orElseThrow(), act.getId());
@@ -257,6 +260,32 @@ class ZoneAmbushIntegrationTest extends BaseIntegrationTest {
         Player flagged = playerRepository.findById(player.getId()).orElseThrow();
         org.assertj.core.api.Assertions.assertThatThrownBy(() -> inventoryService.sell(flagged, itemId))
                 .isInstanceOf(IllegalStateException.class);
+    }
+
+    // ── TC-222: Zona AMARELA (PVP) flagga mas NÃO trava itens (só recursos) [PVP_FLAG] ──
+    @Test
+    @DisplayName("TC-222 | Farming the YELLOW zone flags but does NOT lock items")
+    void tc222_yellowZoneNoItemLock() {
+        Player player = playerOf("amb");
+        Warrior w = warriorOf(player);
+        // lvl 30 (banda 20-40, isolada do TC-219 lvl 15) + stats esmagadores → sempre sobrevive
+        w.setLevel(30); w.setAttack(2000); w.setDefense(2000); w.setHealth(5000);
+        w.setStrength(200); w.setConstitution(200);
+        w.setCurrentHpSnapshot(100); w.setHpUpdatedAt(java.time.LocalDateTime.now());
+        warriorRepository.save(w);
+
+        com.medieval.game.model.InventoryItem item =
+            inventoryService.make(player, "Yellow Ring", com.medieval.game.enums.ItemType.RING, 0, 0, 0, 1, 10);
+        long itemId = item.getId();
+
+        var act = zoneService.enter(player, Zone.PVP,
+                com.medieval.game.enums.ActivityRole.GATHERING,
+                com.medieval.game.enums.SkillType.FISHING, 60);
+        zoneService.collect(playerRepository.findById(player.getId()).orElseThrow(), act.getId());
+
+        Player after = playerRepository.findById(player.getId()).orElseThrow();
+        assertThat(after.isPvpFlagged()).isTrue();                                  // farmou amarela → flagged
+        assertThat(itemRepo.findById(itemId).orElseThrow().isPvpLocked()).isFalse(); // amarela NÃO trava item
     }
 
     // Helper: expõe um player numa zona (flagged por 1h)

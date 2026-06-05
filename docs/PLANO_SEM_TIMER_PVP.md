@@ -16,6 +16,16 @@ ser o gate; a **estamina** é. Sem espera, sem "coletar depois".
 5. **Arena** = duelo instantâneo por **ranking** (sem loot), separada do PvP de zona.
 6. **Guerra de guild (territórios)** = continua por **ciclos agendados** (não é timer de atividade; fora deste escopo).
 
+## Tiers de zona (balance — 2026-06-05)
+| Zona | PvP/NPC | Ao perder | Lock | Reward |
+|---|---|---|---|---|
+| 🟢 Verde (SAFE) | — / 20% | só PvE (dano/KO) | — | 1.0x |
+| 🟡 Amarela (PVP, lvl 10+) | 20% / 25% | −50% recursos + −10% bronze | **recursos** (não stasha enquanto exposto) | 1.5x |
+| 🔴 Vermelha (HIGH_RISK, lvl 20+) | 40% / 35% | −50% rec + −15% bronze + item(35%) + XP | **itens + recursos** | 2.5x |
+- **XP**: na vermelha a vítima perde `expNeed/20`; o killer ganha **50%** (teto 10% do nível dele).
+- **Matchmaking**: só ataca/é atacado dentro de **±10 níveis** (`PVP_LEVEL_BAND`). O minLevel da zona já protege os baixos.
+- Item-lock só na vermelha; recurso-lock (bloqueia depositar no stash enquanto flagged) nas duas.
+
 ## PvP de Zona com Flag (o coração da mudança)
 - Farmar numa **zona PvP** (tier PvP / Alto Risco) = **instantâneo**, custa estamina, dá loot melhor que a zona Segura.
 - Farmar ali te deixa **flagged por 1h** → durante o flag, seus itens ficam **expostos**.

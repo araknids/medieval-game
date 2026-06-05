@@ -1295,9 +1295,12 @@ function pvpStatusBanner(pvp) {
     </div>`;
   }
   if (pvp.flagged) {
-    return `<div class="zone-pvp-status" style="border-color:#c0392b;background:#3a1b1b">
-      ⚠ ${t('zones.exposed')||'Exposto'} (${escapeHtml(pvp.flaggedZone)}) — ${pvp.flagMinutesLeft} min.
-      ${t('zones.exposed_desc')||'Bolsa + equipados (não-guardados) podem ser saqueados. Guarde no Stash/Templo.'}
+    const red = pvp.flaggedZoneId === 'HIGH_RISK';
+    const risk = red
+      ? '🔴 Recursos + bronze + um item (travado) + XP em risco se for derrotado. Não pode vender/stashar/guardar os itens travados.'
+      : '🟡 50% dos recursos + bronze em risco. Itens e XP estão seguros. Não pode stashar recursos enquanto exposto.';
+    return `<div class="zone-pvp-status" style="border-color:${red?'#c0392b':'#c9a84c'};background:#3a1b1b">
+      ⚠ ${t('zones.exposed')||'Exposto'} (${escapeHtml(pvp.flaggedZone)}) — ${pvp.flagMinutesLeft} min. ${risk}
     </div>`;
   }
   return '';

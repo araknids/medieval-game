@@ -80,6 +80,9 @@ public class StashService {
     @Transactional
     public void depositResource(Player player, ResourceType type, long qty) {
         if (qty <= 0) throw new IllegalArgumentException("Quantity must be > 0");
+        // [PVP_FLAG] Exposto numa zona PvP → recursos da bag estão travados (podem ser saqueados).
+        if (player.isPvpFlagged())
+            throw new IllegalStateException("Recursos expostos no PvP — não pode guardar no stash enquanto flagged.");
         ResourceInventory bag = resourceRepository.findByPlayerAndResourceTypeAndStashed(player, type, false)
                 .orElseThrow(() -> new IllegalStateException("You don't have that resource."));
         if (bag.getQuantity() < qty) throw new IllegalStateException("Insufficient quantity.");

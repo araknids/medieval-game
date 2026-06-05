@@ -39,6 +39,7 @@ public class ZoneService {
 
     private static final int PVP_FLAG_MINUTES   = 60; // exposto por 1h após farmar zona PvP
     private static final int PVP_SHIELD_MINUTES  = 60; // imune por 1h após ser saqueado (1x por ciclo)
+    private static final int PVP_LEVEL_BAND      = 10; // só ataca/é atacado dentro de ±10 níveis
 
     // ── Entrar na zona ──
 
@@ -261,7 +262,9 @@ public class ZoneService {
             player.setPvpFlaggedZone(activity.getZone());
             player.setPvpFlaggedUntil(LocalDateTime.now().plusMinutes(PVP_FLAG_MINUTES));
             playerRepository.save(player);
-            lockExposedItems(player);
+            // 🔴 Vermelha (HIGH_RISK): trava os ITENS expostos (podem ser perdidos). 🟡 Amarela: só recursos
+            // (o lock de recurso é via flag — StashService bloqueia depositar enquanto exposto).
+            if (activity.getZone() == Zone.HIGH_RISK) lockExposedItems(player);
         }
 
         // Libera o guerreiro
@@ -371,7 +374,7 @@ public class ZoneService {
 
         // ── PvP: cruza com um player FLAGGED na zona (raid de loot). [PVP_FLAG] ──
         if (zone.encounterChancePerHour > 0 && rng.nextInt(100) < zone.encounterChancePerHour) {
-            Player  victim  = findFlaggedOpponent(zone, player, rng);
+            Player  victim  = findFlaggedOpponent(zone, player, attacker.getLevel(), rng);
             Warrior victimW = victim != null ? warriorRepository.findByPlayer(victim).orElse(null) : null;
             if (victimW != null) {
                 int[] vStats = getWarriorStats(victimW, victim);
@@ -433,41 +436,60 @@ public class ZoneService {
         return new PvpResult(true, true, 0, npcName, log);
     }
 
-    /** Sorteia um player FLAGGED (exposto) na zona, sem escudo, que não seja o atacante. [PVP_FLAG] */
-    private Player findFlaggedOpponent(Zone zone, Player exclude, Random rng) {
+    /** Sorteia um player FLAGGED (exposto) na zona, sem escudo, dentro de ±PVP_LEVEL_BAND níveis. [PVP_FLAG] */
+    private Player findFlaggedOpponent(Zone zone, Player exclude, int attackerLevel, Random rng) {
         List<Player> pool = playerRepository.findFlaggedInZone(zone, LocalDateTime.now(), exclude.getId())
-                .stream().filter(p -> !p.isPvpShielded()).toList();
+                .stream()
+                .filter(p -> !p.isPvpShielded())
+                .filter(p -> Math.abs(attackerLevel
+                        - warriorRepository.findByPlayer(p).map(Warrior::getLevel).orElse(1)) <= PVP_LEVEL_BAND)
+                .toList();
         if (pool.isEmpty()) return null;
         return pool.get(rng.nextInt(pool.size()));
     }
 
-    /** Atacante venceu o raid → saqueia a vítima (bronze + item + recursos), aplica escudo e mail. [PVP_FLAG] */
+    /**
+     * Atacante venceu o raid → saqueia a vítima por TIER. [PVP_FLAG]
+     * 🟡 Amarela (PVP): 50% recursos + 10% bronze (sem item, sem XP).
+     * 🔴 Vermelha (HIGH_RISK): 50% recursos + 15% bronze + 1 item travado (35%) + XP (vítima perde, killer +50%).
+     */
     private void raidVictim(Player attacker, String attackerName, Player victim, Warrior victimW, Zone zone, List<String> log) {
-        long   bronze     = applyDefeatPenalty(victim, attacker);  // vítima −15%, atacante +metade
-        String stolenItem = stealOneItem(attacker, victim);        // 35% chance — bag/equip não-protegidos
-        long   stolenRes  = stealResources(attacker, victim);      // ~25% dos recursos da bag
+        boolean red       = (zone == Zone.HIGH_RISK);
+        long   bronze     = applyDefeatPenalty(victim, attacker, red ? 0.15 : 0.10);
+        long   stolenRes  = stealResources(attacker, victim);            // 50% (ambas)
+        String stolenItem = red ? stealOneItem(attacker, victim) : null; // item só na vermelha
+        long   xpLost     = red ? stealXp(victim, attacker)       : 0;   // XP só na vermelha (killer +50%)
 
         victimW.clearBuff();
         victim.setPvpShieldUntil(LocalDateTime.now().plusMinutes(PVP_SHIELD_MINUTES)); // saqueado 1x por ciclo
         victim.clearPvpFlag();
-        // raidado → ganha escudo e os itens travados restantes DESTRAVAM (fim do ciclo).
+        // destrava os itens travados restantes (fim do ciclo)
         List<InventoryItem> remaining = inventoryRepository.findAllByPlayer(victim);
         unlockAllItems(remaining);
         inventoryRepository.saveAll(remaining);
-        warriorRepository.findByPlayer(victim).ifPresent(w -> {
-            long xpLost = Math.max(1, w.expNeededForNextLevel() / 20); // perda menor que morte em quest
-            warriorService.loseXp(w, xpLost);
-        });
         playerRepository.save(victim);
 
-        String summary = "💰 You raided " + victimW.getName() + "! Stole " + bronze + " bronze"
+        String loot = bronze + " bronze"
                 + (stolenItem != null ? ", " + stolenItem : "")
-                + (stolenRes > 0 ? ", +" + stolenRes + " resources" : "") + ".";
-        log.add(summary);
+                + (stolenRes > 0 ? ", " + stolenRes + " resources" : "")
+                + (xpLost > 0 ? ", " + xpLost + " XP" : "");
+        log.add("💰 You raided " + victimW.getName() + "! Stole " + loot + ".");
         mailService.sendSystemMail(victim,
-            "💀 You were RAIDED by " + attackerName + " in the " + zone.displayName + "! Lost " + bronze + " bronze"
-            + (stolenItem != null ? ", " + stolenItem : "") + (stolenRes > 0 ? ", " + stolenRes + " resources" : "")
-            + ". You have a protection shield for " + PVP_SHIELD_MINUTES + " min.");
+            "💀 You were RAIDED by " + attackerName + " in the " + zone.displayName + "! Lost " + loot
+            + ". Protection shield for " + PVP_SHIELD_MINUTES + " min.");
+    }
+
+    /** Vítima perde XP; o killer ganha 50% (teto: 10% do XP do nível do killer). [PVP_FLAG] */
+    private long stealXp(Player victim, Player attacker) {
+        Warrior vw = warriorRepository.findByPlayer(victim).orElse(null);
+        if (vw == null) return 0;
+        long xpLost = Math.max(1, vw.expNeededForNextLevel() / 20);
+        warriorService.loseXp(vw, xpLost);
+        warriorRepository.findByPlayer(attacker).ifPresent(aw -> {
+            long gain = Math.min(xpLost / 2, Math.max(1, aw.expNeededForNextLevel() / 10));
+            if (gain > 0) { warriorService.addExperience(aw, gain); warriorRepository.save(aw); }
+        });
+        return xpLost;
     }
 
     /** Rouba 1 item TRAVADO (pvpLocked = exposto no snapshot da entrada) e transfere ao atacante. */
@@ -501,13 +523,13 @@ public class ZoneService {
         items.forEach(i -> i.setPvpLocked(false));
     }
 
-    /** Rouba ~25% de cada recurso da bag da vítima e dá ao atacante (clamp na bag dele). */
+    /** Rouba ~50% de cada recurso da bag da vítima e dá ao atacante (clamp na bag dele). */
     private long stealResources(Player attacker, Player victim) {
         long total = 0;
         for (ResourceInventory r : resourceRepo.findAllByPlayerAndStashed(victim, false)) {
             if (r.getQuantity() <= 0) continue;
             if (inventoryService.bagSpaceLeft(attacker) <= 0) break;
-            long take  = Math.max(1, r.getQuantity() / 4);
+            long take  = Math.max(1, r.getQuantity() / 2);
             long added = gatheringService.addResource(attacker, r.getResourceType(), take);
             if (added > 0) {
                 r.setQuantity(r.getQuantity() - added);
@@ -534,9 +556,14 @@ public class ZoneService {
         return copy;
     }
 
-    /** Aplica penalidade de derrota: perde 15% bronze; vencedor (se player) ganha 50% do perdido */
+    /** Penalidade de derrota padrão (15% bronze). */
     private long applyDefeatPenalty(Player loser, Player winner) {
-        long bronzeLost = Math.round(loser.totalBronze() * 0.15);
+        return applyDefeatPenalty(loser, winner, 0.15);
+    }
+
+    /** Aplica penalidade de derrota: perde `pct` do bronze; vencedor (se player) ganha 50% do perdido. */
+    private long applyDefeatPenalty(Player loser, Player winner, double pct) {
+        long bronzeLost = Math.round(loser.totalBronze() * pct);
         if (bronzeLost > 0) {
             loser.addBronzeAmount(-bronzeLost);
             playerRepository.save(loser);

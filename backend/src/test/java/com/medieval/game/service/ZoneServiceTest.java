@@ -13,10 +13,10 @@ class ZoneServiceTest {
 
     // ── TC-025: Chance de encontro por zona ──
     @Test
-    @DisplayName("TC-025 | SAFE tem 0% PvP e 15% NPC por hora")
+    @DisplayName("TC-025 | SAFE tem 0% PvP e 20% NPC por hora")
     void tc025_safeZone_encounterRates() {
         assertThat(Zone.SAFE.encounterChancePerHour).isEqualTo(0);
-        assertThat(Zone.SAFE.npcEncounterChancePerHour).isEqualTo(15);
+        assertThat(Zone.SAFE.npcEncounterChancePerHour).isEqualTo(20);
     }
 
     @Test
