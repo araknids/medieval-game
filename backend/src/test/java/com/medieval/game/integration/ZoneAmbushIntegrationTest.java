@@ -28,6 +28,7 @@ class ZoneAmbushIntegrationTest extends BaseIntegrationTest {
     @Autowired MailService              mailService;
     @Autowired com.medieval.game.service.ZoneService zoneService;
     @Autowired com.medieval.game.service.InventoryService inventoryService;
+    @Autowired com.medieval.game.service.StashService stashService;
     @Autowired com.medieval.game.repository.InventoryItemRepository itemRepo;
 
     String token;
@@ -203,6 +204,7 @@ class ZoneAmbushIntegrationTest extends BaseIntegrationTest {
         aw.setLevel(50); aw.setAttack(2000); aw.setDefense(2000); aw.setHealth(5000); // banda 40-60, esmaga tudo
         aw.setStrength(200); aw.setConstitution(200);
         warriorRepository.save(aw);
+        long killerXpBefore = warriorRepository.findByPlayer(attacker).map(Warrior::getExperience).orElse(0L);
 
         boolean raided = false;
         for (int i = 0; i < 120 && !raided; i++) {
@@ -229,6 +231,10 @@ class ZoneAmbushIntegrationTest extends BaseIntegrationTest {
         assertThat(v.isPvpShielded()).isTrue();              // escudo pós-derrota
         assertThat(v.isPvpFlagged()).isFalse();              // flag caiu (saqueado 1x por ciclo)
         assertThat(v.totalBronze()).isLessThan(bronzeBefore); // bronze roubado no raid
+        // [PVP_FLAG] o killer ganha XP do raid (stealXp); coleta só dá XP de skill, não de warrior
+        long killerXpAfter = warriorRepository.findByPlayer(playerRepository.findById(attacker.getId()).orElseThrow())
+                .map(Warrior::getExperience).orElse(0L);
+        assertThat(killerXpAfter).as("killer ganha XP do raid").isGreaterThan(killerXpBefore);
     }
 
     // ── TC-221: Farmar zona PvP trava os itens expostos + bloqueia venda [PVP_FLAG] ──
@@ -308,6 +314,58 @@ class ZoneAmbushIntegrationTest extends BaseIntegrationTest {
         assertThat(result.survived()).isTrue();
         assertThat(result.drops()).isNotEmpty();      // coletou (drops do reino)
         assertThat(result.narrative()).isNotBlank();  // narrativa de coleta
+    }
+
+    // ── TC-224: Flagged não pode stashar recurso (recurso travado no PvP) [PVP_FLAG] ──
+    @Test
+    @DisplayName("TC-224 | Flagged não pode guardar recurso no stash")
+    void tc224_flaggedCannotStashResource() {
+        Player p = playerOf("amb");
+        warriorOf(p);
+        gatheringService.addResource(p, com.medieval.game.enums.ResourceType.SMALL_FISH, 10);
+        flagPlayer(p, Zone.PVP); // exposto → recursos travados
+
+        Player flagged = playerRepository.findById(p.getId()).orElseThrow();
+        org.assertj.core.api.Assertions.assertThatThrownBy(() ->
+                stashService.depositResource(flagged, com.medieval.game.enums.ResourceType.SMALL_FISH, 5))
+                .isInstanceOf(IllegalStateException.class);
+    }
+
+    // ── TC-225: Vítima fora da banda de nível (±10) NÃO é saqueada [PVP_FLAG] ──
+    @Test
+    @DisplayName("TC-225 | Vítima fora da banda de ±10 níveis não é raidada")
+    void tc225_outOfBandVictimNotRaided() throws Exception {
+        // vítima nível 5 (bem abaixo da banda do atacante lvl 50)
+        Player victim = playerOf("amb");
+        Warrior vw = warriorOf(victim);
+        vw.setLevel(5);
+        warriorRepository.save(vw);
+        victim.addBronzeAmount(10_000);
+        flagPlayer(victim, Zone.HIGH_RISK);
+
+        registerAndGetToken(uniqueUser("amb"));
+        Player attacker = playerOf("amb");
+        Warrior aw = warriorOf(attacker);
+        aw.setLevel(50); aw.setAttack(2000); aw.setDefense(2000); aw.setHealth(5000); // banda 40-60
+        aw.setStrength(200); aw.setConstitution(200);
+        warriorRepository.save(aw);
+
+        for (int i = 0; i < 40; i++) {
+            try {
+                Player atk = playerRepository.findById(attacker.getId()).orElseThrow();
+                Warrior w = warriorRepository.findByPlayer(atk).orElseThrow();
+                w.setOnMission(false); w.setCurrentHpSnapshot(100); w.setHpUpdatedAt(java.time.LocalDateTime.now());
+                warriorRepository.save(w);
+                var act = zoneService.enter(atk, Zone.HIGH_RISK,
+                        com.medieval.game.enums.ActivityRole.GATHERING,
+                        com.medieval.game.enums.SkillType.FISHING, 60);
+                zoneService.collect(playerRepository.findById(attacker.getId()).orElseThrow(), act.getId());
+            } catch (Exception ignore) {}
+        }
+
+        Player v = playerRepository.findById(victim.getId()).orElseThrow();
+        assertThat(v.isPvpFlagged()).isTrue();    // fora da banda → nunca alcançada
+        assertThat(v.isPvpShielded()).isFalse();  // nunca saqueada
     }
 
     // Helper: expõe um player numa zona (flagged por 1h)
