@@ -1899,40 +1899,23 @@ function renderFightArea() {
 }
 
 // [SEM_TIMER] Duelo instantâneo: o /fight já resolve e retorna o resultado completo.
+// Mostra no modal compartilhado (overlay) — não é sobrescrito pelo refresh da tela da arena.
 async function startFight() {
   const data = await api('POST', '/api/arena/fight');
   if (data.error) { showMessage(data.error, true); return; }
-  switchArenaTab('fight');
-
-  const result = data.won
-    ? `🏆 Vitória contra ${escapeHtml(data.opponent)}!`
-    : `💀 Defeat to ${escapeHtml(data.opponent)}`;
-  const log = renderBattleLog(data.log || []);
-
-  document.getElementById('fight-area').innerHTML = `
-    <div class="fight-box">
-      <h3>${result}</h3>
-      <p style="font-size:.82rem;color:#aaa;margin-bottom:.5rem">
-        ${data.won ? '+' : ''}${data.rankChange} pontos de rank &nbsp;·&nbsp; ${fmtBronze(data.goldEarned)}
-      </p>
-    </div>
-    <div class="battle-log">${log}</div>
-    <br>
-    <button class="btn-fight" onclick="resetFight()">Lutar novamente</button>`;
-
-  loadWarrior();
+  showCollectModal({
+    title: data.won ? `🏆 Victory vs ${escapeHtml(data.opponent)}!`
+                    : `💀 Defeat to ${escapeHtml(data.opponent)}`,
+    color: data.won ? '#4caf50' : '#ef5350',
+    rows: [
+      { icon:'🏅', label:'Rank',   value:`${data.won ? '+' : ''}${data.rankChange} pts`, color: data.won ? '#4caf50' : '#ef5350' },
+      { icon:'🪙', label:'Bronze', value:fmtBronze(data.goldEarned), color:'#cd7f32' },
+    ],
+    log: data.log || []
+  });
+  await loadWarrior();
   loadRank();
-}
-
-function resetFight() {
-  document.getElementById('fight-area').innerHTML = `
-    <div class="fight-box">
-      <h3>Entrar em batalha</h3>
-      <p style="color:#888;font-size:.83rem;margin-bottom:.8rem">
-        Seu guerreiro irá combater outro jogador ou um NPC. A batalha dura 1 minuto.
-      </p>
-      <button class="btn-fight" onclick="startFight()">⚔ Lutar</button>
-    </div>`;
+  renderFightArea(); // atualiza a tela de luta (estamina/limite) atrás do modal
 }
 
 // ── Init — load language FIRST, then check token ──
