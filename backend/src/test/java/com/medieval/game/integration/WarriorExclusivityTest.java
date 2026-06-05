@@ -12,13 +12,11 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
 /**
- * Tests that a warrior cannot perform 2 simultaneous tasks,
- * and that collecting one task frees the warrior for the next.
- *
- * Covers the class of bugs where state between systems becomes
- * inconsistent (e.g., warrior.onMission stays true after collection).
+ * [SEM_TIMER] O antigo conceito de "busy" cruzado (onMission) foi removido — tudo é instantâneo.
+ * Não há mais bloqueio entre sistemas (dá pra ter uma quest ativa E trabalhar). O que sobra é o
+ * guard PRÓPRIO de cada atividade (ex.: uma quest em progresso por vez), testado aqui.
  */
-@DisplayName("Warrior Exclusivity & Sequence Tests")
+@DisplayName("Warrior Activity — guards próprios + sequência (sem 'busy' cruzado)")
 class WarriorExclusivityTest extends BaseIntegrationTest {
 
     String token;
@@ -56,10 +54,11 @@ class WarriorExclusivityTest extends BaseIntegrationTest {
                 .andExpect(jsonPath("$.status").value("IN_PROGRESS"));
     }
 
-    // ── Kingdom quest + Kingdom quest (same system) ───────────────────────────
+    // ── Guard próprio da quest: uma quest em progresso por vez ────────────────
+    // (substitui o antigo onMission; também fecha o bypass do daily-lock)
 
     @Test
-    @DisplayName("Cannot start 2 kingdom quests simultaneously")
+    @DisplayName("Não pode iniciar 2 quests com uma já em progresso (guard da quest)")
     void cannotStart2KingdomQuestSimultaneously() throws Exception {
         mockMvc.perform(post("/api/world/FISHING/quests/start")
                 .header("Authorization", bearer(token))
@@ -67,7 +66,7 @@ class WarriorExclusivityTest extends BaseIntegrationTest {
                 .content("{\"questType\":\"PATROL_COAST\"}"))
                 .andExpect(status().isOk());
 
-        // Second quest in different kingdom must also be rejected
+        // Segunda quest (até de outro reino) é rejeitada enquanto a 1ª está IN_PROGRESS
         mockMvc.perform(post("/api/world/MINING/quests/start")
                         .header("Authorization", bearer(token))
                         .contentType(MediaType.APPLICATION_JSON)
@@ -76,79 +75,24 @@ class WarriorExclusivityTest extends BaseIntegrationTest {
                 .andExpect(jsonPath("$.error").isNotEmpty());
     }
 
-    // ── Kingdom quest + Work (cross-system) ───────────────────────────────────
+    // ── [SEM_TIMER] Atividades diferentes são independentes (sem 'busy' cruzado) ──
 
     @Test
-    @DisplayName("Cannot start Work while on Kingdom quest")
-    void cannotStartWork_whileOnKingdomQuest() throws Exception {
+    @DisplayName("Pode trabalhar mesmo com uma quest ativa (sem bloqueio cruzado)")
+    void canStartWork_withActiveQuest_noCrossBlock() throws Exception {
+        // Inicia uma quest e NÃO coleta (fica IN_PROGRESS)
         mockMvc.perform(post("/api/world/FISHING/quests/start")
                 .header("Authorization", bearer(token))
                 .contentType(MediaType.APPLICATION_JSON)
-                .content("{\"questType\":\"PATROL_COAST\"}"));
+                .content("{\"questType\":\"PATROL_COAST\"}"))
+                .andExpect(status().isOk());
 
+        // Trabalhar continua liberado — não há mais bloqueio entre sistemas
         mockMvc.perform(post("/api/work/start")
                         .header("Authorization", bearer(token))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"workType\":\"TAVERN_HELPER\",\"hours\":1}"))
-                .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.error").isNotEmpty());
-    }
-
-    // ── Work + Kingdom quest (cross-system) ───────────────────────────────────
-
-    @Test
-    @DisplayName("Cannot start Kingdom quest while Working")
-    void cannotStartKingdomQuest_whileWorking() throws Exception {
-        mockMvc.perform(post("/api/work/start")
-                .header("Authorization", bearer(token))
-                .contentType(MediaType.APPLICATION_JSON)
-                .content("{\"workType\":\"TAVERN_HELPER\",\"hours\":1}"));
-
-        mockMvc.perform(post("/api/world/FISHING/quests/start")
-                        .header("Authorization", bearer(token))
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"questType\":\"PATROL_COAST\"}"))
-                .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.error").isNotEmpty());
-    }
-
-    // ── Training + Kingdom quest (cross-system) ───────────────────────────────
-
-    @Test
-    @DisplayName("Cannot start Kingdom quest while Training at Fortaleza")
-    void cannotStartKingdomQuest_whileTraining() throws Exception {
-        mockMvc.perform(post("/api/world/COMBAT/training/start")
-                .header("Authorization", bearer(token))
-                .contentType(MediaType.APPLICATION_JSON)
-                .content("{\"hours\":1}"));
-
-        mockMvc.perform(post("/api/world/FISHING/quests/start")
-                        .header("Authorization", bearer(token))
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"questType\":\"PATROL_COAST\"}"))
-                .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.error").isNotEmpty());
-    }
-
-    // ── Gathering + Kingdom quest (cross-system) ──────────────────────────────
-
-    @Test
-    @DisplayName("Cannot start Kingdom quest while gathering (zone)")
-    void cannotStartKingdomQuest_whileGathering() throws Exception {
-        // [UNIFICAÇÃO_ZONA] coleta agora é uma expedição de zona (role GATHERING),
-        // que ocupa o guerreiro (onMission) até ser coletada.
-        mockMvc.perform(post("/api/zones/enter")
-                .header("Authorization", bearer(token))
-                .contentType(MediaType.APPLICATION_JSON)
-                .content("{\"zone\":\"SAFE\",\"role\":\"GATHERING\",\"skillType\":\"FISHING\",\"durationMinutes\":20}"))
                 .andExpect(status().isOk());
-
-        mockMvc.perform(post("/api/world/FISHING/quests/start")
-                        .header("Authorization", bearer(token))
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"questType\":\"PATROL_COAST\"}"))
-                .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.error").isNotEmpty());
     }
 
     // ── After work collect → free for quest ───────────────────────────────────

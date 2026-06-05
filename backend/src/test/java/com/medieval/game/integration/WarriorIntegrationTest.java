@@ -68,14 +68,8 @@ class WarriorIntegrationTest extends BaseIntegrationTest {
                 .andExpect(status().is(403));
     }
 
-    // ── TC-058: POST /api/warrior/free → resposta ok (guerreiro já está livre) ──
-    @Test
-    @DisplayName("TC-058 | POST /api/warrior/free quando livre → 200")
-    void tc058_freeWarrior_alreadyFree_returnsOk() throws Exception {
-        mockMvc.perform(post("/api/warrior/free")
-                        .header("Authorization", bearer(token)))
-                .andExpect(status().isOk());
-    }
+    // [SEM_TIMER] TC-058 removido: o endpoint /api/warrior/free (destravar 'busy') foi aposentado
+    // junto com o conceito de onMission — tudo é instantâneo, não há guerreiro pra destravar.
 
     // ── TC-229: distribuir ponto em INTELLECT → intellect sobe ──
     @Test

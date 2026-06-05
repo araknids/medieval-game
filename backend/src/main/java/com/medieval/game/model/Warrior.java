@@ -121,7 +121,8 @@ public class Warrior {
         clearMealBuff(); // refeição também some na derrota/KO. [COZINHA]
     }
 
-    private boolean onMission = false;
+    // [SEM_TIMER] o antigo flag onMission ("busy") foi removido — tudo é instantâneo, então não há
+    // bloqueio cruzado de atividade. Cada atividade tem seu próprio check de sessão ativa.
 
     public void levelUp() {
         level++;

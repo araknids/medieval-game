@@ -32,15 +32,6 @@ public class WarriorController {
         return ResponseEntity.ok(buildResponse(warrior, player));
     }
 
-    /** Libera o guerreiro travado sem sessão ativa */
-    @PostMapping("/free")
-    public ResponseEntity<?> freeWarrior(Authentication auth) {
-        Player player = playerService.findById((Long) auth.getPrincipal());
-        boolean freed = warriorService.freeIfStuck(player);
-        if (!freed) return ResponseEntity.ok(Map.of("message", "Warrior was already free."));
-        return ResponseEntity.ok(buildResponse(warriorService.getWarrior(player), player));
-    }
-
     @GetMapping("/attributes")
     public ResponseEntity<?> getAttributes() {
         var list = Arrays.stream(Attribute.values()).map(a -> Map.of(
@@ -154,7 +145,6 @@ public class WarriorController {
                 player.getRankPoints(),
                 hpPercent, warrior.isKnockedOut(),
                 buffName, buffSecsLeft,
-                warrior.isOnMission(),
                 player.getSoulStones(),
                 isVip, vipExpiresAt,
                 arenaFightsToday, arenaFightLimit, instantQuestsToday,
@@ -183,7 +173,6 @@ public class WarriorController {
                            int rankPoints,
                            int hpPercent, boolean isKnockedOut,
                            String activeBuff, long buffSecondsLeft,
-                           boolean onMission,
                            int soulStones,
                            boolean isVip, String vipExpiresAt,
                            int arenaFightsToday, int arenaFightLimit, int instantQuestsToday,

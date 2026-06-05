@@ -19,6 +19,22 @@ ser o gate; a **estamina** é. Sem espera, sem "coletar depois".
 ## Coleta unificada no sistema de zona (2026-06-05)
 Toda coleta (Pesca/Mineração/Mar Abençoado/Grutas) agora passa pelo `/api/zones/enter` GATHERING — **ganhou PvP** nas zonas amarela/vermelha de cada reino, mantendo os **drops específicos do reino**. `ZoneActivity.kingdom` (novo, + migração) leva o reino até `resolveGathering` → `gatheringService.collectGatheringDropsOnly(..., kingdom)` (Mar Abençoado = peixe de vida). As 3 zonas viram tiers: Safe→SAFE, Wild→PVP, Deep→HIGH_RISK. 🟢 SAFE roda só NPC (PvE 20%, sem perda de XP); 🟡🔴 rodam PvP+NPC + flag/lock/raid. Estamina role-aware: coleta `~d/2` (10⚡ por ação de 20min), combate `~d/8`. Duração mínima da zona baixada 30→5 (coleta usa chunk curto). Narrativa de coleta no modal de resultado. Front: botões de zona de coleta → `enterKingdomZone(tier, skill, d, kingdom)`. O `/api/gathering` segue só pro consumo de peixe + recursos. TC-223 cobre drops por reino. 468 verdes.
 
+## Remoção do "busy"/onMission (2026-06-05)
+Com tudo instantâneo, o flag `Warrior.onMission` ("busy") virou inútil — só causava bug de guerreiro
+"preso". **Removido por completo:** o campo `onMission` (drop da coluna `warriors.on_mission` via
+SchemaMigrator), todos os `setOnMission`/`isOnMission`, o método `WarriorService.freeIfStuck`, o
+endpoint `POST /api/warrior/free`, o campo `onMission` do `/api/warrior`, e no front o badge ⚔Busy +
+botão 🔓 Liberar + os labels "Warrior busy".
+
+**Não há mais bloqueio CRUZADO entre atividades** (dá pra ter uma quest ativa E trabalhar). O que
+**permanece** é o guard PRÓPRIO de cada atividade (sessão única por tipo): work/torre/treino já
+tinham `findByPlayerAndStatus(IN_PROGRESS)`; a **quest ganhou** `existsByPlayerAndStatus(IN_PROGRESS)`
+(uma quest por vez — também fecha um bypass do daily-lock: sem isso dava pra startar a mesma quest 2x
+antes de coletar). Zona **auto-cancela** expedição pendurada ao re-entrar. Arena/raid são 100%
+instantâneos (sem sessão), então perderam o guard sem efeito colateral. KO/HP seguem como guard
+separado (inalterado). Testes de "bloqueio cruzado" (WarriorExclusivityTest, TC-058/070/094/096)
+viraram testes do guard-próprio ou foram removidos. 455 verdes.
+
 ## Limpeza de endpoints legados (2026-06-05)
 Com a coleta unificada na zona e Arena/quests já instantâneas, removi os fluxos legados/duplicados que ficaram órfãos na UI:
 - **Quest legado**: `/api/quests`, `QuestService`/`QuestController`, `ActiveQuest(Repository)`, `enums/QuestType`. As missões vivas são as do reino (`/api/world/{kingdom}/quests`).

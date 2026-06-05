@@ -126,9 +126,10 @@ Cada conta tem um único guerreiro da classe **WARRIOR**.
 - Compra permanente com SoulStones (ver seção VIP)
 - Ou via evento de reset global do servidor quando há mudanças de sistema
 
-**Estados do guerreiro:**
-- **Livre**: pode iniciar qualquer atividade
-- **Em missão** (`onMission = true`): bloqueado até o timer acabar
+**Estados do guerreiro:** (⚠️ atualizado 2026-06-05 — sem-timer)
+- **Livre**: pode iniciar qualquer atividade. Como tudo é instantâneo, o guerreiro está
+  essencialmente sempre livre; o antigo estado "Em missão"/`onMission` foi **removido** (não há mais
+  bloqueio cruzado entre atividades — cada atividade tem seu próprio limite de sessão única).
 - **Inconsciente** (`HP = 0`): não pode entrar em combate; precisa curar no Templo
 
 ### 3.2 Stamina
@@ -1204,7 +1205,7 @@ Tela dedicada dentro do Commerce com:
 | Termo | Definição |
 |-------|-----------|
 | **Idle** | Estilo de jogo onde o progresso continua sem o jogador ativo |
-| **onMission** | Flag que bloqueia o guerreiro de iniciar novas atividades |
+| **onMission** | ~~Flag que bloqueava o guerreiro~~ — **removido (2026-06-05)**: tudo instantâneo, sem bloqueio cruzado |
 | **Stamina** | Recurso consumível que limita quantas atividades o guerreiro faz por sessão |
 | **Socket** | Slot em um item para encaixar uma joia e ganhar bônus |
 | **Lore** | Texto de história/flavor de um item gerado automaticamente |

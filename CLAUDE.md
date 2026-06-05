@@ -53,7 +53,7 @@ backend/
 Três moedas separadas no banco: `bronze`, `silver`, `gold`. 100 bronze = 1 prata, 100 prata = 1 ouro. Nunca use `player.setGold()` diretamente — use `player.addBronzeAmount(n)` ou `playerService.spendBronze(player, n)`.
 
 ### Sem Timer (estamina é o gate) — [SEM_TIMER]
-O jogo é **instantâneo**: missão/coleta/trabalho/zona/treino/arena resolvem na hora (sem `finishesAt` futuro; `=agora`). O custo é **estamina** (não tempo). `isReadyToCollect()` usa `>=` (`!isBefore`) p/ evitar corrida de mesmo-instante. Vários docs/PLANO_SEM_TIMER_PVP.md descrevem o modelo.
+O jogo é **instantâneo**: missão/coleta/trabalho/zona/treino/arena resolvem na hora (sem `finishesAt` futuro; `=agora-1s` p/ evitar corrida de sub-segundo no collect). O custo é **estamina** (não tempo). `isReadyToCollect()` usa `>=` (`!isBefore`). **Sem `onMission`/"busy"** (removido 2026-06-05): não há bloqueio cruzado entre atividades — cada uma tem só seu guard de sessão única (work/torre/treino: `findByPlayerAndStatus(IN_PROGRESS)`; quest: `existsByPlayerAndStatus(IN_PROGRESS)`; zona auto-cancela pendurada). KO/HP é guard à parte. Não existe `/api/warrior/free`. Vários docs/PLANO_SEM_TIMER_PVP.md descrevem o modelo.
 
 ### Instant-Complete (flag de teste)
 `app.dev.instant-complete=true` agora controla só o **bypass de estamina** (teste) — NÃO há mais timers p/ zerar. Em prod o flag pode estar ligado de propósito (teste solo). Em dev/teste o default é `true`.

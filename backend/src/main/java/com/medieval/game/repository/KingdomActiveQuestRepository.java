@@ -27,4 +27,7 @@ public interface KingdomActiveQuestRepository extends JpaRepository<KingdomActiv
     // [DAILY_QUESTS] Player já completou esta quest na janela de 12h dada? (lock da daily)
     boolean existsByPlayerAndQuestTypeAndStatusAndCompletedWindowId(
             Player player, KingdomQuestType questType, QuestStatus status, long completedWindowId);
+
+    // [SEM_TIMER] Player tem alguma quest IN_PROGRESS? (substitui o antigo guard onMission p/ quest)
+    boolean existsByPlayerAndStatus(Player player, QuestStatus status);
 }

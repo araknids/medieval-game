@@ -34,6 +34,7 @@ public class SchemaMigrator {
         patchTerritoryLastResolvedCycleColumn();
         patchStashColumns();
         patchKingdomQuestWindowColumn();
+        dropWarriorOnMissionColumn();
         dropStaleEnumCheckConstraints();
         purgeStaleEnumRows();
     }
@@ -146,6 +147,18 @@ public class SchemaMigrator {
             log.info("[SchemaMigrator] territory_controls last_resolved_cycle_id column ensured");
         } catch (Exception e) {
             log.warn("[SchemaMigrator] territory_controls last_resolved_cycle_id patch failed: {}", e.getMessage());
+        }
+    }
+
+    // warriors: dropa a coluna on_mission (conceito "busy" aposentado — tudo é instantâneo). [SEM_TIMER]
+    // Precisa dropar: o entity não mapeia mais a coluna, e ela é NOT NULL sem default → INSERT de
+    // guerreiro novo quebraria. IF EXISTS = idempotente.
+    private void dropWarriorOnMissionColumn() {
+        try {
+            jdbc.execute("ALTER TABLE warriors DROP COLUMN IF EXISTS on_mission");
+            log.info("[SchemaMigrator] warriors.on_mission column dropped");
+        } catch (Exception e) {
+            log.warn("[SchemaMigrator] warriors.on_mission drop failed: {}", e.getMessage());
         }
     }
 

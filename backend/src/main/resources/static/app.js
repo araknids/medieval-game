@@ -268,7 +268,6 @@ async function loadWarrior() {
   document.getElementById('hdr-rank').textContent = (warrior.rankPoints ?? '–') + ' pts';
 
   const xpPct = Math.floor((warrior.experience / warrior.expNeeded) * 100);
-  const busy  = warrior.onMission;
   const stamina    = warrior.stamina ?? 100;
   const minsToFull = warrior.minutesToFullStamina ?? 0;
   const staminaInfo = stamina < 100 ? ` <span class="stamina-regen">(+100 em ${minsToFull}min)</span>` : '';
@@ -355,9 +354,7 @@ async function loadWarrior() {
     <div style="margin-top:.4rem">
       ${warrior.isKnockedOut
         ? `<span class="status-badge status-busy">💀 ${t('status.knocked_out')}</span>`
-        : `<span class="status-badge ${busy ? 'status-busy' : 'status-available'}">
-             ${busy ? `⚔ ${t('status.busy')}` : `✓ ${t('status.available')}`}
-           </span>`}
+        : `<span class="status-badge status-available">✓ ${t('status.available')}</span>`}
     </div>
     <div class="xp-bar-bg" style="margin-top:.3rem">
       <div class="xp-bar-fill" style="width:${warrior.hpPercent ?? 100}%;background:${hpColor}"></div>
@@ -376,10 +373,7 @@ async function loadWarrior() {
     </div>` : ''}
     ${(warrior.soulStones ?? 0) > 0 ? `<div style="font-size:.72rem;color:#a78bfa;margin-top:.2rem;font-weight:600">
       💎 ${warrior.soulStones} SoulStone${warrior.soulStones !== 1 ? 's' : ''}
-    </div>` : ''}
-    ${busy ? `<button class="btn-cancel-work" onclick="freeWarrior()" style="margin-top:.4rem;font-size:.72rem">
-      🔓 ${t('status.free_btn')}
-    </button>` : ''}`;
+    </div>` : ''}`;
 }
 
 // ── Navegação de locais ──
@@ -1356,14 +1350,6 @@ async function reforgeItem(itemId) {
   renderSmithing();
 }
 
-async function freeWarrior() {
-  if (!confirm(t('warrior.free_confirm'))) return;
-  const data = await api('POST', '/api/warrior/free');
-  if (data.error) { showMessage(data.error, true); return; }
-  showMessage(data.message || t('warrior.freed'));
-  await loadWarrior();
-}
-
 async function socketGem(itemId, gemType) {
   const data = await api('POST', `/api/smithing/socket/${itemId}/${gemType}`);
   if (data.error) { showMessage(data.error, true); return; }
@@ -1401,8 +1387,7 @@ async function showWorkJobList() {
     <div class="work-jobs-grid">
       ${jobs.map(job => {
         const locked    = !job.meetsLevelReq;  // locked = warrior level too low
-        const busy      = warrior?.onMission && !locked;
-        const disabled  = locked || busy;
+        const disabled  = locked;              // [SEM_TIMER] sem 'busy' cruzado — só trava por nível
         const xpPct     = Math.floor((job.profXp / job.profXpNeeded) * 100);
 
         return `
@@ -1560,7 +1545,6 @@ async function showTowerLobby() {
 
   const ranking = await api('GET', '/api/tower/ranking');
   const stamina = warrior?.stamina ?? 0;
-  const busy    = warrior?.onMission ?? false;
   const noStamina = stamina < 25;
 
   const rankHtml = ranking.length === 0
@@ -1588,9 +1572,9 @@ async function showTowerLobby() {
         Fight floor by floor. If you lose, you are expelled. Go as far as you can!
       </p>
       <button class="btn-fight"
-              ${busy || noStamina ? 'disabled style="opacity:.5;cursor:not-allowed"' : ''}
+              ${noStamina ? 'disabled style="opacity:.5;cursor:not-allowed"' : ''}
               onclick="enterTower()">
-        ${busy ? t('tower.warrior_busy') : noStamina ? t('tower.no_stamina') : t('tower.enter_btn')}
+        ${noStamina ? t('tower.no_stamina') : t('tower.enter_btn')}
       </button>
     </div>
     <h3 style="color:#c9a84c;margin:1rem 0 .5rem;font-size:.85rem;text-transform:uppercase;letter-spacing:.05em">
@@ -2462,8 +2446,9 @@ function renderKingdomDetail(kingdom, quests, activeQuests, training, zoneSessio
   const el = document.getElementById('kingdom-detail');
   const NAMES = { FISHING:'Bone Gorge', MINING:'Black Iron Mines', COMBAT:'Cursed Fortress', GRUTAS_DE_CRISTAL:'Crystal Grottoes', MAR_ABENCOADO:'Blessed Sea' };
   const ICONS = { FISHING:'🎣', MINING:'⛏', COMBAT:'⚔', GRUTAS_DE_CRISTAL:'🔎', MAR_ABENCOADO:'🐟' };
-  const busy = activeQuests.length > 0
-    || !!(warrior && warrior.onMission)
+  // [SEM_TIMER] "tem tarefa ativa pra coletar" neste reino (não é mais o flag global 'busy').
+  // Bloqueia começar outra quest/treino/coleta até coletar a pendente (espelha os checks do backend).
+  const hasActiveTask = activeQuests.length > 0
     || !!(zoneSession && zoneSession.active)
     || !!(training && training.active && !training.readyToCollect);
 
@@ -2500,8 +2485,8 @@ function renderKingdomDetail(kingdom, quests, activeQuests, training, zoneSessio
         <div style="background:#1a1a2e;border:1px solid #333;border-radius:8px;padding:12px;margin-bottom:12px">
           <strong style="color:#7986cb">🏋 Training Hall</strong>
           <p style="font-size:12px;color:#888;margin:4px 0 8px">Pague bronze por XP puro. Custo: ${fmtBronze(lvl*20)} · Recompensa: ${lvl*50} XP</p>
-          ${busy
-            ? `<p style="font-size:12px;color:#f44336;margin:0">⚔ Warrior is busy</p>`
+          ${hasActiveTask
+            ? `<p style="font-size:12px;color:#f44336;margin:0">⏳ Colete sua tarefa ativa primeiro</p>`
             : `<div style="display:flex;gap:6px;flex-wrap:wrap">
             ${(() => { const h = 2; return `<button onclick="startTraining(${h})" style="font-size:12px;padding:4px 14px">🏋 Treinar · ${fmtBronze(lvl*10*h)}</button>`; })()}
           </div>`}
@@ -2546,8 +2531,8 @@ function renderKingdomDetail(kingdom, quests, activeQuests, training, zoneSessio
             <p style="font-size:11px;color:#888;margin:3px 0 6px">${z.desc}</p>
             ${locked
               ? `<p style="font-size:11px;color:#555;margin:0">Reach level ${z.minLv} to unlock.</p>`
-              : busy
-              ? '<p style="font-size:11px;color:#f44336;margin:0">⚔ Warrior is busy</p>'
+              : hasActiveTask
+              ? '<p style="font-size:11px;color:#f44336;margin:0">⏳ Colete sua tarefa ativa primeiro</p>'
               : `<div style="display:flex;gap:5px;flex-wrap:wrap">
                 ${(() => {
                   const d = 120; const stamCost = Math.min(100, Math.max(5, Math.round(d/8))); // ação fixa instantânea
@@ -2601,8 +2586,8 @@ function renderKingdomDetail(kingdom, quests, activeQuests, training, zoneSessio
           <p style="font-size:11px;color:#888;margin:3px 0 6px">${z.desc}</p>
           ${locked
             ? '<p style="font-size:11px;color:#555;margin:0">Reach level '+z.minLv+' to unlock.</p>'
-            : busy
-              ? '<p style="font-size:11px;color:#f44336;margin:0">⚔ Warrior is busy</p>'
+            : hasActiveTask
+              ? '<p style="font-size:11px;color:#f44336;margin:0">⏳ Colete sua tarefa ativa primeiro</p>'
               : `<div style="display:flex;gap:5px;flex-wrap:wrap">
               ${(() => {
                 const d = 20; // ação instantânea de tamanho fixo (10⚡ via d/2)
@@ -2621,9 +2606,9 @@ function renderKingdomDetail(kingdom, quests, activeQuests, training, zoneSessio
 
   const questCards = quests.map(q => {
     const done = !!q.doneToday;                              // [DAILY_QUESTS] já feita nesta janela de 12h
-    const disabled = busy || !q.canStart;
-    const canInstant = warrior && warrior.isVip && !busy && q.canStart && vipInstantLeft > 0;
-    const instantBtn = (warrior && warrior.isVip && !busy && !done)
+    const disabled = hasActiveTask || !q.canStart;
+    const canInstant = warrior && warrior.isVip && !hasActiveTask && q.canStart && vipInstantLeft > 0;
+    const instantBtn = (warrior && warrior.isVip && !hasActiveTask && !done)
       ? `<button onclick="instantStartQuest('${kingdom}','${q.id}')"
            style="margin-top:8px;font-size:12px;background:#7c3aed;margin-left:6px"
            ${!canInstant ? 'disabled style="opacity:.5;margin-left:6px"' : ''}>
@@ -2637,7 +2622,7 @@ function renderKingdomDetail(kingdom, quests, activeQuests, training, zoneSessio
       : `<button onclick="startKingdomQuest('${kingdom}','${q.id}')"
             ${disabled ? 'disabled style="opacity:.5"' : ''}
             style="font-size:12px">
-            ${busy ? 'Warrior busy' : !q.canStart ? 'Low stamina' : 'Start Quest'}
+            ${hasActiveTask ? 'Finish your task' : !q.canStart ? 'Low stamina' : 'Start Quest'}
           </button>
           ${instantBtn}`;
     return `
@@ -2664,8 +2649,8 @@ function renderKingdomDetail(kingdom, quests, activeQuests, training, zoneSessio
       <div style="background:#2a1010;border:1px solid #7a1f1f;border-radius:8px;padding:12px;margin-bottom:12px">
         <strong style="color:#ef5350">👹 Hunt Beasts</strong>
         <p style="font-size:12px;color:#aaa;margin:4px 0 8px">Mobs scale with your level (Lv.${lvl}). A win pays ~${fmtBronze(lvl*10)}, ${lvl*12} XP and materials (Monster Core). Costs 15⚡.</p>
-        ${busy
-          ? '<p style="font-size:11px;color:#f44336;margin:0">⚔ Warrior busy or wounded</p>'
+        ${warrior && warrior.isKnockedOut
+          ? '<p style="font-size:11px;color:#f44336;margin:0">⚔ Guerreiro ferido — cure no Templo</p>'
           : `<button onclick="raidCombat()" style="background:#7a1f1f">⚔ Hunt</button>`}
       </div>`;
   }

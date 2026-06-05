@@ -113,7 +113,6 @@ public class MaintenanceService {
                 w.setAvailablePoints(0);
                 w.setCurrentHpSnapshot(100);
                 w.setHpUpdatedAt(LocalDateTime.now());
-                w.setOnMission(false);
                 w.clearBuff();
                 warriorRepository.save(w);
             });

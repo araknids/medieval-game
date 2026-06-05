@@ -3,9 +3,6 @@ package com.medieval.game.integration;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
-import org.springframework.http.MediaType;
-
-import java.util.Map;
 
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
@@ -47,15 +44,14 @@ class TowerIntegrationTest extends BaseIntegrationTest {
                 .andExpect(jsonPath("$.currentFloor").isNumber());
     }
 
-    // ── TC-070: POST /api/tower/enter com guerreiro em missao → 400 ──
+    // ── TC-070: POST /api/tower/enter com run já ativa → 400 ──
+    // [SEM_TIMER] sem 'busy' cruzado; o guard que sobra é o próprio da torre (uma run por vez).
     @Test
-    @DisplayName("TC-070 | POST /api/tower/enter com guerreiro em missao → 400")
-    void tc070_enterTower_whenOnQuest_returns400() throws Exception {
-        // ocupa o guerreiro com trabalho (onMission=true)
-        mockMvc.perform(post("/api/work/start")
-                .header("Authorization", bearer(token))
-                .contentType(MediaType.APPLICATION_JSON)
-                .content(json(Map.of("workType", "TAVERN_HELPER", "hours", 1))));
+    @DisplayName("TC-070 | POST /api/tower/enter com run já ativa → 400")
+    void tc070_enterTower_whenAlreadyInRun_returns400() throws Exception {
+        mockMvc.perform(post("/api/tower/enter")
+                        .header("Authorization", bearer(token)))
+                .andExpect(status().isOk());
 
         mockMvc.perform(post("/api/tower/enter")
                         .header("Authorization", bearer(token)))

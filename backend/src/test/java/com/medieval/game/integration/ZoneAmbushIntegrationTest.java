@@ -211,7 +211,6 @@ class ZoneAmbushIntegrationTest extends BaseIntegrationTest {
             try {
                 Player atk = playerRepository.findById(attacker.getId()).orElseThrow();
                 Warrior w = warriorRepository.findByPlayer(atk).orElseThrow();
-                w.setOnMission(false);
                 w.setCurrentHpSnapshot(100);
                 w.setHpUpdatedAt(java.time.LocalDateTime.now());
                 warriorRepository.save(w);
@@ -354,7 +353,7 @@ class ZoneAmbushIntegrationTest extends BaseIntegrationTest {
             try {
                 Player atk = playerRepository.findById(attacker.getId()).orElseThrow();
                 Warrior w = warriorRepository.findByPlayer(atk).orElseThrow();
-                w.setOnMission(false); w.setCurrentHpSnapshot(100); w.setHpUpdatedAt(java.time.LocalDateTime.now());
+                w.setCurrentHpSnapshot(100); w.setHpUpdatedAt(java.time.LocalDateTime.now());
                 warriorRepository.save(w);
                 var act = zoneService.enter(atk, Zone.HIGH_RISK,
                         com.medieval.game.enums.ActivityRole.GATHERING,

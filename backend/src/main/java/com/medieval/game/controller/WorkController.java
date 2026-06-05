@@ -36,7 +36,6 @@ public class WorkController {
     public ResponseEntity<List<?>> getJobs(Authentication auth) {
         Player  player  = getPlayer(auth);
         var     warrior = warriorRepository.findByPlayer(player).orElse(null);
-        boolean busy    = warrior != null && warrior.isOnMission();
         int warriorLevel = warrior != null ? warrior.getLevel() : 1; // nível do personagem
 
         var jobs = Arrays.stream(WorkType.values()).map(wt -> {
@@ -48,7 +47,7 @@ public class WorkController {
             int    bonusPct     = (int) Math.round((bonus - 1.0) * 100);
             // Unlock based on warrior level, not profession level
             boolean meetsLevelReq = warriorLevel >= wt.minWorkLevel;
-            boolean available     = meetsLevelReq && !busy;
+            boolean available     = meetsLevelReq;
 
             return Map.ofEntries(
                 Map.entry("id",                   wt.name()),

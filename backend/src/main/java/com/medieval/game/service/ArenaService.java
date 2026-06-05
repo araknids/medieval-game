@@ -58,10 +58,6 @@ public class ArenaService {
         Warrior cWarrior = warriorRepository.findByPlayer(challenger)
                 .orElseThrow(() -> new IllegalStateException("Warrior not found"));
 
-        if (cWarrior.isOnMission()) {
-            log.warn("[ArenaService] player={} REJECTED: warrior is on a mission", challenger.getId());
-            throw new IllegalStateException("Your warrior is on a mission");
-        }
         if (cWarrior.isKnockedOut()) {
             log.warn("[ArenaService] player={} REJECTED: warrior is unconscious", challenger.getId());
             throw new IllegalStateException("Your warrior is unconscious. Visit the Temple to heal!");
@@ -115,10 +111,9 @@ public class ArenaService {
             playerRepository.save(opponent);
         }
 
-        // HP: derrota = KO (0%) + perde buff; vitória = leve desgaste. Sem onMission (duelo instantâneo).
+        // HP: derrota = KO (0%) + perde buff; vitória = leve desgaste. Duelo instantâneo.
         if (challengerWon) cWarrior.applyDamagePercent(10);
         else { cWarrior.applyDamagePercent(100); cWarrior.clearBuff(); }
-        cWarrior.setOnMission(false);
         warriorRepository.save(cWarrior);
 
         ArenaMatch match = new ArenaMatch();

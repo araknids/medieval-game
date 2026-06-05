@@ -15,12 +15,6 @@ import org.springframework.transaction.annotation.Transactional;
 public class WarriorService {
 
     private final WarriorRepository              warriorRepository;
-    private final WorkSessionRepository          workRepository;
-    private final ArenaMatchRepository           arenaRepository;
-    private final TowerRunRepository             towerRepository;
-    private final TrainingSessionRepository      trainingRepository;
-    private final KingdomActiveQuestRepository   kingdomQuestRepository;
-    private final ZoneActivityRepository         zoneActivityRepository;
 
     @Transactional
     public Warrior create(Player player, String name, WarriorClass warriorClass) {
@@ -79,69 +73,6 @@ public class WarriorService {
         warriorRepository.save(warrior);
         log.info("[WarriorService] warriorId={} action=loseXp OK newLevel={} newXp={}",
                 warrior.getId(), warrior.getLevel(), warrior.getExperience());
-    }
-
-    /** Libera o guerreiro e cancela todas as sessões ativas (emergência de suporte) */
-    @Transactional
-    public boolean freeIfStuck(Player player) {
-        log.info("[WarriorService] player={} action=freeIfStuck", player.getId());
-        Warrior warrior = getWarrior(player);
-        if (!warrior.isOnMission()) return false;
-
-        // Cancela sessão de trabalho
-        workRepository.findByPlayerAndStatus(player, WorkStatus.IN_PROGRESS)
-                .ifPresent(w -> {
-                    w.setStatus(WorkStatus.CANCELLED);
-                    workRepository.save(w);
-                    log.info("[WarriorService] player={} action=freeIfStuck cancelled workSession id={}", player.getId(), w.getId());
-                });
-
-        // Cancela batalha na arena
-        arenaRepository.findByChallengerAndStatus(player, MatchStatus.FIGHTING)
-                .ifPresent(a -> {
-                    a.setStatus(MatchStatus.COLLECTED);
-                    arenaRepository.save(a);
-                    log.info("[WarriorService] player={} action=freeIfStuck cancelled arenaMatch id={}", player.getId(), a.getId());
-                });
-
-        // Cancel tower run
-        towerRepository.findByPlayerAndStatus(player, TowerStatus.IN_PROGRESS)
-                .ifPresent(t -> {
-                    t.setStatus(TowerStatus.EXITED);
-                    towerRepository.save(t);
-                    log.info("[WarriorService] player={} action=freeIfStuck cancelled towerRun id={}", player.getId(), t.getId());
-                });
-
-        // Cancel orphaned zone activity (expedition/zone session)
-        zoneActivityRepository.findByPlayerAndStatus(player, com.medieval.game.enums.ZoneActivityStatus.IN_PROGRESS)
-                .ifPresent(z -> {
-                    z.setStatus(com.medieval.game.enums.ZoneActivityStatus.CANCELLED);
-                    zoneActivityRepository.save(z);
-                    log.info("[WarriorService] player={} action=freeIfStuck cancelled zoneActivity id={}", player.getId(), z.getId());
-                });
-
-        // Cancel active training session (Combat Kingdom)
-        trainingRepository.findByPlayerAndStatus(player, com.medieval.game.enums.TrainingStatus.IN_PROGRESS)
-                .ifPresent(t -> {
-                    t.setStatus(com.medieval.game.enums.TrainingStatus.CANCELLED);
-                    trainingRepository.save(t);
-                    log.info("[WarriorService] player={} action=freeIfStuck cancelled trainingSession id={}", player.getId(), t.getId());
-                });
-
-        // Cancel active kingdom quests
-        kingdomQuestRepository.findByPlayerAndStatusNotOrderByStartedAtDesc(player, QuestStatus.COLLECTED)
-                .forEach(q -> {
-                    if (q.getStatus() == QuestStatus.IN_PROGRESS) {
-                        q.setStatus(QuestStatus.ABANDONED);
-                        kingdomQuestRepository.save(q);
-                        log.info("[WarriorService] player={} action=freeIfStuck cancelled kingdomQuest id={}", player.getId(), q.getId());
-                    }
-                });
-
-        warrior.setOnMission(false);
-        warriorRepository.save(warrior);
-        log.info("[WarriorService] player={} action=freeIfStuck OK warrior released", player.getId());
-        return true;
     }
 
     @Transactional

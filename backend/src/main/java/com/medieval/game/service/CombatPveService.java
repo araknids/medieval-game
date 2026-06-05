@@ -55,9 +55,6 @@ public class CombatPveService {
         log.info("[CombatPveService] player={} action=raid", player.getId());
         Warrior w = warriorRepository.findByPlayer(player)
                 .orElseThrow(() -> new IllegalStateException("Warrior not found"));
-        if (w.isOnMission()) {
-            throw new IllegalStateException("Your warrior is busy.");
-        }
         if (w.isKnockedOut()) {
             throw new IllegalStateException("Your warrior is unconscious. Heal at the Temple!");
         }

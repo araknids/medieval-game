@@ -92,10 +92,6 @@ public class TowerService {
         Warrior warrior = warriorRepository.findByPlayer(player)
                 .orElseThrow(() -> new IllegalStateException("Warrior not found"));
 
-        if (warrior.isOnMission()) {
-            log.warn("[TowerService] player={} REJECTED: warrior is already busy", player.getId());
-            throw new IllegalStateException("Your warrior is already busy");
-        }
         if (warrior.isKnockedOut()) {
             log.warn("[TowerService] player={} REJECTED: warrior is unconscious", player.getId());
             throw new IllegalStateException("Your warrior is unconscious. Visit the Temple to heal!");
@@ -113,9 +109,6 @@ public class TowerService {
             player.setStaminaUpdatedAt(java.time.LocalDateTime.now());
             playerRepository.save(player);
         }
-
-        warrior.setOnMission(true);
-        warriorRepository.save(warrior);
 
         // Começa do andar seguinte ao melhor já completado (checkpoint)
         int startFloor = player.getTowerBestFloor() > 0
@@ -198,7 +191,6 @@ public class TowerService {
         } else {
             // Derrotado — sai da torre, HP = 0, perde buff
             run.setStatus(TowerStatus.DEFEATED);
-            warrior.setOnMission(false);
             warrior.applyDamagePercent(100);
             warrior.clearBuff();
             warriorRepository.save(warrior);
@@ -217,11 +209,6 @@ public class TowerService {
 
         run.setStatus(TowerStatus.EXITED);
         towerRunRepository.save(run);
-
-        warriorRepository.findByPlayer(player).ifPresent(w -> {
-            w.setOnMission(false);
-            warriorRepository.save(w);
-        });
     }
 
 }

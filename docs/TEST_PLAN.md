@@ -1363,6 +1363,7 @@ POST /api/warrior/attributes/STRENGTH
 ---
 
 ### TC-058 — POST /api/warrior/free libera guerreiro travado
+> ⚠️ **REMOVIDO (2026-06-05)** — endpoint `/api/warrior/free` + conceito `onMission`/"travado" aposentados (tudo instantâneo). Ver PLANO_SEM_TIMER_PVP.md.
 
 **Tipo:** Integração
 **UC Relacionado:** UC-08
@@ -3030,8 +3031,8 @@ Start quest FISHING → start quest MINING → 400
 ## Regression Tests — Zone Orphan State (TC-096, TC-097)
 **Class:** `ZoneIntegrationTest` — added after production bug
 
-### TC-096: freeIfStuck clears IN_PROGRESS zone → re-enter works
-Enter zone → /api/warrior/free → enter zone again → 200 (not "already on expedition")
+### TC-096: zona auto-cancela expedição pendurada ao re-entrar
+> ⚠️ **Atualizado 2026-06-05** — sem `/api/warrior/free` (removido). Agora: Enter zone → enter zone de novo → 200 (auto-cancela a pendurada). O guard de "busy" cruzado saiu junto com o `onMission`.
 
 ### TC-097: Zone enter auto-cancels orphaned expedition when warrior is free
 Enter zone → free warrior → enter different zone → ZoneService detects inconsistency

@@ -49,7 +49,6 @@ class KingdomQuestCombatTest extends BaseIntegrationTest {
         p.setStaminaUpdatedAt(LocalDateTime.now());
         playerRepository.save(p);
         warriorRepository.findByPlayer(p).ifPresent(w -> {
-            w.setOnMission(false);
             w.setCurrentHpSnapshot(100);
             w.setHpUpdatedAt(LocalDateTime.now());
             warriorRepository.save(w);

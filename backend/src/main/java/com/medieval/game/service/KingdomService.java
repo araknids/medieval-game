@@ -136,9 +136,11 @@ public class KingdomService {
         Warrior warrior = warriorRepo.findByPlayer(player)
                 .orElseThrow(() -> new IllegalStateException("Warrior not found."));
 
-        if (warrior.isOnMission()) {
-            log.warn("[KingdomService] player={} REJECTED: warrior is already busy", player.getId());
-            throw new IllegalStateException("Your warrior is already busy.");
+        // [SEM_TIMER] uma quest ativa por vez (substitui o antigo guard onMission e fecha o bypass
+        // do daily-lock: sem isto dava pra startar a mesma quest 2x antes de coletar). [DAILY_QUESTS]
+        if (questRepo.existsByPlayerAndStatus(player, QuestStatus.IN_PROGRESS)) {
+            log.warn("[KingdomService] player={} REJECTED: já tem quest em progresso", player.getId());
+            throw new IllegalStateException("You already have a quest in progress. Collect it first.");
         }
 
         // [DAILY_QUESTS] daily 1x por janela de 12h — cobre normal E VIP instant (que chama este start)
@@ -148,9 +150,6 @@ public class KingdomService {
         }
 
         if (!instantComplete) playerService.consumeStamina(player, questType.staminaCost); // estamina ignorada no modo de teste [TESTE]
-
-        warrior.setOnMission(true);
-        warriorRepo.save(warrior);
 
         KingdomActiveQuest quest = new KingdomActiveQuest();
         quest.setPlayer(player);
@@ -241,8 +240,7 @@ public class KingdomService {
             drop = rollDrop(player, qt.dropChance, guildDrop);
         }
 
-        warrior.setOnMission(false);
-        warriorRepo.save(warrior);
+        warriorRepo.save(warrior); // persiste HP/desgaste do combate da quest
 
         quest.setStatus(QuestStatus.COLLECTED);
         // [DAILY_QUESTS] coletar = consumir a daily (1x por janela de 12h), vencendo OU perdendo.
@@ -271,11 +269,6 @@ public class KingdomService {
             log.warn("[KingdomService] player={} REJECTED: quest {} cannot be abandoned (status={})", player.getId(), questId, quest.getStatus());
             throw new IllegalStateException("Quest cannot be abandoned.");
         }
-
-        warriorRepo.findByPlayer(player).ifPresent(w -> {
-            w.setOnMission(false);
-            warriorRepo.save(w);
-        });
 
         quest.setStatus(QuestStatus.ABANDONED);
         questRepo.save(quest);
@@ -338,18 +331,11 @@ public class KingdomService {
 
         Warrior warrior = warriorRepo.findByPlayer(player)
                 .orElseThrow(() -> new IllegalStateException("Warrior not found."));
-        if (warrior.isOnMission()) {
-            log.warn("[KingdomService] player={} REJECTED: warrior is busy", player.getId());
-            throw new IllegalStateException("Your warrior is busy.");
-        }
 
         long bronzeCost = (long) warrior.getLevel() * TRAINING_BRONZE_PER_HOUR_PER_LEVEL * hours;
         long xpReward   = (long) warrior.getLevel() * TRAINING_XP_PER_HOUR_PER_LEVEL    * hours;
 
         playerService.spendBronze(player, bronzeCost);
-
-        warrior.setOnMission(true);
-        warriorRepo.save(warrior);
 
         TrainingSession session = new TrainingSession();
         session.setPlayer(player);
@@ -387,11 +373,6 @@ public class KingdomService {
                 warriorRepo.findByPlayer(player).orElseThrow(),
                 session.getXpReward());
 
-        warriorRepo.findByPlayer(player).ifPresent(w -> {
-            w.setOnMission(false);
-            warriorRepo.save(w);
-        });
-
         session.setStatus(TrainingStatus.COLLECTED);
         TrainingSession result = trainingRepo.save(session);
         log.info("[KingdomService] player={} action=collectTraining OK xp={}", player.getId(), session.getXpReward());
@@ -418,11 +399,6 @@ public class KingdomService {
 
         session.setStatus(TrainingStatus.CANCELLED);
         trainingRepo.save(session);
-
-        warriorRepo.findByPlayer(player).ifPresent(w -> {
-            w.setOnMission(false);
-            warriorRepo.save(w);
-        });
         log.info("[KingdomService] player={} action=cancelTraining OK sessionId={}", player.getId(), sessionId);
     }
 

@@ -64,11 +64,6 @@ public class WorkService {
         Warrior warrior = warriorRepository.findByPlayer(player)
                 .orElseThrow(() -> new IllegalStateException("Warrior not found"));
 
-        if (warrior.isOnMission()) {
-            log.warn("[WorkService] player={} REJECTED: warrior is already busy", player.getId());
-            throw new IllegalStateException("Your warrior is already busy");
-        }
-
         if (workRepository.findByPlayerAndStatus(player, WorkStatus.IN_PROGRESS).isPresent()) {
             log.warn("[WorkService] player={} REJECTED: already working", player.getId());
             throw new IllegalStateException("You are already working");
@@ -102,9 +97,6 @@ public class WorkService {
             player.setStaminaUpdatedAt(LocalDateTime.now());
             playerRepository.save(player);
         }
-
-        warrior.setOnMission(true);
-        warriorRepository.save(warrior);
 
         WorkSession session = new WorkSession();
         session.setPlayer(player);
@@ -163,11 +155,6 @@ public class WorkService {
         }
         professionRepository.save(profession);
 
-        warriorRepository.findByPlayer(player).ifPresent(w -> {
-            w.setOnMission(false);
-            warriorRepository.save(w);
-        });
-
         session.setStatus(WorkStatus.COLLECTED);
         WorkSession result = workRepository.save(session);
         log.info("[WorkService] player={} action=collectWork OK sessionId={} bronze={}", player.getId(), sessionId, totalBronze);
@@ -215,11 +202,6 @@ public class WorkService {
             session.setGoldReward(0);
             session.setXpReward(0);
         }
-
-        warriorRepository.findByPlayer(player).ifPresent(w -> {
-            w.setOnMission(false);
-            warriorRepository.save(w);
-        });
 
         session.setStatus(WorkStatus.CANCELLED);
         WorkSession cancelled = workRepository.save(session);

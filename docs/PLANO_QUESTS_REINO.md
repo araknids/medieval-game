@@ -91,7 +91,7 @@ No `collectQuest`:
    (`WarriorStatsService.combatStats` + `BattleSimulator.simulateDetailed`, igual à caçada da Fortaleza).
    - **Vitória** → recompensa cheia (bronze + XP + drop) + desgaste de equipamento + HP final salvo.
    - **Derrota** → **0 recompensa**; HP do guerreiro = o que sobrou (pode ficar KO). Equipamento desgasta.
-3. O guerreiro é liberado (`onMission=false`) em qualquer caso.
+3. A quest é coletada (sem `onMission` — removido em 2026-06-05; a quest só usa o guard "uma em progresso por vez").
 
 **Escalonamento do monstro** (vencível por guerreiro equipado, mais duro nas quests altas):
 

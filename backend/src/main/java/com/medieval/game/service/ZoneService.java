@@ -58,26 +58,17 @@ public class ZoneService {
         Warrior warrior = warriorRepository.findByPlayer(player)
                 .orElseThrow(() -> new IllegalStateException("Warrior not found"));
 
-        if (warrior.isOnMission()) {
-            log.warn("[ZoneService] player={} REJECTED: warrior is already busy", player.getId());
-            throw new IllegalStateException("Your warrior is already busy");
-        }
         if (warrior.isKnockedOut()) {
             log.warn("[ZoneService] player={} REJECTED: warrior is unconscious", player.getId());
             throw new IllegalStateException("Your warrior is unconscious. Visit the Temple to heal!");
         }
 
-        // Auto-cancel orphaned expedition: IN_PROGRESS but warrior is already free
-        // This happens when freeIfStuck() was called before the ZoneActivity cancel fix was deployed
+        // [SEM_TIMER] Auto-cancela expedição pendurada (IN_PROGRESS não coletada): tudo é instantâneo,
+        // então uma atividade antiga é só lixo — cancela e segue pra nova (uma expedição ativa por vez).
         activityRepository.findByPlayerAndStatus(player, ZoneActivityStatus.IN_PROGRESS)
                 .ifPresent(orphan -> {
-                    if (!warrior.isOnMission()) {
-                        // Warrior is free but expedition is still marked IN_PROGRESS — cancel it
-                        orphan.setStatus(ZoneActivityStatus.CANCELLED);
-                        activityRepository.save(orphan);
-                    } else {
-                        throw new IllegalStateException("You are already on an expedition");
-                    }
+                    orphan.setStatus(ZoneActivityStatus.CANCELLED);
+                    activityRepository.save(orphan);
                 });
 
         if (warrior.getLevel() < zone.minLevel) {
@@ -115,9 +106,6 @@ public class ZoneService {
             player.setStaminaUpdatedAt(LocalDateTime.now());
             playerRepository.save(player);
         }
-
-        warrior.setOnMission(true);
-        warriorRepository.save(warrior);
 
         ZoneActivity activity = new ZoneActivity();
         activity.setPlayer(player);
@@ -283,11 +271,8 @@ public class ZoneService {
             if (activity.getZone() == Zone.HIGH_RISK) lockExposedItems(player);
         }
 
-        // Libera o guerreiro
-        warriorRepository.findByPlayer(player).ifPresent(w -> {
-            w.setOnMission(false);
-            warriorRepository.save(w);
-        });
+        // Persiste o estado do guerreiro (HP/desgaste do combate da zona — ex.: KO na zona SAFE)
+        warriorRepository.findByPlayer(player).ifPresent(warriorRepository::save);
 
         activityRepository.save(activity);
         log.info("[ZoneService] player={} action=collect OK activityId={} survived={} drops={}", player.getId(), activityId, survived, drops.size());
@@ -316,11 +301,6 @@ public class ZoneService {
 
         activity.setStatus(ZoneActivityStatus.CANCELLED);
         activityRepository.save(activity);
-
-        warriorRepository.findByPlayer(player).ifPresent(w -> {
-            w.setOnMission(false);
-            warriorRepository.save(w);
-        });
         log.info("[ZoneService] player={} action=cancel OK activityId={}", player.getId(), activityId);
     }
 

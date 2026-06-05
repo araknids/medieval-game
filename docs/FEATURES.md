@@ -92,8 +92,9 @@ Sem teto — progressão exponencialmente mais difícil inspirada em Tibia.
 - **Os buffs ativos entram de fato no combate** (`WarriorStatsService.combatStats` soma slot 1 + 2 +
   slot Bem Alimentado da Cozinha). Há ainda um 3º slot **Bem Alimentado** (refeição) — ver Cozinha (§26).
 
-### 2.6 Liberar Guerreiro Travado
-- Endpoint `POST /api/warrior/free` cancela todas sessões ativas e libera o guerreiro
+### 2.6 ~~Liberar Guerreiro Travado~~ — REMOVIDO (2026-06-05)
+- O endpoint `POST /api/warrior/free` e o conceito de guerreiro "travado"/`onMission` foram
+  **removidos** (tudo é instantâneo; não há mais guerreiro pra destravar). Ver PLANO_SEM_TIMER_PVP.md.
 
 ---
 
@@ -130,8 +131,8 @@ Sem teto — progressão exponencialmente mais difícil inspirada em Tibia.
 > Quer **subir de nível** → Raid/Caça ao Chefe (melhor XP). Nenhum tipo domina os dois eixos. [Combate V2]
 
 ### Mecânica
-- Timer-based: envia guerreiro, volta depois para coletar
-- Guerreiro fica `onMission=true` durante a missão
+- ⚠️ Atualizado 2026-06-05: **instantâneo** (sem timer; gasta estamina → recompensa na hora).
+- Sem flag `onMission` — não há bloqueio cruzado entre atividades (cada uma tem seu próprio limite).
 - Em modo dev `instant-complete=true` completa na hora
 - Ao completar: tela de progresso mostra resultado com narrativa
 
@@ -213,7 +214,8 @@ Sem teto — progressão exponencialmente mais difícil inspirada em Tibia.
 | Mercenário Local | 100 | Lv.5 | 18 |
 
 ### Mecânica
-- Timer 1-12 horas, warrior fica onMission
+- ⚠️ Atualizado 2026-06-05: **instantâneo** (o nº de "horas" vira só o dial de recompensa × estamina;
+  não há timer nem flag `onMission`).
 - **Nível mínimo = nível do guerreiro** (não da profissão)
 - Cada profissão tem XP e nível separados (+5% bônus por nível)
 - Cancelar: recebe proporcional às horas completas
