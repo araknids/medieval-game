@@ -2941,7 +2941,7 @@ const GATHER_CATEGORY_ICON = { FISH:'🐟', ORE:'🪨', GEM:'💎', BAR:'🔩', 
 async function startKingdomQuest(kingdom, questTypeId) {
   const r = await api('POST', `/api/world/${kingdom}/quests/start`, { questType: questTypeId });
   if (r.error) { worldMsg(r.error, false); return; }
-  await collectKingdomQuest(kingdom, r.questId); // [SEM_TIMER] instantâneo: resolve e abre o resultado direto
+  await collectKingdomQuest(kingdom, r.id); // [SEM_TIMER] instantâneo: resolve e abre o resultado direto
 }
 
 async function collectKingdomQuest(kingdom, questId) {
