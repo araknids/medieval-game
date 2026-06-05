@@ -1590,8 +1590,7 @@ async function showWorkJobList() {
 async function startWork(workType, hours) {
   const data = await api('POST', '/api/work/start', { workType, hours });
   if (data.error) { showMessage(data.error, true); return; }
-  await loadWarrior();
-  openWorkProgress(data);
+  await collectWork(data.id); // [SEM_TIMER] instantâneo: resolve e abre o resultado direto
 }
 
 function openWorkProgress(session) {
@@ -1650,21 +1649,12 @@ function renderWorkProgress(session) {
 async function collectWork(sessionId) {
   const data = await api('POST', `/api/work/${sessionId}/collect`);
   if (data.error) { showMessage(data.error, true); return; }
-
-  document.getElementById('work-progress-content').innerHTML = `
-    <div class="qp-box">
-      <div class="qp-quest-name">Trabalho Concluído!</div>
-      <div class="qp-result-row">
-        <span class="cr-gold">${fmtBronze(data.goldEarned)}</span>
-        <span class="cr-exp">+${data.xpEarned} xp trabalho</span>
-      </div>
-      <p style="color:#888;font-size:.8rem;margin:.5rem 0">${data.jobName}</p>
-      <button class="btn-send qp-collect-btn" onclick="closeWork()" style="margin-top:.8rem">
-        Voltar aos Empregos
-      </button>
-    </div>`;
-
+  showCollectModal({ title: '⚒ Work Complete!', color: '#8d6e63', rows: [
+    { icon:'🪙', label:'Bronze',       value:fmtBronze(data.goldEarned), color:'#cd7f32' },
+    { icon:'⭐', label:data.jobName || 'XP', value:`+${data.xpEarned} XP`, color:'#ffd700' },
+  ]});
   await loadWarrior();
+  showWorkJobList(); // atualiza a lista (guerreiro livre de novo)
 }
 
 async function cancelWork(sessionId) {
@@ -2951,8 +2941,7 @@ const GATHER_CATEGORY_ICON = { FISH:'🐟', ORE:'🪨', GEM:'💎', BAR:'🔩', 
 async function startKingdomQuest(kingdom, questTypeId) {
   const r = await api('POST', `/api/world/${kingdom}/quests/start`, { questType: questTypeId });
   if (r.error) { worldMsg(r.error, false); return; }
-  await enterKingdom(kingdom);
-  worldMsg('Quest started! Return when the timer ends.');
+  await collectKingdomQuest(kingdom, r.questId); // [SEM_TIMER] instantâneo: resolve e abre o resultado direto
 }
 
 async function collectKingdomQuest(kingdom, questId) {
@@ -2995,9 +2984,7 @@ async function abandonKingdomQuest(kingdom, questId) {
 async function startTraining(hours) {
   const r = await api('POST', '/api/world/COMBAT/training/start', { hours });
   if (r.error) { worldMsg(r.error, false); return; }
-  const msg = `🏋 Training ready! +${r.xpReward} XP — collect it.`;
-  await enterKingdom('COMBAT');
-  worldMsg(msg);
+  await collectTraining(r.id); // [SEM_TIMER] instantâneo: resolve e abre o resultado direto
 }
 
 async function cancelTraining(sessionId) {
@@ -3012,9 +2999,9 @@ async function cancelTraining(sessionId) {
 async function collectTraining(sessionId) {
   const r = await api('POST', `/api/world/COMBAT/training/${sessionId}/collect`);
   if (r.error) { worldMsg(r.error, false); return; }
-  const msg = r.message;
+  showCollectModal({ title: '🏋 Training Complete!', color: '#5c6bc0',
+    rows: [{ icon:'⭐', label:'Experience', value:`+${r.xpEarned} XP`, color:'#ffd700' }] });
   await enterKingdom('COMBAT');
-  worldMsg(msg);
 }
 
 // Safe zone gathering: /api/gathering/start. kingdom define o pool de drops (ex.: Mar Abençoado = peixe de vida).
@@ -3023,35 +3010,20 @@ async function startKingdomGathering(skillType, durationMinutes, kingdom) {
   if (kingdom) body.kingdom = kingdom;
   const r = await api('POST', '/api/gathering/start', body);
   if (r.error) { worldMsg(r.error, false); return; }
-  const verb = skillType === 'FISHING' ? 'Fishing' : skillType === 'GARIMPO' ? 'Garimpo' : 'Mining';
-  const msg = `${verb} started! ${durationMinutes}min session.`;
-  if (worldCurrentKingdom) await enterKingdom(worldCurrentKingdom);
-  worldMsg(msg);
+  await collectKingdomGather(r.id); // [SEM_TIMER] instantâneo: resolve e abre o resultado direto
 }
 
 // PvP / High-Risk zone gathering: /api/zones/enter (Gatherer role)
 async function enterKingdomZone(zone, skillType, durationMinutes) {
-  console.log('[WORLD] enterKingdomZone called:', zone, skillType, durationMinutes);
-  const r = await api('POST', '/api/zones/enter', {
-    zone,
-    role: 'GATHERING',
-    skillType,
-    durationMinutes
-  });
-  console.log('[WORLD] zone enter response:', JSON.stringify(r));
+  const r = await api('POST', '/api/zones/enter', { zone, role: 'GATHERING', skillType, durationMinutes });
   if (r.error) { worldMsg(r.error, false); return; }
-  const label = zone === 'HIGH_RISK' ? 'High Risk' : 'PvP';
-  const msg = `Entered ${label} zone! ${skillType === 'FISHING' ? 'Fishing' : 'Mining'}. Watch out for hunters!`;
-  if (worldCurrentKingdom) await enterKingdom(worldCurrentKingdom);
-  worldMsg(msg);
+  await collectKingdomZoneSession(r.id); // [SEM_TIMER] instantâneo: resolve e abre o resultado direto
 }
 
 async function enterCombatZone(zone, durationMinutes) {
   const r = await api('POST', '/api/zones/enter', { zone, role: 'COMBAT', durationMinutes });
   if (r.error) { worldMsg(r.error, false); return; }
-  const zoneName = zone === 'HIGH_RISK' ? 'War Zone' : 'Battlefield';
-  await enterKingdom('COMBAT');
-  worldMsg(`⚔ Entered ${zoneName}! Watch your back!`);
+  await collectKingdomZoneSession(r.id); // [SEM_TIMER] instantâneo: resolve e abre o resultado direto
 }
 
 // Kingdom gathering session helpers
