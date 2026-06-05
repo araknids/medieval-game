@@ -37,6 +37,10 @@ public class ZoneActivity {
     @Enumerated(EnumType.STRING)
     private SkillType skillType; // null se for hunter
 
+    // [UNIFICAÇÃO_ZONA] Reino da coleta (drops específicos: Mar Abençoado = peixe de vida). null = combate.
+    @Enumerated(EnumType.STRING)
+    private com.medieval.game.enums.Kingdom kingdom;
+
     private int durationMinutes;
 
     private LocalDateTime startedAt = LocalDateTime.now();

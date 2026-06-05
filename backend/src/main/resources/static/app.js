@@ -2601,7 +2601,7 @@ async function enterKingdom(kingdom, _depth = 0) {
       api('GET', `/api/world/${kingdom}/quests/active`),
       kingdom === 'COMBAT' ? api('GET', '/api/world/COMBAT/training') : Promise.resolve(null),
       (kingdom === 'FISHING' || kingdom === 'MINING' || kingdom === 'GRUTAS_DE_CRISTAL' || kingdom === 'MAR_ABENCOADO') ? api('GET', '/api/gathering/current') : Promise.resolve(null),
-      (kingdom === 'FISHING' || kingdom === 'MINING' || kingdom === 'COMBAT') ? api('GET', '/api/zones/current') : Promise.resolve(null),
+      api('GET', '/api/zones/current'), // [UNIFICAÇÃO_ZONA] coleta de todo reino agora é zona
       api('GET', '/api/zones/pvp-status').catch(() => null)
     ]);
     // [SEM_TIMER] Auto-coleta sessão pendurada pronta (sem banner/Collect manual). Recursão limitada.
@@ -2738,27 +2738,27 @@ function renderKingdomDetail(kingdom, quests, activeQuests, training, gatherSess
                     : 'GARIMPO';
     const wLevel    = warrior ? warrior.level : 1;
 
-    // All zones use /api/gathering/start (max 60min). PvP risk = cosmetic for now.
-    const fishDurations = [5, 10, 20, 30, 40];
-    const mineDurations = [10, 20, 30, 45, 60];
-    const dur = isFishing ? fishDurations : mineDurations;
+    // [UNIFICAÇÃO_ZONA] As 3 zonas viram tiers reais (SAFE/PVP/HIGH_RISK) via /api/zones/enter, com PvP.
+    const SAFE_DESC = '🟢 Sem PvP. 20% de monstros (PvE).';
+    const PVP_DESC  = '🟡 PvP: ao perder, −50% recursos + 10% bronze. Gear e XP seguros. Lv.10+';
+    const RED_DESC  = '🔴 PvP duro: recursos + 15% bronze + 1 item + XP. Itens TRAVADOS. Lv.20+';
 
     const zones = kingdom === 'FISHING' ? [
-      { name:'🏖 Safe Shore', minLv:1,  pvp:false, durations:dur, color:'#4caf50', desc:'Safe fishing — restores stamina' },
-      { name:'🌊 Wild Coast', minLv:10, pvp:true,  durations:dur, color:'#ffc107', desc:'PvP zone — hunters may attack (coming soon)' },
-      { name:'🦈 Deep Sea',   minLv:20, pvp:true,  durations:dur, color:'#ef5350', desc:'High risk — rare fish (coming soon)' }
+      { name:'🏖 Safe Shore', minLv:1,  tier:'SAFE',      color:'#4caf50', desc:SAFE_DESC },
+      { name:'🌊 Wild Coast', minLv:10, tier:'PVP',       color:'#ffc107', desc:PVP_DESC },
+      { name:'🦈 Deep Sea',   minLv:20, tier:'HIGH_RISK', color:'#ef5350', desc:RED_DESC }
     ] : kingdom === 'MAR_ABENCOADO' ? [
-      { name:'🌅 Sacred Cove',   minLv:1,  pvp:false, durations:dur, color:'#4caf50', desc:'Safe fishing — fish that restore LIFE' },
-      { name:'🐠 Deep Reef',     minLv:10, pvp:true,  durations:dur, color:'#ffc107', desc:'PvP zone — hunters may attack (coming soon)' },
-      { name:'🔱 Blessed Abyss', minLv:20, pvp:true,  durations:dur, color:'#ef5350', desc:'High risk — legendary life fish (coming soon)' }
+      { name:'🌅 Sacred Cove',   minLv:1,  tier:'SAFE',      color:'#4caf50', desc:'🟢 Peixe que restaura VIDA. Sem PvP.' },
+      { name:'🐠 Deep Reef',     minLv:10, tier:'PVP',       color:'#ffc107', desc:PVP_DESC },
+      { name:'🔱 Blessed Abyss', minLv:20, tier:'HIGH_RISK', color:'#ef5350', desc:RED_DESC }
     ] : kingdom === 'MINING' ? [
-      { name:'⛏ Open Mine',       minLv:1,  pvp:false, durations:dur, color:'#4caf50', desc:'Safe mining — no PvP' },
-      { name:'🪨 Deep Tunnels',   minLv:10, pvp:true,  durations:dur, color:'#ffc107', desc:'PvP zone — hunters may attack (coming soon)' },
-      { name:'💎 Forbidden Mines', minLv:20, pvp:true,  durations:dur, color:'#ef5350', desc:'High risk — rare ores (coming soon)' }
+      { name:'⛏ Open Mine',       minLv:1,  tier:'SAFE',      color:'#4caf50', desc:SAFE_DESC },
+      { name:'🪨 Deep Tunnels',   minLv:10, tier:'PVP',       color:'#ffc107', desc:PVP_DESC },
+      { name:'💎 Forbidden Mines', minLv:20, tier:'HIGH_RISK', color:'#ef5350', desc:RED_DESC }
     ] : [
-      { name:'🔎 Shallow Vein',     minLv:1,  pvp:false, durations:dur, color:'#4caf50', desc:'Safe prospecting — no PvP' },
-      { name:'💠 Deep Grottoes',    minLv:10, pvp:true,  durations:dur, color:'#ffc107', desc:'PvP zone — hunters may attack (coming soon)' },
-      { name:'💎 Forbidden Cavern', minLv:20, pvp:true,  durations:dur, color:'#ef5350', desc:'High risk — rare gems (coming soon)' }
+      { name:'🔎 Shallow Vein',     minLv:1,  tier:'SAFE',      color:'#4caf50', desc:SAFE_DESC },
+      { name:'💠 Deep Grottoes',    minLv:10, tier:'PVP',       color:'#ffc107', desc:PVP_DESC },
+      { name:'💎 Forbidden Cavern', minLv:20, tier:'HIGH_RISK', color:'#ef5350', desc:RED_DESC }
     ];
 
     gatheringHtml = zones.map(z => {
@@ -2767,7 +2767,7 @@ function renderKingdomDetail(kingdom, quests, activeQuests, training, gatherSess
         <div style="background:#1a1a2e;border:1px solid ${locked?'#333':z.color+'44'};border-radius:8px;padding:12px;margin-bottom:8px;opacity:${locked?'0.5':'1'}">
           <div style="display:flex;justify-content:space-between;align-items:center">
             <strong style="color:${z.color}">${z.name}</strong>
-            ${locked ? `<span style="font-size:11px;color:#888">🔒 Lv.${z.minLv}+</span>` : z.pvp ? '<span style="font-size:11px;color:#ef5350">⚔ PvP</span>' : '<span style="font-size:11px;color:#4caf50">✓ Safe</span>'}
+            ${locked ? `<span style="font-size:11px;color:#888">🔒 Lv.${z.minLv}+</span>` : z.tier !== 'SAFE' ? '<span style="font-size:11px;color:#ef5350">⚔ PvP</span>' : '<span style="font-size:11px;color:#4caf50">✓ Safe</span>'}
           </div>
           <p style="font-size:11px;color:#888;margin:3px 0 6px">${z.desc}</p>
           ${locked
@@ -2776,10 +2776,11 @@ function renderKingdomDetail(kingdom, quests, activeQuests, training, gatherSess
               ? '<p style="font-size:11px;color:#f44336;margin:0">⚔ Warrior is busy</p>'
               : `<div style="display:flex;gap:5px;flex-wrap:wrap">
               ${(() => {
-                const d = 20; // ação instantânea de tamanho fixo — a estamina é o gate, sem timer
+                const d = 20; // ação instantânea de tamanho fixo (10⚡ via d/2)
                 const stamCost = Math.max(5, Math.floor(d/2));
                 const verb = isFishing ? '🎣 Pescar' : skillType === 'MINING' ? '⛏ Minerar' : '🔎 Garimpar';
-                return `<button onclick="startKingdomGathering('${skillType}',${d},'${kingdom}')" style="font-size:12px;padding:4px 14px">${verb} · ⚡${stamCost}</button>`;
+                // [UNIFICAÇÃO_ZONA] coleta pelo sistema de zona (tem PvP) + drops do reino
+                return `<button onclick="enterKingdomZone('${z.tier}','${skillType}',${d},'${kingdom}')" style="font-size:12px;padding:4px 14px">${verb} · ⚡${stamCost}</button>`;
               })()}
             </div>`}
         </div>`;
@@ -3011,11 +3012,11 @@ async function startKingdomGathering(skillType, durationMinutes, kingdom) {
   await collectKingdomGather(r.id); // [SEM_TIMER] instantâneo: resolve e abre o resultado direto
 }
 
-// PvP / High-Risk zone gathering: /api/zones/enter (Gatherer role)
-async function enterKingdomZone(zone, skillType, durationMinutes) {
-  const r = await api('POST', '/api/zones/enter', { zone, role: 'GATHERING', skillType, durationMinutes });
+// [UNIFICAÇÃO_ZONA] Coleta por zona (SAFE/PVP/HIGH_RISK) com drops do reino — /api/zones/enter GATHERING.
+async function enterKingdomZone(zone, skillType, durationMinutes, kingdom) {
+  const r = await api('POST', '/api/zones/enter', { zone, role: 'GATHERING', skillType, durationMinutes, kingdom });
   if (r.error) { worldMsg(r.error, false); return; }
-  await collectKingdomZoneSession(r.id); // [SEM_TIMER] instantâneo: resolve e abre o resultado direto
+  await collectKingdomZoneSession(r.id); // instantâneo: resolve e abre o resultado direto
 }
 
 async function enterCombatZone(zone, durationMinutes) {
@@ -3071,7 +3072,7 @@ async function collectKingdomZoneSession(activityId) {
       rows.push({ icon:'⭐', label:'Experience', value:`+${r.xpGained} XP`, color:'#ffd700' });
   }
 
-  showCollectModal({ title, color, rows, log: r.battleLog || [] });
+  showCollectModal({ title, color, rows, note: r.narrative || '', log: r.battleLog || [] });
   if (worldCurrentKingdom) await enterKingdom(worldCurrentKingdom);
 }
 

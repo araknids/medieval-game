@@ -288,6 +288,28 @@ class ZoneAmbushIntegrationTest extends BaseIntegrationTest {
         assertThat(itemRepo.findById(itemId).orElseThrow().isPvpLocked()).isFalse(); // amarela NÃO trava item
     }
 
+    // ── TC-223: Coleta por zona com reino → drops + narrativa (unificação) [UNIFICAÇÃO_ZONA] ──
+    @Test
+    @DisplayName("TC-223 | Zone gathering com kingdom retorna drops + narrativa")
+    void tc223_zoneGatheringKingdomDrops() {
+        Player player = playerOf("amb");
+        Warrior w = warriorOf(player);
+        w.setLevel(30); w.setAttack(2000); w.setDefense(2000); w.setHealth(5000);
+        w.setStrength(200); w.setConstitution(200);
+        w.setCurrentHpSnapshot(100); w.setHpUpdatedAt(java.time.LocalDateTime.now());
+        warriorRepository.save(w);
+
+        var act = zoneService.enter(player, Zone.SAFE,
+                com.medieval.game.enums.ActivityRole.GATHERING,
+                com.medieval.game.enums.SkillType.FISHING, 20,
+                com.medieval.game.enums.Kingdom.MAR_ABENCOADO);
+        var result = zoneService.collect(playerRepository.findById(player.getId()).orElseThrow(), act.getId());
+
+        assertThat(result.survived()).isTrue();
+        assertThat(result.drops()).isNotEmpty();      // coletou (drops do reino)
+        assertThat(result.narrative()).isNotBlank();  // narrativa de coleta
+    }
+
     // Helper: expõe um player numa zona (flagged por 1h)
     private void flagPlayer(Player p, Zone zone) {
         p.setPvpFlaggedZone(zone);

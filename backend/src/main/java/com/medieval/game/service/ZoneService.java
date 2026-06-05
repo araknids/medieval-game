@@ -46,7 +46,13 @@ public class ZoneService {
     @Transactional
     public ZoneActivity enter(Player player, Zone zone, ActivityRole role,
                               SkillType skillType, int durationMinutes) {
-        log.info("[ZoneService] player={} action=enter zone={} role={} skill={} duration={}", player.getId(), zone, role, skillType, durationMinutes);
+        return enter(player, zone, role, skillType, durationMinutes, null);
+    }
+
+    @Transactional
+    public ZoneActivity enter(Player player, Zone zone, ActivityRole role,
+                              SkillType skillType, int durationMinutes, com.medieval.game.enums.Kingdom kingdom) {
+        log.info("[ZoneService] player={} action=enter zone={} role={} skill={} duration={} kingdom={}", player.getId(), zone, role, skillType, durationMinutes, kingdom);
 
         Warrior warrior = warriorRepository.findByPlayer(player)
                 .orElseThrow(() -> new IllegalStateException("Warrior not found"));
@@ -78,9 +84,9 @@ public class ZoneService {
             throw new IllegalStateException("Level too low. Required: " + zone.minLevel);
         }
 
-        if (durationMinutes < 30 || durationMinutes > 720) {
+        if (durationMinutes < 5 || durationMinutes > 720) { // coleta usa chunk curto (~20min); combate maior
             log.warn("[ZoneService] player={} REJECTED: invalid duration={}", player.getId(), durationMinutes);
-            throw new IllegalArgumentException("Duration must be between 30 min and 12h");
+            throw new IllegalArgumentException("Duration must be between 5 min and 12h");
         }
 
         // Valida skill para gatherer
@@ -98,7 +104,7 @@ public class ZoneService {
         // [SEM_TIMER] Farm de zona instantâneo → custa estamina (o timer era o gate; sem ele, a estamina é).
         // ~duração/8 (cabe no teto de 100 mesmo em 12h). Pulado no modo de teste (instant-complete).
         if (!instantComplete) {
-            int staminaCost = staminaCostFor(durationMinutes);
+            int staminaCost = staminaCostFor(role, durationMinutes);
             int cur = player.getCalculatedStamina();
             if (cur < staminaCost) {
                 log.warn("[ZoneService] player={} REJECTED: stamina {}/{}", player.getId(), cur, staminaCost);
@@ -117,6 +123,7 @@ public class ZoneService {
         activity.setZone(zone);
         activity.setRole(role);
         activity.setSkillType(skillType);
+        activity.setKingdom(kingdom);
         activity.setDurationMinutes(durationMinutes);
         activity.setStartedAt(LocalDateTime.now());
         activity.setEndsAt(LocalDateTime.now()); // [SEM_TIMER] farm de zona instantâneo
@@ -125,9 +132,12 @@ public class ZoneService {
         return saved;
     }
 
-    /** Estamina de um farm de zona: ~duração/8, mín. 5, teto 100 (cabe mesmo num farm de 12h). [SEM_TIMER] */
-    static int staminaCostFor(int durationMinutes) {
-        return Math.min(100, Math.max(5, Math.round(durationMinutes / 8f)));
+    /** Estamina por ação de zona: coleta ~duração/2 (igual à coleta de reino); combate/caça ~duração/8. [SEM_TIMER] */
+    static int staminaCostFor(ActivityRole role, int durationMinutes) {
+        int cost = role == ActivityRole.GATHERING
+                ? Math.max(5, durationMinutes / 2)
+                : Math.round(durationMinutes / 8f);
+        return Math.min(100, Math.max(5, cost));
     }
 
     // ── Coleta da expedição ──
@@ -135,7 +145,7 @@ public class ZoneService {
     public record CollectResult(ZoneActivity activity,
                                 List<GatheringService.ResourceDrop> drops,
                                 boolean wasAttacked, boolean survived,
-                                String lostItemName) {}
+                                String lostItemName, String narrative) {}
 
     @Transactional
     public CollectResult collect(Player playerArg, Long activityId) {
@@ -170,13 +180,13 @@ public class ZoneService {
         boolean survived    = true;
         String  lostItem    = null;
 
-        // ── Zona Segura: só coleta ──
-        if (activity.getZone() == Zone.SAFE || activity.getRole() == ActivityRole.HUNTING) {
+        // ── Hunter (legado): só coleta, sem encontro ──
+        if (activity.getRole() == ActivityRole.HUNTING) {
             drops = resolveGathering(player, activity);
             activity.setStatus(ZoneActivityStatus.COMPLETED);
 
         } else {
-            // ── PvP/Alto Risco: verifica encontros ──
+            // ── Encontros: 🟢 SAFE = só NPC (PvE); 🟡🔴 = PvP + NPC ──
             PvpResult pvp = resolveEncounters(player, activity);
             wasAttacked = pvp.wasAttacked();
             survived    = pvp.survived();
@@ -197,11 +207,13 @@ public class ZoneService {
                 warriorRepository.findByPlayer(player).ifPresent(w -> {
                     w.applyDamagePercent(100);
                     w.clearBuff();
-                    // XP loss: 10% of XP required for current level (Tibia-style, can drop level)
-                    long xpLost = Math.max(1, w.expNeededForNextLevel() / 10);
-                    activity.setXpGained(-xpLost); // negative = lost XP, shown in modal
-                    warriorService.loseXp(w, xpLost);
-                    log.info("[ZoneService] player={} PvP death XP loss={}", player.getId(), xpLost);
+                    // XP só é perdida FORA da zona verde (SAFE = só dano/KO). [UNIFICAÇÃO_ZONA]
+                    if (activity.getZone() != Zone.SAFE) {
+                        long xpLost = Math.max(1, w.expNeededForNextLevel() / 10);
+                        activity.setXpGained(-xpLost); // negative = lost XP, shown in modal
+                        warriorService.loseXp(w, xpLost);
+                        log.info("[ZoneService] player={} PvP death XP loss={}", player.getId(), xpLost);
+                    }
                 });
 
                 // Alto Risco: 10% de perder item equipado
@@ -275,7 +287,11 @@ public class ZoneService {
 
         activityRepository.save(activity);
         log.info("[ZoneService] player={} action=collect OK activityId={} survived={} drops={}", player.getId(), activityId, survived, drops.size());
-        return new CollectResult(activity, drops, wasAttacked, survived, lostItem);
+        // [UNIFICAÇÃO_ZONA] narrativa de coleta (mesma do reino) quando sobreviveu e coletou
+        String narrative = (survived && activity.getRole() == ActivityRole.GATHERING && activity.getSkillType() != null)
+                ? GatheringNarrator.narrate(activity.getSkillType(), activity.getKingdom())
+                : null;
+        return new CollectResult(activity, drops, wasAttacked, survived, lostItem, narrative);
     }
 
     // ── Abandona expedição ──
@@ -336,7 +352,7 @@ public class ZoneService {
         int rounds = Math.max(1, durationMin / 10); // 1 rodada a cada 10 min
         for (int i = 0; i < rounds; i++) {
             allDrops.addAll(gatheringService.collectGatheringDropsOnly(activity.getSkillType(),
-                    skill.getLevel(), 10));
+                    skill.getLevel(), 10, activity.getKingdom())); // [UNIFICAÇÃO_ZONA] drops por reino
         }
 
         // Aplica multiplicador de zona

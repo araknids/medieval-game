@@ -16,6 +16,9 @@ ser o gate; a **estamina** é. Sem espera, sem "coletar depois".
 5. **Arena** = duelo instantâneo por **ranking** (sem loot), separada do PvP de zona.
 6. **Guerra de guild (territórios)** = continua por **ciclos agendados** (não é timer de atividade; fora deste escopo).
 
+## Coleta unificada no sistema de zona (2026-06-05)
+Toda coleta (Pesca/Mineração/Mar Abençoado/Grutas) agora passa pelo `/api/zones/enter` GATHERING — **ganhou PvP** nas zonas amarela/vermelha de cada reino, mantendo os **drops específicos do reino**. `ZoneActivity.kingdom` (novo, + migração) leva o reino até `resolveGathering` → `gatheringService.collectGatheringDropsOnly(..., kingdom)` (Mar Abençoado = peixe de vida). As 3 zonas viram tiers: Safe→SAFE, Wild→PVP, Deep→HIGH_RISK. 🟢 SAFE roda só NPC (PvE 20%, sem perda de XP); 🟡🔴 rodam PvP+NPC + flag/lock/raid. Estamina role-aware: coleta `~d/2` (10⚡ por ação de 20min), combate `~d/8`. Duração mínima da zona baixada 30→5 (coleta usa chunk curto). Narrativa de coleta no modal de resultado. Front: botões de zona de coleta → `enterKingdomZone(tier, skill, d, kingdom)`. O `/api/gathering` segue só pro consumo de peixe + recursos. TC-223 cobre drops por reino. 468 verdes.
+
 ## Tiers de zona (balance — 2026-06-05)
 | Zona | PvP/NPC | Ao perder | Lock | Reward |
 |---|---|---|---|---|

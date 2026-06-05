@@ -95,7 +95,7 @@ public class ZoneController {
             log.info("[ZONE-ENTER] player={} zone={} role={} skill={} duration={}min",
                     player.getId(), req.zone(), req.role(), req.skillType(), req.durationMinutes());
             ZoneActivity activity = zoneService.enter(player, req.zone(), req.role(),
-                    req.skillType(), req.durationMinutes());
+                    req.skillType(), req.durationMinutes(), req.kingdom());
             log.info("[ZONE-ENTER] OK → activityId={}", activity.getId());
             return ResponseEntity.ok(toMap(activity));
         } catch (IllegalArgumentException | IllegalStateException e) {
@@ -130,7 +130,8 @@ public class ZoneController {
                     ? result.activity().getAttackerWarriorName() : ""),
             Map.entry("battleLog",    result.activity().getBattleLog() != null
                     ? Arrays.asList(result.activity().getBattleLog().split("\n"))
-                    : List.of())
+                    : List.of()),
+            Map.entry("narrative",    result.narrative() != null ? result.narrative() : "")
         ));
     }
 
@@ -170,5 +171,6 @@ public class ZoneController {
     }
 
     record EnterRequest(@NotNull Zone zone, @NotNull ActivityRole role, SkillType skillType,
-                        @Min(30) @Max(720) int durationMinutes) {}
+                        @Min(5) @Max(720) int durationMinutes,
+                        com.medieval.game.enums.Kingdom kingdom) {}
 }

@@ -81,9 +81,9 @@ class DtoValidationTest extends BaseIntegrationTest {
     }
 
     @Test
-    @DisplayName("Zone enter com durationMinutes abaixo do mínimo (10) → 400")
+    @DisplayName("Zone enter com durationMinutes abaixo do mínimo (2 < 5) → 400")
     void zone_shortDuration_400() throws Exception {
         expectBadRequest("/api/zones/enter", Map.of(
-                "zone", "SAFE", "role", "GATHERING", "skillType", "FISHING", "durationMinutes", 10));
+                "zone", "SAFE", "role", "GATHERING", "skillType", "FISHING", "durationMinutes", 2));
     }
 }

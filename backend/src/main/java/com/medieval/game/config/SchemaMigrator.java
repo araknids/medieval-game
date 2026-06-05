@@ -235,6 +235,12 @@ public class SchemaMigrator {
         } catch (Exception e) {
             log.warn("[SchemaMigrator] zone_activities_role_check patch failed: {}", e.getMessage());
         }
+        try {
+            jdbc.execute("ALTER TABLE zone_activities ADD COLUMN IF NOT EXISTS kingdom varchar(40)"); // [UNIFICAÇÃO_ZONA]
+            log.info("[SchemaMigrator] zone_activities.kingdom column ensured");
+        } catch (Exception e) {
+            log.warn("[SchemaMigrator] zone_activities.kingdom patch failed: {}", e.getMessage());
+        }
     }
 
     // players: add VIP Status columns

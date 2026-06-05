@@ -322,6 +322,12 @@ public class GatheringService {
         return rollDrops(skillType, level, durationMinutes, null);
     }
 
+    /** Drops sem persistir, com o pool do REINO (peixe de vida no Mar Abençoado, etc.). [UNIFICAÇÃO_ZONA] */
+    public List<ResourceDrop> collectGatheringDropsOnly(SkillType skillType, int level, int durationMinutes,
+                                                        com.medieval.game.enums.Kingdom kingdom) {
+        return rollDrops(skillType, level, durationMinutes, kingdom);
+    }
+
     private List<ResourceDrop> rollDrops(SkillType skill, int level, int duration,
                                          com.medieval.game.enums.Kingdom kingdom) {
         Random rng = java.util.concurrent.ThreadLocalRandom.current();

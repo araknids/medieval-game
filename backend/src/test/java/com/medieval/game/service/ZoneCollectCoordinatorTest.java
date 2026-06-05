@@ -25,7 +25,7 @@ class ZoneCollectCoordinatorTest {
     @InjectMocks ZoneCollectCoordinator coordinator;
 
     private final ZoneService.CollectResult ok =
-            new ZoneService.CollectResult(null, java.util.List.of(), false, true, null);
+            new ZoneService.CollectResult(null, java.util.List.of(), false, true, null, null);
 
     @Test
     @DisplayName("Conflito na 1ª tentativa, sucesso na 2ª → retorna e recarrega o player a cada vez")
