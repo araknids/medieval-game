@@ -1286,20 +1286,6 @@ async function unprotectItem(itemId) {
   loadTempleItems();
 }
 
-// ── EXPEDIÇÕES / ZONAS ──
-
-const ZONE_COLORS = { SAFE:'#4caf82', PVP:'#c9a84c', HIGH_RISK:'#cf6679' };
-const ZONE_ICONS  = { SAFE:'🌿', PVP:'⚔', HIGH_RISK:'💀' };
-
-async function loadZones() {
-  const [zones, current, pvp] = await Promise.all([
-    api('GET', '/api/zones'),
-    api('GET', '/api/zones/current'),
-    api('GET', '/api/zones/pvp-status').catch(() => ({})),
-  ]);
-  renderZones(zones, current, pvp);
-}
-
 // Banner de status PvP: exposto (alvo de raid) ou protegido (escudo pós-derrota). [PVP_FLAG]
 function pvpStatusBanner(pvp) {
   if (!pvp) return '';
@@ -1315,192 +1301,6 @@ function pvpStatusBanner(pvp) {
     </div>`;
   }
   return '';
-}
-
-function renderZones(zones, current, pvp) {
-  const el = document.getElementById('zones-content');
-  const warriorLevel = warrior?.level ?? 1;
-  const busy = warrior?.onMission ?? false;
-
-  if (current.active) {
-    renderZoneActive(current);
-    return;
-  }
-
-  const zonesHtml = zones.map(z => {
-    const locked    = warriorLevel < z.minLevel;
-    const color     = ZONE_COLORS[z.id] || '#888';
-    const icon      = ZONE_ICONS[z.id]  || '🗺';
-    const pvp       = z.encounterChancePerHour > 0;
-
-    return `
-      <div class="zone-card ${locked ? 'locked' : ''}" style="border-color:${color}20">
-        <div class="zone-header">
-          <span class="zone-name" style="color:${color}">${icon} ${t('zones.zone.'+z.id)||z.displayName}</span>
-          ${locked ? `<span class="wj-lock">🔒 Lv.${z.minLevel}</span>` : ''}
-          ${pvp ? `<span class="zone-pvp-badge">⚔ PvP</span>` : ''}
-        </div>
-        <p class="zone-desc">${z.description}</p>
-        <div class="zone-stats">
-          <span>×${z.multiplier} ${t('zones.multiplier')||'resources'}</span>
-          ${z.npcEncounterChancePerHour > 0 ? `<span style="color:#c9a84c">🐉 ${z.npcEncounterChancePerHour}%/h NPC</span>` : ''}
-          ${pvp ? `<span class="stamina-low">⚔ ${z.encounterChancePerHour}%/h PvP</span>` : ''}
-        </div>
-        ${!locked ? `
-          <div class="zone-roles">
-            <div class="zone-role-section">
-              <div class="sk-duration-btns">
-                <button class="btn-hour" ${busy ? 'disabled' : ''}
-                        onclick="enterZone('${z.id}','GATHERING','FISHING',120)">
-                  🎣 ${t('zone.gathering_fish')||'Pescar'} · ⚡15
-                </button>
-                <button class="btn-hour" ${busy ? 'disabled' : ''}
-                        onclick="enterZone('${z.id}','GATHERING','MINING',120)">
-                  ⛏ ${t('zone.gathering_mine')||'Minerar'} · ⚡15
-                </button>
-                ${pvp ? `
-                <button class="btn-hour" ${busy ? 'disabled' : ''}
-                        onclick="enterZone('${z.id}','HUNTING',null,120)">
-                  🗡 ${t('zone.hunt_section')||'Caçar'} · ⚡15
-                </button>` : ''}
-              </div>
-            </div>
-          </div>` : ''}
-      </div>`;
-  }).join('');
-
-  el.innerHTML = pvpStatusBanner(pvp) + zonesHtml;
-}
-
-function renderZoneActive(state) {
-  const el    = document.getElementById('zones-content');
-  const color = ZONE_COLORS[state.zone] || '#888';
-  const icon  = ZONE_ICONS[state.zone]  || '🗺';
-  const role  = state.role === 'HUNTING' ? '🗡 Hunting' :
-                state.skillType === 'FISHING' ? t('zone.active_fish') : t('zone.active_mine');
-
-  let timerSecs = state.secondsRemaining ?? 0;
-  clearInterval(window._zoneTimer);
-
-  const timerHtml = () => timerSecs > 0
-    ? formatTime(timerSecs)
-    : '<span class="done">Pronto!</span>';
-
-  el.innerHTML = `
-    <div class="zone-card" style="border-color:${color}50">
-      <div class="zone-header">
-        <span class="zone-name" style="color:${color}">${icon} ${state.zoneName}</span>
-        <span style="color:#888;font-size:.8rem">${role}</span>
-      </div>
-      <div class="qp-timer" id="zone-timer" style="font-size:2rem">${timerHtml()}</div>
-      <p style="color:#888;font-size:.78rem;margin:.4rem 0">
-        ${state.attacked && !state.survived
-          ? `${t('zone.attacked', {name: escapeHtml(state.attackerName)})}`
-          : state.attacked
-          ? `${t('zone.survived', {name: escapeHtml(state.attackerName)})}`
-          : ''}
-      </p>
-      <div style="display:flex;gap:.5rem;margin-top:.6rem;flex-wrap:wrap">
-        <button class="btn-collect" id="zone-collect-btn"
-                ${state.readyToCollect ? '' : 'disabled'}
-                onclick="collectZone(${state.id})">
-          ${state.readyToCollect ? t('zone.collect_btn') : t('zone.in_progress')}
-        </button>
-        ${!state.readyToCollect ? `
-          <button class="btn-cancel-work" onclick="cancelZone(${state.id})">${t('btn.cancel')}</button>
-        ` : ''}
-      </div>
-    </div>`;
-
-  if (timerSecs > 0) {
-    window._zoneTimer = setInterval(() => {
-      timerSecs--;
-      const t = document.getElementById('zone-timer');
-      const b = document.getElementById('zone-collect-btn');
-      if (!t) { clearInterval(window._zoneTimer); return; }
-      if (timerSecs <= 0) {
-        t.innerHTML = '<span class="done">Pronto!</span>';
-        if (b) { b.disabled = false; b.textContent = t('zone.collect_btn'); }
-        clearInterval(window._zoneTimer);
-      } else {
-        t.textContent = formatTime(timerSecs);
-      }
-    }, 1000);
-  }
-}
-
-async function enterZone(zoneId, role, skillType, durationMinutes) {
-  const body = { zone: zoneId, role, durationMinutes };
-  if (skillType) body.skillType = skillType;
-  const data = await api('POST', '/api/zones/enter', body);
-  if (data.error) { showMessage(data.error, true); return; }
-  await loadWarrior();
-  renderZoneActive(data);
-}
-
-async function collectZone(activityId) {
-  const data = await api('POST', `/api/zones/${activityId}/collect`);
-  if (data.error) { showMessage(data.error, true); return; }
-
-  clearInterval(window._zoneTimer);
-  await loadWarrior();
-
-  // Mostra resultado
-  const el = document.getElementById('zones-content');
-  const survived  = data.survived;
-  const attacked  = data.wasAttacked;
-
-  let resultHtml = '';
-  if (attacked && !survived) {
-    const logHtml = renderBattleLog(data.battleLog || []);
-    resultHtml = `
-      <div class="tower-result-box" style="border-color:#cf6679">
-        <div class="tower-result-title" style="color:#cf6679">💀 Você foi derrotado!</div>
-        <p style="color:#888;font-size:.82rem;margin:.4rem 0">
-          Atacado por: <strong>${escapeHtml(data.attackerName)}</strong><br>
-          Bronze perdido: ${fmtBronze(data.bronzeLost)}
-          ${data.lostItemName ? `<br>Item perdido: <span style="color:#c97ddb">${data.lostItemName}</span>` : ''}
-        </p>
-        <div class="battle-log" style="max-height:200px">${logHtml}</div>
-        <button class="btn-send" onclick="loadZones()" style="margin-top:.8rem">${t('btn.back')}</button>
-      </div>`;
-  } else {
-    const dropsHtml = data.drops.map(d =>
-      `${RESOURCE_ICONS[d.type]||'?'} ${d.displayName} ×${d.quantity}`
-    ).join('  ') || 'Nada coletado';
-
-    let attackMsg = '';
-    if (attacked && survived) {
-      const logHtml = renderBattleLog(data.battleLog || []);
-      attackMsg = `
-        <div style="margin:.5rem 0;padding:.5rem;background:#1a0a0a;border-radius:5px;border:1px solid #8b1a1a">
-          <p style="color:#c9a84c;font-size:.8rem;margin-bottom:.3rem">⚔ Você foi atacado mas sobreviveu!</p>
-          <div class="battle-log" style="max-height:150px">${logHtml}</div>
-        </div>`;
-    }
-
-    resultHtml = `
-      <div class="tower-result-box">
-        <div class="tower-result-title" style="color:#4caf82">✅ Expedição Concluída!</div>
-        ${attackMsg}
-        <div style="font-size:.85rem;margin:.5rem 0">${dropsHtml}</div>
-        ${data.xpGained > 0 ? `<span class="cr-exp">+${data.xpGained} XP skill</span>` : ''}
-        <button class="btn-send" onclick="loadZones()" style="margin-top:.8rem">Nova Expedição</button>
-      </div>`;
-
-    // Atualiza recursos
-    resourcesData = await api('GET', '/api/gathering/resources');
-  }
-
-  el.innerHTML = resultHtml;
-}
-
-async function cancelZone(activityId) {
-  if (!confirm(t('zone.cancel_confirm'))) return;
-  const data = await api('POST', `/api/zones/${activityId}/cancel`);
-  if (data.error) { showMessage(data.error, true); return; }
-  await loadWarrior();
-  loadZones();
 }
 
 // ── HABILIDADES (Pesca / Mineração / Forja) ──
@@ -1527,26 +1327,6 @@ const RESOURCE_ICONS = {
   LEATHER:'🟫',
 };
 
-async function loadSkillsTab() {
-  [skillsData, resourcesData] = await Promise.all([
-    api('GET', '/api/gathering/skills'),
-    api('GET', '/api/gathering/resources'),
-  ]);
-  gatheringState = await api('GET', '/api/gathering/current');
-  switchSkillTab('fish');
-}
-
-function switchSkillTab(tab) {
-  ['fish','mine','smith','bag'].forEach(t => {
-    document.getElementById('sk-panel-' + t).style.display = t === tab ? 'block' : 'none';
-    document.getElementById('sk-tab-' + t).classList.toggle('active', t === tab);
-  });
-  if (tab === 'fish')  renderFishing();
-  if (tab === 'mine')  renderMining();
-  if (tab === 'smith') renderSmithing();
-  if (tab === 'bag')   renderBag();
-}
-
 function getSkill(type) {
   return skillsData.find(s => s.skillType === type) || {level:1, experience:0, expNeeded:100};
 }
@@ -1558,109 +1338,6 @@ function skillBar(skill) {
       <span class="sk-skill-label">Lv.${skill.level}</span>
       <div class="xp-bar-bg" style="flex:1"><div class="xp-bar-fill" style="width:${pct}%"></div></div>
       <span class="xp-label" style="margin-left:.4rem">${skill.experience}/${skill.expNeeded} XP</span>
-    </div>`;
-}
-
-// ── PESCAR ──
-function renderFishing() {
-  const skill = getSkill('FISHING');
-  const fish  = resourcesData.filter(r => r.category === 'FISH');
-  const busy  = warrior?.onMission ?? false;
-  const activeFish = gatheringState?.active && gatheringState?.skillType === 'FISHING';
-
-  document.getElementById('sk-fish-content').innerHTML = `
-    <div class="sk-section">
-      <div class="sk-title">🎣 Pesca ${skillBar(skill)}</div>
-      ${activeFish ? renderGatheringTimer() : `
-        <div class="sk-duration-btns">
-          <button class="btn-hour ${busy || (gatheringState?.active && !activeFish) ? 'disabled' : ''}"
-                  onclick="startGathering('FISHING', 20)"
-                  ${busy || (gatheringState?.active && !activeFish) ? 'disabled' : ''}>
-            🎣 Pescar · ⚡10
-          </button>
-        </div>`}
-    </div>
-    ${fish.length > 0 ? `
-    <div class="sk-section">
-      <div class="sk-title">Peixes</div>
-      ${fish.map(r => `
-        <div class="sk-resource-row">
-          <div>
-            <span>${RESOURCE_ICONS[r.type] || '?'} ${r.displayName} ×${r.quantity}</span>
-            <span style="color:#4caf82;font-size:.72rem;margin-left:.5rem">${FISH_DESCRIPTIONS[r.type] || ''}</span>
-          </div>
-          <button class="btn-equip" onclick="consumeFish('${r.type}')">${t('btn.consume')||'Consume'}</button>
-        </div>`).join('')}
-    </div>` : ''}`;
-}
-
-// ── MINERAR ──
-function renderMining() {
-  const skill = getSkill('MINING');
-  const ores  = resourcesData.filter(r => ['ORE','FRAGMENT'].includes(r.category));
-  const busy  = warrior?.onMission ?? false;
-  const activeMine = gatheringState?.active && gatheringState?.skillType === 'MINING';
-
-  document.getElementById('sk-mine-content').innerHTML = `
-    <div class="sk-section">
-      <div class="sk-title">⛏ Mineração ${skillBar(skill)}</div>
-      ${activeMine ? renderGatheringTimer() : `
-        <div class="sk-duration-btns">
-          <button class="btn-hour ${busy || (gatheringState?.active && !activeMine) ? 'disabled' : ''}"
-                  onclick="startGathering('MINING', 20)"
-                  ${busy || (gatheringState?.active && !activeMine) ? 'disabled' : ''}>
-            ⛏ Minerar · ⚡10
-          </button>
-        </div>`}
-    </div>
-    ${ores.length > 0 ? `
-    <div class="sk-section">
-      <div class="sk-title">Minérios e Fragmentos</div>
-      ${ores.map(r => `
-        <div class="sk-resource-row">
-          <span>${RESOURCE_ICONS[r.type] || '?'} ${r.displayName} ×${r.quantity}</span>
-        </div>`).join('')}
-    </div>` : ''}`;
-}
-
-function renderGatheringTimer() {
-  if (!gatheringState?.active) return '';
-  const secs = gatheringState.secondsRemaining ?? 0;
-  const done = secs <= 0;
-  clearInterval(gatheringTimer);
-
-  if (!done) {
-    let s = secs;
-    gatheringTimer = setInterval(() => {
-      s--;
-      const el = document.getElementById('gathering-timer');
-      if (!el) { clearInterval(gatheringTimer); return; }
-      if (s <= 0) {
-        el.textContent = t('quest.ready_short');
-        el.classList.add('done');
-        document.getElementById('gathering-collect-btn').disabled = false;
-        document.getElementById('gathering-collect-btn').textContent = t('zone.collect_btn');
-        clearInterval(gatheringTimer);
-      } else {
-        el.textContent = formatTime(s);
-      }
-    }, 1000);
-  }
-
-  return `
-    <div class="gathering-active-box">
-      <div class="gathering-active-title">${t('skills.tab.'+(gatheringState.skillType||'').toLowerCase())||gatheringState.displayName}</div>
-      <div class="qp-timer ${done ? 'done' : ''}" id="gathering-timer">
-        ${done ? t('quest.ready_short') : formatTime(secs)}
-      </div>
-      <div style="display:flex;gap:.5rem;margin-top:.5rem">
-        <button class="btn-collect" id="gathering-collect-btn"
-                ${done ? '' : 'disabled'}
-                onclick="collectGathering(${gatheringState.id})">
-          ${done ? t('zone.collect_btn') : t('skills.in_progress')}
-        </button>
-        ${!done ? `<button class="btn-cancel-work" onclick="cancelGathering(${gatheringState.id})">${t('btn.cancel')}</button>` : ''}
-      </div>
     </div>`;
 }
 
@@ -1778,37 +1455,6 @@ function renderBag() {
 }
 
 // ── AÇÕES ──
-async function startGathering(skillType, duration) {
-  const data = await api('POST', '/api/gathering/start', { skillType, durationMinutes: duration });
-  if (data.error) { showMessage(data.error, true); return; }
-  gatheringState = { active: true, ...data };
-  await loadWarrior();
-  switchSkillTab(skillType === 'FISHING' ? 'fish' : 'mine');
-}
-
-async function collectGathering(id) {
-  const data = await api('POST', `/api/gathering/${id}/collect`);
-  if (data.error) { showMessage(data.error, true); return; }
-
-  const dropsHtml = data.drops.map(d =>
-    `${RESOURCE_ICONS[d.type]||'?'} ${d.displayName} ×${d.quantity}`
-  ).join('  ');
-  showMessage((data.narrative ? data.narrative + ' — ' : '') + 'Collected! ' + dropsHtml);
-
-  gatheringState = { active: false };
-  resourcesData = await api('GET', '/api/gathering/resources');
-  await loadWarrior();
-  switchSkillTab(document.querySelector('.tab.active')?.id?.replace('sk-tab-','') || 'fish');
-}
-
-async function cancelGathering(id) {
-  if (!confirm(t('skills.cancel_confirm'))) return;
-  await api('POST', `/api/gathering/${id}/cancel`);
-  gatheringState = { active: false };
-  await loadWarrior();
-  switchSkillTab(document.querySelector('.tab.active')?.id?.replace('sk-tab-','') || 'fish');
-}
-
 async function consumeFish(resourceType) {
   const data = await api('POST', `/api/gathering/consume/${resourceType}`);
   if (data.error) { showMessage(data.error, true); return; }
@@ -1816,7 +1462,6 @@ async function consumeFish(resourceType) {
   showMessage(`${data.message} ⚡ Stamina: ${data.newStamina}/100${hpPart}`);
   resourcesData = await api('GET', '/api/gathering/resources');
   await loadWarrior();
-  renderFishing();
   renderBag();
 }
 
@@ -2974,23 +2619,24 @@ async function enterKingdom(kingdom) {
   if (!el) return;
   el.innerHTML = '<p>Loading kingdom...</p>';
   try {
-    const [, quests, activeQuests, training, gatherSession, zoneSession] = await Promise.all([
+    const [, quests, activeQuests, training, gatherSession, zoneSession, pvpStatus] = await Promise.all([
       loadWarrior(),
       api('GET', `/api/world/${kingdom}/quests`),
       api('GET', `/api/world/${kingdom}/quests/active`),
       kingdom === 'COMBAT' ? api('GET', '/api/world/COMBAT/training') : Promise.resolve(null),
       (kingdom === 'FISHING' || kingdom === 'MINING' || kingdom === 'GRUTAS_DE_CRISTAL' || kingdom === 'MAR_ABENCOADO') ? api('GET', '/api/gathering/current') : Promise.resolve(null),
-      (kingdom === 'FISHING' || kingdom === 'MINING' || kingdom === 'COMBAT') ? api('GET', '/api/zones/current') : Promise.resolve(null)
+      (kingdom === 'FISHING' || kingdom === 'MINING' || kingdom === 'COMBAT') ? api('GET', '/api/zones/current') : Promise.resolve(null),
+      api('GET', '/api/zones/pvp-status').catch(() => null)
     ]);
     console.log('[WORLD] enterKingdom data:', {kingdom, gatherSession, zoneSession, activeQuests: activeQuests.length});
-    renderKingdomDetail(kingdom, quests, activeQuests, training, gatherSession, zoneSession);
+    renderKingdomDetail(kingdom, quests, activeQuests, training, gatherSession, zoneSession, pvpStatus);
   } catch(e) {
     console.error('[WORLD] enterKingdom ERROR:', e);
     el.innerHTML = '<p style="color:red">Error loading kingdom: ' + e.message + '</p>';
   }
 }
 
-function renderKingdomDetail(kingdom, quests, activeQuests, training, gatherSession, zoneSession) {
+function renderKingdomDetail(kingdom, quests, activeQuests, training, gatherSession, zoneSession, pvpStatus) {
   const el = document.getElementById('kingdom-detail');
   const NAMES = { FISHING:'Bone Gorge', MINING:'Black Iron Mines', COMBAT:'Cursed Fortress', GRUTAS_DE_CRISTAL:'Crystal Grottoes', MAR_ABENCOADO:'Blessed Sea' };
   const ICONS = { FISHING:'🎣', MINING:'⛏', COMBAT:'⚔', GRUTAS_DE_CRISTAL:'🔎', MAR_ABENCOADO:'🐟' };
@@ -3020,8 +2666,8 @@ function renderKingdomDetail(kingdom, quests, activeQuests, training, gatherSess
     if (training && training.active) {
       trainingHtml = `
         <div style="background:#1a1a2e;border:1px solid #5c6bc0;border-radius:8px;padding:12px;margin-bottom:12px">
-          <strong style="color:#7986cb">🏋 Training in Progress</strong>
-          <div style="font-size:13px;color:#aaa;margin-top:4px">+${training.xpReward} XP · ${Math.floor(training.secondsRemaining/60)}m remaining</div>
+          <strong style="color:#7986cb">🏋 Training Ready</strong>
+          <div style="font-size:13px;color:#aaa;margin-top:4px">+${training.xpReward} XP — collect it</div>
           <div style="display:flex;gap:8px;margin-top:8px">
             ${training.readyToCollect ? `<button onclick="collectTraining(${training.id})" style="background:#3949ab">⭐ Collect XP</button>` : ''}
             <button onclick="cancelTraining(${training.id})" style="background:#555;font-size:12px">✕ Cancel</button>
@@ -3218,6 +2864,7 @@ function renderKingdomDetail(kingdom, quests, activeQuests, training, gatherSess
         <h3 style="margin:0">${ICONS[kingdom]} ${NAMES[kingdom]}</h3>
         <button onclick="document.getElementById('kingdom-detail').innerHTML=''" style="background:#333;font-size:12px">✕ Close</button>
       </div>
+      ${pvpStatusBanner(pvpStatus)}
       ${activeHtml}
       ${activeGatherHtml}
       ${trainingHtml}
@@ -3348,7 +2995,7 @@ async function abandonKingdomQuest(kingdom, questId) {
 async function startTraining(hours) {
   const r = await api('POST', '/api/world/COMBAT/training/start', { hours });
   if (r.error) { worldMsg(r.error, false); return; }
-  const msg = `Training started! ${hours}h · +${r.xpReward} XP on completion.`;
+  const msg = `🏋 Training ready! +${r.xpReward} XP — collect it.`;
   await enterKingdom('COMBAT');
   worldMsg(msg);
 }
@@ -3394,7 +3041,7 @@ async function enterKingdomZone(zone, skillType, durationMinutes) {
   console.log('[WORLD] zone enter response:', JSON.stringify(r));
   if (r.error) { worldMsg(r.error, false); return; }
   const label = zone === 'HIGH_RISK' ? 'High Risk' : 'PvP';
-  const msg = `Entered ${label} zone! ${skillType === 'FISHING' ? 'Fishing' : 'Mining'} for ${durationMinutes >= 60 ? durationMinutes/60+'h' : durationMinutes+'min'}. Watch out for hunters!`;
+  const msg = `Entered ${label} zone! ${skillType === 'FISHING' ? 'Fishing' : 'Mining'}. Watch out for hunters!`;
   if (worldCurrentKingdom) await enterKingdom(worldCurrentKingdom);
   worldMsg(msg);
 }
@@ -3402,10 +3049,9 @@ async function enterKingdomZone(zone, skillType, durationMinutes) {
 async function enterCombatZone(zone, durationMinutes) {
   const r = await api('POST', '/api/zones/enter', { zone, role: 'COMBAT', durationMinutes });
   if (r.error) { worldMsg(r.error, false); return; }
-  const label = durationMinutes >= 60 ? (durationMinutes/60)+'h' : durationMinutes+'min';
   const zoneName = zone === 'HIGH_RISK' ? 'War Zone' : 'Battlefield';
   await enterKingdom('COMBAT');
-  worldMsg(`⚔ Entered ${zoneName}! Fighting for ${label}. Watch your back!`);
+  worldMsg(`⚔ Entered ${zoneName}! Watch your back!`);
 }
 
 // Kingdom gathering session helpers
