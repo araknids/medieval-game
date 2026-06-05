@@ -161,9 +161,11 @@ class ZoneAmbushIntegrationTest extends BaseIntegrationTest {
     void tc219_farmingFlagsPlayer() throws Exception {
         Player player = playerOf("amb");
         Warrior w = warriorOf(player);
-        // guerreiro forte: flag só é setado se sobreviver ao encontro (NPC/raid)
+        // guerreiro forte: flag só é setado se sobreviver ao encontro (NPC/raid).
+        // STR alto p/ garantir o acerto no d20 (to-hit = d20 + floor(STR/20) vs AC do NPC até 30) — senão
+        // pode whiffar 40 rodadas e perder por timeout (mesmo flake do tc221). [FLAKE_FIX]
         w.setLevel(15); w.setAttack(500); w.setDefense(500); w.setHealth(500);
-        w.setStrength(100); w.setConstitution(100);
+        w.setStrength(800); w.setConstitution(100);
         w.setCurrentHpSnapshot(100); w.setHpUpdatedAt(java.time.LocalDateTime.now());
         warriorRepository.save(w);
 
@@ -242,9 +244,13 @@ class ZoneAmbushIntegrationTest extends BaseIntegrationTest {
     void tc221_farmingLocksItems() {
         Player player = playerOf("amb");
         Warrior w = warriorOf(player);
-        // lvl 30 (banda 20-40, isolada do TC-220 que usa 45/50) + stats esmagadores → sempre vence o encontro
+        // lvl 30 + stats esmagadores → vence qualquer encontro. STRENGTH alto é ESSENCIAL: o acerto é
+        // d20 + floor(STR/20) vs AC do NPC (= 10 + dex, até 30). Com STR 200 (→ +10) o farmer só acertava
+        // com nat-20 e às vezes ZERAVA o NPC por timeout (PvE timeout = atacante perde → status DEFEATED →
+        // sem item-lock → flake). STR 800 (→ +40) garante o acerto (exceto nat-1) → one-shot → sempre
+        // sobrevive e trava os itens. [FLAKE_FIX tc221]
         w.setLevel(30); w.setAttack(2000); w.setDefense(2000); w.setHealth(5000);
-        w.setStrength(200); w.setConstitution(200);
+        w.setStrength(800); w.setConstitution(200);
         w.setCurrentHpSnapshot(100); w.setHpUpdatedAt(java.time.LocalDateTime.now());
         warriorRepository.save(w);
 
