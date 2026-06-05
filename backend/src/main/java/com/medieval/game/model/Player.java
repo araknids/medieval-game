@@ -94,6 +94,11 @@ public class Player {
     @Column(columnDefinition = "bigint default 0")
     private long guildDonatedBronze = 0;
 
+    // Roster de guerra: o líder marca até 15 membros p/ a batalha de território. [GUERRA_ROSTER]
+    // Reset ao entrar/sair de guild. Se faltar pra 15, o sistema auto-preenche (prefere não-cansado).
+    @Column(columnDefinition = "boolean default false")
+    private boolean inWarRoster = false;
+
     // ── SoulStone (moeda VIP) ─────────────────────────────────────────────────
     @Column(columnDefinition = "integer default 0")
     private int soulStones = 0;

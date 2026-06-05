@@ -21,6 +21,7 @@ import java.util.List;
 public class GuildService {
 
     private static final long CREATE_COST_BRONZE = 100L;
+    private static final int  WAR_ROSTER_MAX     = 15; // espelha TerritoryService.ROSTER_MAX. [GUERRA_ROSTER]
 
     private final GuildRepository              guildRepository;
     private final PlayerRepository             playerRepository;
@@ -81,6 +82,7 @@ public class GuildService {
 
         player.setGuild(guild);
         player.setGuildDonatedBronze(0); // reset donations on joining a new guild
+        player.setInWarRoster(false);    // entra fora do roster de guerra. [GUERRA_ROSTER]
         playerRepository.save(player);
         log.info("[GuildService] player={} action=joinGuild OK guildId={} name={}", player.getId(), guild.getId(), guild.getName());
         return guild;
@@ -105,6 +107,7 @@ public class GuildService {
 
         player.setGuild(null);
         player.setGuildDonatedBronze(0);
+        player.setInWarRoster(false); // [GUERRA_ROSTER]
         playerRepository.save(player);
         log.info("[GuildService] player={} action=leaveGuild OK guildId={}", player.getId(), guild.getId());
     }
@@ -131,6 +134,7 @@ public class GuildService {
 
         target.setGuild(null);
         target.setGuildDonatedBronze(0);
+        target.setInWarRoster(false); // [GUERRA_ROSTER]
         playerRepository.save(target);
         log.info("[GuildService] player={} action=kickMember OK targetPlayerId={} guildId={}", leader.getId(), targetPlayerId, guild.getId());
     }
@@ -152,6 +156,42 @@ public class GuildService {
 
         guild.setLeaderId(targetPlayerId);
         return guildRepository.save(guild);
+    }
+
+    // ── Roster de guerra (líder escolhe até 15 p/ a batalha de território) ────── [GUERRA_ROSTER]
+    @Transactional
+    public void setWarRoster(Player leader, List<Long> memberIds) {
+        int requested = memberIds == null ? 0 : memberIds.size();
+        log.info("[GuildService] player={} action=setWarRoster requested={}", leader.getId(), requested);
+        Guild guild = requireGuild(leader);
+        requireLeader(leader, guild);
+
+        java.util.Set<Long> wanted = memberIds == null
+                ? java.util.Set.of() : new java.util.HashSet<>(memberIds);
+        if (wanted.size() > WAR_ROSTER_MAX) {
+            log.warn("[GuildService] player={} REJECTED: roster too large ({}/{})", leader.getId(), wanted.size(), WAR_ROSTER_MAX);
+            throw new IllegalArgumentException("Battle roster can have at most " + WAR_ROSTER_MAX + " members.");
+        }
+
+        List<Player> members = playerRepository.findAllByGuild(guild);
+        java.util.Set<Long> memberIdSet = members.stream().map(Player::getId)
+                .collect(java.util.stream.Collectors.toSet());
+        for (Long id : wanted) {
+            if (!memberIdSet.contains(id)) {
+                log.warn("[GuildService] player={} REJECTED: {} is not a member of guild {}", leader.getId(), id, guild.getId());
+                throw new IllegalArgumentException("All roster members must belong to your guild.");
+            }
+        }
+
+        members.forEach(m -> m.setInWarRoster(wanted.contains(m.getId())));
+        playerRepository.saveAll(members);
+        log.info("[GuildService] player={} action=setWarRoster OK guildId={} selected={}", leader.getId(), guild.getId(), wanted.size());
+    }
+
+    /** Cansaço de guerra (%) que valerá na próxima batalha — p/ exibir na lista de membros. [GUERRA_ROSTER] */
+    public int warriorFatiguePct(Player player, long currentCycleId) {
+        return warriorRepository.findByPlayer(player)
+                .map(w -> w.currentFatiguePct(currentCycleId)).orElse(0);
     }
 
     // ── Doar bronze para a guilda ─────────────────────────────────────────────
@@ -208,7 +248,7 @@ public class GuildService {
 
         // Remove all members and reset their donation counters
         List<Player> members = playerRepository.findAllByGuild(guild);
-        members.forEach(m -> { m.setGuild(null); m.setGuildDonatedBronze(0); });
+        members.forEach(m -> { m.setGuild(null); m.setGuildDonatedBronze(0); m.setInWarRoster(false); });
         playerRepository.saveAll(members);
 
         // Remove territory control if this guild holds a territory

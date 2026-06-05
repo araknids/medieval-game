@@ -32,6 +32,7 @@ public class SchemaMigrator {
         patchInventoryItemDurabilityColumn();
         patchOptimisticLockVersionColumns();
         patchTerritoryLastResolvedCycleColumn();
+        patchWarFatigueAndRosterColumns();
         patchStashColumns();
         patchKingdomQuestWindowColumn();
         dropWarriorOnMissionColumn();
@@ -147,6 +148,19 @@ public class SchemaMigrator {
             log.info("[SchemaMigrator] territory_controls last_resolved_cycle_id column ensured");
         } catch (Exception e) {
             log.warn("[SchemaMigrator] territory_controls last_resolved_cycle_id patch failed: {}", e.getMessage());
+        }
+    }
+
+    // Guerra de Território: cap 15 + cansaço. [GUERRA_ROSTER]
+    // warriors: stacks/último-ciclo de cansaço; players: flag do roster de guerra.
+    private void patchWarFatigueAndRosterColumns() {
+        try {
+            jdbc.execute("ALTER TABLE warriors ADD COLUMN IF NOT EXISTS war_fatigue_stacks    integer NOT NULL DEFAULT 0");
+            jdbc.execute("ALTER TABLE warriors ADD COLUMN IF NOT EXISTS war_last_cycle_fought bigint  NOT NULL DEFAULT 0");
+            jdbc.execute("ALTER TABLE players  ADD COLUMN IF NOT EXISTS in_war_roster         boolean NOT NULL DEFAULT false");
+            log.info("[SchemaMigrator] war fatigue + roster columns ensured");
+        } catch (Exception e) {
+            log.warn("[SchemaMigrator] war fatigue/roster columns patch failed: {}", e.getMessage());
         }
     }
 

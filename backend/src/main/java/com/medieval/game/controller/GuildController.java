@@ -4,6 +4,7 @@ import com.medieval.game.model.Guild;
 import com.medieval.game.model.Player;
 import com.medieval.game.service.GuildService;
 import com.medieval.game.service.PlayerService;
+import com.medieval.game.service.TerritoryService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
@@ -23,8 +24,9 @@ import java.util.Map;
 @RequiredArgsConstructor
 public class GuildController {
 
-    private final GuildService  guildService;
-    private final PlayerService playerService;
+    private final GuildService    guildService;
+    private final PlayerService   playerService;
+    private final TerritoryService territoryService; // p/ currentCycleId() do cansaço. [GUERRA_ROSTER]
 
     // ── Info da guilda do jogador ─────────────────────────────────────────────
     @GetMapping
@@ -128,6 +130,13 @@ public class GuildController {
         return ResponseEntity.ok(Map.of("message", "Guild disbanded.", "inGuild", false));
     }
 
+    // ── Roster de guerra (líder escolhe até 15 p/ a batalha de território) ────── [GUERRA_ROSTER]
+    @PostMapping("/roster")
+    public ResponseEntity<?> setRoster(@Valid @RequestBody RosterRequest req, Authentication auth) {
+        guildService.setWarRoster(getPlayer(auth), req.memberIds());
+        return ResponseEntity.ok(Map.of("message", "Battle roster saved."));
+    }
+
     // ── Helpers ───────────────────────────────────────────────────────────────
     private Player getPlayer(Authentication auth) {
         return playerService.findById((Long) auth.getPrincipal());
@@ -135,6 +144,7 @@ public class GuildController {
 
     private Map<String, Object> toDetail(Player player, Guild guild) {
         List<Player> members = guildService.members(guild);
+        long cycle = territoryService.currentCycleId(); // p/ exibir o cansaço da próxima batalha. [GUERRA_ROSTER]
 
         List<Map<String, Object>> memberList = members.stream()
                 .map(m -> {
@@ -143,7 +153,9 @@ public class GuildController {
                         "playerId",    m.getId(),
                         "warriorName", guildService.warriorName(m),
                         "isLeader",    isLeader,
-                        "isMe",        m.getId().equals(player.getId())
+                        "isMe",        m.getId().equals(player.getId()),
+                        "inWarRoster", m.isInWarRoster(),                              // [GUERRA_ROSTER]
+                        "fatiguePct",  guildService.warriorFatiguePct(m, cycle)        // [GUERRA_ROSTER]
                     );
                 }).toList();
 
@@ -198,4 +210,6 @@ public class GuildController {
             String name,
             @Size(max = 200) String description) {}
     record DonateRequest(@Min(1) long amount) {}
+    // Roster de guerra: lista de playerIds escolhidos (≤15 validado no service). [GUERRA_ROSTER]
+    record RosterRequest(@Size(max = 15) List<Long> memberIds) {}
 }

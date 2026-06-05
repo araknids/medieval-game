@@ -24,6 +24,8 @@ public class TerritoryService {
 
     private static final long UPKEEP_BASE_BRONZE = 500; // custo base de manutenção por ciclo (6h)
 
+    private static final int ROSTER_MAX = 15; // máx. de lutadores por guild por ciclo. [GUERRA_ROSTER]
+
     private final TerritoryControlRepository     controlRepo;
     private final TerritoryDeclarationRepository declarationRepo;
     private final TerritoryBattleLogRepository   battleLogRepo;
@@ -217,18 +219,23 @@ public class TerritoryService {
 
         List<Guild> phase1Winners = new ArrayList<>();
 
+        // Warriors realmente escalados neste ciclo (por playerId) → recebem o stack de cansaço no fim. [GUERRA_ROSTER]
+        Map<Long, Warrior> fielded = new HashMap<>();
+
         for (int i = 0; i < declarations.size(); i++) {
             TerritoryDeclaration decl = declarations.get(i);
             boolean isLastPhase1Fight = (i == declarations.size() - 1);
 
             Guild attackerGuild = decl.getGuild();
-            List<Fighter> attackers = buildFighters(attackerGuild, 0);
+            List<Fighter> attackers = buildFighters(attackerGuild, 0, cycleId);
+            collectFielded(fielded, attackers);
 
             List<Fighter> defenders;
             if (control.isNeutral()) {
                 defenders = buildNpcFighters(territory, attackers.size());
             } else {
-                defenders = buildFighters(currentHolder, debuff); // always the ORIGINAL holder
+                defenders = buildFighters(currentHolder, debuff, cycleId); // always the ORIGINAL holder
+                collectFielded(fielded, defenders);
             }
 
             // Save pre-battle HP for defender recovery between Phase 1 fights
@@ -263,6 +270,9 @@ public class TerritoryService {
             declarationRepo.save(decl);
         }
 
+        // Cansaço: +1 stack p/ todos os escalados deste ciclo (1× — Phase 2 reusa os mesmos membros). [GUERRA_ROSTER]
+        applyWarFatigue(fielded, territory, cycleId);
+
         if (phase1Winners.isEmpty()) {
             // All attackers beaten — original holder wins, streak increases
             if (!control.isNeutral()) {
@@ -293,8 +303,8 @@ public class TerritoryService {
 
                 // Build fighters fresh from DB — Phase 1 HP is what's stored
                 // (we didn't persist between tiebreaker fights)
-                List<Fighter> champFighters = buildFighters(tiebreakerChampion,    0);
-                List<Fighter> chalFighters  = buildFighters(tiebreakerChallenger, 0);
+                List<Fighter> champFighters = buildFighters(tiebreakerChampion,    0, cycleId);
+                List<Fighter> chalFighters  = buildFighters(tiebreakerChallenger, 0, cycleId);
 
                 BrawlResult tResult = guildBrawl(chalFighters, champFighters, territory);
 
@@ -413,28 +423,82 @@ public class TerritoryService {
 
     // ── Fighter building ──────────────────────────────────────────────────────
 
-    public List<Fighter> buildFighters(Guild guild, int debuffPercent) {
+    /**
+     * Monta os lutadores de uma guild para a batalha do ciclo {@code cycleId}, com cap de 15 e cansaço.
+     * [GUERRA_ROSTER]
+     *
+     * <p>Seleção (≤15): os picks explícitos do líder ({@code Player.inWarRoster}) entram primeiro
+     * (cortados por poder se >15); as vagas restantes são auto-preenchidas preferindo membros
+     * <b>não-cansados</b> e mais fortes — então o time se auto-rotaciona mesmo sem o líder montar roster.
+     *
+     * <p>Stats = base × debuff-de-defensor × cansaço (multiplicativos; fontes independentes).
+     */
+    public List<Fighter> buildFighters(Guild guild, int debuffPercent, long cycleId) {
         List<Player> members = playerRepository.findAllByGuild(guild);
-        List<Fighter> fighters = new ArrayList<>();
+
+        // Candidatos elegíveis: têm warrior e HP > 0 (nocauteados ficam de fora).
+        List<Candidate> candidates = new ArrayList<>();
         for (Player member : members) {
             warriorRepository.findByPlayer(member).ifPresent(w -> {
                 int hp = w.getCalculatedHpPercent() * w.getHealth() / 100;
-                if (hp <= 0) return; // unconscious warriors sit out
-                double debuffMult = 1.0 - debuffPercent / 100.0;
-                fighters.add(new Fighter(
-                        member.getId(),
-                        w.getName(),
-                        (int) Math.max(1, w.getAttack()  * debuffMult),
-                        (int) Math.max(1, w.getDefense() * debuffMult),
-                        hp,
-                        (int) Math.max(0, w.getDexterity()   * (1.0 - debuffPercent / 100.0)),
-                        w.getAttackBonus(),
-                        w.getLuck(),
-                        w
-                ));
+                if (hp > 0) candidates.add(new Candidate(member, w, hp));
             });
         }
+
+        // poder bruto (desempate "mais forte"); cansaço atual no ciclo (auto-fill "mais fresco")
+        Comparator<Candidate> byPowerDesc = Comparator
+                .comparingInt((Candidate c) -> c.hp + c.warrior.getAttack() + c.warrior.getDefense()).reversed();
+        Comparator<Candidate> freshThenPower = Comparator
+                .comparingInt((Candidate c) -> c.warrior.fatiguePctForCycle(cycleId)) // menos cansado primeiro
+                .thenComparing(byPowerDesc);
+
+        List<Candidate> selected = new ArrayList<>();
+        // 1) picks explícitos do líder (se >15, fica com os mais fortes)
+        candidates.stream().filter(c -> c.player.isInWarRoster()).sorted(byPowerDesc)
+                .limit(ROSTER_MAX).forEach(selected::add);
+        // 2) auto-preenche o resto até 15 (prefere não-cansado, depois mais forte)
+        candidates.stream().filter(c -> !c.player.isInWarRoster()).sorted(freshThenPower)
+                .limit(Math.max(0, ROSTER_MAX - selected.size())).forEach(selected::add);
+
+        List<Fighter> fighters = new ArrayList<>();
+        for (Candidate c : selected) {
+            Warrior w = c.warrior;
+            double mult = (1.0 - debuffPercent / 100.0)                  // debuff de defensor (streak)
+                        * (1.0 - w.fatiguePctForCycle(cycleId) / 100.0); // cansaço de guerra
+            fighters.add(new Fighter(
+                    c.player.getId(),
+                    w.getName(),
+                    (int) Math.max(1, w.getAttack()  * mult),
+                    (int) Math.max(1, w.getDefense() * mult),
+                    c.hp,
+                    (int) Math.max(0, w.getDexterity() * mult),
+                    w.getAttackBonus(),
+                    w.getLuck(),
+                    w
+            ));
+        }
         return fighters;
+    }
+
+    /** Candidato a lutador (membro elegível + HP já calculado). [GUERRA_ROSTER] */
+    private record Candidate(Player player, Warrior warrior, int hp) {}
+
+    /** Acumula o cansaço de guerra (1 stack) nos warriors escalados — chamado 1× por ciclo. [GUERRA_ROSTER] */
+    private void applyWarFatigue(Map<Long, Warrior> fielded, Kingdom territory, long cycleId) {
+        if (fielded.isEmpty()) return;
+        for (Warrior w : fielded.values()) {
+            w.recordWarParticipation(cycleId);
+            warriorRepository.save(w);
+        }
+        log.info("[TerritoryService] territory={} cycle={} war fatigue applied to {} fighter(s)",
+                territory, cycleId, fielded.size());
+    }
+
+    /** Indexa por playerId os warriors realmente escalados (ignora NPCs, playerId null). [GUERRA_ROSTER] */
+    private void collectFielded(Map<Long, Warrior> fielded, List<Fighter> fighters) {
+        for (Fighter f : fighters) {
+            if (f.playerId != null && f.warrior != null) fielded.put(f.playerId, f.warrior);
+        }
     }
 
     private List<Fighter> buildNpcFighters(Kingdom territory, int count) {

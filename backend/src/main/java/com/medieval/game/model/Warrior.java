@@ -124,6 +124,42 @@ public class Warrior {
     // [SEM_TIMER] o antigo flag onMission ("busy") foi removido — tudo é instantâneo, então não há
     // bloqueio cruzado de atividade. Cada atividade tem seu próprio check de sessão ativa.
 
+    // ── War Fatigue (Guerra de Território) — força rotação do roster. [GUERRA_ROSTER] ──
+    // Lutar em ciclos de guerra consecutivos acumula −10% nos stats por ciclo (teto −50%);
+    // descansar 1 ciclo zera (o gap é detectado por warLastCycleFought != cycle-1). Cycle-based
+    // (id = epoch/21600) p/ ser robusto a catch-up do cron, sem job de decay. SÓ vale na guerra.
+    @Column(columnDefinition = "integer default 0")
+    private int warFatigueStacks = 0;          // ciclos consecutivos lutados (0–5)
+
+    @Column(columnDefinition = "bigint default 0")
+    private long warLastCycleFought = 0;       // id do último ciclo em que foi escalado
+
+    private static final int FATIGUE_PER_STACK = 10; // % por stack
+    private static final int FATIGUE_MAX_STACKS = 5;  // teto = 50%
+
+    /** Stacks que valem na batalha do ciclo {@code cycle} (0 se descansou o ciclo anterior). */
+    public int incomingFatigueStacks(long cycle) {
+        return warLastCycleFought == cycle - 1 ? warFatigueStacks : 0;
+    }
+
+    /** Debuff de cansaço (%) aplicado na batalha do ciclo {@code cycle}. */
+    public int fatiguePctForCycle(long cycle) {
+        return Math.min(FATIGUE_MAX_STACKS, incomingFatigueStacks(cycle)) * FATIGUE_PER_STACK;
+    }
+
+    /** Registra que foi escalado no ciclo {@code cycle}: acumula stack (consecutivo) ou reinicia (após descanso). */
+    public void recordWarParticipation(long cycle) {
+        int incoming = incomingFatigueStacks(cycle);
+        warFatigueStacks   = Math.min(FATIGUE_MAX_STACKS, incoming + 1);
+        warLastCycleFought = cycle;
+    }
+
+    /** Cansaço (%) que valerá na PRÓXIMA batalha (que resolve currentCycleId+1) — p/ exibir na UI. */
+    public int currentFatiguePct(long currentCycleId) {
+        return warLastCycleFought == currentCycleId
+                ? Math.min(FATIGUE_MAX_STACKS, warFatigueStacks) * FATIGUE_PER_STACK : 0;
+    }
+
     public void levelUp() {
         level++;
         availablePoints += 2; // 2 pts/level — no auto ATK/DEF/HP per level (attributes handle growth)

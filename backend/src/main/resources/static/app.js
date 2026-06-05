@@ -1786,6 +1786,16 @@ function renderGuildPanel(g) {
 
   const memberRows = g.members.map(m => {
     const badge       = m.isLeader ? ' 👑' : '';
+    const fatigue     = (m.fatiguePct > 0)
+      ? ` <span title="War fatigue — will fight at -${m.fatiguePct}% in the next territory battle"
+             style="color:#e57373;font-size:11px">😓 -${m.fatiguePct}%</span>`
+      : '';
+    const rosterCell  = g.isLeader
+      ? `<td style="width:26px;text-align:center">
+           <input type="checkbox" class="war-roster-cb" value="${m.playerId}"
+             ${m.inWarRoster ? 'checked' : ''} onchange="updateRosterUi()" title="Pick for territory battle">
+         </td>`
+      : '';
     const kickBtn     = g.isLeader && !m.isMe && !m.isLeader
       ? `<button onclick="guildKick(${m.playerId})" style="font-size:11px;padding:2px 6px;background:#8b0000">Kick</button>`
       : '';
@@ -1793,10 +1803,24 @@ function renderGuildPanel(g) {
       ? `<button onclick="guildTransfer(${m.playerId})" style="font-size:11px;padding:2px 6px;background:#555">Transfer</button>`
       : '';
     return `<tr>
-      <td>${escapeHtml(m.warriorName)}${badge}${m.isMe ? ' <em>(you)</em>' : ''}</td>
+      ${rosterCell}
+      <td>${escapeHtml(m.warriorName)}${badge}${fatigue}${m.isMe ? ' <em>(you)</em>' : ''}</td>
       <td style="text-align:right">${kickBtn} ${transferBtn}</td>
     </tr>`;
   }).join('');
+
+  // Roster de guerra — só o líder monta os 15 (vagas vazias = auto-fill pelos mais frescos). [GUERRA_ROSTER]
+  const rosterPanel = g.isLeader ? `
+    <div style="background:#16213e;border:1px solid #444;border-radius:6px;padding:10px;margin-top:10px">
+      <div style="font-size:13px;margin-bottom:6px">
+        ⚔ <strong>War Roster</strong> — pick up to 15 fighters for territory battles.
+        <span style="color:#aaa">Empty slots auto-fill with your freshest members. Fighters get <strong>-10% per consecutive war cycle</strong> (max -50%); resting 1 cycle clears it.</span>
+      </div>
+      <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+        <span id="roster-count" style="font-size:13px;color:#ffd700"></span>
+        <button onclick="guildSaveRoster()">💾 Save battle roster</button>
+      </div>
+    </div>` : '';
 
   el.innerHTML = `
     <div style="background:#1a1a2e;border:1px solid #444;border-radius:8px;padding:16px;margin-bottom:12px">
@@ -1814,6 +1838,7 @@ function renderGuildPanel(g) {
     <table style="width:100%;border-collapse:collapse;font-size:13px">
       ${memberRows}
     </table>
+    ${rosterPanel}
 
     <div style="margin-top:16px;display:flex;gap:8px;flex-wrap:wrap;align-items:center">
       <input id="donate-amount" type="number" min="1" placeholder="Amount in bronze"
@@ -1825,6 +1850,28 @@ function renderGuildPanel(g) {
 
     ${renderDonationRank(g.donationRank ?? [], player => player.isMe)}
   `;
+
+  updateRosterUi(); // sincroniza contador + trava checkboxes acima de 15. [GUERRA_ROSTER]
+}
+
+// War roster: atualiza o contador "X/15" e desabilita os não-marcados ao bater 15. [GUERRA_ROSTER]
+function updateRosterUi() {
+  const boxes = Array.from(document.querySelectorAll('.war-roster-cb'));
+  if (boxes.length === 0) return;
+  const checked = boxes.filter(b => b.checked).length;
+  const countEl = document.getElementById('roster-count');
+  if (countEl) countEl.textContent = `Selected: ${checked}/15`;
+  const atMax = checked >= 15;
+  boxes.forEach(b => { b.disabled = atMax && !b.checked; });
+}
+
+async function guildSaveRoster() {
+  const memberIds = Array.from(document.querySelectorAll('.war-roster-cb'))
+    .filter(b => b.checked).map(b => parseInt(b.value, 10));
+  const r = await api('POST', '/api/guild/roster', { memberIds });
+  if (r.error) { guildMsg(r.error, false); return; }
+  guildMsg('Battle roster saved.');
+  await loadGuild();
 }
 
 function renderDonationRank(rank) {
