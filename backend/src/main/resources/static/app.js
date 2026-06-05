@@ -2589,7 +2589,7 @@ function renderWorldOverview(kingdoms, territories) {
                  '<div id="world-territory-msg" style="margin-top:8px;min-height:20px"></div>';
 }
 
-async function enterKingdom(kingdom) {
+async function enterKingdom(kingdom, _depth = 0) {
   worldCurrentKingdom = kingdom;
   const el = document.getElementById('kingdom-detail');
   if (!el) return;
@@ -2604,7 +2604,12 @@ async function enterKingdom(kingdom) {
       (kingdom === 'FISHING' || kingdom === 'MINING' || kingdom === 'COMBAT') ? api('GET', '/api/zones/current') : Promise.resolve(null),
       api('GET', '/api/zones/pvp-status').catch(() => null)
     ]);
-    console.log('[WORLD] enterKingdom data:', {kingdom, gatherSession, zoneSession, activeQuests: activeQuests.length});
+    // [SEM_TIMER] Auto-coleta sessão pendurada pronta (sem banner/Collect manual). Recursão limitada.
+    if (_depth < 2 && ((gatherSession?.active && gatherSession.readyToCollect) || (zoneSession?.active && zoneSession.readyToCollect))) {
+      if (gatherSession?.active) await api('POST', `/api/gathering/${gatherSession.id}/collect`).catch(() => {});
+      if (zoneSession?.active)   await api('POST', `/api/zones/${zoneSession.id}/collect`).catch(() => {});
+      return enterKingdom(kingdom, _depth + 1);
+    }
     renderKingdomDetail(kingdom, quests, activeQuests, training, gatherSession, zoneSession, pvpStatus);
   } catch(e) {
     console.error('[WORLD] enterKingdom ERROR:', e);
