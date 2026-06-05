@@ -766,6 +766,12 @@ function statsText(item) {
   return parts.join('  ') || '–';
 }
 
+// Raridade → cor/nome (espelha .rarity-N do style.css). [ITENS_V2]
+const RARITY_COLOR = { 1:'#aaa', 2:'#4caf82', 3:'#5b9bd5', 4:'#c97ddb', 5:'#e6a23c' };
+const RARITY_NAME  = { 1:'Common', 2:'Uncommon', 3:'Rare', 4:'Epic', 5:'Legendary' };
+function rarityColor(r) { return RARITY_COLOR[r] || '#aaa'; }
+function rarityName(r)  { return t('inventory.rarity.'+r) || RARITY_NAME[r] || '?'; }
+
 // Itens V2: linhas de afixo do item (prefixo/sufixo + bônus). Vazio se não tiver.
 function affixLines(item) {
   const a = item.affixes || [];
@@ -2620,7 +2626,10 @@ function showCollectModal({ title, color = '#4caf50', rows = [], log = [], note 
     <div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid #2a2a3a">
       <span style="font-size:18px;min-width:24px;text-align:center">${r.icon}</span>
       <span style="font-size:13px;color:#bbb;flex:1">${r.label}</span>
-      <span style="font-weight:bold;color:${r.color || '#fff'};font-size:13px">${r.value}</span>
+      <span style="display:flex;flex-direction:column;align-items:flex-end;text-align:right;min-width:0">
+        <span style="font-weight:bold;color:${r.color || '#fff'};font-size:13px">${r.value}</span>
+        ${r.sub ? `<span style="font-size:11px;color:#9a9aae;margin-top:2px">${r.sub}</span>` : ''}
+      </span>
     </div>`).join('');
 
   const logHtml = log.length > 0 ? `
@@ -2686,7 +2695,17 @@ function showQuestResultModal(r) {
     { icon:'⭐', label:'Experience', value:`+${r.xpEarned} XP`,    color:'#ffd700' },
     { icon:'🪙', label:'Bronze',     value:fmtBronze(r.bronzeEarned), color:'#cd7f32' },
   ];
-  if (r.droppedItem) rows.push({ icon:'🎁', label:'Item Drop', value:r.droppedItem.name, color:'#a855f7' });
+  if (r.droppedItem) {
+    const d = r.droppedItem;
+    const typeName = t('item.type.'+d.type) || d.type;
+    rows.push({
+      icon:  '🎁',
+      label: 'Item Drop',
+      value: d.name,
+      color: rarityColor(d.rarity),                       // cor real da raridade (rare=azul, epic=roxo…)
+      sub:   `${rarityName(d.rarity)} · ${typeName} · ${statsText(d)}`
+    });
+  }
   const title = r.monsterEncountered ? `⚔ ${r.monsterName} slain!` : '⚔ Quest Completed!';
   showCollectModal({ title, color:'#4caf50', note:r.narrative, rows, log:r.battleLog || [] });
 }
