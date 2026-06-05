@@ -243,9 +243,9 @@ public class KingdomService {
         warriorRepo.save(warrior);
 
         quest.setStatus(QuestStatus.COLLECTED);
-        // [DAILY_QUESTS] só trava a daily quando de fato concluiu (vitória ou sem encontro);
-        // derrota pro monstro NÃO consome a daily — pode tentar de novo (gastando estamina).
-        if (monsterDefeated) quest.setCompletedWindowId(currentQuestWindowId());
+        // [DAILY_QUESTS] coletar = consumir a daily (1x por janela de 12h), vencendo OU perdendo.
+        // "Fazer a quest" trava ela até o reset; o risco do monstro afeta a recompensa, não as tentativas.
+        quest.setCompletedWindowId(currentQuestWindowId());
         questRepo.save(quest);
 
         String narrative = narrator.narrate(qt, encountered, monsterDefeated, monsterName, rng);

@@ -36,10 +36,11 @@ Duas categorias de quest, introduzidas em fases:
 - **Lock no `startQuest`** (cobre normal **e** VIP instant, que chama `startQuest`):
   se `existsBy(player, questType, COLLECTED, currentWindowId)` → rejeita
   *"Você já fez essa missão diária hoje. Volta no próximo reset."*
-- **Derrota não consome a daily:** `completedWindowId` só é gravado quando a quest é de fato
-  concluída (vitória contra o monstro **ou** sem encontro). Se perder pro monstro, a daily NÃO
-  trava — dá pra tentar de novo (gastando estamina/HP). Mantém a daily sempre alcançável e dá
-  dente ao risco do monstro (custa tentativas, não a daily inteira).
+- **Coletar consome a daily (vitória OU derrota):** `completedWindowId` é gravado em todo collect.
+  "Fazer a quest" = gastar a tentativa do período; o risco do monstro afeta só a **recompensa**
+  (perdeu = sem loot), não a disponibilidade. Decisão revista em 2026-06-05 após feedback: a regra
+  anterior (perdoar derrota) deixava repetir à vontade quando o guerreiro apanhava do monstro
+  (ex.: nível 1 pós-wipe), o que confundia ("dava pra fazer várias vezes").
 - Usar `completedWindowId` (epoch puro) em vez de comparar `startedAt` (LocalDateTime, depende do
   fuso do servidor) deixa o lock **determinístico e testável**, e perfeitamente alinhado à rotação.
 
