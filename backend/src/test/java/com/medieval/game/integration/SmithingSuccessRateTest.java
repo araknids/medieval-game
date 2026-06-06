@@ -52,7 +52,8 @@ class SmithingSuccessRateTest extends BaseIntegrationTest {
     @Test
     @DisplayName("craftSuccessPct: 70% no nível da receita, +5%/nível, teto 100")
     void formula_craftSuccessPct() {
-        var iron = SmithingService.CRAFT_RECIPES.get(0); // iron_sword (Lv20)
+        var iron = SmithingService.CRAFT_RECIPES.stream()
+                .filter(r -> r.id().equals("iron_sword")).findFirst().orElseThrow(); // Lv20 (robusto à ordem)
         assertThat(smithingService.craftSuccessPct(20, iron)).isEqualTo(70);
         assertThat(smithingService.craftSuccessPct(26, iron)).isEqualTo(100);
         assertThat(smithingService.craftSuccessPct(100, iron)).isEqualTo(100);

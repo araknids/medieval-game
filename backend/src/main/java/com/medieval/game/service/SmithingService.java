@@ -76,6 +76,10 @@ public class SmithingService {
                               int atk, int def, int hp, int rarity, int sockets) {}
 
     public static final List<CraftRecipe> CRAFT_RECIPES = List.of(
+        new CraftRecipe("copper_sword",  "Espada de Cobre Forjada",
+            Map.of(ResourceType.COPPER_BAR, 3),  1,  100,  5, 0, 0, 1, 0),
+        new CraftRecipe("copper_armor",  "Armadura de Cobre Forjada",
+            Map.of(ResourceType.COPPER_BAR, 5),  5,  150,  0, 5, 15, 1, 0),
         new CraftRecipe("iron_sword",    "Espada de Ferro Forjada",
             Map.of(ResourceType.IRON_BAR, 3), 20,  400, 10, 0, 0, 2, 1),
         new CraftRecipe("iron_armor",    "Armadura de Ferro Forjada",
@@ -86,6 +90,8 @@ public class SmithingService {
             Map.of(ResourceType.SILVER_BAR, 5), 45,  900, 0, 16, 40, 3, 2),
         new CraftRecipe("gold_sword",    "Espada de Ouro Forjada",
             Map.of(ResourceType.GOLD_BAR, 3), 60, 1200, 22, 0, 0, 3, 2),
+        new CraftRecipe("gold_armor",    "Armadura de Ouro Forjada",
+            Map.of(ResourceType.GOLD_BAR, 5), 65, 1300, 0, 22, 55, 3, 2),
         new CraftRecipe("mithril_sword", "Espada de Mithril Forjada",
             Map.of(ResourceType.MITHRIL_BAR, 3), 80, 1600, 28, 0, 0, 4, 3),
         new CraftRecipe("mithril_armor", "Armadura de Mithril Forjada",
