@@ -95,4 +95,13 @@ public class WarriorService {
         warrior.setAvailablePoints(warrior.getAvailablePoints() - 1);
         return warriorRepository.save(warrior);
     }
+
+    /** Troca a postura de combate (toggle livre, sem custo). Vale em todo combate. [POSTURE] */
+    @Transactional
+    public Warrior setPosture(Player player, CombatPosture posture) {
+        Warrior warrior = getWarrior(player);
+        warrior.setCombatPosture(posture);
+        log.info("[WarriorService] player={} action=setPosture posture={}", player.getId(), posture);
+        return warriorRepository.save(warrior);
+    }
 }

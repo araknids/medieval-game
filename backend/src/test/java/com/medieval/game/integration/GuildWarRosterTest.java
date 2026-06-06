@@ -129,8 +129,9 @@ class GuildWarRosterTest extends BaseIntegrationTest {
         Player p = addMember(g, 100); // atk base 100
         fatigue(p, cycle);            // -50%
 
+        // combatStats aplica a postura BALANCED (+5%) → 100×1.05=105; cansaço −50% → 52. [POSTURE]
         Fighter f = territoryService.buildFighters(g, 0, cycle).get(0);
-        assertThat(f.atk).isEqualTo(50); // 100 × (1 - 0.50)
+        assertThat(f.atk).isEqualTo(52); // (int)(105 × 0.50)
     }
 
     // ── Endpoint /roster ──

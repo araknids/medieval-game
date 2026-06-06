@@ -33,6 +33,7 @@ public class TerritoryService {
     private final WarriorRepository              warriorRepository;
     private final BattleSimulator                battleSimulator;
     private final GuildRepository                guildRepository;
+    private final WarriorStatsService            statsService; // gear+buffs+postura na guerra. [POSTURE]
 
     // Quais reinos são território de guild-war (config). Os demais são zonas abertas.
     // Começa com os 3 reinos antigos; mudar a config liga guerra em mais reinos. [REINOS_V2 / flag]
@@ -431,23 +432,25 @@ public class TerritoryService {
      * (cortados por poder se >15); as vagas restantes são auto-preenchidas preferindo membros
      * <b>não-cansados</b> e mais fortes — então o time se auto-rotaciona mesmo sem o líder montar roster.
      *
-     * <p>Stats = base × debuff-de-defensor × cansaço (multiplicativos; fontes independentes).
+     * <p>Stats = combatStats(base+gear+buffs+postura) × debuff-de-defensor × cansaço (multiplicativos).
+     * A guerra agora vale TODOS os stats (não só base) — gear/buffs/postura contam. [POSTURE]
      */
     public List<Fighter> buildFighters(Guild guild, int debuffPercent, long cycleId) {
         List<Player> members = playerRepository.findAllByGuild(guild);
 
-        // Candidatos elegíveis: têm warrior e HP > 0 (nocauteados ficam de fora).
+        // Candidatos elegíveis: têm warrior e HP > 0. Stats COMPLETOS via combatStats (gear+buffs+postura).
         List<Candidate> candidates = new ArrayList<>();
         for (Player member : members) {
             warriorRepository.findByPlayer(member).ifPresent(w -> {
-                int hp = w.getCalculatedHpPercent() * w.getHealth() / 100;
-                if (hp > 0) candidates.add(new Candidate(member, w, hp));
+                int[] cs = statsService.combatStats(member, w);
+                int hp = w.getCalculatedHpPercent() * cs[2] / 100; // cs[2] = HP total (base+gear+buff)
+                if (hp > 0) candidates.add(new Candidate(member, w, cs, hp));
             });
         }
 
-        // poder bruto (desempate "mais forte"); cansaço atual no ciclo (auto-fill "mais fresco")
+        // poder (desempate "mais forte" = atk+def+hp efetivos); cansaço atual (auto-fill "mais fresco")
         Comparator<Candidate> byPowerDesc = Comparator
-                .comparingInt((Candidate c) -> c.hp + c.warrior.getAttack() + c.warrior.getDefense()).reversed();
+                .comparingInt((Candidate c) -> c.hp + c.stats[0] + c.stats[1]).reversed();
         Comparator<Candidate> freshThenPower = Comparator
                 .comparingInt((Candidate c) -> c.warrior.fatiguePctForCycle(cycleId)) // menos cansado primeiro
                 .thenComparing(byPowerDesc);
@@ -462,26 +465,26 @@ public class TerritoryService {
 
         List<Fighter> fighters = new ArrayList<>();
         for (Candidate c : selected) {
-            Warrior w = c.warrior;
-            double mult = (1.0 - debuffPercent / 100.0)                  // debuff de defensor (streak)
-                        * (1.0 - w.fatiguePctForCycle(cycleId) / 100.0); // cansaço de guerra
+            int[] cs = c.stats;
+            double mult = (1.0 - debuffPercent / 100.0)                          // debuff de defensor (streak)
+                        * (1.0 - c.warrior.fatiguePctForCycle(cycleId) / 100.0); // cansaço de guerra
             fighters.add(new Fighter(
                     c.player.getId(),
-                    w.getName(),
-                    (int) Math.max(1, w.getAttack()  * mult),
-                    (int) Math.max(1, w.getDefense() * mult),
+                    c.warrior.getName(),
+                    (int) Math.max(1, cs[0] * mult),   // ATK (gear+buff+postura) × debuff × cansaço
+                    (int) Math.max(1, cs[1] * mult),   // DEF
                     c.hp,
-                    (int) Math.max(0, w.getDexterity() * mult),
-                    w.getAttackBonus(),
-                    w.getLuck(),
-                    w
+                    (int) Math.max(0, cs[3] * mult),   // dex → AC
+                    cs[4],                              // strBonus (gear-incluso)
+                    cs[5],                              // luk
+                    c.warrior
             ));
         }
         return fighters;
     }
 
-    /** Candidato a lutador (membro elegível + HP já calculado). [GUERRA_ROSTER] */
-    private record Candidate(Player player, Warrior warrior, int hp) {}
+    /** Candidato a lutador (membro elegível + stats de combate completos + HP já calculado). [GUERRA_ROSTER/POSTURE] */
+    private record Candidate(Player player, Warrior warrior, int[] stats, int hp) {}
 
     /** Acumula o cansaço de guerra (1 stack) nos warriors escalados — chamado 1× por ciclo. [GUERRA_ROSTER] */
     private void applyWarFatigue(Map<Long, Warrior> fielded, Kingdom territory, long cycleId) {

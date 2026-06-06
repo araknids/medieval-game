@@ -34,6 +34,7 @@ public class SchemaMigrator {
         patchTerritoryLastResolvedCycleColumn();
         patchWarFatigueAndRosterColumns();
         patchGuildLifetimeGoldColumn();
+        patchWarriorCombatPostureColumn();
         patchStashColumns();
         patchKingdomQuestWindowColumn();
         dropWarriorOnMissionColumn();
@@ -149,6 +150,16 @@ public class SchemaMigrator {
             log.info("[SchemaMigrator] territory_controls last_resolved_cycle_id column ensured");
         } catch (Exception e) {
             log.warn("[SchemaMigrator] territory_controls last_resolved_cycle_id patch failed: {}", e.getMessage());
+        }
+    }
+
+    // Postura de combate (tradeoff ATK/DEF) no warrior. [POSTURE]
+    private void patchWarriorCombatPostureColumn() {
+        try {
+            jdbc.execute("ALTER TABLE warriors ADD COLUMN IF NOT EXISTS combat_posture varchar(20) NOT NULL DEFAULT 'BALANCED'");
+            log.info("[SchemaMigrator] warriors.combat_posture column ensured");
+        } catch (Exception e) {
+            log.warn("[SchemaMigrator] warriors.combat_posture patch failed: {}", e.getMessage());
         }
     }
 

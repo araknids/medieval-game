@@ -121,6 +121,12 @@ public class Warrior {
         clearMealBuff(); // refeição também some na derrota/KO. [COZINHA]
     }
 
+    // ── Postura de combate (tradeoff ATK/DEF) — vale em qualquer combate (PvE/PvP). [POSTURE] ──
+    // Aplicada no WarriorStatsService.combatStats (multiplica atk/def). Toggle livre.
+    @Enumerated(EnumType.STRING)
+    @Column(columnDefinition = "varchar(20) default 'BALANCED'")
+    private com.medieval.game.enums.CombatPosture combatPosture = com.medieval.game.enums.CombatPosture.BALANCED;
+
     // [SEM_TIMER] o antigo flag onMission ("busy") foi removido — tudo é instantâneo, então não há
     // bloqueio cruzado de atividade. Cada atividade tem seu próprio check de sessão ativa.
 

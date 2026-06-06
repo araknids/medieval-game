@@ -678,6 +678,22 @@ function renderAttributes() {
   const ac    = warrior.evasionChance ?? 10;
   const bonus = warrior.attackBonus   ?? 0;
 
+  // [POSTURE] Seletor de postura de combate (tradeoff ATK/DEF, vale em todo combate).
+  const cur = warrior.combatPosture ?? 'BALANCED';
+  const POSTURES = [
+    { id:'OFFENSIVE', icon:'⚔️', label:'Offensive', desc:'+20% ATK · −15% DEF' },
+    { id:'BALANCED',  icon:'⚖️', label:'Balanced',  desc:'+5% ATK · +5% DEF'  },
+    { id:'DEFENSIVE', icon:'🛡️', label:'Defensive', desc:'−15% ATK · +20% DEF' },
+  ];
+  const postureBtns = POSTURES.map(p => `
+    <button onclick="setPosture('${p.id}')" ${p.id === cur ? 'disabled' : ''}
+      style="flex:1;min-width:0;padding:6px 4px;border-radius:6px;cursor:${p.id===cur?'default':'pointer'};
+             border:1px solid ${p.id===cur?'#ffd700':'#444'};background:${p.id===cur?'#2a2a40':'#1a1a2e'};color:#eee">
+      <div style="font-size:1.1rem">${p.icon}</div>
+      <div style="font-weight:bold;font-size:.78rem">${p.label}</div>
+      <div style="color:#999;font-size:.66rem">${p.desc}</div>
+    </button>`).join('');
+
   el.innerHTML = `
     <div class="attr-section">
       <div class="attr-header">
@@ -690,6 +706,11 @@ function renderAttributes() {
         &nbsp;·&nbsp;
         ⚔ <strong>Attack +${bonus}</strong> (added to your d20 attack rolls)
       </div>
+    </div>
+    <div class="attr-section" style="margin-top:10px">
+      <div class="attr-header"><span>⚔ Combat Stance</span></div>
+      <div style="font-size:.72rem;color:#888;margin:2px 0 6px">Applies to all combat (PvE & PvP). Free to switch.</div>
+      <div style="display:flex;gap:6px;text-align:center">${postureBtns}</div>
     </div>`;
 }
 
@@ -702,6 +723,15 @@ async function spendPoint(attributeId) {
   const xpPct = Math.floor((warrior.experience / warrior.expNeeded) * 100);
   document.getElementById('warrior-card').querySelector('.xp-bar-fill')
       ?.style.setProperty('width', xpPct + '%');
+  await loadWarrior();
+}
+
+// [POSTURE] Troca a postura de combate (toggle livre).
+async function setPosture(postureId) {
+  const data = await api('POST', `/api/warrior/posture/${postureId}`);
+  if (data.error) { showMessage(data.error, true); return; }
+  warrior = data;
+  renderAttributes();
   await loadWarrior();
 }
 

@@ -50,6 +50,25 @@ public class WarriorController {
         return ResponseEntity.ok(buildResponse(warrior, player));
     }
 
+    // ── Postura de combate (toggle livre) — vale em todo combate. [POSTURE] ──
+    @GetMapping("/postures")
+    public ResponseEntity<?> getPostures() {
+        var list = Arrays.stream(com.medieval.game.enums.CombatPosture.values()).map(p -> Map.of(
+                "id",          p.name(),
+                "displayName", p.displayName,
+                "atkMult",     p.atkMult(),
+                "defMult",     p.defMult()
+        )).toList();
+        return ResponseEntity.ok(list);
+    }
+
+    @PostMapping("/posture/{posture}")
+    public ResponseEntity<?> setPosture(@PathVariable com.medieval.game.enums.CombatPosture posture, Authentication auth) {
+        Player  player  = playerService.findById((Long) auth.getPrincipal());
+        Warrior warrior = warriorService.setPosture(player, posture);
+        return ResponseEntity.ok(buildResponse(warrior, player));
+    }
+
     // ── Helper ──
 
     private WarriorResponse buildResponse(Warrior warrior, Player player) {
@@ -149,7 +168,8 @@ public class WarriorController {
                 arenaFightsToday, arenaFightLimit,
                 buff2Name, buff2SecsLeft,
                 mealBuffName, mealBuffSecsLeft,
-                equippedMount
+                equippedMount,
+                warrior.getCombatPosture() != null ? warrior.getCombatPosture().name() : "BALANCED" // [POSTURE]
         );
     }
 
@@ -177,5 +197,6 @@ public class WarriorController {
                            int arenaFightsToday, int arenaFightLimit,
                            String activeBuff2, long buff2SecondsLeft,
                            String mealBuff, long mealBuffSecondsLeft,
-                           MountInfo equippedMount) {}
+                           MountInfo equippedMount,
+                           String combatPosture) {}
 }

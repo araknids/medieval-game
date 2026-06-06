@@ -111,9 +111,14 @@ public class WarriorStatsService {
     public int[] combatStats(Player player, Warrior warrior) {
         GearBonus g = equippedGear(player);          // planos + atributos de afixo [ITENS_V2]
         int[] buff = activeBuffBonuses(warrior);     // {atk, def, hp, eva}
+        // Postura: tradeoff ATK/DEF aplicado por ÚLTIMO, sobre o total (base+gear+buff). [POSTURE]
+        com.medieval.game.enums.CombatPosture posture = warrior.getCombatPosture() != null
+                ? warrior.getCombatPosture() : com.medieval.game.enums.CombatPosture.BALANCED;
+        int atk = (int) Math.round((warrior.getTotalBaseAttack()  + g.atk() + g.str() + buff[0]) * posture.atkMult());
+        int def = (int) Math.round((warrior.getTotalBaseDefense() + g.def() + buff[1]) * posture.defMult());
         return new int[]{
-            warrior.getTotalBaseAttack()  + g.atk() + g.str() + buff[0], // afixo STR = +1 ATK/pt
-            warrior.getTotalBaseDefense() + g.def() + buff[1],
+            atk,                                                 // [0] ATK (afixo STR = +1 ATK/pt) × postura
+            def,                                                 // [1] DEF × postura
             warrior.getTotalBaseHealth()  + g.hp()  + buff[2],
             warrior.getDexterity()        + g.dex() + buff[3],   // [3] dex → AC = 10 + dex
             (warrior.getStrength() + g.str()) / 20,              // [4] floor(STR efetivo/20)

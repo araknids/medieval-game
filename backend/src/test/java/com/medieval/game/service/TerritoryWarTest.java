@@ -26,7 +26,8 @@ class TerritoryWarTest {
 
     @BeforeEach
     void setup() {
-        service = new TerritoryService(null, null, null, null, null, new BattleSimulator(), null);
+        // guildBrawl não usa repos/statsService → nulls; BattleSimulator real p/ as simulações
+        service = new TerritoryService(null, null, null, null, null, new BattleSimulator(), null, null);
     }
 
     // Create a fighter with controlled stats (no warrior entity, NPC-style)
