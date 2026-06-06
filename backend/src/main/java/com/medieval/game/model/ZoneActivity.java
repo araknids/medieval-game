@@ -41,6 +41,11 @@ public class ZoneActivity {
     @Enumerated(EnumType.STRING)
     private com.medieval.game.enums.Kingdom kingdom;
 
+    // [ELEMENTOS] Área de elemento: define a essência dropada + o elemento dos monstros. null = sem elemento.
+    @Enumerated(EnumType.STRING)
+    @Column(name = "element", length = 10)
+    private com.medieval.game.enums.Element element;
+
     private int durationMinutes;
 
     private LocalDateTime startedAt = LocalDateTime.now();

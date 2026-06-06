@@ -1,5 +1,6 @@
 package com.medieval.game.service;
 
+import com.medieval.game.enums.Element;
 import org.springframework.stereotype.Component;
 
 import java.util.ArrayList;
@@ -122,6 +123,21 @@ public class BattleSimulator {
             String cName, int cAtk, int cDef, int cHp, int cDex, int cStrBonus, int cLuk,
             String oName, int oAtk, int oDef, int oHp, int oDex, int oStrBonus, int oLuk,
             boolean firstLosesOnTimeout) {
+        return simulateDetailed(cName, cAtk, cDef, cHp, cDex, cStrBonus, cLuk,
+                oName, oAtk, oDef, oHp, oDex, oStrBonus, oLuk,
+                firstLosesOnTimeout, null, null, null, null);
+    }
+
+    /**
+     * Versão com ELEMENTOS [ELEMENTOS]: arma/armadura de cada lado aplicam ±25% por golpe
+     * (roda RPS via {@link Element#multiplier}). Monstro usa o mesmo elemento como arma e armadura.
+     * Elementos null = neutro (×1.0) → idêntico ao combate sem elemento.
+     */
+    public BattleOutcome simulateDetailed(
+            String cName, int cAtk, int cDef, int cHp, int cDex, int cStrBonus, int cLuk,
+            String oName, int oAtk, int oDef, int oHp, int oDex, int oStrBonus, int oLuk,
+            boolean firstLosesOnTimeout,
+            Element cWeapon, Element cArmor, Element oWeapon, Element oArmor) {
 
         List<String> log = new ArrayList<>();
         Random rng = java.util.concurrent.ThreadLocalRandom.current();
@@ -158,18 +174,19 @@ public class BattleSimulator {
                     log.add("  ✨ " + oName + " gets a Fortune Save — critical negated!");
                 }
                 if (total >= oAc || isCrit) {
-                    int dmg = mitigatedDamage(cAtk, oDef); // Combate V2: mitigação %
+                    double elemMult = Element.multiplier(cWeapon, oArmor); // [ELEMENTOS]
+                    int dmg = Math.max(1, (int) Math.round(mitigatedDamage(cAtk, oDef) * elemMult)); // Combate V2: mitigação %
+                    String note = elementNote(elemMult);
                     String bodyPart = BODY_PARTS[rng.nextInt(BODY_PARTS.length)];
+                    if (isCrit) dmg *= 2;
                     int oAfter = Math.max(0, oCurrentHp - dmg);
                     if (isCrit) {
-                        dmg *= 2;
-                        oAfter = Math.max(0, oCurrentHp - dmg);
                         log.add("  💥 " + cName + " " + CRIT_TEXTS[rng.nextInt(CRIT_TEXTS.length)]
-                                + " " + bodyPart + " of " + oName + "! [-" + dmg + " HP]"
+                                + " " + bodyPart + " of " + oName + "! [-" + dmg + " HP" + note + "]"
                                 + " " + oName + " ❤ " + oAfter + "/" + oHp);
                     } else {
                         log.add("  " + cName + " " + HIT_TEXTS[rng.nextInt(HIT_TEXTS.length)]
-                                + " " + bodyPart + " of " + oName + "! [-" + dmg + " HP]"
+                                + " " + bodyPart + " of " + oName + "! [-" + dmg + " HP" + note + "]"
                                 + " " + oName + " ❤ " + oAfter + "/" + oHp);
                     }
                     oCurrentHp -= dmg;
@@ -191,17 +208,19 @@ public class BattleSimulator {
                     log.add("  ✨ " + cName + " gets a Fortune Save — critical negated!");
                 }
                 if (total >= cAc || isCrit) {
-                    int dmg = mitigatedDamage(oAtk, cDef); // Combate V2: mitigação %
+                    double elemMult = Element.multiplier(oWeapon, cArmor); // [ELEMENTOS]
+                    int dmg = Math.max(1, (int) Math.round(mitigatedDamage(oAtk, cDef) * elemMult)); // Combate V2: mitigação %
+                    String note = elementNote(elemMult);
                     if (isCrit) dmg *= 2;
                     String bodyPart = BODY_PARTS[rng.nextInt(BODY_PARTS.length)];
                     int cAfter = Math.max(0, cCurrentHp - dmg);
                     if (isCrit) {
                         log.add("  💥 " + oName + " " + CRIT_TEXTS[rng.nextInt(CRIT_TEXTS.length)]
-                                + " " + bodyPart + " of " + cName + "! [-" + dmg + " HP]"
+                                + " " + bodyPart + " of " + cName + "! [-" + dmg + " HP" + note + "]"
                                 + " " + cName + " ❤ " + cAfter + "/" + cHp);
                     } else {
                         log.add("  " + oName + " " + ENEMY_HIT_TEXTS[rng.nextInt(ENEMY_HIT_TEXTS.length)]
-                                + " " + bodyPart + " of " + cName + "! [-" + dmg + " HP]"
+                                + " " + bodyPart + " of " + cName + "! [-" + dmg + " HP" + note + "]"
                                 + " " + cName + " ❤ " + cAfter + "/" + cHp);
                     }
                     cCurrentHp -= dmg;
@@ -238,5 +257,12 @@ public class BattleSimulator {
     public static int mitigatedDamage(int atk, int def) {
         int d = Math.max(0, def);
         return Math.max(1, (int) Math.round(atk * 100.0 / (100 + d)));
+    }
+
+    /** Nota de elemento no log do golpe: ✨ super eficaz (×1.25), 🛡 resistido (×0.75), nada se neutro. [ELEMENTOS] */
+    private static String elementNote(double mult) {
+        if (mult > 1.0) return " ✨ super effective";
+        if (mult < 1.0) return " 🛡 resisted";
+        return "";
     }
 }

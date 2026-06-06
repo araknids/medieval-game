@@ -113,12 +113,40 @@ public class Warrior {
         mealBuffExpiresAt = null;
     }
 
+    // ── Encantamento elemental (Templo) — temporário (1h), some na derrota/KO. [ELEMENTOS] ──
+    // Arma = elemento que você causa (ofensa); Armadura = seu elemento de defesa.
+    @Enumerated(EnumType.STRING)
+    @Column(name = "weapon_element", length = 10)
+    private com.medieval.game.enums.Element weaponElement;
+    @Column(name = "weapon_element_until")
+    private LocalDateTime weaponElementUntil;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "armor_element", length = 10)
+    private com.medieval.game.enums.Element armorElement;
+    @Column(name = "armor_element_until")
+    private LocalDateTime armorElementUntil;
+
+    /** Elemento da arma ATIVO (null se expirado/ausente). */
+    public com.medieval.game.enums.Element getActiveWeaponElement() {
+        return (weaponElement != null && weaponElementUntil != null
+                && LocalDateTime.now().isBefore(weaponElementUntil)) ? weaponElement : null;
+    }
+    /** Elemento da armadura ATIVO (null se expirado/ausente). */
+    public com.medieval.game.enums.Element getActiveArmorElement() {
+        return (armorElement != null && armorElementUntil != null
+                && LocalDateTime.now().isBefore(armorElementUntil)) ? armorElement : null;
+    }
+
     public void clearBuff() {
         activeBuff    = null;
         buffExpiresAt = null;
         activeBuff2   = null;
         buffExpiresAt2 = null;
         clearMealBuff(); // refeição também some na derrota/KO. [COZINHA]
+        // Encantamentos elementais também somem na derrota/KO. [ELEMENTOS]
+        weaponElement = null; weaponElementUntil = null;
+        armorElement  = null; armorElementUntil  = null;
     }
 
     // ── Postura de combate (tradeoff ATK/DEF) — vale em qualquer combate (PvE/PvP). [POSTURE] ──

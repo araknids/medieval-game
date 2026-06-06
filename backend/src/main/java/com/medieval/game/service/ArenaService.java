@@ -70,6 +70,10 @@ public class ArenaService {
         }
 
         int[] cStats = totalStats(challenger, cWarrior);
+        // [ELEMENTOS] Encantamentos ativos do desafiante; oponente preenche abaixo (NPC = neutro).
+        com.medieval.game.enums.Element cWeapon = cWarrior.getActiveWeaponElement();
+        com.medieval.game.enums.Element cArmor  = cWarrior.getActiveArmorElement();
+        com.medieval.game.enums.Element oWeapon = null, oArmor = null;
 
         // Oponente: outro jogador real (rank próximo) ou NPC
         Player opponent = findOpponent(challenger);
@@ -79,6 +83,7 @@ public class ArenaService {
             Warrior oWarrior = warriorRepository.findByPlayer(opponent).orElse(null);
             opponentName = oWarrior != null ? oWarrior.getName() : opponent.getUsername();
             oStats = oWarrior != null ? totalStats(opponent, oWarrior) : npcStats();
+            if (oWarrior != null) { oWeapon = oWarrior.getActiveWeaponElement(); oArmor = oWarrior.getActiveArmorElement(); }
         } else {
             opponentName = NPC_NAMES[java.util.concurrent.ThreadLocalRandom.current().nextInt(NPC_NAMES.length)];
             oStats = npcStats();
@@ -86,7 +91,8 @@ public class ArenaService {
 
         BattleSimulator.BattleOutcome outcome = battleSimulator.simulateDetailed(
                 cWarrior.getName(), cStats[0], cStats[1], cStats[2], cStats[3], cStats[4], cStats[5],
-                opponentName,       oStats[0], oStats[1], oStats[2], oStats[3], oStats[4], oStats[5]
+                opponentName,       oStats[0], oStats[1], oStats[2], oStats[3], oStats[4], oStats[5],
+                false, cWeapon, cArmor, oWeapon, oArmor // [ELEMENTOS]
         );
         inventoryService.wearEquippedItems(challenger);
 

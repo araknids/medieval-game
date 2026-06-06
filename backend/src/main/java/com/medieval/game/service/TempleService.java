@@ -1,6 +1,8 @@
 package com.medieval.game.service;
 
 import com.medieval.game.enums.BuffType;
+import com.medieval.game.enums.Element;
+import com.medieval.game.enums.ResourceType;
 import com.medieval.game.model.InventoryItem;
 import com.medieval.game.model.Player;
 import com.medieval.game.model.Warrior;
@@ -33,6 +35,11 @@ public class TempleService {
     private final PlayerRepository        playerRepository;
     private final PlayerService           playerService;
     private final VipService              vipService;
+    private final GatheringService        gatheringService; // consumo de essência no encantamento [ELEMENTOS]
+
+    // ── Encantamento elemental (buff temporário 1h) [ELEMENTOS] ──
+    private static final long ENCHANT_BRONZE_COST = 100;
+    private static final int  ENCHANT_DURATION_MIN = 60;
 
     // ── Curar guerreiro ──
 
@@ -164,6 +171,37 @@ public class TempleService {
         }
         warriorRepository.save(warrior);
         log.info("[TempleService] player={} action=applyBuff cost={}", player.getId(), buffType.bronzeCost);
+    }
+
+    // ── Encantamento elemental (arma/armadura, buff 1h) [ELEMENTOS] ──
+
+    @Transactional
+    public void enchantWeapon(Player player, Element element) { applyEnchant(player, element, true); }
+
+    @Transactional
+    public void enchantArmor(Player player, Element element) { applyEnchant(player, element, false); }
+
+    private void applyEnchant(Player player, Element element, boolean weapon) {
+        log.info("[TempleService] player={} action=enchant {} element={}", player.getId(), weapon ? "weapon" : "armor", element);
+        if (element == null) throw new IllegalArgumentException("Choose an element.");
+        Warrior warrior = warriorRepository.findByPlayer(player)
+                .orElseThrow(() -> new IllegalStateException("Warrior not found"));
+
+        ResourceType essence = element.essence();
+        if (gatheringService.resourceQuantity(player, essence) < 1) {
+            log.warn("[TempleService] player={} REJECTED: no {} to enchant", player.getId(), essence);
+            throw new IllegalStateException("Not enough " + essence.displayName + ". Farm the "
+                    + element.displayName + " area to gather it.");
+        }
+
+        playerService.spendBronze(player, ENCHANT_BRONZE_COST);   // lança se não tiver saldo (rollback)
+        gatheringService.removeResource(player, essence, 1);
+
+        LocalDateTime until = LocalDateTime.now().plusMinutes(ENCHANT_DURATION_MIN);
+        if (weapon) { warrior.setWeaponElement(element); warrior.setWeaponElementUntil(until); }
+        else        { warrior.setArmorElement(element);  warrior.setArmorElementUntil(until); }
+        warriorRepository.save(warrior);
+        log.info("[TempleService] player={} action=enchant OK {} element={} until={}", player.getId(), weapon ? "weapon" : "armor", element, until);
     }
 
     // ── Proteger item ──

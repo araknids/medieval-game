@@ -47,13 +47,20 @@ public class ZoneService {
     @Transactional
     public ZoneActivity enter(Player player, Zone zone, ActivityRole role,
                               SkillType skillType, int durationMinutes) {
-        return enter(player, zone, role, skillType, durationMinutes, null);
+        return enter(player, zone, role, skillType, durationMinutes, null, null);
     }
 
     @Transactional
     public ZoneActivity enter(Player player, Zone zone, ActivityRole role,
                               SkillType skillType, int durationMinutes, com.medieval.game.enums.Kingdom kingdom) {
-        log.info("[ZoneService] player={} action=enter zone={} role={} skill={} duration={} kingdom={}", player.getId(), zone, role, skillType, durationMinutes, kingdom);
+        return enter(player, zone, role, skillType, durationMinutes, kingdom, null);
+    }
+
+    @Transactional
+    public ZoneActivity enter(Player player, Zone zone, ActivityRole role,
+                              SkillType skillType, int durationMinutes, com.medieval.game.enums.Kingdom kingdom,
+                              com.medieval.game.enums.Element element) {
+        log.info("[ZoneService] player={} action=enter zone={} role={} skill={} duration={} kingdom={} element={}", player.getId(), zone, role, skillType, durationMinutes, kingdom, element);
 
         Warrior warrior = warriorRepository.findByPlayer(player)
                 .orElseThrow(() -> new IllegalStateException("Warrior not found"));
@@ -113,6 +120,7 @@ public class ZoneService {
         activity.setRole(role);
         activity.setSkillType(skillType);
         activity.setKingdom(kingdom);
+        activity.setElement(element); // [ELEMENTOS] área de elemento (essência + elemento dos monstros)
         activity.setDurationMinutes(durationMinutes);
         activity.setStartedAt(LocalDateTime.now());
         // [SEM_TIMER] farm de zona é instantâneo (já pronto pra coletar). endsAt 1s no passado
@@ -346,6 +354,12 @@ public class ZoneService {
                     Math.max(1, Math.round(d.quantity() * mult))));
         }
 
+        // [ELEMENTOS] Essência do elemento da área (material de encantamento) — escala com o tier.
+        if (activity.getElement() != null) {
+            int essenceQty = Math.max(1, (int) Math.round(rounds * mult / 2.0));
+            scaled.add(new GatheringService.ResourceDrop(activity.getElement().essence(), essenceQty));
+        }
+
         long xp = Math.round(xpBase * mult);
         activity.setXpGained(xp);
         return scaled;
@@ -383,7 +397,10 @@ public class ZoneService {
 
                 BattleSimulator.BattleOutcome out = battleSimulator.simulateDetailed(
                     attacker.getName(), atkStats[0], atkStats[1], atkHp, atkStats[3], atkStats[4], atkStats[5],
-                    victimW.getName(),  vStats[0],   vStats[1],   vHp,   vStats[3],   vStats[4],   vStats[5]); // PvP %HP
+                    victimW.getName(),  vStats[0],   vStats[1],   vHp,   vStats[3],   vStats[4],   vStats[5],
+                    false, // PvP %HP
+                    attacker.getActiveWeaponElement(), attacker.getActiveArmorElement(),
+                    victimW.getActiveWeaponElement(),  victimW.getActiveArmorElement()); // [ELEMENTOS]
 
                 List<String> log = stripWinnerTag(out.log());
                 String foe = victimW.getName() + " (player)";
@@ -405,26 +422,30 @@ public class ZoneService {
                 }
             }
             // Nenhum flagged → NPC ambusher (preenchimento). [PVP_FLAG]
-            return fightNpc(player, attacker, atkStats, atkHp, atkMaxHp, zone, rng);
+            return fightNpc(player, attacker, atkStats, atkHp, atkMaxHp, zone, rng, activity.getElement());
         }
 
         // ── NPC selvagem (PvE) ──
         if (rng.nextInt(100) < zone.npcEncounterChance) {
-            return fightNpc(player, attacker, atkStats, atkHp, atkMaxHp, zone, rng);
+            return fightNpc(player, attacker, atkStats, atkHp, atkMaxHp, zone, rng, activity.getElement());
         }
 
         persistAttackerHp(attacker, atkHp, atkMaxHp);
         return new PvpResult(false, true, 0, null, List.of());
     }
 
-    /** Luta contra um NPC (monstro selvagem ou "ambusher" de preenchimento). */
-    private PvpResult fightNpc(Player player, Warrior attacker, int[] atkStats, int atkHp, int atkMaxHp, Zone zone, Random rng) {
+    /** Luta contra um NPC (monstro selvagem ou "ambusher" de preenchimento). Monstro usa o elemento da área. */
+    private PvpResult fightNpc(Player player, Warrior attacker, int[] atkStats, int atkHp, int atkMaxHp, Zone zone, Random rng,
+                              com.medieval.game.enums.Element areaElement) {
         int    npcLevel = attacker.getLevel() + rng.nextInt(4);
-        String npcName  = npcName(zone, rng);
+        String npcName  = areaElement != null ? areaElement.icon + " " + npcName(zone, rng) : npcName(zone, rng);
         int[]  npcStats = npcStatsByLevel(npcLevel, rng);
         BattleSimulator.BattleOutcome out = battleSimulator.simulateDetailed(
                 attacker.getName(), atkStats[0], atkStats[1], atkHp, atkStats[3], atkStats[4], atkStats[5],
-                npcName,            npcStats[0], npcStats[1], npcStats[2], npcStats[3], npcStats[4], npcStats[5]);
+                npcName,            npcStats[0], npcStats[1], npcStats[2], npcStats[3], npcStats[4], npcStats[5],
+                false, // PvE NPC: empate por %HP (mantém comportamento)
+                attacker.getActiveWeaponElement(), attacker.getActiveArmorElement(),
+                areaElement, areaElement); // [ELEMENTOS] monstro: elemento da área como arma e armadura
         List<String> log = stripWinnerTag(out.log());
         inventoryService.wearEquippedItems(player);
         if (!out.firstWon()) {

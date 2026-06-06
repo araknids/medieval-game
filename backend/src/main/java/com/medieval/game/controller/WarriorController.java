@@ -152,6 +152,14 @@ public class WarriorController {
                     return new PetInfo(pt.name(), pt.displayName, pt.icon, pt.hpBonusPercent, pt.dexBonus); })
                 .orElse(null);
 
+        // [ELEMENTOS] Encantamentos elementais ativos (arma/armadura) + tempo restante.
+        var wElem = warrior.getActiveWeaponElement();
+        var aElem = warrior.getActiveArmorElement();
+        long wElemSecs = wElem != null ? Math.max(0, java.time.temporal.ChronoUnit.SECONDS.between(
+                java.time.LocalDateTime.now(), warrior.getWeaponElementUntil())) : 0;
+        long aElemSecs = aElem != null ? Math.max(0, java.time.temporal.ChronoUnit.SECONDS.between(
+                java.time.LocalDateTime.now(), warrior.getArmorElementUntil())) : 0;
+
         return new WarriorResponse(
                 warrior.getId(), warrior.getName(), warrior.getWarriorClass().displayName,
                 warrior.getWarriorClass().name(), // id estável do enum p/ a UI decidir a Path Trial [CLASSES]
@@ -178,7 +186,9 @@ public class WarriorController {
                 mealBuffName, mealBuffSecsLeft,
                 equippedMount,
                 warrior.getCombatPosture() != null ? warrior.getCombatPosture().name() : "BALANCED", // [POSTURE]
-                equippedPet // [PETS]
+                equippedPet, // [PETS]
+                wElem != null ? wElem.name() : "", wElemSecs, // [ELEMENTOS]
+                aElem != null ? aElem.name() : "", aElemSecs
         );
     }
 
@@ -211,5 +221,7 @@ public class WarriorController {
                            String mealBuff, long mealBuffSecondsLeft,
                            MountInfo equippedMount,
                            String combatPosture,
-                           PetInfo equippedPet) {}
+                           PetInfo equippedPet,
+                           String weaponElement, long weaponElementSecondsLeft, // [ELEMENTOS]
+                           String armorElement,  long armorElementSecondsLeft) {}
 }

@@ -1,9 +1,11 @@
 package com.medieval.game.controller;
 
 import com.medieval.game.enums.BuffType;
+import com.medieval.game.enums.Element;
 import com.medieval.game.model.Player;
 import com.medieval.game.model.Warrior;
 import com.medieval.game.repository.WarriorRepository;
+import com.medieval.game.service.GatheringService;
 import com.medieval.game.service.PlayerService;
 import com.medieval.game.service.TempleService;
 import lombok.RequiredArgsConstructor;
@@ -24,6 +26,7 @@ public class TempleController {
     private final TempleService     templeService;
     private final PlayerService     playerService;
     private final WarriorRepository warriorRepository;
+    private final GatheringService  gatheringService; // contagem de essências p/ a UI [ELEMENTOS]
 
     // Info do templo para o jogador atual
     @GetMapping
@@ -65,6 +68,23 @@ public class TempleController {
                     LocalDateTime.now(), warrior.getBuffExpiresAt2()));
         }
 
+        // [ELEMENTOS] Encantamentos ativos + os 4 elementos (com essência que o jogador tem).
+        Element wElem = warrior != null ? warrior.getActiveWeaponElement() : null;
+        Element aElem = warrior != null ? warrior.getActiveArmorElement()  : null;
+        long wElemSecs = (warrior != null && wElem != null)
+                ? Math.max(0, ChronoUnit.SECONDS.between(LocalDateTime.now(), warrior.getWeaponElementUntil())) : 0;
+        long aElemSecs = (warrior != null && aElem != null)
+                ? Math.max(0, ChronoUnit.SECONDS.between(LocalDateTime.now(), warrior.getArmorElementUntil())) : 0;
+        var elements = Arrays.stream(Element.values()).map(e -> Map.of(
+            "id",          e.name(),
+            "displayName", e.displayName,
+            "icon",        e.icon,
+            "beats",       e.beatsTarget().displayName,
+            "essence",     e.essence().name(),
+            "essenceName", e.essence().displayName,
+            "owned",       gatheringService.resourceQuantity(player, e.essence())
+        )).toList();
+
         return ResponseEntity.ok(Map.ofEntries(
             Map.entry("hpPercent",          hpPct),
             Map.entry("isKnockedOut",        warrior != null && warrior.isKnockedOut()),
@@ -82,7 +102,14 @@ public class TempleController {
             Map.entry("ssHealReady",         ssHealCdSecs == 0),
             Map.entry("isVip",               isVip),
             Map.entry("vipHealCooldownSecs", isVip ? vipHealCdSecs : -1L),
-            Map.entry("vipHealReady",        isVip && vipHealCdSecs == 0)
+            Map.entry("vipHealReady",        isVip && vipHealCdSecs == 0),
+            // [ELEMENTOS]
+            Map.entry("elements",            elements),
+            Map.entry("enchantCost",         100),
+            Map.entry("weaponElement",       wElem != null ? wElem.name() : ""),
+            Map.entry("weaponElementSecondsLeft", wElemSecs),
+            Map.entry("armorElement",        aElem != null ? aElem.name() : ""),
+            Map.entry("armorElementSecondsLeft",  aElemSecs)
         ));
     }
 
@@ -101,6 +128,19 @@ public class TempleController {
             "message", buffType.displayName + " ativado por 1 hora!",
             "buff",    buffType.name()
         ));
+    }
+
+    // Encantar arma/armadura com um elemento (buff 1h, custa essência + bronze) [ELEMENTOS]
+    @PostMapping("/enchant/weapon/{element}")
+    public ResponseEntity<?> enchantWeapon(@PathVariable Element element, Authentication auth) {
+        templeService.enchantWeapon(getPlayer(auth), element);
+        return ResponseEntity.ok(Map.of("message", element.icon + " Weapon enchanted with " + element.displayName + " for 1 hour!"));
+    }
+
+    @PostMapping("/enchant/armor/{element}")
+    public ResponseEntity<?> enchantArmor(@PathVariable Element element, Authentication auth) {
+        templeService.enchantArmor(getPlayer(auth), element);
+        return ResponseEntity.ok(Map.of("message", element.icon + " Armor enchanted with " + element.displayName + " for 1 hour!"));
     }
 
     // VIP — cura grátis (CD 10 min)

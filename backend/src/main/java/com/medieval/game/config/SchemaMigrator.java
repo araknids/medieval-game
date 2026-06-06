@@ -39,6 +39,7 @@ public class SchemaMigrator {
         patchGuildEverControlledColumn();
         patchInventoryListedColumn();
         patchInventoryWeaponCategoryColumn();
+        patchElementColumns();
         patchStashColumns();
         patchKingdomQuestWindowColumn();
         dropWarriorOnMissionColumn();
@@ -171,6 +172,20 @@ public class SchemaMigrator {
             log.info("[SchemaMigrator] inventory_items.weapon_category/str/dex/luk + mail.item_level columns ensured");
         } catch (Exception e) {
             log.warn("[SchemaMigrator] inventory_items.weapon_category patch failed: {}", e.getMessage());
+        }
+    }
+
+    // Elementos: encantamento temporário (arma/armadura) no guerreiro + elemento da área da zona. [ELEMENTOS]
+    private void patchElementColumns() {
+        try {
+            jdbc.execute("ALTER TABLE warriors ADD COLUMN IF NOT EXISTS weapon_element       varchar(10)");
+            jdbc.execute("ALTER TABLE warriors ADD COLUMN IF NOT EXISTS weapon_element_until timestamp");
+            jdbc.execute("ALTER TABLE warriors ADD COLUMN IF NOT EXISTS armor_element        varchar(10)");
+            jdbc.execute("ALTER TABLE warriors ADD COLUMN IF NOT EXISTS armor_element_until  timestamp");
+            jdbc.execute("ALTER TABLE zone_activities ADD COLUMN IF NOT EXISTS element        varchar(10)");
+            log.info("[SchemaMigrator] element columns (warriors enchant + zone_activities.element) ensured");
+        } catch (Exception e) {
+            log.warn("[SchemaMigrator] element columns patch failed: {}", e.getMessage());
         }
     }
 

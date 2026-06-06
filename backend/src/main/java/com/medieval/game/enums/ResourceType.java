@@ -46,7 +46,13 @@ public enum ResourceType {
     // ── Materials ──
     LEATHER       ("Leather",        ResourceCategory.MATERIAL, 1),
     MONSTER_CORE  ("Monster Core",   ResourceCategory.MATERIAL, 1),   // drop from the Beast Den [REINOS_V2]
-    BEAST_HIDE    ("Beast Hide",     ResourceCategory.MATERIAL, 1);   // rare drop from the Beast Den
+    BEAST_HIDE    ("Beast Hide",     ResourceCategory.MATERIAL, 1),   // rare drop from the Beast Den
+
+    // ── Essências elementais (drop das áreas de elemento; material do encantamento no Templo) [ELEMENTOS] ──
+    FIRE_ESSENCE  ("Fire Essence",   ResourceCategory.ESSENCE, 1),
+    WATER_ESSENCE ("Water Essence",  ResourceCategory.ESSENCE, 1),
+    EARTH_ESSENCE ("Earth Essence",  ResourceCategory.ESSENCE, 1),
+    AIR_ESSENCE   ("Air Essence",    ResourceCategory.ESSENCE, 1);
 
     public final String           displayName;
     public final ResourceCategory category;
@@ -58,5 +64,5 @@ public enum ResourceType {
         this.levelRequired = levelRequired;
     }
 
-    public enum ResourceCategory { FISH, ORE, FRAGMENT, BAR, GEM, MATERIAL }
+    public enum ResourceCategory { FISH, ORE, FRAGMENT, BAR, GEM, MATERIAL, ESSENCE }
 }

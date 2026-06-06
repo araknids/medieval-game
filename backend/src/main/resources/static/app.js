@@ -330,6 +330,17 @@ async function loadWarrior() {
             </div>`;
   })() : '';
 
+  // [ELEMENTOS] Selos de encantamento ativo (arma/armadura) + tempo restante.
+  const ELEM_ICON = { FIRE:'🔥', WATER:'💧', EARTH:'🪨', AIR:'💨' };
+  const enchantLine = (() => {
+    const seal = (label, elem, secs) => !elem ? '' :
+      `<span style="font-size:.72rem;padding:2px 6px;margin-right:4px;background:#1a2433;border:1px solid #4a7;border-radius:4px;color:#bfe">
+         ${label}${ELEM_ICON[elem]||''} ${elem} <span style="color:#888">${Math.floor((secs||0)/60)}m</span></span>`;
+    const w = seal('🗡', warrior.weaponElement, warrior.weaponElementSecondsLeft);
+    const a = seal('🛡', warrior.armorElement,  warrior.armorElementSecondsLeft);
+    return (w || a) ? `<div style="margin-top:.3rem">${w}${a}</div>` : '';
+  })();
+
   const hpColor      = (warrior.hpPercent ?? 100) <= 0 ? '#cf6679'
                      : (warrior.hpPercent ?? 100) < 50  ? '#c9a84c' : '#4caf82';
   const staminaColor = stamina < 30 ? '#cf6679' : stamina < 60 ? '#c9a84c' : '#4caf82';
@@ -382,6 +393,7 @@ async function loadWarrior() {
     ${mealBuffLine}
     ${mountLine}
     ${petLine}
+    ${enchantLine}
 
     <div style="margin-top:.4rem">
       ${warrior.isKnockedOut
@@ -1166,6 +1178,30 @@ function renderTemple(data) {
       <button class="btn-equip" onclick="applyBuff('${b.id}')">${t('temple.bless_btn')}</button>
     </div>`).join('');
 
+  // [ELEMENTOS] Encantamento elemental (arma/armadura, buff 1h, custa essência + bronze).
+  const enchantHtml = (() => {
+    const els = data.elements || [];
+    const slot = (label, current, secs, kind) => `
+      <div style="margin-bottom:.55rem">
+        <div style="font-size:.8rem;color:#bbb;margin-bottom:.25rem">${label}: ${
+          current ? `<strong>${(els.find(e => e.id === current)?.icon) || ''} ${current}</strong> <span style="color:#888">(${Math.floor((secs||0)/60)}min)</span>`
+                  : '<span style="color:#888">none</span>'}</div>
+        <div style="display:flex;gap:6px;flex-wrap:wrap">
+          ${els.map(e => `
+            <button onclick="enchant('${kind}','${e.id}')" ${e.owned < 1 ? 'disabled style="opacity:.45;cursor:not-allowed"' : ''}
+              title="Beats ${e.beats} · you have ${e.owned} ${e.essenceName}"
+              style="font-size:.78rem;padding:4px 8px">${e.icon} ${e.displayName} <span style="color:#888">(${e.owned})</span></button>`).join('')}
+        </div>
+      </div>`;
+    return `
+      <div class="sk-section">
+        <div class="sk-title">⚗ Enchanting <span style="font-size:.7rem;color:#888">(1h · ${fmtBronze(data.enchantCost || 100)} + 1 essence)</span></div>
+        <p class="zone-desc">Weapon = element you deal · Armor = your defense. Wheel: 🔥→💨→🪨→💧→🔥 (each beats the next). Match-up = ±25% in combat. Farm element areas for essences. Enchants are lost on KO.</p>
+        ${slot('🗡 Weapon', data.weaponElement, data.weaponElementSecondsLeft, 'weapon')}
+        ${slot('🛡 Armor',  data.armorElement,  data.armorElementSecondsLeft,  'armor')}
+      </div>`;
+  })();
+
   el.innerHTML = `
     <div class="sk-section">
       <div class="sk-title">${t('temple.warrior_state')}</div>
@@ -1225,6 +1261,8 @@ function renderTemple(data) {
       <div style="margin-top:.5rem">${buffsHtml}</div>
     </div>
 
+    ${enchantHtml}
+
     <div class="sk-section">
       <div class="sk-title">Proteção de Itens (${data.protectedCount}/${data.maxProtected})</div>
       <p class="zone-desc">Protected items are not lost in PvP combat. Cost: ${fmtBronze(50)}/item.</p>
@@ -1272,6 +1310,15 @@ async function soulstoneHeal() {
 
 async function applyBuff(buffId) {
   const data = await api('POST', `/api/temple/buff/${buffId}`);
+  if (data.error) { showMessage(data.error, true); return; }
+  showMessage(data.message);
+  await loadWarrior();
+  loadTemple();
+}
+
+// [ELEMENTOS] Encanta arma/armadura (kind = 'weapon'|'armor') com um elemento.
+async function enchant(kind, element) {
+  const data = await api('POST', `/api/temple/enchant/${kind}/${element}`);
   if (data.error) { showMessage(data.error, true); return; }
   showMessage(data.message);
   await loadWarrior();
@@ -2669,6 +2716,8 @@ function mailMsg(text, ok = true) {
 // ═══════════════════════════════════════════════════════════════════
 
 let worldCurrentKingdom = null;
+let selectedZoneElement = 'FIRE'; // [ELEMENTOS] área de elemento selecionada nas zonas de coleta
+function selectZoneElement(el) { selectedZoneElement = el; if (worldCurrentKingdom) enterKingdom(worldCurrentKingdom); }
 
 async function loadWorld() {
   const el = document.getElementById('world-content');
@@ -2917,7 +2966,24 @@ function renderKingdomDetail(kingdom, quests, activeQuests, training, zoneSessio
       { name:'💎 Forbidden Cavern', minLv:20, tier:'HIGH_RISK', color:'#ef5350', desc:RED_DESC }
     ];
 
-    gatheringHtml = zones.map(z => {
+    // [ELEMENTOS] Picker de área de elemento — dropa a essência do elemento + monstros desse elemento.
+    const ZONE_ELEMENTS = [
+      { id:'FIRE', icon:'🔥', name:'Fire' }, { id:'WATER', icon:'💧', name:'Water' },
+      { id:'EARTH', icon:'🪨', name:'Earth' }, { id:'AIR', icon:'💨', name:'Air' },
+    ];
+    const elemPicker = `
+      <div style="margin-bottom:10px">
+        <div style="font-size:12px;color:#aaa;margin-bottom:4px">⚗ Element area <span style="color:#888">— drops its essence + monsters of that element</span></div>
+        <div style="display:flex;gap:6px;flex-wrap:wrap">
+          ${ZONE_ELEMENTS.map(e => `
+            <button onclick="selectZoneElement('${e.id}')" style="font-size:12px;padding:4px 10px;border-radius:6px;
+              border:1px solid ${selectedZoneElement===e.id?'#4caf82':'#444'};
+              background:${selectedZoneElement===e.id?'#16352a':'#1a1a2e'};
+              color:${selectedZoneElement===e.id?'#bfe':'#ccc'}">${e.icon} ${e.name}</button>`).join('')}
+        </div>
+      </div>`;
+
+    gatheringHtml = elemPicker + zones.map(z => {
       const locked = wLevel < z.minLv;
       return `
         <div style="background:#1a1a2e;border:1px solid ${locked?'#333':z.color+'44'};border-radius:8px;padding:12px;margin-bottom:8px;opacity:${locked?'0.5':'1'}">
@@ -2936,7 +3002,7 @@ function renderKingdomDetail(kingdom, quests, activeQuests, training, zoneSessio
                 const stamCost = Math.max(5, Math.floor(d/2));
                 const verb = isFishing ? '🎣 Pescar' : skillType === 'MINING' ? '⛏ Minerar' : '🔎 Garimpar';
                 // [UNIFICAÇÃO_ZONA] coleta pelo sistema de zona (tem PvP) + drops do reino
-                return `<button onclick="enterKingdomZone('${z.tier}','${skillType}',${d},'${kingdom}')" style="font-size:12px;padding:4px 14px">${verb} · ⚡${stamCost}</button>`;
+                return `<button onclick="enterKingdomZone('${z.tier}','${skillType}',${d},'${kingdom}','${selectedZoneElement}')" style="font-size:12px;padding:4px 14px">${verb} · ⚡${stamCost}</button>`;
               })()}
             </div>`}
         </div>`;
@@ -3228,8 +3294,8 @@ async function collectTraining(sessionId) {
 }
 
 // [UNIFICAÇÃO_ZONA] Coleta por zona (SAFE/PVP/HIGH_RISK) com drops do reino — /api/zones/enter GATHERING.
-async function enterKingdomZone(zone, skillType, durationMinutes, kingdom) {
-  const r = await api('POST', '/api/zones/enter', { zone, role: 'GATHERING', skillType, durationMinutes, kingdom });
+async function enterKingdomZone(zone, skillType, durationMinutes, kingdom, element) {
+  const r = await api('POST', '/api/zones/enter', { zone, role: 'GATHERING', skillType, durationMinutes, kingdom, element: element || null });
   if (r.error) { worldMsg(r.error, false); return; }
   await collectKingdomZoneSession(r.id); // instantâneo: resolve e abre o resultado direto
 }
