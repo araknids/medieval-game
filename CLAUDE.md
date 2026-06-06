@@ -61,6 +61,9 @@ O jogo é **instantâneo**: missão/coleta/trabalho/zona/treino/arena resolvem n
 ### PvP de Zona com Flag + Tiers — [PVP_FLAG]
 Farmar uma zona 🟡PVP/🔴HIGH_RISK = instantâneo + **flagga o player 1h** (`Player.pvpFlaggedZone/Until`). Outro player farmando a mesma zona (±10 níveis) pode **cruzar e saquear** o flagged (matchmaking `PlayerRepository.findFlaggedInZone`). Tiers: 🟢SAFE (só PvE NPC), 🟡 (−50% recursos +10% bronze, recursos travados), 🔴 (+ item travado `InventoryItem.pvpLocked` + XP pro killer). Item/recurso travado não vende/stasha/guarda enquanto flagged. **Toda coleta** (Pesca/Mineração/Mar Abençoado/Grutas) passa pelo ZoneService (drops por reino via `ZoneActivity.kingdom`). `/api/gathering` ficou só p/ skills, inventário de recursos e consumo de peixe (skills/resources/consume) — o antigo fluxo de **sessão de coleta** (`GatheringSession`, `/api/gathering/start|collect|cancel|current`) foi **removido** junto com o legado de quest (`/api/quests`, `ActiveQuest`).
 
+### Classes (Recruit → Trial → Warrior/Archer) — [CLASSES]
+Todo personagem **nasce `RECRUIT`** (neutro). No **Lv10** destrava a **Path Trial** (`/api/class`, `ClassChangeService`): escolhe o caminho e enfrenta o Guardião dele num combate instantâneo (reusa `BattleSimulator`). Vencer = vira `WARRIOR` (tank) ou `ARCHER` (crit/esquiva), **permanente**, com **respec grátis** (devolve todos os pontos de atributo). A diferença entre classes é **só stats base + caps de atributo por classe** (`WarriorClass.baseAttack/…/capFor()`) — o motor de combate **não muda**. `WarriorService.spendPoint` usa o cap da classe. `INT` fica reservado p/ uma futura classe Mage (sem magia ainda). Soft-wipe volta todos pra `RECRUIT`. Números das classes + Guardião são **placeholders p/ tuning no playtest**. Desenho: `docs/PLANO_CLASSES.md`.
+
 ### HP do Guerreiro
 HP é armazenado como porcentagem (0-100) em `warrior.currentHpSnapshot`. Usa o mesmo padrão da stamina (snapshot + tempo decorrido). Regen: 100% em 1 hora. Guerreiro com HP=0 está inconsciente e não pode entrar em combate.
 
@@ -138,6 +141,7 @@ ALTER TABLE tabela ADD CONSTRAINT tabela_coluna_check CHECK (coluna IN ('VAL1','
 |---------|---------|-----------|-------|
 | Autenticação | `PlayerService` | `AuthController` | JWT, registro, reset de senha |
 | Guerreiro | `WarriorService` | `WarriorController` | Stats, atributos, HP, buff |
+| Classes | `ClassChangeService` | `ClassController` | Recruit→Trial(Lv10)→Warrior/Archer; caps por classe; respec. [CLASSES] |
 | Missões | `QuestService` (legado) / `KingdomService` | `QuestController` / `KingdomController` | Instantâneo (gate=estamina), drops, narrativa. As missões vivas são as do reino (`/api/world/{kingdom}/quests`). |
 | Arena PvP | `ArenaService` | `ArenaController` | Duelo instantâneo por ranking (1 chamada resolve tudo) |
 | Torre | `TowerService` | `TowerController` | Andares, chefes escalonados |
