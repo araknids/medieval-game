@@ -7,7 +7,7 @@ package com.medieval.game.enums;
 public enum PetType {
 
     LUNA  ("Luna",   "🐶", 10, 0,  0),  // +10% HP — vem da quest rara (não é comprada)
-    SHADOW("Shadow", "🐱",  0, 6, 10);  // +6 AGI (DEX) — comprado no mercado VIP (10 SoulStones)
+    SHADOW("Bandit Cat", "🐱",  0, 6, 10);  // +6 AGI (DEX) — comprado no mercado VIP (10 SoulStones)
 
     public final String displayName;
     public final String icon;
