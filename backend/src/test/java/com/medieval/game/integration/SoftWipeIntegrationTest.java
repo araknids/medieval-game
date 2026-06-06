@@ -75,7 +75,8 @@ class SoftWipeIntegrationTest extends BaseIntegrationTest {
         assertThat(wAfter.getExperience()).isZero();
         assertThat(wAfter.getAvailablePoints()).isZero();
         assertThat(wAfter.getStrength()).isZero();
-        assertThat(wAfter.getAttack()).isEqualTo(15);             // base WARRIOR
+        assertThat(wAfter.getWarriorClass()).isEqualTo(com.medieval.game.enums.WarriorClass.RECRUIT); // volta pra Recruit (re-testa o onboarding) [CLASSES]
+        assertThat(wAfter.getAttack()).isEqualTo(com.medieval.game.enums.WarriorClass.RECRUIT.baseAttack); // base RECRUIT (12)
 
         // Itens iniciais de volta (7), guildas dissolvidas
         assertThat(inventoryItemRepository.findAllByPlayer(after)).hasSize(7);

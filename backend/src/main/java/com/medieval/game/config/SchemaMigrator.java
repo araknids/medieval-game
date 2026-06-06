@@ -116,6 +116,7 @@ public class SchemaMigrator {
     // Hibernate criou na 1ª vez ficam defasados e rejeitam os novos valores (ex.: GARIMPO em
     // skill_levels). Como a validação do enum já é feita na camada JPA, derrubamos esses checks.
     // Genérico: acha e dropa qualquer CHECK que referencie as colunas de enum afetadas. [REINOS_V2]
+    // Inclui warrior_class: a check antiga só aceitava 'WARRIOR' e rejeitaria RECRUIT/ARCHER. [CLASSES]
     private void dropStaleEnumCheckConstraints() {
         try {
             jdbc.execute("""
@@ -133,7 +134,7 @@ public class SchemaMigrator {
                               'skill_levels', 'resource_inventory', 'kingdom_active_quests',
                               'territory_controls', 'territory_declarations', 'territory_battle_logs',
                               'gathering_sessions', 'warriors', 'meal_inventory', 'pets')
-                          AND pg_get_constraintdef(con.oid) ~ '(skill_type|resource_type|quest_type|kingdom|territory|meal|pet_type)'
+                          AND pg_get_constraintdef(con.oid) ~ '(skill_type|resource_type|quest_type|kingdom|territory|meal|pet_type|warrior_class)'
                     LOOP
                         EXECUTE format('ALTER TABLE %I DROP CONSTRAINT %I', r.tbl, r.con);
                     END LOOP;

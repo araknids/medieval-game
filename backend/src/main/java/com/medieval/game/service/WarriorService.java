@@ -83,13 +83,15 @@ public class WarriorService {
             throw new IllegalStateException("No attribute points available");
         }
 
-        // Attribute caps enforcement
+        // Attribute caps enforcement — caps são POR CLASSE (Recruit/Warrior/Archer). [CLASSES]
+        WarriorClass wc = warrior.getWarriorClass();
+        int cap = wc.capFor(attribute);
         switch (attribute) {
-            case STRENGTH     -> { if (warrior.getStrength()     >= 60) throw new IllegalStateException("STR is at cap (60).");     warrior.setStrength(warrior.getStrength() + 1); }
-            case DEXTERITY    -> { if (warrior.getDexterity()    >= 40) throw new IllegalStateException("DEX is at cap (40).");     warrior.setDexterity(warrior.getDexterity() + 1); }
-            case CONSTITUTION -> warrior.setConstitution(warrior.getConstitution() + 1); // no cap
-            case LUCK         -> { if (warrior.getLuck()         >= 50) throw new IllegalStateException("LUK is at cap (50).");     warrior.setLuck(warrior.getLuck() + 1); }
-            case INTELLECT    -> { if (warrior.getIntellect()    >= 40) throw new IllegalStateException("INT is at cap (40).");     warrior.setIntellect(warrior.getIntellect() + 1); }
+            case STRENGTH     -> { if (warrior.getStrength()     >= cap) throw new IllegalStateException("STR is at cap (" + cap + ") for " + wc.displayName + "."); warrior.setStrength(warrior.getStrength() + 1); }
+            case DEXTERITY    -> { if (warrior.getDexterity()    >= cap) throw new IllegalStateException("DEX is at cap (" + cap + ") for " + wc.displayName + "."); warrior.setDexterity(warrior.getDexterity() + 1); }
+            case CONSTITUTION -> { if (warrior.getConstitution() >= cap) throw new IllegalStateException("CON is at cap (" + cap + ") for " + wc.displayName + "."); warrior.setConstitution(warrior.getConstitution() + 1); } // RECRUIT/WARRIOR/ARCHER: ∞ (MAX_VALUE)
+            case LUCK         -> { if (warrior.getLuck()         >= cap) throw new IllegalStateException("LUK is at cap (" + cap + ") for " + wc.displayName + "."); warrior.setLuck(warrior.getLuck() + 1); }
+            case INTELLECT    -> { if (warrior.getIntellect()    >= cap) throw new IllegalStateException("INT is at cap (" + cap + ") for " + wc.displayName + "."); warrior.setIntellect(warrior.getIntellect() + 1); }
         }
 
         warrior.setAvailablePoints(warrior.getAvailablePoints() - 1);

@@ -154,6 +154,7 @@ public class WarriorController {
 
         return new WarriorResponse(
                 warrior.getId(), warrior.getName(), warrior.getWarriorClass().displayName,
+                warrior.getWarriorClass().name(), // id estável do enum p/ a UI decidir a Path Trial [CLASSES]
                 warrior.getLevel(), warrior.getExperience(), warrior.expNeededForNextLevel(),
                 warrior.getTotalBaseAttack(),  warrior.getTotalBaseDefense(),  warrior.getTotalBaseHealth(),
                 bonusAtk,                       bonusDef,                       bonusHp,
@@ -188,7 +189,7 @@ public class WarriorController {
     record MountInfo(String id, String name, String icon, int staminaReductionPct,
                      int attackBonus, int defenseBonus, int healthBonus) {}
 
-    record WarriorResponse(Long id, String name, String warriorClass, int level,
+    record WarriorResponse(Long id, String name, String warriorClass, String warriorClassId, int level,
                            long experience, long expNeeded,
                            int baseAttack,  int baseDefense,  int baseHealth,
                            int bonusAttack, int bonusDefense, int bonusHealth,

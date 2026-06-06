@@ -99,7 +99,9 @@ public class MaintenanceService {
         // 5) Reseta guerreiros + devolve itens iniciais
         for (Player p : players) {
             warriorRepository.findByPlayer(p).ifPresent(w -> {
-                WarriorClass wc = w.getWarriorClass();
+                // Volta pra RECRUIT: o wipe re-testa o onboarding (escolher classe na Trial do Lv10). [CLASSES]
+                WarriorClass wc = WarriorClass.RECRUIT;
+                w.setWarriorClass(wc);
                 w.setLevel(1);
                 w.setExperience(0);
                 w.setAttack(wc.baseAttack);

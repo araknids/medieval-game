@@ -349,6 +349,9 @@ async function loadWarrior() {
   document.getElementById('warrior-card').innerHTML = `
     <div class="warrior-name">${escapeHtml(warrior.name)}</div>
     <div class="warrior-class">${warrior.warriorClass}</div>
+    ${warrior.warriorClassId === 'RECRUIT' ? ((warrior.level ?? 1) >= 10
+      ? `<div onclick="openClassTrial()" style="margin:.3rem 0;padding:5px 8px;background:#2a1a3a;border:1px solid #a855f7;border-radius:6px;color:#d8b4fe;font-size:.78rem;cursor:pointer;text-align:center;font-weight:600">⚔ Choose your Path</div>`
+      : `<div style="margin:.3rem 0;padding:4px 8px;background:#1a1a2a;border:1px dashed #555;border-radius:6px;color:#888;font-size:.72rem;text-align:center">⚔ Choose your path at level 10</div>`) : ''}
     <div class="warrior-stat-row"><span class="label">${t('stat.level')}</span><span class="value">${warrior.level}</span></div>
     <div class="xp-bar-wrap">
       <div class="xp-bar-bg"><div class="xp-bar-fill" style="width:${xpPct}%"></div></div>
@@ -1878,6 +1881,68 @@ async function startFight() {
   await loadWarrior();
   loadRank();
   renderFightArea(); // atualiza a tela de luta (estamina/limite) atrás do modal
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// PATH TRIAL — escolha de classe no Lv10 (RECRUIT → WARRIOR/ARCHER). [CLASSES]
+// ═══════════════════════════════════════════════════════════════════
+
+async function openClassTrial() {
+  const info = await api('GET', '/api/class');
+  if (info.error) { showMessage(info.error, true); return; }
+  if (!info.available) {
+    showMessage((info.level ?? 1) < (info.trialLevel ?? 10)
+      ? `Reach level ${info.trialLevel} to choose your path.`
+      : 'You have already chosen your path.', true);
+    return;
+  }
+  closeCollectModal();
+  const color = '#a855f7';
+  const cardFor = (p) => `
+    <div style="background:#0d0d18;border:1px solid #3a2a4a;border-radius:10px;padding:14px;margin-bottom:12px">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+        <span style="font-weight:bold;color:#e0c8ff;font-size:15px">${p.id === 'WARRIOR' ? '🛡' : '🏹'} ${escapeHtml(p.displayName)}</span>
+        <span style="font-size:11px;color:#888">ATK ${p.baseAttack} · DEF ${p.baseDefense} · HP ${p.baseHealth}</span>
+      </div>
+      <div style="font-size:12px;color:#aaa;line-height:1.5;margin-bottom:8px">${escapeHtml(p.description)}</div>
+      <div style="font-size:11px;color:#777;margin-bottom:10px">Caps — STR ${p.strCap} · DEX ${p.dexCap} · LUK ${p.lukCap}</div>
+      <button onclick="attemptClassTrial('${p.id}')" style="width:100%;background:${color};color:#000;font-weight:bold;padding:9px;border-radius:7px;cursor:pointer;font-size:13px;border:none">
+        ⚔ Attempt ${escapeHtml(p.trialName)}
+      </button>
+    </div>`;
+  const el = document.createElement('div');
+  el.id = 'collect-modal-overlay';
+  el.setAttribute('style',
+    'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.82);' +
+    'z-index:9999;display:flex;align-items:center;justify-content:center;padding:16px;box-sizing:border-box');
+  el.onclick = closeCollectModal;
+  el.innerHTML = `
+    <div onclick="event.stopPropagation()" style="background:#16162a;border:2px solid ${color};border-radius:14px;
+      padding:24px;max-width:480px;width:100%;max-height:85vh;overflow-y:auto;position:relative;box-shadow:0 8px 32px rgba(0,0,0,0.6)">
+      <button onclick="closeCollectModal()" style="position:absolute;top:10px;right:10px;background:#333;
+        border:none;color:#aaa;padding:4px 10px;border-radius:4px;cursor:pointer;font-size:13px">✕</button>
+      <h3 style="margin:0 0 6px;color:${color};font-size:17px">⚔ Choose your Path</h3>
+      <p style="color:#999;font-size:12px;margin:0 0 16px;line-height:1.5">Defeat the trial guardian of your chosen path to specialize. <strong style="color:#d8b4fe">This is permanent.</strong> Your spent attribute points are refunded so you can rebuild for the new class.</p>
+      ${(info.paths || []).map(cardFor).join('')}
+    </div>`;
+  document.body.appendChild(el);
+}
+
+async function attemptClassTrial(path) {
+  const data = await api('POST', '/api/class/trial/' + path);
+  if (data.error) { showMessage(data.error, true); return; }
+  showCollectModal({
+    title: data.won ? `🎖 Trial passed — you are now ${escapeHtml(data.className)}!` : `✖ Trial failed`,
+    color: data.won ? '#4caf50' : '#ef5350',
+    rows: data.won ? [
+      { icon: data.classId === 'WARRIOR' ? '🛡' : '🏹', label: 'New class',        value: escapeHtml(data.className), color: '#4caf50' },
+      { icon: '🔄',                                      label: 'Attribute points', value: 'refunded',                 color: '#a855f7' },
+    ] : [
+      { icon: '💀', label: 'Result', value: 'Knocked out — heal and retry', color: '#ef5350' },
+    ],
+    log: data.log || []
+  });
+  await loadWarrior();
 }
 
 // ── Init — load language FIRST, then check token ──

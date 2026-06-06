@@ -54,7 +54,7 @@ public class AuthController {
         log.info("[AuthController] register attempt username='{}' warriorName='{}' emailLen={}",
                 req.username(), req.warriorName(), req.email() != null ? req.email().length() : 0);
         Player  player  = playerService.register(req.username(), req.email(), req.password());
-        Warrior warrior = warriorService.create(player, req.warriorName(), WarriorClass.WARRIOR);
+        Warrior warrior = warriorService.create(player, req.warriorName(), WarriorClass.RECRUIT); // nasce neutro; especializa na Trial do Lv10 [CLASSES]
         inventoryService.giveStarterItems(player);
         emailService.sendWelcomeEmail(player.getEmail(), player.getUsername(), warrior.getName());
         String token = jwtUtil.generateToken(player.getId(), player.getUsername());
