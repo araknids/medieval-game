@@ -128,6 +128,16 @@ public class GuildController {
         return ResponseEntity.ok(Map.of("message", "Battle roster saved."));
     }
 
+    // ── Formação 3×5 da guerra (líder posiciona os membros) ────── [GUERRA_FORMACAO]
+    @PostMapping("/war-formation")
+    public ResponseEntity<?> setFormation(@Valid @RequestBody FormationRequest req, Authentication auth) {
+        var slots = (req.slots() == null ? List.<SlotDto>of() : req.slots()).stream()
+                .map(s -> new com.medieval.game.service.GuildService.FormationSlot(s.playerId(), s.lane(), s.depth()))
+                .toList();
+        guildService.setWarFormation(getPlayer(auth), slots);
+        return ResponseEntity.ok(Map.of("message", "War formation saved."));
+    }
+
     // ── Helpers ───────────────────────────────────────────────────────────────
     private Player getPlayer(Authentication auth) {
         return playerService.findById((Long) auth.getPrincipal());
@@ -146,6 +156,8 @@ public class GuildController {
                         "isLeader",    isLeader,
                         "isMe",        m.getId().equals(player.getId()),
                         "inWarRoster", m.isInWarRoster(),                              // [GUERRA_ROSTER]
+                        "warLane",     m.getWarLane(),                                 // [GUERRA_FORMACAO]
+                        "warDepth",    m.getWarDepth(),
                         "fatiguePct",  guildService.warriorFatiguePct(m, cycle)        // [GUERRA_ROSTER]
                     );
                 }).toList();
@@ -202,4 +214,8 @@ public class GuildController {
     record DonateRequest(@Min(1) long amount) {}
     // Roster de guerra: lista de playerIds escolhidos (≤15 validado no service). [GUERRA_ROSTER]
     record RosterRequest(@Size(max = 15) List<Long> memberIds) {}
+
+    // [GUERRA_FORMACAO] Formação 3×5: cada membro numa célula (lane 0-2, depth 0-4).
+    record SlotDto(Long playerId, int lane, int depth) {}
+    record FormationRequest(@Size(max = 15) List<SlotDto> slots) {}
 }

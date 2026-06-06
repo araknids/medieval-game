@@ -8,178 +8,118 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.RepeatedTest;
 import org.junit.jupiter.api.Test;
 
-import java.util.List;
-
 import static org.assertj.core.api.Assertions.assertThat;
 
 /**
- * Tests the GuildBrawl (King-of-the-Hill) mechanic and territory war edge cases.
- *
- * Key scenario: when 3 guilds all beat the defenders in sequence,
- * the last winner is determined by remaining HP from previous fights.
+ * Testa o guildBrawl no modelo de FORMAÇÃO 3×5 (lanes): cada coluna é um gauntlet (frente vs
+ * frente, vencedor segue com o HP real); vence quem leva ≥2 das 3 lanes. [GUERRA_FORMACAO]
  */
-@DisplayName("Kingdom War — GuildBrawl and Multi-Attacker Scenarios")
+@DisplayName("Kingdom War — GuildBrawl por formação 3×5 (lanes)")
 class TerritoryWarTest {
 
-    // TerritoryService only needs BattleSimulator for guildBrawl — pass nulls for repos
     private TerritoryService service;
 
     @BeforeEach
     void setup() {
-        // guildBrawl não usa repos/statsService → nulls; BattleSimulator real p/ as simulações
-        service = new TerritoryService(null, null, null, null, null, new BattleSimulator(), null, null);
+        // guildBrawl não usa repos/statsService/abilityService → nulls; BattleSimulator real.
+        service = new TerritoryService(null, null, null, null, null, new BattleSimulator(), null, null, null);
     }
 
-    // Create a fighter with controlled stats (no warrior entity, NPC-style)
-    // New d20 signature: (playerId, name, atk, def, hp, dex, strBonus, luk, warrior)
-    private Fighter fighter(String name, int atk, int def, int hp) {
+    private Fighter f(String name, int atk, int def, int hp) {
         return new Fighter(null, name, atk, def, hp, 0, 0, 0, null);
     }
 
-    // ── 1v1: stronger fighter wins ─────────────────────────────────────────────
+    /** Grade 3×5 preenchida frente→fundo (depth 0 lanes 0,1,2; depois depth 1…). */
+    private Fighter[][] grid(Fighter... fs) {
+        Fighter[][] g = new Fighter[3][5];
+        int i = 0;
+        for (int d = 0; d < 5 && i < fs.length; d++)
+            for (int l = 0; l < 3 && i < fs.length; l++) g[l][d] = fs[i++];
+        return g;
+    }
+    private Fighter[][] empty() { return new Fighter[3][5]; }
 
+    // ── 1v1 (uma lane contestada) ──────────────────────────────────────────────
     @RepeatedTest(10)
-    @DisplayName("1v1: vastly superior attacker wins")
+    @DisplayName("1v1: atacante muito superior vence a lane")
     void brawl_strongAttackerWins() {
-        BrawlResult result = service.guildBrawl(
-            List.of(fighter("Strong", 100, 50, 300)),
-            List.of(fighter("Weak",     5,  2,  20)),
-            Kingdom.COMBAT
-        );
-        assertThat(result.attackersWon()).isTrue();
+        BrawlResult r = service.guildBrawl(grid(f("Strong", 100, 50, 300)), grid(f("Weak", 5, 2, 20)), Kingdom.COMBAT);
+        assertThat(r.attackersWon()).isTrue();
     }
 
     @RepeatedTest(10)
-    @DisplayName("1v1: vastly superior defender wins")
+    @DisplayName("1v1: defensor muito superior segura a lane")
     void brawl_strongDefenderWins() {
-        BrawlResult result = service.guildBrawl(
-            List.of(fighter("Weak",     5,  2,  20)),
-            List.of(fighter("Strong", 100, 50, 300)),
-            Kingdom.COMBAT
-        );
-        assertThat(result.attackersWon()).isFalse();
+        BrawlResult r = service.guildBrawl(grid(f("Weak", 5, 2, 20)), grid(f("Strong", 100, 50, 300)), Kingdom.COMBAT);
+        assertThat(r.attackersWon()).isFalse();
     }
 
-    // ── 2v1: attacker advantage ────────────────────────────────────────────────
-
+    // ── Vantagem numérica espalhada (lanes vazias = W.O.) ──────────────────────
     @Test
-    @DisplayName("2v1: two equivalent attackers vs one defender — attackers win majority")
-    void brawl_twoAttackersVsOneDefender_attackersWinMajority() {
-        int wins = 0;
-        for (int i = 0; i < 10; i++) {
-            BrawlResult r = service.guildBrawl(
-                List.of(fighter("A1", 25, 15, 80), fighter("A2", 25, 15, 80)),
-                List.of(fighter("D1", 25, 15, 80)),
-                Kingdom.COMBAT
-            );
-            if (r.attackersWon()) wins++;
-        }
-        // 2 attackers vs 1 defender → attackers should win most of the time
-        assertThat(wins).isGreaterThan(5);
+    @DisplayName("3 atacantes em 3 lanes vs 1 defensor → maioria garantida (2 lanes por W.O.)")
+    void spreadNumericalAdvantage_winsMajority() {
+        // A1[L0] A2[L1] A3[L2] vs D1[L0]: lanes 1 e 2 sem defensor → atacante leva 2 lanes sempre.
+        BrawlResult r = service.guildBrawl(
+                grid(f("A1", 25, 15, 80), f("A2", 25, 15, 80), f("A3", 25, 15, 80)),
+                grid(f("D1", 25, 15, 80)),
+                Kingdom.COMBAT);
+        assertThat(r.attackersWon()).isTrue();
     }
 
-    // ── Tiebreaker: winner carries reduced HP ──────────────────────────────────
-
-    @Test
-    @DisplayName("Tiebreaker: fresh fighter beats tired fighter with 1 HP")
-    void tiebreaker_freshBeats1Hp() {
-        int wins = 0;
-        for (int i = 0; i < 10; i++) {
-            BrawlResult r = service.guildBrawl(
-                List.of(fighter("FreshGuild", 50, 30, 200)),
-                List.of(fighter("TiredGuild", 50, 30,   1)), // 1 HP remaining from prev fight
-                Kingdom.MINING
-            );
-            if (r.attackersWon()) wins++;
-        }
-        // Fresh guild with 200HP vs tired guild with 1HP → fresh should win all 10
-        assertThat(wins).isGreaterThan(7);
+    // ── HP carregado dentro da lane (gauntlet) ─────────────────────────────────
+    @RepeatedTest(10)
+    @DisplayName("Um forte limpa uma lane empilhada (carrega a vida restante)")
+    void hpCarry_strongClearsStackedLane() {
+        Fighter[][] atk = empty(); atk[0][0] = f("Strong", 100, 50, 300);          // lane 0, frente
+        Fighter[][] def = empty(); def[0][0] = f("Weak1", 5, 2, 20); def[0][1] = f("Weak2", 5, 2, 20); // lane 0, 2 de profundidade
+        BrawlResult r = service.guildBrawl(atk, def, Kingdom.COMBAT);
+        assertThat(r.attackersWon()).isTrue(); // vence a única lane contestada
     }
 
-    // ── Phase 2 tiebreaker: everyone uses Phase 1 HP ─────────────────────────
-
-    @Test
-    @DisplayName("Tiebreaker uses Phase 1 HP: guild with 0 HP cannot win")
-    void tiebreaker_zeroHp_cannotWin() {
-        // The Phase 1 HP mechanic is deterministic at the extreme:
-        // a guild with 0 HP (knocked out) has no fighters in guildBrawl
-        // → treated as empty list → opponent wins immediately
-        BrawlResult result = service.guildBrawl(
-            List.of(), // guild with no surviving fighters (0 HP in Phase 1)
-            List.of(fighter("Guild2", 40, 25, 150)),
-            Kingdom.FISHING
-        );
-        assertThat(result.attackersWon()).isFalse();
+    @RepeatedTest(10)
+    @DisplayName("Fresco (200 HP) vence cansado (1 HP) na lane")
+    void freshBeatsTired() {
+        BrawlResult r = service.guildBrawl(grid(f("Fresh", 50, 30, 200)), grid(f("Tired", 50, 30, 1)), Kingdom.MINING);
+        assertThat(r.attackersWon()).isTrue();
     }
 
-    @Test
-    @DisplayName("Phase 1 HP advantage: 10x more HP wins every single run")
-    void tiebreaker_betterPhase1Hp_winsMajority() {
-        // Use extreme HP difference to make the test deterministic:
-        // 500 HP vs 50 HP with same ATK/DEF → strong side wins every time
-        int wins = 0;
-        for (int i = 0; i < 10; i++) {
-            BrawlResult r = service.guildBrawl(
-                List.of(fighter("GuildA_strong", 40, 25, 500)), // 10x better Phase 1 HP
-                List.of(fighter("GuildB_weak",   40, 25,  50)), // weak Phase 1 HP
-                Kingdom.MINING
-            );
-            if (r.attackersWon()) wins++;
-        }
-        // 500 HP vs 50 HP → strong guild wins all 10 runs
-        assertThat(wins).isEqualTo(10);
+    @RepeatedTest(5)
+    @DisplayName("10× mais HP vence sempre")
+    void betterHp_alwaysWins() {
+        BrawlResult r = service.guildBrawl(grid(f("Strong", 40, 25, 500)), grid(f("Weak", 40, 25, 50)), Kingdom.MINING);
+        assertThat(r.attackersWon()).isTrue();
     }
 
-    // ── Log structure ──────────────────────────────────────────────────────────
-
+    // ── Bordas: lados vazios ───────────────────────────────────────────────────
     @Test
-    @DisplayName("Log always contains battle start and outcome")
-    void brawl_logHasBattleStartAndOutcome() {
-        BrawlResult result = service.guildBrawl(
-            List.of(fighter("A", 30, 20, 100)),
-            List.of(fighter("D", 30, 20, 100)),
-            Kingdom.COMBAT
-        );
-
-        String fullLog = String.join("\n", result.log());
-        assertThat(fullLog).contains("The battle begins!");
-        String lastLine = result.log().get(result.log().size() - 1);
-        assertThat(lastLine).containsAnyOf("Attackers have conquered", "Defenders held");
-    }
-
-    // ── Empty list edge cases ──────────────────────────────────────────────────
-
-    @Test
-    @DisplayName("No attackers → defenders hold territory")
+    @DisplayName("Sem atacantes → defensores seguram")
     void noAttackers_defendersWin() {
-        BrawlResult result = service.guildBrawl(
-            List.of(),
-            List.of(fighter("D1", 30, 20, 100)),
-            Kingdom.COMBAT
-        );
-        assertThat(result.attackersWon()).isFalse();
+        assertThat(service.guildBrawl(empty(), grid(f("D1", 30, 20, 100)), Kingdom.COMBAT).attackersWon()).isFalse();
     }
 
     @Test
-    @DisplayName("No defenders → attackers conquer immediately")
+    @DisplayName("Sem defensores → atacantes conquistam")
     void noDefenders_attackersWin() {
-        BrawlResult result = service.guildBrawl(
-            List.of(fighter("A1", 30, 20, 100)),
-            List.of(),
-            Kingdom.COMBAT
-        );
-        assertThat(result.attackersWon()).isTrue();
+        assertThat(service.guildBrawl(grid(f("A1", 30, 20, 100)), empty(), Kingdom.COMBAT).attackersWon()).isTrue();
     }
 
-    // ── Debuff cap ─────────────────────────────────────────────────────────────
-
+    // ── Log ────────────────────────────────────────────────────────────────────
     @Test
-    @DisplayName("Debuff caps at 50% regardless of streak")
+    @DisplayName("Log tem início de batalha e linha de resultado")
+    void brawl_logHasStartAndOutcome() {
+        BrawlResult r = service.guildBrawl(grid(f("A", 30, 20, 100)), grid(f("D", 30, 20, 100)), Kingdom.COMBAT);
+        String fullLog = String.join("\n", r.log());
+        assertThat(fullLog).contains("The battle begins!");
+        String lastLine = r.log().get(r.log().size() - 1);
+        assertThat(lastLine).containsAnyOf("Attackers conquered", "Defenders held");
+    }
+
+    // ── Debuff cap (modelo) ────────────────────────────────────────────────────
+    @Test
+    @DisplayName("Debuff trava em 50% mesmo com streak alto")
     void debuffCapsAt50Percent() {
-        // TerritoryControl.debuffPercent() = min(50, streak * 5)
-        // Already tested in TerritoryServiceTest — just verify via direct model
         var ctrl = new com.medieval.game.model.TerritoryControl();
-        ctrl.setDefenseStreak(100); // extreme streak
+        ctrl.setDefenseStreak(100);
         assertThat(ctrl.debuffPercent()).isEqualTo(50);
     }
 }

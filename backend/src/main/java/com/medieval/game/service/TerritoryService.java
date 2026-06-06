@@ -34,6 +34,7 @@ public class TerritoryService {
     private final BattleSimulator                battleSimulator;
     private final GuildRepository                guildRepository;
     private final WarriorStatsService            statsService; // gear+buffs+postura na guerra. [POSTURE]
+    private final AbilityService                 abilityService; // elementos + ativas na guerra [GUERRA_FORMACAO]
 
     // Quais reinos são território de guild-war (config). Os demais são zonas abertas.
     // Começa com os 3 reinos antigos; mudar a config liga guerra em mais reinos. [REINOS_V2 / flag]
@@ -228,20 +229,20 @@ public class TerritoryService {
             boolean isLastPhase1Fight = (i == declarations.size() - 1);
 
             Guild attackerGuild = decl.getGuild();
-            List<Fighter> attackers = buildFighters(attackerGuild, 0, cycleId);
-            collectFielded(fielded, attackers);
+            Fighter[][] attackers = buildFormation(attackerGuild, 0, cycleId);
+            collectFielded(fielded, flatten(attackers));
 
-            List<Fighter> defenders;
+            Fighter[][] defenders;
             if (control.isNeutral()) {
-                defenders = buildNpcFighters(territory, attackers.size());
+                defenders = buildNpcFormation(territory, countFilled(attackers));
             } else {
-                defenders = buildFighters(currentHolder, debuff, cycleId); // always the ORIGINAL holder
-                collectFielded(fielded, defenders);
+                defenders = buildFormation(currentHolder, debuff, cycleId); // always the ORIGINAL holder
+                collectFielded(fielded, flatten(defenders));
             }
 
             // Save pre-battle HP for defender recovery between Phase 1 fights
             Map<Long, Integer> preBattleHp = new HashMap<>();
-            for (Fighter f : defenders) {
+            for (Fighter f : flatten(defenders)) {
                 if (f.warrior != null) preBattleHp.put(f.warrior.getId(), f.hp);
             }
 
@@ -304,8 +305,8 @@ public class TerritoryService {
 
                 // Build fighters fresh from DB — Phase 1 HP is what's stored
                 // (we didn't persist between tiebreaker fights)
-                List<Fighter> champFighters = buildFighters(tiebreakerChampion,    0, cycleId);
-                List<Fighter> chalFighters  = buildFighters(tiebreakerChallenger, 0, cycleId);
+                Fighter[][] champFighters = buildFormation(tiebreakerChampion,    0, cycleId);
+                Fighter[][] chalFighters  = buildFormation(tiebreakerChallenger, 0, cycleId);
 
                 BrawlResult tResult = guildBrawl(chalFighters, champFighters, territory);
 
@@ -383,48 +384,51 @@ public class TerritoryService {
 
     // ── Guild Brawl (King of the Hill) ────────────────────────────────────────
 
-    public BrawlResult guildBrawl(List<Fighter> attackers, List<Fighter> defenders, Kingdom territory) {
+    /**
+     * Batalha por FORMAÇÃO 3×5: cada lane (coluna) é um gauntlet — frente vs frente, o vencedor
+     * segue com o HP REAL restante contra o próximo fresco da coluna inimiga. Vence quem leva ≥2
+     * das 3 lanes. Combate completo (elementos + ativas). [GUERRA_FORMACAO]
+     */
+    public BrawlResult guildBrawl(Fighter[][] attackers, Fighter[][] defenders, Kingdom territory) {
         List<String> fullLog = new ArrayList<>();
-        List<Fighter> atks = new ArrayList<>(attackers);
-        List<Fighter> defs = new ArrayList<>(defenders);
+        fullLog.add("=== ⚔ Guild Battle at " + territory.displayName + " (3×5 formation) ===");
 
-        Collections.shuffle(atks);
-        Collections.shuffle(defs);
+        int atkLanes = 0, defLanes = 0;
+        for (int lane = 0; lane < 3; lane++) {
+            List<Fighter> aQ = laneQueue(attackers, lane);
+            List<Fighter> dQ = laneQueue(defenders, lane);
+            fullLog.add("— Lane " + (lane + 1) + " —");
 
-        fullLog.add("=== ⚔ Guild Battle at " + territory.displayName + " ===");
+            if (aQ.isEmpty() && dQ.isEmpty()) { fullLog.add("  (empty lane)"); continue; }
+            if (aQ.isEmpty()) { defLanes++; fullLog.add("  🛡 Defenders take lane " + (lane + 1) + " (no attackers)"); continue; }
+            if (dQ.isEmpty()) { atkLanes++; fullLog.add("  ⚔ Attackers take lane " + (lane + 1) + " (no defenders)"); continue; }
 
-        while (!atks.isEmpty() && !defs.isEmpty()) {
-            Fighter a = atks.get(0);
-            Fighter d = defs.get(0);
-
-            BattleSimulator.BattleOutcome round = battleSimulator.simulateDetailed(
-                    a.name, a.atk, a.def, a.hp, a.dex, a.strBonus, a.luk,
-                    d.name, d.atk, d.def, d.hp, d.dex, d.strBonus, d.luk);
-
-            // Vencedor explícito (sem parsear string — nomes podem se conter). [AUDITORIA M13]
-            boolean attackerWon = round.firstWon();
-
-            // Remove internal WINNER tag before adding to full log
-            List<String> roundLog = round.log();
-            List<String> visibleLines = roundLog.subList(0, roundLog.size() - 1);
-            fullLog.addAll(visibleLines);
-
-            if (attackerWon) {
-                // Estimate remaining HP (rough: winner had some HP left)
-                a.hp = Math.max(1, a.hp / 3); // survivor carries reduced HP
-                defs.remove(0);
-            } else {
-                d.hp = Math.max(1, d.hp / 3);
-                atks.remove(0);
+            int ai = 0, di = 0;
+            Fighter a = aQ.get(0), d = dQ.get(0);
+            while (a != null && d != null) {
+                BattleSimulator.BattleOutcome round = battleSimulator.simulate(a.toCombatant(), d.toCombatant(), false);
+                List<String> rl = round.log();
+                fullLog.addAll(rl.subList(0, rl.size() - 1)); // tira a tag WINNER
+                if (round.firstWon()) {
+                    a.hp = round.firstHpFinal();  // vencedor segue com o HP REAL restante
+                    d.hp = 0;
+                    d = (++di < dQ.size()) ? dQ.get(di) : null;
+                } else {
+                    d.hp = round.secondHpFinal();
+                    a.hp = 0;
+                    a = (++ai < aQ.size()) ? aQ.get(ai) : null;
+                }
             }
+            if (a != null) { atkLanes++; fullLog.add("  ⚔ Attackers win lane " + (lane + 1)); }
+            else           { defLanes++; fullLog.add("  🛡 Defenders win lane " + (lane + 1)); }
         }
 
-        boolean attackersWon = defs.isEmpty();
+        boolean attackersWon = atkLanes > defLanes;
         fullLog.add(attackersWon
-                ? "🏆 Attackers have conquered the territory!"
-                : "🛡 Defenders held their ground!");
+                ? "🏆 Attackers conquered the territory! (" + atkLanes + "-" + defLanes + " lanes)"
+                : "🛡 Defenders held their ground! (" + defLanes + "-" + atkLanes + " lanes)");
 
-        return new BrawlResult(attackersWon, fullLog, atks, defs);
+        return new BrawlResult(attackersWon, fullLog, flatten(attackers), flatten(defenders));
     }
 
     // ── Fighter building ──────────────────────────────────────────────────────
@@ -440,10 +444,9 @@ public class TerritoryService {
      * <p>Stats = combatStats(base+gear+buffs+postura) × debuff-de-defensor × cansaço (multiplicativos).
      * A guerra agora vale TODOS os stats (não só base) — gear/buffs/postura contam. [POSTURE]
      */
-    public List<Fighter> buildFighters(Guild guild, int debuffPercent, long cycleId) {
+    /** Candidatos elegíveis da guild (warrior + HP>0) com stats completos. [GUERRA_ROSTER/POSTURE] */
+    private List<Candidate> eligibleCandidates(Guild guild) {
         List<Player> members = playerRepository.findAllByGuild(guild);
-
-        // Candidatos elegíveis: têm warrior e HP > 0. Stats COMPLETOS via combatStats (gear+buffs+postura).
         List<Candidate> candidates = new ArrayList<>();
         for (Player member : members) {
             warriorRepository.findByPlayer(member).ifPresent(w -> {
@@ -452,41 +455,91 @@ public class TerritoryService {
                 if (hp > 0) candidates.add(new Candidate(member, w, cs, hp));
             });
         }
+        return candidates;
+    }
 
-        // poder (desempate "mais forte" = atk+def+hp efetivos); cansaço atual (auto-fill "mais fresco")
+    /** Converte um candidato em Fighter com stats escalados (debuff×cansaço) + elemento + ativas. */
+    private Fighter toFighter(Candidate c, int debuffPercent, long cycleId) {
+        int[] cs = c.stats;
+        double mult = (1.0 - debuffPercent / 100.0)                          // debuff de defensor (streak)
+                    * (1.0 - c.warrior.fatiguePctForCycle(cycleId) / 100.0); // cansaço de guerra
+        return new Fighter(
+                c.player.getId(), c.warrior.getName(),
+                (int) Math.max(1, cs[0] * mult),   // ATK (gear+buff+postura) × debuff × cansaço
+                (int) Math.max(1, cs[1] * mult),   // DEF
+                c.hp,
+                (int) Math.max(0, cs[3] * mult),   // dex → AC
+                cs[4], cs[5], c.warrior,
+                c.warrior.getActiveWeaponElement(), c.warrior.getActiveArmorElement(),
+                abilityService.activeLoadout(c.warrior));
+    }
+
+    /**
+     * Monta a formação 3×5 da guild p/ a batalha do ciclo. [GUERRA_FORMACAO]
+     * 1) coloca os membros posicionados pelo líder (warLane/warDepth);
+     * 2) auto-preenche as células vazias (prefere roster, depois fresco, depois forte), frente primeiro.
+     */
+    public Fighter[][] buildFormation(Guild guild, int debuffPercent, long cycleId) {
+        List<Candidate> candidates = eligibleCandidates(guild);
+        Fighter[][] grid = new Fighter[3][5];
+        java.util.Set<Long> used = new java.util.HashSet<>();
+
+        // 1) posicionados pelo líder
+        for (Candidate c : candidates) {
+            int lane = c.player.getWarLane(), depth = c.player.getWarDepth();
+            if (c.player.isInWarRoster() && lane >= 0 && lane < 3 && depth >= 0 && depth < 5 && grid[lane][depth] == null) {
+                grid[lane][depth] = toFighter(c, debuffPercent, cycleId);
+                used.add(c.player.getId());
+            }
+        }
+
+        // 2) auto-fill (roster primeiro, depois mais fresco, depois mais forte), frente→fundo
         Comparator<Candidate> byPowerDesc = Comparator
                 .comparingInt((Candidate c) -> c.hp + c.stats[0] + c.stats[1]).reversed();
-        Comparator<Candidate> freshThenPower = Comparator
-                .comparingInt((Candidate c) -> c.warrior.fatiguePctForCycle(cycleId)) // menos cansado primeiro
+        Comparator<Candidate> fillOrder = Comparator
+                .comparing((Candidate c) -> !c.player.isInWarRoster())               // roster primeiro
+                .thenComparingInt(c -> c.warrior.fatiguePctForCycle(cycleId))         // menos cansado
                 .thenComparing(byPowerDesc);
-
-        List<Candidate> selected = new ArrayList<>();
-        // 1) picks explícitos do líder (se >15, fica com os mais fortes)
-        candidates.stream().filter(c -> c.player.isInWarRoster()).sorted(byPowerDesc)
-                .limit(ROSTER_MAX).forEach(selected::add);
-        // 2) auto-preenche o resto até 15 (prefere não-cansado, depois mais forte)
-        candidates.stream().filter(c -> !c.player.isInWarRoster()).sorted(freshThenPower)
-                .limit(Math.max(0, ROSTER_MAX - selected.size())).forEach(selected::add);
-
-        List<Fighter> fighters = new ArrayList<>();
-        for (Candidate c : selected) {
-            int[] cs = c.stats;
-            double mult = (1.0 - debuffPercent / 100.0)                          // debuff de defensor (streak)
-                        * (1.0 - c.warrior.fatiguePctForCycle(cycleId) / 100.0); // cansaço de guerra
-            fighters.add(new Fighter(
-                    c.player.getId(),
-                    c.warrior.getName(),
-                    (int) Math.max(1, cs[0] * mult),   // ATK (gear+buff+postura) × debuff × cansaço
-                    (int) Math.max(1, cs[1] * mult),   // DEF
-                    c.hp,
-                    (int) Math.max(0, cs[3] * mult),   // dex → AC
-                    cs[4],                              // strBonus (gear-incluso)
-                    cs[5],                              // luk
-                    c.warrior
-            ));
+        List<Candidate> pool = candidates.stream()
+                .filter(c -> !used.contains(c.player.getId())).sorted(fillOrder).toList();
+        int pi = 0;
+        for (int depth = 0; depth < 5 && pi < pool.size(); depth++) {
+            for (int lane = 0; lane < 3 && pi < pool.size(); lane++) {
+                if (grid[lane][depth] == null) grid[lane][depth] = toFighter(pool.get(pi++), debuffPercent, cycleId);
+            }
         }
-        return fighters;
+        return grid;
     }
+
+    /** Seleção plana (≤15) da guild — flatten da formação. Compat/seleção simples. [GUERRA_ROSTER] */
+    public List<Fighter> buildFighters(Guild guild, int debuffPercent, long cycleId) {
+        return flatten(buildFormation(guild, debuffPercent, cycleId));
+    }
+
+    /** Formação de NPCs (território neutro) preenchendo {@code count} células, frente→fundo. */
+    public Fighter[][] buildNpcFormation(Kingdom territory, int count) {
+        Fighter[][] grid = new Fighter[3][5];
+        int placed = 0;
+        for (int depth = 0; depth < 5 && placed < count; depth++) {
+            for (int lane = 0; lane < 3 && placed < count; lane++) {
+                grid[lane][depth] = npcFighter(territory, ++placed);
+            }
+        }
+        return grid;
+    }
+
+    // ── Helpers de grid ──
+    static List<Fighter> flatten(Fighter[][] grid) {
+        List<Fighter> out = new ArrayList<>();
+        for (Fighter[] lane : grid) for (Fighter f : lane) if (f != null) out.add(f);
+        return out;
+    }
+    static List<Fighter> laneQueue(Fighter[][] grid, int lane) {
+        List<Fighter> out = new ArrayList<>();
+        for (int depth = 0; depth < 5; depth++) if (grid[lane][depth] != null) out.add(grid[lane][depth]);
+        return out;
+    }
+    static int countFilled(Fighter[][] grid) { return flatten(grid).size(); }
 
     /** Candidato a lutador (membro elegível + stats de combate completos + HP já calculado). [GUERRA_ROSTER/POSTURE] */
     private record Candidate(Player player, Warrior warrior, int[] stats, int hp) {}
@@ -509,26 +562,15 @@ public class TerritoryService {
         }
     }
 
-    private List<Fighter> buildNpcFighters(Kingdom territory, int count) {
-        List<Fighter> npcs = new ArrayList<>();
-        // NPC base stats (moderate challenge)
-        int baseAtk = 20;
-        int baseDef = 15;
-        int baseHp  = 80;
-        for (int i = 0; i < count; i++) {
-            npcs.add(new Fighter(
-                    null,
-                    territory.npcName + " #" + (i + 1),
-                    (int) (baseAtk * territory.npcAtkMult),
-                    (int) (baseDef * territory.npcDefMult),
-                    (int) (baseHp  * territory.npcHpMult),
-                    5,  // dex → AC 15
-                    1,  // strBonus
-                    5,  // luk
-                    null
-            ));
-        }
-        return npcs;
+    /** Um NPC defensor (território neutro). Stats base moderados × multiplicadores do reino. */
+    private Fighter npcFighter(Kingdom territory, int idx) {
+        int baseAtk = 20, baseDef = 15, baseHp = 80;
+        return new Fighter(
+                null, territory.npcName + " #" + idx,
+                (int) (baseAtk * territory.npcAtkMult),
+                (int) (baseDef * territory.npcDefMult),
+                (int) (baseHp  * territory.npcHpMult),
+                5, 1, 5, null);
     }
 
     private void persistHpChanges(List<Fighter> fighters) {
@@ -580,8 +622,17 @@ public class TerritoryService {
         public final String name;
         public int atk, def, hp, dex, strBonus, luk;
         public final Warrior warrior;
+        // [GUERRA_FORMACAO] combate completo na guerra: elementos + habilidades ativas.
+        public final com.medieval.game.enums.Element weaponElement, armorElement;
+        public final java.util.List<BattleSimulator.ActiveAbility> abilities;
 
         public Fighter(Long playerId, String name, int atk, int def, int hp, int dex, int strBonus, int luk, Warrior warrior) {
+            this(playerId, name, atk, def, hp, dex, strBonus, luk, warrior, null, null, java.util.List.of());
+        }
+
+        public Fighter(Long playerId, String name, int atk, int def, int hp, int dex, int strBonus, int luk, Warrior warrior,
+                       com.medieval.game.enums.Element weaponElement, com.medieval.game.enums.Element armorElement,
+                       java.util.List<BattleSimulator.ActiveAbility> abilities) {
             this.playerId  = playerId;
             this.name      = name;
             this.atk       = atk;
@@ -591,6 +642,14 @@ public class TerritoryService {
             this.strBonus  = strBonus;
             this.luk       = luk;
             this.warrior   = warrior;
+            this.weaponElement = weaponElement;
+            this.armorElement  = armorElement;
+            this.abilities = abilities != null ? abilities : java.util.List.of();
+        }
+
+        BattleSimulator.Combatant toCombatant() {
+            return BattleSimulator.Combatant.of(name, new int[]{atk, def, hp, dex, strBonus, luk},
+                    weaponElement, armorElement, abilities);
         }
     }
 

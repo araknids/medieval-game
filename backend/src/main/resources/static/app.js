@@ -2154,12 +2154,8 @@ function renderGuildPanel(g) {
       ? ` <span title="War fatigue — will fight at -${m.fatiguePct}% in the next territory battle"
              style="color:#e57373;font-size:11px">😓 -${m.fatiguePct}%</span>`
       : '';
-    const rosterCell  = g.isLeader
-      ? `<td style="width:26px;text-align:center">
-           <input type="checkbox" class="war-roster-cb" value="${m.playerId}"
-             ${m.inWarRoster ? 'checked' : ''} onchange="updateRosterUi()" title="Pick for territory battle">
-         </td>`
-      : '';
+    // [GUERRA_FORMACAO] O roster virou a grade 3×5 abaixo (posicionamento). Sem checkbox por linha.
+    const rosterCell  = '';
     const kickBtn     = g.isLeader && !m.isMe && !m.isLeader
       ? `<button onclick="guildKick(${m.playerId})" style="font-size:11px;padding:2px 6px;background:#8b0000">Kick</button>`
       : '';
@@ -2173,17 +2169,32 @@ function renderGuildPanel(g) {
     </tr>`;
   }).join('');
 
-  // Roster de guerra — só o líder monta os 15 (vagas vazias = auto-fill pelos mais frescos). [GUERRA_ROSTER]
+  // [GUERRA_FORMACAO] Formação 3×5: o líder posiciona os 15 nas 3 lanes (cada lane é um gauntlet).
+  const placedAt = {};
+  g.members.forEach(m => { if (m.warLane >= 0 && m.warDepth >= 0) placedAt[m.warLane + ':' + m.warDepth] = m.playerId; });
+  const memberOpts = (selId) => g.members.map(m =>
+    `<option value="${m.playerId}" ${m.playerId === selId ? 'selected' : ''}>${escapeHtml(m.warriorName)}${m.fatiguePct > 0 ? ' (-' + m.fatiguePct + '%)' : ''}</option>`).join('');
+  const fcell = (l, d) => {
+    const sel = placedAt[l + ':' + d];
+    return `<td style="padding:2px"><select class="formation-cell" data-lane="${l}" data-depth="${d}" style="width:100%;font-size:11px;padding:3px;background:#0d0d18;color:#ddd;border:1px solid #444">
+      <option value="" ${sel ? '' : 'selected'}>—</option>${memberOpts(sel)}</select></td>`;
+  };
+  let frows = '';
+  for (let d = 0; d < 5; d++) {
+    const label = d === 0 ? 'Front' : d === 4 ? 'Back' : ('R' + (d + 1));
+    frows += `<tr><td style="font-size:10px;color:#888;padding-right:6px">${label}</td>${fcell(0, d)}${fcell(1, d)}${fcell(2, d)}</tr>`;
+  }
   const rosterPanel = g.isLeader ? `
     <div style="background:#16213e;border:1px solid #444;border-radius:6px;padding:10px;margin-top:10px">
       <div style="font-size:13px;margin-bottom:6px">
-        ⚔ <strong>War Roster</strong> — pick up to 15 fighters for territory battles.
-        <span style="color:#aaa">Empty slots auto-fill with your freshest members. Fighters get <strong>-10% per consecutive war cycle</strong> (max -50%); resting 1 cycle clears it.</span>
+        ⚔ <strong>War Formation (3×5)</strong> — place fighters in the 3 lanes.
+        <span style="color:#aaa">Each lane is a gauntlet: the front fights first and the winner carries its <strong>remaining HP</strong> to the next. Win <strong>2 of 3 lanes</strong>. Empty cells auto-fill with your freshest members; −10% per consecutive war cycle (max −50%).</span>
       </div>
-      <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
-        <span id="roster-count" style="font-size:13px;color:#ffd700"></span>
-        <button onclick="guildSaveRoster()">💾 Save battle roster</button>
-      </div>
+      <table style="border-collapse:collapse">
+        <thead><tr><th></th><th style="font-size:10px;color:#888">Lane 1</th><th style="font-size:10px;color:#888">Lane 2</th><th style="font-size:10px;color:#888">Lane 3</th></tr></thead>
+        <tbody>${frows}</tbody>
+      </table>
+      <button onclick="guildSaveFormation()" style="margin-top:8px">💾 Save formation</button>
     </div>` : '';
 
   el.innerHTML = `
@@ -2319,6 +2330,23 @@ async function guildSaveRoster() {
   const r = await api('POST', '/api/guild/roster', { memberIds });
   if (r.error) { guildMsg(r.error, false); return; }
   guildMsg('Battle roster saved.');
+  await loadGuild();
+}
+
+// [GUERRA_FORMACAO] Salva a grade 3×5: lê os selects, monta os slots (ignora vazios), valida duplicata.
+async function guildSaveFormation() {
+  const slots = [];
+  const seen = new Set();
+  for (const sel of document.querySelectorAll('.formation-cell')) {
+    const pid = parseInt(sel.value, 10);
+    if (!sel.value || isNaN(pid)) continue;
+    if (seen.has(pid)) { guildMsg('A member is placed in more than one cell.', false); return; }
+    seen.add(pid);
+    slots.push({ playerId: pid, lane: parseInt(sel.dataset.lane, 10), depth: parseInt(sel.dataset.depth, 10) });
+  }
+  const r = await api('POST', '/api/guild/war-formation', { slots });
+  if (r.error) { guildMsg(r.error, false); return; }
+  guildMsg('War formation saved.');
   await loadGuild();
 }
 

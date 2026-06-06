@@ -188,6 +188,48 @@ public class GuildService {
         log.info("[GuildService] player={} action=setWarRoster OK guildId={} selected={}", leader.getId(), guild.getId(), wanted.size());
     }
 
+    /** Slot da formação 3×5: membro numa célula (lane 0–2, depth 0–4). [GUERRA_FORMACAO] */
+    public record FormationSlot(Long playerId, int lane, int depth) {}
+
+    /** Líder posiciona os membros no tabuleiro 3×5 da guerra. Células vazias = auto-fill na batalha. [GUERRA_FORMACAO] */
+    @Transactional
+    public void setWarFormation(Player leader, List<FormationSlot> slots) {
+        if (slots == null) slots = List.of();
+        log.info("[GuildService] player={} action=setWarFormation slots={}", leader.getId(), slots.size());
+        Guild guild = requireGuild(leader);
+        requireLeader(leader, guild);
+
+        if (slots.size() > WAR_ROSTER_MAX)
+            throw new IllegalArgumentException("Formation has at most " + WAR_ROSTER_MAX + " members.");
+
+        List<Player> members = playerRepository.findAllByGuild(guild);
+        java.util.Set<Long> memberIdSet = members.stream().map(Player::getId)
+                .collect(java.util.stream.Collectors.toSet());
+
+        java.util.Set<String>  usedCells   = new java.util.HashSet<>();
+        java.util.Set<Long>    placedIds   = new java.util.HashSet<>();
+        java.util.Map<Long,FormationSlot> byPlayer = new java.util.HashMap<>();
+        for (FormationSlot s : slots) {
+            if (s.lane() < 0 || s.lane() > 2 || s.depth() < 0 || s.depth() > 4)
+                throw new IllegalArgumentException("Invalid cell (lane 0-2, depth 0-4).");
+            if (!memberIdSet.contains(s.playerId()))
+                throw new IllegalArgumentException("All positioned members must belong to your guild.");
+            if (!usedCells.add(s.lane() + ":" + s.depth()))
+                throw new IllegalArgumentException("Two members in the same cell.");
+            if (!placedIds.add(s.playerId()))
+                throw new IllegalArgumentException("A member is placed in more than one cell.");
+            byPlayer.put(s.playerId(), s);
+        }
+
+        for (Player m : members) {
+            FormationSlot s = byPlayer.get(m.getId());
+            if (s != null) { m.setWarLane(s.lane()); m.setWarDepth(s.depth()); m.setInWarRoster(true); }
+            else           { m.setWarLane(-1);       m.setWarDepth(-1);        m.setInWarRoster(false); }
+        }
+        playerRepository.saveAll(members);
+        log.info("[GuildService] player={} action=setWarFormation OK guildId={} placed={}", leader.getId(), guild.getId(), placedIds.size());
+    }
+
     /** Cansaço de guerra (%) que valerá na próxima batalha — p/ exibir na lista de membros. [GUERRA_ROSTER] */
     public int warriorFatiguePct(Player player, long currentCycleId) {
         return warriorRepository.findByPlayer(player)

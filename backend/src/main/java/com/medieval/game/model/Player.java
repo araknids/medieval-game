@@ -99,6 +99,12 @@ public class Player {
     @Column(columnDefinition = "boolean default false")
     private boolean inWarRoster = false;
 
+    // [GUERRA_FORMACAO] Posição na formação 3×5 da guerra: lane 0–2, depth 0–4. −1 = não posicionado.
+    @Column(columnDefinition = "integer default -1")
+    private int warLane = -1;
+    @Column(columnDefinition = "integer default -1")
+    private int warDepth = -1;
+
     // ── SoulStone (moeda VIP) ─────────────────────────────────────────────────
     @Column(columnDefinition = "integer default 0")
     private int soulStones = 0;

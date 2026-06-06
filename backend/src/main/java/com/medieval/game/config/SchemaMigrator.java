@@ -180,7 +180,10 @@ public class SchemaMigrator {
     private void patchAbilityPointsColumn() {
         try {
             jdbc.execute("ALTER TABLE warriors ADD COLUMN IF NOT EXISTS ability_points integer NOT NULL DEFAULT 0");
-            log.info("[SchemaMigrator] warriors.ability_points column ensured");
+            // [GUERRA_FORMACAO] posição na formação 3×5 da guerra (−1 = não posicionado).
+            jdbc.execute("ALTER TABLE players ADD COLUMN IF NOT EXISTS war_lane  integer NOT NULL DEFAULT -1");
+            jdbc.execute("ALTER TABLE players ADD COLUMN IF NOT EXISTS war_depth integer NOT NULL DEFAULT -1");
+            log.info("[SchemaMigrator] warriors.ability_points + players war formation columns ensured");
         } catch (Exception e) {
             log.warn("[SchemaMigrator] warriors.ability_points patch failed: {}", e.getMessage());
         }
