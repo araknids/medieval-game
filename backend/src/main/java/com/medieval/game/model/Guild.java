@@ -35,6 +35,10 @@ public class Guild {
     @Column(columnDefinition = "integer default 1")
     private int level = 1;
 
+    // [GUERRA_GUILDA] true se a guild já controlou um território ao menos uma vez (req. p/ declarar/ser declarada).
+    @Column(columnDefinition = "boolean default false")
+    private boolean everControlledTerritory = false;
+
     @Column(nullable = false)
     private Long leaderId;
 

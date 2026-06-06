@@ -36,6 +36,7 @@ public class SchemaMigrator {
         patchGuildLifetimeGoldColumn();
         patchWarriorCombatPostureColumn();
         patchPlayerPetPityColumn();
+        patchGuildEverControlledColumn();
         patchStashColumns();
         patchKingdomQuestWindowColumn();
         dropWarriorOnMissionColumn();
@@ -151,6 +152,16 @@ public class SchemaMigrator {
             log.info("[SchemaMigrator] territory_controls last_resolved_cycle_id column ensured");
         } catch (Exception e) {
             log.warn("[SchemaMigrator] territory_controls last_resolved_cycle_id patch failed: {}", e.getMessage());
+        }
+    }
+
+    // Guerra de Guilda: elegibilidade (já controlou território). Tabela guild_wars é auto-criada. [GUERRA_GUILDA]
+    private void patchGuildEverControlledColumn() {
+        try {
+            jdbc.execute("ALTER TABLE guilds ADD COLUMN IF NOT EXISTS ever_controlled_territory boolean NOT NULL DEFAULT false");
+            log.info("[SchemaMigrator] guilds.ever_controlled_territory column ensured");
+        } catch (Exception e) {
+            log.warn("[SchemaMigrator] guilds.ever_controlled_territory patch failed: {}", e.getMessage());
         }
     }
 

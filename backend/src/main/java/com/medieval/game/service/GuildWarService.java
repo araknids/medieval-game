@@ -1,0 +1,269 @@
+package com.medieval.game.service;
+
+import com.medieval.game.model.Guild;
+import com.medieval.game.model.GuildWar;
+import com.medieval.game.model.Player;
+import com.medieval.game.model.Warrior;
+import com.medieval.game.repository.GuildRepository;
+import com.medieval.game.repository.GuildWarRepository;
+import com.medieval.game.repository.PlayerRepository;
+import com.medieval.game.repository.WarriorRepository;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.time.Duration;
+import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Optional;
+
+/**
+ * Guerra de Guilda (7 dias): membros atacam membros da guild inimiga (mesmo prejuízo da zona vermelha);
+ * quem tem mais kills leva 25% do gold acumulado da inimiga (pode regredir nível). [GUERRA_GUILDA]
+ */
+@Slf4j
+@Service
+@RequiredArgsConstructor
+public class GuildWarService {
+
+    private static final int    WAR_DAYS       = 7;
+    private static final int    ATTACK_STAMINA = 25;
+    private static final double REWARD_PCT     = 0.25; // 25% do lifetimeGold do perdedor
+
+    private final GuildWarRepository  warRepo;
+    private final GuildRepository     guildRepository;
+    private final PlayerRepository    playerRepository;
+    private final WarriorRepository   warriorRepository;
+    private final WarriorStatsService statsService;
+    private final BattleSimulator     battleSimulator;
+    private final ZoneService         zoneService;   // applyGuildWarRaid (loot/penalty/escudo)
+    private final PlayerService       playerService; // consumeStamina
+    private final MailService         mailService;
+
+    // ── DTOs ──
+    public record EnemyMember(Long playerId, String warriorName, int level, int hpPercent,
+                              boolean knockedOut, boolean shielded) {}
+    public record WarStatus(boolean atWar, Long warId, String enemyGuildName, Long enemyGuildId,
+                            int myKills, int enemyKills, long secondsLeft, List<EnemyMember> enemies) {}
+    public record TargetGuild(Long id, String name, int level) {}
+    public record AttackResult(boolean won, String opponentName, String loot,
+                               int myKills, int enemyKills, List<String> log) {}
+
+    // ── Declaração ────────────────────────────────────────────────────────────
+    @Transactional
+    public GuildWar declare(Player leader, Long targetGuildId) {
+        log.info("[GuildWarService] player={} action=declareWar target={}", leader.getId(), targetGuildId);
+        Guild mine = requireGuild(leader);
+        requireLeader(leader, mine);
+
+        Guild target = guildRepository.findById(targetGuildId)
+                .orElseThrow(() -> new IllegalArgumentException("Target guild not found."));
+        if (target.getId().equals(mine.getId()))
+            throw new IllegalArgumentException("You can't declare war on your own guild.");
+        if (!mine.isEverControlledTerritory())
+            throw new IllegalStateException("Your guild must have controlled a territory at least once.");
+        if (!target.isEverControlledTerritory())
+            throw new IllegalStateException("The target guild has never controlled a territory.");
+        if (currentWar(mine).isPresent())
+            throw new IllegalStateException("Your guild is already at war.");
+        if (currentWar(target).isPresent())
+            throw new IllegalStateException("The target guild is already at war.");
+
+        GuildWar war = new GuildWar();
+        war.setGuildA(mine);
+        war.setGuildB(target);
+        war.setStartedAt(LocalDateTime.now());
+        war.setEndsAt(LocalDateTime.now().plusDays(WAR_DAYS));
+        GuildWar saved = warRepo.save(war);
+        log.info("[GuildWarService] war declared id={} {} vs {}", saved.getId(), mine.getName(), target.getName());
+        return saved;
+    }
+
+    // ── Ataque (qualquer membro) ────────────────────────────────────────────────
+    @Transactional
+    public AttackResult attack(Player attacker, Long targetPlayerId) {
+        log.info("[GuildWarService] player={} action=warAttack target={}", attacker.getId(), targetPlayerId);
+        // Recarrega como entidade MANAGED nesta tx (o param chega detached do controller → evita
+        // conflito de versão/optimistic-lock nos vários saves do loot). [GUERRA_GUILDA]
+        attacker = playerRepository.findById(attacker.getId()).orElseThrow();
+        Guild myGuild = requireGuild(attacker);
+        GuildWar war = currentWar(myGuild)
+                .orElseThrow(() -> new IllegalStateException("Your guild is not at war."));
+        Long enemyGuildId = war.otherGuildId(myGuild.getId());
+
+        Player target = playerRepository.findById(targetPlayerId)
+                .orElseThrow(() -> new IllegalArgumentException("Target player not found."));
+        if (target.getId().equals(attacker.getId()))
+            throw new IllegalArgumentException("You can't attack yourself.");
+        Long targetGuildId = playerRepository.findGuildByPlayerId(target.getId()).map(Guild::getId).orElse(null);
+        if (!enemyGuildId.equals(targetGuildId))
+            throw new IllegalStateException("That player is not in the enemy guild.");
+        if (target.isPvpShielded())
+            throw new IllegalStateException("That player is shielded right now.");
+
+        Warrior aw = warriorRepository.findByPlayer(attacker)
+                .orElseThrow(() -> new IllegalStateException("Warrior not found."));
+        Warrior tw = warriorRepository.findByPlayer(target)
+                .orElseThrow(() -> new IllegalStateException("Target has no warrior."));
+        if (aw.isKnockedOut())  throw new IllegalStateException("Your warrior is unconscious. Heal at the Temple.");
+        if (tw.isKnockedOut())  throw new IllegalStateException("That player is already down.");
+        if (attacker.getCalculatedStamina() < ATTACK_STAMINA)
+            throw new IllegalStateException("Not enough stamina (need " + ATTACK_STAMINA + ").");
+
+        playerService.consumeStamina(attacker, ATTACK_STAMINA);
+
+        // Combate PvP (stats completos dos dois)
+        int[] a = statsService.combatStats(attacker, aw);
+        int[] d = statsService.combatStats(target, tw);
+        int aMax = a[2], dMax = d[2];
+        int aHp = aw.getCalculatedHpPercent() * aMax / 100;
+        int dHp = tw.getCalculatedHpPercent() * dMax / 100;
+        BattleSimulator.BattleOutcome out = battleSimulator.simulateDetailed(
+                aw.getName(), a[0], a[1], aHp, a[3], a[4], a[5],
+                tw.getName(), d[0], d[1], dHp, d[3], d[4], d[5]);
+        boolean attackerWon = out.firstWon();
+
+        // HP final dos dois
+        persistHp(aw, out.firstHpFinal(),  aMax);
+        persistHp(tw, out.secondHpFinal(), dMax);
+
+        // Kill simétrica: a guild do VENCEDOR ganha +1
+        Long winnerGuildId = attackerWon ? myGuild.getId() : enemyGuildId;
+        war.incKillFor(winnerGuildId);
+        warRepo.save(war);
+
+        // Prejuízo da zona vermelha no PERDEDOR (vencedor saqueia)
+        Player winner = attackerWon ? attacker : target;
+        Player loser  = attackerWon ? target   : attacker;
+        String loot   = zoneService.applyGuildWarRaid(winner, loser);
+
+        List<String> battleLog = stripWinnerTag(out.log());
+        log.info("[GuildWarService] war={} attacker={} won={} loot={}", war.getId(), attacker.getId(), attackerWon, loot);
+        return new AttackResult(attackerWon, tw.getName(), loot,
+                war.killsFor(myGuild.getId()), war.killsFor(enemyGuildId), battleLog);
+    }
+
+    // ── Status / alvos ──────────────────────────────────────────────────────────
+    @Transactional
+    public WarStatus statusFor(Player player) {
+        Guild mine = playerRepository.findGuildByPlayerId(player.getId()).orElse(null);
+        if (mine == null) return new WarStatus(false, null, null, null, 0, 0, 0, List.of());
+        Optional<GuildWar> opt = currentWar(mine);
+        if (opt.isEmpty()) return new WarStatus(false, null, null, null, 0, 0, 0, List.of());
+
+        GuildWar war = opt.get();
+        Long enemyId = war.otherGuildId(mine.getId());
+        Guild enemy = guildRepository.findById(enemyId).orElseThrow();
+        long secsLeft = Math.max(0, Duration.between(LocalDateTime.now(), war.getEndsAt()).getSeconds());
+
+        List<EnemyMember> enemies = new ArrayList<>();
+        for (Player m : playerRepository.findAllByGuild(enemy)) {
+            warriorRepository.findByPlayer(m).ifPresent(w -> enemies.add(new EnemyMember(
+                    m.getId(), w.getName(), w.getLevel(), w.getCalculatedHpPercent(),
+                    w.isKnockedOut(), m.isPvpShielded())));
+        }
+        return new WarStatus(true, war.getId(), enemy.getName(), enemyId,
+                war.killsFor(mine.getId()), war.killsFor(enemyId), secsLeft, enemies);
+    }
+
+    /** Guildas que dá pra declarar guerra (já controlaram território, não estão em guerra, não a minha). */
+    @Transactional
+    public List<TargetGuild> eligibleTargets(Player player) {
+        Guild mine = playerRepository.findGuildByPlayerId(player.getId()).orElse(null);
+        if (mine == null || !mine.isEverControlledTerritory() || currentWar(mine).isPresent()) return List.of();
+        List<TargetGuild> out = new ArrayList<>();
+        for (Guild g : guildRepository.findAll()) {
+            if (g.getId().equals(mine.getId())) continue;
+            if (!g.isEverControlledTerritory()) continue;
+            if (currentWar(g).isPresent()) continue;
+            out.add(new TargetGuild(g.getId(), g.getName(), g.getLevel()));
+        }
+        return out;
+    }
+
+    // ── Resolução ───────────────────────────────────────────────────────────────
+    /** Guerra ativa da guild; se já acabou, resolve na hora (lazy) e retorna vazio. */
+    @Transactional
+    public Optional<GuildWar> currentWar(Guild guild) {
+        Optional<GuildWar> opt = warRepo.findActiveByGuild(guild);
+        if (opt.isPresent() && opt.get().isOver()) {
+            resolve(opt.get());
+            return Optional.empty();
+        }
+        return opt;
+    }
+
+    @Transactional
+    public void resolve(GuildWar war) {
+        if (war.getStatus() != GuildWar.Status.ACTIVE) return;
+        Guild gA = guildRepository.findById(war.getGuildA().getId()).orElseThrow();
+        Guild gB = guildRepository.findById(war.getGuildB().getId()).orElseThrow();
+
+        Guild winner = null, loser = null;
+        if (war.getKillsA() > war.getKillsB())      { winner = gA; loser = gB; }
+        else if (war.getKillsB() > war.getKillsA()) { winner = gB; loser = gA; }
+
+        if (winner != null) {
+            long stolen = Math.round(loser.getLifetimeGold() * REWARD_PCT);
+            // Perdedor: tira do acumulado E do tesouro; nível pode CAIR (set direto). [GUERRA_GUILDA]
+            loser.setLifetimeGold(Math.max(0, loser.getLifetimeGold() - stolen));
+            loser.setGold(Math.max(0, loser.getGold() - stolen));
+            loser.setLevel(Guild.levelForGold(loser.getLifetimeGold()));
+            // Vencedor: ganha nos dois; nível pode SUBIR (monotônico).
+            winner.setLifetimeGold(winner.getLifetimeGold() + stolen);
+            winner.setGold(winner.getGold() + stolen);
+            winner.recomputeLevel();
+            guildRepository.save(loser);
+            guildRepository.save(winner);
+            war.setWinnerGuildId(winner.getId());
+            log.info("[GuildWarService] war={} RESOLVED winner={} stolen={} loserNewLevel={}",
+                    war.getId(), winner.getName(), stolen, loser.getLevel());
+            mailLeader(winner, "🏆 Your guild WON the war vs " + loser.getName() + "! Looted " + stolen + " gold.");
+            mailLeader(loser,  "💀 Your guild LOST the war vs " + winner.getName() + ". Lost " + stolen + " gold.");
+        } else {
+            log.info("[GuildWarService] war={} RESOLVED draw ({}–{})", war.getId(), war.getKillsA(), war.getKillsB());
+            mailLeader(gA, "⚖ Your guild war vs " + gB.getName() + " ended in a draw.");
+            mailLeader(gB, "⚖ Your guild war vs " + gA.getName() + " ended in a draw.");
+        }
+        war.setStatus(GuildWar.Status.RESOLVED);
+        warRepo.save(war);
+    }
+
+    /** Resolve todas as guerras vencidas (scheduler). [GUERRA_GUILDA] */
+    @Transactional
+    public void resolveDueWars() {
+        List<GuildWar> due = warRepo.findActiveDue(LocalDateTime.now());
+        for (GuildWar w : due) {
+            try { resolve(w); } catch (Exception e) { log.error("Error resolving guild war {}: {}", w.getId(), e.getMessage(), e); }
+        }
+        if (!due.isEmpty()) log.info("[GuildWarService] resolved {} due war(s)", due.size());
+    }
+
+    // ── Helpers ──
+    private void persistHp(Warrior w, int hpFinal, int maxHp) {
+        int pct = maxHp > 0 ? Math.max(0, Math.min(100, hpFinal * 100 / maxHp)) : 0;
+        w.setCurrentHpSnapshot(pct);
+        w.setHpUpdatedAt(LocalDateTime.now());
+        warriorRepository.save(w);
+    }
+
+    private void mailLeader(Guild guild, String msg) {
+        playerRepository.findById(guild.getLeaderId()).ifPresent(l -> mailService.sendSystemMail(l, msg));
+    }
+
+    private List<String> stripWinnerTag(List<String> log) {
+        if (log.isEmpty()) return log;
+        return log.subList(0, log.size() - 1); // remove a tag WINNER interna
+    }
+
+    private Guild requireGuild(Player player) {
+        return playerRepository.findGuildByPlayerId(player.getId())
+                .orElseThrow(() -> new IllegalStateException("You do not belong to any guild."));
+    }
+    private void requireLeader(Player player, Guild guild) {
+        if (!guild.getLeaderId().equals(player.getId()))
+            throw new IllegalStateException("Only the leader can declare war.");
+    }
+}

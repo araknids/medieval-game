@@ -523,6 +523,39 @@ public class ZoneService {
         items.forEach(i -> i.setPvpLocked(false));
     }
 
+    /**
+     * Aplica no PERDEDOR o prejuízo da zona VERMELHA — reuso pela Guerra de Guilda. [GUERRA_GUILDA]
+     * O vencedor saqueia: −15% bronze (½ vai pro vencedor), −50% recursos, 35% de levar 1 item exposto,
+     * XP (vencedor +50%). O perdedor perde o buff e ganha escudo de 1h. Retorna o resumo do loot.
+     * (Trava os itens expostos só no momento da derrota pra permitir o roubo de 1, depois destrava — sem
+     *  flag persistente como na zona.)
+     */
+    @Transactional
+    public String applyGuildWarRaid(Player winner, Player loser) {
+        lockExposedItems(loser); // expõe os itens (não-stashed/não-guarded) pro roubo de 1
+        long   bronze = applyDefeatPenalty(loser, winner, 0.15);
+        long   res    = stealResources(winner, loser);
+        String item   = stealOneItem(winner, loser);
+        long   xp     = stealXp(loser, winner);
+
+        warriorRepository.findByPlayer(loser).ifPresent(w -> { w.clearBuff(); warriorRepository.save(w); });
+        loser.setPvpShieldUntil(LocalDateTime.now().plusMinutes(PVP_SHIELD_MINUTES));
+        List<InventoryItem> remaining = inventoryRepository.findAllByPlayer(loser);
+        unlockAllItems(remaining);
+        inventoryRepository.saveAll(remaining);
+        playerRepository.save(loser);
+
+        String loot = bronze + " bronze"
+                + (item != null ? ", " + item : "")
+                + (res > 0 ? ", " + res + " resources" : "")
+                + (xp  > 0 ? ", " + xp + " XP" : "");
+        String winnerName = warriorRepository.findByPlayer(winner).map(Warrior::getName).orElse("an enemy");
+        mailService.sendSystemMail(loser,
+            "💀 You were defeated in a GUILD WAR by " + winnerName + "! Lost " + loot
+            + ". Protection shield for " + PVP_SHIELD_MINUTES + " min.");
+        return loot;
+    }
+
     /** Rouba ~50% de cada recurso da bag da vítima e dá ao atacante (clamp na bag dele). */
     private long stealResources(Player attacker, Player victim) {
         long total = 0;

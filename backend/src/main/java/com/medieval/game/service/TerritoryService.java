@@ -336,6 +336,11 @@ public class TerritoryService {
             control.setControllingGuild(newHolder);
             control.setDefenseStreak(0);
             control.setDominantSince(LocalDateTime.now());
+            // [GUERRA_GUILDA] a guild passou a controlar um território → fica elegível p/ guerra de guilda
+            if (newHolder != null && !newHolder.isEverControlledTerritory()) {
+                newHolder.setEverControlledTerritory(true);
+                guildRepository.save(newHolder);
+            }
         } else if (!control.isNeutral()) {
             control.setDefenseStreak(control.getDefenseStreak() + 1);
         }

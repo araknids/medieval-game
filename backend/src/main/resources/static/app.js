@@ -1921,6 +1921,8 @@ function renderGuildPanel(g) {
     </table>
     ${rosterPanel}
 
+    <div id="guild-war-section" style="margin-top:14px"></div>
+
     <div style="margin-top:16px;display:flex;gap:8px;flex-wrap:wrap;align-items:center">
       <input id="donate-amount" type="number" min="1" placeholder="Amount in bronze"
         style="width:160px;padding:6px;background:#111;color:#eee;border:1px solid #555;border-radius:4px">
@@ -1933,6 +1935,88 @@ function renderGuildPanel(g) {
   `;
 
   updateRosterUi(); // sincroniza contador + trava checkboxes acima de 15. [GUERRA_ROSTER]
+  loadGuildWar(g.isLeader); // seção de Guerra de Guilda. [GUERRA_GUILDA]
+}
+
+// ── Guerra de Guilda (declarar / atacar / status). [GUERRA_GUILDA] ──
+async function loadGuildWar(isLeader) {
+  const el = document.getElementById('guild-war-section');
+  if (!el) return;
+  let s;
+  try { s = await api('GET', '/api/guild/war'); } catch (e) { el.innerHTML = ''; return; }
+  if (!s || s.error) { el.innerHTML = ''; return; }
+
+  if (s.atWar) {
+    const days  = Math.floor(s.secondsLeft / 86400);
+    const hours = Math.floor((s.secondsLeft % 86400) / 3600);
+    const winning = s.myKills > s.enemyKills, losing = s.myKills < s.enemyKills;
+    const enemyRows = (s.enemies || []).map(e => {
+      const action = e.knockedOut ? '<span style="color:#cf6679">💀 down</span>'
+                   : e.shielded   ? '<span style="color:#90caf9">🛡 shielded</span>'
+                   : `<button onclick="guildWarAttack(${e.playerId})" style="font-size:11px;padding:2px 8px;background:#8b0000">⚔ Attack</button>`;
+      return `<tr>
+        <td>${escapeHtml(e.warriorName)} <span style="color:#888;font-size:11px">Lv.${e.level} · ${e.hpPercent}% HP</span></td>
+        <td style="text-align:right">${action}</td>
+      </tr>`;
+    }).join('');
+    el.innerHTML = `
+      <div style="background:#2a1010;border:1px solid #8b0000;border-radius:8px;padding:12px">
+        <div style="font-weight:bold;color:#ff8a80">⚔ At War with ${escapeHtml(s.enemyGuildName)}</div>
+        <div style="font-size:13px;margin-top:4px">
+          Kills: <strong style="color:${winning ? '#7fd1b9' : '#eee'}">${s.myKills}</strong>
+          × <strong style="color:${losing ? '#ff8a80' : '#eee'}">${s.enemyKills}</strong> them
+          · <span style="color:#aaa">${days}d ${hours}h left</span>
+        </div>
+        <h4 style="margin:10px 0 6px;font-size:13px">Enemy members</h4>
+        <table style="width:100%;border-collapse:collapse;font-size:13px">${enemyRows || '<tr><td style="color:#888">No members.</td></tr>'}</table>
+        <div id="guild-war-msg" style="margin-top:6px;min-height:18px"></div>
+      </div>`;
+  } else if (isLeader) {
+    el.innerHTML = `
+      <div style="background:#16213e;border:1px solid #444;border-radius:8px;padding:12px">
+        <div style="font-size:13px;margin-bottom:6px">⚔ <strong>Guild War</strong> — declare a 7-day war on a rival. Most kills wins 25% of their gold (can de-level them). Both guilds must have held a territory.</div>
+        <button onclick="loadGuildWarTargets()">⚔ Declare War</button>
+        <div id="guild-war-targets" style="margin-top:8px"></div>
+        <div id="guild-war-msg" style="margin-top:6px;min-height:18px"></div>
+      </div>`;
+  } else {
+    el.innerHTML = '';
+  }
+}
+
+async function loadGuildWarTargets() {
+  const box = document.getElementById('guild-war-targets');
+  if (!box) return;
+  box.innerHTML = 'Loading...';
+  const targets = await api('GET', '/api/guild/war/targets');
+  if (!Array.isArray(targets) || targets.length === 0) {
+    box.innerHTML = '<span style="color:#888;font-size:12px">No eligible rival guilds (must have held a territory and not be at war).</span>';
+    return;
+  }
+  box.innerHTML = targets.map(t => `
+    <div style="display:flex;justify-content:space-between;align-items:center;padding:4px 0;border-top:1px solid #333">
+      <span>${escapeHtml(t.name)} <span style="color:#888;font-size:11px">Lv.${t.level}</span></span>
+      <button onclick="guildWarDeclare(${t.id})" style="font-size:11px;padding:2px 8px;background:#8b0000">Declare</button>
+    </div>`).join('');
+}
+
+async function guildWarDeclare(guildId) {
+  if (!confirm('Declare a 7-day guild war on this guild?')) return;
+  const r = await api('POST', `/api/guild/war/declare/${guildId}`);
+  if (r.error) { const m = document.getElementById('guild-war-msg'); if (m) m.innerHTML = `<span style="color:#f44336">${r.error}</span>`; return; }
+  await loadGuild();
+}
+
+async function guildWarAttack(playerId) {
+  const r = await api('POST', `/api/guild/war/attack/${playerId}`);
+  if (r.error) { const m = document.getElementById('guild-war-msg'); if (m) m.innerHTML = `<span style="color:#f44336">${r.error}</span>`; return; }
+  await loadWarrior();        // HP/estamina/bronze mudaram
+  await loadGuildWar(false);  // re-renderiza kills + estados (escudo/KO)
+  const m = document.getElementById('guild-war-msg');
+  const txt = r.won
+    ? `✅ You won! Looted ${r.loot}. Kills ${r.myKills}–${r.enemyKills}`
+    : `❌ You lost — they raided you (${r.loot}). Kills ${r.myKills}–${r.enemyKills}`;
+  if (m) m.innerHTML = `<span style="color:${r.won ? '#7fd1b9' : '#ff8a80'}">${txt}</span>`;
 }
 
 // War roster: atualiza o contador "X/15" e desabilita os não-marcados ao bater 15. [GUERRA_ROSTER]
