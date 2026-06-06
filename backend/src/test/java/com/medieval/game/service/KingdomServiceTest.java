@@ -34,7 +34,8 @@ class KingdomServiceTest {
     void tc050_questKingdomsHave4() {
         for (Kingdom k : Kingdom.values()) {
             long count = Arrays.stream(KingdomQuestType.values())
-                    .filter(q -> q.kingdom == k).count();
+                    .filter(q -> q.kingdom == k && q != KingdomQuestType.RESCUE_STRAY_DOG) // Luna é especial [PETS]
+                    .count();
             assertThat(count).as("Kingdom %s quest count", k).isEqualTo(6);
         }
     }
@@ -44,7 +45,8 @@ class KingdomServiceTest {
     @DisplayName("TC-050b | rotatingWindow mostra 2 e cobre todas as 6 ao longo das janelas")
     void tc050b_rotatingWindowShows2AndCyclesAll() {
         List<KingdomQuestType> all = Arrays.stream(KingdomQuestType.values())
-                .filter(q -> q.kingdom == Kingdom.FISHING).toList();
+                .filter(q -> q.kingdom == Kingdom.FISHING && q != KingdomQuestType.RESCUE_STRAY_DOG) // Luna especial [PETS]
+                .toList();
         assertThat(all).hasSize(6);
 
         // Cada janela retorna exatamente 2 quests consecutivas.
@@ -90,7 +92,7 @@ class KingdomServiceTest {
     @DisplayName("TC-extra | Later quests have higher rewards than earlier quests")
     void tcExtra_questsScaleByDifficulty() {
         KingdomQuestType[] fishQuests = Arrays.stream(KingdomQuestType.values())
-                .filter(q -> q.kingdom == Kingdom.FISHING)
+                .filter(q -> q.kingdom == Kingdom.FISHING && q != KingdomQuestType.RESCUE_STRAY_DOG) // Luna especial [PETS]
                 .toArray(KingdomQuestType[]::new);
 
         // Last quest should reward more bronze than first

@@ -42,7 +42,8 @@ class WorldIntegrationTest extends BaseIntegrationTest {
         mockMvc.perform(get("/api/world/FISHING/quests").header("Authorization", bearer(token)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$").isArray())
-                .andExpect(jsonPath("$", hasSize(2)))
+                // 2 da rotação; +1 se o player cair numa "janela da Luna" (quest rara). [PETS]
+                .andExpect(jsonPath("$", hasSize(greaterThanOrEqualTo(2))))
                 .andExpect(jsonPath("$[0].displayName").isNotEmpty())
                 .andExpect(jsonPath("$[0].durationMinutes").isNumber());
     }
@@ -274,6 +275,7 @@ class WorldIntegrationTest extends BaseIntegrationTest {
         mockMvc.perform(get("/api/world/COMBAT/quests").header("Authorization", bearer(token)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$").isArray())
-                .andExpect(jsonPath("$", hasSize(2)));
+                // 2 da rotação; +1 se cair numa "janela da Luna". [PETS]
+                .andExpect(jsonPath("$", hasSize(greaterThanOrEqualTo(2))));
     }
 }

@@ -315,6 +315,17 @@ async function loadWarrior() {
             </div>`;
   })() : '';
 
+  // Pet equipado (companheiro). [PETS]
+  const petLine = warrior.equippedPet ? (() => {
+    const p = warrior.equippedPet;
+    return `<div style="margin-top:.3rem;font-size:.75rem;padding:3px 6px;
+                         background:#241a0f;border:1px solid #d8a14d;border-radius:4px;
+                         color:#e0b878;display:inline-block">
+              ${p.icon} ${p.displayName}
+              <span style="color:#aaa;font-size:.7em">+${p.hpBonusPercent}% HP</span>
+            </div>`;
+  })() : '';
+
   const hpColor      = (warrior.hpPercent ?? 100) <= 0 ? '#cf6679'
                      : (warrior.hpPercent ?? 100) < 50  ? '#c9a84c' : '#4caf82';
   const staminaColor = stamina < 30 ? '#cf6679' : stamina < 60 ? '#c9a84c' : '#4caf82';
@@ -363,6 +374,7 @@ async function loadWarrior() {
     ${buffLine}
     ${mealBuffLine}
     ${mountLine}
+    ${petLine}
 
     <div style="margin-top:.4rem">
       ${warrior.isKnockedOut
@@ -2873,10 +2885,22 @@ async function collectKingdomQuest(kingdom, questId, optionId) {
   if (r.error) { worldMsg(r.error, false); return; }
   showQuestResultModal(r);
   await enterKingdom(kingdom);
+  await loadWarrior(); // refresca o card (XP/HP/bronze + pet novo). [PETS]
 }
 
 // Modal de resultado da quest: roll (se houve) + narrativa + combate; derrota = sem recompensa.
 function showQuestResultModal(r) {
+  // [PETS] ganhou um pet na quest rara → celebração
+  if (r.acquiredPet) {
+    showCollectModal({
+      title: '🎉 A new companion!',
+      color: '#ffd700',
+      note:  r.narrative,
+      rows:  [{ icon:'🐶', label:'Pet', value:`${r.acquiredPet} — equipped (+10% HP)`, color:'#e0b878' }],
+      log:   []
+    });
+    return;
+  }
   const rollRow = r.roll ? [{
     icon: '🎲',
     label: `${r.roll.attr} check`,

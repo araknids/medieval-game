@@ -152,6 +152,11 @@ public class Player {
     }
     public void clearPvpFlag() { pvpFlaggedZone = null; pvpFlaggedUntil = null; }
 
+    // ── Pets: contador da pity da quest rara da Luna (sobe a chance a cada tentativa). [PETS] ──
+    // Posse do pet é via PetRepository.existsByPlayerAndPetType (sem flag redundante aqui).
+    @Column(columnDefinition = "integer default 0")
+    private int petPityAttempts = 0;
+
     @Column(nullable = false)
     private LocalDateTime createdAt = LocalDateTime.now();
 

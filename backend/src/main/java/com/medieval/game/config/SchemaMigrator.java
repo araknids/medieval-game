@@ -35,6 +35,7 @@ public class SchemaMigrator {
         patchWarFatigueAndRosterColumns();
         patchGuildLifetimeGoldColumn();
         patchWarriorCombatPostureColumn();
+        patchPlayerPetPityColumn();
         patchStashColumns();
         patchKingdomQuestWindowColumn();
         dropWarriorOnMissionColumn();
@@ -150,6 +151,16 @@ public class SchemaMigrator {
             log.info("[SchemaMigrator] territory_controls last_resolved_cycle_id column ensured");
         } catch (Exception e) {
             log.warn("[SchemaMigrator] territory_controls last_resolved_cycle_id patch failed: {}", e.getMessage());
+        }
+    }
+
+    // Pets: contador da pity da quest rara da Luna. (A tabela `pets` é auto-criada pelo ddl-auto). [PETS]
+    private void patchPlayerPetPityColumn() {
+        try {
+            jdbc.execute("ALTER TABLE players ADD COLUMN IF NOT EXISTS pet_pity_attempts integer NOT NULL DEFAULT 0");
+            log.info("[SchemaMigrator] players.pet_pity_attempts column ensured");
+        } catch (Exception e) {
+            log.warn("[SchemaMigrator] players.pet_pity_attempts patch failed: {}", e.getMessage());
         }
     }
 

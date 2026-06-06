@@ -40,6 +40,13 @@ public final class InteractiveQuests {
     private static void put(KingdomQuestType qt, String intro, QuestOption... opts) { DIALOGS.put(qt, new QuestDialog(intro, List.of(opts))); }
 
     static {
+        // ── Quest RARA da Luna (cachorra). O collect é special-cased no KingdomService (chance de pet,
+        //    sem loot); os outcomes abaixo são placeholders e NÃO são resolvidos. [PETS] ──
+        put(KingdomQuestType.RESCUE_STRAY_DOG,
+            "A trembling stray dog lies in the mud, sick and whimpering. She looks up at you with tired, hopeful eyes.",
+            opt("help",  "Help the dog", "no reward — but maybe a loyal friend", peace(0, 0, 0, "You tend to her.")),
+            opt("leave", "Walk away",    "",                                      peace(0, 0, 0, "You leave her be.")));
+
         // ── Fishing — Bone Gorge ────────────────────────────────────────────────
         put(KingdomQuestType.PATROL_COAST,
             "Smugglers are unloading crates on the misty shore.",

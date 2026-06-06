@@ -74,10 +74,10 @@ public class KingdomController {
         int stamina = player.getCalculatedStamina();
         long secondsUntilReset = kingdomService.secondsUntilQuestRotation(); // [DAILY_QUESTS] boundary de 12h
 
-        List<?> quests = kingdomService.getQuestsForKingdom(kingdom).stream()
+        List<Map<String, Object>> quests = new java.util.ArrayList<>(kingdomService.getQuestsForKingdom(kingdom).stream()
                 .map(qt -> {
                     boolean done = kingdomService.isQuestDoneThisPeriod(player, qt); // [DAILY_QUESTS]
-                    return Map.ofEntries(
+                    return Map.<String, Object>ofEntries(
                         Map.entry("id",                qt.name()),
                         Map.entry("displayName",       qt.displayName),
                         Map.entry("durationMinutes",   qt.durationMinutes),
@@ -90,7 +90,27 @@ public class KingdomController {
                         Map.entry("secondsUntilReset", secondsUntilReset),
                         Map.entry("canStart",          !done && stamina >= qt.staminaCost)
                     );
-                }).toList();
+                }).toList());
+
+        // [PETS] Quest RARA da Luna aparece em qualquer reino durante uma "janela da Luna".
+        if (kingdomService.lunaQuestActive(player)) {
+            KingdomQuestType luna = KingdomQuestType.RESCUE_STRAY_DOG;
+            boolean done = kingdomService.isQuestDoneThisPeriod(player, luna);
+            quests.add(Map.<String, Object>ofEntries(
+                Map.entry("id",                luna.name()),
+                Map.entry("displayName",       "🐶 " + luna.displayName),
+                Map.entry("durationMinutes",   luna.durationMinutes),
+                Map.entry("bronzeReward",      luna.bronzeReward),
+                Map.entry("expReward",         luna.expReward),
+                Map.entry("staminaCost",       luna.staminaCost),
+                Map.entry("dropChance",        luna.dropChance),
+                Map.entry("interactive",       true),
+                Map.entry("doneToday",         done),
+                Map.entry("secondsUntilReset", secondsUntilReset),
+                Map.entry("canStart",          !done && stamina >= luna.staminaCost),
+                Map.entry("rare",              true) // o front destaca como rara
+            ));
+        }
         return ResponseEntity.ok(quests);
     }
 
@@ -144,6 +164,7 @@ public class KingdomController {
         resp.put("monsterDefeated",    result.monsterDefeated());
         if (result.monsterName() != null) resp.put("monsterName", result.monsterName());
         resp.put("battleLog",          result.battleLog());
+        if (result.acquiredPet() != null) resp.put("acquiredPet", result.acquiredPet()); // [PETS]
         if (result.roll() != null) { // [QUESTS_INTERATIVAS] resultado do teste de atributo (d20)
             KingdomService.RollInfo r = result.roll();
             resp.put("roll", Map.of(

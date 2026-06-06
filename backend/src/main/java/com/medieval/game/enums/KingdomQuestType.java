@@ -44,7 +44,11 @@ public enum KingdomQuestType {
     ESCORT_PILGRIMS   (Kingdom.MAR_ABENCOADO, "Escort the Pilgrims",   15,  400, 250, 22, 30, 45),
     PURIFY_THE_REEF   (Kingdom.MAR_ABENCOADO, "Purify the Reef",       20,  600, 400, 30, 40, 60),
     BANISH_THE_DROWNED(Kingdom.MAR_ABENCOADO, "Banish the Drowned",    25,  800, 575, 40, 50, 75),
-    GUARD_SACRED_REEF (Kingdom.MAR_ABENCOADO, "Guard the Sacred Reef", 30, 1000, 750, 50, 60, 90);
+    GUARD_SACRED_REEF (Kingdom.MAR_ABENCOADO, "Guard the Sacred Reef", 30, 1000, 750, 50, 60, 90),
+
+    // ── Quest RARA da Luna: aparece às vezes em qualquer reino; sem loto, só a chance de pet. [PETS] ──
+    // (kingdom nominal FISHING; o start bypassa o check de reino; recompensas/estamina = 0)
+    RESCUE_STRAY_DOG  (Kingdom.FISHING, "A Stray in Need", 5, 0, 0, 0, 0, 0);
 
     public final Kingdom  kingdom;
     public final String   displayName;

@@ -43,6 +43,13 @@ public class KingdomService {
     private final WarriorStatsService          statsService;
     private final BattleSimulator              battleSimulator;
     private final KingdomQuestNarrator         narrator;
+    private final PetService                   petService; // quest rara da Luna. [PETS]
+
+    // ── Quest rara da Luna (pet): aparição + chance de pity. [PETS] ──
+    private static final int  LUNA_WINDOW_DENOM = 4;       // ~1 a cada 4 janelas de 12h (~a cada 2 dias)
+    private static final int  LUNA_BASE_PPM     = 100;     // 0.01% base (em ppm)
+    private static final int  LUNA_STEP_PPM     = 50;      // +0.005% por tentativa
+    private static final int  LUNA_CAP_PPM      = 10_000;  // teto 1%
 
     @Value("${app.dev.instant-complete:false}")
     private boolean instantComplete;
@@ -92,11 +99,22 @@ public class KingdomService {
 
     // ── Kingdom quests ────────────────────────────────────────────────────────
 
-    /** Todas as quests definidas para o reino (6 por reino). */
+    /** Todas as quests definidas para o reino (6 por reino). A Luna é especial e fica fora da rotação. [PETS] */
     public List<KingdomQuestType> allQuestsForKingdom(Kingdom kingdom) {
         return Arrays.stream(KingdomQuestType.values())
-                .filter(q -> q.kingdom == kingdom)
+                .filter(q -> q.kingdom == kingdom && q != KingdomQuestType.RESCUE_STRAY_DOG)
                 .toList();
+    }
+
+    /** A janela atual é uma "janela da Luna" para este player? Determinístico (~1 a cada 4 janelas). [PETS] */
+    public boolean isLunaWindow(Player player) {
+        long h = player.getId() * 2654435761L + currentQuestWindowId();
+        return Math.floorMod(h, LUNA_WINDOW_DENOM) == 0;
+    }
+
+    /** A quest da Luna deve aparecer na vitrine agora? (janela da Luna + ainda não tem a Luna). [PETS] */
+    public boolean lunaQuestActive(Player player) {
+        return isLunaWindow(player) && !petService.owns(player, PetType.LUNA);
     }
 
     /**
@@ -135,7 +153,8 @@ public class KingdomService {
     @Transactional
     public KingdomActiveQuest startQuest(Player player, Kingdom kingdom, KingdomQuestType questType) {
         log.info("[KingdomService] player={} action=startQuest kingdom={} questType={}", player.getId(), kingdom, questType);
-        if (questType.kingdom != kingdom) {
+        // A quest da Luna aparece em qualquer reino → bypassa o check de reino. [PETS]
+        if (questType != KingdomQuestType.RESCUE_STRAY_DOG && questType.kingdom != kingdom) {
             log.warn("[KingdomService] player={} REJECTED: Quest does not belong to this kingdom", player.getId());
             throw new IllegalArgumentException("Quest does not belong to this kingdom.");
         }
@@ -211,6 +230,11 @@ public class KingdomService {
                 .orElseThrow(() -> new IllegalStateException("Warrior not found."));
         ThreadLocalRandom rng = ThreadLocalRandom.current();
 
+        // [PETS] Quest rara da Luna: sem loot, só a chance de pet (pity escalante).
+        if (qt == KingdomQuestType.RESCUE_STRAY_DOG) {
+            return collectLunaQuest(player, quest, optionId, rng);
+        }
+
         OutcomeResult res;
         if (InteractiveQuests.isInteractive(qt)) {
             // [QUESTS_INTERATIVAS] a escolha do jogador decide o desfecho (substitui o monsterChance)
@@ -258,7 +282,48 @@ public class KingdomService {
                 player.getId(), InteractiveQuests.isInteractive(qt), res.encountered, res.won, totalBronze, totalXp,
                 drop != null ? drop.getName() : "none", res.roll);
         return new CollectResult(quest, drop, totalBronze, totalXp,
-                res.narrative, res.encountered, res.won, res.monsterName, res.battleLog, res.roll);
+                res.narrative, res.encountered, res.won, res.monsterName, res.battleLog, res.roll, null);
+    }
+
+    /** Coleta da quest rara da Luna: sem loot; rola a chance de pet (pity escalante). [PETS] */
+    private CollectResult collectLunaQuest(Player player, KingdomActiveQuest quest, String optionId, ThreadLocalRandom rng) {
+        if (optionId == null || optionId.isBlank()) {
+            throw new IllegalArgumentException("This quest requires you to make a choice.");
+        }
+        // marca como coletada (consome a daily desta janela) qualquer que seja a escolha
+        quest.setStatus(QuestStatus.COLLECTED);
+        quest.setCompletedWindowId(currentQuestWindowId());
+        questRepo.save(quest);
+
+        if ("leave".equals(optionId)) {
+            log.info("[KingdomService] player={} luna quest: walked away", player.getId());
+            return new CollectResult(quest, null, 0, 0,
+                    "You walk past the whimpering stray and continue on your way.",
+                    false, false, null, null, null, null);
+        }
+        // "help": sem loot, rola a chance de pet
+        if (petService.owns(player, PetType.LUNA)) {
+            return new CollectResult(quest, null, 0, 0,
+                    "You help the little stray. She's already safe with you.", false, false, null, null, null, null);
+        }
+        int attempts  = player.getPetPityAttempts();
+        int chancePpm = Math.min(LUNA_CAP_PPM, LUNA_BASE_PPM + LUNA_STEP_PPM * attempts);
+        String pct    = String.format(java.util.Locale.US, "%.4f%%", chancePpm / 10_000.0);
+        boolean got   = rng.nextInt(1_000_000) < chancePpm;
+
+        if (got) {
+            petService.grant(player, PetType.LUNA);
+            log.info("[KingdomService] player={} LUNA ACQUIRED (attempts={} chance={})", player.getId(), attempts, pct);
+            return new CollectResult(quest, null, 0, 0,
+                    "You nurse the sick dog through the night. By dawn she's on her feet, tail wagging — and she won't leave your side. 🐶 Luna is now your companion!",
+                    false, false, null, null, null, "Luna");
+        }
+        player.setPetPityAttempts(attempts + 1);
+        playerRepository.save(player);
+        log.info("[KingdomService] player={} luna quest: helped, no pet (chance={} attemptsNow={})", player.getId(), pct, attempts + 1);
+        return new CollectResult(quest, null, 0, 0,
+                "You nurse the sick dog back to health. She licks your hand gratefully and trots off into the wild. (Bond chance was " + pct + ")",
+                false, false, null, null, null, null);
     }
 
     // ── Resolução de outcome interativo (recursivo p/ Check) [QUESTS_INTERATIVAS] ──
@@ -553,7 +618,8 @@ public class KingdomService {
             boolean monsterDefeated,
             String monsterName,
             List<String> battleLog,
-            RollInfo roll              // [QUESTS_INTERATIVAS] null se não houve teste de atributo
+            RollInfo roll,             // [QUESTS_INTERATIVAS] null se não houve teste de atributo
+            String acquiredPet         // [PETS] nome do pet ganho (ex.: "Luna") ou null
     ) {}
 
     /** Resultado do roll d20 de um teste de atributo (pro modal). [QUESTS_INTERATIVAS] */

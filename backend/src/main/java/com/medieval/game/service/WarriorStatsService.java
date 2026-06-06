@@ -34,6 +34,7 @@ public class WarriorStatsService {
     private final SocketedGemRepository   gemRepository;
     private final ItemAffixRepository     affixRepository;
     private final MountRepository         mountRepository;
+    private final com.medieval.game.repository.PetRepository petRepository; // bônus de HP do pet. [PETS]
 
     /** Bônus plano de ATK/DEF/HP dos itens equipados (base efetiva + joias + afixos planos). */
     public record ItemBonus(int atk, int def, int hp) {
@@ -116,10 +117,13 @@ public class WarriorStatsService {
                 ? warrior.getCombatPosture() : com.medieval.game.enums.CombatPosture.BALANCED;
         int atk = (int) Math.round((warrior.getTotalBaseAttack()  + g.atk() + g.str() + buff[0]) * posture.atkMult());
         int def = (int) Math.round((warrior.getTotalBaseDefense() + g.def() + buff[1]) * posture.defMult());
+        // Pet equipado: bônus % no HP final (empilha com base+gear+buff+montaria). [PETS]
+        int petHpPct = petRepository.findByPlayerAndEquippedTrue(player).map(p -> p.getPetType().hpBonusPercent).orElse(0);
+        int hp = (int) Math.round((warrior.getTotalBaseHealth() + g.hp() + buff[2]) * (1 + petHpPct / 100.0));
         return new int[]{
             atk,                                                 // [0] ATK (afixo STR = +1 ATK/pt) × postura
             def,                                                 // [1] DEF × postura
-            warrior.getTotalBaseHealth()  + g.hp()  + buff[2],
+            hp,                                                  // [2] HP (base+gear+buff) × pet
             warrior.getDexterity()        + g.dex() + buff[3],   // [3] dex → AC = 10 + dex
             (warrior.getStrength() + g.str()) / 20,              // [4] floor(STR efetivo/20)
             warrior.getLuck()             + g.luk()              // [5] luk → crit window + Fortune Save

@@ -24,6 +24,7 @@ public class WarriorController {
     private final PlayerService      playerService;
     private final WarriorStatsService statsService;
     private final MountRepository    mountRepository;
+    private final com.medieval.game.repository.PetRepository petRepository; // [PETS]
 
     @GetMapping
     public ResponseEntity<WarriorResponse> getMyWarrior(Authentication auth) {
@@ -145,6 +146,12 @@ public class WarriorController {
                             mt.attackBonus, mt.defenseBonus, mt.healthBonus); })
                 .orElse(null);
 
+        // Pet equipado — exibido na ficha do personagem. [PETS]
+        PetInfo equippedPet = petRepository.findByPlayerAndEquippedTrue(player)
+                .map(p -> { var pt = p.getPetType();
+                    return new PetInfo(pt.name(), pt.displayName, pt.icon, pt.hpBonusPercent); })
+                .orElse(null);
+
         return new WarriorResponse(
                 warrior.getId(), warrior.getName(), warrior.getWarriorClass().displayName,
                 warrior.getLevel(), warrior.getExperience(), warrior.expNeededForNextLevel(),
@@ -169,9 +176,13 @@ public class WarriorController {
                 buff2Name, buff2SecsLeft,
                 mealBuffName, mealBuffSecsLeft,
                 equippedMount,
-                warrior.getCombatPosture() != null ? warrior.getCombatPosture().name() : "BALANCED" // [POSTURE]
+                warrior.getCombatPosture() != null ? warrior.getCombatPosture().name() : "BALANCED", // [POSTURE]
+                equippedPet // [PETS]
         );
     }
+
+    /** Pet equipado exibido na ficha (null se nenhum). [PETS] */
+    record PetInfo(String type, String displayName, String icon, int hpBonusPercent) {}
 
     /** Montaria equipada exibida na ficha (null se nenhuma). [ESTABULO] */
     record MountInfo(String id, String name, String icon, int staminaReductionPct,
@@ -198,5 +209,6 @@ public class WarriorController {
                            String activeBuff2, long buff2SecondsLeft,
                            String mealBuff, long mealBuffSecondsLeft,
                            MountInfo equippedMount,
-                           String combatPosture) {}
+                           String combatPosture,
+                           PetInfo equippedPet) {}
 }
