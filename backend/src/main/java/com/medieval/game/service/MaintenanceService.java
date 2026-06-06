@@ -26,6 +26,7 @@ public class MaintenanceService {
 
     private final SocketedGemRepository        socketedGemRepository;
     private final ItemAffixRepository          itemAffixRepository;
+    private final AuctionListingRepository     auctionListingRepository; // [LEILAO] FK → inventory_items
     private final InventoryItemRepository      inventoryItemRepository;
     private final WorkSessionRepository        workSessionRepository;
     private final MountRepository              mountRepository;
@@ -59,7 +60,8 @@ public class MaintenanceService {
     public int softWipe() {
         // 1) Apaga progressão (filhos antes dos pais por causa das FKs)
         socketedGemRepository.deleteAllInBatch();
-        itemAffixRepository.deleteAllInBatch(); // Itens V2: afixos antes dos itens (FK)
+        itemAffixRepository.deleteAllInBatch();    // Itens V2: afixos antes dos itens (FK)
+        auctionListingRepository.deleteAllInBatch(); // [LEILAO] leilões referenciam item_id → apaga antes dos itens
         inventoryItemRepository.deleteAllInBatch();
         workSessionRepository.deleteAllInBatch();
         mountRepository.deleteAllInBatch();
