@@ -256,6 +256,7 @@ public class KingdomService {
             if (res.encountered) {
                 MonsterFight fr = fightQuestMonster(player, warrior, qt, rng);
                 res.won = fr.won(); res.monsterName = fr.monsterName(); res.battleLog = fr.battleLog();
+                res.monsterLevel = fr.monsterLevel(); // [ITEM_DROP_LEVEL] drop sai no nível do monstro
             }
             res.rewarded = res.won;
             res.narrative = narrator.narrate(qt, res.encountered, res.won, res.monsterName, rng);
@@ -269,7 +270,9 @@ public class KingdomService {
             playerService.addGold(player, totalBronze);
             warriorService.addExperience(warrior, totalXp);
             int guildDrop = guild != null ? guild.dropBonus() : 0;
-            drop = rollDrop(player, res.dropChance, guildDrop);
+            // [ITEM_DROP_LEVEL] item sai no nível do monstro morto; sem combate (quest interativa) → nível do jogador.
+            int dropLevel = res.monsterLevel > 0 ? res.monsterLevel : warrior.getLevel();
+            drop = rollDrop(player, res.dropChance, guildDrop, dropLevel);
         }
 
         warriorRepo.save(warrior); // persiste HP/desgaste do combate da quest
@@ -366,6 +369,7 @@ public class KingdomService {
         int[] s   = statsService.combatStats(player, warrior);
         int maxHp = s[2];
         int curHp = warrior.getCalculatedHpPercent() * maxHp / 100;
+        int monsterLevel = questMobLevel(warrior.getLevel(), qt); // [ITEM_DROP_LEVEL]
         int[] mob = questMobStats(warrior.getLevel(), qt, rng);
 
         BattleSimulator.BattleOutcome out = battleSimulator.simulateDetailed(
@@ -380,7 +384,7 @@ public class KingdomService {
         int finalPct = maxHp > 0 ? Math.max(0, out.firstHpFinal() * 100 / maxHp) : 0;
         warrior.setCurrentHpSnapshot(finalPct);     // 0 = nocauteado
         warrior.setHpUpdatedAt(LocalDateTime.now());
-        return new MonsterFight(won, monsterName, lg);
+        return new MonsterFight(won, monsterName, lg, monsterLevel);
     }
 
     private static int attrValue(Warrior w, Attribute a) {
@@ -407,9 +411,10 @@ public class KingdomService {
         String narrative = "", monsterName = null;
         List<String> battleLog = List.of();
         RollInfo roll = null;
+        int monsterLevel = 0; // [ITEM_DROP_LEVEL] nível do monstro morto → vira o nível do item dropado (0 = sem monstro)
     }
 
-    private record MonsterFight(boolean won, String monsterName, List<String> battleLog) {}
+    private record MonsterFight(boolean won, String monsterName, List<String> battleLog, int monsterLevel) {}
 
     @Transactional
     public void abandonQuest(Player player, Long questId) {
@@ -534,6 +539,12 @@ public class KingdomService {
 
     // ── Monstro da quest (escala com level + dificuldade) ─────────────────────
     // Calibrado para ser vencível por um guerreiro equipado; mais duro nas quests de tier alto.
+    /** Nível do monstro da quest = nível do jogador × dificuldade (duração). Vira o nível do item dropado. [ITEM_DROP_LEVEL] */
+    private int questMobLevel(int level, KingdomQuestType qt) {
+        double diff = 0.8 + (qt.durationMinutes / 30.0) * 0.6;
+        return Math.max(1, (int) Math.round(level * diff));
+    }
+
     private int[] questMobStats(int level, KingdomQuestType qt, java.util.concurrent.ThreadLocalRandom rng) {
         double diff = 0.8 + (qt.durationMinutes / 30.0) * 0.6; // 5min→0.9 ... 30min→1.4
         int atk = (int) Math.round((3 + level * 2) * diff) + rng.nextInt(3);
@@ -547,7 +558,7 @@ public class KingdomService {
 
     // ── Drop helper ───────────────────────────────────────────────────────────
 
-    private InventoryItem rollDrop(Player player, int dropChance, int guildBonus) {
+    private InventoryItem rollDrop(Player player, int dropChance, int guildBonus, int dropLevel) {
         var rng = new java.util.Random();
         Warrior warrior = warriorRepo.findByPlayer(player).orElse(null);
         int luck  = warrior != null ? warrior.getLuck() : 0;
@@ -564,8 +575,8 @@ public class KingdomService {
                 com.medieval.game.enums.ItemType.values()[rng.nextInt(
                 com.medieval.game.enums.ItemType.values().length)];
 
-        // Itens V3: nível do item = nível do guerreiro; stats escalam com nível × raridade. [ITENS_V3]
-        int itemLevel = warrior != null ? warrior.getLevel() : 1;
+        // [ITEM_DROP_LEVEL] nível do item = nível do MONSTRO morto (não mais do jogador); stats escalam por nível×raridade.
+        int itemLevel = Math.max(1, dropLevel);
         int[] s = inventoryService.rollItemStats(itemLevel, rarity);
         int atk = s[0], def = s[1], hp = s[2];
 
