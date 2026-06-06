@@ -39,6 +39,10 @@ public class ZoneService {
     @Value("${app.dev.instant-complete:false}")
     private boolean instantComplete;
 
+    // [ZONA_CHEFE] Chefe errante ligado em dev/prod; desligado nos testes p/ collect determinístico.
+    @Value("${app.zone.boss-enabled:true}")
+    private boolean bossEnabled;
+
     private static final int PVP_FLAG_MINUTES   = 60; // exposto por 1h após farmar zona PvP
     private static final int PVP_SHIELD_MINUTES  = 60; // imune por 1h após ser saqueado (1x por ciclo)
     private static final int PVP_LEVEL_BAND      = 10; // só ataca/é atacado dentro de ±10 níveis
@@ -146,7 +150,9 @@ public class ZoneService {
     public record CollectResult(ZoneActivity activity,
                                 List<GatheringService.ResourceDrop> drops,
                                 boolean wasAttacked, boolean survived,
-                                String lostItemName, String narrative) {}
+                                String lostItemName, String narrative,
+                                boolean bossPending, String bossName, int bossLevel, int fleeChance,
+                                String lootItemName) {} // [ZONA_CHEFE]
 
     @Transactional
     public CollectResult collect(Player playerArg, Long activityId) {
@@ -169,6 +175,10 @@ public class ZoneService {
             throw new IllegalStateException("Expedition already finished");
         }
 
+        if (activity.getStatus() == ZoneActivityStatus.BOSS_PENDING) { // [ZONA_CHEFE]
+            throw new IllegalStateException("A roaming boss is blocking you — flee or fight it first.");
+        }
+
         if (!activity.isReadyToCollect() && activity.getStatus() == ZoneActivityStatus.IN_PROGRESS) {
             long secs = java.time.Duration.between(
                     LocalDateTime.now(), activity.getEndsAt()).getSeconds();
@@ -176,88 +186,66 @@ public class ZoneService {
             throw new IllegalStateException("Expedition still in progress. " + secs + "s");
         }
 
-        List<GatheringService.ResourceDrop> drops = new ArrayList<>();
-        boolean wasAttacked = false;
-        boolean survived    = true;
-        String  lostItem    = null;
-
-        // ── Hunter (legado): só coleta, sem encontro ──
-        if (activity.getRole() == ActivityRole.HUNTING) {
-            drops = resolveGathering(player, activity);
-            activity.setStatus(ZoneActivityStatus.COMPLETED);
-
-        } else {
-            // ── Encontros: 🟢 SAFE = só NPC (PvE); 🟡🔴 = PvP + NPC ──
-            PvpResult pvp = resolveEncounters(player, activity);
-            wasAttacked = pvp.wasAttacked();
-            survived    = pvp.survived();
-
-            if (!survived) {
-                // Derrota — perde parte dos recursos e stamina vai a 0
-                activity.setStatus(ZoneActivityStatus.DEFEATED);
-                activity.setAttacked(true);
-                activity.setSurvivedAttack(false);
-                activity.setBronzeLost(pvp.bronzeLost());
-                activity.setAttackerWarriorName(pvp.attackerName());
-                activity.setBattleLog(String.join("\n", pvp.battleLog()));
-                activity.setResolvedAt(LocalDateTime.now());
-
-                // HP = 0 + perde buff; stamina = 0
-                player.setCurrentStamina(0);
-                player.setStaminaUpdatedAt(LocalDateTime.now());
-                warriorRepository.findByPlayer(player).ifPresent(w -> {
-                    w.applyDamagePercent(100);
-                    w.clearBuff();
-                    // XP só é perdida FORA da zona verde (SAFE = só dano/KO). [UNIFICAÇÃO_ZONA]
-                    if (activity.getZone() != Zone.SAFE) {
-                        long xpLost = Math.max(1, w.expNeededForNextLevel() / 10);
-                        activity.setXpGained(-xpLost); // negative = lost XP, shown in modal
-                        warriorService.loseXp(w, xpLost);
-                        log.info("[ZoneService] player={} PvP death XP loss={}", player.getId(), xpLost);
-                    }
-                });
-
-                // Alto Risco: 10% de perder item equipado
-                if (activity.getZone() == Zone.HIGH_RISK) {
-                    lostItem = maybeDropEquippedItem(player);
-                    activity.setLostEquippedItem(lostItem);
-                }
-
-                playerRepository.save(player);
-            } else {
-                // Sobreviveu (com ou sem ataque): coleta normalmente
-                drops = resolveGathering(player, activity);
-                activity.setStatus(ZoneActivityStatus.COMPLETED);
-                if (wasAttacked) {
-                    activity.setAttacked(true);
-                    activity.setSurvivedAttack(true);
-                    activity.setBattleLog(String.join("\n", pvp.battleLog()));
-                    activity.setAttackerWarriorName(pvp.attackerName());
-                    activity.setResolvedAt(LocalDateTime.now());
-                }
+        // ── [ZONA_CHEFE] Chefe errante: rola ANTES do encontro normal (expedições com encontro). ──
+        if (activity.getRole() != ActivityRole.HUNTING) {
+            Warrior w = warriorRepository.findByPlayer(player).orElse(null);
+            Random rng = java.util.concurrent.ThreadLocalRandom.current();
+            if (bossEnabled && w != null && !w.isKnockedOut() && rng.nextInt(1000) < bossChancePerMille(activity.getZone())) {
+                int bossLvl = w.getLevel() + 1 + rng.nextInt(20); // +1..20
+                String bossName = bossNameFor(activity);
+                activity.setStatus(ZoneActivityStatus.BOSS_PENDING);
+                activity.setBossLevel(bossLvl);
+                activity.setBossName(bossName);
+                activityRepository.save(activity);
+                log.info("[ZoneService] player={} BOSS appeared zone={} bossLvl={}", player.getId(), activity.getZone(), bossLvl);
+                return new CollectResult(activity, List.of(), false, true, null, null,
+                        true, bossName, bossLvl, fleeChance(w), null);
             }
         }
 
-        // Aplica drops ao inventário
+        // ── Hunter (legado): só coleta ──
+        if (activity.getRole() == ActivityRole.HUNTING) {
+            List<GatheringService.ResourceDrop> drops = resolveGathering(player, activity);
+            activity.setStatus(ZoneActivityStatus.COMPLETED);
+            applyDropsAndRewards(player, activity, drops);
+            return winResult(activity, drops, false, null);
+        }
+
+        // ── Encontros: 🟢 SAFE = só NPC (PvE); 🟡🔴 = PvP + NPC ──
+        PvpResult pvp = resolveEncounters(player, activity);
+        if (!pvp.survived()) {
+            return defeat(player, activity, pvp.battleLog(), pvp.attackerName(), pvp.bronzeLost());
+        }
+        List<GatheringService.ResourceDrop> drops = resolveGathering(player, activity);
+        activity.setStatus(ZoneActivityStatus.COMPLETED);
+        if (pvp.wasAttacked()) {
+            activity.setAttacked(true);
+            activity.setSurvivedAttack(true);
+            activity.setBattleLog(String.join("\n", pvp.battleLog()));
+            activity.setAttackerWarriorName(pvp.attackerName());
+            activity.setResolvedAt(LocalDateTime.now());
+        }
+        applyDropsAndRewards(player, activity, drops);
+        return winResult(activity, drops, pvp.wasAttacked(), null);
+    }
+
+    // ── [ZONA_CHEFE] Finalização compartilhada (vitória) e derrota ──────────────
+
+    /** Aplica drops + XP de skill + recompensa COMBAT + flag PvP e persiste. Status já = COMPLETED. */
+    private void applyDropsAndRewards(Player player, ZoneActivity activity, List<GatheringService.ResourceDrop> drops) {
         for (GatheringService.ResourceDrop drop : drops) {
             gatheringService.addResource(player, drop.type(), drop.quantity());
         }
-
-        // Aplica XP de skill (se gatherer)
         if (activity.getRole() == ActivityRole.GATHERING && activity.getSkillType() != null) {
             SkillLevel skill = gatheringService.getOrCreateSkill(player, activity.getSkillType());
-            long xp = (long)(activity.getXpGained());
-            gatheringService.addSkillXp(skill, (int) xp);
+            gatheringService.addSkillXp(skill, (int) activity.getXpGained());
         }
-
-        // Aplica recompensa COMBAT: XP de guerreiro + bronze (só se sobreviveu)
-        if (activity.getRole() == ActivityRole.COMBAT && activity.getStatus() == ZoneActivityStatus.COMPLETED) {
+        if (activity.getRole() == ActivityRole.COMBAT) {
             warriorRepository.findByPlayer(player).ifPresent(w -> {
                 double hours  = activity.getDurationMinutes() / 60.0;
                 double mult   = activity.getZone().multiplier;
                 long   xp     = Math.round(hours * mult * w.getLevel() * 20);
-                // bronze de combate reduzido (15→8/level) para conter inflação no late-game. [AUDITORIA A3]
-                long   bronze = Math.round(hours * mult * w.getLevel() * 8);
+                long   bronze = Math.round(hours * mult * w.getLevel() * 8); // [AUDITORIA A3]
                 activity.setXpGained(xp);
                 activity.setBronzeGained(bronze);
                 warriorService.addExperience(w, xp);
@@ -266,30 +254,178 @@ public class ZoneService {
                 playerRepository.save(player);
             });
         }
-
-        // [PVP_FLAG] Farmou zona PvP/Alto Risco e sobreviveu → fica EXPOSTO por 1h (vira alvo de raid).
-        // Trava (snapshot) os itens bag+equipados expostos: enquanto flagged não pode vender/stashar/
-        // guardar e são exatamente esses que podem ser saqueados.
-        if ((activity.getZone() == Zone.PVP || activity.getZone() == Zone.HIGH_RISK)
-                && activity.getStatus() == ZoneActivityStatus.COMPLETED) {
+        // [PVP_FLAG] Farmou zona PvP/Alto Risco e sobreviveu → fica EXPOSTO por 1h.
+        if (activity.getZone() == Zone.PVP || activity.getZone() == Zone.HIGH_RISK) {
             player.setPvpFlaggedZone(activity.getZone());
             player.setPvpFlaggedUntil(LocalDateTime.now().plusMinutes(PVP_FLAG_MINUTES));
             playerRepository.save(player);
-            // 🔴 Vermelha (HIGH_RISK): trava os ITENS expostos (podem ser perdidos). 🟡 Amarela: só recursos
-            // (o lock de recurso é via flag — StashService bloqueia depositar enquanto exposto).
             if (activity.getZone() == Zone.HIGH_RISK) lockExposedItems(player);
         }
-
-        // Persiste o estado do guerreiro (HP/desgaste do combate da zona — ex.: KO na zona SAFE)
         warriorRepository.findByPlayer(player).ifPresent(warriorRepository::save);
-
         activityRepository.save(activity);
-        log.info("[ZoneService] player={} action=collect OK activityId={} survived={} drops={}", player.getId(), activityId, survived, drops.size());
-        // [UNIFICAÇÃO_ZONA] narrativa de coleta (mesma do reino) quando sobreviveu e coletou
-        String narrative = (survived && activity.getRole() == ActivityRole.GATHERING && activity.getSkillType() != null)
-                ? GatheringNarrator.narrate(activity.getSkillType(), activity.getKingdom())
-                : null;
-        return new CollectResult(activity, drops, wasAttacked, survived, lostItem, narrative);
+    }
+
+    private CollectResult winResult(ZoneActivity activity, List<GatheringService.ResourceDrop> drops,
+                                    boolean wasAttacked, String lootItemName) {
+        String narrative = (activity.getRole() == ActivityRole.GATHERING && activity.getSkillType() != null)
+                ? GatheringNarrator.narrate(activity.getSkillType(), activity.getKingdom()) : null;
+        return new CollectResult(activity, drops, wasAttacked, true, null, narrative,
+                false, null, 0, 0, lootItemName);
+    }
+
+    /** Derrota (PvP/NPC/chefe): KO + penalidade do tier. {@code bronzeLost} é só p/ exibir (já descontado, se houver). */
+    private CollectResult defeat(Player player, ZoneActivity activity, List<String> battleLog, String attackerName, long bronzeLost) {
+        activity.setStatus(ZoneActivityStatus.DEFEATED);
+        activity.setAttacked(true);
+        activity.setSurvivedAttack(false);
+        activity.setBronzeLost(bronzeLost);
+        activity.setAttackerWarriorName(attackerName);
+        activity.setBattleLog(String.join("\n", battleLog));
+        activity.setResolvedAt(LocalDateTime.now());
+        player.setCurrentStamina(0);
+        player.setStaminaUpdatedAt(LocalDateTime.now());
+        warriorRepository.findByPlayer(player).ifPresent(w -> {
+            w.applyDamagePercent(100);
+            w.clearBuff();
+            if (activity.getZone() != Zone.SAFE) { // XP só some fora da verde
+                long xpLost = Math.max(1, w.expNeededForNextLevel() / 10);
+                activity.setXpGained(-xpLost);
+                warriorService.loseXp(w, xpLost);
+            }
+            warriorRepository.save(w);
+        });
+        String lostItem = null;
+        if (activity.getZone() == Zone.HIGH_RISK) {
+            lostItem = maybeDropEquippedItem(player);
+            activity.setLostEquippedItem(lostItem);
+        }
+        playerRepository.save(player);
+        activityRepository.save(activity);
+        return new CollectResult(activity, List.of(), true, false, lostItem, null, false, null, 0, 0, null);
+    }
+
+    // ── [ZONA_CHEFE] Chefe errante ─────────────────────────────────────────────
+
+    /** Chance (por mil) de um chefe errante aparecer, por tier. 🟢0.5% 🟡1.5% 🔴3%. */
+    private int bossChancePerMille(Zone zone) {
+        return switch (zone) { case PVP -> 15; case HIGH_RISK -> 30; default -> 5; };
+    }
+
+    private static final String[] BOSS_NAMES = {
+        "Escaped Tower Warden", "Runaway Tower Behemoth", "Tower Tyrant", "Forsaken Tower Champion"
+    };
+    private String bossNameFor(ZoneActivity a) {
+        String n = BOSS_NAMES[java.util.concurrent.ThreadLocalRandom.current().nextInt(BOSS_NAMES.length)];
+        return a.getElement() != null ? a.getElement().icon + " " + n : n;
+    }
+
+    /** Stat de fuga por classe (Warrior=STR, Archer=DEX, Merchant=LUK, resto=DEX). [ZONA_CHEFE] */
+    private int classFleeStat(Warrior w) {
+        return switch (w.getWarriorClass()) {
+            case WARRIOR  -> w.getStrength();
+            case MERCHANT -> w.getLuck();
+            default       -> w.getDexterity(); // ARCHER / RECRUIT
+        };
+    }
+    /** % de fuga do chefe (20–90): 30 + stat da classe. */
+    private int fleeChance(Warrior w) {
+        return Math.max(20, Math.min(90, 30 + classFleeStat(w)));
+    }
+
+    /** Nível do monstro normal por tier: 🟢 +0..3; 🟡 +0..3 & 30% elite (+4..8); 🔴 +0..3 & 50% (+6..15). */
+    private int monsterLevelFor(Zone zone, int playerLevel, Random rng) {
+        int lvl = playerLevel + rng.nextInt(4); // +0..3
+        switch (zone) {
+            case PVP       -> { if (rng.nextInt(100) < 30) lvl += 4 + rng.nextInt(5); }  // +4..8
+            case HIGH_RISK -> { if (rng.nextInt(100) < 50) lvl += 6 + rng.nextInt(10); } // +6..15
+            default        -> { }
+        }
+        return Math.max(1, lvl);
+    }
+
+    @Transactional
+    public CollectResult resolveBossFlee(Player playerArg, Long activityId) {
+        final Player player = playerRepository.findById(playerArg.getId()).orElse(playerArg);
+        ZoneActivity activity = requireBossPending(player, activityId);
+        Warrior w = warriorRepository.findByPlayer(player).orElseThrow();
+        Random rng = java.util.concurrent.ThreadLocalRandom.current();
+        if (rng.nextInt(100) < fleeChance(w)) {
+            activity.setBattleLog("🏃 You slipped away from " + activity.getBossName() + ".");
+            List<GatheringService.ResourceDrop> drops = resolveGathering(player, activity);
+            activity.setStatus(ZoneActivityStatus.COMPLETED);
+            applyDropsAndRewards(player, activity, drops);
+            log.info("[ZoneService] player={} fled boss OK", player.getId());
+            return winResult(activity, drops, false, null);
+        }
+        log.info("[ZoneService] player={} flee FAILED → forced fight", player.getId());
+        return resolveBossFight(player, activityId); // fuga falhou → encara
+    }
+
+    @Transactional
+    public CollectResult resolveBossFight(Player playerArg, Long activityId) {
+        final Player player = playerRepository.findById(playerArg.getId()).orElse(playerArg);
+        ZoneActivity activity = requireBossPending(player, activityId);
+        Warrior w = warriorRepository.findByPlayer(player).orElseThrow();
+
+        int[] s = getWarriorStats(w, player);
+        int maxHp = s[2];
+        int hp    = w.getCalculatedHpPercent() * maxHp / 100;
+        int lvl   = activity.getBossLevel();
+        int[] m   = npcStatsByLevel(lvl, java.util.concurrent.ThreadLocalRandom.current());
+        BattleSimulator.BattleOutcome out = battleSimulator.simulate(
+            BattleSimulator.Combatant.of(w.getName(), new int[]{s[0], s[1], hp, s[3], s[4], s[5]},
+                w.getActiveWeaponElement(), w.getActiveArmorElement(), abilityService.activeLoadout(w)),
+            BattleSimulator.Combatant.of(activity.getBossName(),
+                new int[]{(int)(m[0] * 1.5), (int)(m[1] * 1.5), m[2] * 2, m[3], m[4], m[5]}, // chefe: ATK/DEF ×1.5, HP ×2
+                activity.getElement(), activity.getElement(), List.of()),
+            true); // PvE: timeout = derrota
+        inventoryService.wearEquippedItems(player);
+        List<String> log = stripWinnerTag(out.log());
+
+        if (out.firstWon()) {
+            persistAttackerHp(w, out.firstHpFinal(), maxHp);
+            String loot = rollBossLoot(player, lvl); // item garantido no nível do chefe
+            long bonusXp = lvl * 30L, bonusBronze = lvl * 20L;
+            warriorService.addExperience(w, bonusXp); warriorRepository.save(w);
+            player.addBronzeAmount(bonusBronze); playerRepository.save(player);
+            log.add("🏆 You slew " + activity.getBossName() + "! Loot: " + loot + " (+" + bonusXp + " XP, " + bonusBronze + " bronze).");
+            activity.setAttacked(true); activity.setSurvivedAttack(true);
+            activity.setAttackerWarriorName(activity.getBossName());
+            activity.setBattleLog(String.join("\n", log));
+            activity.setResolvedAt(LocalDateTime.now());
+            List<GatheringService.ResourceDrop> drops = resolveGathering(player, activity);
+            activity.setStatus(ZoneActivityStatus.COMPLETED);
+            applyDropsAndRewards(player, activity, drops);
+            return winResult(activity, drops, true, loot);
+        }
+        persistAttackerHp(w, 0, maxHp);
+        return defeat(player, activity, log, activity.getBossName(), 0);
+    }
+
+    private ZoneActivity requireBossPending(Player player, Long activityId) {
+        ZoneActivity a = activityRepository.findById(activityId)
+                .orElseThrow(() -> new IllegalArgumentException("Expedition not found"));
+        if (!a.getPlayer().getId().equals(player.getId()))
+            throw new IllegalStateException("This expedition does not belong to you");
+        if (a.getStatus() != ZoneActivityStatus.BOSS_PENDING)
+            throw new IllegalStateException("No roaming boss to resolve.");
+        return a;
+    }
+
+    /** 1 item garantido no nível do chefe, raridade alta: 25% Lendário / 40% Épico / 35% Raro. */
+    private String rollBossLoot(Player player, int bossLevel) {
+        Random rng = java.util.concurrent.ThreadLocalRandom.current();
+        int r = rng.nextInt(100);
+        int rarity = r < 25 ? 5 : r < 65 ? 4 : 3;
+        com.medieval.game.enums.ItemType type =
+                com.medieval.game.enums.ItemType.values()[rng.nextInt(com.medieval.game.enums.ItemType.values().length)];
+        String name = "Tower Warden's " + type.displayName;
+        long price = switch (rarity) { case 5 -> 2500L; case 4 -> 1000L; default -> 400L; };
+        String desc = "Spoils from the escaped Tower boss.", origin = "Roaming Boss";
+        if (inventoryService.bagSpaceLeft(player) >= 1)
+            return inventoryService.make(player, name, type, 0, 0, 0, rarity, price, bossLevel, desc, origin).getName();
+        mailService.sendItemMail(player, "Roaming boss loot.", name, type, 0, 0, 0, rarity, bossLevel, 0, desc, origin);
+        return name + " (mailed — bag full)";
     }
 
     // ── Abandona expedição ──
@@ -441,7 +577,7 @@ public class ZoneService {
     /** Luta contra um NPC (monstro selvagem ou "ambusher" de preenchimento). Monstro usa o elemento da área. */
     private PvpResult fightNpc(Player player, Warrior attacker, int[] atkStats, int atkHp, int atkMaxHp, Zone zone, Random rng,
                               com.medieval.game.enums.Element areaElement) {
-        int    npcLevel = attacker.getLevel() + rng.nextInt(4);
+        int    npcLevel = monsterLevelFor(zone, attacker.getLevel(), rng); // [ZONA_CHEFE] escala por tier
         String npcName  = areaElement != null ? areaElement.icon + " " + npcName(zone, rng) : npcName(zone, rng);
         int[]  npcStats = npcStatsByLevel(npcLevel, rng);
         BattleSimulator.BattleOutcome out = battleSimulator.simulate(

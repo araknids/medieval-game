@@ -110,14 +110,38 @@ public class ZoneController {
         // Retry transparente: a emboscada toca 2 linhas; sob concorrência refaz em transação nova. [BL-1]
         ZoneService.CollectResult result =
                 zoneCollectCoordinator.collectWithRetry((Long) auth.getPrincipal(), id);
+        return ResponseEntity.ok(collectResponse(result));
+    }
 
+    // [ZONA_CHEFE] Tenta fugir do chefe errante (teste de stat da classe)
+    @PostMapping("/{id}/boss/flee")
+    public ResponseEntity<?> bossFlee(@PathVariable Long id, Authentication auth) {
+        try {
+            return ResponseEntity.ok(collectResponse(zoneService.resolveBossFlee(getPlayer(auth), id)));
+        } catch (IllegalArgumentException | IllegalStateException e) {
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+        }
+    }
+
+    // [ZONA_CHEFE] Encara o chefe errante (combate completo)
+    @PostMapping("/{id}/boss/fight")
+    public ResponseEntity<?> bossFight(@PathVariable Long id, Authentication auth) {
+        try {
+            return ResponseEntity.ok(collectResponse(zoneService.resolveBossFight(getPlayer(auth), id)));
+        } catch (IllegalArgumentException | IllegalStateException e) {
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+        }
+    }
+
+    // Monta o corpo da resposta do collect / fuga / luta do chefe. [ZONA_CHEFE]
+    private Map<String, Object> collectResponse(ZoneService.CollectResult result) {
         var dropsResponse = result.drops().stream().map(d -> Map.of(
             "type",        d.type().name(),
             "displayName", d.type().displayName,
             "quantity",    d.quantity()
         )).toList();
 
-        return ResponseEntity.ok(Map.ofEntries(
+        return Map.ofEntries(
             Map.entry("status",       result.activity().getStatus().name()),
             Map.entry("wasAttacked",  result.wasAttacked()),
             Map.entry("survived",     result.survived()),
@@ -131,8 +155,14 @@ public class ZoneController {
             Map.entry("battleLog",    result.activity().getBattleLog() != null
                     ? Arrays.asList(result.activity().getBattleLog().split("\n"))
                     : List.of()),
-            Map.entry("narrative",    result.narrative() != null ? result.narrative() : "")
-        ));
+            Map.entry("narrative",    result.narrative() != null ? result.narrative() : ""),
+            // [ZONA_CHEFE] chefe errante: prompt + loot
+            Map.entry("bossPending",  result.bossPending()),
+            Map.entry("bossName",     result.bossName() != null ? result.bossName() : ""),
+            Map.entry("bossLevel",    result.bossLevel()),
+            Map.entry("fleeChance",   result.fleeChance()),
+            Map.entry("lootItemName", result.lootItemName() != null ? result.lootItemName() : "")
+        );
     }
 
     // Cancela expedição

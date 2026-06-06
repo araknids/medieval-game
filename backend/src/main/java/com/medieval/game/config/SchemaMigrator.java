@@ -197,7 +197,10 @@ public class SchemaMigrator {
             jdbc.execute("ALTER TABLE warriors ADD COLUMN IF NOT EXISTS armor_element        varchar(10)");
             jdbc.execute("ALTER TABLE warriors ADD COLUMN IF NOT EXISTS armor_element_until  timestamp");
             jdbc.execute("ALTER TABLE zone_activities ADD COLUMN IF NOT EXISTS element        varchar(10)");
-            log.info("[SchemaMigrator] element columns (warriors enchant + zone_activities.element) ensured");
+            // [ZONA_CHEFE] chefe errante pendente
+            jdbc.execute("ALTER TABLE zone_activities ADD COLUMN IF NOT EXISTS boss_level integer NOT NULL DEFAULT 0");
+            jdbc.execute("ALTER TABLE zone_activities ADD COLUMN IF NOT EXISTS boss_name  varchar(60)");
+            log.info("[SchemaMigrator] element + zone boss columns ensured");
         } catch (Exception e) {
             log.warn("[SchemaMigrator] element columns patch failed: {}", e.getMessage());
         }

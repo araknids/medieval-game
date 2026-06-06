@@ -46,6 +46,12 @@ public class ZoneActivity {
     @Column(name = "element", length = 10)
     private com.medieval.game.enums.Element element;
 
+    // [ZONA_CHEFE] Chefe errante pendente (status BOSS_PENDING): nível e nome guardados até fugir/encarar.
+    @Column(name = "boss_level")
+    private int bossLevel = 0;
+    @Column(name = "boss_name")
+    private String bossName;
+
     private int durationMinutes;
 
     private LocalDateTime startedAt = LocalDateTime.now();

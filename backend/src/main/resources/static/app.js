@@ -3404,6 +3404,47 @@ async function enterCombatZone(zone, durationMinutes) {
 async function collectKingdomZoneSession(activityId) {
   const r = await api('POST', `/api/zones/${activityId}/collect`);
   if (r.error) { worldMsg(r.error, false); return; }
+  if (r.bossPending) { showBossModal(activityId, r); return; } // [ZONA_CHEFE] pausa: fugir/encarar
+  await renderZoneResult(r);
+}
+
+// [ZONA_CHEFE] Um chefe da Torre escapou e está rondando a área: fugir (teste de stat) ou encarar.
+function showBossModal(activityId, r) {
+  closeCollectModal();
+  const color = '#b71c1c';
+  const el = document.createElement('div');
+  el.id = 'collect-modal-overlay';
+  el.setAttribute('style',
+    'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.88);' +
+    'z-index:9999;display:flex;align-items:center;justify-content:center;padding:16px;box-sizing:border-box');
+  el.innerHTML = `
+    <div onclick="event.stopPropagation()" style="background:#16162a;border:2px solid ${color};border-radius:14px;
+      padding:24px;max-width:460px;width:100%;position:relative;box-shadow:0 8px 32px rgba(0,0,0,0.7)">
+      <h3 style="margin:0 0 8px;color:${color};font-size:18px">💀 A Roaming Boss Appears!</h3>
+      <div style="background:#0d0d18;border-left:3px solid ${color};border-radius:6px;padding:10px 12px;margin-bottom:16px;font-size:13px;color:#cdd;font-style:italic;line-height:1.5">
+        A boss escaped the Tower and now stalks this area. <b style="color:#fff">${escapeHtml(r.bossName)}</b> (Lv ${r.bossLevel}) blocks your path. Flee, or face it for rare spoils?
+      </div>
+      <div style="display:flex;gap:10px">
+        <button id="boss-flee-btn" style="flex:1;background:#455a64;color:#fff;font-weight:bold;padding:12px;border-radius:8px;cursor:pointer;font-size:14px;border:none">🏃 Flee (${r.fleeChance}%)</button>
+        <button id="boss-fight-btn" style="flex:1;background:${color};color:#fff;font-weight:bold;padding:12px;border-radius:8px;cursor:pointer;font-size:14px;border:none">⚔ Fight</button>
+      </div>
+      <div style="margin-top:10px;font-size:11px;color:#888;text-align:center">Fleeing rolls your class stat — fail and you're forced to fight.</div>
+    </div>`;
+  document.body.appendChild(el);
+  document.getElementById('boss-flee-btn').onclick  = () => resolveZoneBoss(activityId, 'flee');
+  document.getElementById('boss-fight-btn').onclick = () => resolveZoneBoss(activityId, 'fight');
+}
+
+async function resolveZoneBoss(activityId, action) {
+  const flee = document.getElementById('boss-flee-btn'), fight = document.getElementById('boss-fight-btn');
+  if (flee)  { flee.disabled = true;  flee.style.opacity = '0.5'; }
+  if (fight) { fight.disabled = true; fight.style.opacity = '0.5'; }
+  const r = await api('POST', `/api/zones/${activityId}/boss/${action}`);
+  if (r.error) { worldMsg(r.error, false); closeCollectModal(); return; }
+  await renderZoneResult(r);
+}
+
+async function renderZoneResult(r) {
   let title, color, rows = [];
 
   if (r.wasAttacked && !r.survived) {
@@ -3412,10 +3453,14 @@ async function collectKingdomZoneSession(activityId) {
     if (r.attackerName) rows.push({ icon:'⚔', label:'Defeated by', value:escapeHtml(r.attackerName), color:'#ef9a9a' });
     if (r.lostItemName) rows.push({ icon:'💸', label:'Item stolen', value:r.lostItemName,  color:'#ef5350' });
   } else {
-    title = r.wasAttacked ? '⚔ Survived the Expedition!' : '✅ Expedition Completed!';
-    color = r.wasAttacked ? '#ffc107' : '#4caf50';
+    const slewBoss = r.wasAttacked && r.survived && r.lootItemName;
+    title = slewBoss ? '🏆 Roaming Boss Slain!'
+          : r.wasAttacked ? '⚔ Survived the Expedition!' : '✅ Expedition Completed!';
+    color = slewBoss ? '#ffca28' : r.wasAttacked ? '#ffc107' : '#4caf50';
     if (r.wasAttacked && r.attackerName)
-      rows.push({ icon:'⚔', label:'Survived attack by', value:escapeHtml(r.attackerName), color:'#ffc107' });
+      rows.push({ icon:'⚔', label: slewBoss ? 'Boss slain' : 'Survived attack by', value:escapeHtml(r.attackerName), color: slewBoss ? '#ffca28' : '#ffc107' });
+    if (r.lootItemName)
+      rows.push({ icon:'🎁', label:'Boss loot', value:escapeHtml(r.lootItemName), color:'#ffca28' });
     (r.drops || []).forEach(d =>
       rows.push({ icon:'📦', label:d.displayName, value:`x${d.quantity}`, color:'#4db6ac' }));
     if (r.bronzeGained > 0)
