@@ -257,9 +257,10 @@ async function loadWarrior() {
   const data = await api('GET', '/api/warrior');
   if (data.error) return;
   warrior = data;
-  // Atualiza skills se já foram carregadas
-  if (skillsData.length === 0 && token) {
-    api('GET', '/api/gathering/skills').then(s => { if (Array.isArray(s)) skillsData = s; });
+  // Sempre atualiza as skills — exibidas no card do personagem (nível de Pesca/Mineração/Garimpo/Forja). [PROFISSAO]
+  if (token) {
+    const s = await api('GET', '/api/gathering/skills');
+    if (Array.isArray(s)) skillsData = s;
   }
 
   document.getElementById('hdr-username').textContent = warrior.name;
@@ -318,6 +319,18 @@ async function loadWarrior() {
                      : (warrior.hpPercent ?? 100) < 50  ? '#c9a84c' : '#4caf82';
   const staminaColor = stamina < 30 ? '#cf6679' : stamina < 60 ? '#c9a84c' : '#4caf82';
 
+  // Profissões (Pesca/Mineração/Garimpo/Forja) — nível + onde o próximo tier desbloqueia. [PROFISSAO]
+  const skillsHtml = skillsData.length ? `
+    <div style="margin-top:.5rem;border-top:1px solid #333;padding-top:.4rem">
+      <div style="font-size:.72rem;color:#888;margin-bottom:.2rem">⚒ Professions</div>
+      ${skillsData.map(s => `
+        <div class="warrior-stat-row" style="font-size:.8rem">
+          <span class="label">${s.icon} ${s.displayName}</span>
+          <span class="value">Lv.${s.level}${(s.nextTierLevel ?? 0) > 0
+            ? ` <span style="color:#ffd700;font-size:.72em" title="Next resource tier at Lv.${s.nextTierLevel}">🔓${s.nextTierLevel}</span>` : ''}</span>
+        </div>`).join('')}
+    </div>` : '';
+
   document.getElementById('warrior-card').innerHTML = `
     <div class="warrior-name">${escapeHtml(warrior.name)}</div>
     <div class="warrior-class">${warrior.warriorClass}</div>
@@ -368,6 +381,7 @@ async function loadWarrior() {
     <div style="font-size:.7rem;color:#888;margin-top:.1rem">
       ⚡ ${t('stat.stamina')} ${stamina}/100
     </div>
+    ${skillsHtml}
     ${warrior.isVip ? `<div style="font-size:.72rem;background:#3b0764;color:#c4b5fd;padding:2px 6px;border-radius:4px;margin-top:.3rem;display:inline-block">
       👑 VIP${warrior.vipExpiresAt ? ' · ' + warrior.vipExpiresAt.substring(0,10) : ''}
     </div>` : ''}
