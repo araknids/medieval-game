@@ -2836,7 +2836,7 @@ function renderWorldOverview(kingdoms, territories) {
   const ZONE_LABELS = {
     FISHING: ['Safe Shore','Wild Coast','Deep Sea'],
     MINING:  ['Open Mine','Deep Tunnels','Forbidden Mines'],
-    COMBAT:  ['Training Hall','Battlefield','War Zone'],
+    COMBAT:  ['Haunted Courtyard','Battlefield','War Zone'],
     GRUTAS_DE_CRISTAL: ['Shallow Vein','Deep Grottoes','Forbidden Cavern'],
     MAR_ABENCOADO: ['Sacred Cove','Deep Reef','Blessed Abyss']
   };
@@ -3002,24 +3002,42 @@ function renderKingdomDetail(kingdom, quests, activeQuests, training, zoneSessio
       </div>`;
   }
 
-  // Combat zones for COMBAT kingdom — Campo de Batalha (PVP) + Zona de Guerra (HIGH_RISK)
+  // [FORTALEZA_ZONAS] Fortaleza Maldita: 3 zonas de caçada (🟢/🟡/🔴) + áreas de elemento, igual à coleta.
   let combatZonesHtml = '';
   if (kingdom === 'COMBAT') {
     const wLevel = warrior ? warrior.level : 1;
+    const C_SAFE = '🟢 Caça PvE de mobs fracos. Sem PvP.';
+    const C_PVP  = '🟡 PvP: ao perder, −50% loot + 10% bronze. Gear e XP seguros. Lv.10+';
+    const C_RED  = '🔴 PvP duro: loot + 15% bronze + 1 item + XP. Itens TRAVADOS. Lv.20+';
     const combatZones = [
-      { name:'⚔ Battlefield', zone:'PVP',       minLv:10, color:'#ffc107',
-        desc:'Monsters and hunters — earn XP and bronze over time.' },
-      { name:'🔥 War Zone',    zone:'HIGH_RISK',  minLv:20, color:'#ef5350',
-        desc:'Intense combat — high rewards, risk of losing an item.' }
+      { name:'🏰 Haunted Courtyard', minLv:1,  tier:'SAFE',      color:'#4caf50', desc:C_SAFE },
+      { name:'⚔ Battlefield',        minLv:10, tier:'PVP',       color:'#ffc107', desc:C_PVP },
+      { name:'🔥 War Zone',          minLv:20, tier:'HIGH_RISK', color:'#ef5350', desc:C_RED }
     ];
-    combatZonesHtml = `<h4 style="margin:12px 0 8px;color:#aaa;font-size:13px">COMBAT ZONES</h4>` +
+    // [ELEMENTOS] Picker de área (monstros desse elemento + dropa a essência), igual aos reinos de coleta.
+    const C_ELEMENTS = [
+      { id:'FIRE', icon:'🔥', name:'Fire' }, { id:'WATER', icon:'💧', name:'Water' },
+      { id:'EARTH', icon:'🪨', name:'Earth' }, { id:'AIR', icon:'💨', name:'Air' },
+    ];
+    const cElemPicker = `
+      <div style="margin-bottom:10px">
+        <div style="font-size:12px;color:#aaa;margin-bottom:4px">⚗ Element area <span style="color:#888">— monsters of that element + drops its essence</span></div>
+        <div style="display:flex;gap:6px;flex-wrap:wrap">
+          ${C_ELEMENTS.map(e => `
+            <button onclick="selectZoneElement('${e.id}')" style="font-size:12px;padding:4px 10px;border-radius:6px;
+              border:1px solid ${selectedZoneElement===e.id?'#4caf82':'#444'};
+              background:${selectedZoneElement===e.id?'#16352a':'#1a1a2e'};
+              color:${selectedZoneElement===e.id?'#bfe':'#ccc'}">${e.icon} ${e.name}</button>`).join('')}
+        </div>
+      </div>`;
+    combatZonesHtml = `<h4 style="margin:12px 0 8px;color:#aaa;font-size:13px">⚔ HUNTING ZONES</h4>` + cElemPicker +
       combatZones.map(z => {
         const locked = wLevel < z.minLv;
         return `
           <div style="background:#1a1a2e;border:1px solid ${locked?'#333':z.color+'44'};border-radius:8px;padding:12px;margin-bottom:8px;opacity:${locked?'0.5':'1'}">
             <div style="display:flex;justify-content:space-between;align-items:center">
               <strong style="color:${z.color}">${z.name}</strong>
-              ${locked ? `<span style="font-size:11px;color:#888">🔒 Lv.${z.minLv}+</span>` : '<span style="font-size:11px;color:#ef5350">⚔ PvP</span>'}
+              ${locked ? `<span style="font-size:11px;color:#888">🔒 Lv.${z.minLv}+</span>` : z.tier !== 'SAFE' ? '<span style="font-size:11px;color:#ef5350">⚔ PvP</span>' : '<span style="font-size:11px;color:#4caf50">✓ Safe</span>'}
             </div>
             <p style="font-size:11px;color:#888;margin:3px 0 6px">${z.desc}</p>
             ${locked
@@ -3028,8 +3046,8 @@ function renderKingdomDetail(kingdom, quests, activeQuests, training, zoneSessio
               ? '<p style="font-size:11px;color:#f44336;margin:0">⏳ Collect your active task first</p>'
               : `<div style="display:flex;gap:5px;flex-wrap:wrap">
                 ${(() => {
-                  const d = 120; const stamCost = Math.min(100, Math.max(5, Math.round(d/8))); // ação fixa instantânea
-                  return `<button onclick="enterCombatZone('${z.zone}',${d})" style="font-size:12px;padding:4px 14px">⚔ Farmar · ⚡${stamCost}</button>`;
+                  const d = 20; const stamCost = Math.max(5, Math.floor(d/2)); // instantâneo (~10⚡), igual à coleta
+                  return `<button onclick="enterCombatZone('${z.tier}',${d},'${selectedZoneElement}')" style="font-size:12px;padding:4px 14px">⚔ Hunt · ⚡${stamCost}</button>`;
                 })()}
               </div>`}
           </div>`;
@@ -3139,19 +3157,8 @@ function renderKingdomDetail(kingdom, quests, activeQuests, training, zoneSessio
       </div>`;
   }).join('');
 
-  // Fortaleza Maldita — caçada PvE repetível (antigo Covil das Feras). [REINOS_V2]
+  // [FORTALEZA_ZONAS] O "Hunt Beasts" foi removido — a caçada virou as 3 zonas (🟢/🟡/🔴) acima.
   let raidHtml = '';
-  if (kingdom === 'COMBAT') {
-    const lvl = warrior ? warrior.level : 1;
-    raidHtml = `
-      <div style="background:#2a1010;border:1px solid #7a1f1f;border-radius:8px;padding:12px;margin-bottom:12px">
-        <strong style="color:#ef5350">👹 Hunt Beasts</strong>
-        <p style="font-size:12px;color:#aaa;margin:4px 0 8px">Mobs scale with your level (Lv.${lvl}). A win pays ~${fmtBronze(lvl*10)}, ${lvl*12} XP and materials (Monster Core). Costs 15⚡.</p>
-        ${warrior && warrior.isKnockedOut
-          ? '<p style="font-size:11px;color:#f44336;margin:0">⚔ Warrior wounded — heal at the Temple</p>'
-          : `<button onclick="raidCombat()" style="background:#7a1f1f">⚔ Hunt</button>`}
-      </div>`;
-  }
 
   const questsSection = quests.length > 0
     ? `<h4 style="margin:0 0 8px;color:#aaa;font-size:13px">🗓 DAILY QUESTS <span style="color:#666;font-weight:normal">· reset in ${fmtResetCountdown(quests[0].secondsUntilReset)}</span></h4>${questCards}`
@@ -3176,24 +3183,7 @@ function renderKingdomDetail(kingdom, quests, activeQuests, training, zoneSessio
 }
 
 // Fortaleza Maldita — dispara uma caçada PvE e mostra o resultado. [REINOS_V2]
-async function raidCombat() {
-  const r = await api('POST', '/api/world/COMBAT/raid');
-  if (r.error) { worldMsg(r.error, false); return; }
-  await loadWarrior();
-  if (r.won) {
-    const rows = [
-      { icon:'🪙', label:'Bronze',     value:fmtBronze(r.goldEarned), color:'#cd7f32' },
-      { icon:'⭐', label:'Experience', value:`+${r.xpEarned} XP`,      color:'#ffd700' },
-    ];
-    (r.materials || []).forEach(m => rows.push({ icon:'🧩', label:m.displayName, value:`x${m.quantity}`, color:'#4db6ac' }));
-    showCollectModal({ title:`🏆 ${escapeHtml(r.beast)} slain!`, color:'#4caf50', rows, log:r.log || [] });
-  } else {
-    showCollectModal({ title:`💀 Defeated by ${escapeHtml(r.beast)}!`, color:'#ef5350',
-      rows:[{ icon:'☠', label:'Result', value:'You were beaten — heal at the Temple', color:'#ef5350' }],
-      log:r.log || [] });
-  }
-  if (worldCurrentKingdom) await enterKingdom(worldCurrentKingdom);
-}
+// [FORTALEZA_ZONAS] raidCombat() (Hunt Beasts) removido — a caçada usa enterCombatZone (zonas 🟢/🟡/🔴).
 
 function worldMsg(text, ok = true) {
   const el = document.getElementById('world-msg');
@@ -3402,8 +3392,9 @@ async function enterKingdomZone(zone, skillType, durationMinutes, kingdom, eleme
   await collectKingdomZoneSession(r.id); // instantâneo: resolve e abre o resultado direto
 }
 
-async function enterCombatZone(zone, durationMinutes) {
-  const r = await api('POST', '/api/zones/enter', { zone, role: 'COMBAT', durationMinutes });
+async function enterCombatZone(zone, durationMinutes, element) {
+  // [FORTALEZA_ZONAS] caçada por zona/elemento — instantâneo (enter + collect direto)
+  const r = await api('POST', '/api/zones/enter', { zone, role: 'COMBAT', durationMinutes, kingdom: 'COMBAT', element });
   if (r.error) { worldMsg(r.error, false); return; }
   await collectKingdomZoneSession(r.id); // [SEM_TIMER] instantâneo: resolve e abre o resultado direto
 }
@@ -3467,7 +3458,7 @@ async function renderZoneResult(r) {
     if (r.wasAttacked && r.attackerName)
       rows.push({ icon:'⚔', label: slewBoss ? 'Boss slain' : 'Survived attack by', value:escapeHtml(r.attackerName), color: slewBoss ? '#ffca28' : '#ffc107' });
     if (r.lootItemName)
-      rows.push({ icon:'🎁', label:'Boss loot', value:escapeHtml(r.lootItemName), color:'#ffca28' });
+      rows.push({ icon:'🎁', label: slewBoss ? 'Boss loot' : 'Loot', value:escapeHtml(r.lootItemName), color:'#ffca28' });
     (r.drops || []).forEach(d =>
       rows.push({ icon:'📦', label:d.displayName, value:`x${d.quantity}`, color:'#4db6ac' }));
     if (r.bronzeGained > 0)

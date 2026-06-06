@@ -99,11 +99,8 @@ public class ZoneService {
             throw new IllegalArgumentException("Choose a skill to gather with");
         }
 
-        // COMBAT só pode entrar em PVP e HIGH_RISK (SAFE = Training Hall)
-        if (role == ActivityRole.COMBAT && zone == Zone.SAFE) {
-            log.warn("[ZoneService] player={} REJECTED: combat role not allowed in SAFE zone", player.getId());
-            throw new IllegalArgumentException("Use the Training Hall for safe training. Combat zones start at Campo de Batalha (Lv.10+).");
-        }
+        // [FORTALEZA_ZONAS] COMBAT agora tem os 3 tiers (🟢/🟡/🔴) de caçada, igual aos reinos de coleta.
+        // O Training Hall continua à parte (XP por bronze) — a verde aqui é caçar mob fraco, sem PvP.
 
         // [SEM_TIMER] Farm de zona instantâneo → custa estamina (o timer era o gate; sem ele, a estamina é).
         // ~duração/8 (cabe no teto de 100 mesmo em 12h). Pulado no modo de teste (instant-complete).
@@ -137,11 +134,11 @@ public class ZoneService {
         return saved;
     }
 
-    /** Estamina por ação de zona: coleta ~duração/2 (igual à coleta de reino); combate/caça ~duração/8. [SEM_TIMER] */
+    /** Estamina por ação de zona: coleta E caça (COMBAT) instantâneas ~duração/2; HUNTING (legado) ~duração/8. [SEM_TIMER][FORTALEZA_ZONAS] */
     static int staminaCostFor(ActivityRole role, int durationMinutes) {
-        int cost = role == ActivityRole.GATHERING
-                ? Math.max(5, durationMinutes / 2)
-                : Math.round(durationMinutes / 8f);
+        int cost = role == ActivityRole.HUNTING
+                ? Math.round(durationMinutes / 8f)
+                : Math.max(5, durationMinutes / 2);
         return Math.min(100, Math.max(5, cost));
     }
 
@@ -216,7 +213,7 @@ public class ZoneService {
         if (!pvp.survived()) {
             return defeat(player, activity, pvp.battleLog(), pvp.attackerName(), pvp.bronzeLost());
         }
-        List<GatheringService.ResourceDrop> drops = resolveGathering(player, activity);
+        List<GatheringService.ResourceDrop> drops = resolveZoneDrops(player, activity);
         activity.setStatus(ZoneActivityStatus.COMPLETED);
         if (pvp.wasAttacked()) {
             activity.setAttacked(true);
@@ -225,8 +222,65 @@ public class ZoneService {
             activity.setAttackerWarriorName(pvp.attackerName());
             activity.setResolvedAt(LocalDateTime.now());
         }
+        // [FORTALEZA_ZONAS] caçada de combate pode dropar 1 item em kill normal (além do chefe).
+        String loot = activity.getRole() == ActivityRole.COMBAT ? rollCombatItemDrop(player, activity) : null;
         applyDropsAndRewards(player, activity, drops);
-        return winResult(activity, drops, pvp.wasAttacked(), null);
+        return winResult(activity, drops, pvp.wasAttacked(), loot);
+    }
+
+    /** Drops da expedição por papel: COMBAT caça (materiais+essência), resto coleta. [FORTALEZA_ZONAS] */
+    private List<GatheringService.ResourceDrop> resolveZoneDrops(Player player, ZoneActivity activity) {
+        return activity.getRole() == ActivityRole.COMBAT
+                ? resolveCombatHunt(player, activity)
+                : resolveGathering(player, activity);
+    }
+
+    /**
+     * [FORTALEZA_ZONAS] "Coleta" da Fortaleza Maldita = caçar mob. Dropa materiais de combate
+     * (Monster Core/Beast Hide) + essência do elemento da área, escalando pelo tier. Grava XP/bronze
+     * por-kill em xpGained/bronzeGained (aplicados no applyDropsAndRewards).
+     */
+    private List<GatheringService.ResourceDrop> resolveCombatHunt(Player player, ZoneActivity activity) {
+        Warrior w = warriorRepository.findByPlayer(player).orElse(null);
+        int    level = w != null ? w.getLevel() : 1;
+        double mult  = activity.getZone().multiplier;
+        Random rng   = java.util.concurrent.ThreadLocalRandom.current();
+
+        List<GatheringService.ResourceDrop> drops = new ArrayList<>();
+        long cores = Math.max(1, Math.round((1 + level / 25.0) * mult)); // Núcleo de Fera sempre
+        drops.add(new GatheringService.ResourceDrop(com.medieval.game.enums.ResourceType.MONSTER_CORE, cores));
+        if (rng.nextDouble() < Math.min(0.9, 0.25 * mult)) {            // Pele de Fera: chance sobe com o tier
+            drops.add(new GatheringService.ResourceDrop(
+                    com.medieval.game.enums.ResourceType.BEAST_HIDE, Math.max(1, Math.round(mult))));
+        }
+        if (activity.getElement() != null) {                            // Essência do elemento (igual à coleta)
+            drops.add(new GatheringService.ResourceDrop(
+                    activity.getElement().essence(), Math.max(1, (int) Math.round(mult))));
+        }
+        activity.setXpGained(Math.round(level * 12 * mult));            // recompensa por-kill
+        activity.setBronzeGained(Math.round(level * 10 * mult));
+        return drops;
+    }
+
+    /** [FORTALEZA_ZONAS] Chance pequena de item em kill normal de COMBAT (além do chefe). Nível do monstro. */
+    private String rollCombatItemDrop(Player player, ZoneActivity activity) {
+        Warrior w = warriorRepository.findByPlayer(player).orElse(null);
+        if (w == null) return null;
+        Random rng = java.util.concurrent.ThreadLocalRandom.current();
+        int chance = switch (activity.getZone()) { case HIGH_RISK -> 10; case PVP -> 6; default -> 3; };
+        if (rng.nextInt(100) >= chance) return null;
+        int itemLevel = monsterLevelFor(activity.getZone(), w.getLevel(), rng); // [ITEM_DROP_LEVEL]
+        int r = rng.nextInt(100);
+        int rarity = r < 10 ? 3 : r < 40 ? 2 : 1; // 60% Comum / 30% Incomum / 10% Raro
+        com.medieval.game.enums.ItemType type =
+                com.medieval.game.enums.ItemType.values()[rng.nextInt(com.medieval.game.enums.ItemType.values().length)];
+        String name = "Beast Trophy " + type.displayName;
+        long price = switch (rarity) { case 3 -> 200L; case 2 -> 80L; default -> 30L; };
+        String desc = "Taken from a slain beast of the Cursed Fortress.", origin = "Combat Zone";
+        if (inventoryService.bagSpaceLeft(player) >= 1)
+            return inventoryService.make(player, name, type, 0, 0, 0, rarity, price, itemLevel, desc, origin).getName();
+        mailService.sendItemMail(player, "Beast trophy loot.", name, type, 0, 0, 0, rarity, itemLevel, 0, desc, origin);
+        return name + " (mailed — bag full)";
     }
 
     // ── [ZONA_CHEFE] Finalização compartilhada (vitória) e derrota ──────────────
@@ -241,16 +295,11 @@ public class ZoneService {
             gatheringService.addSkillXp(skill, (int) activity.getXpGained());
         }
         if (activity.getRole() == ActivityRole.COMBAT) {
+            // [FORTALEZA_ZONAS] recompensa por-kill já calculada em resolveCombatHunt (xp/bronzeGained).
             warriorRepository.findByPlayer(player).ifPresent(w -> {
-                double hours  = activity.getDurationMinutes() / 60.0;
-                double mult   = activity.getZone().multiplier;
-                long   xp     = Math.round(hours * mult * w.getLevel() * 20);
-                long   bronze = Math.round(hours * mult * w.getLevel() * 8); // [AUDITORIA A3]
-                activity.setXpGained(xp);
-                activity.setBronzeGained(bronze);
-                warriorService.addExperience(w, xp);
+                warriorService.addExperience(w, activity.getXpGained());
                 warriorRepository.save(w);
-                player.addBronzeAmount(bronze);
+                player.addBronzeAmount(activity.getBronzeGained());
                 playerRepository.save(player);
             });
         }
@@ -351,7 +400,7 @@ public class ZoneService {
         Random rng = java.util.concurrent.ThreadLocalRandom.current();
         if (rng.nextInt(100) < fleeChance(w)) {
             activity.setBattleLog("🏃 You slipped away from " + activity.getBossName() + ".");
-            List<GatheringService.ResourceDrop> drops = resolveGathering(player, activity);
+            List<GatheringService.ResourceDrop> drops = resolveZoneDrops(player, activity);
             activity.setStatus(ZoneActivityStatus.COMPLETED);
             applyDropsAndRewards(player, activity, drops);
             log.info("[ZoneService] player={} fled boss OK", player.getId());
@@ -393,7 +442,7 @@ public class ZoneService {
             activity.setAttackerWarriorName(activity.getBossName());
             activity.setBattleLog(String.join("\n", log));
             activity.setResolvedAt(LocalDateTime.now());
-            List<GatheringService.ResourceDrop> drops = resolveGathering(player, activity);
+            List<GatheringService.ResourceDrop> drops = resolveZoneDrops(player, activity);
             activity.setStatus(ZoneActivityStatus.COMPLETED);
             applyDropsAndRewards(player, activity, drops);
             return winResult(activity, drops, true, loot);

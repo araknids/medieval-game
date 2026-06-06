@@ -23,7 +23,6 @@ public class KingdomController {
 
     private final KingdomService    kingdomService;
     private final PlayerService     playerService;
-    private final com.medieval.game.service.CombatPveService combatPveService;
 
     // ── Kingdom overview ──────────────────────────────────────────────────────
     @GetMapping
@@ -48,24 +47,8 @@ public class KingdomController {
         return ResponseEntity.ok(kingdoms);
     }
 
-    // ── Fortaleza Maldita: caçada PvE repetível (antigo Covil das Feras) ───────
-    @PostMapping("/{kingdom}/raid")
-    public ResponseEntity<?> raid(@PathVariable Kingdom kingdom, Authentication auth) {
-        if (kingdom != Kingdom.COMBAT) {
-            return ResponseEntity.badRequest().body(Map.of("error", "Hunting only in the Cursed Fortress."));
-        }
-        var r = combatPveService.raid(getPlayer(auth));
-        return ResponseEntity.ok(Map.of(
-            "won",        r.won(),
-            "beast",      r.beastName(),
-            "goldEarned", r.goldEarned(),
-            "xpEarned",   r.xpEarned(),
-            "materials",  r.materials().stream().map(m -> Map.of(
-                "type", m.type().name(), "displayName", m.type().displayName, "quantity", m.quantity()
-            )).toList(),
-            "log",        r.log()
-        ));
-    }
+    // [FORTALEZA_ZONAS] O antigo "Hunt Beasts" (POST /{kingdom}/raid + CombatPveService) foi removido:
+    // a caçada PvE virou as 3 zonas (🟢/🟡/🔴) da Fortaleza pelo sistema de zonas (/api/zones).
 
     // ── Quest types for a kingdom ─────────────────────────────────────────────
     @GetMapping("/{kingdom}/quests")
