@@ -34,6 +34,7 @@ public class ZoneService {
     private final InventoryService         inventoryService;
     private final WarriorStatsService      statsService;
     private final ResourceInventoryRepository resourceRepo; // raid de recursos [PVP_FLAG]
+    private final AbilityService           abilityService; // ativas no combate [HABILIDADES]
 
     @Value("${app.dev.instant-complete:false}")
     private boolean instantComplete;
@@ -395,12 +396,14 @@ public class ZoneService {
                 int   vMaxHp = vStats[2];
                 int   vHp    = victimW.getCalculatedHpPercent() * vMaxHp / 100;
 
-                BattleSimulator.BattleOutcome out = battleSimulator.simulateDetailed(
-                    attacker.getName(), atkStats[0], atkStats[1], atkHp, atkStats[3], atkStats[4], atkStats[5],
-                    victimW.getName(),  vStats[0],   vStats[1],   vHp,   vStats[3],   vStats[4],   vStats[5],
-                    false, // PvP %HP
-                    attacker.getActiveWeaponElement(), attacker.getActiveArmorElement(),
-                    victimW.getActiveWeaponElement(),  victimW.getActiveArmorElement()); // [ELEMENTOS]
+                BattleSimulator.BattleOutcome out = battleSimulator.simulate(
+                    BattleSimulator.Combatant.of(attacker.getName(),
+                        new int[]{atkStats[0], atkStats[1], atkHp, atkStats[3], atkStats[4], atkStats[5]},
+                        attacker.getActiveWeaponElement(), attacker.getActiveArmorElement(), abilityService.activeLoadout(attacker)),
+                    BattleSimulator.Combatant.of(victimW.getName(),
+                        new int[]{vStats[0], vStats[1], vHp, vStats[3], vStats[4], vStats[5]},
+                        victimW.getActiveWeaponElement(), victimW.getActiveArmorElement(), abilityService.activeLoadout(victimW)),
+                    false); // PvP %HP [ELEMENTOS/HABILIDADES]
 
                 List<String> log = stripWinnerTag(out.log());
                 String foe = victimW.getName() + " (player)";
@@ -440,12 +443,12 @@ public class ZoneService {
         int    npcLevel = attacker.getLevel() + rng.nextInt(4);
         String npcName  = areaElement != null ? areaElement.icon + " " + npcName(zone, rng) : npcName(zone, rng);
         int[]  npcStats = npcStatsByLevel(npcLevel, rng);
-        BattleSimulator.BattleOutcome out = battleSimulator.simulateDetailed(
-                attacker.getName(), atkStats[0], atkStats[1], atkHp, atkStats[3], atkStats[4], atkStats[5],
-                npcName,            npcStats[0], npcStats[1], npcStats[2], npcStats[3], npcStats[4], npcStats[5],
-                false, // PvE NPC: empate por %HP (mantém comportamento)
-                attacker.getActiveWeaponElement(), attacker.getActiveArmorElement(),
-                areaElement, areaElement); // [ELEMENTOS] monstro: elemento da área como arma e armadura
+        BattleSimulator.BattleOutcome out = battleSimulator.simulate(
+                BattleSimulator.Combatant.of(attacker.getName(),
+                    new int[]{atkStats[0], atkStats[1], atkHp, atkStats[3], atkStats[4], atkStats[5]},
+                    attacker.getActiveWeaponElement(), attacker.getActiveArmorElement(), abilityService.activeLoadout(attacker)),
+                BattleSimulator.Combatant.of(npcName, npcStats, areaElement, areaElement, java.util.List.of()),
+                false); // PvE NPC: empate por %HP — monstro usa o elemento da área [ELEMENTOS/HABILIDADES]
         List<String> log = stripWinnerTag(out.log());
         inventoryService.wearEquippedItems(player);
         if (!out.firstWon()) {

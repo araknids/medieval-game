@@ -40,6 +40,7 @@ public class SchemaMigrator {
         patchInventoryListedColumn();
         patchInventoryWeaponCategoryColumn();
         patchElementColumns();
+        patchAbilityPointsColumn();
         patchStashColumns();
         patchKingdomQuestWindowColumn();
         dropWarriorOnMissionColumn();
@@ -172,6 +173,16 @@ public class SchemaMigrator {
             log.info("[SchemaMigrator] inventory_items.weapon_category/str/dex/luk + mail.item_level columns ensured");
         } catch (Exception e) {
             log.warn("[SchemaMigrator] inventory_items.weapon_category patch failed: {}", e.getMessage());
+        }
+    }
+
+    // Habilidades de classe: pontos por level (tabela warrior_abilities é auto-criada pelo ddl-auto). [HABILIDADES]
+    private void patchAbilityPointsColumn() {
+        try {
+            jdbc.execute("ALTER TABLE warriors ADD COLUMN IF NOT EXISTS ability_points integer NOT NULL DEFAULT 0");
+            log.info("[SchemaMigrator] warriors.ability_points column ensured");
+        } catch (Exception e) {
+            log.warn("[SchemaMigrator] warriors.ability_points patch failed: {}", e.getMessage());
         }
     }
 

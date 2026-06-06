@@ -71,6 +71,9 @@ Todo personagem **nasce `RECRUIT`** (neutro). No **Lv10** destrava a **Path Tria
 ### Elementos (encantamento + áreas de zona) — [ELEMENTOS]
 4 elementos (`Element`: FIRE/WATER/EARTH/AIR) numa **roda RPS** (FOGO→AR→TERRA→ÁGUA→FOGO). No combate, **arma do atacante × armadura do defensor**: vence → ×1.25, perde → ×0.75, neutro/sem-encanto → ×1.0 (`Element.multiplier`, aplicado por golpe no `BattleSimulator` via sobrecarga com elementos). Monstro usa 1 elemento como arma E armadura. **Encantamento** é um **buff temporário (1h)** no `Warrior` (`weaponElement`/`armorElement` + `*Until`, getters `getActive*Element()`, limpos no `clearBuff()`/KO) — NÃO fica no item. Feito no Templo (`TempleService.enchantWeapon/Armor`, `/api/temple/enchant/{weapon|armor}/{element}`): consome **1 essência** do elemento + bronze. **Essências** são `ResourceType` (FIRE/WATER/EARTH/AIR_ESSENCE, categoria `ESSENCE`) que dropam das **áreas de elemento** das zonas (`ZoneActivity.element`; cada bioma de coleta tem as 4 áreas; os monstros da área usam aquele elemento). Integrado em Zona (PvE+PvP) e Arena; Torre ainda neutra. Números (±25%, custo, drop) são placeholders. Desenho: `docs/PLANO_ELEMENTOS.md`.
 
+### Habilidades de Classe (Abilities) — [HABILIDADES]
+Distintas das **profissões** (`SkillType`). Cada level dá **1 `abilityPoint`** (`Warrior.levelUp()`), separado dos 2 de atributo. Gasta-se em `ClassAbility` da **árvore da classe** (Warrior/Archer; Recruit acumula e gasta após a Trial), cada uma até **lv10** (`AbilityService.learn`, `/api/abilities`). **Passivas** (Toughness/Weapon Mastery/Eagle Eye/Agility) entram no `WarriorStatsService.combatStats` via `AbilityService.passiveStatBonus`. **Ativas** (Shield Bash/Second Wind/Berserk; Precise Shot/Volley/Evasive Roll) disparam no `BattleSimulator` com **cooldown fixo em rounds** (efeito escala com o nível) — o simulador ganhou `Combatant`/`ActiveAbility` + `simulate(Combatant,Combatant,bool)`; `AbilityService.activeLoadout(warrior)` monta o kit; Arena e Zona passam o kit do player (NPC = vazio). **Respec**: grátis no soft-wipe, pago (`/api/abilities/respec`, bronze) a qualquer hora. Tabela `warrior_abilities` (auto-criada) + coluna `ability_points`. Números são placeholders. **Quest checks** (ex.: "Precise Shot ≥ 5") = futuro (nível já fica gravado). Desenho: `docs/PLANO_HABILIDADES.md`.
+
 ### HP do Guerreiro
 HP é armazenado como porcentagem (0-100) em `warrior.currentHpSnapshot`. Usa o mesmo padrão da stamina (snapshot + tempo decorrido). Regen: 100% em 1 hora. Guerreiro com HP=0 está inconsciente e não pode entrar em combate.
 
@@ -149,6 +152,7 @@ ALTER TABLE tabela ADD CONSTRAINT tabela_coluna_check CHECK (coluna IN ('VAL1','
 | Autenticação | `PlayerService` | `AuthController` | JWT, registro, reset de senha |
 | Guerreiro | `WarriorService` | `WarriorController` | Stats, atributos, HP, buff |
 | Classes | `ClassChangeService` | `ClassController` | Recruit→Trial(Lv10)→Warrior/Archer; caps por classe; respec. [CLASSES] |
+| Habilidades | `AbilityService` | `AbilityController` | Árvore por classe (passivas + ativas c/ cooldown); 1 ponto/level; respec. [HABILIDADES] |
 | Missões | `QuestService` (legado) / `KingdomService` | `QuestController` / `KingdomController` | Instantâneo (gate=estamina), drops, narrativa. As missões vivas são as do reino (`/api/world/{kingdom}/quests`). |
 | Arena PvP | `ArenaService` | `ArenaController` | Duelo instantâneo por ranking (1 chamada resolve tudo) |
 | Torre | `TowerService` | `TowerController` | Andares, chefes escalonados |

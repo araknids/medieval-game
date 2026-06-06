@@ -431,7 +431,7 @@ function goTo(loc) {
   if (loc === 'tower')    { loadTower(); }
   if (loc === 'arena')    { loadRank(); loadCurrentFight(); }
   if (loc === 'commerce') { loadShop(); }
-  if (loc === 'inventory'){ renderAttributes(); loadInventory(); }
+  if (loc === 'inventory'){ renderAttributes(); loadAbilities(); loadInventory(); }
   if (loc === 'work')     { loadWork(); }
   if (loc === 'guild')     { loadGuild(); }
   if (loc === 'world')      { loadWorld(); }
@@ -866,6 +866,72 @@ async function setPosture(postureId) {
   warrior = data;
   renderAttributes();
   await loadWarrior();
+}
+
+// [HABILIDADES] Árvore de habilidades da classe (passivas + ativas).
+async function loadAbilities() {
+  const el = document.getElementById('abilities-panel');
+  if (!el) return;
+  const data = await api('GET', '/api/abilities');
+  if (data.error) { el.innerHTML = ''; return; }
+  if (!data.abilities || data.abilities.length === 0) {
+    el.innerHTML = `
+      <div class="attr-section" style="margin-top:10px">
+        <div class="attr-header"><span>✨ Abilities</span></div>
+        <div style="font-size:.78rem;color:#888;padding:4px 0">
+          Choose a class (Path Trial at Lv.10) to unlock its abilities. You have
+          <strong>${data.abilityPoints}</strong> banked ability point${data.abilityPoints!==1?'s':''}.
+        </div>
+      </div>`;
+    return;
+  }
+  const pts = data.abilityPoints ?? 0;
+  const rows = data.abilities.map(a => {
+    const maxed = a.level >= a.maxLevel;
+    const kindTag = a.active
+      ? `<span style="color:#7bb0ff">⚡ Active${a.cooldown ? ' · CD ' + a.cooldown + ' rounds' : ''}</span>`
+      : `<span style="color:#9c9">🪨 Passive</span>`;
+    return `
+      <div class="attr-row">
+        <span class="attr-icon">${a.icon}</span>
+        <div style="flex:1;min-width:0">
+          <span class="attr-label">${a.displayName} ${kindTag}</span>
+          <span class="attr-effect" style="display:block;font-size:.72rem;color:#888">${a.description}</span>
+        </div>
+        <span class="attr-val" style="color:${maxed?'#ffd700':'#eee'}">${a.level}/${a.maxLevel}</span>
+        <button class="btn-attr" ${pts <= 0 || maxed ? 'disabled' : ''} onclick="learnAbility('${a.id}')">+</button>
+      </div>`;
+  }).join('');
+  el.innerHTML = `
+    <div class="attr-section" style="margin-top:10px">
+      <div class="attr-header">
+        <span>✨ ${escapeHtml(data.class)} Abilities</span>
+        ${pts > 0 ? `<span class="attr-points-badge">⬆ ${pts} point${pts!==1?'s':''}</span>` : ''}
+      </div>
+      ${rows}
+      <button onclick="respecAbilities()" style="margin-top:8px;font-size:.74rem;background:#444;padding:5px 10px">
+        ↺ Reset abilities (${fmtBronze(data.respecCost)})
+      </button>
+    </div>`;
+}
+
+async function learnAbility(id) {
+  const data = await api('POST', `/api/abilities/learn/${id}`);
+  if (data.error) { showMessage(data.error, true); return; }
+  showMessage(data.message);
+  await loadWarrior();
+  loadAbilities();
+  renderAttributes();
+}
+
+async function respecAbilities() {
+  if (!confirm('Reset all abilities and refund the points? This costs bronze.')) return;
+  const data = await api('POST', '/api/abilities/respec');
+  if (data.error) { showMessage(data.error, true); return; }
+  showMessage(data.message);
+  await loadWarrior();
+  loadAbilities();
+  renderAttributes();
 }
 
 async function expandInventory() {

@@ -48,6 +48,10 @@ public class Warrior {
     private int intellect    = 0;
     private int availablePoints = 0;
 
+    // [HABILIDADES] Pontos de habilidade (1 por level, separado dos atributos). Gastos em ClassAbility.
+    @Column(columnDefinition = "integer default 0")
+    private int abilityPoints = 0;
+
     // ── HP com regen passiva (% 0-100, regenera 100% em 1 hora) ──
     @Column(columnDefinition = "integer default 100")
     private int currentHpSnapshot = 100;
@@ -197,6 +201,7 @@ public class Warrior {
     public void levelUp() {
         level++;
         availablePoints += 2; // 2 pts/level — no auto ATK/DEF/HP per level (attributes handle growth)
+        abilityPoints   += 1; // 1 ponto de habilidade por level [HABILIDADES]
     }
 
     /** XP exponencial estilo Tibia: round(100 × level^1.8) */

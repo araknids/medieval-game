@@ -46,6 +46,7 @@ public class MaintenanceService {
     private final PlayerRepository             playerRepository;
     private final GuildRepository              guildRepository;
     private final WarriorRepository            warriorRepository;
+    private final WarriorAbilityRepository     warriorAbilityRepository; // [HABILIDADES]
     private final InventoryService             inventoryService;
 
     /**
@@ -113,6 +114,8 @@ public class MaintenanceService {
                 w.setLuck(0);
                 w.setIntellect(0);
                 w.setAvailablePoints(0);
+                w.setAbilityPoints(0);                      // [HABILIDADES]
+                warriorAbilityRepository.deleteByWarrior(w); // zera as habilidades aprendidas
                 w.setCurrentHpSnapshot(100);
                 w.setHpUpdatedAt(LocalDateTime.now());
                 w.clearBuff();

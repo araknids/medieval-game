@@ -31,6 +31,7 @@ public class ArenaService {
     private final BattleSimulator      battleSimulator;
     private final VipService           vipService;
     private final WarriorStatsService  statsService;
+    private final AbilityService       abilityService; // ativas no combate [HABILIDADES]
 
     @Value("${app.dev.instant-complete:false}")
     private boolean instantComplete;
@@ -70,10 +71,11 @@ public class ArenaService {
         }
 
         int[] cStats = totalStats(challenger, cWarrior);
-        // [ELEMENTOS] Encantamentos ativos do desafiante; oponente preenche abaixo (NPC = neutro).
+        // [ELEMENTOS/HABILIDADES] Encantamentos + ativas do desafiante; oponente preenche abaixo (NPC = neutro/sem kit).
         com.medieval.game.enums.Element cWeapon = cWarrior.getActiveWeaponElement();
         com.medieval.game.enums.Element cArmor  = cWarrior.getActiveArmorElement();
         com.medieval.game.enums.Element oWeapon = null, oArmor = null;
+        java.util.List<BattleSimulator.ActiveAbility> oAbilities = java.util.List.of();
 
         // Oponente: outro jogador real (rank próximo) ou NPC
         Player opponent = findOpponent(challenger);
@@ -83,17 +85,19 @@ public class ArenaService {
             Warrior oWarrior = warriorRepository.findByPlayer(opponent).orElse(null);
             opponentName = oWarrior != null ? oWarrior.getName() : opponent.getUsername();
             oStats = oWarrior != null ? totalStats(opponent, oWarrior) : npcStats();
-            if (oWarrior != null) { oWeapon = oWarrior.getActiveWeaponElement(); oArmor = oWarrior.getActiveArmorElement(); }
+            if (oWarrior != null) {
+                oWeapon = oWarrior.getActiveWeaponElement(); oArmor = oWarrior.getActiveArmorElement();
+                oAbilities = abilityService.activeLoadout(oWarrior);
+            }
         } else {
             opponentName = NPC_NAMES[java.util.concurrent.ThreadLocalRandom.current().nextInt(NPC_NAMES.length)];
             oStats = npcStats();
         }
 
-        BattleSimulator.BattleOutcome outcome = battleSimulator.simulateDetailed(
-                cWarrior.getName(), cStats[0], cStats[1], cStats[2], cStats[3], cStats[4], cStats[5],
-                opponentName,       oStats[0], oStats[1], oStats[2], oStats[3], oStats[4], oStats[5],
-                false, cWeapon, cArmor, oWeapon, oArmor // [ELEMENTOS]
-        );
+        BattleSimulator.BattleOutcome outcome = battleSimulator.simulate(
+                BattleSimulator.Combatant.of(cWarrior.getName(), cStats, cWeapon, cArmor, abilityService.activeLoadout(cWarrior)),
+                BattleSimulator.Combatant.of(opponentName,       oStats, oWeapon, oArmor, oAbilities),
+                false); // PvP %HP
         inventoryService.wearEquippedItems(challenger);
 
         boolean challengerWon = outcome.firstWon(); // vencedor explícito do simulador [AUDITORIA M13]

@@ -35,6 +35,7 @@ public class WarriorStatsService {
     private final ItemAffixRepository     affixRepository;
     private final MountRepository         mountRepository;
     private final com.medieval.game.repository.PetRepository petRepository; // bônus de HP do pet. [PETS]
+    private final AbilityService          abilityService; // passivas de habilidade [HABILIDADES]
 
     /** Bônus plano de ATK/DEF/HP dos itens equipados (base efetiva + joias + afixos planos). */
     public record ItemBonus(int atk, int def, int hp) {
@@ -125,7 +126,7 @@ public class WarriorStatsService {
         int petHpPct = pet != null ? pet.hpBonusPercent : 0; // % no HP final
         int petDex   = pet != null ? pet.dexBonus       : 0; // AGI plana
         int hp = (int) Math.round((warrior.getTotalBaseHealth() + g.hp() + buff[2]) * (1 + petHpPct / 100.0));
-        return new int[]{
+        int[] stats = new int[]{
             atk,                                                       // [0] ATK (afixo STR = +1 ATK/pt) × postura
             def,                                                       // [1] DEF × postura
             hp,                                                        // [2] HP (base+gear+buff) × pet
@@ -133,6 +134,10 @@ public class WarriorStatsService {
             (warrior.getStrength() + g.str()) / 20,                    // [4] floor(STR efetivo/20)
             warrior.getLuck()             + g.luk()                    // [5] luk → crit window + Fortune Save
         };
+        // [HABILIDADES] Passivas (Toughness→HP, Weapon Mastery→ATK, Eagle Eye→LUK, Agility→DEX).
+        int[] passive = abilityService.passiveStatBonus(warrior);
+        for (int i = 0; i < stats.length; i++) stats[i] += passive[i];
+        return stats;
     }
 
     /** Soma os bônus dos buffs ATIVOS (Templo slot 1 + 2 + refeição). [COZINHA] */
