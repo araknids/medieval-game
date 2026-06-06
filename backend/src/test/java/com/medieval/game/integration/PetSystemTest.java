@@ -84,16 +84,16 @@ class PetSystemTest extends BaseIntegrationTest {
         assertThat(petService.list(player()).stream().anyMatch(v -> v.type() == PetType.LUNA && v.equipped())).isTrue();
     }
 
-    // ── Gato (SHADOW): comprado no mercado VIP, dá +AGI ──
+    // ── Gato (BANDIT_CAT): comprado no mercado VIP, dá +AGI ──
     @Test
     @DisplayName("Comprar o gato debita SoulStone e concede + equipa")
     void buyCat_deductsAndGrants() {
         Player p = player();
         p.setSoulStones(20); playerRepository.save(p);
-        petService.buy(player(), PetType.SHADOW);
+        petService.buy(player(), PetType.BANDIT_CAT);
         Player after = playerRepository.findById(p.getId()).orElseThrow();
-        assertThat(after.getSoulStones()).isEqualTo(20 - PetType.SHADOW.soulStoneCost);
-        assertThat(petService.owns(after, PetType.SHADOW)).isTrue();
+        assertThat(after.getSoulStones()).isEqualTo(20 - PetType.BANDIT_CAT.soulStoneCost);
+        assertThat(petService.owns(after, PetType.BANDIT_CAT)).isTrue();
     }
 
     @Test
@@ -101,7 +101,7 @@ class PetSystemTest extends BaseIntegrationTest {
     void buyCat_insufficient_rejected() {
         Player p = player();
         p.setSoulStones(1); playerRepository.save(p);
-        assertThatThrownBy(() -> petService.buy(player(), PetType.SHADOW))
+        assertThatThrownBy(() -> petService.buy(player(), PetType.BANDIT_CAT))
                 .isInstanceOf(IllegalStateException.class);
     }
 
@@ -122,9 +122,9 @@ class PetSystemTest extends BaseIntegrationTest {
         w.setDexterity(10); warriorRepository.save(w);
 
         int dexBefore = statsService.combatStats(p, warriorRepository.findByPlayer(p).orElseThrow())[3];
-        petService.grant(p, PetType.SHADOW); // auto-equipa
+        petService.grant(p, PetType.BANDIT_CAT); // auto-equipa
         int dexAfter  = statsService.combatStats(player(), warriorRepository.findByPlayer(player()).orElseThrow())[3];
-        assertThat(dexAfter - dexBefore).isEqualTo(PetType.SHADOW.dexBonus); // +6
+        assertThat(dexAfter - dexBefore).isEqualTo(PetType.BANDIT_CAT.dexBonus); // +6
     }
 
     // ── isLunaWindow determinístico + Luna fora da rotação ──
