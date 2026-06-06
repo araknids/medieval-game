@@ -18,6 +18,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -81,6 +82,49 @@ class PetSystemTest extends BaseIntegrationTest {
                 .isEqualTo(warriorRepository.findByPlayer(player()).orElseThrow().getTotalBaseHealth()); // sem bônus
         petService.equip(player(), PetType.LUNA);
         assertThat(petService.list(player()).stream().anyMatch(v -> v.type() == PetType.LUNA && v.equipped())).isTrue();
+    }
+
+    // ── Gato (SHADOW): comprado no mercado VIP, dá +AGI ──
+    @Test
+    @DisplayName("Comprar o gato debita SoulStone e concede + equipa")
+    void buyCat_deductsAndGrants() {
+        Player p = player();
+        p.setSoulStones(20); playerRepository.save(p);
+        petService.buy(player(), PetType.SHADOW);
+        Player after = playerRepository.findById(p.getId()).orElseThrow();
+        assertThat(after.getSoulStones()).isEqualTo(20 - PetType.SHADOW.soulStoneCost);
+        assertThat(petService.owns(after, PetType.SHADOW)).isTrue();
+    }
+
+    @Test
+    @DisplayName("Sem SoulStone suficiente → rejeita")
+    void buyCat_insufficient_rejected() {
+        Player p = player();
+        p.setSoulStones(1); playerRepository.save(p);
+        assertThatThrownBy(() -> petService.buy(player(), PetType.SHADOW))
+                .isInstanceOf(IllegalStateException.class);
+    }
+
+    @Test
+    @DisplayName("Luna não é comprável (vem da quest)")
+    void buyLuna_notForSale() {
+        Player p = player();
+        p.setSoulStones(100); playerRepository.save(p);
+        assertThatThrownBy(() -> petService.buy(player(), PetType.LUNA))
+                .isInstanceOf(IllegalArgumentException.class);
+    }
+
+    @Test
+    @DisplayName("Gato equipado dá +AGI (dex) no combate")
+    void cat_givesAgi() {
+        Player p = player();
+        Warrior w = warriorRepository.findByPlayer(p).orElseThrow();
+        w.setDexterity(10); warriorRepository.save(w);
+
+        int dexBefore = statsService.combatStats(p, warriorRepository.findByPlayer(p).orElseThrow())[3];
+        petService.grant(p, PetType.SHADOW); // auto-equipa
+        int dexAfter  = statsService.combatStats(player(), warriorRepository.findByPlayer(player()).orElseThrow())[3];
+        assertThat(dexAfter - dexBefore).isEqualTo(PetType.SHADOW.dexBonus); // +6
     }
 
     // ── isLunaWindow determinístico + Luna fora da rotação ──

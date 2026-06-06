@@ -130,8 +130,8 @@ public class SchemaMigrator {
                           AND rel.relname IN (
                               'skill_levels', 'resource_inventory', 'kingdom_active_quests',
                               'territory_controls', 'territory_declarations', 'territory_battle_logs',
-                              'gathering_sessions', 'warriors', 'meal_inventory')
-                          AND pg_get_constraintdef(con.oid) ~ '(skill_type|resource_type|quest_type|kingdom|territory|meal)'
+                              'gathering_sessions', 'warriors', 'meal_inventory', 'pets')
+                          AND pg_get_constraintdef(con.oid) ~ '(skill_type|resource_type|quest_type|kingdom|territory|meal|pet_type)'
                     LOOP
                         EXECUTE format('ALTER TABLE %I DROP CONSTRAINT %I', r.tbl, r.con);
                     END LOOP;

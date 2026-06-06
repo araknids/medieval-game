@@ -318,11 +318,15 @@ async function loadWarrior() {
   // Pet equipado (companheiro). [PETS]
   const petLine = warrior.equippedPet ? (() => {
     const p = warrior.equippedPet;
+    const bonus = [
+      p.hpBonusPercent > 0 ? `+${p.hpBonusPercent}% HP` : '',
+      p.dexBonus       > 0 ? `+${p.dexBonus} AGI`       : '',
+    ].filter(Boolean).join(' · ');
     return `<div style="margin-top:.3rem;font-size:.75rem;padding:3px 6px;
                          background:#241a0f;border:1px solid #d8a14d;border-radius:4px;
                          color:#e0b878;display:inline-block">
               ${p.icon} ${p.displayName}
-              <span style="color:#aaa;font-size:.7em">+${p.hpBonusPercent}% HP</span>
+              <span style="color:#aaa;font-size:.7em">${bonus}</span>
             </div>`;
   })() : '';
 
@@ -3025,14 +3029,21 @@ async function cancelKingdomZoneSession(activityId) {
 async function loadVipShop() {
   const el = document.getElementById('vipshop-content');
   el.innerHTML = '<p>Loading VIP Shop...</p>';
-  const [status, slots, stable] = await Promise.all([
+  const [status, slots, stable, pets] = await Promise.all([
     api('GET', '/api/vip/status'),
     api('GET', '/api/inventory/slots'),
-    api('GET', '/api/stable')
+    api('GET', '/api/stable'),
+    api('GET', '/api/pets')
   ]);
 
   const isVip = status.isVip;
   const celestial = (stable && stable.mounts || []).find(m => m.id === 'CELESTIAL_MOUNT');
+  // Pet comprável no mercado VIP (gato). [PETS]
+  const cat = (Array.isArray(pets) ? pets : []).find(p => p.soulStoneCost > 0);
+  const catBonus = cat ? [
+    cat.hpBonusPercent > 0 ? `+${cat.hpBonusPercent}% HP` : '',
+    cat.dexBonus       > 0 ? `+${cat.dexBonus} AGI`       : '',
+  ].filter(Boolean).join(' · ') : '';
   const daysLeft = isVip && status.vipExpiresAt
     ? Math.ceil((new Date(status.vipExpiresAt) - Date.now()) / 86400000)
     : 0;
@@ -3113,6 +3124,24 @@ async function loadVipShop() {
                  </button>`}
       </div>` : ''}
 
+      ${cat ? `
+      <div style="background:#1a1a2e;border:1px solid #d8a14d;border-radius:8px;padding:12px;margin-bottom:8px">
+        <div style="display:flex;justify-content:space-between;align-items:center">
+          <div>
+            <div style="font-size:13px;font-weight:bold">${cat.icon} ${cat.displayName} <span style="color:#e0b878">${catBonus}</span></div>
+            <div style="font-size:11px;color:#888">A nimble companion. Bought with SoulStones — not stray like Luna.</div>
+          </div>
+          <span style="color:#a78bfa;font-size:13px">${cat.soulStoneCost} 💎</span>
+        </div>
+        ${cat.equipped
+          ? '<div style="color:#4caf50;font-size:12px;margin-top:6px">✓ Equipped</div>'
+          : cat.owned
+            ? `<button onclick="equipPet('${cat.type}')" style="margin-top:8px;font-size:12px;background:#2e7d32">Equip</button>`
+            : `<button onclick="buyPet('${cat.type}')" style="margin-top:8px;font-size:12px;background:#7c3aed" ${ss < cat.soulStoneCost ? 'disabled style="opacity:.5"' : ''}>
+                 Adopt (${cat.soulStoneCost} 💎)
+               </button>`}
+      </div>` : ''}
+
       <div style="font-size:11px;color:#666;margin-top:12px;text-align:center">
         💎 Balance: ${ss} SoulStone${ss !== 1 ? 's' : ''}
       </div>
@@ -3143,6 +3172,21 @@ async function buyMountFromVip(mountType) {
 async function equipMountFromVip(mountType) {
   const r = await api('POST', `/api/stable/equip/${mountType}`);
   if (r.error) { document.getElementById('vipshop-msg').innerHTML = `<span style="color:#f44336">${r.error}</span>`; return; }
+  loadVipShop();
+}
+
+// Pet comprado/equipado pela VIP Shop (SoulStone). [PETS]
+async function buyPet(petType) {
+  const r = await api('POST', `/api/pets/buy/${petType}`);
+  if (r.error) { document.getElementById('vipshop-msg').innerHTML = `<span style="color:#f44336">${r.error}</span>`; return; }
+  await loadWarrior();
+  loadVipShop();
+  document.getElementById('vipshop-msg').innerHTML = `<span style="color:#4caf50">🐾 ${r.message}</span>`;
+}
+async function equipPet(petType) {
+  const r = await api('POST', `/api/pets/equip/${petType}`);
+  if (r.error) { document.getElementById('vipshop-msg').innerHTML = `<span style="color:#f44336">${r.error}</span>`; return; }
+  await loadWarrior();
   loadVipShop();
 }
 

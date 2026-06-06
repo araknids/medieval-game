@@ -117,16 +117,18 @@ public class WarriorStatsService {
                 ? warrior.getCombatPosture() : com.medieval.game.enums.CombatPosture.BALANCED;
         int atk = (int) Math.round((warrior.getTotalBaseAttack()  + g.atk() + g.str() + buff[0]) * posture.atkMult());
         int def = (int) Math.round((warrior.getTotalBaseDefense() + g.def() + buff[1]) * posture.defMult());
-        // Pet equipado: bônus % no HP final (empilha com base+gear+buff+montaria). [PETS]
-        int petHpPct = petRepository.findByPlayerAndEquippedTrue(player).map(p -> p.getPetType().hpBonusPercent).orElse(0);
+        // Pet equipado: bônus de combate (empilha com base+gear+buff+montaria). [PETS]
+        var pet = petRepository.findByPlayerAndEquippedTrue(player).map(com.medieval.game.model.Pet::getPetType).orElse(null);
+        int petHpPct = pet != null ? pet.hpBonusPercent : 0; // % no HP final
+        int petDex   = pet != null ? pet.dexBonus       : 0; // AGI plana
         int hp = (int) Math.round((warrior.getTotalBaseHealth() + g.hp() + buff[2]) * (1 + petHpPct / 100.0));
         return new int[]{
-            atk,                                                 // [0] ATK (afixo STR = +1 ATK/pt) × postura
-            def,                                                 // [1] DEF × postura
-            hp,                                                  // [2] HP (base+gear+buff) × pet
-            warrior.getDexterity()        + g.dex() + buff[3],   // [3] dex → AC = 10 + dex
-            (warrior.getStrength() + g.str()) / 20,              // [4] floor(STR efetivo/20)
-            warrior.getLuck()             + g.luk()              // [5] luk → crit window + Fortune Save
+            atk,                                                       // [0] ATK (afixo STR = +1 ATK/pt) × postura
+            def,                                                       // [1] DEF × postura
+            hp,                                                        // [2] HP (base+gear+buff) × pet
+            warrior.getDexterity()        + g.dex() + buff[3] + petDex,// [3] dex → AC = 10 + dex (+ AGI do pet)
+            (warrior.getStrength() + g.str()) / 20,                    // [4] floor(STR efetivo/20)
+            warrior.getLuck()             + g.luk()                    // [5] luk → crit window + Fortune Save
         };
     }
 

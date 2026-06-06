@@ -27,10 +27,23 @@ public class PetController {
             "displayName",    v.displayName(),
             "icon",           v.icon(),
             "hpBonusPercent", v.hpBonusPercent(),
+            "dexBonus",       v.dexBonus(),
+            "soulStoneCost",  v.soulStoneCost(),
             "owned",          v.owned(),
             "equipped",       v.equipped()
         )).toList();
         return ResponseEntity.ok(pets);
+    }
+
+    // Comprar um pet com SoulStone (mercado VIP). [PETS]
+    @PostMapping("/buy/{petType}")
+    public ResponseEntity<?> buy(@PathVariable PetType petType, Authentication auth) {
+        Player player = getPlayer(auth);
+        petService.buy(player, petType);
+        return ResponseEntity.ok(Map.of(
+            "message",    petType.displayName + " adopted!",
+            "soulStones", player.getSoulStones()
+        ));
     }
 
     @PostMapping("/equip/{petType}")

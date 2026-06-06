@@ -204,7 +204,7 @@ class ZoneAmbushIntegrationTest extends BaseIntegrationTest {
         Player attacker = playerOf("amb");
         Warrior aw = warriorOf(attacker);
         aw.setLevel(50); aw.setAttack(2000); aw.setDefense(2000); aw.setHealth(5000); // banda 40-60, esmaga tudo
-        aw.setStrength(200); aw.setConstitution(200);
+        aw.setStrength(800); aw.setConstitution(200);
         warriorRepository.save(aw);
         long killerXpBefore = warriorRepository.findByPlayer(attacker).map(Warrior::getExperience).orElse(0L);
 
@@ -279,9 +279,10 @@ class ZoneAmbushIntegrationTest extends BaseIntegrationTest {
     void tc222_yellowZoneNoItemLock() {
         Player player = playerOf("amb");
         Warrior w = warriorOf(player);
-        // lvl 30 (banda 20-40, isolada do TC-219 lvl 15) + stats esmagadores → sempre sobrevive
+        // lvl 30 + stats esmagadores → sempre sobrevive. STR 800 (→ +40 no d20) garante o acerto vs a
+        // AC alta do NPC (até 30); STR 200 (+10) só acertava com nat-20 e podia perder por timeout. [FLAKE_FIX]
         w.setLevel(30); w.setAttack(2000); w.setDefense(2000); w.setHealth(5000);
-        w.setStrength(200); w.setConstitution(200);
+        w.setStrength(800); w.setConstitution(200);
         w.setCurrentHpSnapshot(100); w.setHpUpdatedAt(java.time.LocalDateTime.now());
         warriorRepository.save(w);
 
@@ -306,7 +307,7 @@ class ZoneAmbushIntegrationTest extends BaseIntegrationTest {
         Player player = playerOf("amb");
         Warrior w = warriorOf(player);
         w.setLevel(30); w.setAttack(2000); w.setDefense(2000); w.setHealth(5000);
-        w.setStrength(200); w.setConstitution(200);
+        w.setStrength(800); w.setConstitution(200);
         w.setCurrentHpSnapshot(100); w.setHpUpdatedAt(java.time.LocalDateTime.now());
         warriorRepository.save(w);
 
@@ -352,7 +353,7 @@ class ZoneAmbushIntegrationTest extends BaseIntegrationTest {
         Player attacker = playerOf("amb");
         Warrior aw = warriorOf(attacker);
         aw.setLevel(50); aw.setAttack(2000); aw.setDefense(2000); aw.setHealth(5000); // banda 40-60
-        aw.setStrength(200); aw.setConstitution(200);
+        aw.setStrength(800); aw.setConstitution(200);
         warriorRepository.save(aw);
 
         for (int i = 0; i < 40; i++) {

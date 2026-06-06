@@ -12,16 +12,17 @@ import org.springframework.transaction.annotation.Transactional;
 import java.util.Arrays;
 import java.util.List;
 
-/** Pets equipáveis (igual ao Estábulo das montarias). Pets vêm de quests, não da loja. [PETS] */
+/** Pets equipáveis (igual ao Estábulo das montarias). Vêm de quest (Luna) ou do mercado VIP (gato). [PETS] */
 @Slf4j
 @Service
 @RequiredArgsConstructor
 public class PetService {
 
-    private final PetRepository petRepository;
+    private final PetRepository    petRepository;
+    private final com.medieval.game.repository.PlayerRepository playerRepository; // compra com SoulStone. [PETS]
 
-    public record PetView(PetType type, String displayName, String icon,
-                          int hpBonusPercent, boolean owned, boolean equipped) {}
+    public record PetView(PetType type, String displayName, String icon, int hpBonusPercent,
+                          int dexBonus, int soulStoneCost, boolean owned, boolean equipped) {}
 
     public boolean owns(Player player, PetType type) {
         return petRepository.existsByPlayerAndPetType(player, type);
@@ -31,8 +32,22 @@ public class PetService {
         List<Pet> owned = petRepository.findByPlayer(player);
         return Arrays.stream(PetType.values()).map(t -> {
             Pet p = owned.stream().filter(o -> o.getPetType() == t).findFirst().orElse(null);
-            return new PetView(t, t.displayName, t.icon, t.hpBonusPercent, p != null, p != null && p.isEquipped());
+            return new PetView(t, t.displayName, t.icon, t.hpBonusPercent, t.dexBonus, t.soulStoneCost,
+                    p != null, p != null && p.isEquipped());
         }).toList();
+    }
+
+    /** Compra um pet com SoulStone (mercado VIP). soulStoneCost=0 → não comprável (vem de quest). [PETS] */
+    @Transactional
+    public Pet buy(Player player, PetType type) {
+        if (type.soulStoneCost <= 0) throw new IllegalArgumentException(type.displayName + " is not for sale.");
+        if (owns(player, type))      throw new IllegalStateException("You already own " + type.displayName + ".");
+        if (player.getSoulStones() < type.soulStoneCost)
+            throw new IllegalStateException("Not enough SoulStones. Required: " + type.soulStoneCost);
+        player.setSoulStones(player.getSoulStones() - type.soulStoneCost);
+        playerRepository.save(player);
+        log.info("[PetService] player={} action=buyPet type={} cost={}SS", player.getId(), type, type.soulStoneCost);
+        return grant(player, type);
     }
 
     /** Concede um pet (idempotente) e auto-equipa se nenhum estiver equipado. [PETS] */

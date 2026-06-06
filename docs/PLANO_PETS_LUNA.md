@@ -73,6 +73,18 @@ ficar com ela. Outros pets virão depois (sistema já extensível).
 - Luna window determinística (mesmo player+janela → mesmo resultado); quest some quando já tem a Luna.
 - Collect `leave` não mexe na pity; `help` mexe/concede.
 
+## Adendo — Gato (Shadow) no mercado VIP (2026-06-05)
+
+Segundo pet, **comprável** (não vem de quest): **Shadow** 🐱, **+6 AGI (DEX)**, custa **10 SoulStones**
+no mercado VIP. Generalizou o modelo:
+- `PetType` ganhou `dexBonus` (AGI plana) e `soulStoneCost` (0 = não comprável, ex.: Luna).
+- `combatStats` aplica o `dexBonus` do pet equipado no índice de DEX (AC = 10 + dex; entra no d20).
+- `PetService.buy(type)` (debita SoulStone + grant) + `PetController POST /api/pets/buy/{type}`.
+- Frontend: card no mercado VIP (loadVipShop) com Adopt/Equip; o card do guerreiro mostra o bônus real
+  (HP% e/ou AGI).
+- `SchemaMigrator`: dropa o check de `pets.pet_type` (novo valor SHADOW aceito em prod).
+
 ## Consequências / notas
 - Ultra-raro de propósito (decisão do dono) — números são constantes fáceis de tunar depois.
 - Pet não ocupa slot de bag (slot próprio, igual montaria). HP% é multiplicador final (empilha com gear/buff/montaria).
+- Só 1 pet equipado por vez (equipar troca). Gato vs Luna = escolha entre +AGI e +10% HP.

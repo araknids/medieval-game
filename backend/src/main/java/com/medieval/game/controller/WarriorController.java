@@ -149,7 +149,7 @@ public class WarriorController {
         // Pet equipado — exibido na ficha do personagem. [PETS]
         PetInfo equippedPet = petRepository.findByPlayerAndEquippedTrue(player)
                 .map(p -> { var pt = p.getPetType();
-                    return new PetInfo(pt.name(), pt.displayName, pt.icon, pt.hpBonusPercent); })
+                    return new PetInfo(pt.name(), pt.displayName, pt.icon, pt.hpBonusPercent, pt.dexBonus); })
                 .orElse(null);
 
         return new WarriorResponse(
@@ -182,7 +182,7 @@ public class WarriorController {
     }
 
     /** Pet equipado exibido na ficha (null se nenhum). [PETS] */
-    record PetInfo(String type, String displayName, String icon, int hpBonusPercent) {}
+    record PetInfo(String type, String displayName, String icon, int hpBonusPercent, int dexBonus) {}
 
     /** Montaria equipada exibida na ficha (null se nenhuma). [ESTABULO] */
     record MountInfo(String id, String name, String icon, int staminaReductionPct,
