@@ -10,10 +10,11 @@ package com.medieval.game.enums;
  */
 public enum WarriorClass {
 
-    //       displayName, atk, def,  hp, strCap, dexCap,           conCap, lukCap, intCap
-    RECRUIT ("Recruit",    12,  10, 100,     40,     40, Integer.MAX_VALUE,     40,     30),
-    WARRIOR ("Warrior",    15,  14, 130,     80,     30, Integer.MAX_VALUE,     40,     20),
-    ARCHER  ("Archer",     18,   9,  95,     50,     55, Integer.MAX_VALUE,     70,     20);
+    //        displayName,  atk, def,  hp, strCap, dexCap,           conCap, lukCap, intCap
+    RECRUIT  ("Recruit",     12,  10, 100,     40,     40, Integer.MAX_VALUE,     40,     30),
+    WARRIOR  ("Warrior",     15,  14, 130,     80,     30, Integer.MAX_VALUE,     40,     20),
+    ARCHER   ("Archer",      18,   9,  95,     50,     55, Integer.MAX_VALUE,     70,     20),
+    MERCHANT ("Merchant",    15,  11, 115,     55,     38, Integer.MAX_VALUE,     60,     20); // classe de economia (machado/marreta) [MERCADOR]
 
     public final String displayName;
     public final int baseAttack;
@@ -55,5 +56,15 @@ public enum WarriorClass {
     /** Categoria de arma que a classe pode equipar: Archer = RANGED, resto = MELEE. [CLASSES_ARMAS] */
     public WeaponCategory weaponCategory() {
         return this == ARCHER ? WeaponCategory.RANGED : WeaponCategory.MELEE;
+    }
+
+    /**
+     * Pode equipar este TIPO de arma? Mercador é restrito a machado/marreta; as outras classes
+     * vão pela categoria (Warrior = qualquer MELEE, Archer = qualquer RANGED). [MERCADOR/CLASSES_ARMAS]
+     */
+    public boolean canEquip(WeaponType type) {
+        if (type == null) return true;
+        if (this == MERCHANT) return type == WeaponType.AXE || type == WeaponType.MACE;
+        return type.category == weaponCategory();
     }
 }

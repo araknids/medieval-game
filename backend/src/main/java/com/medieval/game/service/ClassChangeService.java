@@ -2,7 +2,6 @@ package com.medieval.game.service;
 
 import com.medieval.game.enums.ItemType;
 import com.medieval.game.enums.WarriorClass;
-import com.medieval.game.enums.WeaponCategory;
 import com.medieval.game.model.Player;
 import com.medieval.game.model.Warrior;
 import com.medieval.game.repository.PlayerRepository;
@@ -38,11 +37,16 @@ public class ClassChangeService {
     // ── Guardiões da Trial (placeholder, ajustar no playtest) ──
     // Cada caminho tem um guardião com o "sabor" do arquétipo: o da Lâmina é tanky de corpo-a-corpo,
     // o do Arco é ágil/evasivo com crit. Stats no formato [atk, def, hp, dex(AC=10+dex), strBonus, luk].
-    private static final Guardian BLADE_GUARDIAN = new Guardian("Blade Guardian", 22, 14, 160,  8, 2,  5);
-    private static final Guardian BOW_GUARDIAN   = new Guardian("Bow Guardian",   20,  8, 130, 18, 2, 20);
+    private static final Guardian BLADE_GUARDIAN    = new Guardian("Blade Guardian",    22, 14, 160,  8, 2,  5);
+    private static final Guardian BOW_GUARDIAN      = new Guardian("Bow Guardian",      20,  8, 130, 18, 2, 20);
+    private static final Guardian MERCHANT_GUARDIAN = new Guardian("Caravan Guardian",  20, 11, 145, 12, 2, 12); // [MERCADOR]
 
     private Guardian guardianFor(WarriorClass path) {
-        return path == WarriorClass.ARCHER ? BOW_GUARDIAN : BLADE_GUARDIAN;
+        return switch (path) {
+            case ARCHER   -> BOW_GUARDIAN;
+            case MERCHANT -> MERCHANT_GUARDIAN;
+            default       -> BLADE_GUARDIAN;
+        };
     }
 
     /** Estado da escolha de classe pra UI (classe atual + se a Trial está liberada + os caminhos). */
@@ -55,14 +59,17 @@ public class ClassChangeService {
         boolean available = !current.isSpecialized() && w.getLevel() >= TRIAL_LEVEL;
         return new ClassInfo(
                 current.name(), current.displayName, w.getLevel(), TRIAL_LEVEL, available,
-                List.of(pathOf(WarriorClass.WARRIOR), pathOf(WarriorClass.ARCHER)));
+                List.of(pathOf(WarriorClass.WARRIOR), pathOf(WarriorClass.ARCHER), pathOf(WarriorClass.MERCHANT)));
     }
 
     private ClassPath pathOf(WarriorClass c) {
         Guardian g = guardianFor(c);
-        String desc = c == WarriorClass.WARRIOR
-                ? "Frontline tank. STR & CON, heavy HP and armor — relies on raw mitigation, not dodge."
-                : "Glass cannon. DEX & LUK — high evasion and frequent crits, but fragile when hit.";
+        String desc = switch (c) {
+            case WARRIOR  -> "Frontline tank. STR & CON, heavy HP and armor — relies on raw mitigation, not dodge.";
+            case ARCHER   -> "Glass cannon. DEX & LUK — high evasion and frequent crits, but fragile when hit.";
+            case MERCHANT -> "Economy class (axe & mace). A bit weaker in a fight, but its skills boost loot, crafting and trade — snowballs through wealth.";
+            default       -> "";
+        };
         return new ClassPath(c.name(), c.displayName, c.baseAttack, c.baseDefense, c.baseHealth,
                 c.strCap, c.dexCap, c.lukCap, g.name(), desc);
     }
@@ -78,7 +85,7 @@ public class ClassChangeService {
                 .orElseThrow(() -> new IllegalStateException("Warrior not found"));
 
         if (path == null || !path.isSpecialized())
-            throw new IllegalArgumentException("Choose a path: Warrior or Archer.");
+            throw new IllegalArgumentException("Choose a path: Warrior, Archer or Merchant.");
         if (w.getWarriorClass().isSpecialized())
             throw new IllegalStateException("You have already chosen your path — class change is permanent.");
         if (w.getLevel() < TRIAL_LEVEL)
@@ -102,10 +109,11 @@ public class ClassChangeService {
 
         if (won) {
             applyClassChange(w, path);
-            // [CLASSES_ARMAS] Archer só usa arco: desequipa a espada (ficaria travada) e dá um arco inicial.
-            if (path == WarriorClass.ARCHER) {
-                inventoryService.unequipWeaponsNotMatching(player, WeaponCategory.RANGED);
-                grantStarterBow(player);
+            // [CLASSES_ARMAS/MERCADOR] Archer/Merchant têm armas restritas: desequipa o que não usam
+            // (ficaria travado) e dá uma arma inicial da classe.
+            if (path == WarriorClass.ARCHER || path == WarriorClass.MERCHANT) {
+                inventoryService.unequipWeaponsNotUsable(player, path);
+                grantStarterWeapon(player, path);
             }
             w.applyDamagePercent(10); // leve desgaste pela luta (vitória)
             battleLog.add("🎖 Trial passed! You are now " + path.displayName + ". Attribute points refunded — reallocate them for your new path.");
@@ -120,9 +128,13 @@ public class ClassChangeService {
         return new TrialResult(won, path.name(), path.displayName, battleLog);
     }
 
-    /** Arco inicial pro novo Archer (make-or-mail: não pode dar throw e abortar a troca). [CLASSES_ARMAS] */
-    private void grantStarterBow(Player player) {
-        String name = "Hunting Bow", desc = "A simple hunting bow — an archer's first weapon.", origin = "Path Trial";
+    /** Arma inicial da classe (make-or-mail: não pode dar throw e abortar a troca). [CLASSES_ARMAS/MERCADOR] */
+    private void grantStarterWeapon(Player player, WarriorClass path) {
+        String name = path == WarriorClass.ARCHER ? "Hunting Bow" : "Worn Hatchet"; // arco / machado inicial
+        String desc = path == WarriorClass.ARCHER
+                ? "A simple hunting bow — an archer's first weapon."
+                : "A merchant's trusty hatchet.";
+        String origin = "Path Trial";
         if (inventoryService.bagSize(player) < player.getMaxInventorySlots()) {
             inventoryService.make(player, name, ItemType.WEAPON, 5, 0, 0, 1, 20, 1, desc, origin);
         } else {

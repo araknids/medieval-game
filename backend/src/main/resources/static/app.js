@@ -2027,10 +2027,11 @@ async function openClassTrial() {
   }
   closeCollectModal();
   const color = '#a855f7';
+  const CLASS_ICON = { WARRIOR: '🛡', ARCHER: '🏹', MERCHANT: '💰' }; // [MERCADOR]
   const cardFor = (p) => `
     <div style="background:#0d0d18;border:1px solid #3a2a4a;border-radius:10px;padding:14px;margin-bottom:12px">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
-        <span style="font-weight:bold;color:#e0c8ff;font-size:15px">${p.id === 'WARRIOR' ? '🛡' : '🏹'} ${escapeHtml(p.displayName)}</span>
+        <span style="font-weight:bold;color:#e0c8ff;font-size:15px">${CLASS_ICON[p.id] || '⚔'} ${escapeHtml(p.displayName)}</span>
         <span style="font-size:11px;color:#888">ATK ${p.baseAttack} · DEF ${p.baseDefense} · HP ${p.baseHealth}</span>
       </div>
       <div style="font-size:12px;color:#aaa;line-height:1.5;margin-bottom:8px">${escapeHtml(p.description)}</div>
@@ -2064,7 +2065,7 @@ async function attemptClassTrial(path) {
     title: data.won ? `🎖 Trial passed — you are now ${escapeHtml(data.className)}!` : `✖ Trial failed`,
     color: data.won ? '#4caf50' : '#ef5350',
     rows: data.won ? [
-      { icon: data.classId === 'WARRIOR' ? '🛡' : '🏹', label: 'New class',        value: escapeHtml(data.className), color: '#4caf50' },
+      { icon: ({WARRIOR:'🛡',ARCHER:'🏹',MERCHANT:'💰'})[data.classId] || '⚔', label: 'New class', value: escapeHtml(data.className), color: '#4caf50' },
       { icon: '🔄',                                      label: 'Attribute points', value: 'refunded',                 color: '#a855f7' },
     ] : [
       { icon: '💀', label: 'Result', value: 'Knocked out — heal and retry', color: '#ef5350' },

@@ -115,4 +115,22 @@ public class AbilityService {
     }
 
     public long respecCost() { return RESPEC_COST; }
+
+    // ── Economia (Mercador): getters consultados pelos serviços de loot/craft/venda/coleta. [MERCADOR] ──
+
+    private int economy(Player player, ClassAbility ability) {
+        Warrior w = warriorRepository.findByPlayer(player).orElse(null);
+        if (w == null || w.getWarriorClass() != ability.owner) return 0;
+        int level = levels(w).getOrDefault(ability, 0);
+        return level * ability.economyPerLevel();
+    }
+
+    /** +% no preço de venda (Haggler). */
+    public int sellPriceBonusPct(Player player)   { return economy(player, ClassAbility.HAGGLER); }
+    /** +% (pontos) na chance de drop de item (Treasure Hunter). */
+    public int dropChanceBonus(Player player)     { return economy(player, ClassAbility.TREASURE_HUNTER); }
+    /** +% (pontos) no sucesso de craft (Master Craftsman). */
+    public int craftSuccessBonus(Player player)   { return economy(player, ClassAbility.MASTER_CRAFTSMAN); }
+    /** +% no rendimento de coleta de recursos (Prospector). */
+    public int gatherYieldBonusPct(Player player) { return economy(player, ClassAbility.PROSPECTOR); }
 }

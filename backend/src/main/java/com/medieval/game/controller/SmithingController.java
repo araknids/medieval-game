@@ -55,7 +55,7 @@ public class SmithingController {
         // [CLASSES_ARMAS] Só mostra as armas da categoria da classe (Archer vê arcos, resto vê espadas).
         // Stats da arma vêm do perfil do tipo (mesmo cálculo do make()); armadura usa os fixos do recipe.
         WarriorClass cls = warriorRepository.findByPlayer(player).map(Warrior::getWarriorClass).orElse(WarriorClass.RECRUIT);
-        var craft = SmithingService.craftRecipesFor(cls.weaponCategory()).stream().map(r -> {
+        var craft = SmithingService.craftRecipesFor(cls).stream().map(r -> {
             boolean isWeapon = !r.name().toLowerCase().contains("armadura");
             com.medieval.game.enums.WeaponType wt = isWeapon ? com.medieval.game.enums.WeaponType.fromName(r.name()) : null;
             int[] st = isWeapon ? wt.stats(r.itemLevel(), r.rarity())

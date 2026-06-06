@@ -24,6 +24,7 @@ public class SmithingService {
     private final MailService             mailService;
     private final SocketedGemRepository   gemRepository;
     private final PlayerService           playerService;
+    private final AbilityService          abilityService; // +sucesso de craft do Mercador (Master Craftsman) [MERCADOR]
     private final ItemLoreGenerator       loreGenerator;
 
     // ── Success rate de craft/socket (melhora com o nível de Forja). [PROFISSAO_SUCCESS] ──
@@ -94,6 +95,7 @@ public class SmithingService {
         new WeaponKind("sword",      "Espada"),
         new WeaponKind("greatsword", "Montante"),
         new WeaponKind("axe",        "Machado"),
+        new WeaponKind("mace",       "Marreta"), // [MERCADOR]
         new WeaponKind("spear",      "Lança"),
         new WeaponKind("shortbow",   "Arco Curto"),
         new WeaponKind("longbow",    "Arco Longo"),
@@ -117,11 +119,11 @@ public class SmithingService {
         return List.copyOf(list);
     }
 
-    /** Recipes visíveis p/ a classe: armaduras + as armas da categoria da classe (tier-ordered). [CLASSES_ARMAS] */
-    public static List<CraftRecipe> craftRecipesFor(com.medieval.game.enums.WeaponCategory canWield) {
+    /** Recipes visíveis p/ a classe: armaduras + as armas que a classe consegue equipar (tier-ordered). [CLASSES_ARMAS/MERCADOR] */
+    public static List<CraftRecipe> craftRecipesFor(com.medieval.game.enums.WarriorClass cls) {
         return CRAFT_RECIPES.stream()
                 .filter(r -> isArmorRecipe(r)
-                        || com.medieval.game.enums.WeaponCategory.fromWeaponName(r.name()) == canWield)
+                        || cls.canEquip(com.medieval.game.enums.WeaponType.fromName(r.name())))
                 .sorted(java.util.Comparator.comparingInt(CraftRecipe::smithingLevel))
                 .toList();
     }
@@ -188,7 +190,8 @@ public class SmithingService {
             }
         }
 
-        int successPct = craftSuccessPct(smithing.getLevel(), recipe);
+        int successPct = Math.min(100, craftSuccessPct(smithing.getLevel(), recipe)
+                + abilityService.craftSuccessBonus(player)); // [MERCADOR] Master Craftsman
         // Taxa em bronze — paga sempre (é o "custo" perdido na falha). Lança se não tiver saldo.
         playerService.spendBronze(player, recipe.bronzeCost());
 

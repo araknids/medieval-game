@@ -68,9 +68,9 @@ class ClassChangeTest extends BaseIntegrationTest {
         makeWarrior(p, WarriorClass.RECRUIT, 10);
         var info = classService.info(p);
         assertThat(info.available()).isTrue();
-        assertThat(info.paths()).hasSize(2);
+        assertThat(info.paths()).hasSize(3);
         assertThat(info.paths()).extracting(ClassChangeService.ClassPath::id)
-                .containsExactlyInAnyOrder("WARRIOR", "ARCHER");
+                .containsExactlyInAnyOrder("WARRIOR", "ARCHER", "MERCHANT");
     }
 
     // ── Vitória: vira a classe + base stats + respec ──

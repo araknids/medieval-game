@@ -38,6 +38,10 @@ public class ShopService {
     private static final String[] BOW_NAMES = {
         "Short Bow", "Long Bow", "Crossbow", "Hunting Shortbow", "Heavy Crossbow", "Elven Longbow"
     };
+    // [MERCADOR] Slot de arma vira machado/marreta quando o jogador é Mercador.
+    private static final String[] MERCHANT_WEAPON_NAMES = {
+        "Battle Axe", "War Axe", "Iron Mace", "Heavy Maul", "Spiked Mace", "Great Axe"
+    };
 
     // ── Nomes do mercador ──
     private static final String[] MERCHANTS = {
@@ -180,11 +184,11 @@ public class ShopService {
         Random rng = new Random(rotationId);
         Warrior w = warriorRepository.findByPlayer(player).orElse(null);
         int level = w != null ? w.getLevel() : 1;
-        boolean isArcher = w != null && w.getWarriorClass() == WarriorClass.ARCHER;
+        WarriorClass cls = w != null ? w.getWarriorClass() : WarriorClass.RECRUIT;
         Set<Integer> bought = purchaseRepository.purchasedSlots(player, rotationId);
         List<ShopItem> items = new ArrayList<>();
         for (int slot = 0; slot < SHOP_SIZE; slot++) {
-            items.add(buildSlot(rng, rotationId, slot, level, isArcher, bought.contains(slot)));
+            items.add(buildSlot(rng, rotationId, slot, level, cls, bought.contains(slot)));
         }
         return items;
     }
@@ -193,7 +197,7 @@ public class ShopService {
      * Constrói o item de um slot de forma DETERMINÍSTICA (mesma sequência de rng em preview e compra).
      * Itens V3: loja vende só Comum/Incomum, nível ≈ nível do jogador ±5, stats escalam com o nível. [ITENS_V3]
      */
-    private ShopItem buildSlot(Random rng, long rotationId, int slot, int playerLevel, boolean isArcher, boolean purchased) {
+    private ShopItem buildSlot(Random rng, long rotationId, int slot, int playerLevel, WarriorClass cls, boolean purchased) {
         int rarity = rollRarity(rng);                 // só 1 (Comum) ou 2 (Incomum)
         Object[][] pool = poolFor(rarity);
         Object[] template = pool[rng.nextInt(pool.length)];
@@ -203,10 +207,14 @@ public class ShopService {
         int price = (int) template[5];                // mantém o preço curado do template
         long itemId = rotationId * SHOP_SIZE + slot;
         ItemType type = (ItemType) template[1];
-        // [CLASSES_ARMAS] Arqueiro vê arco no lugar de espada (nome determinístico, sem consumir rng).
-        String name = (isArcher && type == ItemType.WEAPON)
-                ? BOW_NAMES[(int)(((rotationId + slot) % BOW_NAMES.length + BOW_NAMES.length) % BOW_NAMES.length)]
-                : (String) template[0];
+        // [CLASSES_ARMAS/MERCADOR] A arma do slot vira o que a classe usa (Archer→arco, Mercador→machado/marreta).
+        // Nome determinístico (sem consumir rng) → preview == compra.
+        String name = (String) template[0];
+        if (type == ItemType.WEAPON) {
+            int idx = (int)(((rotationId + slot) % 6 + 6) % 6);
+            if (cls == WarriorClass.ARCHER)        name = BOW_NAMES[idx % BOW_NAMES.length];
+            else if (cls == WarriorClass.MERCHANT) name = MERCHANT_WEAPON_NAMES[idx % MERCHANT_WEAPON_NAMES.length];
+        }
         // Arma: stats vêm do PERFIL do tipo (igual ao make()); resto usa o roll. [CLASSES_ARMAS]
         int[] st = (type == ItemType.WEAPON)
                 ? com.medieval.game.enums.WeaponType.fromName(name).stats(itemLevel, rarity)
@@ -230,10 +238,10 @@ public class ShopService {
         Random rng = new Random(rotationId);
         Warrior w = warriorRepository.findByPlayer(player).orElse(null);
         int level = w != null ? w.getLevel() : 1;
-        boolean isArcher = w != null && w.getWarriorClass() == WarriorClass.ARCHER;
+        WarriorClass cls = w != null ? w.getWarriorClass() : WarriorClass.RECRUIT;
         ShopItem item = null;
         for (int i = 0; i <= slot; i++) {
-            ShopItem si = buildSlot(rng, rotationId, i, level, isArcher, false);
+            ShopItem si = buildSlot(rng, rotationId, i, level, cls, false);
             if (i == slot) item = si;
         }
 

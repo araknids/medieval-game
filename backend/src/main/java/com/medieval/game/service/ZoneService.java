@@ -348,11 +348,12 @@ public class ZoneService {
                     skill.getLevel(), 10, activity.getKingdom())); // [UNIFICAÇÃO_ZONA] drops por reino
         }
 
-        // Aplica multiplicador de zona
+        // Aplica multiplicador de zona × bônus de coleta do Mercador (Prospector). [MERCADOR]
+        double yieldMult = mult * (1 + abilityService.gatherYieldBonusPct(player) / 100.0);
         List<GatheringService.ResourceDrop> scaled = new ArrayList<>();
         for (GatheringService.ResourceDrop d : allDrops) {
             scaled.add(new GatheringService.ResourceDrop(d.type(),
-                    Math.max(1, Math.round(d.quantity() * mult))));
+                    Math.max(1, Math.round(d.quantity() * yieldMult))));
         }
 
         // [ELEMENTOS] Essência do elemento da área (material de encantamento) — escala com o tier.

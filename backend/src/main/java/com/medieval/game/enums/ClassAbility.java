@@ -20,7 +20,14 @@ public enum ClassAbility {
     AGILITY        (WarriorClass.ARCHER,  Kind.PASSIVE, null,                          0, "Agility",        "💨", "+1 DEX per level (AC / dodge)."),
     PRECISE_SHOT   (WarriorClass.ARCHER,  Kind.ACTIVE,  AbilityEffect.GUARANTEED_CRIT, 4, "Precise Shot",   "🏹", "Every 4 rounds: guaranteed crit + (3×lvl) bonus damage."),
     VOLLEY         (WarriorClass.ARCHER,  Kind.ACTIVE,  AbilityEffect.EXTRA_ATTACK,    5, "Volley",         "☄", "Every 5 rounds: extra attack at (50+5×lvl)% damage."),
-    EVASIVE_ROLL   (WarriorClass.ARCHER,  Kind.ACTIVE,  AbilityEffect.DODGE_INCOMING,  6, "Evasive Roll",   "🌀", "Every 6 rounds: dodge next hit + reflect (2×lvl) damage.");
+    EVASIVE_ROLL   (WarriorClass.ARCHER,  Kind.ACTIVE,  AbilityEffect.DODGE_INCOMING,  6, "Evasive Roll",   "🌀", "Every 6 rounds: dodge next hit + reflect (2×lvl) damage."),
+
+    // Mercador — economia (passivas que mexem em loot/craft/venda/coleta) + 1 ativa de combate. [MERCADOR]
+    HAGGLER          (WarriorClass.MERCHANT, Kind.PASSIVE, null,                       0, "Haggler",          "🪙", "📦 +2 LUK/lvl and +3% sell price per level."),
+    TREASURE_HUNTER  (WarriorClass.MERCHANT, Kind.PASSIVE, null,                       0, "Treasure Hunter",  "📦", "📦 +2% item drop chance per level."),
+    MASTER_CRAFTSMAN (WarriorClass.MERCHANT, Kind.PASSIVE, null,                       0, "Master Craftsman", "🔨", "📦 +3% craft success per level."),
+    PROSPECTOR       (WarriorClass.MERCHANT, Kind.PASSIVE, null,                       0, "Prospector",       "⛏", "📦 +5% gathering yield per level."),
+    CRUSHING_BLOW    (WarriorClass.MERCHANT, Kind.ACTIVE,  AbilityEffect.BONUS_DAMAGE, 5, "Crushing Blow",    "💥", "Every 5 rounds: +(8+4×lvl) bonus damage.");
 
     public final WarriorClass  owner;
     public final Kind          kind;
@@ -46,7 +53,19 @@ public enum ClassAbility {
             case WEAPON_MASTERY -> new int[]{2 * level, 0, 0, 0, 0, 0};  // ATK
             case EAGLE_EYE      -> new int[]{0, 0, 0, 0, 0, 2 * level};  // LUK
             case AGILITY        -> new int[]{0, 0, 0, level, 0, 0};      // DEX (AC)
+            case HAGGLER        -> new int[]{0, 0, 0, 0, 0, 2 * level};  // LUK (lado combate; o +venda% é economia) [MERCADOR]
             default             -> new int[]{0, 0, 0, 0, 0, 0};
+        };
+    }
+
+    /** Valor de ECONOMIA por nível (%) das passivas de Mercador. 0 = não-econômica. [MERCADOR] */
+    public int economyPerLevel() {
+        return switch (this) {
+            case HAGGLER          -> 3; // +% preço de venda
+            case TREASURE_HUNTER  -> 2; // +% chance de drop
+            case MASTER_CRAFTSMAN -> 3; // +% sucesso de craft
+            case PROSPECTOR       -> 5; // +% rendimento de coleta
+            default               -> 0;
         };
     }
 

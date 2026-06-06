@@ -16,6 +16,7 @@ public enum WeaponType {
     GREATSWORD ("Greatsword",  WeaponCategory.MELEE,   1.00, 0.00, 0.00, 0.00, 0.00),
     AXE        ("Axe",         WeaponCategory.MELEE,   0.75, 0.00, 0.00, 0.00, 0.25),
     SPEAR      ("Spear",       WeaponCategory.MELEE,   0.75, 0.00, 0.25, 0.00, 0.00),
+    MACE       ("Mace",        WeaponCategory.MELEE,   0.78, 0.00, 0.22, 0.00, 0.00), // blunt: pancada certeira (ATK+STR) [MERCADOR]
     SHORTBOW   ("Short Bow",   WeaponCategory.RANGED,  0.75, 0.00, 0.00, 0.25, 0.00),
     LONGBOW    ("Long Bow",    WeaponCategory.RANGED,  1.00, 0.00, 0.00, 0.00, 0.00),
     CROSSBOW   ("Crossbow",    WeaponCategory.RANGED,  0.75, 0.00, 0.00, 0.00, 0.25);
@@ -65,6 +66,7 @@ public enum WeaponType {
         // Melee
         if (containsAny(n, "greatsword", "great sword", "two-handed", "montante", "espada longa", "espada de duas")) return GREATSWORD;
         if (containsAny(n, "axe", "machado"))                          return AXE;
+        if (containsAny(n, "mace", "marreta", "maul", "hammer", "martelo", "club", "clava")) return MACE; // [MERCADOR]
         if (containsAny(n, "spear", "lance", "lança", "lanca", "pike")) return SPEAR;
         return SWORD; // sword/blade/espada/qualquer outro melee
     }

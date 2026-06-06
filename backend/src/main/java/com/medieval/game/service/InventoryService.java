@@ -2,7 +2,6 @@ package com.medieval.game.service;
 
 import com.medieval.game.enums.Affix;
 import com.medieval.game.enums.ItemType;
-import com.medieval.game.enums.WeaponCategory;
 import com.medieval.game.enums.WeaponType;
 import com.medieval.game.model.InventoryItem;
 import com.medieval.game.model.ItemAffix;
@@ -38,6 +37,7 @@ public class InventoryService {
     private final SocketedGemRepository   gemRepository;
     private final ResourceInventoryRepository resourceRepository;
     private final WarriorRepository       warriorRepository;
+    private final AbilityService          abilityService; // bônus de venda do Mercador [MERCADOR]
 
     private static final java.util.Random RNG = new java.util.Random();
 
@@ -134,15 +134,20 @@ public class InventoryService {
             log.warn("[InventoryService] player={} REJECTED: item {} requires level {} (have {})", player.getId(), itemId, item.getItemLevel(), level);
             throw new IllegalStateException("Requires level " + item.getItemLevel() + " to equip.");
         }
-        // [CLASSES_ARMAS] Trava por classe: Archer só arco; Warrior/Recruit só corpo-a-corpo.
+        // [CLASSES_ARMAS/MERCADOR] Trava por TIPO: Archer só arco; Merchant só machado/marreta;
+        // Warrior/Recruit qualquer corpo-a-corpo.
         if (item.getType() == ItemType.WEAPON && warrior != null) {
-            WeaponCategory need = warrior.getWarriorClass().weaponCategory();
-            if (item.effectiveWeaponCategory() != need) {
-                log.warn("[InventoryService] player={} REJECTED: weapon {} category {} != class {} ({})",
-                        player.getId(), itemId, item.effectiveWeaponCategory(), warrior.getWarriorClass(), need);
-                throw new IllegalStateException(need == WeaponCategory.RANGED
-                        ? "Archers can only wield ranged weapons (bows)."
-                        : "This class can only wield melee weapons (swords, axes…).");
+            com.medieval.game.enums.WarriorClass cls = warrior.getWarriorClass();
+            WeaponType wt = WeaponType.fromName(item.getName());
+            if (!cls.canEquip(wt)) {
+                log.warn("[InventoryService] player={} REJECTED: weapon {} type {} not usable by class {}",
+                        player.getId(), itemId, wt, cls);
+                String msg = switch (cls) {
+                    case ARCHER   -> "Archers can only wield ranged weapons (bows).";
+                    case MERCHANT -> "Merchants can only wield axes and maces.";
+                    default       -> "This class can only wield melee weapons (swords, axes…).";
+                };
+                throw new IllegalStateException(msg);
             }
         }
 
@@ -181,18 +186,18 @@ public class InventoryService {
     }
 
     /**
-     * Desequipa as armas equipadas cuja categoria não bate com {@code keep} — usado na troca de
-     * classe (ex.: virar Archer desequipa a espada melee, que ficaria travada). [CLASSES_ARMAS]
+     * Desequipa as armas equipadas que a classe {@code cls} NÃO pode usar (por tipo) — usado na
+     * troca de classe (Archer perde melee; Merchant perde tudo que não for machado/marreta). [CLASSES_ARMAS/MERCADOR]
      */
     @Transactional
-    public void unequipWeaponsNotMatching(Player player, WeaponCategory keep) {
+    public void unequipWeaponsNotUsable(Player player, com.medieval.game.enums.WarriorClass cls) {
         inventoryRepository.findAllByPlayer(player).stream()
                 .filter(i -> i.getType() == ItemType.WEAPON && i.isEquipped())
-                .filter(i -> i.effectiveWeaponCategory() != keep)
+                .filter(i -> !cls.canEquip(WeaponType.fromName(i.getName())))
                 .forEach(i -> {
                     i.setEquipped(false);
                     inventoryRepository.save(i);
-                    log.info("[InventoryService] player={} auto-unequip weapon {} (category mismatch on class change)", player.getId(), i.getId());
+                    log.info("[InventoryService] player={} auto-unequip weapon {} (not usable by {})", player.getId(), i.getId(), cls);
                 });
     }
 
@@ -219,6 +224,8 @@ public class InventoryService {
         // Preço efetivo escala com a durabilidade (piso 30%) — evita "lavar" o desgaste
         // vendendo um item surrado pelo preço cheio em vez de reparar. [AUDITORIA M1]
         long effectivePrice = Math.round(item.getSellPrice() * Math.max(0.30, item.getDurability() / 100.0));
+        int sellBonus = abilityService.sellPriceBonusPct(player); // [MERCADOR] Haggler
+        if (sellBonus > 0) effectivePrice = Math.round(effectivePrice * (1 + sellBonus / 100.0));
         player.addBronzeAmount(effectivePrice); // sell price é em bronze
         playerRepository.save(player);
         gemRepository.deleteAllByItem(item);    // limpa joias (FK) antes de remover o item

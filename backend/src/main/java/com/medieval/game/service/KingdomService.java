@@ -44,6 +44,7 @@ public class KingdomService {
     private final BattleSimulator              battleSimulator;
     private final KingdomQuestNarrator         narrator;
     private final PetService                   petService; // quest rara da Luna. [PETS]
+    private final AbilityService               abilityService; // +drop do Mercador (Treasure Hunter) [MERCADOR]
 
     // ── Quest rara da Luna (pet): aparição + chance de pity. [PETS] ──
     private static final int  LUNA_WINDOW_DENOM = 4;       // ~1 a cada 4 janelas de 12h (~a cada 2 dias)
@@ -550,7 +551,7 @@ public class KingdomService {
         var rng = new java.util.Random();
         Warrior warrior = warriorRepo.findByPlayer(player).orElse(null);
         int luck  = warrior != null ? warrior.getLuck() : 0;
-        int total = dropChance + luck + guildBonus;
+        int total = dropChance + luck + guildBonus + abilityService.dropChanceBonus(player); // [MERCADOR] Treasure Hunter
         if (rng.nextInt(100) >= total) return null;
 
         // Top tier (dropChance>=60) tem ~5% de chance de Lendário (5). [ITENS_V2]
