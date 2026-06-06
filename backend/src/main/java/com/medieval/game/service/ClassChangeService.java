@@ -37,16 +37,25 @@ public class ClassChangeService {
     // ── Guardiões da Trial (placeholder, ajustar no playtest) ──
     // Cada caminho tem um guardião com o "sabor" do arquétipo: o da Lâmina é tanky de corpo-a-corpo,
     // o do Arco é ágil/evasivo com crit. Stats no formato [atk, def, hp, dex(AC=10+dex), strBonus, luk].
-    private static final Guardian BLADE_GUARDIAN    = new Guardian("Blade Guardian",    22, 14, 160,  8, 2,  5);
-    private static final Guardian BOW_GUARDIAN      = new Guardian("Bow Guardian",      20,  8, 130, 18, 2, 20);
-    private static final Guardian MERCHANT_GUARDIAN = new Guardian("Caravan Guardian",  20, 11, 145, 12, 2, 12); // [MERCADOR]
+    // ⚠ A Trial é feita por um RECRUIT Lv10, que tem só 18 pontos → STR < 20 → acerto = d20+0
+    // (acerto não escala antes de STR 20). Por isso o AC do guardião TEM que ser baixo (~12–14),
+    // senão a luta fica IMPOSSÍVEL de acertar. AC alto (18/22/28) travava a progressão de classe. [CLASSES]
+    private static final Guardian BLADE_GUARDIAN    = new Guardian("Blade Guardian",    15, 12, 115, 2, 2,  5);
+    private static final Guardian BOW_GUARDIAN      = new Guardian("Bow Guardian",      15,  6, 100, 4, 2, 15);
+    private static final Guardian MERCHANT_GUARDIAN = new Guardian("Caravan Guardian",  15, 10, 110, 3, 2, 10); // [MERCADOR]
 
-    private Guardian guardianFor(WarriorClass path) {
+    private static Guardian guardianFor(WarriorClass path) {
         return switch (path) {
             case ARCHER   -> BOW_GUARDIAN;
             case MERCHANT -> MERCHANT_GUARDIAN;
             default       -> BLADE_GUARDIAN;
         };
+    }
+
+    /** Stats do guardião como array [atk,def,hp,dex,strBonus,luk] — seam p/ o teste de balance. [CLASSES] */
+    static int[] guardianStats(WarriorClass path) {
+        Guardian g = guardianFor(path);
+        return new int[]{ g.atk(), g.def(), g.hp(), g.dex(), g.strBonus(), g.luk() };
     }
 
     /** Estado da escolha de classe pra UI (classe atual + se a Trial está liberada + os caminhos). */
