@@ -359,7 +359,7 @@ async function loadWarrior() {
     </div>` : '';
 
   document.getElementById('warrior-card').innerHTML = `
-    <div class="warrior-name">${escapeHtml(warrior.name)}</div>
+    <div class="warrior-name">${warrior.title ? `<span style="color:#c9a84c">${escapeHtml(warrior.title)}</span> ` : ''}${escapeHtml(warrior.name)}</div>
     <div class="warrior-class">${warrior.warriorClass}</div>
     ${warrior.warriorClassId === 'RECRUIT' ? ((warrior.level ?? 1) >= 10
       ? `<div onclick="openClassTrial()" style="margin:.3rem 0;padding:5px 8px;background:#2a1a3a;border:1px solid #a855f7;border-radius:6px;color:#d8b4fe;font-size:.78rem;cursor:pointer;text-align:center;font-weight:600">⚔ Choose your Path</div>`
@@ -912,8 +912,9 @@ async function loadAchievements() {
     <div class="attr-section" style="margin-top:10px">
       <div class="attr-header"><span>🏆 Achievements & Titles</span>
         <span style="font-size:.72rem;color:#888">${unlocked.length}/${data.achievements.length}</span></div>
-      <div style="font-size:.74rem;color:#aaa;margin:4px 0 6px">Active title <span style="color:#888">— shown before your name to others:</span></div>
-      <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:6px">${pickerBtns}</div>
+      <div style="font-size:.74rem;color:#c9a84c;margin:4px 0 6px">👑 Active title <span style="color:#888">— click one to show it before your name (to everyone):</span></div>
+      <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px">${pickerBtns}</div>
+      ${unlocked.length === 0 ? '<div style="font-size:.72rem;color:#888;margin-bottom:6px">Unlock achievements below to earn titles.</div>' : ''}
       ${list}
     </div>`;
 }

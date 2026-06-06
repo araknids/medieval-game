@@ -102,6 +102,40 @@ class AchievementTest extends BaseIntegrationTest {
         assertThat(AchievementService.titleString(p)).isEmpty();
     }
 
+    // Cenário do dono: desbloqueio via gameplay (notify) → a página mostra desbloqueado + dá pra selecionar.
+    @Test
+    @DisplayName("Após desbloqueio via gameplay, GET mostra unlocked=true e o título é selecionável")
+    void afterGameplayUnlock_listShowsUnlockedAndSelectable() throws Exception {
+        String token = registerAndGetToken(uniqueUser("ach"));
+        Player p = playerRepository.findAll().stream()
+                .filter(x -> x.getUsername().startsWith("ach"))
+                .reduce((a, b) -> b.getId() > a.getId() ? b : a).orElseThrow();
+        warriorRepository.findByPlayer(p).ifPresent(w -> {
+            w.setWarriorClass(WarriorClass.ARCHER); w.setLevel(12); warriorRepository.save(w);
+        });
+        // gatilho de gameplay (manda mail) — igual ao que a Trial faz
+        achievementService.checkAndUnlock(reload(p), true);
+
+        mockMvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders
+                        .get("/api/achievements").header("Authorization", bearer(token)))
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.status().isOk())
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers
+                        .jsonPath("$.achievements[?(@.id=='PATH_ARCHER')].unlocked").value(org.hamcrest.Matchers.hasItem(true)))
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers
+                        .jsonPath("$.achievements[?(@.id=='PATH_ARCHER')].title").value(org.hamcrest.Matchers.hasItem("Hunter")));
+
+        // o título "Hunter" é selecionável e passa a aparecer no /api/warrior
+        mockMvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders
+                        .post("/api/achievements/title").header("Authorization", bearer(token))
+                        .contentType(org.springframework.http.MediaType.APPLICATION_JSON)
+                        .content("{\"id\":\"PATH_ARCHER\"}"))
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.status().isOk());
+        mockMvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders
+                        .get("/api/warrior").header("Authorization", bearer(token)))
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers
+                        .jsonPath("$.title").value("Hunter")); // [TITULOS] título no header do jogador
+    }
+
     @Test
     @DisplayName("soft-wipe apaga as conquistas e zera o título ativo")
     void softWipe_clearsAchievementsAndTitle() {
