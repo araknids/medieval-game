@@ -53,26 +53,38 @@ public class SmithingController {
         )).toList();
 
         // [CLASSES_ARMAS] Só mostra as armas da categoria da classe (Archer vê arcos, resto vê espadas).
+        // Stats da arma vêm do perfil do tipo (mesmo cálculo do make()); armadura usa os fixos do recipe.
         WarriorClass cls = warriorRepository.findByPlayer(player).map(Warrior::getWarriorClass).orElse(WarriorClass.RECRUIT);
-        var craft = SmithingService.craftRecipesFor(cls.weaponCategory()).stream().map(r -> Map.ofEntries(
-            Map.entry("type",        "craft"),
-            Map.entry("id",          r.id()),
-            Map.entry("name",        r.name()),
-            Map.entry("ingredients", r.ingredients().entrySet().stream().map(e -> Map.of(
-                "resource", e.getKey().name(),
-                "name",     e.getKey().displayName,
-                "qty",      e.getValue()
-            )).toList()),
-            Map.entry("levelRequired", r.smithingLevel()),
-            Map.entry("bronzeCost",  r.bronzeCost()),                              // [PROFISSAO_SUCCESS] taxa por tentativa
-            Map.entry("successPct",  smithingService.craftSuccessPct(smithingLevel, r)), // chance no nível atual
-            Map.entry("atk",         r.atk()),
-            Map.entry("def",         r.def()),
-            Map.entry("hp",          r.hp()),
-            Map.entry("rarity",      r.rarity()),
-            Map.entry("sockets",     r.sockets()),
-            Map.entry("canCraft",    smithingLevel >= r.smithingLevel())
-        )).toList();
+        var craft = SmithingService.craftRecipesFor(cls.weaponCategory()).stream().map(r -> {
+            boolean isWeapon = !r.name().toLowerCase().contains("armadura");
+            com.medieval.game.enums.WeaponType wt = isWeapon ? com.medieval.game.enums.WeaponType.fromName(r.name()) : null;
+            int[] st = isWeapon ? wt.stats(r.itemLevel(), r.rarity())
+                                : new int[]{ r.atk(), r.def(), r.hp(), 0, 0, 0 };
+            return Map.<String,Object>ofEntries(
+                Map.entry("type",        "craft"),
+                Map.entry("id",          r.id()),
+                Map.entry("name",        r.name()),
+                Map.entry("weaponType",  isWeapon ? wt.displayName : ""),
+                Map.entry("ingredients", r.ingredients().entrySet().stream().map(e -> Map.of(
+                    "resource", e.getKey().name(),
+                    "name",     e.getKey().displayName,
+                    "qty",      e.getValue()
+                )).toList()),
+                Map.entry("levelRequired", r.smithingLevel()),
+                Map.entry("bronzeCost",  r.bronzeCost()),                              // [PROFISSAO_SUCCESS] taxa por tentativa
+                Map.entry("successPct",  smithingService.craftSuccessPct(smithingLevel, r)), // chance no nível atual
+                Map.entry("atk",         st[0]),
+                Map.entry("def",         st[1]),
+                Map.entry("hp",          st[2]),
+                Map.entry("str",         st[3]),
+                Map.entry("dex",         st[4]),
+                Map.entry("luk",         st[5]),
+                Map.entry("itemLevel",   r.itemLevel()),
+                Map.entry("rarity",      r.rarity()),
+                Map.entry("sockets",     r.sockets()),
+                Map.entry("canCraft",    smithingLevel >= r.smithingLevel())
+            );
+        }).toList();
 
         // Joias
         var gems = Arrays.stream(ResourceType.values())

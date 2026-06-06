@@ -31,6 +31,9 @@ public class ShopController {
                 Map.entry("attackBonus",  i.atk()),
                 Map.entry("defenseBonus", i.def()),
                 Map.entry("healthBonus",  i.hp()),
+                Map.entry("strBonus",     i.str()), // [CLASSES_ARMAS]
+                Map.entry("dexBonus",     i.dex()),
+                Map.entry("lukBonus",     i.luk()),
                 Map.entry("rarity",       i.rarity()),
                 Map.entry("rarityName",   i.rarityName()),
                 Map.entry("itemLevel",    i.itemLevel()),

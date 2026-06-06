@@ -163,7 +163,12 @@ public class SchemaMigrator {
     private void patchInventoryWeaponCategoryColumn() {
         try {
             jdbc.execute("ALTER TABLE inventory_items ADD COLUMN IF NOT EXISTS weapon_category varchar(10)");
-            log.info("[SchemaMigrator] inventory_items.weapon_category column ensured");
+            // Stats secundários base (perfil do tipo de arma) + item_level no mail (preserva o nível). [CLASSES_ARMAS]
+            jdbc.execute("ALTER TABLE inventory_items ADD COLUMN IF NOT EXISTS str_bonus integer NOT NULL DEFAULT 0");
+            jdbc.execute("ALTER TABLE inventory_items ADD COLUMN IF NOT EXISTS dex_bonus integer NOT NULL DEFAULT 0");
+            jdbc.execute("ALTER TABLE inventory_items ADD COLUMN IF NOT EXISTS luk_bonus integer NOT NULL DEFAULT 0");
+            jdbc.execute("ALTER TABLE mail ADD COLUMN IF NOT EXISTS item_level integer NOT NULL DEFAULT 1");
+            log.info("[SchemaMigrator] inventory_items.weapon_category/str/dex/luk + mail.item_level columns ensured");
         } catch (Exception e) {
             log.warn("[SchemaMigrator] inventory_items.weapon_category patch failed: {}", e.getMessage());
         }

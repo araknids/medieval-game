@@ -141,10 +141,19 @@ public class MailService {
      * The item data is stored in the mail and created in the inventory only
      * when the player explicitly claims it.
      */
+    /** Compat: nível do item assumido 1 (não-armas). Armas devem usar a sobrecarga com itemLevel. */
     @Transactional
     public Mail sendItemMail(Player recipient, String reason,
                              String itemName, ItemType itemType,
                              int atk, int def, int hp, int rarity, int sockets,
+                             String description, String origin) {
+        return sendItemMail(recipient, reason, itemName, itemType, atk, def, hp, rarity, 1, sockets, description, origin);
+    }
+
+    @Transactional
+    public Mail sendItemMail(Player recipient, String reason,
+                             String itemName, ItemType itemType,
+                             int atk, int def, int hp, int rarity, int itemLevel, int sockets,
                              String description, String origin) {
         Mail mail = new Mail();
         mail.setSenderPlayerId(0L);           // 0 = system sender
@@ -158,6 +167,7 @@ public class MailService {
         mail.setItemDef(def);
         mail.setItemHp(hp);
         mail.setItemRarity(rarity);
+        mail.setItemLevel(Math.max(1, itemLevel)); // [CLASSES_ARMAS] arma recalcula pelo perfil no claim
         mail.setItemSockets(sockets);
         mail.setItemDescription(description);
         mail.setItemOrigin(origin);
@@ -180,11 +190,12 @@ public class MailService {
             throw new IllegalStateException("This letter has expired. The item was lost.");
 
         ItemType type = ItemType.valueOf(mail.getItemType());
+        // Passa o itemLevel preservado: armas recalculam os stats pelo perfil do tipo no make(). [CLASSES_ARMAS]
         InventoryItem item = inventoryService.make(
                 player, mail.getItemName(), type,
                 mail.getItemAtk(), mail.getItemDef(), mail.getItemHp(),
                 mail.getItemRarity(), 0L,
-                mail.getItemDescription(), mail.getItemOrigin());
+                mail.getItemLevel(), mail.getItemDescription(), mail.getItemOrigin());
 
         mail.setItemCollected(true);
         if (!mail.isRead()) mail.setReadAt(LocalDateTime.now());

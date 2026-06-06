@@ -70,44 +70,52 @@ public class SmithingService {
     );
 
     // ── Receitas de craft de equipamento (bronzeCost = taxa por tentativa, perdida na falha) ──
+    // itemLevel = nível de poder/equip do item (SEPARADO do smithingLevel = gate de skill). [CLASSES_ARMAS]
     public record CraftRecipe(String id, String name,
                               Map<ResourceType, Integer> ingredients,
                               int smithingLevel, long bronzeCost,
-                              int atk, int def, int hp, int rarity, int sockets) {}
+                              int atk, int def, int hp, int rarity, int sockets, int itemLevel) {}
 
-    public static final List<CraftRecipe> CRAFT_RECIPES = List.of(
-        new CraftRecipe("copper_sword",  "Espada de Cobre Forjada",
-            Map.of(ResourceType.COPPER_BAR, 3),  1,  100,  5, 0, 0, 1, 0),
-        new CraftRecipe("copper_armor",  "Armadura de Cobre Forjada",
-            Map.of(ResourceType.COPPER_BAR, 5),  5,  150,  0, 5, 15, 1, 0),
-        new CraftRecipe("iron_sword",    "Espada de Ferro Forjada",
-            Map.of(ResourceType.IRON_BAR, 3), 20,  400, 10, 0, 0, 2, 1),
-        new CraftRecipe("iron_armor",    "Armadura de Ferro Forjada",
-            Map.of(ResourceType.IRON_BAR, 5), 25,  500, 0, 10, 25, 2, 1),
-        new CraftRecipe("silver_sword",  "Espada de Prata Forjada",
-            Map.of(ResourceType.SILVER_BAR, 3), 40,  800, 16, 0, 0, 3, 2),
-        new CraftRecipe("silver_armor",  "Armadura de Prata Forjada",
-            Map.of(ResourceType.SILVER_BAR, 5), 45,  900, 0, 16, 40, 3, 2),
-        new CraftRecipe("gold_sword",    "Espada de Ouro Forjada",
-            Map.of(ResourceType.GOLD_BAR, 3), 60, 1200, 22, 0, 0, 3, 2),
-        new CraftRecipe("gold_armor",    "Armadura de Ouro Forjada",
-            Map.of(ResourceType.GOLD_BAR, 5), 65, 1300, 0, 22, 55, 3, 2),
-        new CraftRecipe("mithril_sword", "Espada de Mithril Forjada",
-            Map.of(ResourceType.MITHRIL_BAR, 3), 80, 1600, 28, 0, 0, 4, 3),
-        new CraftRecipe("mithril_armor", "Armadura de Mithril Forjada",
-            Map.of(ResourceType.MITHRIL_BAR, 5), 85, 1700, 0, 28, 70, 4, 3),
-        // [CLASSES_ARMAS] Linha de arcos (Archer) — espelha as espadas; "Arco" no nome → RANGED no make().
-        new CraftRecipe("copper_bow",  "Arco de Cobre Forjado",
-            Map.of(ResourceType.COPPER_BAR, 3),  1,  100,  5, 0, 0, 1, 0),
-        new CraftRecipe("iron_bow",    "Arco de Ferro Forjado",
-            Map.of(ResourceType.IRON_BAR, 3), 20,  400, 10, 0, 0, 2, 1),
-        new CraftRecipe("silver_bow",  "Arco de Prata Forjado",
-            Map.of(ResourceType.SILVER_BAR, 3), 40,  800, 16, 0, 0, 3, 2),
-        new CraftRecipe("gold_bow",    "Arco de Ouro Forjado",
-            Map.of(ResourceType.GOLD_BAR, 3), 60, 1200, 22, 0, 0, 3, 2),
-        new CraftRecipe("mithril_bow", "Arco de Mithril Forjado",
-            Map.of(ResourceType.MITHRIL_BAR, 3), 80, 1600, 28, 0, 0, 4, 3)
+    // Geradas por tier de material × tipo de arma (+ 1 armadura por tier). [CLASSES_ARMAS]
+    // Arma: stats vêm do perfil do WeaponType (make() sobrescreve) → atk/def/hp aqui = 0.
+    // Armadura: stats fixos por tier (sem perfil de tipo).
+    private record MatTier(String en, String pt, ResourceType bar, int smithingLevel,
+                           long weaponCost, long armorCost, int rarity, int sockets, int itemLevel,
+                           int armorDef, int armorHp) {}
+    private static final List<MatTier> MAT_TIERS = List.of(
+        new MatTier("copper",  "Cobre",   ResourceType.COPPER_BAR,   1,  100,  150, 1, 0,  8,  5, 15),
+        new MatTier("iron",    "Ferro",   ResourceType.IRON_BAR,    20,  400,  500, 2, 1, 19, 10, 25),
+        new MatTier("silver",  "Prata",   ResourceType.SILVER_BAR,  40,  800,  900, 3, 2, 30, 16, 40),
+        new MatTier("gold",    "Ouro",    ResourceType.GOLD_BAR,    60, 1200, 1300, 3, 2, 45, 22, 55),
+        new MatTier("mithril", "Mithril", ResourceType.MITHRIL_BAR, 80, 1600, 1700, 4, 3, 60, 28, 70)
     );
+    private record WeaponKind(String idKey, String pt) {}
+    private static final List<WeaponKind> WEAPON_KINDS = List.of(
+        new WeaponKind("sword",      "Espada"),
+        new WeaponKind("greatsword", "Montante"),
+        new WeaponKind("axe",        "Machado"),
+        new WeaponKind("spear",      "Lança"),
+        new WeaponKind("shortbow",   "Arco Curto"),
+        new WeaponKind("longbow",    "Arco Longo"),
+        new WeaponKind("crossbow",   "Besta")
+    );
+
+    public static final List<CraftRecipe> CRAFT_RECIPES = buildRecipes();
+
+    private static List<CraftRecipe> buildRecipes() {
+        List<CraftRecipe> list = new java.util.ArrayList<>();
+        for (MatTier m : MAT_TIERS) {
+            for (WeaponKind w : WEAPON_KINDS) {
+                list.add(new CraftRecipe(m.en() + "_" + w.idKey(), w.pt() + " de " + m.pt(),
+                        Map.of(m.bar(), 3), m.smithingLevel(), m.weaponCost(),
+                        0, 0, 0, m.rarity(), m.sockets(), m.itemLevel())); // arma: stats via perfil no make()
+            }
+            list.add(new CraftRecipe(m.en() + "_armor", "Armadura de " + m.pt(),
+                    Map.of(m.bar(), 5), m.smithingLevel() + 5, m.armorCost(),
+                    0, m.armorDef(), m.armorHp(), m.rarity(), m.sockets(), m.itemLevel()));
+        }
+        return List.copyOf(list);
+    }
 
     /** Recipes visíveis p/ a classe: armaduras + as armas da categoria da classe (tier-ordered). [CLASSES_ARMAS] */
     public static List<CraftRecipe> craftRecipesFor(com.medieval.game.enums.WeaponCategory canWield) {
@@ -206,8 +214,9 @@ public class SmithingService {
         gatheringService.addSkillXp(smithing, recipe.smithingLevel() * 10);
 
         if (inventoryService.bagSize(player) < player.getMaxInventorySlots()) {
+            // itemLevel do tier (não o smithingLevel): armas recalculam stats pelo perfil no make(). [CLASSES_ARMAS]
             InventoryItem result = inventoryService.make(player, recipe.name(), itemType,
-                    recipe.atk(), recipe.def(), recipe.hp(), recipe.rarity(), sell, recipe.smithingLevel(), desc, origin);
+                    recipe.atk(), recipe.def(), recipe.hp(), recipe.rarity(), sell, recipe.itemLevel(), desc, origin);
             result.setSockets(recipe.sockets());
             inventoryRepository.save(result);
             log.info("[SmithingService] player={} action=craftEquipment OK recipeId={} itemId={} name={}", player.getId(), recipeId, result.getId(), result.getName());
@@ -215,7 +224,7 @@ public class SmithingService {
         } else {
             mailService.sendItemMail(player, "Forjado na Oficina.",
                     recipe.name(), itemType, recipe.atk(), recipe.def(), recipe.hp(),
-                    recipe.rarity(), recipe.sockets(), desc, origin);
+                    recipe.rarity(), recipe.itemLevel(), recipe.sockets(), desc, origin);
             log.info("[SmithingService] player={} action=craftEquipment OK (mail — bag full) recipeId={}", player.getId(), recipeId);
             return new CraftResult(true, true, successPct, null, "Crafted! Bag was full — sent to your mailbox.");
         }

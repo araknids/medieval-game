@@ -126,7 +126,7 @@ public class ClassChangeService {
         if (inventoryService.bagSize(player) < player.getMaxInventorySlots()) {
             inventoryService.make(player, name, ItemType.WEAPON, 5, 0, 0, 1, 20, 1, desc, origin);
         } else {
-            mailService.sendItemMail(player, "Your Path Trial reward.", name, ItemType.WEAPON, 5, 0, 0, 1, 0, desc, origin);
+            mailService.sendItemMail(player, "Your Path Trial reward.", name, ItemType.WEAPON, 5, 0, 0, 1, 1, 0, desc, origin);
         }
     }
 

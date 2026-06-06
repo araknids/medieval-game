@@ -74,7 +74,8 @@ class ItemAffixTest extends BaseIntegrationTest {
         Warrior w = warriorRepository.findByPlayer(player).orElseThrow();
         int[] before = statsService.combatStats(player, w);
 
-        InventoryItem it = inventoryService.make(player, "Legendary Blade", ItemType.WEAPON, 10, 5, 20, 5, 2500);
+        // ARMOR (não-arma) p/ honrar os stats base passados — armas auto-perfilam pelo tipo. [CLASSES_ARMAS]
+        InventoryItem it = inventoryService.make(player, "Legendary Plate", ItemType.ARMOR, 10, 5, 20, 5, 2500);
         inventoryService.equip(player, it.getId());
 
         int aAtk = 0, aDef = 0, aHp = 0, aStr = 0, aDex = 0, aLuk = 0;

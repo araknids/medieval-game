@@ -102,6 +102,7 @@ public class InventoryController {
 
     record ItemResponse(Long id, String name, String type, String typeDisplay,
                         int attackBonus, int defenseBonus, int healthBonus,
+                        int strBonus, int dexBonus, int lukBonus,
                         int rarity, String rarityName, long sellPrice,
                         int sockets, List<GemSlot> gems, List<AffixLine> affixes,
                         boolean equipped, boolean guarded,
@@ -121,6 +122,7 @@ public class InventoryController {
                 i.getId(), i.getName(),
                 i.getType().name(), i.getType().displayName,
                 i.getAttackBonus(), i.getDefenseBonus(), i.getHealthBonus(),
+                i.getStrBonus(), i.getDexBonus(), i.getLukBonus(),
                 i.getRarity(), rarityName(i.getRarity()), i.getSellPrice(),
                 i.getSockets(), gems, affixes,
                 i.isEquipped(), i.isGuarded(),

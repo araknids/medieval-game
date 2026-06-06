@@ -1012,6 +1012,9 @@ function statsText(item) {
   if (item.attackBonus  > 0) parts.push(`+${item.attackBonus} ATK`);
   if (item.defenseBonus > 0) parts.push(`+${item.defenseBonus} DEF`);
   if (item.healthBonus  > 0) parts.push(`+${item.healthBonus} HP`);
+  if (item.strBonus     > 0) parts.push(`+${item.strBonus} STR`); // [CLASSES_ARMAS] perfil da arma
+  if (item.dexBonus     > 0) parts.push(`+${item.dexBonus} DEX`);
+  if (item.lukBonus     > 0) parts.push(`+${item.lukBonus} LUK`);
   return parts.join('  ') || '–';
 }
 
@@ -1400,7 +1403,7 @@ async function renderSmithing() {
       <div class="sk-recipe-title rarity-${r.rarity}">${r.name} (${r.sockets} socket${r.sockets !== 1 ? 's' : ''})</div>
       <div style="font-size:.75rem;color:#aaa">
         ${r.ingredients.map(i => `${RESOURCE_ICONS[i.resource]||''} ${i.name} ×${i.qty}`).join(' + ')}
-        ${r.atk > 0 ? ` · +${r.atk} ATK` : ''}${r.def > 0 ? ` · +${r.def} DEF` : ''}${r.hp > 0 ? ` · +${r.hp} HP` : ''}
+        ${r.atk > 0 ? ` · +${r.atk} ATK` : ''}${r.def > 0 ? ` · +${r.def} DEF` : ''}${r.hp > 0 ? ` · +${r.hp} HP` : ''}${r.str > 0 ? ` · +${r.str} STR` : ''}${r.dex > 0 ? ` · +${r.dex} DEX` : ''}${r.luk > 0 ? ` · +${r.luk} LUK` : ''}
       </div>
       <div style="font-size:.75rem;color:#888">Forja Lv.${r.levelRequired} ${!r.canCraft ? '🔒' : ''}</div>
       ${r.canCraft ? `

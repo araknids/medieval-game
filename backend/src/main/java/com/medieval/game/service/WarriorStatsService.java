@@ -67,7 +67,10 @@ public class WarriorStatsService {
         int atk = equipped.stream().mapToInt(InventoryItem::getEffectiveAttack).sum()  + matk;
         int def = equipped.stream().mapToInt(InventoryItem::getEffectiveDefense).sum() + mdef;
         int hp  = equipped.stream().mapToInt(InventoryItem::getEffectiveHealth).sum()  + mhp;
-        int str = 0, dex = 0, luk = 0;
+        // [CLASSES_ARMAS] str/dex/luk BASE dos itens (perfil das armas) — somam com os afixos abaixo.
+        int str = equipped.stream().mapToInt(InventoryItem::getEffectiveStr).sum();
+        int dex = equipped.stream().mapToInt(InventoryItem::getEffectiveDex).sum();
+        int luk = equipped.stream().mapToInt(InventoryItem::getEffectiveLuk).sum();
 
         // Joias de todos os itens equipados em uma única query (evita N+1)
         Map<Long, List<SocketedGem>> gemsByItem = gemRepository.findAllByItemIn(equipped).stream()

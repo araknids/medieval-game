@@ -2,8 +2,8 @@ package com.medieval.game.service;
 
 import com.medieval.game.enums.Affix;
 import com.medieval.game.enums.ItemType;
-import com.medieval.game.enums.WarriorClass;
 import com.medieval.game.enums.WeaponCategory;
+import com.medieval.game.enums.WeaponType;
 import com.medieval.game.model.InventoryItem;
 import com.medieval.game.model.ItemAffix;
 import com.medieval.game.model.Player;
@@ -269,11 +269,19 @@ public class InventoryService {
         item.setPlayer(player);
         item.setName(name);
         item.setType(type);
-        // [CLASSES_ARMAS] Categoria da arma derivada do nome (arco → RANGED; senão MELEE).
-        if (type == ItemType.WEAPON) item.setWeaponCategory(WeaponCategory.fromWeaponName(name));
-        item.setAttackBonus(atk);
-        item.setDefenseBonus(def);
-        item.setHealthBonus(hp);
+        if (type == ItemType.WEAPON) {
+            // [CLASSES_ARMAS] Arma se auto-perfila pelo TIPO (inferido do nome): categoria + stats
+            // do WeaponType (atk/def/str/dex/luk por nível×raridade). Ignora atk/def/hp passados.
+            WeaponType wt = WeaponType.fromName(name);
+            item.setWeaponCategory(wt.category);
+            int[] s = wt.stats(Math.max(1, itemLevel), rarity);
+            item.setAttackBonus(s[0]); item.setDefenseBonus(s[1]); item.setHealthBonus(s[2]);
+            item.setStrBonus(s[3]);    item.setDexBonus(s[4]);     item.setLukBonus(s[5]);
+        } else {
+            item.setAttackBonus(atk);
+            item.setDefenseBonus(def);
+            item.setHealthBonus(hp);
+        }
         item.setRarity(rarity);
         item.setItemLevel(Math.max(1, itemLevel));
         item.setSellPrice(sellPrice);

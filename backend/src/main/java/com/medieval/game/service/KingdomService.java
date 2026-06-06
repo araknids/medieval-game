@@ -578,7 +578,7 @@ public class KingdomService {
             return inventoryService.make(player, name, type, atk, def, hp, rarity, price, itemLevel, lore, origin);
         } else {
             mailService.sendItemMail(player, "Drop de Kingdom Quest.",
-                    name, type, atk, def, hp, rarity, 0, lore, origin);
+                    name, type, atk, def, hp, rarity, itemLevel, 0, lore, origin);
             log.info("[KingdomService] player={} bag full — item '{}' sent to mail", player.getId(), name);
             return null;
         }
@@ -588,8 +588,9 @@ public class KingdomService {
         String[] bases = switch (type) {
             case HELMET   -> new String[]{"Helm", "Helmet"};
             case ARMOR    -> new String[]{"Armor", "Breastplate"};
-            // [CLASSES_ARMAS] Arqueiro dropa arco (→ RANGED no make()); resto, espada.
-            case WEAPON   -> isArcher ? new String[]{"Bow", "Longbow"} : new String[]{"Sword", "Blade"};
+            // [CLASSES_ARMAS] Varia o TIPO dentro da categoria da classe (o nome → WeaponType no make()).
+            case WEAPON   -> isArcher ? new String[]{"Short Bow", "Long Bow", "Crossbow"}
+                                      : new String[]{"Sword", "Greatsword", "Axe", "Spear"};
             case SHIELD   -> new String[]{"Shield", "Buckler"};
             case BOOTS    -> new String[]{"Boots", "Greaves"};
             case GLOVES   -> new String[]{"Gloves", "Gauntlets"};

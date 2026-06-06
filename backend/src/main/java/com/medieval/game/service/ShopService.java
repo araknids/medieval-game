@@ -36,7 +36,7 @@ public class ShopService {
     // [CLASSES_ARMAS] Nomes de arco — o slot de arma da loja troca p/ um destes quando o
     // jogador é Arqueiro (mesmos stats/preço do tier, só o nome muda → make() infere RANGED).
     private static final String[] BOW_NAMES = {
-        "Hunting Bow", "Oak Bow", "Recurve Bow", "Longbow", "Composite Bow", "Elven Bow"
+        "Short Bow", "Long Bow", "Crossbow", "Hunting Shortbow", "Heavy Crossbow", "Elven Longbow"
     };
 
     // ── Nomes do mercador ──
@@ -199,17 +199,20 @@ public class ShopService {
         Object[] template = pool[rng.nextInt(pool.length)];
         int offset = rng.nextInt(11) - 5;             // -5..+5
         int itemLevel = Math.max(1, playerLevel + offset);
-        int[] s = inventoryService.rollItemStats(itemLevel, rarity, rng); // semeado → preview == compra
+        int[] s = inventoryService.rollItemStats(itemLevel, rarity, rng); // semeado → preview == compra (mantém a sequência do rng)
         int price = (int) template[5];                // mantém o preço curado do template
         long itemId = rotationId * SHOP_SIZE + slot;
         ItemType type = (ItemType) template[1];
-        // [CLASSES_ARMAS] Arqueiro vê arco no lugar de espada (mesmos stats/preço; nome determinístico,
-        // sem consumir rng → preview e compra continuam idênticos).
+        // [CLASSES_ARMAS] Arqueiro vê arco no lugar de espada (nome determinístico, sem consumir rng).
         String name = (isArcher && type == ItemType.WEAPON)
                 ? BOW_NAMES[(int)(((rotationId + slot) % BOW_NAMES.length + BOW_NAMES.length) % BOW_NAMES.length)]
                 : (String) template[0];
+        // Arma: stats vêm do PERFIL do tipo (igual ao make()); resto usa o roll. [CLASSES_ARMAS]
+        int[] st = (type == ItemType.WEAPON)
+                ? com.medieval.game.enums.WeaponType.fromName(name).stats(itemLevel, rarity)
+                : new int[]{ s[0], s[1], s[2], 0, 0, 0 };
         return new ShopItem(itemId, name, type,
-                s[0], s[1], s[2], rarity, price, itemLevel, purchased);
+                st[0], st[1], st[2], st[3], st[4], st[5], rarity, price, itemLevel, purchased);
     }
 
     // ── Compra ──
@@ -267,7 +270,7 @@ public class ShopService {
         } else {
             mailService.sendItemMail(player, "Comprado na Loja.",
                     item.name(), item.type(), item.atk(), item.def(), item.hp(),
-                    item.rarity(), 0, desc, origin);
+                    item.rarity(), item.itemLevel(), 0, desc, origin);
             log.info("[ShopService] player={} action=buy OK (sent to mail — bag full) shopItemId={} name={}", player.getId(), shopItemId, item.name());
             result = null;
         }
@@ -290,7 +293,7 @@ public class ShopService {
     }
 
     public record ShopItem(long id, String name, ItemType type,
-                           int atk, int def, int hp, int rarity, int price,
+                           int atk, int def, int hp, int str, int dex, int luk, int rarity, int price,
                            int itemLevel, boolean purchased) {
         public String rarityName() {
             return switch (rarity) {

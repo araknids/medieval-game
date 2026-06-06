@@ -39,6 +39,15 @@ public class InventoryItem {
     private int defenseBonus;
     private int healthBonus;
 
+    // [CLASSES_ARMAS] Stats secundários base (hoje só em armas, via perfil do WeaponType).
+    // Entram no combate via WarriorStatsService.equippedGear (como os afixos).
+    @Column(columnDefinition = "integer default 0")
+    private int strBonus = 0;
+    @Column(columnDefinition = "integer default 0")
+    private int dexBonus = 0;
+    @Column(columnDefinition = "integer default 0")
+    private int lukBonus = 0;
+
     // 1=Comum, 2=Incomum, 3=Raro, 4=Épico, 5=Lendário
     private int rarity = 1;
 
@@ -88,6 +97,9 @@ public class InventoryItem {
     public int getEffectiveAttack()  { return isBroken() ? 0 : attackBonus; }
     public int getEffectiveDefense() { return isBroken() ? 0 : defenseBonus; }
     public int getEffectiveHealth()  { return isBroken() ? 0 : healthBonus; }
+    public int getEffectiveStr()     { return isBroken() ? 0 : strBonus; }
+    public int getEffectiveDex()     { return isBroken() ? 0 : dexBonus; }
+    public int getEffectiveLuk()     { return isBroken() ? 0 : lukBonus; }
 
     /** Categoria efetiva da arma: arma legada (null) conta como MELEE. Não-arma → null. [CLASSES_ARMAS] */
     public WeaponCategory effectiveWeaponCategory() {

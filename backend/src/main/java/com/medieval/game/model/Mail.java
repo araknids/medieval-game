@@ -56,6 +56,8 @@ public class Mail {
     private int    itemHp      = 0;
     @Column(columnDefinition = "integer default 1")
     private int    itemRarity  = 1;
+    @Column(columnDefinition = "integer default 1")
+    private int    itemLevel   = 1; // [CLASSES_ARMAS] preserva o nível (arma recalcula stats pelo perfil no claim)
     @Column(columnDefinition = "integer default 0")
     private int    itemSockets = 0;
     @Column(columnDefinition = "TEXT")

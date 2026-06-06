@@ -20,14 +20,8 @@ public enum WeaponCategory {
         this.icon = icon;
     }
 
-    // Palavras (EN+PT) que marcam uma arma como à distância. Tudo que não casa = corpo-a-corpo.
-    private static final String[] RANGED_KEYWORDS = {"bow", "crossbow", "arco", "besta"};
-
-    /** Categoria de uma arma a partir do nome. Sem palavra de arco → MELEE (default seguro). */
+    /** Categoria de uma arma a partir do nome — delega ao {@link WeaponType} (fonte única). */
     public static WeaponCategory fromWeaponName(String name) {
-        if (name == null) return MELEE;
-        String n = name.toLowerCase();
-        for (String k : RANGED_KEYWORDS) if (n.contains(k)) return RANGED;
-        return MELEE;
+        return WeaponType.fromName(name).category;
     }
 }

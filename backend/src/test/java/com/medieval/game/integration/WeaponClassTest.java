@@ -135,4 +135,30 @@ class WeaponClassTest extends BaseIntegrationTest {
                         && i.effectiveWeaponCategory() == WeaponCategory.RANGED);
         assertThat(hasBow).isTrue();
     }
+
+    // ── make() aplica o perfil do tipo de arma (stats secundários + categoria pelo nome) ──
+    @Test
+    @DisplayName("make() aplica o perfil: Axe→LUK, Spear→STR, Short Bow→DEX, Greatsword→ATK puro, sem HP")
+    void make_appliesWeaponProfile() {
+        Player p = newPlayer("wc");
+        makeWarrior(p, WarriorClass.RECRUIT, 30);
+
+        InventoryItem axe = inventoryService.make(p, "Battle Axe", ItemType.WEAPON, 0, 0, 0, 1, 20, 30, "d", "o");
+        assertThat(axe.getLukBonus()).isGreaterThan(0);
+        assertThat(axe.getStrBonus()).isZero();
+        assertThat(axe.getHealthBonus()).isZero();
+        assertThat(axe.effectiveWeaponCategory()).isEqualTo(WeaponCategory.MELEE);
+
+        InventoryItem spear = inventoryService.make(p, "Iron Spear", ItemType.WEAPON, 0, 0, 0, 1, 20, 30, "d", "o");
+        assertThat(spear.getStrBonus()).isGreaterThan(0);
+
+        InventoryItem sbow = inventoryService.make(p, "Short Bow", ItemType.WEAPON, 0, 0, 0, 1, 20, 30, "d", "o");
+        assertThat(sbow.getDexBonus()).isGreaterThan(0);
+        assertThat(sbow.effectiveWeaponCategory()).isEqualTo(WeaponCategory.RANGED);
+
+        InventoryItem great = inventoryService.make(p, "Greatsword", ItemType.WEAPON, 0, 0, 0, 1, 20, 30, "d", "o");
+        assertThat(great.getAttackBonus()).isGreaterThan(0);
+        assertThat(great.getDefenseBonus()).isZero();
+        assertThat(great.getStrBonus()).isZero();
+    }
 }

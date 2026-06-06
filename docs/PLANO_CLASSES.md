@@ -178,6 +178,43 @@ arma **à distância** (arco). Recruit usa corpo-a-corpo (kit inicial). Trava no
 - `make()` infere categoria pelo nome (espada→MELEE, arco→RANGED).
 - Loja oferece arco p/ arqueiro; loot dá arco p/ arqueiro.
 
+## Iteração: Tipos de arma com perfil de stats — [CLASSES_ARMAS]
+
+> Status: **implementado**. `WeaponTypeTest` + `WeaponClassTest` cobrem perfil/inferência/make.
+
+7 tipos de arma, **mesmo budget de poder, distribuição diferente** (ninguém é mais forte):
+
+| Tipo | Categoria | Perfil (frações do budget) |
+|------|-----------|----------------------------|
+| **Sword**      | MELEE  | ATK .70 · DEF .30 (versátil) |
+| **Greatsword** | MELEE  | ATK 1.0 (dano puro)          |
+| **Axe**        | MELEE  | ATK .75 · LUK .25 (crit)     |
+| **Spear**      | MELEE  | ATK .75 · STR .25 (acerto)   |
+| **Short Bow**  | RANGED | ATK .75 · DEX .25 (esquiva)  |
+| **Long Bow**   | RANGED | ATK 1.0 (dano puro)          |
+| **Crossbow**   | RANGED | ATK .75 · LUK .25 (crit)     |
+
+Regra: quem não tem secundário (Greatsword/Long Bow) põe tudo em ATK. Armas **não dão HP**
+(identidade ofensiva; HP fica em armadura/outros slots).
+
+### Modelo
+- **`WeaponType`** enum: tipo + categoria + frações de stat + `fromName()` (EN+PT) + `stats(itemLevel, rarity)`
+  → `{atk,def,hp,str,dex,luk}` deterministico (budget = `itemLevel × rarityMult × 0.6`, mín. 1 ATK).
+- **`InventoryItem`**: ganha `strBonus/dexBonus/lukBonus` (colunas novas, default 0) + `getEffectiveStr/Dex/Luk`.
+- **`make()`**: p/ arma, **sobrescreve** os stats com `WeaponType.fromName(name).stats(itemLevel, rarity)`
+  (atk/def/hp/str/dex/luk + categoria). Toda fonte (loja/loot/forja/starter/mail-claim) se auto-perfila
+  só pelo nome+nível — sem mudar a assinatura do make.
+- **`WarriorStatsService.equippedGear`**: soma o str/dex/luk **base** das armas (hoje só somava de afixo).
+- **Mail**: passa a preservar `item_level` (coluna nova) — senão a arma reconstruída no claim cairia
+  p/ nível 1 e o override recalcularia stats minúsculos.
+- **Loja/Loot/Forja**: variam o tipo de arma (nome) dentro da categoria da classe; stats vêm do perfil.
+  Forja gera recipes por tier × tipo (`CraftRecipe` ganha `itemLevel` separado do `smithingLevel`).
+- **Display**: bag (`ItemResponse`), loja (`ShopItem`) e forja mostram STR/DEX/LUK + nome do tipo.
+
+### Combate
+Inalterado — o secundário entra via os stats já existentes (STR=ATK+acerto, DEX=AC, LUK=crit).
+"Escala por DEX no arco" segue fora de escopo.
+
 ## Fora de escopo (futuro)
 
 - **Magia / classe Mage** (usa o `INT` reservado).
