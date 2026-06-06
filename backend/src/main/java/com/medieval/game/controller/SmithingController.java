@@ -4,7 +4,6 @@ import com.medieval.game.enums.ResourceType;
 import com.medieval.game.enums.SkillType;
 import com.medieval.game.model.InventoryItem;
 import com.medieval.game.model.Player;
-import com.medieval.game.model.SocketedGem;
 import com.medieval.game.service.GatheringService;
 import com.medieval.game.service.PlayerService;
 import com.medieval.game.service.SmithingService;
@@ -59,6 +58,8 @@ public class SmithingController {
                 "qty",      e.getValue()
             )).toList()),
             Map.entry("levelRequired", r.smithingLevel()),
+            Map.entry("bronzeCost",  r.bronzeCost()),                              // [PROFISSAO_SUCCESS] taxa por tentativa
+            Map.entry("successPct",  smithingService.craftSuccessPct(smithingLevel, r)), // chance no nível atual
             Map.entry("atk",         r.atk()),
             Map.entry("def",         r.def()),
             Map.entry("hp",          r.hp()),
@@ -94,14 +95,17 @@ public class SmithingController {
             req.quantity() + " " + req.oreType().displayName + " bar(s) created!"));
     }
 
-    // Craftar equipamento
+    // Craftar equipamento (pode falhar — success rate cresce com o nível de Forja). [PROFISSAO_SUCCESS]
     @PostMapping("/craft")
     public ResponseEntity<?> craft(@Valid @RequestBody CraftRequest req, Authentication auth) {
         Player player = getPlayer(auth);
-        InventoryItem item = smithingService.craftEquipment(player, req.recipeId());
+        SmithingService.CraftResult res = smithingService.craftEquipment(player, req.recipeId());
         return ResponseEntity.ok(Map.of(
-            "message", item.getName() + " created successfully!",
-            "sockets", item.getSockets()
+            "success",    res.success(),
+            "successPct", res.successPct(),
+            "message",    res.message(),
+            "mailed",     res.mailed(),
+            "sockets",    res.item() != null ? res.item().getSockets() : 0
         ));
     }
 
@@ -113,16 +117,18 @@ public class SmithingController {
         return ResponseEntity.ok(Map.of("message", "Gem created successfully!"));
     }
 
-    // Encaixar joia em item
+    // Encaixar joia em item (pode falhar — success rate cresce com o nível). [PROFISSAO_SUCCESS]
     @PostMapping("/socket/{itemId}/{gemType}")
     public ResponseEntity<?> socket(@PathVariable Long itemId,
                                     @PathVariable ResourceType gemType,
                                     Authentication auth) {
-        Player     player = getPlayer(auth);
-        SocketedGem gem   = smithingService.socketGem(player, itemId, gemType);
+        Player player = getPlayer(auth);
+        SmithingService.SocketResult res = smithingService.socketGem(player, itemId, gemType);
         return ResponseEntity.ok(Map.of(
-            "message",  gemType.displayName + " socketed successfully!",
-            "slotIndex",gem.getSlotIndex()
+            "success",    res.success(),
+            "successPct", res.successPct(),
+            "message",    res.message(),
+            "slotIndex",  res.gem() != null ? res.gem().getSlotIndex() : -1
         ));
     }
 

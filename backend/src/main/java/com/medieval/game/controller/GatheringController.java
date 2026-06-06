@@ -1,6 +1,7 @@
 package com.medieval.game.controller;
 
 import com.medieval.game.enums.ResourceType;
+import com.medieval.game.enums.SkillType;
 import com.medieval.game.model.Player;
 import com.medieval.game.service.GatheringService;
 import com.medieval.game.service.PlayerService;
@@ -25,13 +26,15 @@ public class GatheringController {
     @GetMapping("/skills")
     public ResponseEntity<?> getSkills(Authentication auth) {
         Player player = getPlayer(auth);
-        var skills = gatheringService.getAllSkills(player).stream().map(s -> Map.of(
+        var skills = gatheringService.getAllSkills(player).stream().map(s -> Map.<String, Object>of(
             "skillType",   s.getSkillType().name(),
             "displayName", s.getSkillType().displayName,
             "icon",        s.getSkillType().icon,
             "level",       s.getLevel(),
             "experience",  s.getExperience(),
-            "expNeeded",   s.expNeededForNextLevel()
+            "expNeeded",   s.expNeededForNextLevel(),
+            // [PROFISSAO_SUCCESS] próximo nível que libera um tier de recurso melhor (0 = Forja/sem tiers ou maxado)
+            "nextTierLevel", s.getSkillType() == SkillType.SMITHING ? 0 : gatheringService.nextTierLevel(s.getLevel())
         )).toList();
         return ResponseEntity.ok(skills);
     }

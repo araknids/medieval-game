@@ -77,6 +77,12 @@ public class GatheringService {
         return toAdd;
     }
 
+    /** Quantidade de um recurso na BAG (0 se não tiver) — usado p/ pré-checar craft/socket. [PROFISSAO_SUCCESS] */
+    public long resourceQuantity(Player player, ResourceType type) {
+        return resourceRepository.findByPlayerAndResourceTypeAndStashed(player, type, false)
+                .map(ResourceInventory::getQuantity).orElse(0L);
+    }
+
     @Transactional
     public void removeResource(Player player, ResourceType type, long qty) {
         if (qty < 0) throw new IllegalArgumentException("qty must be >= 0"); // [AUDITORIA C2]
@@ -178,7 +184,7 @@ public class GatheringService {
         List<ResourceDrop> drops = new ArrayList<>();
 
         if (skill == SkillType.FISHING) {
-            int catches = Math.max(1, duration / 10); // Combate V2: haul reduzido (alinhado à mineração)
+            int catches = Math.max(1, duration / 10 + level / 25); // + nível → mais haul. [PROFISSAO_SUCCESS]
             // Mar Abençoado → peixe de VIDA; demais reinos → peixe de ESTAMINA. [REINOS_V2]
             boolean hpPool = kingdom == com.medieval.game.enums.Kingdom.MAR_ABENCOADO;
             Map<ResourceType, Long> fishMap = new HashMap<>();
@@ -189,14 +195,14 @@ public class GatheringService {
             fishMap.forEach((t, q) -> drops.add(new ResourceDrop(t, q)));
 
         } else if (skill == SkillType.MINING) {
-            int ores = Math.max(1, duration / 10);
+            int ores = Math.max(1, duration / 10 + level / 25); // + nível → mais haul. [PROFISSAO_SUCCESS]
             ResourceType oreType = getBestOreForLevel(level);
             drops.add(new ResourceDrop(oreType, ores));
             // Gemas NÃO saem mais da mineração — agora vêm do Garimpo (Reinos V2).
 
         } else if (skill == SkillType.GARIMPO) {
             // Garimpo: cada rodada tenta achar um fragmento de joia (pode vir vazio).
-            int rounds = Math.max(1, duration / 10);
+            int rounds = Math.max(1, duration / 10 + level / 25); // + nível → mais rodadas. [PROFISSAO_SUCCESS]
             Map<ResourceType, Long> fragMap = new HashMap<>();
             for (int i = 0; i < rounds; i++) {
                 ResourceType frag = rollGarimpoFragment(level, rng);
@@ -244,6 +250,12 @@ public class GatheringService {
         if (level >= 40) return ResourceType.SILVER_ORE;
         if (level >= 20) return ResourceType.IRON_ORE;
         return ResourceType.COPPER_ORE;
+    }
+
+    /** Próximo nível que libera um tier melhor de recurso (0 = tudo liberado). Só p/ coleta. [PROFISSAO_SUCCESS] */
+    public int nextTierLevel(int level) {
+        for (int t : new int[]{20, 40, 60, 80}) if (level < t) return t;
+        return 0;
     }
 
     @Transactional

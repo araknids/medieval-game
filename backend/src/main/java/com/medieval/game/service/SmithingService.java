@@ -26,6 +26,23 @@ public class SmithingService {
     private final PlayerService           playerService;
     private final ItemLoreGenerator       loreGenerator;
 
+    // ── Success rate de craft/socket (melhora com o nível de Forja). [PROFISSAO_SUCCESS] ──
+    private static final int  CRAFT_BASE_PCT      = 70;  // % no nível EXATO da receita
+    private static final int  CRAFT_STEP_PCT      = 5;   // +%/nível acima da receita (teto 100)
+    private static final int  SOCKET_BASE_PCT     = 50;  // % de encaixe no 1º slot
+    private static final int  SOCKET_SLOT_PENALTY = 10;  // −%/slot já ocupado (2º/3º mais difícil)
+    private static final long SOCKET_FEE_BRONZE   = 150; // taxa por tentativa de encaixe (perdida na falha)
+
+    /** Chance de sucesso (%) do craft p/ o nível de Forja dado. */
+    public int craftSuccessPct(int smithingLevel, CraftRecipe recipe) {
+        return Math.min(100, CRAFT_BASE_PCT + (smithingLevel - recipe.smithingLevel()) * CRAFT_STEP_PCT);
+    }
+
+    /** Chance de sucesso (%) de encaixar uma joia no slot {@code slotIndex} (0-based). */
+    public int socketSuccessPct(int smithingLevel, int slotIndex) {
+        return Math.min(100, Math.max(5, SOCKET_BASE_PCT + smithingLevel - slotIndex * SOCKET_SLOT_PENALTY));
+    }
+
     // ── Gem bonuses ──
     public record GemBonus(int atk, int def, int hp) {
         public static GemBonus of(ResourceType gem) {
@@ -52,28 +69,32 @@ public class SmithingService {
         new RefineRecipe(ResourceType.MITHRIL_ORE,ResourceType.MITHRIL_BAR,5, 1000, 80)
     );
 
-    // ── Receitas de craft de equipamento ──
+    // ── Receitas de craft de equipamento (bronzeCost = taxa por tentativa, perdida na falha) ──
     public record CraftRecipe(String id, String name,
                               Map<ResourceType, Integer> ingredients,
-                              int smithingLevel,
+                              int smithingLevel, long bronzeCost,
                               int atk, int def, int hp, int rarity, int sockets) {}
 
     public static final List<CraftRecipe> CRAFT_RECIPES = List.of(
         new CraftRecipe("iron_sword",    "Espada de Ferro Forjada",
-            Map.of(ResourceType.IRON_BAR, 3), 20, 10, 0, 0, 2, 1),
+            Map.of(ResourceType.IRON_BAR, 3), 20,  400, 10, 0, 0, 2, 1),
         new CraftRecipe("iron_armor",    "Armadura de Ferro Forjada",
-            Map.of(ResourceType.IRON_BAR, 5), 25, 0, 10, 25, 2, 1),
+            Map.of(ResourceType.IRON_BAR, 5), 25,  500, 0, 10, 25, 2, 1),
         new CraftRecipe("silver_sword",  "Espada de Prata Forjada",
-            Map.of(ResourceType.SILVER_BAR, 3), 40, 16, 0, 0, 3, 2),
+            Map.of(ResourceType.SILVER_BAR, 3), 40,  800, 16, 0, 0, 3, 2),
         new CraftRecipe("silver_armor",  "Armadura de Prata Forjada",
-            Map.of(ResourceType.SILVER_BAR, 5), 45, 0, 16, 40, 3, 2),
+            Map.of(ResourceType.SILVER_BAR, 5), 45,  900, 0, 16, 40, 3, 2),
         new CraftRecipe("gold_sword",    "Espada de Ouro Forjada",
-            Map.of(ResourceType.GOLD_BAR, 3), 60, 22, 0, 0, 3, 2),
+            Map.of(ResourceType.GOLD_BAR, 3), 60, 1200, 22, 0, 0, 3, 2),
         new CraftRecipe("mithril_sword", "Espada de Mithril Forjada",
-            Map.of(ResourceType.MITHRIL_BAR, 3), 80, 28, 0, 0, 4, 3),
+            Map.of(ResourceType.MITHRIL_BAR, 3), 80, 1600, 28, 0, 0, 4, 3),
         new CraftRecipe("mithril_armor", "Armadura de Mithril Forjada",
-            Map.of(ResourceType.MITHRIL_BAR, 5), 85, 0, 28, 70, 4, 3)
+            Map.of(ResourceType.MITHRIL_BAR, 5), 85, 1700, 0, 28, 70, 4, 3)
     );
+
+    // Resultados (success/falha) p/ o controller exibir ✅/❌. [PROFISSAO_SUCCESS]
+    public record CraftResult(boolean success, boolean mailed, int successPct, InventoryItem item, String message) {}
+    public record SocketResult(boolean success, int successPct, SocketedGem gem, String message) {}
 
     // ── Refinar ore → bar ──
     @Transactional
@@ -106,9 +127,9 @@ public class SmithingService {
         log.info("[SmithingService] player={} action=refineOre OK oreType={} batches={} bar={}", player.getId(), oreType, batches, recipe.bar());
     }
 
-    // ── Craftar equipamento ──
+    // ── Craftar equipamento (com chance de falha que melhora com o nível). [PROFISSAO_SUCCESS] ──
     @Transactional
-    public InventoryItem craftEquipment(Player player, String recipeId) {
+    public CraftResult craftEquipment(Player player, String recipeId) {
         log.info("[SmithingService] player={} action=craftEquipment recipeId={}", player.getId(), recipeId);
         CraftRecipe recipe = CRAFT_RECIPES.stream()
                 .filter(r -> r.id().equals(recipeId))
@@ -121,11 +142,30 @@ public class SmithingService {
             throw new IllegalStateException("Smithing level too low. Required: " + recipe.smithingLevel());
         }
 
-        // Consome ingredientes
-        recipe.ingredients().forEach((res, qty) ->
-            gatheringService.removeResource(player, res, qty));
+        // Pré-checa materiais ANTES de cobrar a taxa/rolar (senão a falha cobraria sem ter como craftar)
+        for (var e : recipe.ingredients().entrySet()) {
+            if (gatheringService.resourceQuantity(player, e.getKey()) < e.getValue()) {
+                log.warn("[SmithingService] player={} REJECTED: missing {} for recipe {}", player.getId(), e.getKey(), recipeId);
+                throw new IllegalStateException("Not enough " + e.getKey().displayName + ".");
+            }
+        }
 
-        // Detecta tipo pelo nome
+        int successPct = craftSuccessPct(smithing.getLevel(), recipe);
+        // Taxa em bronze — paga sempre (é o "custo" perdido na falha). Lança se não tiver saldo.
+        playerService.spendBronze(player, recipe.bronzeCost());
+
+        boolean success = java.util.concurrent.ThreadLocalRandom.current().nextInt(100) < successPct;
+        if (!success) {
+            // Falha: materiais NÃO consumidos; só a taxa foi perdida; XP reduzido.
+            gatheringService.addSkillXp(smithing, Math.max(1, recipe.smithingLevel() * 3));
+            log.info("[SmithingService] player={} action=craftEquipment FAIL recipeId={} successPct={}", player.getId(), recipeId, successPct);
+            return new CraftResult(false, false, successPct, null,
+                    "Forging failed (" + successPct + "% chance). Materials kept — only the bronze fee was lost.");
+        }
+
+        // Sucesso: consome ingredientes + cria item + XP cheio.
+        recipe.ingredients().forEach((res, qty) -> gatheringService.removeResource(player, res, qty));
+
         com.medieval.game.enums.ItemType itemType = recipe.name().toLowerCase().contains("armadura")
                 ? com.medieval.game.enums.ItemType.ARMOR
                 : com.medieval.game.enums.ItemType.WEAPON;
@@ -133,25 +173,22 @@ public class SmithingService {
         String desc   = loreGenerator.generateLore(recipe.rarity(), itemType, new java.util.Random());
         String origin = loreGenerator.originFromSmithing();
         long   sell   = recipe.smithingLevel() * 50L;
+        gatheringService.addSkillXp(smithing, recipe.smithingLevel() * 10);
 
-        int xp = recipe.smithingLevel() * 10;
-        gatheringService.addSkillXp(smithing, xp);
-
-        InventoryItem result;
         if (inventoryService.bagSize(player) < player.getMaxInventorySlots()) {
-            result = inventoryService.make(player, recipe.name(), itemType,
-                    recipe.atk(), recipe.def(), recipe.hp(), recipe.rarity(), sell, recipe.smithingLevel(), desc, origin); // Itens V3: nível = nível do recipe
+            InventoryItem result = inventoryService.make(player, recipe.name(), itemType,
+                    recipe.atk(), recipe.def(), recipe.hp(), recipe.rarity(), sell, recipe.smithingLevel(), desc, origin);
             result.setSockets(recipe.sockets());
             inventoryRepository.save(result);
             log.info("[SmithingService] player={} action=craftEquipment OK recipeId={} itemId={} name={}", player.getId(), recipeId, result.getId(), result.getName());
+            return new CraftResult(true, false, successPct, result, "Crafted successfully!");
         } else {
             mailService.sendItemMail(player, "Forjado na Oficina.",
                     recipe.name(), itemType, recipe.atk(), recipe.def(), recipe.hp(),
                     recipe.rarity(), recipe.sockets(), desc, origin);
-            log.info("[SmithingService] player={} action=craftEquipment OK (sent to mail — bag full) recipeId={}", player.getId(), recipeId);
-            result = null;
+            log.info("[SmithingService] player={} action=craftEquipment OK (mail — bag full) recipeId={}", player.getId(), recipeId);
+            return new CraftResult(true, true, successPct, null, "Crafted! Bag was full — sent to your mailbox.");
         }
-        return result;
     }
 
     // ── Craftar joia (3 fragmentos → 1 joia) ──
@@ -161,6 +198,13 @@ public class SmithingService {
         if (fragmentType.category != ResourceCategory.FRAGMENT) {
             log.warn("[SmithingService] player={} REJECTED: {} is not a gem fragment", player.getId(), fragmentType);
             throw new IllegalArgumentException("Not a gem fragment");
+        }
+
+        // Gate de nível por fragmento (Rubi 20, Safira 40, Esmeralda 60, Diamante 80). [PROFISSAO_SUCCESS]
+        SkillLevel smithing = gatheringService.getOrCreateSkill(player, SkillType.SMITHING);
+        if (smithing.getLevel() < fragmentType.levelRequired) {
+            log.warn("[SmithingService] player={} REJECTED: smithing level {} too low for gem {} (required {})", player.getId(), smithing.getLevel(), fragmentType, fragmentType.levelRequired);
+            throw new IllegalStateException("Smithing level too low. Required: " + fragmentType.levelRequired);
         }
 
         gatheringService.removeResource(player, fragmentType, 3);
@@ -176,14 +220,13 @@ public class SmithingService {
 
         gatheringService.addResource(player, gem, 1);
 
-        SkillLevel smithing = gatheringService.getOrCreateSkill(player, SkillType.SMITHING);
         gatheringService.addSkillXp(smithing, 30);
         log.info("[SmithingService] player={} action=craftGem OK fragment={} gem={}", player.getId(), fragmentType, gem);
     }
 
-    // ── Encaixar joia em item ──
+    // ── Encaixar joia em item (com chance de falha que melhora com o nível). [PROFISSAO_SUCCESS] ──
     @Transactional
-    public SocketedGem socketGem(Player player, Long itemId, ResourceType gemType) {
+    public SocketResult socketGem(Player player, Long itemId, ResourceType gemType) {
         log.info("[SmithingService] player={} action=socketGem itemId={} gemType={}", player.getId(), itemId, gemType);
         if (gemType.category != ResourceCategory.GEM) {
             log.warn("[SmithingService] player={} REJECTED: {} is not a gem", player.getId(), gemType);
@@ -202,18 +245,35 @@ public class SmithingService {
             log.warn("[SmithingService] player={} REJECTED: no sockets available on item {} (used {}/{})", player.getId(), itemId, existing.size(), item.getSockets());
             throw new IllegalStateException("No sockets available on this item");
         }
+        if (gatheringService.resourceQuantity(player, gemType) < 1) {
+            log.warn("[SmithingService] player={} REJECTED: no {} in bag", player.getId(), gemType);
+            throw new IllegalStateException("You don't have that gem.");
+        }
+
+        int slotIndex = existing.size(); // próximo slot (0-based)
+        SkillLevel smithing = gatheringService.getOrCreateSkill(player, SkillType.SMITHING);
+        int successPct = socketSuccessPct(smithing.getLevel(), slotIndex);
+
+        // Taxa em bronze por tentativa — perdida na falha (a joia NÃO some).
+        playerService.spendBronze(player, SOCKET_FEE_BRONZE);
+
+        boolean success = java.util.concurrent.ThreadLocalRandom.current().nextInt(100) < successPct;
+        if (!success) {
+            gatheringService.addSkillXp(smithing, 5);
+            log.info("[SmithingService] player={} action=socketGem FAIL itemId={} slot={} successPct={}", player.getId(), itemId, slotIndex, successPct);
+            return new SocketResult(false, successPct, null,
+                    "Socketing failed (" + successPct + "% chance). Gem kept — only the bronze fee was lost.");
+        }
 
         gatheringService.removeResource(player, gemType, 1);
-
-        int slotIndex = existing.stream().mapToInt(SocketedGem::getSlotIndex).max().orElse(-1) + 1;
-
         SocketedGem gem = new SocketedGem();
         gem.setItem(item);
         gem.setGemType(gemType);
         gem.setSlotIndex(slotIndex);
         SocketedGem saved = gemRepository.save(gem);
+        gatheringService.addSkillXp(smithing, 15);
         log.info("[SmithingService] player={} action=socketGem OK itemId={} gemType={} slot={}", player.getId(), itemId, gemType, slotIndex);
-        return saved;
+        return new SocketResult(true, successPct, saved, "Gem socketed!");
     }
 
     // ── Reparar durabilidade de um item (sink econômico) ──

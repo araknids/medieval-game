@@ -1206,11 +1206,16 @@ function getSkill(type) {
 
 function skillBar(skill) {
   const pct = Math.floor((skill.experience / skill.expNeeded) * 100);
+  // [PROFISSAO_SUCCESS] mostra onde o próximo tier de recurso desbloqueia (só p/ coleta)
+  const tier = (skill.nextTierLevel ?? 0) > 0
+    ? `<span class="xp-label" style="margin-left:.4rem;color:#ffd700" title="Next resource tier unlocks here">🔓 Lv.${skill.nextTierLevel}</span>`
+    : '';
   return `
     <div class="sk-skill-row">
       <span class="sk-skill-label">Lv.${skill.level}</span>
       <div class="xp-bar-bg" style="flex:1"><div class="xp-bar-fill" style="width:${pct}%"></div></div>
       <span class="xp-label" style="margin-left:.4rem">${skill.experience}/${skill.expNeeded} XP</span>
+      ${tier}
     </div>`;
 }
 
@@ -1264,7 +1269,9 @@ async function renderSmithing() {
         ${r.atk > 0 ? ` · +${r.atk} ATK` : ''}${r.def > 0 ? ` · +${r.def} DEF` : ''}${r.hp > 0 ? ` · +${r.hp} HP` : ''}
       </div>
       <div style="font-size:.75rem;color:#888">Forja Lv.${r.levelRequired} ${!r.canCraft ? '🔒' : ''}</div>
-      ${r.canCraft ? `<button class="btn-equip" onclick="craftEquipment('${r.id}')" style="margin-top:.4rem">Craftar</button>` : ''}
+      ${r.canCraft ? `
+        <div style="font-size:.72rem;color:#8bc34a;margin-top:.2rem">🎲 Success: ${r.successPct}% · Fee: ${fmtBronze(r.bronzeCost)}</div>
+        <button class="btn-equip" onclick="craftEquipment('${r.id}')" style="margin-top:.3rem">Craftar</button>` : ''}
     </div>`).join('') || '';
 
   const gemHtml = recipes.gems?.map(r => {
@@ -1350,8 +1357,13 @@ async function refineOre(oreType, barType) {
 async function craftEquipment(recipeId) {
   const data = await api('POST', '/api/smithing/craft', { recipeId });
   if (data.error) { showMessage(data.error, true); return; }
-  showMessage(`${data.message} (${data.sockets} socket${data.sockets !== 1 ? 's' : ''})`);
+  // [PROFISSAO_SUCCESS] craft pode falhar — falha = mensagem vermelha (200, não é erro de API)
+  const msg = data.success
+    ? `✅ ${data.message}${data.sockets ? ` (${data.sockets} socket${data.sockets !== 1 ? 's' : ''})` : ''}`
+    : `❌ ${data.message}`;
+  showMessage(msg, !data.success);
   resourcesData = await api('GET', '/api/gathering/resources');
+  await loadWarrior();
   renderSmithing();
 }
 
@@ -1383,8 +1395,10 @@ async function reforgeItem(itemId) {
 async function socketGem(itemId, gemType) {
   const data = await api('POST', `/api/smithing/socket/${itemId}/${gemType}`);
   if (data.error) { showMessage(data.error, true); return; }
-  showMessage(data.message);
+  // [PROFISSAO_SUCCESS] encaixe pode falhar — falha = vermelho, joia preservada
+  showMessage(`${data.success ? '✅' : '❌'} ${data.message}`, !data.success);
   resourcesData = await api('GET', '/api/gathering/resources');
+  await loadWarrior();
   loadInventory();
 }
 
