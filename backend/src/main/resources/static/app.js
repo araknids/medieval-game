@@ -2087,10 +2087,10 @@ loadLanguage(_currentLang).finally(() => {
       warrior = data;
       api('GET', '/api/auth/login').catch(() => {});
       currentUsername = localStorage.getItem('username') || '';
-      // Language already loaded above, just enter game
-      document.getElementById('login-screen').style.display = 'none';
-      document.getElementById('game-screen').style.display = 'block';
-      loadWarrior();
+      // Language already loaded above, just enter game.
+      // enterGame() também chama loadWorld() — sem ele a aba World ficava presa em "Loading..."
+      // no auto-login (só destravava ao trocar de aba e voltar). [FIX_WORLD_LOADING]
+      enterGame();
     });
   } else {
     document.getElementById('login-screen').style.display = 'flex';
@@ -2884,7 +2884,7 @@ function renderWorldOverview(kingdoms, territories) {
       ? `<div style="text-align:right;font-size:11px;color:#666">Next war<br><strong style="color:#eee">${secsH}h ${secsM}m</strong></div>`
       : '';
 
-    return `<div onclick="enterKingdom('${k.kingdom}')" style="background:#1a1a2e;border:1px solid ${k.isMine ? '#4caf50' : '#444'};border-radius:10px;padding:16px;margin-bottom:12px;cursor:pointer">
+    return `<div id="kingdom-card-${k.kingdom}" onclick="enterKingdom('${k.kingdom}')" style="background:#1a1a2e;border:1px solid ${k.isMine ? '#4caf50' : '#444'};border-radius:10px;padding:16px;margin-bottom:12px;cursor:pointer">
       <div style="display:flex;justify-content:space-between;align-items:flex-start">
         <div>
           <h3 style="margin:0 0 4px;font-size:16px">${k.icon} ${k.displayName}</h3>
@@ -2906,6 +2906,13 @@ async function enterKingdom(kingdom, _depth = 0) {
   worldCurrentKingdom = kingdom;
   const el = document.getElementById('kingdom-detail');
   if (!el) return;
+  // Abre o painel logo ABAIXO do card clicado (não lá no fim da lista). Só move/scrolla na abertura
+  // inicial — refresh pós-coleta não fica re-scrollando. [FIX_KINGDOM_PANEL]
+  const card = document.getElementById('kingdom-card-' + kingdom);
+  if (card && el.previousElementSibling !== card) {
+    card.insertAdjacentElement('afterend', el);
+    el.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  }
   el.innerHTML = '<p>Loading kingdom...</p>';
   try {
     const [, quests, activeQuests, training, zoneSession, pvpStatus] = await Promise.all([
