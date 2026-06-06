@@ -1,6 +1,7 @@
 package com.medieval.game.service;
 
 import com.medieval.game.enums.ItemType;
+import com.medieval.game.enums.WarriorClass;
 import com.medieval.game.model.InventoryItem;
 import com.medieval.game.model.Player;
 import com.medieval.game.model.ShopPurchase;
@@ -31,6 +32,12 @@ public class ShopService {
 
     private static final long ROTATION_SECONDS = 6 * 60 * 60; // 6 horas
     private static final int SHOP_SIZE = 10;
+
+    // [CLASSES_ARMAS] Nomes de arco — o slot de arma da loja troca p/ um destes quando o
+    // jogador é Arqueiro (mesmos stats/preço do tier, só o nome muda → make() infere RANGED).
+    private static final String[] BOW_NAMES = {
+        "Hunting Bow", "Oak Bow", "Recurve Bow", "Longbow", "Composite Bow", "Elven Bow"
+    };
 
     // ── Nomes do mercador ──
     private static final String[] MERCHANTS = {
@@ -171,11 +178,13 @@ public class ShopService {
     public List<ShopItem> getItems(Player player) {
         long rotationId = currentRotationId();
         Random rng = new Random(rotationId);
-        int level = warriorRepository.findByPlayer(player).map(Warrior::getLevel).orElse(1);
+        Warrior w = warriorRepository.findByPlayer(player).orElse(null);
+        int level = w != null ? w.getLevel() : 1;
+        boolean isArcher = w != null && w.getWarriorClass() == WarriorClass.ARCHER;
         Set<Integer> bought = purchaseRepository.purchasedSlots(player, rotationId);
         List<ShopItem> items = new ArrayList<>();
         for (int slot = 0; slot < SHOP_SIZE; slot++) {
-            items.add(buildSlot(rng, rotationId, slot, level, bought.contains(slot)));
+            items.add(buildSlot(rng, rotationId, slot, level, isArcher, bought.contains(slot)));
         }
         return items;
     }
@@ -184,7 +193,7 @@ public class ShopService {
      * Constrói o item de um slot de forma DETERMINÍSTICA (mesma sequência de rng em preview e compra).
      * Itens V3: loja vende só Comum/Incomum, nível ≈ nível do jogador ±5, stats escalam com o nível. [ITENS_V3]
      */
-    private ShopItem buildSlot(Random rng, long rotationId, int slot, int playerLevel, boolean purchased) {
+    private ShopItem buildSlot(Random rng, long rotationId, int slot, int playerLevel, boolean isArcher, boolean purchased) {
         int rarity = rollRarity(rng);                 // só 1 (Comum) ou 2 (Incomum)
         Object[][] pool = poolFor(rarity);
         Object[] template = pool[rng.nextInt(pool.length)];
@@ -193,7 +202,13 @@ public class ShopService {
         int[] s = inventoryService.rollItemStats(itemLevel, rarity, rng); // semeado → preview == compra
         int price = (int) template[5];                // mantém o preço curado do template
         long itemId = rotationId * SHOP_SIZE + slot;
-        return new ShopItem(itemId, (String) template[0], (ItemType) template[1],
+        ItemType type = (ItemType) template[1];
+        // [CLASSES_ARMAS] Arqueiro vê arco no lugar de espada (mesmos stats/preço; nome determinístico,
+        // sem consumir rng → preview e compra continuam idênticos).
+        String name = (isArcher && type == ItemType.WEAPON)
+                ? BOW_NAMES[(int)(((rotationId + slot) % BOW_NAMES.length + BOW_NAMES.length) % BOW_NAMES.length)]
+                : (String) template[0];
+        return new ShopItem(itemId, name, type,
                 s[0], s[1], s[2], rarity, price, itemLevel, purchased);
     }
 
@@ -210,10 +225,12 @@ public class ShopService {
         }
 
         Random rng = new Random(rotationId);
-        int level = warriorRepository.findByPlayer(player).map(Warrior::getLevel).orElse(1);
+        Warrior w = warriorRepository.findByPlayer(player).orElse(null);
+        int level = w != null ? w.getLevel() : 1;
+        boolean isArcher = w != null && w.getWarriorClass() == WarriorClass.ARCHER;
         ShopItem item = null;
         for (int i = 0; i <= slot; i++) {
-            ShopItem si = buildSlot(rng, rotationId, i, level, false);
+            ShopItem si = buildSlot(rng, rotationId, i, level, isArcher, false);
             if (i == slot) item = si;
         }
 

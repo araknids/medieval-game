@@ -569,7 +569,8 @@ public class KingdomService {
         int atk = s[0], def = s[1], hp = s[2];
 
         long price = switch (rarity) { case 2->150L; case 3->400L; case 4->1000L; case 5->2500L; default->25L; };
-        String name   = itemName(type, rarity, rng);
+        boolean isArcher = warrior != null && warrior.getWarriorClass() == com.medieval.game.enums.WarriorClass.ARCHER;
+        String name   = itemName(type, rarity, isArcher, rng);
         String lore   = loreGenerator.generateLore(rarity, type, rng);
         String origin = loreGenerator.originFromQuest("Kingdom Quest");
 
@@ -583,11 +584,12 @@ public class KingdomService {
         }
     }
 
-    private String itemName(com.medieval.game.enums.ItemType type, int rarity, java.util.Random rng) {
+    private String itemName(com.medieval.game.enums.ItemType type, int rarity, boolean isArcher, java.util.Random rng) {
         String[] bases = switch (type) {
             case HELMET   -> new String[]{"Helm", "Helmet"};
             case ARMOR    -> new String[]{"Armor", "Breastplate"};
-            case WEAPON   -> new String[]{"Sword", "Blade"};
+            // [CLASSES_ARMAS] Arqueiro dropa arco (→ RANGED no make()); resto, espada.
+            case WEAPON   -> isArcher ? new String[]{"Bow", "Longbow"} : new String[]{"Sword", "Blade"};
             case SHIELD   -> new String[]{"Shield", "Buckler"};
             case BOOTS    -> new String[]{"Boots", "Greaves"};
             case GLOVES   -> new String[]{"Gloves", "Gauntlets"};

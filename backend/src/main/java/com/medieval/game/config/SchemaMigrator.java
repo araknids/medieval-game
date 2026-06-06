@@ -38,6 +38,7 @@ public class SchemaMigrator {
         patchPlayerPetPityColumn();
         patchGuildEverControlledColumn();
         patchInventoryListedColumn();
+        patchInventoryWeaponCategoryColumn();
         patchStashColumns();
         patchKingdomQuestWindowColumn();
         dropWarriorOnMissionColumn();
@@ -154,6 +155,17 @@ public class SchemaMigrator {
             log.info("[SchemaMigrator] territory_controls last_resolved_cycle_id column ensured");
         } catch (Exception e) {
             log.warn("[SchemaMigrator] territory_controls last_resolved_cycle_id patch failed: {}", e.getMessage());
+        }
+    }
+
+    // Trava de arma por classe: categoria (MELEE/RANGED) da arma. Nullable — null = arma legada
+    // (tratada como MELEE no código; todo arqueiro é novo, todo item antigo é espada). [CLASSES_ARMAS]
+    private void patchInventoryWeaponCategoryColumn() {
+        try {
+            jdbc.execute("ALTER TABLE inventory_items ADD COLUMN IF NOT EXISTS weapon_category varchar(10)");
+            log.info("[SchemaMigrator] inventory_items.weapon_category column ensured");
+        } catch (Exception e) {
+            log.warn("[SchemaMigrator] inventory_items.weapon_category patch failed: {}", e.getMessage());
         }
     }
 

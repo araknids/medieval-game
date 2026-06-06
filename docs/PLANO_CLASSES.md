@@ -133,11 +133,56 @@ Perde a Trial ─► nada muda; pode tentar de novo (combate custa HP/risco de K
 Ajustar testes que assumem registro = `WARRIOR` (o registro agora cai em `RECRUIT`; tests
 que criam guerreiro explicitamente via `WarriorClass.WARRIOR` continuam valendo).
 
+## Iteração: Armas por classe (arco vs espada) — [CLASSES_ARMAS]
+
+> Status: **implementado** (trava real). `WeaponClassTest` cobre make/equip/troca.
+
+**Regra:** Guerreiro só equipa arma **corpo-a-corpo** (espada/machado/lança); Arqueiro só
+arma **à distância** (arco). Recruit usa corpo-a-corpo (kit inicial). Trava no `equip()`.
+
+### Modelo
+- **`WeaponCategory { MELEE, RANGED }`** (enum novo).
+- **`InventoryItem.weaponCategory`** (coluna nova, nullable; `null` = arma legada → tratada
+  como MELEE). É **derivada do NOME** da arma dentro do `make()` — nome com palavra de arco
+  (`bow/longbow/shortbow/crossbow/recurve/sling`) → RANGED; senão MELEE. Assim **todas** as
+  fontes de arma (starter, loja, forja, loot, mail) já saem com a categoria certa **sem mexer
+  na assinatura do `make()`** nem nas tabelas `Object[][]` da loja.
+- **`WarriorClass.weaponCategory`**: RECRUIT/WARRIOR = MELEE, ARCHER = RANGED.
+- **`equip()`**: se `type==WEAPON` e `categoria(item) != classe.weaponCategory` → rejeita com
+  mensagem clara ("Archers can only wield bows." / "Warriors can't use bows."). `null`→MELEE.
+
+### Troca de classe
+- Virar **ARCHER**: desequipa qualquer arma melee equipada (senão fica travada) e dá um
+  **arco inicial** ("Hunting Bow") pra não ficar sem arma. Virar **WARRIOR**: nada muda
+  (já era melee).
+
+### Conteúdo de arco (paridade com a linha de espada)
+- **Loja**: o slot de arma fica **consciente de classe** — arqueiro vê arcos (mesmos
+  stats/preço do tier, só troca o nome p/ um arco). Guerreiro vê espadas. (Não mostra arma
+  que a classe não usa.)
+- **Forja**: linha de arcos paralela aos recipes de espada (copper/iron/… bow).
+- **Loot de quest/zona**: `itemName(WEAPON)` passa a escolher nome de arco p/ arqueiro
+  (→ RANGED) e de espada p/ o resto (→ MELEE), via a classe do recebedor.
+
+### Combate
+- Arco = **+ATK plano**, igual espada (sem escala por atributo ainda). "Arco escala com DEX"
+  fica como futuro — o motor de combate continua intocado.
+
+### Migração / legado
+- Coluna `weapon_category` nullable (SchemaMigrator). Armas legadas (`null`) = MELEE no código
+  (todo arqueiro é novo; todo item antigo é espada → correto). Sem backfill SQL.
+
+### Testes
+- `equip` rejeita arma de outra classe; arqueiro equipa arco; guerreiro não equipa arco.
+- Troca p/ ARCHER desequipa a espada e entrega o arco inicial.
+- `make()` infere categoria pelo nome (espada→MELEE, arco→RANGED).
+- Loja oferece arco p/ arqueiro; loot dá arco p/ arqueiro.
+
 ## Fora de escopo (futuro)
 
 - **Magia / classe Mage** (usa o `INT` reservado).
 - **Respec pago** / troca de classe depois (hoje é permanente).
 - **Capar `CON` do Archer** pra cravar o glass-cannon no late-game.
-- **Tipo de item "arco"** dedicado (hoje arco é só um `WEAPON` com nome temático).
+- **Arco escalar com DEX** (hoje arco = +ATK plano, igual espada). [CLASSES_ARMAS]
 - **Renomear** `WarriorClass` → `CharacterClass` e a coluna `warrior_class` (limpeza; alto
   churn em ~17 arquivos, adiado — `Warrior` segue sendo a entidade-personagem).

@@ -2,6 +2,8 @@ package com.medieval.game.service;
 
 import com.medieval.game.enums.Affix;
 import com.medieval.game.enums.ItemType;
+import com.medieval.game.enums.WarriorClass;
+import com.medieval.game.enums.WeaponCategory;
 import com.medieval.game.model.InventoryItem;
 import com.medieval.game.model.ItemAffix;
 import com.medieval.game.model.Player;
@@ -125,11 +127,23 @@ public class InventoryService {
         if (item.isListed()) {
             throw new IllegalStateException("Item is listed in the Auction House.");
         }
+        Warrior warrior = warriorRepository.findByPlayer(player).orElse(null);
         // Itens V3: requisito de nível — só equipa se itemLevel ≤ nível do guerreiro. [ITENS_V3]
-        int level = warriorRepository.findByPlayer(player).map(Warrior::getLevel).orElse(1);
+        int level = warrior != null ? warrior.getLevel() : 1;
         if (item.getItemLevel() > level) {
             log.warn("[InventoryService] player={} REJECTED: item {} requires level {} (have {})", player.getId(), itemId, item.getItemLevel(), level);
             throw new IllegalStateException("Requires level " + item.getItemLevel() + " to equip.");
+        }
+        // [CLASSES_ARMAS] Trava por classe: Archer só arco; Warrior/Recruit só corpo-a-corpo.
+        if (item.getType() == ItemType.WEAPON && warrior != null) {
+            WeaponCategory need = warrior.getWarriorClass().weaponCategory();
+            if (item.effectiveWeaponCategory() != need) {
+                log.warn("[InventoryService] player={} REJECTED: weapon {} category {} != class {} ({})",
+                        player.getId(), itemId, item.effectiveWeaponCategory(), warrior.getWarriorClass(), need);
+                throw new IllegalStateException(need == WeaponCategory.RANGED
+                        ? "Archers can only wield ranged weapons (bows)."
+                        : "This class can only wield melee weapons (swords, axes…).");
+            }
         }
 
         // Desequipa o item atual do mesmo slot, se houver
@@ -164,6 +178,22 @@ public class InventoryService {
         InventoryItem saved = inventoryRepository.save(item);
         log.info("[InventoryService] player={} action=unequip OK itemId={}", player.getId(), itemId);
         return saved;
+    }
+
+    /**
+     * Desequipa as armas equipadas cuja categoria não bate com {@code keep} — usado na troca de
+     * classe (ex.: virar Archer desequipa a espada melee, que ficaria travada). [CLASSES_ARMAS]
+     */
+    @Transactional
+    public void unequipWeaponsNotMatching(Player player, WeaponCategory keep) {
+        inventoryRepository.findAllByPlayer(player).stream()
+                .filter(i -> i.getType() == ItemType.WEAPON && i.isEquipped())
+                .filter(i -> i.effectiveWeaponCategory() != keep)
+                .forEach(i -> {
+                    i.setEquipped(false);
+                    inventoryRepository.save(i);
+                    log.info("[InventoryService] player={} auto-unequip weapon {} (category mismatch on class change)", player.getId(), i.getId());
+                });
     }
 
     @Transactional
@@ -239,6 +269,8 @@ public class InventoryService {
         item.setPlayer(player);
         item.setName(name);
         item.setType(type);
+        // [CLASSES_ARMAS] Categoria da arma derivada do nome (arco → RANGED; senão MELEE).
+        if (type == ItemType.WEAPON) item.setWeaponCategory(WeaponCategory.fromWeaponName(name));
         item.setAttackBonus(atk);
         item.setDefenseBonus(def);
         item.setHealthBonus(hp);

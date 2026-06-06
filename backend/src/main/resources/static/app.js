@@ -926,7 +926,7 @@ async function loadInventory() {
       <div style="display:flex;justify-content:space-between;width:100%;align-items:center">
         <div>
           <div class="bag-item-name rarity-${item.rarity}">${item.name} <span style="font-size:.7rem;color:#888">Lv.${item.itemLevel}</span>${item.pvpLocked ? ` <span class="pvp-lock-badge" title="${t('inventory.pvp_locked')||'Exposto no PvP — pode ser saqueado; não pode vender/guardar enquanto flagged'}">🔒 PvP</span>` : ''}</div>
-          <div class="bag-item-type">${(t('item.type.'+item.type)||item.typeDisplay)} · ${(t('inventory.rarity.'+item.rarity)||item.rarityName)}</div>
+          <div class="bag-item-type">${(t('item.type.'+item.type)||item.typeDisplay)} · ${(t('inventory.rarity.'+item.rarity)||item.rarityName)}${weaponTag(item)}</div>
           <div class="bag-item-stats">${statsText(item)}</div>
           ${affixLines(item)}
           ${durabilityBar(item)}
@@ -934,6 +934,8 @@ async function loadInventory() {
         </div>
         ${item.itemLevel > (warrior?.level || 1)
           ? `<button class="btn-equip" disabled style="opacity:.5;cursor:not-allowed" title="Requires level ${item.itemLevel}">🔒 Lv.${item.itemLevel}</button>`
+          : !weaponUsable(item)
+          ? `<button class="btn-equip" disabled style="opacity:.5;cursor:not-allowed" title="${warrior?.warriorClassId === 'ARCHER' ? 'Archers can only wield bows' : 'This class can only wield melee weapons'}">🚫 ${item.weaponCategory === 'RANGED' ? '🏹' : '🗡'}</button>`
           : `<button class="btn-equip" onclick="equipItem(${item.id})">${t('inventory.btn.equip')}</button>`}
       </div>
       ${item.description ? `<p class="item-lore">"${item.description}"</p>` : ''}
@@ -1011,6 +1013,17 @@ function statsText(item) {
   if (item.defenseBonus > 0) parts.push(`+${item.defenseBonus} DEF`);
   if (item.healthBonus  > 0) parts.push(`+${item.healthBonus} HP`);
   return parts.join('  ') || '–';
+}
+
+// [CLASSES_ARMAS] Badge de categoria da arma (melee/ranged) + se a classe atual pode equipar.
+function weaponTag(item) {
+  if (!item || item.type !== 'WEAPON' || !item.weaponCategory) return '';
+  const ranged = item.weaponCategory === 'RANGED';
+  return ` · <span style="color:${ranged ? '#7bb0ff' : '#d9a05b'}">${ranged ? '🏹 Ranged' : '🗡 Melee'}</span>`;
+}
+function weaponUsable(item) {
+  if (!item || item.type !== 'WEAPON' || !item.weaponCategory) return true;
+  return (warrior?.warriorClassId === 'ARCHER') === (item.weaponCategory === 'RANGED');
 }
 
 // Raridade → cor/nome (espelha .rarity-N do style.css). [ITENS_V2]

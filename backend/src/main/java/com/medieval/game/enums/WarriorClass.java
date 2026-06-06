@@ -51,4 +51,9 @@ public enum WarriorClass {
 
     /** false só pra RECRUIT — ainda não escolheu o caminho na Trial. [CLASSES] */
     public boolean isSpecialized() { return this != RECRUIT; }
+
+    /** Categoria de arma que a classe pode equipar: Archer = RANGED, resto = MELEE. [CLASSES_ARMAS] */
+    public WeaponCategory weaponCategory() {
+        return this == ARCHER ? WeaponCategory.RANGED : WeaponCategory.MELEE;
+    }
 }

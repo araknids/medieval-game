@@ -1,6 +1,8 @@
 package com.medieval.game.service;
 
+import com.medieval.game.enums.ItemType;
 import com.medieval.game.enums.WarriorClass;
+import com.medieval.game.enums.WeaponCategory;
 import com.medieval.game.model.Player;
 import com.medieval.game.model.Warrior;
 import com.medieval.game.repository.PlayerRepository;
@@ -28,6 +30,7 @@ public class ClassChangeService {
     private final WarriorStatsService statsService;
     private final BattleSimulator     battleSimulator;
     private final InventoryService    inventoryService;
+    private final MailService         mailService;
 
     /** Level mínimo pra destravar a Trial. */
     public static final int TRIAL_LEVEL = 10;
@@ -99,6 +102,11 @@ public class ClassChangeService {
 
         if (won) {
             applyClassChange(w, path);
+            // [CLASSES_ARMAS] Archer só usa arco: desequipa a espada (ficaria travada) e dá um arco inicial.
+            if (path == WarriorClass.ARCHER) {
+                inventoryService.unequipWeaponsNotMatching(player, WeaponCategory.RANGED);
+                grantStarterBow(player);
+            }
             w.applyDamagePercent(10); // leve desgaste pela luta (vitória)
             battleLog.add("🎖 Trial passed! You are now " + path.displayName + ". Attribute points refunded — reallocate them for your new path.");
         } else {
@@ -110,6 +118,16 @@ public class ClassChangeService {
 
         log.info("[ClassChangeService] player={} trial path={} won={}", player.getId(), path, won);
         return new TrialResult(won, path.name(), path.displayName, battleLog);
+    }
+
+    /** Arco inicial pro novo Archer (make-or-mail: não pode dar throw e abortar a troca). [CLASSES_ARMAS] */
+    private void grantStarterBow(Player player) {
+        String name = "Hunting Bow", desc = "A simple hunting bow — an archer's first weapon.", origin = "Path Trial";
+        if (inventoryService.bagSize(player) < player.getMaxInventorySlots()) {
+            inventoryService.make(player, name, ItemType.WEAPON, 5, 0, 0, 1, 20, 1, desc, origin);
+        } else {
+            mailService.sendItemMail(player, "Your Path Trial reward.", name, ItemType.WEAPON, 5, 0, 0, 1, 0, desc, origin);
+        }
     }
 
     /** Aplica a troca: classe + base stats + respec grátis (devolve todos os pontos gastos). */

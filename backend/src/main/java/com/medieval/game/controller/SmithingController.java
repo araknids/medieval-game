@@ -2,8 +2,11 @@ package com.medieval.game.controller;
 
 import com.medieval.game.enums.ResourceType;
 import com.medieval.game.enums.SkillType;
+import com.medieval.game.enums.WarriorClass;
 import com.medieval.game.model.InventoryItem;
 import com.medieval.game.model.Player;
+import com.medieval.game.model.Warrior;
+import com.medieval.game.repository.WarriorRepository;
 import com.medieval.game.service.GatheringService;
 import com.medieval.game.service.PlayerService;
 import com.medieval.game.service.SmithingService;
@@ -29,6 +32,7 @@ public class SmithingController {
     private final SmithingService    smithingService;
     private final GatheringService   gatheringService;
     private final PlayerService      playerService;
+    private final WarriorRepository  warriorRepository;
 
     // Receitas disponíveis
     @GetMapping("/recipes")
@@ -48,7 +52,9 @@ public class SmithingController {
             "canCraft",    smithingLevel >= r.smithingLevelRequired()
         )).toList();
 
-        var craft = SmithingService.CRAFT_RECIPES.stream().map(r -> Map.ofEntries(
+        // [CLASSES_ARMAS] Só mostra as armas da categoria da classe (Archer vê arcos, resto vê espadas).
+        WarriorClass cls = warriorRepository.findByPlayer(player).map(Warrior::getWarriorClass).orElse(WarriorClass.RECRUIT);
+        var craft = SmithingService.craftRecipesFor(cls.weaponCategory()).stream().map(r -> Map.ofEntries(
             Map.entry("type",        "craft"),
             Map.entry("id",          r.id()),
             Map.entry("name",        r.name()),

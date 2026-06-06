@@ -95,8 +95,32 @@ public class SmithingService {
         new CraftRecipe("mithril_sword", "Espada de Mithril Forjada",
             Map.of(ResourceType.MITHRIL_BAR, 3), 80, 1600, 28, 0, 0, 4, 3),
         new CraftRecipe("mithril_armor", "Armadura de Mithril Forjada",
-            Map.of(ResourceType.MITHRIL_BAR, 5), 85, 1700, 0, 28, 70, 4, 3)
+            Map.of(ResourceType.MITHRIL_BAR, 5), 85, 1700, 0, 28, 70, 4, 3),
+        // [CLASSES_ARMAS] Linha de arcos (Archer) — espelha as espadas; "Arco" no nome → RANGED no make().
+        new CraftRecipe("copper_bow",  "Arco de Cobre Forjado",
+            Map.of(ResourceType.COPPER_BAR, 3),  1,  100,  5, 0, 0, 1, 0),
+        new CraftRecipe("iron_bow",    "Arco de Ferro Forjado",
+            Map.of(ResourceType.IRON_BAR, 3), 20,  400, 10, 0, 0, 2, 1),
+        new CraftRecipe("silver_bow",  "Arco de Prata Forjado",
+            Map.of(ResourceType.SILVER_BAR, 3), 40,  800, 16, 0, 0, 3, 2),
+        new CraftRecipe("gold_bow",    "Arco de Ouro Forjado",
+            Map.of(ResourceType.GOLD_BAR, 3), 60, 1200, 22, 0, 0, 3, 2),
+        new CraftRecipe("mithril_bow", "Arco de Mithril Forjado",
+            Map.of(ResourceType.MITHRIL_BAR, 3), 80, 1600, 28, 0, 0, 4, 3)
     );
+
+    /** Recipes visíveis p/ a classe: armaduras + as armas da categoria da classe (tier-ordered). [CLASSES_ARMAS] */
+    public static List<CraftRecipe> craftRecipesFor(com.medieval.game.enums.WeaponCategory canWield) {
+        return CRAFT_RECIPES.stream()
+                .filter(r -> isArmorRecipe(r)
+                        || com.medieval.game.enums.WeaponCategory.fromWeaponName(r.name()) == canWield)
+                .sorted(java.util.Comparator.comparingInt(CraftRecipe::smithingLevel))
+                .toList();
+    }
+
+    private static boolean isArmorRecipe(CraftRecipe r) {
+        return r.name().toLowerCase().contains("armadura");
+    }
 
     // Resultados (success/falha) p/ o controller exibir ✅/❌. [PROFISSAO_SUCCESS]
     public record CraftResult(boolean success, boolean mailed, int successPct, InventoryItem item, String message) {}

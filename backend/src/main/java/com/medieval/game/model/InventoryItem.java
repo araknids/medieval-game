@@ -1,6 +1,7 @@
 package com.medieval.game.model;
 
 import com.medieval.game.enums.ItemType;
+import com.medieval.game.enums.WeaponCategory;
 import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.Setter;
@@ -27,6 +28,12 @@ public class InventoryItem {
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
     private ItemType type;
+
+    // [CLASSES_ARMAS] Só p/ ItemType.WEAPON; null = arma legada (tratada como MELEE).
+    // Definida no make() a partir do nome da arma (palavra de arco → RANGED).
+    @Enumerated(EnumType.STRING)
+    @Column(name = "weapon_category", length = 10)
+    private WeaponCategory weaponCategory;
 
     private int attackBonus;
     private int defenseBonus;
@@ -81,4 +88,10 @@ public class InventoryItem {
     public int getEffectiveAttack()  { return isBroken() ? 0 : attackBonus; }
     public int getEffectiveDefense() { return isBroken() ? 0 : defenseBonus; }
     public int getEffectiveHealth()  { return isBroken() ? 0 : healthBonus; }
+
+    /** Categoria efetiva da arma: arma legada (null) conta como MELEE. Não-arma → null. [CLASSES_ARMAS] */
+    public WeaponCategory effectiveWeaponCategory() {
+        if (type != ItemType.WEAPON) return null;
+        return weaponCategory != null ? weaponCategory : WeaponCategory.MELEE;
+    }
 }
