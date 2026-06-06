@@ -357,9 +357,9 @@ public class ZoneService {
                      String attackerName, List<String> battleLog) {}
 
     /**
-     * Resolve all encounters for the collecting player ("attacker"). Each hour rolls
-     * PvP (ambush another in-progress player) and/or NPC. The attacker's HP carries
-     * between encounters. Returns the attacker's overall outcome.
+     * Resolve the encounters for the collecting player ("attacker"). [SEM_TIMER] One farm
+     * action = one PvP roll (ambush a flagged player) + one NPC roll — instant model, NOT
+     * per-hour (duration doesn't affect the chance). Returns the attacker's overall outcome.
      */
     private PvpResult resolveEncounters(Player player, ZoneActivity activity) {
         Zone   zone = activity.getZone();
@@ -373,7 +373,7 @@ public class ZoneService {
         int   atkHp    = attacker.getCalculatedHpPercent() * atkMaxHp / 100;
 
         // ── PvP: cruza com um player FLAGGED na zona (raid de loot). [PVP_FLAG] ──
-        if (zone.encounterChancePerHour > 0 && rng.nextInt(100) < zone.encounterChancePerHour) {
+        if (zone.pvpEncounterChance > 0 && rng.nextInt(100) < zone.pvpEncounterChance) {
             Player  victim  = findFlaggedOpponent(zone, player, attacker.getLevel(), rng);
             Warrior victimW = victim != null ? warriorRepository.findByPlayer(victim).orElse(null) : null;
             if (victimW != null) {
@@ -409,7 +409,7 @@ public class ZoneService {
         }
 
         // ── NPC selvagem (PvE) ──
-        if (rng.nextInt(100) < zone.npcEncounterChancePerHour) {
+        if (rng.nextInt(100) < zone.npcEncounterChance) {
             return fightNpc(player, attacker, atkStats, atkHp, atkMaxHp, zone, rng);
         }
 

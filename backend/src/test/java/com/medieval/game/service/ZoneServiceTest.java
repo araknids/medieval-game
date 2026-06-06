@@ -13,24 +13,24 @@ class ZoneServiceTest {
 
     // ── TC-025: Chance de encontro por zona ──
     @Test
-    @DisplayName("TC-025 | SAFE tem 0% PvP e 20% NPC por hora")
+    @DisplayName("TC-025 | SAFE tem 0% PvP e 20% NPC por farm")
     void tc025_safeZone_encounterRates() {
-        assertThat(Zone.SAFE.encounterChancePerHour).isEqualTo(0);
-        assertThat(Zone.SAFE.npcEncounterChancePerHour).isEqualTo(20);
+        assertThat(Zone.SAFE.pvpEncounterChance).isEqualTo(0);
+        assertThat(Zone.SAFE.npcEncounterChance).isEqualTo(20);
     }
 
     @Test
-    @DisplayName("TC-025b | PVP tem 20% PvP e 25% NPC por hora")
+    @DisplayName("TC-025b | PVP tem 20% PvP e 25% NPC por farm")
     void tc025b_pvpZone_encounterRates() {
-        assertThat(Zone.PVP.encounterChancePerHour).isEqualTo(20);
-        assertThat(Zone.PVP.npcEncounterChancePerHour).isEqualTo(25);
+        assertThat(Zone.PVP.pvpEncounterChance).isEqualTo(20);
+        assertThat(Zone.PVP.npcEncounterChance).isEqualTo(25);
     }
 
     @Test
-    @DisplayName("TC-025c | HIGH_RISK tem 40% PvP e 35% NPC por hora")
+    @DisplayName("TC-025c | HIGH_RISK tem 40% PvP e 35% NPC por farm")
     void tc025c_highRiskZone_encounterRates() {
-        assertThat(Zone.HIGH_RISK.encounterChancePerHour).isEqualTo(40);
-        assertThat(Zone.HIGH_RISK.npcEncounterChancePerHour).isEqualTo(35);
+        assertThat(Zone.HIGH_RISK.pvpEncounterChance).isEqualTo(40);
+        assertThat(Zone.HIGH_RISK.npcEncounterChance).isEqualTo(35);
     }
 
     // ── TC-026: Penalidade de derrota tira 15% do bronze total ──

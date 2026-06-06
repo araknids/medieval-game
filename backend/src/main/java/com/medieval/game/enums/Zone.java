@@ -9,17 +9,19 @@ public enum Zone {
     public final String displayName;
     public final int    minLevel;
     public final double multiplier;
-    public final int    encounterChancePerHour;    // % PvP (player vs player)
-    public final int    npcEncounterChancePerHour; // % NPC (monster/bandit)
+    // [SEM_TIMER] Chance de encontro por AÇÃO de farm (1 run = 1 rolagem). NÃO é "por hora":
+    // o jogo é instantâneo, então a duração não entra na conta — cada farm rola isto uma vez.
+    public final int    pvpEncounterChance; // % PvP (player vs player) por farm
+    public final int    npcEncounterChance; // % NPC (monster/bandit) por farm
     public final String description;
 
     Zone(String displayName, int minLevel, double multiplier,
-         int encounterChancePerHour, int npcEncounterChancePerHour, String description) {
-        this.displayName              = displayName;
-        this.minLevel                 = minLevel;
-        this.multiplier               = multiplier;
-        this.encounterChancePerHour   = encounterChancePerHour;
-        this.npcEncounterChancePerHour= npcEncounterChancePerHour;
-        this.description              = description;
+         int pvpEncounterChance, int npcEncounterChance, String description) {
+        this.displayName        = displayName;
+        this.minLevel           = minLevel;
+        this.multiplier         = multiplier;
+        this.pvpEncounterChance = pvpEncounterChance;
+        this.npcEncounterChance = npcEncounterChance;
+        this.description        = description;
     }
 }
