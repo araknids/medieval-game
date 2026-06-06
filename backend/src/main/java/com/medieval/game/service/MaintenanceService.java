@@ -46,6 +46,9 @@ public class MaintenanceService {
     private final TerritoryControlRepository    territoryControlRepository;
     private final PlayerRepository             playerRepository;
     private final GuildRepository              guildRepository;
+    private final GuildWarRepository           guildWarRepository;       // [GUERRA_GUILDA] FK → guilds
+    private final MealInventoryRepository      mealInventoryRepository;  // progressão por player
+    private final PetRepository                petRepository;            // progressão por player
     private final WarriorRepository            warriorRepository;
     private final WarriorAbilityRepository     warriorAbilityRepository; // [HABILIDADES]
     private final InventoryService             inventoryService;
@@ -53,7 +56,8 @@ public class MaintenanceService {
     /**
      * Reset "fresh start" mantendo as contas (login). Reseta moedas, guerreiro,
      * inventário (itens iniciais), skills/profissões/recursos, sessões, mails,
-     * SoulStones/VIP; dissolve guildas e neutraliza territórios.
+     * leilões, pets, refeições, SoulStones/VIP; dissolve guildas (e guerras de
+     * guilda) e neutraliza territórios.
      * @return número de jogadores resetados.
      */
     @Transactional
@@ -76,6 +80,8 @@ public class MaintenanceService {
         shopPurchaseRepository.deleteAllInBatch();
         mailRepository.deleteAllInBatch();
         passwordResetTokenRepository.deleteAllInBatch();
+        mealInventoryRepository.deleteAllInBatch();  // progressão por player → fresh start
+        petRepository.deleteAllInBatch();            // progressão por player → fresh start
         territoryDeclarationRepository.deleteAllInBatch();
         territoryBattleLogRepository.deleteAllInBatch();
 
@@ -96,7 +102,9 @@ public class MaintenanceService {
 
         // 4) Dissolve guildas — FLUSH primeiro para que os guild_id=NULL (players e
         //    territory_controls) cheguem ao banco antes do DELETE, senão a FK estoura.
+        //    As guerras de guilda também referenciam guilds (guild_a/guild_b) → apaga antes. [GUERRA_GUILDA]
         playerRepository.flush();
+        guildWarRepository.deleteAllInBatch();
         guildRepository.deleteAllInBatch();
 
         // 5) Reseta guerreiros + devolve itens iniciais

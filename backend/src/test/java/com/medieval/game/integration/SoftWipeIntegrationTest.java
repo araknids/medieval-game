@@ -5,7 +5,10 @@ import com.medieval.game.model.Player;
 import com.medieval.game.model.Warrior;
 import com.medieval.game.repository.AuctionListingRepository;
 import com.medieval.game.repository.GuildRepository;
+import com.medieval.game.repository.GuildWarRepository;
 import com.medieval.game.repository.InventoryItemRepository;
+import com.medieval.game.repository.MealInventoryRepository;
+import com.medieval.game.repository.PetRepository;
 import com.medieval.game.repository.PlayerRepository;
 import com.medieval.game.repository.WarriorRepository;
 import com.medieval.game.service.InventoryService;
@@ -26,6 +29,9 @@ class SoftWipeIntegrationTest extends BaseIntegrationTest {
     @Autowired InventoryItemRepository   inventoryItemRepository;
     @Autowired GuildRepository           guildRepository;
     @Autowired AuctionListingRepository  auctionListingRepository;
+    @Autowired GuildWarRepository        guildWarRepository;
+    @Autowired MealInventoryRepository   mealInventoryRepository;
+    @Autowired PetRepository             petRepository;
     @Autowired InventoryService          inventoryService;
 
     @Test
@@ -112,5 +118,45 @@ class SoftWipeIntegrationTest extends BaseIntegrationTest {
         int reset = maintenanceService.softWipe();
         assertThat(reset).isGreaterThanOrEqualTo(1);
         assertThat(auctionListingRepository.count()).isZero();
+    }
+
+    // Regressão: guerras de guilda referenciam guilds (guild_a/guild_b). O wipe tem que apagar
+    // guild_wars ANTES de dissolver as guildas, senão estoura a FK e dá rollback. Pets e refeições
+    // (progressão por player) também devem zerar pro fresh-start. [GUERRA_GUILDA]
+    @Test
+    @DisplayName("softWipe apaga guerras de guilda, pets e refeições (não estoura FK com guilds)")
+    void softWipe_clearsGuildWarsPetsAndMeals() throws Exception {
+        registerAndGetToken(uniqueUser("wipefk"));
+        Player p = playerRepository.findAll().stream()
+                .filter(x -> x.getUsername().startsWith("wipefk"))
+                .reduce((a, b) -> b.getId() > a.getId() ? b : a).orElseThrow();
+
+        // duas guildas em guerra (FK guild_wars.guild_a_id/guild_b_id → guilds)
+        Guild a = new Guild(); a.setName("WarA-" + System.nanoTime()); a.setLeaderId(p.getId());
+        Guild b = new Guild(); b.setName("WarB-" + System.nanoTime()); b.setLeaderId(p.getId());
+        a = guildRepository.save(a);
+        b = guildRepository.save(b);
+        com.medieval.game.model.GuildWar war = new com.medieval.game.model.GuildWar();
+        war.setGuildA(a); war.setGuildB(b);
+        war.setEndsAt(java.time.LocalDateTime.now().plusDays(7));
+        guildWarRepository.save(war);
+
+        // pet + refeição (progressão por player)
+        com.medieval.game.model.Pet pet = new com.medieval.game.model.Pet();
+        pet.setPlayer(p); pet.setPetType(com.medieval.game.enums.PetType.values()[0]);
+        petRepository.save(pet);
+        com.medieval.game.model.MealInventory meal = new com.medieval.game.model.MealInventory();
+        meal.setPlayer(p); meal.setMeal(com.medieval.game.enums.Meal.values()[0]); meal.setQuantity(3);
+        mealInventoryRepository.save(meal);
+
+        assertThat(guildWarRepository.count()).isGreaterThanOrEqualTo(1);
+
+        // o wipe completa sem estourar FK e zera tudo
+        int reset = maintenanceService.softWipe();
+        assertThat(reset).isGreaterThanOrEqualTo(1);
+        assertThat(guildWarRepository.count()).isZero();
+        assertThat(guildRepository.count()).isZero();
+        assertThat(petRepository.count()).isZero();
+        assertThat(mealInventoryRepository.count()).isZero();
     }
 }
