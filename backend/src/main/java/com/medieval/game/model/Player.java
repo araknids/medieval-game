@@ -163,6 +163,10 @@ public class Player {
     @Column(columnDefinition = "integer default 0")
     private int petPityAttempts = 0;
 
+    // [TITULOS] Título ativo escolhido (Achievement.name() já desbloqueado; null/"" = nenhum).
+    @Column(name = "active_title", length = 40)
+    private String activeTitle;
+
     @Column(nullable = false)
     private LocalDateTime createdAt = LocalDateTime.now();
 

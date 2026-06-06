@@ -30,6 +30,7 @@ public class ClassChangeService {
     private final BattleSimulator     battleSimulator;
     private final InventoryService    inventoryService;
     private final MailService         mailService;
+    private final AchievementService  achievementService; // [TITULOS]
 
     /** Level mínimo pra destravar a Trial. */
     public static final int TRIAL_LEVEL = 10;
@@ -132,6 +133,7 @@ public class ClassChangeService {
             battleLog.add("✖ The " + g.name() + " bested you. Heal up and try again when you're ready.");
         }
         warriorRepository.save(w);
+        if (won) achievementService.checkAndUnlock(player, true); // [TITULOS] título da classe escolhida
 
         log.info("[ClassChangeService] player={} trial path={} won={}", player.getId(), path, won);
         return new TrialResult(won, path.name(), path.displayName, battleLog);

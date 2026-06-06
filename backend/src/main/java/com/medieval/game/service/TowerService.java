@@ -24,6 +24,7 @@ public class TowerService {
     private final InventoryService        inventoryService;
     private final WarriorStatsService     statsService;
     private final PlayerService           playerService;
+    private final AchievementService      achievementService; // [TITULOS]
 
     @Value("${app.dev.instant-complete:false}")
     private boolean instantComplete;
@@ -187,6 +188,7 @@ public class TowerService {
             if (floor > player.getTowerBestFloor()) {
                 player.setTowerBestFloor(floor);
                 playerRepository.save(player);
+                achievementService.checkAndUnlock(player, true); // [TITULOS] Tower Climber/Conqueror
             }
         } else {
             // Derrotado — sai da torre, HP = 0, perde buff

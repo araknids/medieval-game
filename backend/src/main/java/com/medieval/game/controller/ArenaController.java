@@ -34,8 +34,9 @@ public class ArenaController {
                     String warriorName = warriorRepository.findByPlayer(p)
                             .map(w -> w.getName())
                             .orElse("?");
-                    return new RankEntry(warriorName, p.getRankPoints(),
-                            p.getArenaWins(), p.getArenaLosses());
+                    return new RankEntry(warriorName,
+                            com.medieval.game.service.AchievementService.titleString(p), // [TITULOS]
+                            p.getRankPoints(), p.getArenaWins(), p.getArenaLosses());
                 })
                 .toList();
         return ResponseEntity.ok(rank);
@@ -77,5 +78,5 @@ public class ArenaController {
         }
     }
 
-    record RankEntry(String warriorName, int rankPoints, int wins, int losses) {}
+    record RankEntry(String warriorName, String title, int rankPoints, int wins, int losses) {}
 }

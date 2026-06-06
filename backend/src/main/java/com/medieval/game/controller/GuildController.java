@@ -153,6 +153,7 @@ public class GuildController {
                     return Map.<String, Object>of(
                         "playerId",    m.getId(),
                         "warriorName", guildService.warriorName(m),
+                        "title",       com.medieval.game.service.AchievementService.titleString(m), // [TITULOS]
                         "isLeader",    isLeader,
                         "isMe",        m.getId().equals(player.getId()),
                         "inWarRoster", m.isInWarRoster(),                              // [GUERRA_ROSTER]
@@ -168,6 +169,7 @@ public class GuildController {
                 .sorted((a, b) -> Long.compare(b.getGuildDonatedBronze(), a.getGuildDonatedBronze()))
                 .map(m -> Map.<String, Object>of(
                     "warriorName",   guildService.warriorName(m),
+                    "title",         com.medieval.game.service.AchievementService.titleString(m), // [TITULOS]
                     "donatedBronze", m.getGuildDonatedBronze(),
                     "isMe",          m.getId().equals(player.getId())
                 )).toList();

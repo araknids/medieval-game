@@ -35,6 +35,7 @@ public class GuildWarController {
             "enemies",        s.enemies().stream().map(e -> Map.of(
                 "playerId",    e.playerId(),
                 "warriorName", e.warriorName(),
+                "title",       e.title() != null ? e.title() : "", // [TITULOS]
                 "level",       e.level(),
                 "hpPercent",   e.hpPercent(),
                 "knockedOut",  e.knockedOut(),

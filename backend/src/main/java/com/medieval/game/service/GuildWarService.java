@@ -43,7 +43,7 @@ public class GuildWarService {
     private final MailService         mailService;
 
     // ── DTOs ──
-    public record EnemyMember(Long playerId, String warriorName, int level, int hpPercent,
+    public record EnemyMember(Long playerId, String warriorName, String title, int level, int hpPercent,
                               boolean knockedOut, boolean shielded) {}
     public record WarStatus(boolean atWar, Long warId, String enemyGuildName, Long enemyGuildId,
                             int myKills, int enemyKills, long secondsLeft, List<EnemyMember> enemies) {}
@@ -161,7 +161,8 @@ public class GuildWarService {
         List<EnemyMember> enemies = new ArrayList<>();
         for (Player m : playerRepository.findAllByGuild(enemy)) {
             warriorRepository.findByPlayer(m).ifPresent(w -> enemies.add(new EnemyMember(
-                    m.getId(), w.getName(), w.getLevel(), w.getCalculatedHpPercent(),
+                    m.getId(), w.getName(), AchievementService.titleString(m), // [TITULOS]
+                    w.getLevel(), w.getCalculatedHpPercent(),
                     w.isKnockedOut(), m.isPvpShielded())));
         }
         return new WarStatus(true, war.getId(), enemy.getName(), enemyId,

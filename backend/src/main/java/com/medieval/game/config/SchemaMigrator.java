@@ -183,7 +183,9 @@ public class SchemaMigrator {
             // [GUERRA_FORMACAO] posição na formação 3×5 da guerra (−1 = não posicionado).
             jdbc.execute("ALTER TABLE players ADD COLUMN IF NOT EXISTS war_lane  integer NOT NULL DEFAULT -1");
             jdbc.execute("ALTER TABLE players ADD COLUMN IF NOT EXISTS war_depth integer NOT NULL DEFAULT -1");
-            log.info("[SchemaMigrator] warriors.ability_points + players war formation columns ensured");
+            // [TITULOS] título ativo escolhido (player_achievements é auto-criada pelo ddl-auto).
+            jdbc.execute("ALTER TABLE players ADD COLUMN IF NOT EXISTS active_title varchar(40)");
+            log.info("[SchemaMigrator] warriors.ability_points + players war formation + active_title columns ensured");
         } catch (Exception e) {
             log.warn("[SchemaMigrator] warriors.ability_points patch failed: {}", e.getMessage());
         }

@@ -188,7 +188,8 @@ public class WarriorController {
                 warrior.getCombatPosture() != null ? warrior.getCombatPosture().name() : "BALANCED", // [POSTURE]
                 equippedPet, // [PETS]
                 wElem != null ? wElem.name() : "", wElemSecs, // [ELEMENTOS]
-                aElem != null ? aElem.name() : "", aElemSecs
+                aElem != null ? aElem.name() : "", aElemSecs,
+                com.medieval.game.service.AchievementService.titleString(player) // [TITULOS]
         );
     }
 
@@ -223,5 +224,6 @@ public class WarriorController {
                            String combatPosture,
                            PetInfo equippedPet,
                            String weaponElement, long weaponElementSecondsLeft, // [ELEMENTOS]
-                           String armorElement,  long armorElementSecondsLeft) {}
+                           String armorElement,  long armorElementSecondsLeft,
+                           String title) {} // [TITULOS] título ativo do jogador
 }

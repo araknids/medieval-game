@@ -32,6 +32,7 @@ public class ArenaService {
     private final VipService           vipService;
     private final WarriorStatsService  statsService;
     private final AbilityService       abilityService; // ativas no combate [HABILIDADES]
+    private final AchievementService   achievementService; // [TITULOS]
 
     @Value("${app.dev.instant-complete:false}")
     private boolean instantComplete;
@@ -140,6 +141,7 @@ public class ArenaService {
 
         ArenaMatch saved = matchRepository.save(match);
         log.info("[ArenaService] player={} action=fight OK id={} opponent={} won={}", challenger.getId(), saved.getId(), opponentName, challengerWon);
+        achievementService.checkAndUnlock(challenger, true); // [TITULOS] Duelist/Gladiator/Champion + riqueza
         return saved;
     }
 

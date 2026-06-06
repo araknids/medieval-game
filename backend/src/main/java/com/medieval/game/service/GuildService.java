@@ -27,6 +27,7 @@ public class GuildService {
     private final PlayerRepository             playerRepository;
     private final WarriorRepository            warriorRepository;
     private final PlayerService                playerService;
+    private final AchievementService           achievementService; // [TITULOS]
     private final TerritoryControlRepository   territoryControlRepo;
     private final TerritoryDeclarationRepository territoryDeclarationRepo;
 
@@ -57,6 +58,7 @@ public class GuildService {
 
         player.setGuild(guild);
         playerRepository.save(player);
+        achievementService.checkAndUnlock(player, true); // [TITULOS] Kin + Guildmaster (criador é líder)
 
         log.info("[GuildService] player={} action=createGuild OK guildId={} name={}", player.getId(), guild.getId(), guild.getName());
         return guild;
@@ -84,6 +86,7 @@ public class GuildService {
         player.setGuildDonatedBronze(0); // reset donations on joining a new guild
         player.setInWarRoster(false);    // entra fora do roster de guerra. [GUERRA_ROSTER]
         playerRepository.save(player);
+        achievementService.checkAndUnlock(player, true); // [TITULOS] Kin
         log.info("[GuildService] player={} action=joinGuild OK guildId={} name={}", player.getId(), guild.getId(), guild.getName());
         return guild;
     }
@@ -155,7 +158,9 @@ public class GuildService {
             throw new IllegalArgumentException("Player does not belong to your guild.");
 
         guild.setLeaderId(targetPlayerId);
-        return guildRepository.save(guild);
+        Guild saved = guildRepository.save(guild);
+        achievementService.checkAndUnlock(target, true); // [TITULOS] novo líder vira Guildmaster
+        return saved;
     }
 
     // ── Roster de guerra (líder escolhe até 15 p/ a batalha de território) ────── [GUERRA_ROSTER]

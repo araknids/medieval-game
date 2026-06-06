@@ -51,6 +51,7 @@ public class MaintenanceService {
     private final PetRepository                petRepository;            // progressão por player
     private final WarriorRepository            warriorRepository;
     private final WarriorAbilityRepository     warriorAbilityRepository; // [HABILIDADES]
+    private final PlayerAchievementRepository  playerAchievementRepository; // [TITULOS]
     private final InventoryService             inventoryService;
 
     /**
@@ -82,6 +83,7 @@ public class MaintenanceService {
         passwordResetTokenRepository.deleteAllInBatch();
         mealInventoryRepository.deleteAllInBatch();  // progressão por player → fresh start
         petRepository.deleteAllInBatch();            // progressão por player → fresh start
+        playerAchievementRepository.deleteAllInBatch(); // [TITULOS] conquistas zeram no wipe
         territoryDeclarationRepository.deleteAllInBatch();
         territoryBattleLogRepository.deleteAllInBatch();
 
@@ -159,5 +161,6 @@ public class MaintenanceService {
         p.setLastArenaFightDate(null);
         p.clearPvpFlag();           // [PVP_FLAG] não pode acordar "exposto" depois do wipe
         p.setPvpShieldUntil(null);
+        p.setActiveTitle(null);     // [TITULOS] título zera (conquistas foram apagadas)
     }
 }

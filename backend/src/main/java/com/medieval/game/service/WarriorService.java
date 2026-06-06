@@ -15,6 +15,7 @@ import org.springframework.transaction.annotation.Transactional;
 public class WarriorService {
 
     private final WarriorRepository              warriorRepository;
+    private final AchievementService             achievementService; // [TITULOS] desbloqueia título de nível
 
     @Transactional
     public Warrior create(Player player, String name, WarriorClass warriorClass) {
@@ -46,11 +47,12 @@ public class WarriorService {
             warrior.levelUp();
         }
 
+        warriorRepository.save(warrior);
+
         if (warrior.getLevel() > levelBefore) {
             log.info("[WarriorService] action=levelUp warriorId={} newLevel={}", warrior.getId(), warrior.getLevel());
+            achievementService.checkAndUnlock(warrior.getPlayer(), true); // [TITULOS] título de nível desbloqueia na hora
         }
-
-        warriorRepository.save(warrior);
     }
 
     /**

@@ -263,7 +263,8 @@ async function loadWarrior() {
     if (Array.isArray(s)) skillsData = s;
   }
 
-  document.getElementById('hdr-username').textContent = warrior.name;
+  document.getElementById('hdr-username').innerHTML =
+    (warrior.title ? `<span style="color:#c9a84c;font-weight:600">${escapeHtml(warrior.title)}</span> ` : '') + escapeHtml(warrior.name); // [TITULOS]
   document.getElementById('hdr-currency').innerHTML =
     formatCurrency(warrior.bronze ?? 0, warrior.silver ?? 0, warrior.gold ?? 0);
   document.getElementById('hdr-rank').textContent = (warrior.rankPoints ?? '–') + ' pts';
@@ -431,7 +432,7 @@ function goTo(loc) {
   if (loc === 'tower')    { loadTower(); }
   if (loc === 'arena')    { loadRank(); loadCurrentFight(); }
   if (loc === 'commerce') { loadShop(); }
-  if (loc === 'inventory'){ renderAttributes(); loadAbilities(); loadInventory(); }
+  if (loc === 'inventory'){ renderAttributes(); loadAbilities(); loadAchievements(); loadInventory(); }
   if (loc === 'work')     { loadWork(); }
   if (loc === 'guild')     { loadGuild(); }
   if (loc === 'world')      { loadWorld(); }
@@ -869,6 +870,61 @@ async function setPosture(postureId) {
 }
 
 // [HABILIDADES] Árvore de habilidades da classe (passivas + ativas).
+// ── [TITULOS] Achievements & Títulos ──
+// Prefixo de título (dourado) antes do nome do jogador nos ranks/guilda/arena. '' se sem título.
+function titlePrefix(o) {
+  return o && o.title ? `<span style="color:#c9a84c;font-weight:600">${escapeHtml(o.title)}</span> ` : '';
+}
+
+async function loadAchievements() {
+  const el = document.getElementById('achievements-panel');
+  if (!el) return;
+  const data = await api('GET', '/api/achievements');
+  if (!data || data.error || !data.achievements) { el.innerHTML = ''; return; }
+  const unlocked = data.achievements.filter(a => a.unlocked);
+  const active = data.activeTitle || '';
+
+  const titleBtn = (label, id, on) => `
+    <button onclick="selectTitle(${id === null ? 'null' : `'${id}'`})"
+      style="font-size:12px;padding:4px 10px;border-radius:6px;cursor:pointer;
+        border:1px solid ${on?'#c9a84c':'#444'};background:${on?'#2a2410':'#1a1a2e'};
+        color:${on?'#ffd700':'#ccc'}">${label}</button>`;
+  const pickerBtns = [titleBtn('None', null, !active)]
+    .concat(unlocked.map(a => titleBtn(escapeHtml(a.title), a.id, a.title === active))).join(' ');
+
+  const cats = {};
+  data.achievements.forEach(a => { (cats[a.category] = cats[a.category] || []).push(a); });
+  const list = Object.entries(cats).map(([cat, items]) => `
+    <div style="margin-top:8px">
+      <div style="font-size:.7rem;color:#9a8;text-transform:uppercase;letter-spacing:.5px;margin-bottom:3px">${escapeHtml(cat)}</div>
+      ${items.map(a => `
+        <div class="attr-row" style="opacity:${a.unlocked?'1':'0.55'}">
+          <span class="attr-icon">${a.unlocked?'🏆':'🔒'}</span>
+          <div style="flex:1;min-width:0">
+            <span class="attr-label">${escapeHtml(a.displayName)} <span style="color:#c9a84c">“${escapeHtml(a.title)}”</span></span>
+            <span class="attr-effect" style="display:block;font-size:.72rem;color:#888">${escapeHtml(a.description)}</span>
+          </div>
+          <span class="attr-val" style="color:${a.unlocked?'#ffd700':'#666'}">${a.unlocked?'✓':a.current+'/'+a.threshold}</span>
+        </div>`).join('')}
+    </div>`).join('');
+
+  el.innerHTML = `
+    <div class="attr-section" style="margin-top:10px">
+      <div class="attr-header"><span>🏆 Achievements & Titles</span>
+        <span style="font-size:.72rem;color:#888">${unlocked.length}/${data.achievements.length}</span></div>
+      <div style="font-size:.74rem;color:#aaa;margin:4px 0 6px">Active title <span style="color:#888">— shown before your name to others:</span></div>
+      <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:6px">${pickerBtns}</div>
+      ${list}
+    </div>`;
+}
+
+async function selectTitle(id) {
+  const r = await api('POST', '/api/achievements/title', { id });
+  if (r && r.error) { showMessage(r.error, true); return; }
+  await loadAchievements();
+  await loadWarrior(); // atualiza o header com o novo título
+}
+
 async function loadAbilities() {
   const el = document.getElementById('abilities-panel');
   if (!el) return;
@@ -1960,7 +2016,7 @@ async function loadRank() {
         ${rank.map((r, i) => `
           <tr class="${r.warriorName === warrior?.name ? 'me' : ''}">
             <td class="rank-pos">${i + 1}</td>
-            <td class="rank-name">${escapeHtml(r.warriorName)}</td>
+            <td class="rank-name">${titlePrefix(r)}${escapeHtml(r.warriorName)}</td>
             <td class="rank-pts">${r.rankPoints}</td>
             <td class="rank-wl">${r.wins}/${r.losses}</td>
           </tr>`).join('')}
@@ -2164,7 +2220,7 @@ function renderGuildPanel(g) {
       : '';
     return `<tr>
       ${rosterCell}
-      <td>${escapeHtml(m.warriorName)}${badge}${fatigue}${m.isMe ? ' <em>(you)</em>' : ''}</td>
+      <td>${titlePrefix(m)}${escapeHtml(m.warriorName)}${badge}${fatigue}${m.isMe ? ' <em>(you)</em>' : ''}</td>
       <td style="text-align:right">${kickBtn} ${transferBtn}</td>
     </tr>`;
   }).join('');
@@ -2249,7 +2305,7 @@ async function loadGuildWar(isLeader) {
                    : e.shielded   ? '<span style="color:#90caf9">🛡 shielded</span>'
                    : `<button onclick="guildWarAttack(${e.playerId})" style="font-size:11px;padding:2px 8px;background:#8b0000">⚔ Attack</button>`;
       return `<tr>
-        <td>${escapeHtml(e.warriorName)} <span style="color:#888;font-size:11px">Lv.${e.level} · ${e.hpPercent}% HP</span></td>
+        <td>${titlePrefix(e)}${escapeHtml(e.warriorName)} <span style="color:#888;font-size:11px">Lv.${e.level} · ${e.hpPercent}% HP</span></td>
         <td style="text-align:right">${action}</td>
       </tr>`;
     }).join('');
@@ -2362,7 +2418,7 @@ function renderDonationRank(rank) {
     const medal  = i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : `${i+1}.`;
     const style  = r.isMe ? 'color:#ffd700;font-weight:bold' : '';
     return `<tr style="${style}">
-      <td style="padding:4px 0">${medal} ${escapeHtml(r.warriorName)}${r.isMe ? ' (you)' : ''}</td>
+      <td style="padding:4px 0">${medal} ${titlePrefix(r)}${escapeHtml(r.warriorName)}${r.isMe ? ' (you)' : ''}</td>
       <td style="text-align:right;padding:4px 0">${fmtBronze(r.donatedBronze)}</td>
     </tr>`;
   }).join('');
