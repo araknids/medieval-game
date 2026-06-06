@@ -1418,7 +1418,7 @@ function pvpStatusBanner(pvp) {
     const red = pvp.flaggedZoneId === 'HIGH_RISK';
     const risk = red
       ? '🔴 Recursos + bronze + um item (travado) + XP em risco se for derrotado. Não pode vender/stashar/guardar os itens travados.'
-      : '🟡 50% dos recursos + bronze em risco. Itens e XP estão seguros. Não pode stashar recursos enquanto exposto.';
+      : '🟡 10% do bronze + XP em risco se for derrotado. Recursos e gear estão seguros (pode stashar/vender normalmente).';
     return `<div class="zone-pvp-status" style="border-color:${red?'#c0392b':'#c9a84c'};background:#3a1b1b">
       ⚠ ${t('zones.exposed')||'Exposto'} (${escapeHtml(pvp.flaggedZone)}) — ${pvp.flagMinutesLeft} min. ${risk}
     </div>`;
@@ -3007,7 +3007,7 @@ function renderKingdomDetail(kingdom, quests, activeQuests, training, zoneSessio
   if (kingdom === 'COMBAT') {
     const wLevel = warrior ? warrior.level : 1;
     const C_SAFE = '🟢 Caça PvE de mobs fracos. Sem PvP.';
-    const C_PVP  = '🟡 PvP: ao perder, −50% loot + 10% bronze. Gear e XP seguros. Lv.10+';
+    const C_PVP  = '🟡 PvP: ao perder, −10% bronze + perde XP. Loot e gear seguros. Lv.10+';
     const C_RED  = '🔴 PvP duro: loot + 15% bronze + 1 item + XP. Itens TRAVADOS. Lv.20+';
     const combatZones = [
       { name:'🏰 Haunted Courtyard', minLv:1,  tier:'SAFE',      color:'#4caf50', desc:C_SAFE },
@@ -3065,7 +3065,7 @@ function renderKingdomDetail(kingdom, quests, activeQuests, training, zoneSessio
 
     // [UNIFICAÇÃO_ZONA] As 3 zonas viram tiers reais (SAFE/PVP/HIGH_RISK) via /api/zones/enter, com PvP.
     const SAFE_DESC = '🟢 Sem PvP. 20% de monstros (PvE).';
-    const PVP_DESC  = '🟡 PvP: ao perder, −50% recursos + 10% bronze. Gear e XP seguros. Lv.10+';
+    const PVP_DESC  = '🟡 PvP: ao perder, −10% bronze + perde XP. Recursos e gear seguros. Lv.10+';
     const RED_DESC  = '🔴 PvP duro: recursos + 15% bronze + 1 item + XP. Itens TRAVADOS. Lv.20+';
 
     const zones = kingdom === 'FISHING' ? [

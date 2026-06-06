@@ -10,7 +10,7 @@ Mudanças grandes que **superam** várias descrições antigas abaixo (que ainda
 
 - **Sem timer — tudo instantâneo.** Missão, coleta, trabalho, zona, treino e arena resolvem **na hora**. Onde havia espera/timer, agora é **1 clique → resultado** (modal). O gate é a **estamina** (regen 100% em 1h), não o tempo. `app.dev.instant-complete` agora só faz **bypass de estamina** (teste).
 - **Arena instantânea:** `POST /api/arena/fight` resolve o duelo e retorna o resultado completo (era start→timer→collect).
-- **PvP de Zona com Flag + Tiers:** farmar uma zona 🟡PVP/🔴HIGH_RISK flagga o player por 1h; outro player (±10 níveis) pode cruzar e **saquear**. Tiers: 🟢SAFE (só PvE NPC 20%), 🟡 (−50% recursos +10% bronze, recursos travados), 🔴 (+ 1 item travado + XP pro killer). Itens/recursos **travados** (`pvpLocked`) não vendem/stasham/guardam enquanto flagged. Stash/Templo imunes. Escudo de 1h pós-derrota. NPC de preenchimento p/ PvP solo.
+- **PvP de Zona com Flag + Tiers:** farmar uma zona 🟡PVP/🔴HIGH_RISK flagga o player por 1h; outro player (±10 níveis) pode cruzar e **saquear**. Tiers: 🟢SAFE (só PvE NPC 20%), 🟡 (**−10% bronze + XP**, sem perder recursos/item) [FORTALEZA_ZONAS], 🔴 (50% recursos + 15% bronze + 1 item travado + XP pro killer). **Só na vermelha** itens/recursos **travados** (`pvpLocked`/`pvpFlaggedZone==HIGH_RISK`) não vendem/stasham/guardam enquanto flagged. Stash/Templo imunes. Escudo de 1h pós-derrota. NPC de preenchimento p/ PvP solo.
 - **Coleta unificada:** TODA coleta (Pesca/Mineração/Mar Abençoado/Grutas) roda pelo sistema de **Zona** (`/api/zones`), ganhando PvP nas zonas amarela/vermelha, mantendo os drops específicos do reino. `/api/gathering` ficou só p/ consumo de peixe + recursos.
 - **Itens V2/V3:** itens têm afixos + `itemLevel` (trava de equipar) + raridade Lendária; lock de PvP.
 - **Inventário V2:** bag única (itens + recursos por unidade), free 30 / VIP 50; **Stash** (100 slots, taxa de bronze).
@@ -369,13 +369,13 @@ Cada tipo tem:
 
 ## 13. Zonas e Expedições — PvP com Flag (REESCRITO 2026-06-05)
 
-> ⚠️ **Modelo atual (supera o de baixo):** farmar é **instantâneo** e custa estamina. Farmar 🟡/🔴 **flagga o player 1h** e expõe bag+equipados (🔴) / recursos (🟡🔴). Quem entra na zona (±10 níveis) pode **cruzar e saquear** um flagged (matchmaking `findFlaggedInZone`), ou um **NPC flagged** de preenchimento. Ao perder: 🟡 −50% recursos +10% bronze; 🔴 + 1 item travado (`pvpLocked`) + XP pro killer. Stash/Templo imunes; **escudo 1h** pós-derrota (saqueado 1x/ciclo). Itens/recursos travados não vendem/stasham/guardam enquanto flagged. **Toda coleta** (Pesca/Mineração/Mar Abençoado/Grutas) roda por aqui, com drops por reino (`ZoneActivity.kingdom`). Detalhes: `docs/PLANO_SEM_TIMER_PVP.md`.
+> ⚠️ **Modelo atual (supera o de baixo):** farmar é **instantâneo** e custa estamina. Farmar 🟡/🔴 **flagga o player 1h**; só a 🔴 expõe bag+equipados + recursos. Quem entra na zona (±10 níveis) pode **cruzar e saquear** um flagged (matchmaking `findFlaggedInZone`), ou um **NPC flagged** de preenchimento. Ao perder: 🟡 **−10% bronze + XP** (recursos/gear seguros) [FORTALEZA_ZONAS]; 🔴 −50% recursos + 15% bronze + 1 item travado (`pvpLocked`) + XP pro killer. Stash/Templo imunes; **escudo 1h** pós-derrota (saqueado 1x/ciclo). Itens/recursos travados não vendem/stasham/guardam enquanto flagged. **Toda coleta** (Pesca/Mineração/Mar Abençoado/Grutas) roda por aqui, com drops por reino (`ZoneActivity.kingdom`). Detalhes: `docs/PLANO_SEM_TIMER_PVP.md`.
 
 ### Zonas (tiers)
 | Zona | Level mín | Multiplicador | NPC %/h | PvP %/h | Ao perder |
 |------|-----------|--------------|---------|---------|-----------|
 | 🟢 Segura (SAFE) | 1 | ×1.0 | 20% | 0% | só dano/KO (PvE), sem perda de XP |
-| 🟡 PvP | 10 | ×1.5 | 25% | 20% | −50% recursos + 10% bronze (gear/XP seguros) |
+| 🟡 PvP | 10 | ×1.5 | 25% | 20% | −10% bronze + XP (recursos/gear seguros) [FORTALEZA_ZONAS] |
 | 🔴 Alto Risco | 20 | ×2.5 | 35% | 40% | recursos + 15% bronze + 1 item + XP; itens travados |
 
 ### Conceito

@@ -660,15 +660,15 @@ public class ZoneService {
 
     /**
      * Atacante venceu o raid → saqueia a vítima por TIER. [PVP_FLAG]
-     * 🟡 Amarela (PVP): 50% recursos + 10% bronze (sem item, sem XP).
-     * 🔴 Vermelha (HIGH_RISK): 50% recursos + 15% bronze + 1 item travado (35%) + XP (vítima perde, killer +50%).
+     * 🟡 Amarela (PVP): 10% bronze + XP (vítima perde, killer +50%). SEM recursos, SEM item. [FORTALEZA_ZONAS]
+     * 🔴 Vermelha (HIGH_RISK): 50% recursos + 15% bronze + 1 item travado (35%) + XP.
      */
     private void raidVictim(Player attacker, String attackerName, Player victim, Warrior victimW, Zone zone, List<String> log) {
         boolean red       = (zone == Zone.HIGH_RISK);
         long   bronze     = applyDefeatPenalty(victim, attacker, red ? 0.15 : 0.10);
-        long   stolenRes  = stealResources(attacker, victim);            // 50% (ambas)
-        String stolenItem = red ? stealOneItem(attacker, victim) : null; // item só na vermelha
-        long   xpLost     = red ? stealXp(victim, attacker)       : 0;   // XP só na vermelha (killer +50%)
+        long   stolenRes  = red ? stealResources(attacker, victim) : 0;  // recursos só na vermelha [FORTALEZA_ZONAS]
+        String stolenItem = red ? stealOneItem(attacker, victim)   : null; // item só na vermelha
+        long   xpLost     = stealXp(victim, attacker);                   // XP em ambas (killer +50%)
 
         victimW.clearBuff();
         victim.setPvpShieldUntil(LocalDateTime.now().plusMinutes(PVP_SHIELD_MINUTES)); // saqueado 1x por ciclo

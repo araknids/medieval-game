@@ -3,7 +3,7 @@ package com.medieval.game.enums;
 public enum Zone {
     //                         name                   lv  mult  pvp%  npc%  description
     SAFE      ("Safe Zone",       1, 1.0,  0, 20, "Protected area. No PvP, but wild monsters appear."),
-    PVP       ("PvP Zone",        10, 1.5, 20, 25, "Better resources. On loss: 50% bag resources + 10% bronze. Gear & XP are safe. Level 10+."),
+    PVP       ("PvP Zone",        10, 1.5, 20, 25, "Better resources. On loss: 10% bronze + XP. Resources & gear are safe. Level 10+."),
     HIGH_RISK ("High Risk Zone",  20, 2.5, 40, 35, "Rare resources. On loss: resources + 15% bronze + an item + XP. Items get LOCKED. Level 20+.");
 
     public final String displayName;

@@ -322,18 +322,27 @@ class ZoneAmbushIntegrationTest extends BaseIntegrationTest {
         assertThat(result.narrative()).isNotBlank();  // narrativa de coleta
     }
 
-    // ── TC-224: Flagged não pode stashar recurso (recurso travado no PvP) [PVP_FLAG] ──
+    // ── TC-224: Só a VERMELHA trava recurso; a AMARELA não (perde só bronze+XP). [PVP_FLAG][FORTALEZA_ZONAS] ──
     @Test
-    @DisplayName("TC-224 | Flagged não pode guardar recurso no stash")
-    void tc224_flaggedCannotStashResource() {
-        Player p = playerOf("amb");
-        warriorOf(p);
-        gatheringService.addResource(p, com.medieval.game.enums.ResourceType.SMALL_FISH, 10);
-        flagPlayer(p, Zone.PVP); // exposto → recursos travados
+    @DisplayName("TC-224 | Amarela permite stashar recurso; vermelha trava")
+    void tc224_onlyRedLocksResources() {
+        Player p0 = playerOf("amb");
+        warriorOf(p0);
+        gatheringService.addResource(p0, com.medieval.game.enums.ResourceType.SMALL_FISH, 20);
+        Player withBronze = playerRepository.findById(p0.getId()).orElseThrow();
+        withBronze.addBronzeAmount(1000); // taxa do stash
+        playerRepository.save(withBronze);
 
-        Player flagged = playerRepository.findById(p.getId()).orElseThrow();
+        // 🟡 amarela: recursos seguros → consegue guardar (não lança)
+        flagPlayer(playerRepository.findById(p0.getId()).orElseThrow(), Zone.PVP);
+        stashService.depositResource(playerRepository.findById(p0.getId()).orElseThrow(),
+                com.medieval.game.enums.ResourceType.SMALL_FISH, 5);
+
+        // 🔴 vermelha: recursos travados → bloqueia
+        flagPlayer(playerRepository.findById(p0.getId()).orElseThrow(), Zone.HIGH_RISK);
+        Player red = playerRepository.findById(p0.getId()).orElseThrow();
         org.assertj.core.api.Assertions.assertThatThrownBy(() ->
-                stashService.depositResource(flagged, com.medieval.game.enums.ResourceType.SMALL_FISH, 5))
+                stashService.depositResource(red, com.medieval.game.enums.ResourceType.SMALL_FISH, 5))
                 .isInstanceOf(IllegalStateException.class);
     }
 

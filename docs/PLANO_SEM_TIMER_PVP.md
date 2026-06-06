@@ -48,9 +48,9 @@ Limpezas de borda: `MaintenanceService`/`WarriorService` perderam os repos/bloco
 | Zona | PvP/NPC | Ao perder | Lock | Reward |
 |---|---|---|---|---|
 | 🟢 Verde (SAFE) | — / 20% | só PvE (dano/KO) | — | 1.0x |
-| 🟡 Amarela (PVP, lvl 10+) | 20% / 25% | −50% recursos + −10% bronze | **recursos** (não stasha enquanto exposto) | 1.5x |
+| 🟡 Amarela (PVP, lvl 10+) | 20% / 25% | **−10% bronze + XP** (sem recursos/item) | — (recursos/gear seguros) | 1.5x |
 | 🔴 Vermelha (HIGH_RISK, lvl 20+) | 40% / 35% | −50% rec + −15% bronze + item(35%) + XP | **itens + recursos** | 2.5x |
-- **XP**: na vermelha a vítima perde `expNeed/20`; o killer ganha **50%** (teto 10% do nível dele).
+- **XP**: a vítima perde `expNeed/20`; o killer ganha **50%** (teto 10% do nível dele). [FORTALEZA_ZONAS] agora vale nas DUAS zonas (antes só na vermelha).
 - **Matchmaking**: só ataca/é atacado dentro de **±10 níveis** (`PVP_LEVEL_BAND`). O minLevel da zona já protege os baixos.
 - Item-lock só na vermelha; recurso-lock (bloqueia depositar no stash enquanto flagged) nas duas.
 
