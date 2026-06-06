@@ -48,7 +48,7 @@ public class InventoryService {
             for (InventoryItem i : items) if (i.isPvpLocked()) { i.setPvpLocked(false); any = true; }
             if (any) inventoryRepository.saveAll(items);
         }
-        return items;
+        return items.stream().filter(i -> !i.isListed()).toList(); // [LEILAO] itens no leilão não aparecem na bag
     }
 
     /**
@@ -77,7 +77,7 @@ public class InventoryService {
     // Inventário V2: bag unificada — conta itens não-equipados (na bag) + recursos na bag POR UNIDADE.
     public int bagSize(Player player) {
         long items = inventoryRepository.findAllByPlayer(player).stream()
-                .filter(i -> !i.isEquipped() && !i.isStashed()).count();
+                .filter(i -> !i.isEquipped() && !i.isStashed() && !i.isListed()).count(); // [LEILAO] listado não conta na bag
         long resources = resourceRepository.findAllByPlayerAndStashed(player, false).stream()
                 .mapToLong(ResourceInventory::getQuantity).sum();
         return (int) (items + resources);
@@ -121,6 +121,9 @@ public class InventoryService {
         }
         if (item.isStashed()) {
             throw new IllegalStateException("Withdraw the item from the stash first.");
+        }
+        if (item.isListed()) {
+            throw new IllegalStateException("Item is listed in the Auction House.");
         }
         // Itens V3: requisito de nível — só equipa se itemLevel ≤ nível do guerreiro. [ITENS_V3]
         int level = warriorRepository.findByPlayer(player).map(Warrior::getLevel).orElse(1);
@@ -175,6 +178,9 @@ public class InventoryService {
         if (item.isEquipped()) {
             log.warn("[InventoryService] player={} REJECTED: item {} is equipped, unequip first", player.getId(), itemId);
             throw new IllegalStateException("Desequipe o item antes de vender");
+        }
+        if (item.isListed()) {
+            throw new IllegalStateException("Item is listed in the Auction House.");
         }
         if (item.isPvpLocked() && player.isPvpFlagged()) {
             log.warn("[InventoryService] player={} REJECTED: item {} is PvP-locked (exposed)", player.getId(), itemId);

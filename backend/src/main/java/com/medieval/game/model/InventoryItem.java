@@ -60,6 +60,11 @@ public class InventoryItem {
     @Column(columnDefinition = "boolean default false")
     private boolean pvpLocked = false;
 
+    // [LEILAO] Item anunciado na Casa de Leilão: continua do dono, mas sai da bag (não conta/aparece;
+    // não dá pra equipar/vender/encaixar). Volta na expiração/cancelamento; muda de dono na venda.
+    @Column(columnDefinition = "boolean default false")
+    private boolean listed = false;
+
     @Column(columnDefinition = "TEXT")
     private String description; // lore do item
 

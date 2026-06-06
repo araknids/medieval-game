@@ -37,6 +37,7 @@ public class SchemaMigrator {
         patchWarriorCombatPostureColumn();
         patchPlayerPetPityColumn();
         patchGuildEverControlledColumn();
+        patchInventoryListedColumn();
         patchStashColumns();
         patchKingdomQuestWindowColumn();
         dropWarriorOnMissionColumn();
@@ -152,6 +153,16 @@ public class SchemaMigrator {
             log.info("[SchemaMigrator] territory_controls last_resolved_cycle_id column ensured");
         } catch (Exception e) {
             log.warn("[SchemaMigrator] territory_controls last_resolved_cycle_id patch failed: {}", e.getMessage());
+        }
+    }
+
+    // Casa de Leilão: flag de item anunciado. Tabela auction_listings é auto-criada pelo ddl-auto. [LEILAO]
+    private void patchInventoryListedColumn() {
+        try {
+            jdbc.execute("ALTER TABLE inventory_items ADD COLUMN IF NOT EXISTS listed boolean NOT NULL DEFAULT false");
+            log.info("[SchemaMigrator] inventory_items.listed column ensured");
+        } catch (Exception e) {
+            log.warn("[SchemaMigrator] inventory_items.listed patch failed: {}", e.getMessage());
         }
     }
 

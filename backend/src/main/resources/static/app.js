@@ -431,17 +431,105 @@ function switchCommerceTab(tab) {
   document.getElementById('panel-cooking').style.display   = tab === 'cooking'   ? 'block' : 'none';
   document.getElementById('panel-estabulo').style.display  = tab === 'estabulo'  ? 'block' : 'none';
   document.getElementById('panel-vipshop').style.display   = tab === 'vipshop'   ? 'block' : 'none';
+  document.getElementById('panel-auction').style.display   = tab === 'auction'   ? 'block' : 'none';
   document.getElementById('tab-shop').classList.toggle('active',      tab === 'shop');
   document.getElementById('tab-sell').classList.toggle('active',      tab === 'sell');
   document.getElementById('tab-smith').classList.toggle('active',     tab === 'smith');
   document.getElementById('tab-cooking').classList.toggle('active',   tab === 'cooking');
   document.getElementById('tab-estabulo').classList.toggle('active',  tab === 'estabulo');
   document.getElementById('tab-vipshop').classList.toggle('active',   tab === 'vipshop');
+  document.getElementById('tab-auction').classList.toggle('active',   tab === 'auction');
   if (tab === 'sell')      loadSellList();
   if (tab === 'smith')     loadSmithingInCommerce();
   if (tab === 'cooking')   loadCooking();
   if (tab === 'estabulo')  loadEstabulo();
   if (tab === 'vipshop')   loadVipShop();
+  if (tab === 'auction')   loadAuctionHouse();
+}
+
+// ── Casa de Leilão (Auction House) — preço fixo (buyout). [LEILAO] ──
+function aucTimeLeft(s) {
+  const d = Math.floor(s / 86400), h = Math.floor((s % 86400) / 3600);
+  return d > 0 ? `${d}d ${h}h` : `${h}h ${Math.floor((s % 3600) / 60)}m`;
+}
+function aucCard(a, isMineSection) {
+  const stats = [a.attackBonus > 0 ? `+${a.attackBonus} ATK` : '', a.defenseBonus > 0 ? `+${a.defenseBonus} DEF` : '',
+                 a.healthBonus > 0 ? `+${a.healthBonus} HP` : ''].filter(Boolean).join(' · ');
+  const action = isMineSection
+    ? `<button class="btn-buy" style="background:#8b0000" onclick="auctionCancel(${a.listingId})">Cancel</button>`
+    : `<button class="btn-buy" ${a.isMine ? 'disabled style="opacity:.5"' : ''} onclick="auctionBuy(${a.listingId})">Buy</button>`;
+  return `
+    <div class="shop-card">
+      <div class="shop-item-info">
+        <h3 class="rarity-${a.rarity}">${escapeHtml(a.name)} ${a.sockets ? `<span style="color:#888;font-size:.7em">◇${a.sockets}</span>` : ''}</h3>
+        <div class="shop-stats">${escapeHtml(a.typeDisplay)}${stats ? ' · ' + stats : ''} · 🔧${a.durability}% · ⏳ ${aucTimeLeft(a.secondsLeft)}</div>
+        ${a.affixes && a.affixes.length ? `<div style="font-size:.7rem;color:#8bc34a">${a.affixes.map(escapeHtml).join(' · ')}</div>` : ''}
+        <div style="font-size:.7rem;color:#888">Seller: ${escapeHtml(a.sellerName)}${isMineSection ? ` · you get ${fmtBronze(a.sellerPayout)} on sale` : ''}</div>
+      </div>
+      <span class="shop-price">${fmtBronze(a.price)}</span>
+      ${action}
+    </div>`;
+}
+
+async function loadAuctionHouse() {
+  const el = document.getElementById('auction-content');
+  el.innerHTML = '<p>Loading...</p>';
+  const [listings, mine, inv] = await Promise.all([
+    api('GET', '/api/auction'),
+    api('GET', '/api/auction/mine'),
+    api('GET', '/api/inventory')
+  ]);
+  const myBag = (Array.isArray(inv) ? inv : []).filter(i => !i.equipped);
+
+  const browseHtml = (Array.isArray(listings) && listings.length)
+    ? listings.map(a => aucCard(a, false)).join('')
+    : '<p style="color:#888;font-size:.82rem">No items listed right now.</p>';
+  const mineHtml = (Array.isArray(mine) && mine.length)
+    ? mine.map(a => aucCard(a, true)).join('')
+    : '<p style="color:#888;font-size:.82rem">You have no active listings.</p>';
+  const pickerHtml = myBag.length ? myBag.map(i => `
+    <div class="shop-card">
+      <div class="shop-item-info">
+        <h3 class="rarity-${i.rarity}">${escapeHtml(i.name)}</h3>
+        <div class="shop-stats">${(t('item.type.' + i.type) || i.typeDisplay)} · ${statsText(i)}</div>
+      </div>
+      <input id="auc-price-${i.id}" type="number" min="1" placeholder="price"
+        style="width:90px;padding:4px;background:#111;color:#eee;border:1px solid #555;border-radius:4px">
+      <button class="btn-buy" onclick="auctionList(${i.id})">List</button>
+    </div>`).join('') : '<p style="color:#888;font-size:.82rem">No items to list.</p>';
+
+  el.innerHTML = `
+    <div style="font-size:.75rem;color:#888;margin-bottom:8px">Fixed-price market. Fee: 5% upfront (kept) + 15% on sale → you get 80%. Listings last 2 days, max 10.</div>
+    <h4 style="margin:6px 0">🛒 Browse</h4>${browseHtml}
+    <h4 style="margin:14px 0 6px">📋 My listings (${Array.isArray(mine) ? mine.length : 0}/10)</h4>${mineHtml}
+    <h4 style="margin:14px 0 6px">➕ List an item</h4>${pickerHtml}
+    <div id="auction-msg" style="margin-top:8px;min-height:18px"></div>`;
+}
+
+async function auctionBuy(id) {
+  const r = await api('POST', `/api/auction/buy/${id}`);
+  if (r.error) { const m = document.getElementById('auction-msg'); if (m) m.innerHTML = `<span style="color:#f44336">${r.error}</span>`; return; }
+  await loadWarrior();
+  await loadAuctionHouse();
+  const m = document.getElementById('auction-msg'); if (m) m.innerHTML = `<span style="color:#4caf50">✅ ${r.message}</span>`;
+}
+
+async function auctionCancel(id) {
+  if (!confirm('Cancel this listing? (the 5% fee is not refunded)')) return;
+  const r = await api('POST', `/api/auction/cancel/${id}`);
+  if (r.error) { const m = document.getElementById('auction-msg'); if (m) m.innerHTML = `<span style="color:#f44336">${r.error}</span>`; return; }
+  await loadAuctionHouse();
+}
+
+async function auctionList(itemId) {
+  const price = parseInt(document.getElementById(`auc-price-${itemId}`)?.value);
+  const m = document.getElementById('auction-msg');
+  if (!price || price < 1) { if (m) m.innerHTML = '<span style="color:#f44336">Enter a valid price.</span>'; return; }
+  const r = await api('POST', '/api/auction/list', { itemId, price });
+  if (r.error) { if (m) m.innerHTML = `<span style="color:#f44336">${r.error}</span>`; return; }
+  await loadWarrior();
+  await loadAuctionHouse();
+  const m2 = document.getElementById('auction-msg'); if (m2) m2.innerHTML = `<span style="color:#4caf50">✅ Listed! (5% fee charged)</span>`;
 }
 
 // ── Estábulo: montarias que reduzem estamina (ver docs/PLANO_ESTABULO.md) ──
