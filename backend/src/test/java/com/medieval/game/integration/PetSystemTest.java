@@ -175,8 +175,10 @@ class PetSystemTest extends BaseIntegrationTest {
     @Test
     @DisplayName("A quest da Luna aparece na vitrine numa janela da Luna")
     void lunaShowcase_appearsInLunaWindow() throws Exception {
+        // isLunaWindow = floorMod(playerId*K + window, LUNA_WINDOW_DENOM)==0, com K≡1 mod DENOM →
+        // IDs consecutivos cobrem todos os resíduos; ≥DENOM(12) registros garantem uma janela da Luna.
         String lunaTok = null;
-        for (int i = 0; i < 8 && lunaTok == null; i++) {
+        for (int i = 0; i < 13 && lunaTok == null; i++) {
             String tk = registerAndGetToken(uniqueUser("petshow"));
             Player p = playerRepository.findAll().stream()
                     .filter(x -> x.getUsername().startsWith("petshow"))

@@ -47,7 +47,7 @@ public class KingdomService {
     private final AbilityService               abilityService; // +drop do Mercador (Treasure Hunter) [MERCADOR]
 
     // ── Quest rara da Luna (pet): aparição + chance de pity. [PETS] ──
-    private static final int  LUNA_WINDOW_DENOM = 4;       // ~1 a cada 4 janelas de 12h (~a cada 2 dias)
+    private static final int  LUNA_WINDOW_DENOM = 12;      // ~1 a cada 12 janelas de 12h (~1x por semana) — evento raro [QUESTS_LORE]
     private static final int  LUNA_BASE_PPM     = 100;     // 0.01% base (em ppm)
     private static final int  LUNA_STEP_PPM     = 50;      // +0.005% por tentativa
     private static final int  LUNA_CAP_PPM      = 10_000;  // teto 1%
