@@ -71,33 +71,22 @@ class WarriorIntegrationTest extends BaseIntegrationTest {
     // [SEM_TIMER] TC-058 removido: o endpoint /api/warrior/free (destravar 'busy') foi aposentado
     // junto com o conceito de onMission — tudo é instantâneo, não há guerreiro pra destravar.
 
-    // ── TC-229: distribuir ponto em INTELLECT → intellect sobe ──
+    // ── TC-229: INTELLECT é RESERVADO (S2/Mage) → não investível → 400 [INT_RESERVADO] ──
     @Test
-    @DisplayName("TC-229 | POST /api/warrior/attributes/INTELLECT com ponto → intellect +1")
-    void tc229_spendIntellect() throws Exception {
+    @DisplayName("TC-229 | POST /api/warrior/attributes/INTELLECT → 400 (reservado, sem efeito)")
+    void tc229_intellectIsReserved() throws Exception {
         Warrior w = currentWarrior();
         w.setAvailablePoints(3);
         warriorRepository.save(w);
 
         mockMvc.perform(post("/api/warrior/attributes/INTELLECT")
                         .header("Authorization", bearer(token)))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.intellect").value(1));
-    }
-
-    // ── TC-230: INTELLECT no cap 40 → 400 ──
-    @Test
-    @DisplayName("TC-230 | INTELLECT no cap (40) → 400")
-    void tc230_intellectAtCap_returns400() throws Exception {
-        Warrior w = currentWarrior();
-        w.setIntellect(40);
-        w.setAvailablePoints(5);
-        warriorRepository.save(w);
-
-        mockMvc.perform(post("/api/warrior/attributes/INTELLECT")
-                        .header("Authorization", bearer(token)))
                 .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.error").value(containsString("cap")));
+                .andExpect(jsonPath("$.error").value(containsString("reserved")));
+        // não consumiu ponto nem subiu o atributo
+        Warrior after = currentWarrior();
+        org.junit.jupiter.api.Assertions.assertEquals(0, after.getIntellect());
+        org.junit.jupiter.api.Assertions.assertEquals(3, after.getAvailablePoints());
     }
 
     // ── TC-231: GET /api/warrior expõe armorClass, attackBonus, intellect ──

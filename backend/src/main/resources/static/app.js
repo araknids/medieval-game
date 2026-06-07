@@ -909,7 +909,7 @@ const ATTR_INFO = {
   CONSTITUTION: { icon: '❤',  label: 'Constitution (CON)', cap: null, effect: '+8 HP per point · no cap' },
   AGILITY:      { icon: '💨', label: 'Agility (AGI)',      cap: 55,  effect: 'Speed — extra strikes vs slower foes + dodge incoming hits' },
   LUCK:         { icon: '🍀', label: 'Luck (LUK)',         cap: 70,  effect: '+1% drop · widens crit window · Fortune Save' },
-  INTELLECT:    { icon: '📚', label: 'Intellect (INT)',    cap: 30,  effect: '+0.5% Smithing · -0.2% train cost · +0.3% gather (Mage stat)' },
+  // [INT_RESERVADO] INT está reservado p/ a futura classe Mage (S2) — não aparece nem é investível ainda.
 };
 
 function renderAttributes() {

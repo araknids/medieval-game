@@ -6,7 +6,7 @@ public enum Attribute {
     CONSTITUTION("Constitution (CON)", "❤",  "+8 max HP per point · no cap"),
     AGILITY     ("Agility (AGI)",      "💨", "Speed & evasion — extra strikes vs slower foes, dodges incoming hits"),
     LUCK        ("Luck (LUK)",         "🍀", "+1% drop · widens crit window · Fortune Save (negate crits)"),
-    INTELLECT   ("Intellect (INT)",    "📚", "+0.5% Smithing · -0.2% training cost · +0.3% gathering yield (reserved for Mage)");
+    INTELLECT   ("Intellect (INT)",    "📚", "Reserved — no effect yet (a future Mage class will use it)");
 
     public final String displayName;
     public final String icon;
