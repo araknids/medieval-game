@@ -24,6 +24,7 @@ public class SchemaMigrator {
     @EventListener(ApplicationReadyEvent.class)
     public void migrate() {
         patchZoneActivityRoleCheck();
+        patchZoneActivityStatusCheck();
         patchPlayerSoulStoneColumns();
         patchMailItemColumns();
         patchPlayerVipColumns();
@@ -420,6 +421,32 @@ public class SchemaMigrator {
             log.info("[SchemaMigrator] zone_activities.kingdom column ensured");
         } catch (Exception e) {
             log.warn("[SchemaMigrator] zone_activities.kingdom patch failed: {}", e.getMessage());
+        }
+    }
+
+    // zone_activities.status: extend check constraint to include BOSS_PENDING (chefe errante). [ZONA_CHEFE]
+    // O check antigo foi criado antes do BOSS_PENDING e rejeitava o status novo (erro 23514 no collect).
+    private void patchZoneActivityStatusCheck() {
+        try {
+            jdbc.execute("""
+                DO $$
+                BEGIN
+                    IF EXISTS (
+                        SELECT 1 FROM information_schema.table_constraints
+                        WHERE table_name = 'zone_activities'
+                          AND constraint_name = 'zone_activities_status_check'
+                    ) THEN
+                        ALTER TABLE zone_activities DROP CONSTRAINT zone_activities_status_check;
+                    END IF;
+                    ALTER TABLE zone_activities
+                        ADD CONSTRAINT zone_activities_status_check
+                        CHECK (status IN ('IN_PROGRESS', 'BOSS_PENDING', 'COMPLETED', 'DEFEATED', 'CANCELLED'));
+                END
+                $$;
+                """);
+            log.info("[SchemaMigrator] zone_activities_status_check updated");
+        } catch (Exception e) {
+            log.warn("[SchemaMigrator] zone_activities_status_check patch failed: {}", e.getMessage());
         }
     }
 
