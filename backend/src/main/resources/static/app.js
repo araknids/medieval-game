@@ -2198,7 +2198,7 @@ async function loadRank() {
   }
   document.getElementById('rank-list').innerHTML = `
     <table class="rank-table">
-      <thead><tr><th>#</th><th>${t('tower.col.warrior')}</th><th>${t('tower.col.floor')}</th></tr></thead>
+      <thead><tr><th>#</th><th>${t('arena.col.warrior')}</th><th>${t('arena.col.points')}</th><th>${t('arena.col.record')}</th></tr></thead>
       <tbody>
         ${rank.map((r, i) => `
           <tr class="${r.warriorName === warrior?.name ? 'me' : ''}">
