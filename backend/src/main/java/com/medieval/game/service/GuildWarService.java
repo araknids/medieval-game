@@ -158,12 +158,17 @@ public class GuildWarService {
         Guild enemy = guildRepository.findById(enemyId).orElseThrow();
         long secsLeft = Math.max(0, Duration.between(LocalDateTime.now(), war.getEndsAt()).getSeconds());
 
+        List<Player> enemyMembers = playerRepository.findAllByGuild(enemy);
+        // [AUDITORIA_2 A5] warriors dos inimigos em 1 query (em vez de findByPlayer por membro)
+        java.util.Map<Long, Warrior> wByP = warriorRepository.findByPlayerIn(enemyMembers).stream()
+                .collect(java.util.stream.Collectors.toMap(w -> w.getPlayer().getId(), w -> w, (a, b) -> a));
         List<EnemyMember> enemies = new ArrayList<>();
-        for (Player m : playerRepository.findAllByGuild(enemy)) {
-            warriorRepository.findByPlayer(m).ifPresent(w -> enemies.add(new EnemyMember(
+        for (Player m : enemyMembers) {
+            Warrior w = wByP.get(m.getId());
+            if (w != null) enemies.add(new EnemyMember(
                     m.getId(), w.getName(), AchievementService.titleString(m), // [TITULOS]
                     w.getLevel(), w.getCalculatedHpPercent(),
-                    w.isKnockedOut(), m.isPvpShielded())));
+                    w.isKnockedOut(), m.isPvpShielded()));
         }
         return new WarStatus(true, war.getId(), enemy.getName(), enemyId,
                 war.killsFor(mine.getId()), war.killsFor(enemyId), secsLeft, enemies);

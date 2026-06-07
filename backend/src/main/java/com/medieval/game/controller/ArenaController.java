@@ -28,16 +28,15 @@ public class ArenaController {
 
     @GetMapping("/rank")
     public ResponseEntity<List<RankEntry>> getRank() {
-        List<RankEntry> rank = arenaService.getRanking().stream()
-                .limit(20)
-                .map(p -> {
-                    String warriorName = warriorRepository.findByPlayer(p)
-                            .map(w -> w.getName())
-                            .orElse("?");
-                    return new RankEntry(warriorName,
-                            com.medieval.game.service.AchievementService.titleString(p), // [TITULOS]
-                            p.getRankPoints(), p.getArenaWins(), p.getArenaLosses());
-                })
+        List<Player> top = arenaService.getRanking().stream().limit(20).toList();
+        // [AUDITORIA_2 A5] 1 query batch p/ os nomes em vez de findByPlayer por linha (N+1)
+        Map<Long, String> names = warriorRepository.findByPlayerIn(top).stream()
+                .collect(java.util.stream.Collectors.toMap(w -> w.getPlayer().getId(),
+                        com.medieval.game.model.Warrior::getName, (a, b) -> a));
+        List<RankEntry> rank = top.stream()
+                .map(p -> new RankEntry(names.getOrDefault(p.getId(), "?"),
+                        com.medieval.game.service.AchievementService.titleString(p), // [TITULOS]
+                        p.getRankPoints(), p.getArenaWins(), p.getArenaLosses()))
                 .toList();
         return ResponseEntity.ok(rank);
     }

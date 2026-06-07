@@ -164,7 +164,9 @@ public class AuctionService {
     // ── Consultas ────────────────────────────────────────────────────────────────
     @Transactional
     public List<AuctionView> browse(Player me) {
-        List<AuctionListing> all = listingRepo.findByStatus(Status.ACTIVE).stream().filter(l -> !l.isExpired()).toList();
+        // [AUDITORIA_2 A5] capa em 200 (mais recentes) — não serializa o livro inteiro de uma vez
+        List<AuctionListing> all = listingRepo.findTop200ByStatusOrderByListedAtDesc(Status.ACTIVE)
+                .stream().filter(l -> !l.isExpired()).toList();
         return toViews(all, me.getId());
     }
 
@@ -183,11 +185,15 @@ public class AuctionService {
                 .collect(Collectors.groupingBy(g -> g.getItem().getId()));
         Map<Long, List<ItemAffix>> affByItem = affixRepository.findAllByItemIn(items).stream()
                 .collect(Collectors.groupingBy(a -> a.getItem().getId()));
+        // [AUDITORIA_2 A5] nomes dos vendedores em 1 query (em vez de findByPlayer por listagem)
+        Map<Long, String> sellerNames = warriorRepository.findByPlayerIn(
+                        listings.stream().map(AuctionListing::getSeller).toList()).stream()
+                .collect(Collectors.toMap(w -> w.getPlayer().getId(), Warrior::getName, (a, b) -> a));
 
         List<AuctionView> out = new ArrayList<>();
         for (AuctionListing l : listings) {
             InventoryItem it = l.getItem();
-            String sellerName = warriorRepository.findByPlayer(l.getSeller()).map(Warrior::getName).orElse("?");
+            String sellerName = sellerNames.getOrDefault(l.getSeller().getId(), "?");
             long secs = Math.max(0, Duration.between(LocalDateTime.now(), l.getEndsAt()).getSeconds());
             List<String> affixes = affByItem.getOrDefault(it.getId(), List.of()).stream()
                     .map(a -> a.getAffix().word + " (+" + a.getMagnitude() + " " + a.getAffix().stat.name() + ")").toList();

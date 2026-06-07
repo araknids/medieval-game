@@ -46,7 +46,7 @@ public class GuildController {
         Long myGuildId = myGuild != null ? myGuild.getId() : null;
 
         List<?> guilds = guildService.listAll().stream().map(g -> {
-            int members = guildService.members(g).size();
+            long members = guildService.memberCount(g); // [AUDITORIA_2 A5] count em vez de carregar as linhas
             return Map.of(
                 "id",          g.getId(),
                 "name",        g.getName(),
@@ -146,20 +146,23 @@ public class GuildController {
     private Map<String, Object> toDetail(Player player, Guild guild) {
         List<Player> members = guildService.members(guild);
         long cycle = territoryService.currentCycleId(); // p/ exibir o cansaço da próxima batalha. [GUERRA_ROSTER]
+        // [AUDITORIA_2 A5] 1 query batch dos warriors dos membros (em vez de findByPlayer 2× por membro)
+        Map<Long, com.medieval.game.model.Warrior> wByP = guildService.warriorsByPlayerId(members);
 
         List<Map<String, Object>> memberList = members.stream()
                 .map(m -> {
                     boolean isLeader = guild.getLeaderId().equals(m.getId());
+                    com.medieval.game.model.Warrior w = wByP.get(m.getId());
                     return Map.<String, Object>of(
                         "playerId",    m.getId(),
-                        "warriorName", guildService.warriorName(m),
+                        "warriorName", w != null ? w.getName() : "?",
                         "title",       com.medieval.game.service.AchievementService.titleString(m), // [TITULOS]
                         "isLeader",    isLeader,
                         "isMe",        m.getId().equals(player.getId()),
                         "inWarRoster", m.isInWarRoster(),                              // [GUERRA_ROSTER]
                         "warLane",     m.getWarLane(),                                 // [GUERRA_FORMACAO]
                         "warDepth",    m.getWarDepth(),
-                        "fatiguePct",  guildService.warriorFatiguePct(m, cycle)        // [GUERRA_ROSTER]
+                        "fatiguePct",  w != null ? w.currentFatiguePct(cycle) : 0      // [GUERRA_ROSTER]
                     );
                 }).toList();
 
@@ -168,7 +171,7 @@ public class GuildController {
                 .filter(m -> m.getGuildDonatedBronze() > 0)
                 .sorted((a, b) -> Long.compare(b.getGuildDonatedBronze(), a.getGuildDonatedBronze()))
                 .map(m -> Map.<String, Object>of(
-                    "warriorName",   guildService.warriorName(m),
+                    "warriorName",   wByP.get(m.getId()) != null ? wByP.get(m.getId()).getName() : "?",
                     "title",         com.medieval.game.service.AchievementService.titleString(m), // [TITULOS]
                     "donatedBronze", m.getGuildDonatedBronze(),
                     "isMe",          m.getId().equals(player.getId())

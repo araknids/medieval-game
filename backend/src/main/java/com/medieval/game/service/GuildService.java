@@ -326,10 +326,22 @@ public class GuildService {
         return playerRepository.findAllByGuild(guild);
     }
 
+    /** [AUDITORIA_2 A5] Conta membros sem carregar as linhas (usado na lista de guildas). */
+    public long memberCount(Guild guild) {
+        return playerRepository.countByGuild(guild);
+    }
+
     public String warriorName(Player player) {
         return warriorRepository.findByPlayer(player)
                 .map(w -> w.getName())
                 .orElse("?");
+    }
+
+    /** [AUDITORIA_2 A5] Warriors dos membros em 1 query (mapa playerId→Warrior) — evita N+1 no roster. */
+    public java.util.Map<Long, com.medieval.game.model.Warrior> warriorsByPlayerId(java.util.Collection<Player> players) {
+        if (players.isEmpty()) return java.util.Map.of();
+        return warriorRepository.findByPlayerIn(players).stream()
+                .collect(java.util.stream.Collectors.toMap(w -> w.getPlayer().getId(), w -> w, (a, b) -> a));
     }
 
     // ── Helpers ───────────────────────────────────────────────────────────────
