@@ -77,6 +77,15 @@
             <artifactId>spring-boot-starter-test</artifactId>
             <scope>test</scope>
         </dependency>
+
+        <!-- [TESTE_POSTGRES] Testcontainers: Postgres real nos testes via URL jdbc:tc: (perfil 'postgres',
+             ver -Ppostgres). Versão gerida pelo BOM do Spring Boot. Só usado quando o perfil pgtest está ativo;
+             o `mvn test` padrão continua em H2. -->
+        <dependency>
+            <groupId>org.testcontainers</groupId>
+            <artifactId>postgresql</artifactId>
+            <scope>test</scope>
+        </dependency>
     </dependencies>
 
     <build>
@@ -95,4 +104,25 @@
             </plugin>
         </plugins>
     </build>
+
+    <!-- [TESTE_POSTGRES] `mvn test -Ppostgres` roda a suíte no Postgres real (Testcontainers, perfil
+         Spring 'pgtest'). Precisa do Docker LIGADO. Sem o perfil, `mvn test` continua em H2 (rápido). -->
+    <profiles>
+        <profile>
+            <id>postgres</id>
+            <build>
+                <plugins>
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-surefire-plugin</artifactId>
+                        <configuration>
+                            <systemPropertyVariables>
+                                <spring.profiles.active>pgtest</spring.profiles.active>
+                            </systemPropertyVariables>
+                        </configuration>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
+    </profiles>
 </project>

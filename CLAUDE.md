@@ -131,6 +131,16 @@ mvn spring-boot:run
 # Login: adm / adm123
 ```
 
+### Testes — H2 (rápido) + Postgres (Testcontainers) — [TESTE_POSTGRES]
+```bash
+mvn test               # padrão: H2 in-memory (rápido, sem Docker)
+mvn test -Ppostgres    # Postgres REAL via Testcontainers (perfil Spring 'pgtest') — precisa do Docker LIGADO
+```
+O `-Ppostgres` sobe um container `postgres:16` (URL `jdbc:tc:postgresql:16:///`) e roda a MESMA suíte no
+Postgres, pegando o que o H2 não pega (SchemaMigrator com `DO $$`, check-constraints de enum, índices). O
+CI roda **os dois** (`.github/workflows/ci.yml`: job H2 + job `test-postgres`). Config em
+`src/test/resources/application-pgtest.properties` (+ `DataSeeder` roda em `dev` e `pgtest`).
+
 ---
 
 ## Variáveis de Ambiente (Produção Railway)

@@ -16,7 +16,7 @@ import org.springframework.stereotype.Component;
 
 @Slf4j
 @Component
-@Profile("dev")
+@Profile({"dev", "pgtest"}) // [TESTE_POSTGRES] pgtest espelha o dev (seed do admin/NPC) no Postgres
 @RequiredArgsConstructor
 public class DataSeeder {
 
