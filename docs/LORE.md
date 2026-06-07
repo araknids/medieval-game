@@ -23,7 +23,7 @@ Você é mandado pelo **Velho Mundo** para **salvar** o Rei do novo continente �
 ## Personagens
 
 ### O Deus que Dorme — o verdadeiro vilão (Temporada 2)
-Passivo, adormecido. Não age direto: **isca e corrompe**. Tudo de ruim no jogo é, no fundo, *ele* vazando. Sem nome na S1 — só epítetos: *"o que Dorme", "o Coração Faminto", "o Sangue da Terra"*.
+Passivo, adormecido. Não age direto: **isca e corrompe**. Tudo de ruim no jogo é, no fundo, *ele* vazando. Nome verdadeiro: **Mordûn** — **revelado só na S2**; na S1 só epítetos: *"o que Dorme", "o Coração Faminto", "o Sangue da Terra"*.
 
 ### O Xamã — a primeira mão do Deus (sub-chefe, S1)
 Era um **pescador comum** do Velho Mundo. **Naufragou** e foi **dado como morto**. Mas o Deus **conduziu as águas** e o lançou na praia do continente novo. Uma **voz na mente** começou a guiá-lo; ele se perdeu, se corrompeu, e virou a **primeira mão do Deus na terra**.
@@ -51,15 +51,15 @@ Um entre **muitos** aventureiros que o Velho Mundo despeja para socorrer a colô
 6. Arka vira a **nova mão**. Tranca-se na Torre para continuar os ritos. A corrupção **vaza** → monstros nos territórios.
 7. A cidade agonizante implora à **Velha Coroa**, que manda **recrutas** (os players). *(A segunda isca: os heróis são a peça que faltava.)*
 
-### A Torre — 10 andares `[Torre]`
-A subida da S1. (A "Torre do Rei" / "Espinha de Arka" virou **Torre Infernal** com a corrupção — bom motivo pro nome atual.)
-- **Andares 1–8:** corrupção crescente + chefes/MVPs a definir (sussurros do Xamã, ecos de que "ele te esperava").
-- **Andar 9 — O Xamã (sub-chefe):** a primeira mão, agora **descartável**. Não resiste de verdade; morrendo, **ri e insiste que sigam** ("dêem paz ao pobre rei") + planta a S2 (*"vocês mataram a mão... o coração ainda bate, lá embaixo"*).
-- **Andar 10 — Rei Arka (chefe final):** a nova mão, envolto no poder do Deus, com **lampejos do homem que foi**. Gate de poder alto (~nível 50, *balanceamento depois*).
+### A Torre — 50 andares `[Torre]`
+A subida da S1. (A "Torre do Rei" / "Espinha de Arka" virou **Torre Infernal** com a corrupção — bom motivo pro nome atual.) **50 andares, ~1 por nível**; andares comuns = chefes normais (a torre que já existe), e a cada **10 andares um MVP de história** — floors **10 / 20 / 30 / 40 / 50** (5 MVPs).
+- **Andar 40 — O Xamã** (proposto): a primeira mão, agora **descartável**. Não resiste de verdade; morrendo, **ri e insiste que sigam** ("dêem paz ao pobre rei") + planta a S2 (*"vocês mataram a mão... o coração ainda bate, lá embaixo"*).
+- **Andar 50 — Rei Arka (chefe final):** a nova mão, envolto no poder do Deus, com **lampejos do homem que foi**. Gate ~nível 50 (*balanceamento depois*).
+- **Andares 10 / 20 / 30:** 3 MVPs a definir (em discussão) — a queda do Rei contada de baixo pra cima.
 
 ### A escolha final — poupar ou matar `[TITULOS]`
 Ao ser derrotado, **Arka implora para ser poupado**. O player **escolhe**:
-- **Poupar:** Arka **se mata sobre o ritual** e avisa que **"vêm coisas piores por aí"**. O portal **abre mesmo assim**. → título **oculto** (ex.: *"O Clemente"* — nome a definir).
+- **Poupar:** Arka **se mata sobre o ritual** e avisa que **"vêm coisas piores por aí"**. O portal **abre mesmo assim**. → título **oculto** *"The Merciful / O Clemente"*.
 - **Matar:** o portal **abre** do mesmo jeito. → título **oculto** *"Regicida"*.
 
 > ⚠️ **Os dois títulos são OCULTOS (secret achievements)** — não aparecem na lista até serem desbloqueados, **pra não dar spoiler** de que o Rei "que você veio salvar" é o chefe que você julga. Implementação: precisa de uma flag `hidden` no `Achievement` + os 2 achievements novos + o ponto de escolha no combate do Arka. *(O outcome é o mesmo — o portal abre; a escolha é moral: suas mãos limpas ou não. Possível pagamento na S2.)*
@@ -97,13 +97,13 @@ O portal leva **para baixo**, ao **Deus que Dorme**, agora despertando. Contrast
 - Cidade-centro do continente novo: **Coroa de Arka** ✅
 - Velho continente / a ordem que manda recrutas: **a Velha Coroa**
 - A Torre: *Torre do Rei / Espinha de Arka* → **Torre Infernal** (após a corrupção)
-- O Deus: **sem nome na S1** (só epítetos)
+- O Deus: **Mordûn** (revelado só na S2; na S1 só epítetos)
+- Títulos da escolha final: **Regicide** (matar) / **The Merciful** (poupar) — ambos **ocultos**
 - Magia / o poder do Deus: *o Dom* / *a Febre* (a definir)
 
 ## Em aberto (a decidir / construir)
-- Nome do título de **poupar** o Arka (placeholder "O Clemente"); confirmar ambos **ocultos**.
-- Chefes/MVPs dos **andares 1–8** da Torre.
-- **Balanceamento** do gate do andar 10 (~nível 50).
+- Os **3 MVPs** dos andares 10/20/30 (40 = Xamã, 50 = Arka). [QUESTS_LORE / em discussão]
+- **Balanceamento** do gate do andar 50 (~nível 50) e dos MVPs 10/20/30/40.
 - Implementação dos **achievements ocultos** (flag `hidden` no sistema de Títulos) + o **ponto de escolha** no combate do Arka.
-- Reescrever as **quests dos reinos** pra semear a verdade (camada por camada).
-- Sorte do Arka/Xamã e forma do Deus na **S2**.
+- Reskin das **quests dos reinos** → ver `docs/PLANO_QUESTS_LORE.md`.
+- Sorte do Arka/Xamã e forma de Mordûn na **S2**.
