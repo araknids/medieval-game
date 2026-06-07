@@ -145,6 +145,12 @@ public class TowerService {
     @Transactional
     public FightResult fight(Player player) {
         log.info("[TowerService] player={} action=climbToNextFloor", player.getId());
+        // [TOWER_OPTLOCK] Re-carrega o player GERENCIADO nesta transação. O controller passa uma entidade
+        // DETACHED (open-in-view=false); como fight() salva o player várias vezes (taxa de subida, bronze,
+        // best-floor) + sub-serviços, re-salvar a detached fazia a @Version "andar pra trás" no merge →
+        // OptimisticLockException sistemático no climb. Mesmo padrão do ClassChangeService.attemptTrial.
+        player = playerRepository.findById(player.getId())
+                .orElseThrow(() -> new IllegalStateException("Player not found"));
         TowerRun run = towerRunRepository.findByPlayerAndStatus(player, TowerStatus.IN_PROGRESS)
                 .orElseThrow(() -> new IllegalStateException("You are not in the tower"));
 
