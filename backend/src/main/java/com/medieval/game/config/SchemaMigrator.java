@@ -46,6 +46,39 @@ public class SchemaMigrator {
         dropWarriorOnMissionColumn();
         dropStaleEnumCheckConstraints();
         purgeStaleEnumRows();
+        patchHotIndexes();
+    }
+
+    /**
+     * [AUDITORIA_2 A3] Índices nas FKs/colunas quentes. O PostgreSQL NÃO indexa coluna de FK
+     * automaticamente, e ddl-auto=update não cria índices p/ @ManyToOne — então as queries mais
+     * chamadas (warriorRepository.findByPlayer, inventory/zone por player, ranking) viram full scan
+     * que cresce com o nº de jogadores. CREATE INDEX IF NOT EXISTS funciona em Postgres e H2; cada um
+     * isolado p/ um não bloquear o outro. (As tabelas com unique composto já têm índice — não repetir.)
+     */
+    private void patchHotIndexes() {
+        String[] idx = {
+            "CREATE INDEX IF NOT EXISTS idx_warriors_player         ON warriors(player_id)",
+            "CREATE INDEX IF NOT EXISTS idx_inventory_items_player  ON inventory_items(player_id)",
+            "CREATE INDEX IF NOT EXISTS idx_zone_activities_player  ON zone_activities(player_id)",
+            "CREATE INDEX IF NOT EXISTS idx_item_affixes_item       ON item_affixes(inventory_item_id)",
+            "CREATE INDEX IF NOT EXISTS idx_kingdom_quests_player   ON kingdom_active_quests(player_id)",
+            "CREATE INDEX IF NOT EXISTS idx_arena_matches_chal      ON arena_matches(challenger_id)",
+            "CREATE INDEX IF NOT EXISTS idx_mail_recipient          ON mail(recipient_player_id)",
+            "CREATE INDEX IF NOT EXISTS idx_auction_status          ON auction_listings(status)",
+            "CREATE INDEX IF NOT EXISTS idx_auction_seller          ON auction_listings(seller_id)",
+            "CREATE INDEX IF NOT EXISTS idx_guild_wars_a            ON guild_wars(guild_a_id)",
+            "CREATE INDEX IF NOT EXISTS idx_guild_wars_b            ON guild_wars(guild_b_id)",
+            "CREATE INDEX IF NOT EXISTS idx_guild_wars_status       ON guild_wars(status)",
+            "CREATE INDEX IF NOT EXISTS idx_players_rank_points     ON players(rank_points)",      // matchmaking/leaderboard [A6]
+            "CREATE INDEX IF NOT EXISTS idx_players_tower_floor     ON players(tower_best_floor)", // leaderboard da torre [A6]
+        };
+        int ok = 0;
+        for (String sql : idx) {
+            try { jdbc.execute(sql); ok++; }
+            catch (Exception e) { log.warn("[SchemaMigrator] index skipped: {} — {}", sql.trim(), e.getMessage()); }
+        }
+        log.info("[SchemaMigrator] hot FK/lookup indexes ensured ({}/{})", ok, idx.length);
     }
 
     // Inventário V2: coluna `stashed` (bag vs stash) em inventory_items e resource_inventory.
