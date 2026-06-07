@@ -346,8 +346,9 @@ public class ZoneService {
         activity.setAttackerWarriorName(attackerName);
         activity.setBattleLog(String.join("\n", battleLog));
         activity.setResolvedAt(LocalDateTime.now());
-        player.setCurrentStamina(0);
-        player.setStaminaUpdatedAt(LocalDateTime.now());
+        // [KO_SEM_ZERAR_STAMINA] Derrota = KO (perde a VIDA) + penalidade do tier. NÃO zera a estamina:
+        // a estamina já foi gasta pela AÇÃO (enter). Curar no Templo deve devolver o jogador ao jogo com a
+        // estamina que restou — zerar aqui era punição dupla (KO trava combate até curar; o gate é o HP).
         warriorRepository.findByPlayer(player).ifPresent(w -> {
             w.applyDamagePercent(100);
             w.clearBuff();
