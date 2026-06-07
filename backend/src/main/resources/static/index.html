@@ -155,12 +155,12 @@
             <h2>Arena</h2>
             <p class="loc-desc" data-i18n="section.arena.desc">Challenge other warriors and climb the ranking.</p>
           </div>
-          <div class="tabs">
-            <button id="tab-rank"  class="tab active" onclick="switchArenaTab('rank')"  data-i18n="arena.tab.rank">Ranking</button>
-            <button id="tab-fight" class="tab"        onclick="switchArenaTab('fight')" data-i18n="arena.tab.fight">Battle</button>
-          </div>
+          <!-- [ARENA_RANK_JUNTO] lutar e ranking na mesma aba (sem sub-tabs) -->
+          <div id="panel-fight"><div id="fight-area"></div></div>
+          <h3 class="section-subtitle" style="color:#c9a84c;margin:1.1rem 0 .5rem;font-size:.85rem;text-transform:uppercase;letter-spacing:.05em">
+            <span data-i18n="arena.tab.rank">Ranking</span>
+          </h3>
           <div id="panel-rank"><div id="rank-list"></div></div>
-          <div id="panel-fight" style="display:none"><div id="fight-area"></div></div>
         </section>
 
         <!-- GUILDA -->

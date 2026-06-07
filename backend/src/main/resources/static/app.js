@@ -1889,16 +1889,9 @@ async function loadTower() {
   }
 }
 
-async function showTowerLobby() {
-  document.getElementById('tower-lobby').style.display  = 'block';
-  document.getElementById('tower-floor').style.display  = 'none';
-  document.getElementById('tower-result').style.display = 'none';
-
-  const ranking = await api('GET', '/api/tower/ranking');
-  const stamina = warrior?.stamina ?? 0;
-  const noStamina = stamina < 25;
-
-  const rankHtml = ranking.length === 0
+// [TOWER_RANK_JUNTO] tabela do ranking da torre (reusada no lobby E na tela de andar)
+function towerRankingHtml(ranking) {
+  const rows = (ranking || []).length === 0
     ? `<p style="color:#888;font-size:.82rem">${t('tower.no_entries')}</p>`
     : `<table class="rank-table">
         <thead><tr><th>#</th><th>Guerreiro</th><th>Andar</th></tr></thead>
@@ -1911,6 +1904,19 @@ async function showTowerLobby() {
             </tr>`).join('')}
         </tbody>
       </table>`;
+  return `<h3 style="color:#c9a84c;margin:1.1rem 0 .5rem;font-size:.85rem;text-transform:uppercase;letter-spacing:.05em">
+            Best Floors Ranking
+          </h3>${rows}`;
+}
+
+async function showTowerLobby() {
+  document.getElementById('tower-lobby').style.display  = 'block';
+  document.getElementById('tower-floor').style.display  = 'none';
+  document.getElementById('tower-result').style.display = 'none';
+
+  const ranking = await api('GET', '/api/tower/ranking');
+  const stamina = warrior?.stamina ?? 0;
+  const noStamina = stamina < 25;
 
   document.getElementById('tower-ranking-panel').innerHTML = `
     <div class="tower-enter-box">
@@ -1928,17 +1934,15 @@ async function showTowerLobby() {
         ${noStamina ? t('tower.no_stamina') : t('tower.enter_btn')}
       </button>
     </div>
-    <h3 style="color:#c9a84c;margin:1rem 0 .5rem;font-size:.85rem;text-transform:uppercase;letter-spacing:.05em">
-      Best Floors Ranking
-    </h3>
-    ${rankHtml}`;
+    ${towerRankingHtml(ranking)}`;
 }
 
-function showTowerFloor(state) {
+async function showTowerFloor(state) {
   document.getElementById('tower-lobby').style.display  = 'none';
   document.getElementById('tower-result').style.display = 'none';
   document.getElementById('tower-floor').style.display  = 'block';
 
+  // Renderiza o andar na hora; o ranking entra logo abaixo (mesma tela). [TOWER_RANK_JUNTO]
   document.getElementById('tower-floor-content').innerHTML = `
     <div class="tower-floor-box">
       <div class="tower-floor-num">🏰 Andar ${state.currentFloor}</div>
@@ -1959,7 +1963,12 @@ function showTowerFloor(state) {
       <div style="display:flex;gap:.5rem;margin-top:.8rem">
         <button class="btn-fight" onclick="fightTower()">⚔ Lutar</button>
       </div>
-    </div>`;
+    </div>
+    <div id="tower-floor-ranking"></div>`;
+
+  const ranking = await api('GET', '/api/tower/ranking');
+  const el = document.getElementById('tower-floor-ranking');
+  if (el) el.innerHTML = towerRankingHtml(ranking);
 }
 
 async function enterTower() {
@@ -1995,13 +2004,8 @@ function showTowerFightModal(r) {
 }
 
 // ── ARENA ──
-function switchArenaTab(tab) {
-  document.getElementById('panel-rank').style.display  = tab === 'rank'  ? 'block' : 'none';
-  document.getElementById('panel-fight').style.display = tab === 'fight' ? 'block' : 'none';
-  document.getElementById('tab-rank').classList.toggle('active',  tab === 'rank');
-  document.getElementById('tab-fight').classList.toggle('active', tab === 'fight');
-  if (tab === 'fight') loadCurrentFight();
-}
+// [ARENA_RANK_JUNTO] Lutar e ranking ficam na MESMA aba (sem sub-tabs). goTo('arena') já chama
+// loadRank() + loadCurrentFight(), e os dois painéis (panel-fight/panel-rank) ficam sempre visíveis.
 
 async function loadRank() {
   const rank = await api('GET', '/api/arena/rank');
