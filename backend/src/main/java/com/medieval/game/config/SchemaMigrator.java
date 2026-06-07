@@ -23,8 +23,7 @@ public class SchemaMigrator {
 
     @EventListener(ApplicationReadyEvent.class)
     public void migrate() {
-        patchZoneActivityRoleCheck();
-        patchZoneActivityStatusCheck();
+        patchZoneActivityKingdomColumn();
         patchPlayerSoulStoneColumns();
         patchMailItemColumns();
         patchPlayerVipColumns();
@@ -148,14 +147,17 @@ public class SchemaMigrator {
         }
     }
 
-    // Reinos V2 adicionou/alterou valores em enums (SkillType.GARIMPO, novos ResourceType,
-    // KingdomQuestType reescrito, Kingdom no lugar de Territory). Os check constraints que o
-    // Hibernate criou na 1ª vez ficam defasados e rejeitam os novos valores (ex.: GARIMPO em
-    // skill_levels E em zone_activities.skill_type — coleta unificada). Como a validação do enum já
-    // é feita na camada JPA, derrubamos esses checks. (role/status de zone_activities NÃO batem no
-    // regex abaixo, então os checks recriados por patchZoneActivity{Role,Status}Check sobrevivem.)
-    // Genérico: acha e dropa qualquer CHECK que referencie as colunas de enum afetadas. [REINOS_V2]
-    // Inclui warrior_class: a check antiga só aceitava 'WARRIOR' e rejeitaria RECRUIT/ARCHER. [CLASSES]
+    // [ENUM_CHECKS] PROATIVO: dropa TODO check constraint de enum (estilo "col IN (...)") de QUALQUER
+    // tabela. O Hibernate cria um por coluna @Enumerated(STRING); quando o enum ganha/renomeia um valor
+    // (SkillType.GARIMPO, ZoneActivityStatus.BOSS_PENDING, Kingdom V2, RECRUIT/ARCHER/MERCHANT, etc.) o
+    // check fica defasado e rejeita o INSERT/UPDATE com o valor novo (Postgres 23514 → 500). Caçar um a
+    // um em prod é whack-a-mole; aqui derrubamos todos de uma vez. SEGURO porque (a) a validação do enum
+    // já é feita na camada JPA e (b) NÃO existe nenhum check de NEGÓCIO no código (zero @Check /
+    // columnDefinition CHECK) — todo check é gerado pelo Hibernate p/ enum. O Postgres normaliza todo
+    // "col IN ('A','B')" como "col = ANY (ARRAY['A','B'])", então a marca registrada do enum-check é
+    // conter "ARRAY[" — um range/negócio (ex.: "x >= 0") não conteria. Roda no ApplicationReadyEvent
+    // (depois do schema-gen do Hibernate); o update-mode não recria check em coluna existente, então
+    // o drop persiste entre restarts. [REINOS_V2][CLASSES]
     private void dropStaleEnumCheckConstraints() {
         try {
             jdbc.execute("""
@@ -169,21 +171,16 @@ public class SchemaMigrator {
                         JOIN pg_namespace nsp ON nsp.oid = rel.relnamespace
                         WHERE con.contype = 'c'
                           AND nsp.nspname = 'public'
-                          AND rel.relname IN (
-                              'skill_levels', 'resource_inventory', 'kingdom_active_quests',
-                              'territory_controls', 'territory_declarations', 'territory_battle_logs',
-                              'gathering_sessions', 'warriors', 'meal_inventory', 'pets',
-                              'player_achievements', 'zone_activities')
-                          AND pg_get_constraintdef(con.oid) ~ '(skill_type|resource_type|quest_type|kingdom|territory|meal|pet_type|warrior_class|achievement)'
+                          AND pg_get_constraintdef(con.oid) ~* 'array\\['
                     LOOP
                         EXECUTE format('ALTER TABLE %I DROP CONSTRAINT %I', r.tbl, r.con);
                     END LOOP;
                 END
                 $$;
                 """);
-            log.info("[SchemaMigrator] stale enum check constraints dropped (Reinos V2)");
+            log.info("[SchemaMigrator] enum check constraints dropped (proactive — todos os enum-checks)");
         } catch (Exception e) {
-            log.warn("[SchemaMigrator] enum check constraint patch failed: {}", e.getMessage());
+            log.warn("[SchemaMigrator] enum check constraint sweep failed: {}", e.getMessage());
         }
     }
 
@@ -395,60 +392,15 @@ public class SchemaMigrator {
         }
     }
 
-    // zone_activities.role: extend check constraint to include COMBAT
-    private void patchZoneActivityRoleCheck() {
+    // zone_activities.kingdom: garante a coluna (coleta unificada por reino). [UNIFICAÇÃO_ZONA]
+    // (Os checks de role/status/skill_type desta tabela são derrubados genericamente por
+    //  dropStaleEnumCheckConstraints — não precisam mais de patch dedicado. [ENUM_CHECKS])
+    private void patchZoneActivityKingdomColumn() {
         try {
-            jdbc.execute("""
-                DO $$
-                BEGIN
-                    IF EXISTS (
-                        SELECT 1 FROM information_schema.table_constraints
-                        WHERE table_name = 'zone_activities'
-                          AND constraint_name = 'zone_activities_role_check'
-                    ) THEN
-                        ALTER TABLE zone_activities DROP CONSTRAINT zone_activities_role_check;
-                    END IF;
-                    ALTER TABLE zone_activities
-                        ADD CONSTRAINT zone_activities_role_check
-                        CHECK (role IN ('GATHERING', 'HUNTING', 'COMBAT'));
-                END
-                $$;
-                """);
-            log.info("[SchemaMigrator] zone_activities_role_check updated");
-        } catch (Exception e) {
-            log.warn("[SchemaMigrator] zone_activities_role_check patch failed: {}", e.getMessage());
-        }
-        try {
-            jdbc.execute("ALTER TABLE zone_activities ADD COLUMN IF NOT EXISTS kingdom varchar(40)"); // [UNIFICAÇÃO_ZONA]
+            jdbc.execute("ALTER TABLE zone_activities ADD COLUMN IF NOT EXISTS kingdom varchar(40)");
             log.info("[SchemaMigrator] zone_activities.kingdom column ensured");
         } catch (Exception e) {
             log.warn("[SchemaMigrator] zone_activities.kingdom patch failed: {}", e.getMessage());
-        }
-    }
-
-    // zone_activities.status: extend check constraint to include BOSS_PENDING (chefe errante). [ZONA_CHEFE]
-    // O check antigo foi criado antes do BOSS_PENDING e rejeitava o status novo (erro 23514 no collect).
-    private void patchZoneActivityStatusCheck() {
-        try {
-            jdbc.execute("""
-                DO $$
-                BEGIN
-                    IF EXISTS (
-                        SELECT 1 FROM information_schema.table_constraints
-                        WHERE table_name = 'zone_activities'
-                          AND constraint_name = 'zone_activities_status_check'
-                    ) THEN
-                        ALTER TABLE zone_activities DROP CONSTRAINT zone_activities_status_check;
-                    END IF;
-                    ALTER TABLE zone_activities
-                        ADD CONSTRAINT zone_activities_status_check
-                        CHECK (status IN ('IN_PROGRESS', 'BOSS_PENDING', 'COMPLETED', 'DEFEATED', 'CANCELLED'));
-                END
-                $$;
-                """);
-            log.info("[SchemaMigrator] zone_activities_status_check updated");
-        } catch (Exception e) {
-            log.warn("[SchemaMigrator] zone_activities_status_check patch failed: {}", e.getMessage());
         }
     }
 
