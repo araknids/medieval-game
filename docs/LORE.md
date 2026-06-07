@@ -52,10 +52,12 @@ Um entre **muitos** aventureiros que o Velho Mundo despeja para socorrer a colô
 7. A cidade agonizante implora à **Velha Coroa**, que manda **recrutas** (os players). *(A segunda isca: os heróis são a peça que faltava.)*
 
 ### A Torre — 50 andares `[Torre]`
-A subida da S1. (A "Torre do Rei" / "Espinha de Arka" virou **Torre Infernal** com a corrupção — bom motivo pro nome atual.) **50 andares, ~1 por nível**; andares comuns = chefes normais (a torre que já existe), e a cada **10 andares um MVP de história** — floors **10 / 20 / 30 / 40 / 50** (5 MVPs).
-- **Andar 40 — O Xamã** (proposto): a primeira mão, agora **descartável**. Não resiste de verdade; morrendo, **ri e insiste que sigam** ("dêem paz ao pobre rei") + planta a S2 (*"vocês mataram a mão... o coração ainda bate, lá embaixo"*).
-- **Andar 50 — Rei Arka (chefe final):** a nova mão, envolto no poder do Deus, com **lampejos do homem que foi**. Gate ~nível 50 (*balanceamento depois*).
-- **Andares 10 / 20 / 30:** 3 MVPs a definir (em discussão) — a queda do Rei contada de baixo pra cima.
+A subida da S1. (A "Torre do Rei" / "Espinha de Arka" virou **Torre Infernal** com a corrupção — bom motivo pro nome atual.) **50 andares, ~1 por nível**; andares comuns = chefes normais (a torre que já existe), e a cada **10 andares um MVP de história** (5 MVPs). A subida é **a queda do Rei contada de baixo pra cima** — a corrupção subindo por cada camada da sociedade até o trono:
+- **Andar 10 — The Fallen Captain:** o capitão da guarda que segurou a linha e perdeu — o "último herói honesto", agora caído. *(o soldado)*
+- **Andar 20 — The Coin-Eaten:** um mercador-lorde tão ganancioso que a corrupção se fartou dele — martela o tema da cobiça (espelho do Arka). *(o cortesão ganancioso)*
+- **Andar 30 — The Crowned Echo:** um **reflexo falso do Rei Arka**, vestindo a forma dele — um vislumbre do que espera no topo. *(o eco do Rei)*
+- **Andar 40 — O Xamã:** "o homem que o mar cuspiu" (paga a semente do Mar). A primeira mão, agora **descartável**. Não resiste de verdade; morrendo, **ri e insiste que sigam** ("dêem paz ao pobre rei") + planta a S2 (*"vocês mataram a mão... o coração ainda bate, lá embaixo"*). *(o profeta forasteiro)*
+- **Andar 50 — Rei Arka (chefe final):** a nova mão, envolto no poder do Deus, com **lampejos do homem que foi**. Gate ~nível 50 (*balanceamento depois*) → a escolha. *(o Rei)*
 
 ### A escolha final — poupar ou matar `[TITULOS]`
 Ao ser derrotado, **Arka implora para ser poupado**. O player **escolhe**:
@@ -102,8 +104,8 @@ O portal leva **para baixo**, ao **Deus que Dorme**, agora despertando. Contrast
 - Magia / o poder do Deus: *o Dom* / *a Febre* (a definir)
 
 ## Em aberto (a decidir / construir)
-- Os **3 MVPs** dos andares 10/20/30 (40 = Xamã, 50 = Arka). [QUESTS_LORE / em discussão]
 - **Balanceamento** do gate do andar 50 (~nível 50) e dos MVPs 10/20/30/40.
+- Construir a **Torre narrativa** (50 andares, os 5 MVPs como chefes de história) — design feito, falta codar.
 - Implementação dos **achievements ocultos** (flag `hidden` no sistema de Títulos) + o **ponto de escolha** no combate do Arka.
 - Reskin das **quests dos reinos** → ver `docs/PLANO_QUESTS_LORE.md`.
 - Sorte do Arka/Xamã e forma de Mordûn na **S2**.

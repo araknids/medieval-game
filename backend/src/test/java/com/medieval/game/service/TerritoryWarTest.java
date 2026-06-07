@@ -25,8 +25,11 @@ class TerritoryWarTest {
         service = new TerritoryService(null, null, null, null, null, new BattleSimulator(), null, null, null);
     }
 
+    // [REBALANCE] dex=50 (acerto alto) → os golpes acertam de forma confiável: estes testes são sobre
+    // HP/poder/formação, não sobre RNG de acerto. Com dex=0 (acerto ~50%) um lutador de 200 HP podia,
+    // raramente, errar muitos rounds seguidos e perder pra um de 1 HP (flaky). agi/luk=0 (sem esquiva/crit).
     private Fighter f(String name, int atk, int def, int hp) {
-        return new Fighter(null, name, atk, def, hp, 0, 0, 0, null);
+        return new Fighter(null, name, atk, def, hp, 50, 0, 0, null);
     }
 
     /** Grade 3×5 preenchida frente→fundo (depth 0 lanes 0,1,2; depois depth 1…). */

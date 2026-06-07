@@ -34,7 +34,13 @@ public enum Achievement {
 
     // ── Guilda ───────────────────────────────────────────────────────────────
     GUILD_MEMBER(AchievementCategory.GUILD, "Kin",         "Kin",         "Join a guild.",       AchievementMetric.GUILD_MEMBER, 1),
-    GUILD_LEADER(AchievementCategory.GUILD, "Guildmaster", "Guildmaster", "Lead a guild.",       AchievementMetric.GUILD_LEADER, 1);
+    GUILD_LEADER(AchievementCategory.GUILD, "Guildmaster", "Guildmaster", "Lead a guild.",       AchievementMetric.GUILD_LEADER, 1),
+
+    // ── História (OCULTOS — anti-spoiler; dirigidos por evento via grant()) ──────
+    // A escolha no topo da Torre [LORE.md]: matar ou poupar o Rei Arka. Ficam invisíveis na lista até
+    // serem desbloqueados, pra não revelar que o Rei "que você veio salvar" é o chefe final.
+    REGICIDE    (AchievementCategory.STORY, "Regicide",     "Regicide",     "You struck down King Arka with your own hand.",            AchievementMetric.MANUAL, 1, true),
+    THE_MERCIFUL(AchievementCategory.STORY, "The Merciful", "The Merciful", "You spared King Arka — and watched him fall all the same.", AchievementMetric.MANUAL, 1, true);
 
     public final AchievementCategory category;
     public final String              title;       // prefixo exibido antes do nome
@@ -42,14 +48,21 @@ public enum Achievement {
     public final String              description;
     public final AchievementMetric   metric;
     public final long                threshold;
+    public final boolean             hidden;      // [TITULOS] some da lista até ser desbloqueado (anti-spoiler)
 
     Achievement(AchievementCategory category, String title, String displayName,
                 String description, AchievementMetric metric, long threshold) {
+        this(category, title, displayName, description, metric, threshold, false);
+    }
+
+    Achievement(AchievementCategory category, String title, String displayName,
+                String description, AchievementMetric metric, long threshold, boolean hidden) {
         this.category    = category;
         this.title       = title;
         this.displayName = displayName;
         this.description = description;
         this.metric      = metric;
         this.threshold   = threshold;
+        this.hidden      = hidden;
     }
 }

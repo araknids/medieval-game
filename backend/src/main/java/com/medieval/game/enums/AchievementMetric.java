@@ -14,5 +14,6 @@ public enum AchievementMetric {
     CLASS_ARCHER,    // warriorClass == ARCHER   ? 1 : 0
     CLASS_MERCHANT,  // warriorClass == MERCHANT ? 1 : 0
     GUILD_MEMBER,    // está numa guilda ? 1 : 0
-    GUILD_LEADER     // é líder de guilda ? 1 : 0
+    GUILD_LEADER,    // é líder de guilda ? 1 : 0
+    MANUAL           // [TITULOS] dirigido por evento — nunca auto-desbloqueia; só via AchievementService.grant()
 }

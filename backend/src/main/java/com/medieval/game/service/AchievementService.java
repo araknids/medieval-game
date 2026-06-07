@@ -98,7 +98,24 @@ public class AchievementService {
             case CLASS_MERCHANT -> w != null && w.getWarriorClass() == WarriorClass.MERCHANT ? 1 : 0;
             case GUILD_MEMBER   -> p.getGuild() != null ? 1 : 0;
             case GUILD_LEADER   -> isLeader(p) ? 1 : 0;
+            case MANUAL         -> 0; // [TITULOS] dirigido por evento — nunca auto-desbloqueia (só via grant())
         };
+    }
+
+    /**
+     * [TITULOS] Desbloqueio DIRIGIDO POR EVENTO (ex.: a escolha no topo da Torre — matar/poupar o Rei).
+     * Idempotente; manda o mail de desbloqueio. Para achievements `MANUAL` que não saem de métrica.
+     * @return true se foi desbloqueado agora (false se já tinha).
+     */
+    @Transactional
+    public boolean grant(Player playerArg, Achievement a) {
+        Player p = playerRepository.findById(playerArg.getId()).orElse(playerArg);
+        if (achievementRepository.existsByPlayerAndAchievement(p, a)) return false;
+        achievementRepository.save(new PlayerAchievement(p, a));
+        log.info("[AchievementService] player={} granted (event) {}", p.getId(), a);
+        mailService.sendSystemMail(p, "🏆 Achievement unlocked: " + a.displayName
+                + " — new title \"" + a.title + "\" available! Pick it in Achievements.");
+        return true;
     }
 
     private boolean isLeader(Player p) {
@@ -120,6 +137,7 @@ public class AchievementService {
         Set<Achievement> unlocked = unlockedSet(p);
         List<AchievementView> views = new ArrayList<>();
         for (Achievement a : Achievement.values()) {
+            if (a.hidden && !unlocked.contains(a)) continue; // [TITULOS] oculto até desbloquear (anti-spoiler)
             long cur = metricValue(a.metric, p, w);
             views.add(new AchievementView(a.name(), a.category.displayName, a.displayName, a.description,
                     a.title, unlocked.contains(a), Math.min(cur, a.threshold), a.threshold));

@@ -179,4 +179,27 @@ class AchievementTest extends BaseIntegrationTest {
 
         assertThat(reload(p).getActiveTitle()).isEqualTo("LEVEL_10");
     }
+
+    // ── Títulos ocultos (anti-spoiler) — a escolha no topo da Torre [LORE] ──
+    @Test
+    @DisplayName("Ocultos: somem da lista até grant(); métrica não os libera; depois aparecem e são selecionáveis")
+    void hiddenTitles_absentUntilGranted() {
+        Player p = newPlayer();
+        makeWarrior(p, WarriorClass.WARRIOR, 50); // bate vários marcos, mas NÃO os ocultos (MANUAL)
+
+        achievementService.checkAndUnlock(reload(p));
+        var before = achievementService.list(reload(p)).achievements();
+        assertThat(before).noneMatch(v -> v.id().equals("REGICIDE") || v.id().equals("THE_MERCIFUL"));
+
+        // grant dirigido por evento (matar o Rei Arka)
+        assertThat(achievementService.grant(reload(p), Achievement.REGICIDE)).isTrue();
+        assertThat(achievementService.grant(reload(p), Achievement.REGICIDE)).isFalse(); // idempotente
+
+        var after = achievementService.list(reload(p)).achievements();
+        assertThat(after).anyMatch(v -> v.id().equals("REGICIDE") && v.unlocked()); // agora visível
+        assertThat(after).noneMatch(v -> v.id().equals("THE_MERCIFUL"));            // o par segue oculto
+
+        assertThat(achievementService.selectTitle(reload(p), "REGICIDE")).isEqualTo("Regicide");
+        assertThat(AchievementService.titleString(reload(p))).isEqualTo("Regicide");
+    }
 }

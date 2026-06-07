@@ -7,7 +7,8 @@ public enum AchievementCategory {
     ARENA  ("Arena"),
     TOWER  ("Tower"),
     WEALTH ("Wealth"),
-    GUILD  ("Guild");
+    GUILD  ("Guild"),
+    STORY  ("Story"); // [TITULOS] marcos de história (ex.: a escolha no topo da Torre) — costumam ser ocultos
 
     public final String displayName;
 
