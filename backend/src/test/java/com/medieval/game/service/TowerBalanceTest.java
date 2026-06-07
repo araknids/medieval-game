@@ -5,8 +5,8 @@ import org.junit.jupiter.api.Test;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-// Torre V2 — testes de INTENÇÃO de dificuldade (win-rate estatístico, Combate V2).
-// player = {atk, def, hp, dex, strBonus, luk}
+// Torre V2 — testes de INTENÇÃO de dificuldade (win-rate estatístico). [REBALANCE]
+// player = {atk, def, hp, dex(acerto), agi(esquiva/velocidade), luk}
 @DisplayName("Torre V2 | dificuldade por nível")
 class TowerBalanceTest {
 
@@ -17,7 +17,7 @@ class TowerBalanceTest {
         String name = "Boss F" + floor;
         return new TowerService.BossInfo(
             name, 12 + floor * 5, 5 + floor * 3, 120 + floor * 45,
-            Math.min(floor / 2, 8), Math.min(floor / 10, 3), Math.min(floor, 18));
+            Math.min(12 + floor, 40), Math.min(floor / 4, 10), Math.min(floor, 18));
     }
 
     private double winRate(int[] p, int floor, int trials) {
@@ -26,7 +26,7 @@ class TowerBalanceTest {
         for (int i = 0; i < trials; i++) {
             var out = sim.simulateDetailed(
                 "P", p[0], p[1], p[2], p[3], p[4], p[5],
-                b.name(), b.attack(), b.defense(), b.health(), b.dex(), b.strBonus(), b.luk(),
+                b.name(), b.attack(), b.defense(), b.health(), b.dex(), b.agi(), b.luk(),
                 true); // PvE: timeout = derrota
             if (out.firstWon()) wins++;
         }

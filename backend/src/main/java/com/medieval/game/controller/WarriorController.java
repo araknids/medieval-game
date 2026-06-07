@@ -172,6 +172,7 @@ public class WarriorController {
                 itemBonusAtk, itemBonusDef, itemBonusHp,
                 buffAtk, buffDef, buffHp, buffEva,
                 warrior.getStrength(), warrior.getDexterity(), warrior.getConstitution(), warrior.getLuck(), warrior.getIntellect(),
+                warrior.getAgility(), // [REBALANCE]
                 warrior.getAvailablePoints(), warrior.getAbilityPoints(), baseEvasion, totalEvasion,
                 warrior.getArmorClass(), warrior.getAttackBonus(),
                 player.getCalculatedStamina(), player.getMinutesToFullStamina(),
@@ -208,6 +209,7 @@ public class WarriorController {
                            int itemBonusAttack, int itemBonusDefense, int itemBonusHealth,
                            int buffBonusAttack, int buffBonusDefense, int buffBonusHealth, int buffBonusEvasion,
                            int strength, int dexterity, int constitution, int luck, int intellect,
+                           int agility, // [REBALANCE]
                            int availablePoints, int abilityPoints, int baseEvasion, int evasionChance,
                            int armorClass, int attackBonus,
                            int stamina, long minutesToFullStamina,

@@ -92,6 +92,7 @@ public class WarriorService {
             case STRENGTH     -> { if (warrior.getStrength()     >= cap) throw new IllegalStateException("STR is at cap (" + cap + ") for " + wc.displayName + "."); warrior.setStrength(warrior.getStrength() + 1); }
             case DEXTERITY    -> { if (warrior.getDexterity()    >= cap) throw new IllegalStateException("DEX is at cap (" + cap + ") for " + wc.displayName + "."); warrior.setDexterity(warrior.getDexterity() + 1); }
             case CONSTITUTION -> { if (warrior.getConstitution() >= cap) throw new IllegalStateException("CON is at cap (" + cap + ") for " + wc.displayName + "."); warrior.setConstitution(warrior.getConstitution() + 1); } // RECRUIT/WARRIOR/ARCHER: ∞ (MAX_VALUE)
+            case AGILITY      -> { if (warrior.getAgility()      >= cap) throw new IllegalStateException("AGI is at cap (" + cap + ") for " + wc.displayName + "."); warrior.setAgility(warrior.getAgility() + 1); }
             case LUCK         -> { if (warrior.getLuck()         >= cap) throw new IllegalStateException("LUK is at cap (" + cap + ") for " + wc.displayName + "."); warrior.setLuck(warrior.getLuck() + 1); }
             case INTELLECT    -> { if (warrior.getIntellect()    >= cap) throw new IllegalStateException("INT is at cap (" + cap + ") for " + wc.displayName + "."); warrior.setIntellect(warrior.getIntellect() + 1); }
         }

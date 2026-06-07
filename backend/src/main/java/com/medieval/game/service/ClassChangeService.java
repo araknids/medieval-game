@@ -41,13 +41,13 @@ public class ClassChangeService {
 
     // ── Guardiões da Trial (placeholder, ajustar no playtest) ──
     // Cada caminho tem um guardião com o "sabor" do arquétipo: o da Lâmina é tanky de corpo-a-corpo,
-    // o do Arco é ágil/evasivo com crit. Stats no formato [atk, def, hp, dex(AC=10+dex), strBonus, luk].
-    // ⚠ A Trial é feita por um RECRUIT Lv10, que tem só 18 pontos → STR < 20 → acerto = d20+0
-    // (acerto não escala antes de STR 20). Por isso o AC do guardião TEM que ser baixo (~12–14),
-    // senão a luta fica IMPOSSÍVEL de acertar. AC alto (18/22/28) travava a progressão de classe. [CLASSES]
-    private static final Guardian BLADE_GUARDIAN    = new Guardian("Blade Guardian",    15, 12, 115, 2, 2,  5);
-    private static final Guardian BOW_GUARDIAN      = new Guardian("Bow Guardian",      15,  6, 100, 4, 2, 15);
-    private static final Guardian MERCHANT_GUARDIAN = new Guardian("Caravan Guardian",  15, 10, 110, 3, 2, 10); // [MERCADOR]
+    // o do Arco é ágil/evasivo com crit. Stats no formato [atk, def, hp, dex(acerto), agi(esquiva), luk]. [REBALANCE]
+    // ⚠ A Trial é feita por um RECRUIT Lv10 (só 18 pontos). A AGI do guardião precisa ficar BAIXA
+    // (~3–8), senão o Recruit não consegue acertar (cada 8 de AGI = −1 no acerto inimigo). Re-tunado
+    // pelo ClassTrialBalanceTest. [CLASSES]
+    private static final Guardian BLADE_GUARDIAN    = new Guardian("Blade Guardian",    15, 12, 115, 10, 3,  5);
+    private static final Guardian BOW_GUARDIAN      = new Guardian("Bow Guardian",      15,  6, 100, 14, 8, 15);
+    private static final Guardian MERCHANT_GUARDIAN = new Guardian("Caravan Guardian",  15, 10, 110, 12, 5, 10); // [MERCADOR]
 
     private static Guardian guardianFor(WarriorClass path) {
         return switch (path) {
@@ -57,10 +57,10 @@ public class ClassChangeService {
         };
     }
 
-    /** Stats do guardião como array [atk,def,hp,dex,strBonus,luk] — seam p/ o teste de balance. [CLASSES] */
+    /** Stats do guardião como array [atk,def,hp,dex,agi,luk] — seam p/ o teste de balance. [CLASSES] */
     static int[] guardianStats(WarriorClass path) {
         Guardian g = guardianFor(path);
-        return new int[]{ g.atk(), g.def(), g.hp(), g.dex(), g.strBonus(), g.luk() };
+        return new int[]{ g.atk(), g.def(), g.hp(), g.dex(), g.agi(), g.luk() };
     }
 
     /** Estado da escolha de classe pra UI (classe atual + se a Trial está liberada + os caminhos). */
@@ -119,7 +119,7 @@ public class ClassChangeService {
         // PvE: firstLosesOnTimeout=true → o jogador PRECISA matar o guardião (não basta sobreviver).
         BattleSimulator.BattleOutcome outcome = battleSimulator.simulateDetailed(
                 w.getName(), c[0], c[1], c[2], c[3], c[4], c[5],
-                g.name(),    g.atk(), g.def(), g.hp(), g.dex(), g.strBonus(), g.luk(),
+                g.name(),    g.atk(), g.def(), g.hp(), g.dex(), g.agi(), g.luk(),
                 true);
 
         inventoryService.wearEquippedItems(player); // desgaste de durabilidade, como nos outros combates
@@ -172,8 +172,8 @@ public class ClassChangeService {
         w.setAttack(path.baseAttack);
         w.setDefense(path.baseDefense);
         w.setHealth(path.baseHealth);
-        int spent = w.getStrength() + w.getDexterity() + w.getConstitution() + w.getLuck() + w.getIntellect();
-        w.setStrength(0); w.setDexterity(0); w.setConstitution(0); w.setLuck(0); w.setIntellect(0);
+        int spent = w.getStrength() + w.getDexterity() + w.getConstitution() + w.getAgility() + w.getLuck() + w.getIntellect();
+        w.setStrength(0); w.setDexterity(0); w.setConstitution(0); w.setAgility(0); w.setLuck(0); w.setIntellect(0);
         w.setAvailablePoints(w.getAvailablePoints() + spent);
     }
 
@@ -188,5 +188,5 @@ public class ClassChangeService {
 
     public record TrialResult(boolean won, String classId, String className, List<String> log) {}
 
-    private record Guardian(String name, int atk, int def, int hp, int dex, int strBonus, int luk) {}
+    private record Guardian(String name, int atk, int def, int hp, int dex, int agi, int luk) {}
 }

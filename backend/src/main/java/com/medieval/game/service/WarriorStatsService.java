@@ -124,17 +124,17 @@ public class WarriorStatsService {
         // Pet equipado: bônus de combate (empilha com base+gear+buff+montaria). [PETS]
         var pet = petRepository.findByPlayerAndEquippedTrue(player).map(com.medieval.game.model.Pet::getPetType).orElse(null);
         int petHpPct = pet != null ? pet.hpBonusPercent : 0; // % no HP final
-        int petDex   = pet != null ? pet.dexBonus       : 0; // AGI plana
+        int petAgi   = pet != null ? pet.dexBonus       : 0; // AGI plana (esquiva/velocidade) [REBALANCE]
         int hp = (int) Math.round((warrior.getTotalBaseHealth() + g.hp() + buff[2]) * (1 + petHpPct / 100.0));
         int[] stats = new int[]{
-            atk,                                                       // [0] ATK (afixo STR = +1 ATK/pt) × postura
-            def,                                                       // [1] DEF × postura
+            atk,                                                       // [0] ATK (STR + afixo = só dano) × postura
+            def,                                                       // [1] DEF × postura (mitigação)
             hp,                                                        // [2] HP (base+gear+buff) × pet
-            warrior.getDexterity()        + g.dex() + buff[3] + petDex,// [3] dex → AC = 10 + dex (+ AGI do pet)
-            (warrior.getStrength() + g.str()) / 20,                    // [4] floor(STR efetivo/20)
+            warrior.getDexterity()        + g.dex(),                   // [3] dex → ACERTO (d20 + DEX/5) [REBALANCE]
+            warrior.getAgility()          + buff[3] + petAgi,          // [4] agi → golpes extra + ESQUIVA (evasão do buff + AGI do pet) [REBALANCE]
             warrior.getLuck()             + g.luk()                    // [5] luk → crit window + Fortune Save
         };
-        // [HABILIDADES] Passivas (Toughness→HP, Weapon Mastery→ATK, Eagle Eye→LUK, Agility→DEX).
+        // [HABILIDADES] Passivas (Toughness→HP, Weapon Mastery→ATK, Eagle Eye→LUK, Agility→AGI).
         int[] passive = abilityService.passiveStatBonus(warrior);
         for (int i = 0; i < stats.length; i++) stats[i] += passive[i];
         return stats;

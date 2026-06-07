@@ -858,15 +858,15 @@ public class ZoneService {
     }
 
     /** Stats do NPC baseados no nível (até +3 do guerreiro) */
-    /** Returns [atk, def, hp, dex, strBonus, luk] for NPCs in d20 system. */
+    /** Returns [atk, def, hp, dex, agi, luk] for NPCs. [REBALANCE] dex=acerto, agi=esquiva/velocidade. */
     private int[] npcStatsByLevel(int level, Random rng) {
-        int atk      = 4 + level * 3 + rng.nextInt(4);
-        int def      = 2 + level * 2 + rng.nextInt(3);
-        int hp       = 70 + level * 20 + rng.nextInt(30);
-        int dex      = Math.min(5 + level / 2, 20); // AC = 10+dex, cap ~30
-        int strBonus = Math.min(level / 10, 3);
-        int luk      = Math.min(level / 3, 10);
-        return new int[]{atk, def, hp, dex, strBonus, luk};
+        int atk = 4 + level * 3 + rng.nextInt(4);
+        int def = 2 + level * 2 + rng.nextInt(3);
+        int hp  = 70 + level * 20 + rng.nextInt(30);
+        int dex = Math.min(10 + level / 2, 35); // acerto do NPC (d20 + dex/5)
+        int agi = Math.min(level / 5, 12);      // esquiva/velocidade modesta (raramente golpe extra)
+        int luk = Math.min(level / 3, 10);
+        return new int[]{atk, def, hp, dex, agi, luk};
     }
 
     /** Returns [atk, def, hp, dex, strBonus, luk] for d20 simulate(). [AUDITORIA A1/A9] */

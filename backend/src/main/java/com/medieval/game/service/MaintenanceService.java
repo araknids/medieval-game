@@ -123,6 +123,7 @@ public class MaintenanceService {
                 w.setStrength(0);
                 w.setDexterity(0);
                 w.setConstitution(0);
+                w.setAgility(0);
                 w.setLuck(0);
                 w.setIntellect(0);
                 w.setAvailablePoints(0);

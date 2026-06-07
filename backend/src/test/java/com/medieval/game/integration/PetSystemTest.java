@@ -115,16 +115,17 @@ class PetSystemTest extends BaseIntegrationTest {
     }
 
     @Test
-    @DisplayName("Gato equipado dá +AGI (dex) no combate")
+    @DisplayName("Gato equipado dá +AGI no combate")
     void cat_givesAgi() {
         Player p = player();
         Warrior w = warriorRepository.findByPlayer(p).orElseThrow();
-        w.setDexterity(10); warriorRepository.save(w);
+        w.setAgility(10); warriorRepository.save(w);
 
-        int dexBefore = statsService.combatStats(p, warriorRepository.findByPlayer(p).orElseThrow())[3];
+        // [REBALANCE] o bônus do pet (PetType.dexBonus) alimenta a AGI → slot 4 do combatStats.
+        int agiBefore = statsService.combatStats(p, warriorRepository.findByPlayer(p).orElseThrow())[4];
         petService.grant(p, PetType.BANDIT_CAT); // auto-equipa
-        int dexAfter  = statsService.combatStats(player(), warriorRepository.findByPlayer(player()).orElseThrow())[3];
-        assertThat(dexAfter - dexBefore).isEqualTo(PetType.BANDIT_CAT.dexBonus); // +6
+        int agiAfter  = statsService.combatStats(player(), warriorRepository.findByPlayer(player()).orElseThrow())[4];
+        assertThat(agiAfter - agiBefore).isEqualTo(PetType.BANDIT_CAT.dexBonus); // +6
     }
 
     // ── isLunaWindow determinístico + Luna fora da rotação ──

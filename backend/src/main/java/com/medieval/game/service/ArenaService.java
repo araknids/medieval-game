@@ -180,8 +180,8 @@ public class ArenaService {
 
     private int[] npcStats() {
         Random r = java.util.concurrent.ThreadLocalRandom.current();
-        // NPC: atk, def, hp, dex(AC~15), strBonus(+1), luk(5)
-        return new int[]{ 12 + r.nextInt(8), 8 + r.nextInt(6), 90 + r.nextInt(40), 5, 1, 5 };
+        // [REBALANCE] NPC: atk, def, hp, dex(acerto ~15), agi(esquiva baixa), luk(5)
+        return new int[]{ 12 + r.nextInt(8), 8 + r.nextInt(6), 90 + r.nextInt(40), 15, 3, 5 };
     }
 
 }

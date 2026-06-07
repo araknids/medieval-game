@@ -1,11 +1,12 @@
 package com.medieval.game.enums;
 
 public enum Attribute {
-    STRENGTH    ("Strength (STR)",     "⚔",  "+1 ATK/pt · Attack Bonus floor(STR/20) in d20 · cap 60"),
-    DEXTERITY   ("Dexterity (DEX)",    "🛡",  "+1 AC/pt · AC = 10 + DEX · harder to hit · cap 40"),
-    CONSTITUTION("Constitution (CON)", "❤",  "+8 HP/pt · no cap · reason to level past 95"),
-    LUCK        ("Luck (LUK)",         "🍀", "+1% drop · widens crit window · Fortune Save · cap 50"),
-    INTELLECT   ("Intellect (INT)",    "📚", "+0.5% Smithing · -0.2% training cost · +0.3% gathering yield · cap 40");
+    STRENGTH    ("Strength (STR)",     "⚔",  "+1 ATK per point (raw damage)"),
+    DEXTERITY   ("Dexterity (DEX)",    "🎯", "Accuracy — better chance to land hits (d20 + DEX/5)"),
+    CONSTITUTION("Constitution (CON)", "❤",  "+8 max HP per point · no cap"),
+    AGILITY     ("Agility (AGI)",      "💨", "Speed & evasion — extra strikes vs slower foes, dodges incoming hits"),
+    LUCK        ("Luck (LUK)",         "🍀", "+1% drop · widens crit window · Fortune Save (negate crits)"),
+    INTELLECT   ("Intellect (INT)",    "📚", "+0.5% Smithing · -0.2% training cost · +0.3% gathering yield (reserved for Mage)");
 
     public final String displayName;
     public final String icon;

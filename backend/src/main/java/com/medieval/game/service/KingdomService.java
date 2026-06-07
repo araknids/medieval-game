@@ -392,6 +392,7 @@ public class KingdomService {
             case STRENGTH     -> w.getStrength();
             case DEXTERITY    -> w.getDexterity();
             case CONSTITUTION -> w.getConstitution();
+            case AGILITY      -> w.getAgility();
             case LUCK         -> w.getLuck();
             case INTELLECT    -> w.getIntellect();
         };
@@ -400,7 +401,7 @@ public class KingdomService {
     private static String attrAbbrev(Attribute a) {
         return switch (a) {
             case STRENGTH -> "STR"; case DEXTERITY -> "DEX"; case CONSTITUTION -> "CON";
-            case LUCK -> "LUCK"; case INTELLECT -> "INT";
+            case AGILITY -> "AGI"; case LUCK -> "LUCK"; case INTELLECT -> "INT";
         };
     }
 

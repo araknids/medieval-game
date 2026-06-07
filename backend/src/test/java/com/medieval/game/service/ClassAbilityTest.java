@@ -25,12 +25,12 @@ class ClassAbilityTest {
     }
 
     @Test
-    @DisplayName("Passivas: Toughness→HP, Weapon Mastery→ATK, Eagle Eye→LUK, Agility→DEX")
+    @DisplayName("Passivas: Toughness→HP, Weapon Mastery→ATK, Eagle Eye→LUK, Agility→AGI")
     void passiveBonus() {
         assertThat(ClassAbility.TOUGHNESS.passiveBonus(3)[2]).isEqualTo(36);   // hp
         assertThat(ClassAbility.WEAPON_MASTERY.passiveBonus(4)[0]).isEqualTo(8); // atk
         assertThat(ClassAbility.EAGLE_EYE.passiveBonus(5)[5]).isEqualTo(10);   // luk
-        assertThat(ClassAbility.AGILITY.passiveBonus(6)[3]).isEqualTo(6);      // dex
+        assertThat(ClassAbility.AGILITY.passiveBonus(6)[4]).isEqualTo(6);      // agi (slot 4) [REBALANCE]
     }
 
     @Test

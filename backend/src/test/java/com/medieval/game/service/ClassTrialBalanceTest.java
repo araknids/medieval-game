@@ -7,11 +7,11 @@ import org.junit.jupiter.api.Test;
 import static org.assertj.core.api.Assertions.assertThat;
 
 /**
- * [CLASSES] Balance da Path Trial: um RECRUIT Lv10 REALISTA precisa CONSEGUIR vencer cada Guardião.
+ * [CLASSES][REBALANCE] Balance da Path Trial: um RECRUIT Lv10 REALISTA precisa CONSEGUIR vencer cada Guardião.
  *
- * Regressão do bug "AC 28 impossível de acertar": o Recruit Lv10 tem só 18 pontos → STR < 20 →
- * bônus de acerto = floor(STR/20) = 0. Logo o acerto é d20+0 e o AC do guardião precisa ser baixo
- * (~12–14). Este teste roda o COMBATE REAL (BattleSimulator) N vezes e exige taxa de vitória sã.
+ * Modelo novo: acerto = d20 + DEX/5 − AGI_inimigo/8 ≥ 11 (sem AC). O Recruit Lv10 tem 18 pontos.
+ * A AGI do guardião precisa ser baixa o bastante pra um build sem foco em DEX ainda acertar.
+ * Roda o COMBATE REAL (BattleSimulator) N vezes e exige taxa de vitória sã.
  */
 @DisplayName("Classes | Path Trial — guardiões vencíveis por um Recruit Lv10 realista")
 class ClassTrialBalanceTest {
@@ -19,9 +19,11 @@ class ClassTrialBalanceTest {
     private final BattleSimulator sim = new BattleSimulator();
 
     // Builds plausíveis de um Recruit Lv10 (base ATK 12 / DEF 10 / HP 100; 18 pontos; CON = +8 HP/pt).
-    // Formato: {atk, def, hp, dex(AC=10+dex), strBonus(=floor(STR/20)=0), luk}. DEF não é atributo → fica 10.
-    private static final int[] OFFENSIVE = { 24, 10, 148, 0, 0, 0 }; // STR12→ATK24, CON6→HP148, AC10
-    private static final int[] DEFENSIVE = { 16, 10, 180, 4, 0, 0 }; // STR4→ATK16, CON10→HP180, DEX4→AC14
+    // Formato: {atk, def, hp, dex(acerto), agi(esquiva/velocidade), luk}. DEF não é atributo → fica 10.
+    private static final int[] OFFENSIVE = { 22, 10, 100, 8, 0, 0 }; // STR10→ATK22, DEX8 (acc +1)
+    private static final int[] DEFENSIVE = { 16, 10, 164, 6, 0, 0 }; // STR4→ATK16, CON8→HP164, DEX6
+    private static final int[] AGILE     = { 18, 10, 100, 4, 8, 6 }; // STR6→ATK18, AGI8 (golpe extra/esquiva), LUK6
+    private static final int[][] BUILDS  = { OFFENSIVE, DEFENSIVE, AGILE };
 
     private double winRate(int[] me, int[] g, int n) {
         int wins = 0;
@@ -36,32 +38,34 @@ class ClassTrialBalanceTest {
     }
 
     @Test
-    @DisplayName("Cada guardião é vencível (>45%) por um build razoável, mas ainda é desafio (<97%)")
+    @DisplayName("Cada guardião é vencível (>45%) por algum build razoável, mas ainda é desafio (<97%)")
     void guardiansAreWinnableButNotTrivial() {
         int N = 500;
         for (WarriorClass path : new WarriorClass[]{ WarriorClass.WARRIOR, WarriorClass.ARCHER, WarriorClass.MERCHANT }) {
             int[] g = ClassChangeService.guardianStats(path);
-            double off = winRate(OFFENSIVE, g, N);
-            double def = winRate(DEFENSIVE, g, N);
-            double best = Math.max(off, def);
-
+            double best = 0, worst = 1;
+            for (int[] b : BUILDS) {
+                double wr = winRate(b, g, N);
+                best  = Math.max(best, wr);
+                worst = Math.min(worst, wr);
+            }
             assertThat(best)
-                    .as("%s: um Recruit Lv10 bem montado deveria vencer > 45%% (off=%.2f def=%.2f)", path, off, def)
+                    .as("%s: um Recruit Lv10 bem montado deveria vencer > 45%% (melhor build = %.2f)", path, best)
                     .isGreaterThan(0.45);
-            assertThat(Math.min(off, def))
-                    .as("%s: ainda é um desafio, não vitória garantida (off=%.2f def=%.2f)", path, off, def)
+            assertThat(worst)
+                    .as("%s: ainda é um desafio, não vitória garantida (pior build = %.2f)", path, worst)
                     .isLessThan(0.97);
         }
     }
 
     @Test
-    @DisplayName("Nenhum guardião tem AC inacessível ao acerto +0 do Recruit (AC ≤ 16)")
-    void guardianAcIsHittableByZeroBonusRecruit() {
+    @DisplayName("Nenhum guardião tem AGI alta demais (esquiva ≤ −1 no acerto +0 do Recruit)")
+    void guardianAgiIsLowEnoughToBeHittable() {
         for (WarriorClass path : new WarriorClass[]{ WarriorClass.WARRIOR, WarriorClass.ARCHER, WarriorClass.MERCHANT }) {
-            int ac = 10 + ClassChangeService.guardianStats(path)[3]; // 10 + dex
-            assertThat(ac)
-                    .as("%s guardian AC=%d — d20+0 precisa ter chance real de acertar", path, ac)
-                    .isLessThanOrEqualTo(16);
+            int agi = ClassChangeService.guardianStats(path)[4];
+            assertThat(agi / 8)
+                    .as("%s guardian AGI=%d → −%d no acerto; um Recruit sem DEX precisa ter chance real", path, agi, agi / 8)
+                    .isLessThanOrEqualTo(1);
         }
     }
 }

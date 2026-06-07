@@ -17,7 +17,7 @@ public enum ClassAbility {
     BERSERK        (WarriorClass.WARRIOR, Kind.ACTIVE,  AbilityEffect.ATK_BUFF_LOW,    8, "Berserk",        "🔥", "Below 50% HP: +(5×lvl)% ATK for 3 rounds (CD 8)."),
 
     EAGLE_EYE      (WarriorClass.ARCHER,  Kind.PASSIVE, null,                          0, "Eagle Eye",      "🎯", "+2 LUK per level (crit window + Fortune Save)."),
-    AGILITY        (WarriorClass.ARCHER,  Kind.PASSIVE, null,                          0, "Agility",        "💨", "+1 DEX per level (AC / dodge)."),
+    AGILITY        (WarriorClass.ARCHER,  Kind.PASSIVE, null,                          0, "Agility",        "💨", "+1 AGI per level (extra strikes + dodge)."),
     PRECISE_SHOT   (WarriorClass.ARCHER,  Kind.ACTIVE,  AbilityEffect.GUARANTEED_CRIT, 4, "Precise Shot",   "🏹", "Every 4 rounds: guaranteed crit + (3×lvl) bonus damage."),
     VOLLEY         (WarriorClass.ARCHER,  Kind.ACTIVE,  AbilityEffect.EXTRA_ATTACK,    5, "Volley",         "☄", "Every 5 rounds: extra attack at (50+5×lvl)% damage."),
     EVASIVE_ROLL   (WarriorClass.ARCHER,  Kind.ACTIVE,  AbilityEffect.DODGE_INCOMING,  6, "Evasive Roll",   "🌀", "Every 6 rounds: dodge next hit + reflect (2×lvl) damage."),
@@ -46,13 +46,13 @@ public enum ClassAbility {
     public enum Kind { PASSIVE, ACTIVE }
     public boolean isActive() { return kind == Kind.ACTIVE; }
 
-    /** Delta no array de combate [atk, def, hp, dex, strBonus, luk] p/ passivas no nível N. */
+    /** Delta no array de combate [atk, def, hp, dex, agi, luk] p/ passivas no nível N. [REBALANCE] */
     public int[] passiveBonus(int level) {
         return switch (this) {
             case TOUGHNESS      -> new int[]{0, 0, 12 * level, 0, 0, 0}; // HP
             case WEAPON_MASTERY -> new int[]{2 * level, 0, 0, 0, 0, 0};  // ATK
             case EAGLE_EYE      -> new int[]{0, 0, 0, 0, 0, 2 * level};  // LUK
-            case AGILITY        -> new int[]{0, 0, 0, level, 0, 0};      // DEX (AC)
+            case AGILITY        -> new int[]{0, 0, 0, 0, level, 0};      // AGI (golpes extra + esquiva)
             case HAGGLER        -> new int[]{0, 0, 0, 0, 0, 2 * level};  // LUK (lado combate; o +venda% é economia) [MERCADOR]
             default             -> new int[]{0, 0, 0, 0, 0, 0};
         };

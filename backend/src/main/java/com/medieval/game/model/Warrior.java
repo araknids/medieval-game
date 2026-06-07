@@ -46,6 +46,9 @@ public class Warrior {
     private int constitution = 0;
     private int luck         = 0;
     private int intellect    = 0;
+    // [REBALANCE] Agilidade: golpes extra + esquiva. Coluna nova → default 0 p/ jogadores existentes.
+    @Column(columnDefinition = "integer default 0")
+    private int agility      = 0;
     private int availablePoints = 0;
 
     // [HABILIDADES] Pontos de habilidade (1 por level, separado dos atributos). Gastos em ClassAbility.

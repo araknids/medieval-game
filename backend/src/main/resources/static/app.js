@@ -374,9 +374,9 @@ async function loadWarrior() {
     ${statRow(t('stat.defense'), warrior.baseDefense, warrior.itemBonusDefense ?? 0, warrior.buffBonusDefense ?? 0)}
     ${statRow(t('stat.hp'),      warrior.baseHealth,  warrior.itemBonusHealth  ?? 0, warrior.buffBonusHealth  ?? 0)}
     <div class="warrior-stat-row">
-      <span class="label">Armor Class (AC)</span>
-      <span class="value">${warrior.evasionChance ?? 10}
-        <span style="color:#888;font-size:.75em">(d20 hit needs ≥ AC)</span>
+      <span class="label">🎯 Accuracy / 💨 Agility</span>
+      <span class="value">+${Math.floor((warrior.dexterity ?? 0) / 5)} / ${warrior.agility ?? 0}
+        <span style="color:#888;font-size:.75em">(hit bonus / dodge & speed)</span>
       </span>
     </div>
     <div class="warrior-stat-row">
@@ -780,12 +780,14 @@ const ALL_SLOTS = [
   { id:'NECKLACE'}, { id:'RING'     },
 ];
 
+// [REBALANCE] cap = maior cap entre as classes (o backend ainda valida o cap real da SUA classe).
 const ATTR_INFO = {
-  STRENGTH:     { icon: '⚔',  label: 'Strength (STR)',     cap: 60, effect: '+1 ATK/pt · Attack Roll floor(STR/20)' },
-  DEXTERITY:    { icon: '🛡',  label: 'Dexterity (DEX)',    cap: 40, effect: '+1 AC/pt · AC = 10 + DEX (defends hits)' },
-  CONSTITUTION: { icon: '❤',  label: 'Constitution (CON)', cap: null, effect: '+8 HP/pt · no cap — grows infinitely' },
-  LUCK:         { icon: '🍀', label: 'Luck (LUK)',         cap: 50, effect: '+1% drop · widens crit · Fortune Save' },
-  INTELLECT:    { icon: '📚', label: 'Intellect (INT)',    cap: 40, effect: '+0.5% Smithing · -0.2% training cost · +0.3% gathering yield' },
+  STRENGTH:     { icon: '⚔',  label: 'Strength (STR)',     cap: 80,  effect: '+1 ATK per point (raw damage)' },
+  DEXTERITY:    { icon: '🎯', label: 'Dexterity (DEX)',    cap: 60,  effect: 'Accuracy — land more hits (d20 + DEX/5)' },
+  CONSTITUTION: { icon: '❤',  label: 'Constitution (CON)', cap: null, effect: '+8 HP per point · no cap' },
+  AGILITY:      { icon: '💨', label: 'Agility (AGI)',      cap: 55,  effect: 'Speed — extra strikes vs slower foes + dodge incoming hits' },
+  LUCK:         { icon: '🍀', label: 'Luck (LUK)',         cap: 70,  effect: '+1% drop · widens crit window · Fortune Save' },
+  INTELLECT:    { icon: '📚', label: 'Intellect (INT)',    cap: 30,  effect: '+0.5% Smithing · -0.2% train cost · +0.3% gather (Mage stat)' },
 };
 
 function renderAttributes() {
@@ -809,8 +811,14 @@ function renderAttributes() {
       </div>`;
   }).join('');
 
-  const ac    = warrior.evasionChance ?? 10;
-  const bonus = warrior.attackBonus   ?? 0;
+  // [REBALANCE] Derivados do novo modelo: DEX=acerto, AGI=esquiva, LUK=crit.
+  const dexV = warrior.dexterity ?? 0;
+  const agiV = warrior.agility   ?? 0;
+  const lukV = warrior.luck      ?? 0;
+  const accBonus  = Math.floor(dexV / 5);
+  const dodgePen  = Math.floor(agiV / 8);
+  const critThr   = Math.max(17, 20 - Math.floor(lukV / 15));
+  const critPct   = (21 - critThr) * 5;
 
   // [POSTURE] Seletor de postura de combate (tradeoff ATK/DEF, vale em todo combate).
   const cur = warrior.combatPosture ?? 'BALANCED';
@@ -835,10 +843,12 @@ function renderAttributes() {
         ${pts > 0 ? `<span class="attr-points-badge">⬆ ${pts} point${pts !== 1 ? 's' : ''} available</span>` : ''}
       </div>
       ${rows}
-      <div class="attr-stats-summary" style="margin-top:8px;padding:8px;background:#1a1a2e;border-radius:6px;font-size:.8rem">
-        🛡 <strong>AC ${ac}</strong> (attackers need d20 ≥ ${ac} to hit you)
+      <div class="attr-stats-summary" style="margin-top:8px;padding:8px;background:#1a1a2e;border-radius:6px;font-size:.8rem;line-height:1.6">
+        🎯 <strong>Accuracy +${accBonus}</strong> to hit rolls
         &nbsp;·&nbsp;
-        ⚔ <strong>Attack +${bonus}</strong> (added to your d20 attack rolls)
+        💨 <strong>Dodge −${dodgePen}</strong> to foes' rolls
+        &nbsp;·&nbsp;
+        🍀 <strong>Crit ${critPct}%</strong>
       </div>
     </div>
     <div class="attr-section" style="margin-top:10px">

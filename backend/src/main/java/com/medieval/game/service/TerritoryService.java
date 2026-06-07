@@ -468,8 +468,8 @@ public class TerritoryService {
                 (int) Math.max(1, cs[0] * mult),   // ATK (gear+buff+postura) × debuff × cansaço
                 (int) Math.max(1, cs[1] * mult),   // DEF
                 c.hp,
-                (int) Math.max(0, cs[3] * mult),   // dex → AC
-                cs[4], cs[5], c.warrior,
+                (int) Math.max(0, cs[3] * mult),   // dex → acerto
+                cs[4], cs[5], c.warrior,           // agi (esquiva/velocidade), luk
                 c.warrior.getActiveWeaponElement(), c.warrior.getActiveArmorElement(),
                 abilityService.activeLoadout(c.warrior));
     }
@@ -570,7 +570,7 @@ public class TerritoryService {
                 (int) (baseAtk * territory.npcAtkMult),
                 (int) (baseDef * territory.npcDefMult),
                 (int) (baseHp  * territory.npcHpMult),
-                5, 1, 5, null);
+                15, 3, 5, null); // [REBALANCE] dex=acerto, agi=esquiva baixa, luk
     }
 
     private void persistHpChanges(List<Fighter> fighters) {
@@ -620,17 +620,17 @@ public class TerritoryService {
     public static class Fighter {
         public final Long   playerId;
         public final String name;
-        public int atk, def, hp, dex, strBonus, luk;
+        public int atk, def, hp, dex, agi, luk;
         public final Warrior warrior;
         // [GUERRA_FORMACAO] combate completo na guerra: elementos + habilidades ativas.
         public final com.medieval.game.enums.Element weaponElement, armorElement;
         public final java.util.List<BattleSimulator.ActiveAbility> abilities;
 
-        public Fighter(Long playerId, String name, int atk, int def, int hp, int dex, int strBonus, int luk, Warrior warrior) {
-            this(playerId, name, atk, def, hp, dex, strBonus, luk, warrior, null, null, java.util.List.of());
+        public Fighter(Long playerId, String name, int atk, int def, int hp, int dex, int agi, int luk, Warrior warrior) {
+            this(playerId, name, atk, def, hp, dex, agi, luk, warrior, null, null, java.util.List.of());
         }
 
-        public Fighter(Long playerId, String name, int atk, int def, int hp, int dex, int strBonus, int luk, Warrior warrior,
+        public Fighter(Long playerId, String name, int atk, int def, int hp, int dex, int agi, int luk, Warrior warrior,
                        com.medieval.game.enums.Element weaponElement, com.medieval.game.enums.Element armorElement,
                        java.util.List<BattleSimulator.ActiveAbility> abilities) {
             this.playerId  = playerId;
@@ -639,7 +639,7 @@ public class TerritoryService {
             this.def       = def;
             this.hp        = hp;
             this.dex       = dex;
-            this.strBonus  = strBonus;
+            this.agi  = agi;
             this.luk       = luk;
             this.warrior   = warrior;
             this.weaponElement = weaponElement;
@@ -648,7 +648,7 @@ public class TerritoryService {
         }
 
         BattleSimulator.Combatant toCombatant() {
-            return BattleSimulator.Combatant.of(name, new int[]{atk, def, hp, dex, strBonus, luk},
+            return BattleSimulator.Combatant.of(name, new int[]{atk, def, hp, dex, agi, luk},
                     weaponElement, armorElement, abilities);
         }
     }

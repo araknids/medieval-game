@@ -57,7 +57,7 @@ class BattleSimulatorTest {
 
     // ── TC-extra: Log começa com cabeçalho e HP dos lutadores ──
     @Test
-    @DisplayName("TC-extra | Log contém cabeçalho vs e linha de HP com AC")
+    @DisplayName("TC-extra | Log contém cabeçalho vs e linha de HP")
     void tcExtra_logHasHeaderAndHpLine() {
         List<String> log = simulator.simulate(
                 "Guerreiro", 15, 10, 100, 10, 1, 10,
@@ -66,6 +66,6 @@ class BattleSimulatorTest {
 
         assertThat(log.get(0)).contains("vs");
         assertThat(log.get(1)).contains("HP");
-        assertThat(log.get(1)).contains("AC");
+        assertThat(log.get(1)).contains("❤"); // [REBALANCE] header mostra HP (sem AC)
     }
 }

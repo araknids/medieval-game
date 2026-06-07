@@ -213,6 +213,8 @@ public class SchemaMigrator {
     private void patchAbilityPointsColumn() {
         try {
             jdbc.execute("ALTER TABLE warriors ADD COLUMN IF NOT EXISTS ability_points integer NOT NULL DEFAULT 0");
+            // [REBALANCE] Agilidade: novo atributo (golpes extra + esquiva). Default 0 p/ jogadores existentes.
+            jdbc.execute("ALTER TABLE warriors ADD COLUMN IF NOT EXISTS agility integer NOT NULL DEFAULT 0");
             // [GUERRA_FORMACAO] posição na formação 3×5 da guerra (−1 = não posicionado).
             jdbc.execute("ALTER TABLE players ADD COLUMN IF NOT EXISTS war_lane  integer NOT NULL DEFAULT -1");
             jdbc.execute("ALTER TABLE players ADD COLUMN IF NOT EXISTS war_depth integer NOT NULL DEFAULT -1");

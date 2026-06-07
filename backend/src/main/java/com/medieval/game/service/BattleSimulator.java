@@ -11,11 +11,13 @@ import java.util.Map;
 import java.util.Random;
 
 /**
- * D20-based combat simulator (D&D Bounded Accuracy).
+ * D20-based combat simulator. [REBALANCE]
  *
- * Each round: attacker rolls d20 + strBonus and must meet or beat defender's AC (10 + dex).
- * Natural 20 = Critical hit (double damage). Natural 1 = Fumble. LUK expands crit window +
- * Fortune Save. Elementos (roda RPS) aplicam ±25% por golpe. [ELEMENTOS]
+ * Acerto por golpe: {@code d20 + DEX_atacante/5 − AGI_defensor/8 ≥ HIT_DC(11)}. Não há mais AC.
+ * DEX = acerto, AGI = esquiva (defensor) + golpes extra (atacante), LUK = crit, STR = só dano (ATK).
+ * Crit (roll ≥ critThreshold(LUK)) fura a esquiva e dá ×1.5. Natural 1 = fumble. Fortune Save (LUK).
+ * AGI ofensivo: chance de golpe extra = {@code clamp(0,90,(AGI_atk−AGI_def)×1.5)} por round.
+ * Elementos (roda RPS) aplicam ±25% por golpe. [ELEMENTOS]
  *
  * Habilidades ATIVAS [HABILIDADES]: cada lado leva um kit de {@link ActiveAbility} (effect +
  * cooldown fixo + magnitude já calculada do nível). O loop dispara no cooldown e escreve no log.
@@ -23,6 +25,14 @@ import java.util.Random;
  */
 @Component
 public class BattleSimulator {
+
+    /** [REBALANCE] Alvo do teste de acerto (d20 + DEX/5 − AGI_def/8 ≥ este valor). */
+    private static final int HIT_DC = 11;
+    /** [REBALANCE] Cada ponto de AGI a mais que o inimigo = +1.5% de chance de um golpe extra (cap 90%). */
+    private static final double EXTRA_PER_AGI = 1.5;
+    private static final int    EXTRA_CAP     = 90;
+    /** [REBALANCE] Multiplicador do crítico (era 2.0 — matava de um golpe no nível alto). */
+    private static final double CRIT_MULT     = 1.5;
 
     private static final String[] HIT_TEXTS = {
         "charges fiercely and lands a precise blow",
@@ -92,8 +102,8 @@ public class BattleSimulator {
     /** Habilidade ativa pronta p/ o simulador: efeito, cooldown (rounds) e magnitude (já do nível). [HABILIDADES] */
     public record ActiveAbility(AbilityEffect effect, int cooldown, int magnitude) {}
 
-    /** Lutador completo (stats + elementos + ativas). stats = [atk, def, hp, dex, strBonus, luk]. */
-    public record Combatant(String name, int atk, int def, int hp, int dex, int strBonus, int luk,
+    /** Lutador completo (stats + elementos + ativas). stats = [atk, def, hp, dex, agi, luk]. */
+    public record Combatant(String name, int atk, int def, int hp, int dex, int agi, int luk,
                             Element weapon, Element armor, List<ActiveAbility> abilities) {
         public static Combatant of(String name, int[] s, Element weapon, Element armor, List<ActiveAbility> abilities) {
             return new Combatant(name, s[0], s[1], s[2], s[3], s[4], s[5], weapon, armor,
@@ -105,49 +115,49 @@ public class BattleSimulator {
 
     /** Backwards-compatible wrapper — returns just the log lines. */
     public List<String> simulate(
-            String cName, int cAtk, int cDef, int cHp, int cDex, int cStrBonus, int cLuk,
-            String oName, int oAtk, int oDef, int oHp, int oDex, int oStrBonus, int oLuk) {
+            String cName, int cAtk, int cDef, int cHp, int cDex, int cAgi, int cLuk,
+            String oName, int oAtk, int oDef, int oHp, int oDex, int oAgi, int oLuk) {
         return simulateDetailed(
-                cName, cAtk, cDef, cHp, cDex, cStrBonus, cLuk,
-                oName, oAtk, oDef, oHp, oDex, oStrBonus, oLuk).log();
+                cName, cAtk, cDef, cHp, cDex, cAgi, cLuk,
+                oName, oAtk, oDef, oHp, oDex, oAgi, oLuk).log();
     }
 
     /** PvP default: no timeout (40 rounds), desempate por %HP restante. [COMBATE_V2] */
     public BattleOutcome simulateDetailed(
-            String cName, int cAtk, int cDef, int cHp, int cDex, int cStrBonus, int cLuk,
-            String oName, int oAtk, int oDef, int oHp, int oDex, int oStrBonus, int oLuk) {
-        return simulateDetailed(cName, cAtk, cDef, cHp, cDex, cStrBonus, cLuk,
-                                oName, oAtk, oDef, oHp, oDex, oStrBonus, oLuk, false);
+            String cName, int cAtk, int cDef, int cHp, int cDex, int cAgi, int cLuk,
+            String oName, int oAtk, int oDef, int oHp, int oDex, int oAgi, int oLuk) {
+        return simulateDetailed(cName, cAtk, cDef, cHp, cDex, cAgi, cLuk,
+                                oName, oAtk, oDef, oHp, oDex, oAgi, oLuk, false);
     }
 
     /**
      * @param firstLosesOnTimeout PvE: se ninguém morrer em 40 rounds, o 1º combatente PERDE.
      */
     public BattleOutcome simulateDetailed(
-            String cName, int cAtk, int cDef, int cHp, int cDex, int cStrBonus, int cLuk,
-            String oName, int oAtk, int oDef, int oHp, int oDex, int oStrBonus, int oLuk,
+            String cName, int cAtk, int cDef, int cHp, int cDex, int cAgi, int cLuk,
+            String oName, int oAtk, int oDef, int oHp, int oDex, int oAgi, int oLuk,
             boolean firstLosesOnTimeout) {
-        return simulateDetailed(cName, cAtk, cDef, cHp, cDex, cStrBonus, cLuk,
-                oName, oAtk, oDef, oHp, oDex, oStrBonus, oLuk,
+        return simulateDetailed(cName, cAtk, cDef, cHp, cDex, cAgi, cLuk,
+                oName, oAtk, oDef, oHp, oDex, oAgi, oLuk,
                 firstLosesOnTimeout, null, null, null, null);
     }
 
     /** Versão com ELEMENTOS (sem habilidades ativas). [ELEMENTOS] */
     public BattleOutcome simulateDetailed(
-            String cName, int cAtk, int cDef, int cHp, int cDex, int cStrBonus, int cLuk,
-            String oName, int oAtk, int oDef, int oHp, int oDex, int oStrBonus, int oLuk,
+            String cName, int cAtk, int cDef, int cHp, int cDex, int cAgi, int cLuk,
+            String oName, int oAtk, int oDef, int oHp, int oDex, int oAgi, int oLuk,
             boolean firstLosesOnTimeout,
             Element cWeapon, Element cArmor, Element oWeapon, Element oArmor) {
-        return simulateDetailed(cName, cAtk, cDef, cHp, cDex, cStrBonus, cLuk,
-                oName, oAtk, oDef, oHp, oDex, oStrBonus, oLuk,
+        return simulateDetailed(cName, cAtk, cDef, cHp, cDex, cAgi, cLuk,
+                oName, oAtk, oDef, oHp, oDex, oAgi, oLuk,
                 firstLosesOnTimeout, cWeapon, cArmor, oWeapon, oArmor, List.of(), List.of());
     }
 
     /** Conveniência: dois {@link Combatant} (stats + elementos + ativas). [HABILIDADES] */
     public BattleOutcome simulate(Combatant a, Combatant b, boolean firstLosesOnTimeout) {
         return simulateDetailed(
-                a.name(), a.atk(), a.def(), a.hp(), a.dex(), a.strBonus(), a.luk(),
-                b.name(), b.atk(), b.def(), b.hp(), b.dex(), b.strBonus(), b.luk(),
+                a.name(), a.atk(), a.def(), a.hp(), a.dex(), a.agi(), a.luk(),
+                b.name(), b.atk(), b.def(), b.hp(), b.dex(), b.agi(), b.luk(),
                 firstLosesOnTimeout, a.weapon(), a.armor(), b.weapon(), b.armor(),
                 a.abilities(), b.abilities());
     }
@@ -155,8 +165,8 @@ public class BattleSimulator {
     // ── Núcleo ──────────────────────────────────────────────────────────────────
 
     public BattleOutcome simulateDetailed(
-            String cName, int cAtk, int cDef, int cHp, int cDex, int cStrBonus, int cLuk,
-            String oName, int oAtk, int oDef, int oHp, int oDex, int oStrBonus, int oLuk,
+            String cName, int cAtk, int cDef, int cHp, int cDex, int cAgi, int cLuk,
+            String oName, int oAtk, int oDef, int oHp, int oDex, int oAgi, int oLuk,
             boolean firstLosesOnTimeout,
             Element cWeapon, Element cArmor, Element oWeapon, Element oArmor,
             List<ActiveAbility> cAbilities, List<ActiveAbility> oAbilities) {
@@ -164,11 +174,11 @@ public class BattleSimulator {
         List<String> log = new ArrayList<>();
         Random rng = java.util.concurrent.ThreadLocalRandom.current();
 
-        Side c = new Side(cName, cAtk, cDef, cHp, cDex, cStrBonus, cLuk, cWeapon, cArmor, cAbilities);
-        Side o = new Side(oName, oAtk, oDef, oHp, oDex, oStrBonus, oLuk, oWeapon, oArmor, oAbilities);
+        Side c = new Side(cName, cAtk, cDef, cHp, cDex, cAgi, cLuk, cWeapon, cArmor, cAbilities);
+        Side o = new Side(oName, oAtk, oDef, oHp, oDex, oAgi, oLuk, oWeapon, oArmor, oAbilities);
 
         log.add("⚔ " + c.name + " vs " + o.name + " — The battle begins!");
-        log.add("HP: [" + c.name + ": ❤ " + c.maxHp + " | AC " + c.ac + "] | [" + o.name + ": ❤ " + o.maxHp + " | AC " + o.ac + "]");
+        log.add("HP: [" + c.name + ": ❤ " + c.maxHp + "] | [" + o.name + ": ❤ " + o.maxHp + "]");
         log.add("─────────────────────────");
 
         for (int round = 1; round <= 40 && c.hp > 0 && o.hp > 0; round++) {
@@ -177,10 +187,10 @@ public class BattleSimulator {
             applySelfTriggers(c, log);
             applySelfTriggers(o, log);
 
-            attack(c, o, HIT_TEXTS, log, rng);
+            attackRound(c, o, HIT_TEXTS, log, rng);
             if (o.hp <= 0 || c.hp <= 0) { tick(c); tick(o); break; }
 
-            attack(o, c, ENEMY_HIT_TEXTS, log, rng);
+            attackRound(o, c, ENEMY_HIT_TEXTS, log, rng);
 
             tick(c);
             tick(o);
@@ -218,6 +228,19 @@ public class BattleSimulator {
         }
     }
 
+    /** Ação do atacante no round: golpe base + chance de golpe EXTRA por AGI (velocidade). [REBALANCE] */
+    private void attackRound(Side atk, Side def, String[] hitTexts, List<String> log, Random rng) {
+        attack(atk, def, hitTexts, log, rng);
+        if (def.hp <= 0 || atk.hp <= 0) return;
+        int chance = (int) Math.round((atk.agi - def.agi) * EXTRA_PER_AGI);
+        if (chance <= 0) return;
+        if (chance > EXTRA_CAP) chance = EXTRA_CAP;
+        if (rng.nextInt(100) < chance) {
+            log.add("  💨 " + atk.name + " moves with blinding speed — an extra strike!");
+            attack(atk, def, hitTexts, log, rng);
+        }
+    }
+
     /** Um ataque de {@code atk} em {@code def}, com elementos + habilidades ativas. */
     private void attack(Side atk, Side def, String[] hitTexts, List<String> log, Random rng) {
         int roll = rng.nextInt(20) + 1;
@@ -228,17 +251,18 @@ public class BattleSimulator {
             return;
         }
 
-        int total = roll + atk.strBonus;
+        // [REBALANCE] Acerto: d20 + DEX_atacante/5 − AGI_defensor/8 ≥ HIT_DC. Sem AC. Crit fura a esquiva.
+        int acc = roll + atk.dex / 5 - def.agi / 8;
         boolean isCrit = roll >= atk.critThreshold;
         if (isCrit && !precise && def.fortuneSave > 0 && rng.nextInt(100) < def.fortuneSave) {
             isCrit = false;
             log.add("  ✨ " + def.name + " gets a Fortune Save — critical negated!");
         }
 
-        boolean hit = precise || total >= def.ac || isCrit;
+        boolean hit = precise || acc >= HIT_DC || isCrit;
         if (!hit) {
             log.add("  " + atk.name + " " + MISS_TEXTS[rng.nextInt(MISS_TEXTS.length)]
-                    + " [Roll: " + roll + "+" + atk.strBonus + " vs AC " + def.ac + "]");
+                    + " [d20 " + roll + " +DEX " + (atk.dex / 5) + " −AGI " + (def.agi / 8) + " = " + acc + " vs " + HIT_DC + "]");
             return;
         }
 
@@ -273,7 +297,7 @@ public class BattleSimulator {
             bashTag = " 💥+" + bonus;
         }
         dmg += preciseBonus;
-        if (isCrit) dmg *= 2;
+        if (isCrit) dmg = Math.max(1, (int) Math.round(dmg * CRIT_MULT)); // [REBALANCE] crit ×1.5 (era ×2)
 
         int defAfter = Math.max(0, def.hp - dmg);
         String bodyPart = BODY_PARTS[rng.nextInt(BODY_PARTS.length)];
@@ -307,7 +331,7 @@ public class BattleSimulator {
     /** Estado mutável de um lado no combate. */
     private static final class Side {
         final String name;
-        final int atk, def, dex, strBonus, luk, ac, critThreshold, fortuneSave, maxHp;
+        final int atk, def, dex, agi, luk, critThreshold, fortuneSave, maxHp;
         final Element weapon, armor;
         final Map<AbilityEffect, ActiveAbility> abilities = new EnumMap<>(AbilityEffect.class);
         final Map<AbilityEffect, Integer> cooldowns = new EnumMap<>(AbilityEffect.class);
@@ -315,12 +339,11 @@ public class BattleSimulator {
         int berserkRounds = 0;
         boolean secondWindUsed = false;
 
-        Side(String name, int atk, int def, int hp, int dex, int strBonus, int luk,
+        Side(String name, int atk, int def, int hp, int dex, int agi, int luk,
              Element weapon, Element armor, List<ActiveAbility> kit) {
             this.name = name; this.atk = atk; this.def = def; this.dex = dex;
-            this.strBonus = strBonus; this.luk = luk; this.weapon = weapon; this.armor = armor;
+            this.agi = agi; this.luk = luk; this.weapon = weapon; this.armor = armor;
             this.maxHp = hp; this.hp = hp;
-            this.ac = 10 + dex;
             this.critThreshold = critThreshold(luk);
             this.fortuneSave = luk / 10;
             if (kit != null) for (ActiveAbility a : kit) {

@@ -45,8 +45,8 @@ public class TowerService {
     };
 
     // ── Info do chefe para um andar ──
-    /** Boss stats for d20 system: dex contributes to AC, not evasion%. */
-    public record BossInfo(String name, int attack, int defense, int health, int dex, int strBonus, int luk) {}
+    /** [REBALANCE] Boss stats: dex = acerto (d20+dex/5), agi = esquiva/velocidade. */
+    public record BossInfo(String name, int attack, int defense, int health, int dex, int agi, int luk) {}
 
     public BossInfo bossForFloor(int floor) {
         int group = Math.min((floor - 1) / 3, BOSSES.length - 1);
@@ -54,12 +54,12 @@ public class TowerService {
         String name = BOSSES[group][idx] + " (Andar " + floor + ")";
         return new BossInfo(
             name,
-            12 + floor * 5,           // ATK — escala forte: Andar 1 já é parede p/ lvl1 [COMBATE_V2]
-            5  + floor * 3,           // DEF
-            120 + floor * 45,         // HP
-            Math.min(floor / 2, 8),   // dex → AC = 10+dex, cap 18 (bounded accuracy — manter hit viável)
-            Math.min(floor / 10, 3),  // strBonus, cap +3
-            Math.min(floor, 18)       // luk
+            12 + floor * 5,            // ATK — escala forte: Andar 1 já é parede p/ lvl1 [COMBATE_V2]
+            5  + floor * 3,            // DEF
+            120 + floor * 45,          // HP
+            Math.min(12 + floor, 40),  // dex → acerto (d20 + dex/5)
+            Math.min(floor / 4, 10),   // agi → esquiva/velocidade (modesta)
+            Math.min(floor, 18)        // luk
         );
     }
 
@@ -153,7 +153,7 @@ public class TowerService {
         int[] s = statsService.combatStats(player, warrior);
         BattleSimulator.BattleOutcome outcome = battleSimulator.simulateDetailed(
             warrior.getName(), s[0], s[1], s[2], s[3], s[4], s[5],
-            boss.name(), boss.attack(), boss.defense(), boss.health(), boss.dex(), boss.strBonus(), boss.luk(),
+            boss.name(), boss.attack(), boss.defense(), boss.health(), boss.dex(), boss.agi(), boss.luk(),
             true // PvE: não matou o chefe em 40 rounds = derrota [COMBATE_V2]
         );
 
