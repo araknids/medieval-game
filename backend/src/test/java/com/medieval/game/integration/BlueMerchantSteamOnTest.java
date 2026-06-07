@@ -13,6 +13,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.test.context.TestPropertySource;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 // [MERCADO_STEAM] Steam LIGADA (stub simula a concessão): consignar com conta linkada vira LINKED.
 @TestPropertySource(properties = "app.steam.enabled=true")
@@ -38,5 +39,10 @@ class BlueMerchantSteamOnTest extends BaseIntegrationTest {
 
         assertThat(c.getStatus()).isEqualTo(Consignment.Status.LINKED);
         assertThat(c.getSteamItemInstance()).isNotBlank(); // instância simulada pelo stub
+
+        // [MERCADO_STEAM] Já LINKED na Steam = via única: não dá pra pegar de volta (evita duplicar o item).
+        Player owner = playerRepository.findById(c.getPlayer().getId()).orElseThrow();
+        assertThatThrownBy(() -> blueMerchant.cancel(owner, c.getId()))
+                .isInstanceOf(IllegalStateException.class);
     }
 }

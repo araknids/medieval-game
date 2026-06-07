@@ -576,8 +576,10 @@ async function loadBlueMerchant() {
           <h3 class="rarity-${c.rarity}">${escapeHtml(c.itemName)}</h3>
           <div class="shop-stats">${STATUS_LABEL[c.status] || c.status}${c.steamItemInstance ? ' · ' + escapeHtml(c.steamItemInstance) : ''}</div>
         </div>
-        ${(c.status === 'HELD' || c.status === 'LINKED')
-          ? `<button class="btn-buy" style="background:#8b0000" onclick="bmCancel(${c.id})">Take back</button>` : ''}
+        ${c.status === 'HELD'
+          ? `<button class="btn-buy" style="background:#8b0000" onclick="bmCancel(${c.id})">Take back</button>`
+          : c.status === 'LINKED'
+            ? `<span style="font-size:.68rem;color:#888">on Steam (one-way)</span>` : ''}
       </div>`).join('')
     : '<p style="color:#888;font-size:.82rem">Nothing with the Blue Merchant.</p>';
 

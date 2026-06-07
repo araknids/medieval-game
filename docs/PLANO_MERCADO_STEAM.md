@@ -66,8 +66,9 @@ Estados: `EM_PODER_DO_MERCADOR` (escrow) → `LINKADO` (no inventário Steam) �
    timestamps; status `HELD→LINKED→SOLD/RETURNED`) + `ConsignmentRepository`. Item ganha flag `consigned`
    (espelha `listed` do Leilão: sai da bag, não vende/equipa/lista; guards em `InventoryService`/`AuctionService`).
 5. **`BlueMerchantService`**: `consign` (escrow → se Steam ligada + conta linkada, `provider.grantItem`
-   → LINKED), `cancel` (devolve, RETURNED), `linkSteam`, `state` (DTO p/ UI). Soft-wipe apaga consignments
-   antes dos itens (FK).
+   → LINKED), `cancel` = **take-back SÓ enquanto HELD** (antes de ir pra Steam; depois de LINKED é **via
+   única** — evita duplicar o item: ele já é ativo da Steam), `linkSteam`, `state` (DTO p/ UI). Soft-wipe
+   apaga consignments antes dos itens (FK).
 6. **`BlueMerchantController`** (`/api/blue-merchant`): GET estado, POST consign/{itemId}, cancel/{id}, link.
 7. **Mapa item→itemdef** (`SteamItemMapping`): tipo+raridade → placeholder (catálogo real na F1).
 8. **UI**: aba 🔵 Blue Merchant no Comércio (consignar/cancelar/linkar + status honesto Steam on/off).
@@ -79,8 +80,10 @@ Estados: `EM_PODER_DO_MERCADOR` (escrow) → `LINKADO` (no inventário Steam) �
 - **Link de conta REAL**: validar o **auth ticket** do cliente Godot (`ISteamUserAuth/AuthenticateUserTicket`)
   antes de gravar `steamId` (hoje `linkSteam` aceita o id direto — placeholder).
 - **Catálogo de itemdefs** na Steam + `SteamItemMapping` real; marcar `marketable`/`tradable`.
-- **Venda → SOLD**: poll/webhook do estado da venda no Community Market (devolve o item localmente / credita).
-- **Revogar instância** ao cancelar uma consignação já `LINKED` na Steam real.
+- **Venda → SOLD**: poll/webhook do estado da venda no Community Market (finaliza/credita).
+- **Regra do take-back**: já é via única depois de `LINKED` (sem revogação). Permitir "puxar de volta" de
+  `LINKED` exigiria `ExchangeItem`/consumir na Steam **e** garantir que não está listado/trocado — arriscado;
+  fica como opção avançada, não default.
 
 ## Plano em fases (solo dev)
 - **F0 (agora, sem Steam):** fundação deste scaffold (steamId + seam + flags) + este doc. ✅

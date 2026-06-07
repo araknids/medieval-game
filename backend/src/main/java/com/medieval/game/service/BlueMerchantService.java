@@ -75,18 +75,25 @@ public class BlueMerchantService {
         return saved;
     }
 
-    /** Cancela uma consignação ativa e devolve o item pra bag. */
+    /**
+     * Pega o item de volta — SÓ enquanto HELD (antes de ir pra Steam). Depois de LINKED é via única:
+     * o item já é um ativo da Steam (no Market/escrow ou já trocável), e o jogo não tem como puxar de
+     * volta com segurança sem duplicar. (Revogar de LINKED = ExchangeItem na Steam só se não-listado/não-trocado
+     * — arriscado, fica fora do escopo; ver docs/PLANO_MERCADO_STEAM.md.)
+     */
     @Transactional
     public void cancel(Player player, Long consignmentId) {
         Consignment c = consignmentRepository.findById(consignmentId)
                 .orElseThrow(() -> new IllegalStateException("Consignment not found."));
         if (!c.getPlayer().getId().equals(player.getId()))
             throw new IllegalStateException("Not your consignment.");
-        if (c.getStatus() == Consignment.Status.SOLD)
-            throw new IllegalStateException("Already sold on Steam — can't return it.");
-        if (c.getStatus() == Consignment.Status.RETURNED)
-            throw new IllegalStateException("Already returned.");
-        // TODO(F1): se LINKED na Steam real, revogar a instância do inventário Steam antes de devolver.
+        if (c.getStatus() != Consignment.Status.HELD) {
+            throw new IllegalStateException(switch (c.getStatus()) {
+                case LINKED -> "Item is already on the Steam marketplace — it's a one-way export now (manage it on Steam).";
+                case SOLD   -> "Item was already sold on Steam.";
+                default     -> "Already returned.";
+            });
+        }
 
         InventoryItem item = c.getItem();
         item.setConsigned(false);
