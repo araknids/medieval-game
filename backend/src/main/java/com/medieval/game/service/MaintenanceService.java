@@ -27,6 +27,7 @@ public class MaintenanceService {
     private final SocketedGemRepository        socketedGemRepository;
     private final ItemAffixRepository          itemAffixRepository;
     private final AuctionListingRepository     auctionListingRepository; // [LEILAO] FK → inventory_items
+    private final com.medieval.game.repository.ConsignmentRepository consignmentRepository; // [MERCADO_STEAM] FK → inventory_items
     private final InventoryItemRepository      inventoryItemRepository;
     private final WorkSessionRepository        workSessionRepository;
     private final MountRepository              mountRepository;
@@ -67,6 +68,7 @@ public class MaintenanceService {
         socketedGemRepository.deleteAllInBatch();
         itemAffixRepository.deleteAllInBatch();    // Itens V2: afixos antes dos itens (FK)
         auctionListingRepository.deleteAllInBatch(); // [LEILAO] leilões referenciam item_id → apaga antes dos itens
+        consignmentRepository.deleteAllInBatch();    // [MERCADO_STEAM] consignações referenciam item_id → antes dos itens
         inventoryItemRepository.deleteAllInBatch();
         workSessionRepository.deleteAllInBatch();
         mountRepository.deleteAllInBatch();

@@ -251,6 +251,8 @@ public class SchemaMigrator {
             jdbc.execute("ALTER TABLE inventory_items ADD COLUMN IF NOT EXISTS listed boolean NOT NULL DEFAULT false");
             // [MERCADOR] forjador do item (p/ bônus de self-crafted do Mercador). Null p/ itens antigos/dropados.
             jdbc.execute("ALTER TABLE inventory_items ADD COLUMN IF NOT EXISTS crafted_by bigint");
+            // [MERCADO_STEAM] item consignado ao Mercador Azul (sai da bag). Tabela consignments = ddl-auto.
+            jdbc.execute("ALTER TABLE inventory_items ADD COLUMN IF NOT EXISTS consigned boolean NOT NULL DEFAULT false");
             log.info("[SchemaMigrator] inventory_items.listed column ensured");
         } catch (Exception e) {
             log.warn("[SchemaMigrator] inventory_items.listed patch failed: {}", e.getMessage());

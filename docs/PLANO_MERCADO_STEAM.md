@@ -57,25 +57,30 @@ e fica "**em consignação**" até ser vendido (vira saldo Steam) ou **devolvido
 
 Estados: `EM_PODER_DO_MERCADOR` (escrow) → `LINKADO` (no inventário Steam) → `VENDIDO` / `DEVOLVIDO`.
 
-## O que dá pra deixar PRONTO agora (fundação, seguro, flag-off)
-Construído neste scaffold (inerte enquanto `app.steam.enabled=false`):
-1. **`Player.steamId`** (link conta-Steam ↔ conta-jogo) + migração. Foundational, vai precisar sempre.
-2. **Seam `SteamMarketProvider`** (interface) + **`StubSteamMarketProvider`** (loga/simula). A implementação
-   real (`WebApiSteamMarketProvider` chamando `api.steampowered.com`) pluga aqui depois, sem mexer no resto.
-3. **Flags de config** (`app.steam.*`): `enabled=false`, `appid`, `publisher-key`, `market-fee-pct` —
-   placeholders, lidos do env em prod.
+## Já CONSTRUÍDO (F0, inerte enquanto `app.steam.enabled=false`)
+1. **`Player.steamId`** (link conta-Steam ↔ conta-jogo) + migração.
+2. **Seam `SteamMarketProvider`** + **`StubSteamMarketProvider`** (loga/simula). A impl real
+   (`WebApiSteamMarketProvider` → `api.steampowered.com`) pluga aqui depois sem mexer no resto.
+3. **Flags `app.steam.*`** (`enabled`, `appid`, `publisher-key`, `market-fee-pct`) via env.
+4. **Modelo de consignação**: `Consignment` (player, item, status, `steamItemDef`, `steamItemInstance`,
+   timestamps; status `HELD→LINKED→SOLD/RETURNED`) + `ConsignmentRepository`. Item ganha flag `consigned`
+   (espelha `listed` do Leilão: sai da bag, não vende/equipa/lista; guards em `InventoryService`/`AuctionService`).
+5. **`BlueMerchantService`**: `consign` (escrow → se Steam ligada + conta linkada, `provider.grantItem`
+   → LINKED), `cancel` (devolve, RETURNED), `linkSteam`, `state` (DTO p/ UI). Soft-wipe apaga consignments
+   antes dos itens (FK).
+6. **`BlueMerchantController`** (`/api/blue-merchant`): GET estado, POST consign/{itemId}, cancel/{id}, link.
+7. **Mapa item→itemdef** (`SteamItemMapping`): tipo+raridade → placeholder (catálogo real na F1).
+8. **UI**: aba 🔵 Blue Merchant no Comércio (consignar/cancelar/linkar + status honesto Steam on/off).
+9. **Testes**: `BlueMerchantTest` (escrow/devolução/guards/link) + `BlueMerchantSteamOnTest`
+   (stub → LINKED). Fluxo de escrow funciona JÁ (sem Steam); com `app.steam.enabled=true` o stub simula a exportação.
 
-## O que fica ESPECIFICADO p/ construir quando houver appid (não codar antes do design ok)
-- **Modelo de consignação**: `Consignment` (player, item, status, `steamItemInstanceId`, timestamps) +
-  `ConsignmentStatus` enum. Item ganha flag `consigned` (espelha `listed` do Leilão: sai da bag, não
-  vende/equipa/stasha/guarda/lista).
-- **`BlueMerchantService`**: `consign(item)` → escrow + `provider.grantToSteam(steamId, itemDef)` →
-  `LINKADO`; `list(player)`; `cancel` → devolve item (`DEVOLVIDO`). Webhook/poll de venda → `VENDIDO`.
-- **`BlueMerchantController`** (`/api/blue-merchant`): listar consignáveis, consignar, cancelar, status.
-- **Mapa item→itemdef** (`SteamItemMapping`): in-game item (tipo/raridade) → `itemdef id` da Steam.
-- **Link de conta**: endpoint que recebe o **auth ticket** do cliente Godot, valida na Web API, grava `steamId`.
-- **UI**: aba/loja do Mercador Azul (visível só com `steam.enabled`); badge "via Steam".
-- **Provider real**: `WebApiSteamMarketProvider` (publisher key, `IInventoryService.AddItem`/`GetInventory`).
+## Falta p/ funcionar de verdade na Steam (F1+, precisa de appid + Godot)
+- **Provider real** `WebApiSteamMarketProvider` (publisher/asset-server key, `IInventoryService.AddItem`/`GetInventory`).
+- **Link de conta REAL**: validar o **auth ticket** do cliente Godot (`ISteamUserAuth/AuthenticateUserTicket`)
+  antes de gravar `steamId` (hoje `linkSteam` aceita o id direto — placeholder).
+- **Catálogo de itemdefs** na Steam + `SteamItemMapping` real; marcar `marketable`/`tradable`.
+- **Venda → SOLD**: poll/webhook do estado da venda no Community Market (devolve o item localmente / credita).
+- **Revogar instância** ao cancelar uma consignação já `LINKED` na Steam real.
 
 ## Plano em fases (solo dev)
 - **F0 (agora, sem Steam):** fundação deste scaffold (steamId + seam + flags) + este doc. ✅

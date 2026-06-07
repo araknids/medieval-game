@@ -50,7 +50,7 @@ public class InventoryService {
             for (InventoryItem i : items) if (i.isPvpLocked()) { i.setPvpLocked(false); any = true; }
             if (any) inventoryRepository.saveAll(items);
         }
-        return items.stream().filter(i -> !i.isListed()).toList(); // [LEILAO] itens no leilão não aparecem na bag
+        return items.stream().filter(i -> !i.isListed() && !i.isConsigned()).toList(); // [LEILAO/MERCADO_STEAM] leilão/consignado não aparecem na bag
     }
 
     /**
@@ -79,7 +79,7 @@ public class InventoryService {
     // Inventário V2: bag unificada — conta itens não-equipados (na bag) + recursos na bag POR UNIDADE.
     public int bagSize(Player player) {
         long items = inventoryRepository.findAllByPlayer(player).stream()
-                .filter(i -> !i.isEquipped() && !i.isStashed() && !i.isListed()).count(); // [LEILAO] listado não conta na bag
+                .filter(i -> !i.isEquipped() && !i.isStashed() && !i.isListed() && !i.isConsigned()).count(); // [LEILAO/MERCADO_STEAM] listado/consignado não conta na bag
         long resources = resourceRepository.findAllByPlayerAndStashed(player, false).stream()
                 .mapToLong(ResourceInventory::getQuantity).sum();
         return (int) (items + resources);
@@ -126,6 +126,9 @@ public class InventoryService {
         }
         if (item.isListed()) {
             throw new IllegalStateException("Item is listed in the Auction House.");
+        }
+        if (item.isConsigned()) {
+            throw new IllegalStateException("Item is consigned with the Blue Merchant.");
         }
         Warrior warrior = warriorRepository.findByPlayer(player).orElse(null);
         // Itens V3: requisito de nível — só equipa se itemLevel ≤ nível do guerreiro. [ITENS_V3]
@@ -216,6 +219,9 @@ public class InventoryService {
         }
         if (item.isListed()) {
             throw new IllegalStateException("Item is listed in the Auction House.");
+        }
+        if (item.isConsigned()) {
+            throw new IllegalStateException("Item is consigned with the Blue Merchant.");
         }
         if (item.isPvpLocked() && player.isPvpFlagged()) {
             log.warn("[InventoryService] player={} REJECTED: item {} is PvP-locked (exposed)", player.getId(), itemId);

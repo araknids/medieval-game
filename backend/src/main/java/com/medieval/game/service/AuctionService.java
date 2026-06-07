@@ -66,6 +66,7 @@ public class AuctionService {
         if (item.isGuarded())   throw new IllegalStateException("Item is protected by the Temple — un-guard it first.");
         if (item.isPvpLocked()) throw new IllegalStateException("Item is PvP-locked — can't list it now.");
         if (item.isListed())    throw new IllegalStateException("Item is already listed.");
+        if (item.isConsigned()) throw new IllegalStateException("Item is consigned with the Blue Merchant."); // [MERCADO_STEAM]
 
         if (listingRepo.countBySellerAndStatus(player, Status.ACTIVE) >= MAX_ACTIVE)
             throw new IllegalStateException("You already have " + MAX_ACTIVE + " active listings.");

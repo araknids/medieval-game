@@ -448,6 +448,7 @@ function switchCommerceTab(tab) {
   document.getElementById('panel-estabulo').style.display  = tab === 'estabulo'  ? 'block' : 'none';
   document.getElementById('panel-vipshop').style.display   = tab === 'vipshop'   ? 'block' : 'none';
   document.getElementById('panel-auction').style.display   = tab === 'auction'   ? 'block' : 'none';
+  document.getElementById('panel-bluemerchant').style.display = tab === 'bluemerchant' ? 'block' : 'none';
   document.getElementById('tab-shop').classList.toggle('active',      tab === 'shop');
   document.getElementById('tab-sell').classList.toggle('active',      tab === 'sell');
   document.getElementById('tab-smith').classList.toggle('active',     tab === 'smith');
@@ -455,12 +456,14 @@ function switchCommerceTab(tab) {
   document.getElementById('tab-estabulo').classList.toggle('active',  tab === 'estabulo');
   document.getElementById('tab-vipshop').classList.toggle('active',   tab === 'vipshop');
   document.getElementById('tab-auction').classList.toggle('active',   tab === 'auction');
+  document.getElementById('tab-bluemerchant').classList.toggle('active', tab === 'bluemerchant');
   if (tab === 'sell')      loadSellList();
   if (tab === 'smith')     loadSmithingInCommerce();
   if (tab === 'cooking')   loadCooking();
   if (tab === 'estabulo')  loadEstabulo();
   if (tab === 'vipshop')   loadVipShop();
   if (tab === 'auction')   loadAuctionHouse();
+  if (tab === 'bluemerchant') loadBlueMerchant();
 }
 
 // ── Casa de Leilão (Auction House) — preço fixo (buyout). [LEILAO] ──
@@ -546,6 +549,79 @@ async function auctionList(itemId) {
   await loadWarrior();
   await loadAuctionHouse();
   const m2 = document.getElementById('auction-msg'); if (m2) m2.innerHTML = `<span style="color:#4caf50">✅ Listed! (5% fee charged)</span>`;
+}
+
+// ── Mercador Azul (🔵): exporta item pro mercado da Steam. [MERCADO_STEAM] ──
+async function loadBlueMerchant() {
+  const el = document.getElementById('bluemerchant-content');
+  el.innerHTML = '<p>Loading...</p>';
+  const s = await api('GET', '/api/blue-merchant');
+  if (!s || s.error) { el.innerHTML = `<p style="color:#f44336">${s?.error || 'Failed to load.'}</p>`; return; }
+
+  const statusBadge = s.steamEnabled
+    ? '<span style="color:#4caf50">● Steam market ON</span>'
+    : '<span style="color:#888">● Steam market OFF (items are just held for now)</span>';
+  const linkRow = s.steamLinked
+    ? `<div style="font-size:.75rem;color:#4caf50">🔗 Steam linked (${escapeHtml(s.steamId)})</div>`
+    : `<div style="display:flex;gap:6px;align-items:center;margin:4px 0">
+         <input id="bm-steamid" placeholder="SteamID64" style="flex:1;padding:5px;background:#111;color:#eee;border:1px solid #555;border-radius:4px">
+         <button class="btn-buy" onclick="bmLink()">Link Steam</button>
+       </div>`;
+
+  const STATUS_LABEL = { HELD: '📦 Held', LINKED: '🔵 On Steam', SOLD: '💰 Sold', RETURNED: '↩ Returned' };
+  const consHtml = (s.consignments && s.consignments.length)
+    ? s.consignments.map(c => `
+      <div class="shop-card">
+        <div class="shop-item-info">
+          <h3 class="rarity-${c.rarity}">${escapeHtml(c.itemName)}</h3>
+          <div class="shop-stats">${STATUS_LABEL[c.status] || c.status}${c.steamItemInstance ? ' · ' + escapeHtml(c.steamItemInstance) : ''}</div>
+        </div>
+        ${(c.status === 'HELD' || c.status === 'LINKED')
+          ? `<button class="btn-buy" style="background:#8b0000" onclick="bmCancel(${c.id})">Take back</button>` : ''}
+      </div>`).join('')
+    : '<p style="color:#888;font-size:.82rem">Nothing with the Blue Merchant.</p>';
+
+  const pickHtml = (s.consignable && s.consignable.length)
+    ? s.consignable.map(i => `
+      <div class="shop-card">
+        <div class="shop-item-info">
+          <h3 class="rarity-${i.rarity}">${escapeHtml(i.name)}</h3>
+          <div class="shop-stats">${(t('item.type.' + i.type) || i.type)}${(i.atk||i.def||i.hp) ? ' · ' + [i.atk?`+${i.atk} ATK`:'', i.def?`+${i.def} DEF`:'', i.hp?`+${i.hp} HP`:''].filter(Boolean).join(' · ') : ''}</div>
+        </div>
+        <button class="btn-buy" onclick="bmConsign(${i.itemId})">Consign</button>
+      </div>`).join('')
+    : '<p style="color:#888;font-size:.82rem">No gear to consign.</p>';
+
+  el.innerHTML = `
+    <div style="font-size:.78rem;color:#9fc;border-left:3px solid #2a6;padding:6px 10px;margin-bottom:8px;background:#0d1a14">
+      🔵 The <b>Blue Merchant</b> carries your gear to the Steam marketplace. There it sells to another
+      player and the coin (<b>Steam Wallet</b>) reaches you — it's not withdrawable cash. ${statusBadge}
+    </div>
+    ${linkRow}
+    <h4 style="margin:10px 0 6px">📦 With the Blue Merchant</h4>${consHtml}
+    <h4 style="margin:14px 0 6px">➕ Consign gear</h4>${pickHtml}
+    <div id="bm-msg" style="margin-top:8px;min-height:18px"></div>`;
+}
+async function bmConsign(itemId) {
+  const r = await api('POST', `/api/blue-merchant/consign/${itemId}`);
+  const m = document.getElementById('bm-msg');
+  if (r.error) { if (m) m.innerHTML = `<span style="color:#f44336">${r.error}</span>`; return; }
+  await loadBlueMerchant();
+  const m2 = document.getElementById('bm-msg'); if (m2) m2.innerHTML = `<span style="color:#4caf50">✅ ${r.message}</span>`;
+}
+async function bmCancel(id) {
+  const r = await api('POST', `/api/blue-merchant/cancel/${id}`);
+  const m = document.getElementById('bm-msg');
+  if (r.error) { if (m) m.innerHTML = `<span style="color:#f44336">${r.error}</span>`; return; }
+  await loadBlueMerchant();
+}
+async function bmLink() {
+  const steamId = document.getElementById('bm-steamid')?.value?.trim();
+  const m = document.getElementById('bm-msg');
+  if (!steamId) { if (m) m.innerHTML = '<span style="color:#f44336">Enter your SteamID64.</span>'; return; }
+  const r = await api('POST', '/api/blue-merchant/link', { steamId });
+  if (r.error) { if (m) m.innerHTML = `<span style="color:#f44336">${r.error}</span>`; return; }
+  await loadBlueMerchant();
 }
 
 // ── Estábulo: montarias que reduzem estamina (ver docs/PLANO_ESTABULO.md) ──

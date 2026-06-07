@@ -81,6 +81,11 @@ public class InventoryItem {
     @Column(columnDefinition = "boolean default false")
     private boolean listed = false;
 
+    // [MERCADO_STEAM] Item entregue ao Mercador Azul (consignado): sai da bag igual ao `listed`.
+    // Volta na devolução; muda de dono ao ser vendido na Steam (futuro).
+    @Column(columnDefinition = "boolean default false")
+    private boolean consigned = false;
+
     @Column(columnDefinition = "TEXT")
     private String description; // lore do item
 
