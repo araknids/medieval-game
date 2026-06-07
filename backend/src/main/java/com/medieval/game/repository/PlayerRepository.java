@@ -27,10 +27,13 @@ public interface PlayerRepository extends JpaRepository<Player, Long> {
     @Query("SELECT p.tokenValidFrom FROM Player p WHERE p.id = :playerId")
     Optional<java.time.LocalDateTime> findTokenValidFrom(@Param("playerId") Long playerId);
 
-    // Matchmaking de arena: candidatos mais próximos em rank (limitado no banco,
-    // não carrega todos os jogadores). [AUDITORIA M14]
-    @Query("SELECT p FROM Player p WHERE p.id <> :id ORDER BY ABS(p.rankPoints - :rank)")
-    List<Player> findOpponentsByRank(@Param("id") Long id, @Param("rank") int rank, Pageable pageable);
+    // [AUDITORIA_2 A6] Matchmaking de arena: 2 buscas indexáveis (logo abaixo / logo acima do rank),
+    // cada uma usa o índice idx_players_rank_points + LIMIT (sem ABS → sem full scan/sort). Antes era
+    // `ORDER BY ABS(rankPoints - :rank)` = scan+sort da tabela inteira em TODA luta. [era findOpponentsByRank / M14]
+    @Query("SELECT p FROM Player p WHERE p.id <> :id AND p.rankPoints <= :rank ORDER BY p.rankPoints DESC")
+    List<Player> findOpponentsBelow(@Param("id") Long id, @Param("rank") int rank, Pageable pageable);
+    @Query("SELECT p FROM Player p WHERE p.id <> :id AND p.rankPoints >= :rank ORDER BY p.rankPoints ASC")
+    List<Player> findOpponentsAbove(@Param("id") Long id, @Param("rank") int rank, Pageable pageable);
 
     // Ranking da Torre, limitado no banco. [AUDITORIA M14]
     List<Player> findTop20ByOrderByTowerBestFloorDesc();

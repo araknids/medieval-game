@@ -162,9 +162,13 @@ public class ArenaService {
     // Matchmaking: sorteia entre os 10 jogadores de rank mais próximo (query limitada
     // no banco — não carrega todos os jogadores). Sem candidatos → NPC. [AUDITORIA M14]
     private Player findOpponent(Player challenger) {
-        List<Player> candidates = playerRepository.findOpponentsByRank(
-                challenger.getId(), challenger.getRankPoints(),
-                org.springframework.data.domain.PageRequest.of(0, 10));
+        // [AUDITORIA_2 A6] os 5 logo abaixo + 5 logo acima do rank (cada query usa o índice + LIMIT),
+        // mescla e sorteia — em vez de ordenar a tabela inteira por ABS(rank-alvo) a cada luta.
+        var page5 = org.springframework.data.domain.PageRequest.of(0, 5);
+        List<Player> candidates = new java.util.ArrayList<>();
+        candidates.addAll(playerRepository.findOpponentsBelow(challenger.getId(), challenger.getRankPoints(), page5));
+        candidates.addAll(playerRepository.findOpponentsAbove(challenger.getId(), challenger.getRankPoints(), page5));
+        candidates = candidates.stream().distinct().toList(); // o de rank == challenger cai nas duas
         if (candidates.isEmpty()) return null;
         return candidates.get(java.util.concurrent.ThreadLocalRandom.current().nextInt(candidates.size()));
     }
