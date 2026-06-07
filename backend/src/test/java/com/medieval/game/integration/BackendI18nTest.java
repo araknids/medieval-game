@@ -77,4 +77,18 @@ class BackendI18nTest extends BaseIntegrationTest {
         org.assertj.core.api.Assertions.assertThat(enNames).isNotEmpty();
         org.assertj.core.api.Assertions.assertThat(ptNames).isNotEqualTo(enNames); // traduzidos
     }
+
+    @Test
+    @DisplayName("GET /api/tower/boss/1 → atmosfera do andar localiza (en vs pt) [P3]")
+    void towerAtmosphereFollowsAcceptLanguage() throws Exception {
+        mockMvc.perform(get("/api/tower/boss/1").header("Authorization", bearer(token))
+                        .header("Accept-Language", "en"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.atmosphere", containsString("first hall")));
+
+        mockMvc.perform(get("/api/tower/boss/1").header("Authorization", bearer(token))
+                        .header("Accept-Language", "pt"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.atmosphere", containsString("primeiro salão")));
+    }
 }

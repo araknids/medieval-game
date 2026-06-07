@@ -26,6 +26,7 @@ public class TowerService {
     private final PlayerService           playerService;
     private final AchievementService      achievementService; // [TITULOS]
     private final GatheringService        gatheringService;   // [MONSTER_CORE_BATALHA]
+    private final Messages                messages;           // [I18N] atmosfera dos andares + escolha do Arka
 
     @Value("${app.dev.instant-complete:false}")
     private boolean instantComplete;
@@ -62,7 +63,10 @@ public class TowerService {
         return monstersFor(floor).get(0);
     }
 
-    public String  floorAtmosphere(int floor) { return TowerFloors.forFloor(floor).atmosphere(); }
+    // [I18N] atmosfera do andar no idioma do request; EN = a prosa do TowerFloors (default do getOr).
+    public String  floorAtmosphere(int floor) {
+        return messages.getOr("tower.floor." + floor + ".atmosphere", TowerFloors.forFloor(floor).atmosphere());
+    }
     public boolean isMvpFloor(int floor)       { return TowerFloors.forFloor(floor).isMvp(); }
 
     /** Preview do andar pra UI: atmosfera + nomes dos monstros + stats do representante + nível recomendado. */
@@ -71,7 +75,7 @@ public class TowerService {
     public FloorView floorView(int floor) {
         TowerFloors.FloorDef d = TowerFloors.forFloor(floor);
         List<String> names = d.isMvp() ? List.of(d.mvp()) : List.of(d.monsters());
-        return new FloorView(floor, d.atmosphere(), d.isMvp(), names, bossForFloor(floor), recommendedLevel(floor));
+        return new FloorView(floor, floorAtmosphere(floor), d.isMvp(), names, bossForFloor(floor), recommendedLevel(floor)); // [I18N]
     }
 
     /** Nível recomendado: ~1 andar por nível (alvo de tuning; placeholder p/ playtest). [TORRE_NARRATIVA] */
@@ -177,7 +181,7 @@ public class TowerService {
 
         // [TORRE_NARRATIVA] Atmosfera do andar + gauntlet sequencial (HP carrega entre os monstros).
         List<String> battleLog = new java.util.ArrayList<>();
-        battleLog.add("🗼 Floor " + floor + " — " + fdef.atmosphere());
+        battleLog.add("🗼 Floor " + floor + " — " + floorAtmosphere(floor)); // [I18N]
         boolean won = true;
         int hp = s[2]; // começa o andar com HP cheio; carrega só ENTRE os monstros do gauntlet
         for (BossInfo m : monsters) {
@@ -239,7 +243,7 @@ public class TowerService {
                 player.getId(), floor, won, fdef.isMvp(), bronzeEarned, expEarned);
         boolean runOver = run.getStatus() == TowerStatus.DEFEATED || run.getStatus() == TowerStatus.EXITED;
         return new FightResult(won, floor, bronzeEarned, expEarned, battleLog, headline,
-                runOver, fdef.atmosphere(), arkaChoicePending);
+                runOver, floorAtmosphere(floor), arkaChoicePending); // [I18N]
     }
 
     /**
@@ -258,8 +262,8 @@ public class TowerService {
                       : com.medieval.game.enums.Achievement.REGICIDE);
         log.info("[TowerService] player={} arkaChoice spare={} granted={}", player.getId(), spare, granted);
         return spare
-            ? "You lower your blade. King Arka thanks you — and buries the ritual dagger in his own heart, over the mark on the floor. \"Worse things are coming,\" he breathes. The floor opens beneath you."
-            : "You strike. The King's blood spills across the mark, and the floor gives way beneath you. Far below, something begins to wake.";
+            ? messages.getOr("tower.arka.spare", "You lower your blade. King Arka thanks you — and buries the ritual dagger in his own heart, over the mark on the floor. \"Worse things are coming,\" he breathes. The floor opens beneath you.")
+            : messages.getOr("tower.arka.kill",  "You strike. The King's blood spills across the mark, and the floor gives way beneath you. Far below, something begins to wake.");
     }
 
 }
