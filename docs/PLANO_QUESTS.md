@@ -1,7 +1,8 @@
 # Plano — Sistema de Quests (Daily agora · Story depois)
 
-> Fonte da verdade do **sistema de quests de reino**. Decidido em 2026-06-05.
+> Fonte da verdade do **sistema de quests de reino** (daily/lock/rotação). Decidido em 2026-06-05.
 > Complementa `docs/PLANO_SEM_TIMER_PVP.md` (modelo instantâneo / gate = estamina).
+> O **conteúdo narrativo** (reskin que semeia a lore) fica em `docs/PLANO_QUESTS_LORE.md` [QUESTS_LORE].
 
 ## Visão
 
