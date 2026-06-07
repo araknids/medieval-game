@@ -60,7 +60,7 @@ public final class InteractiveQuests {
             "Strange lights pulse beneath the reef.",
             opt("mark", "Mark the spot and leave", "", peace(0.8, 0.8, 8,  "You chart the lights and report back safely.")),
             opt("dive", "Dive into the dark water", "", fight(1.8, 1.6, 30, "A lurking eel strikes — and loses.", "The deep nearly keeps you for good.")),
-            opt("read", "Read the currents",        "INT " + EASY, check(Attribute.INTELLECT, EASY,
+            opt("read", "Read the currents",        "DEX " + EASY, check(Attribute.DEXTERITY, EASY,
                         peace(1.5, 1.4, 20, "You trace the safe channels and recover sunken treasure."),
                         fight(1.4, 1.3, 20, "A riptide drags you into the eel's lair.", "The reef takes its toll."))));
 
@@ -90,7 +90,7 @@ public final class InteractiveQuests {
         put(KingdomQuestType.HUNT_SEA_MONSTER,
             "The leviathan surfaces, jaws wide enough to swallow a longboat.",
             opt("face", "Face it head-on",        "", fight(1.6, 1.5, 40, "You drive your blade through its eye. It sinks.", "Its jaws close — you're spat out broken on the rocks.")),
-            opt("lure", "Lure it onto the shoals", "INT " + HARD, check(Attribute.INTELLECT, HARD,
+            opt("lure", "Lure it onto the shoals", "LUCK " + HARD, check(Attribute.LUCK, HARD,
                         fight(2.2, 2.0, 45, "Beached and thrashing, the leviathan falls quickly.", "It thrashes free and turns on you with full fury."),
                         fight(1.4, 1.3, 35, "It refuses the bait and meets you in deep water.", "The deep swallows your gambit — and nearly you."))));
 
@@ -99,7 +99,7 @@ public final class InteractiveQuests {
             "Miners refuse to enter — they swear something moved in the dark.",
             opt("walk",  "Walk them in, torches high", "", peace(0.8, 0.8, 8,  "Light enough, and the dark stays empty. Job done.")),
             opt("hunt",  "Hunt whatever's down there", "", fight(1.8, 1.6, 30, "You corner the thing and end it.", "It ambushes from a side-shaft and you're forced out.")),
-            opt("listen","Listen to the rock",         "INT " + EASY, check(Attribute.INTELLECT, EASY,
+            opt("listen","Listen to the rock",         "LUCK " + EASY, check(Attribute.LUCK, EASY,
                          peace(1.5, 1.4, 20, "You hear it move and lead the miners safely around."),
                          fight(1.4, 1.3, 20, "You read it wrong — it drops on you from above.", "The dark gets the better of you."))));
 
@@ -137,7 +137,7 @@ public final class InteractiveQuests {
         put(KingdomQuestType.DEFEAT_CAVE_BEAST,
             "A hulking thing of stone and tusk blocks the deepest vein.",
             opt("strike", "Strike it down",        "", fight(1.6, 1.5, 40, "You bring the beast crashing down.", "Its tusk catches you and the dark goes quiet.")),
-            opt("plates", "Spot the cracked plates","INT " + HARD, check(Attribute.INTELLECT, HARD,
+            opt("plates", "Spot the cracked plates","DEX " + HARD, check(Attribute.DEXTERITY, HARD,
                           fight(2.2, 2.0, 45, "You strike the flaw and shatter it apart.", "The flaw was a feint; it gores you in return."),
                           fight(1.4, 1.3, 35, "You misjudge its hide and trade blows the hard way.", "It tramples your plan and you with it."))));
 
@@ -152,7 +152,7 @@ public final class InteractiveQuests {
         put(KingdomQuestType.CLEAR_DUNGEON,
             "The dungeon below the keep still holds the old garrison's ghosts.",
             opt("sweep", "Sweep it cell by cell", "", fight(1.8, 1.6, 30, "You clear every cell of the restless dead.", "Something old corners you in the dark.")),
-            opt("map",   "Map the safe route",    "INT " + MEDIUM, check(Attribute.INTELLECT, MEDIUM,
+            opt("map",   "Map the safe route",    "DEX " + MEDIUM, check(Attribute.DEXTERITY, MEDIUM,
                          peace(1.5, 1.4, 20, "You chart a path around the worst of it and recover the lost cache."),
                          fight(1.4, 1.3, 20, "A wrong turn drops you among the dead.", "The maze swallows your torch and your nerve."))));
 
@@ -194,7 +194,7 @@ public final class InteractiveQuests {
 
         put(KingdomQuestType.MAP_THE_GROTTO,
             "The grotto twists into a maze of mirrored crystal.",
-            opt("chart", "Chart it carefully",         "INT " + MEDIUM, check(Attribute.INTELLECT, MEDIUM,
+            opt("chart", "Chart it carefully",         "DEX " + MEDIUM, check(Attribute.DEXTERITY, MEDIUM,
                          peace(1.6, 1.4, 25, "You map every mirrored turn and find an untouched vein."),
                          fight(1.4, 1.3, 20, "The mirrors fool you into a nest of crawlers.", "You lose yourself in the reflections."))),
             opt("push",  "Push through what blocks you", "", fight(1.8, 1.6, 30, "You smash past whatever the grotto throws at you.", "The maze and its denizens get the better of you.")));
@@ -210,14 +210,14 @@ public final class InteractiveQuests {
             "A fissure leaks a cold, humming light — and shapes move within.",
             opt("wall",  "Wall it off",            "", peace(0.9, 0.9, 8,  "You seal the fissure with stone and mortar.")),
             opt("cull",  "Cull what crawls out",   "", fight(1.8, 1.6, 30, "You put down everything that crawls free.", "More come than you can handle.")),
-            opt("seal",  "Read the resonance",     "INT " + HARD, check(Attribute.INTELLECT, HARD,
+            opt("seal",  "Read the resonance",     "LUCK " + HARD, check(Attribute.LUCK, HARD,
                          peace(2.0, 1.8, 30, "You tune the seal to the fissure's hum and close it perfectly."),
                          fight(1.5, 1.4, 25, "The resonance lashes back and the shapes pour out.", "The hum scrambles your mind; you stumble away."))));
 
         put(KingdomQuestType.CLEANSE_CRYSTAL_HORROR,
             "A horror of living crystal drags itself toward the surface.",
             opt("shatter","Shatter it",            "", fight(1.8, 1.6, 35, "You break the horror into glittering shards.", "Its shards cut you to ribbons.")),
-            opt("core",   "Find its fractured core","INT " + HARD, check(Attribute.INTELLECT, HARD,
+            opt("core",   "Find its fractured core","DEX " + HARD, check(Attribute.DEXTERITY, HARD,
                           fight(2.2, 2.0, 45, "You strike the core and it collapses in on itself.", "The core was a decoy — it engulfs you."),
                           fight(1.4, 1.3, 35, "You can't find the flaw and must break it the hard way.", "It reforms faster than you can shatter it."))));
 
@@ -231,7 +231,7 @@ public final class InteractiveQuests {
         // ── Blessed Sea — sacred waters ─────────────────────────────────────────
         put(KingdomQuestType.CLEANSE_THE_TIDES,
             "A foulness taints the sacred shallows.",
-            opt("rite",  "Perform the rite",        "INT " + EASY, check(Attribute.INTELLECT, EASY,
+            opt("rite",  "Perform the rite",        "LUCK " + EASY, check(Attribute.LUCK, EASY,
                          peace(1.5, 1.4, 20, "Your rite purges the taint and the waters run clear."),
                          fight(1.4, 1.3, 20, "The rite falters and the foulness takes shape.", "The taint clings to you and drags you under."))),
             opt("drive", "Drive out the befouler",  "", fight(1.8, 1.6, 30, "You drive the foul thing from the shallows.", "It pulls you into the murk.")));
@@ -253,14 +253,14 @@ public final class InteractiveQuests {
 
         put(KingdomQuestType.PURIFY_THE_REEF,
             "The reef's glow has dimmed to a sickly grey.",
-            opt("channel","Channel the blessing",   "INT " + MEDIUM, check(Attribute.INTELLECT, MEDIUM,
+            opt("channel","Channel the blessing",   "LUCK " + MEDIUM, check(Attribute.LUCK, MEDIUM,
                          peace(1.6, 1.4, 25, "Light returns to the reef in a slow, golden bloom."),
                          fight(1.4, 1.3, 20, "The blessing curdles and something rises from the rot.", "The grey takes hold and you with it."))),
             opt("burn",  "Burn out the rot",         "", fight(1.8, 1.6, 30, "You cut the rot out at its writhing source.", "The rot fights back and spreads over you.")));
 
         put(KingdomQuestType.BANISH_THE_DROWNED,
             "The drowned rise from the sacred deep, dripping and silent.",
-            opt("banish","Banish them with the rite","INT " + HARD, check(Attribute.INTELLECT, HARD,
+            opt("banish","Banish them with the rite","LUCK " + HARD, check(Attribute.LUCK, HARD,
                          peace(2.0, 1.8, 30, "Your rite unmakes them; they sink back to rest."),
                          fight(1.5, 1.4, 25, "The rite breaks and the drowned close in.", "Cold hands pull you toward the deep."))),
             opt("force", "Put them down by force",   "", fight(1.8, 1.6, 30, "You scatter the drowned with steel and salt.", "They are too many, and the deep is patient.")));
