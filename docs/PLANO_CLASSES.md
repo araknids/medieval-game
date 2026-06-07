@@ -223,3 +223,36 @@ Inalterado — o secundário entra via os stats já existentes (STR=ATK+acerto, 
 - **Arco escalar com DEX** (hoje arco = +ATK plano, igual espada). [CLASSES_ARMAS]
 - **Renomear** `WarriorClass` → `CharacterClass` e a coluna `warrior_class` (limpeza; alto
   churn em ~17 arquivos, adiado — `Warrior` segue sendo a entidade-personagem).
+
+---
+
+## Path Trial narrativa (intro + desfecho) — [TRIAL_NARRATIVA]
+
+> Adendo 2026-06-07. A Trial deixa de ser "clica e luta": ganha **história antes** do
+> combate e **desfecho narrado depois**, no estilo da quest interativa (caixa de intro +
+> opções). Sem mudar combate nem balance.
+
+### Fluxo novo
+1. **Choose your Path** (modal atual) — os 3 cards de classe. O botão de cada card vira
+   **"Choose this Path"** (antes era "Attempt {trialName}" e já disparava a luta).
+2. Ao escolher uma classe → **modal de história** (intro daquele caminho): o recruta sobe
+   ao campo de provas, o Guardião o desafia. Duas opções (igual ao roll/opções da quest
+   diária): **"⚔ Step forward — begin the Trial"** (dispara o combate) e **"← Step back"**
+   (volta pros cards). A intro relembra o custo (Monster Core) e a permanência.
+3. **Combate** (inalterado — `BattleSimulator` vs Guardião do caminho).
+4. **Resultado** com **desfecho narrado** (`note` no modal de coleta): vitória conta que ele
+   "provou ser um guerreiro feroz / arqueiro paciente / mercador durão e passou no teste";
+   derrota narra o KO + "volte quando estiver pronto". O battle log continua disponível.
+
+### Onde mora o texto
+- **`ClassTrialLore`** (`com.medieval.game.quest`, no estilo do `InteractiveQuests`): por
+  `WarriorClass`, um record `TrialLore(intro, victory, defeat)`. Texto ao jogador em **inglês**
+  (i18n pro PT depois). É o único arquivo de conteúdo novo.
+- **`ClassChangeService`**:
+  - `ClassPath` ganha `String intro` → preenchido por `ClassTrialLore.forPath(c).intro()` em `pathOf`.
+  - `TrialResult` ganha `String narrative` → vitória/derrota de `ClassTrialLore` no `attemptTrial`.
+  - (Adicionar campo no fim do record não quebra os testes — eles leem via `attemptTrial`, não constroem.)
+- **`app.js`**: cacheia o `info`; card → `chooseClassPath(id)` (modal de intro) → `attemptClassTrial(id)`
+  passa `note: data.narrative` pro `showCollectModal`.
+
+Números/combate **inalterados** — é só camada de narrativa.

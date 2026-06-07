@@ -87,7 +87,8 @@ public class ClassChangeService {
             default       -> "";
         };
         return new ClassPath(c.name(), c.displayName, c.baseAttack, c.baseDefense, c.baseHealth,
-                c.strCap, c.dexCap, c.lukCap, g.name(), desc);
+                c.strCap, c.dexCap, c.lukCap, g.name(), desc,
+                com.medieval.game.quest.ClassTrialLore.forPath(c).intro()); // [TRIAL_NARRATIVA]
     }
 
     /**
@@ -128,6 +129,10 @@ public class ClassChangeService {
         battleLog.remove(battleLog.size() - 1); // remove a tag interna WINNER
         boolean won = outcome.firstWon();
 
+        // [TRIAL_NARRATIVA] desfecho narrado (mostrado como flavor no modal de resultado)
+        var lore = com.medieval.game.quest.ClassTrialLore.forPath(path);
+        String narrative = won ? lore.victory() : lore.defeat();
+
         if (won) {
             // [TRIAL_CUSTO] consome os Monster Core (bag+stash) SÓ na vitória (perder mantém o estoque)
             gatheringService.removeResourceTotal(player, com.medieval.game.enums.ResourceType.MONSTER_CORE, TRIAL_MONSTER_CORE_COST);
@@ -149,7 +154,7 @@ public class ClassChangeService {
         if (won) achievementService.checkAndUnlock(player, true); // [TITULOS] título da classe escolhida
 
         log.info("[ClassChangeService] player={} trial path={} won={}", player.getId(), path, won);
-        return new TrialResult(won, path.name(), path.displayName, battleLog);
+        return new TrialResult(won, path.name(), path.displayName, battleLog, narrative);
     }
 
     /** Arma inicial da classe (make-or-mail: não pode dar throw e abortar a troca). [CLASSES_ARMAS/MERCADOR] */
@@ -180,13 +185,15 @@ public class ClassChangeService {
     // ── Records de saída (serializados direto como JSON) ──
 
     public record ClassPath(String id, String displayName, int baseAttack, int baseDefense, int baseHealth,
-                            int strCap, int dexCap, int lukCap, String trialName, String description) {}
+                            int strCap, int dexCap, int lukCap, String trialName, String description,
+                            String intro) {} // [TRIAL_NARRATIVA] história antes do combate
 
     public record ClassInfo(String currentClass, String currentClassName, int level, int trialLevel,
                             boolean available, int monsterCoreCost, long monsterCoreHave, // [TRIAL_CUSTO]
                             List<ClassPath> paths) {}
 
-    public record TrialResult(boolean won, String classId, String className, List<String> log) {}
+    public record TrialResult(boolean won, String classId, String className, List<String> log,
+                              String narrative) {} // [TRIAL_NARRATIVA] desfecho narrado (vitória/derrota)
 
     private record Guardian(String name, int atk, int def, int hp, int dex, int agi, int luk) {}
 }

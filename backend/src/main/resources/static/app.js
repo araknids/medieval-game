@@ -2259,9 +2259,12 @@ async function startFight() {
 // PATH TRIAL — escolha de classe no Lv10 (RECRUIT → WARRIOR/ARCHER). [CLASSES]
 // ═══════════════════════════════════════════════════════════════════
 
+let classTrialInfo = null; // [TRIAL_NARRATIVA] cacheia o info p/ o modal de intro achar o caminho escolhido
+
 async function openClassTrial() {
   const info = await api('GET', '/api/class');
   if (info.error) { showMessage(info.error, true); return; }
+  classTrialInfo = info;
   if (!info.available) {
     showMessage((info.level ?? 1) < (info.trialLevel ?? 10)
       ? `Reach level ${info.trialLevel} to choose your path.`
@@ -2287,8 +2290,8 @@ async function openClassTrial() {
       </div>
       <div style="font-size:12px;color:#aaa;line-height:1.5;margin-bottom:8px">${escapeHtml(p.description)}</div>
       <div style="font-size:11px;color:#777;margin-bottom:10px">Caps — STR ${p.strCap} · DEX ${p.dexCap} · LUK ${p.lukCap}</div>
-      <button ${enough ? '' : 'disabled'} onclick="attemptClassTrial('${p.id}')" style="width:100%;background:${enough?color:'#444'};color:${enough?'#000':'#888'};font-weight:bold;padding:9px;border-radius:7px;cursor:${enough?'pointer':'not-allowed'};font-size:13px;border:none">
-        ${enough ? `⚔ Attempt ${escapeHtml(p.trialName)}` : `🔒 Need ${costCore} Monster Core`}
+      <button ${enough ? '' : 'disabled'} onclick="chooseClassPath('${p.id}')" style="width:100%;background:${enough?color:'#444'};color:${enough?'#000':'#888'};font-weight:bold;padding:9px;border-radius:7px;cursor:${enough?'pointer':'not-allowed'};font-size:13px;border:none">
+        ${enough ? `⚔ Choose this Path` : `🔒 Need ${costCore} Monster Core`}
       </button>
     </div>`;
   const el = document.createElement('div');
@@ -2310,12 +2313,49 @@ async function openClassTrial() {
   document.body.appendChild(el);
 }
 
+// [TRIAL_NARRATIVA] escolheu o caminho → modal de história ANTES do combate (estilo quest interativa:
+// caixa de intro + opções). "Step forward" dispara a luta; "Step back" volta pros cards.
+function chooseClassPath(pathId) {
+  const p = (classTrialInfo?.paths || []).find(x => x.id === pathId);
+  if (!p) { attemptClassTrial(pathId); return; } // fallback: sem intro, vai direto
+  const CLASS_ICON = { WARRIOR: '🛡', ARCHER: '🏹', MERCHANT: '💰' };
+  const color = '#a855f7';
+  const costCore = classTrialInfo?.monsterCoreCost ?? 0;
+  closeCollectModal();
+  const el = document.createElement('div');
+  el.id = 'collect-modal-overlay';
+  el.setAttribute('style',
+    'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.82);' +
+    'z-index:9999;display:flex;align-items:center;justify-content:center;padding:16px;box-sizing:border-box');
+  el.onclick = closeCollectModal;
+  el.innerHTML = `
+    <div onclick="event.stopPropagation()" style="background:#16162a;border:2px solid ${color};border-radius:14px;
+      padding:24px;max-width:480px;width:100%;max-height:85vh;overflow-y:auto;position:relative;box-shadow:0 8px 32px rgba(0,0,0,0.6)">
+      <button onclick="openClassTrial()" title="Back" style="position:absolute;top:10px;right:10px;background:#333;
+        border:none;color:#aaa;padding:4px 10px;border-radius:4px;cursor:pointer;font-size:13px">✕</button>
+      <h3 style="margin:0 0 4px;color:${color};font-size:17px">${CLASS_ICON[p.id] || '⚔'} ${escapeHtml(p.trialName)}</h3>
+      <div style="font-size:11px;color:#888;margin-bottom:12px">${escapeHtml(p.displayName)} · permanent · ${costCore} Monster Core consumed only on victory</div>
+      <div style="background:#0d0d18;border-left:3px solid ${color};border-radius:6px;padding:12px 14px;
+        margin-bottom:14px;font-size:13px;color:#cdd;font-style:italic;line-height:1.6">${escapeHtml(p.intro || '')}</div>
+      <button onclick="attemptClassTrial('${p.id}')" style="display:block;width:100%;text-align:left;margin-top:8px;
+        padding:11px 13px;background:${color};border:none;border-radius:8px;color:#000;font-weight:bold;cursor:pointer;font-size:13px">
+        ⚔ Step forward — begin the Trial
+      </button>
+      <button onclick="openClassTrial()" style="display:block;width:100%;text-align:left;margin-top:8px;
+        padding:10px 13px;background:#1f1f33;border:1px solid #3a3a52;border-radius:8px;color:#e6e6f2;cursor:pointer;font-size:13px">
+        ← Step back — choose a different path
+      </button>
+    </div>`;
+  document.body.appendChild(el);
+}
+
 async function attemptClassTrial(path) {
   const data = await api('POST', '/api/class/trial/' + path);
   if (data.error) { showMessage(data.error, true); return; }
   showCollectModal({
     title: data.won ? `🎖 Trial passed — you are now ${escapeHtml(data.className)}!` : `✖ Trial failed`,
     color: data.won ? '#4caf50' : '#ef5350',
+    note: data.narrative ? escapeHtml(data.narrative) : '', // [TRIAL_NARRATIVA] desfecho narrado
     rows: data.won ? [
       { icon: ({WARRIOR:'🛡',ARCHER:'🏹',MERCHANT:'💰'})[data.classId] || '⚔', label: 'New class', value: escapeHtml(data.className), color: '#4caf50' },
       { icon: '🔄',                                      label: 'Attribute points', value: 'refunded',                 color: '#a855f7' },
