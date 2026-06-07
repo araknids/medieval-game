@@ -214,8 +214,14 @@ public class Warrior {
 
     // ── Stats totais (base + atributos, sem itens) ────────────────────────────
 
-    /** ATK base + Força (STR). Damage dealt on hit. */
-    public int getTotalBaseAttack()  { return attack + strength; }
+    /**
+     * ATK base + atributo de dano da classe. [REBALANCE] Arqueiro escala com DEX (precisão = dano do
+     * arco); corpo-a-corpo escala com STR. {@code warriorClass} null (criação) cai em STR.
+     */
+    public int getTotalBaseAttack()  {
+        boolean dexDmg = warriorClass == WarriorClass.ARCHER;
+        return attack + (dexDmg ? dexterity : strength);
+    }
 
     /** DEF base (from equipment via inventory, no per-level or attribute growth). */
     public int getTotalBaseDefense() { return defense; }

@@ -8,12 +8,17 @@
 
 | Atributo | Papel | Fórmula |
 |---|---|---|
-| **STR** (Força) | Dano | `ATK = baseAttack + STR` (só dano; não dá mais acerto) |
+| **STR** (Força) | Dano (melee) | `ATK = baseAttack + STR` p/ espada/machado/marreta |
 | **CON** (Constituição) | Vida | `HP = baseHealth + CON×8` |
-| **DEX** (Destreza) | **Acerto** | entra no teste de acerto (ver abaixo) |
+| **DEX** (Destreza) | **Acerto** (+ dano do ARCO) | teste de acerto; e p/ Arqueiro **escala o dano** (`ATK = base + DEX`) |
 | **AGI** (Agilidade) — NOVO | **Ataques + Esquiva** | chance de golpe extra + termo de esquiva no acerto inimigo |
 | **LUK** (Sorte) | **Crítico** | janela de crit + Fortune Save; crit agora **×1.5** |
 | **INT** (Intelecto) | Reservado (Mage) + economia | sem efeito de combate |
+
+**Dano por classe** (`WarriorClass.damageAttribute()`): Força não devia aumentar o dano do **arco**. Logo o
+**Arqueiro escala o dano com DEX** (precisão = acerto **+** dano → DEX vira a stat-chave dele, STR vira descarte);
+espada/machado/marreta (Warrior/Merchant/Recruit) com **STR**. `Warrior.getTotalBaseAttack()` + o afixo-de-dano
+do gear (`combatStats`) seguem esse atributo.
 
 **Sai o AC** (`10 + DEX`). DEF continua como **mitigação de dano** (`ATK×100/(100+DEF)`), vinda de base de classe + gear (nenhum atributo aumenta DEF direto).
 
@@ -34,10 +39,10 @@ if isCrit: dano = round(dano × 1.5)                   // era ×2 (matava o one-
 
 **Ataques extra (AGI ofensivo):** depois do golpe base, se o defensor está vivo:
 ```
-chanceExtra% = clamp(0, 90, (AGI_atacante - AGI_defensor) × 1.5)
+chanceExtra% = clamp(0, 75, (AGI_atacante - AGI_defensor) × 1.0)
 if rng < chanceExtra%: faz +1 golpe (mesmo teste de acerto/crit)
 ```
-1 golpe extra por round (MVP, tunável). `EXTRA_PER_AGI = 1.5`, `EXTRA_CAP = 90`.
+1 golpe extra por round (MVP, tunável). `EXTRA_PER_AGI = 1.0`, `EXTRA_CAP = 75` (reduzido do 1.5/90 inicial p/ suavizar o snowball do Arqueiro).
 
 **Por que isso resolve a auditoria:**
 - DEX não cria mais "parede" — é uma curva suave de acerto (`/5`), e a esquiva (AGI) é limitada por cap.
@@ -58,7 +63,7 @@ if rng < chanceExtra%: faz +1 golpe (mesmo teste de acerto/crit)
 |---|---|---|---|---|---|---|---|
 | RECRUIT | 40 | 40 | ∞ | 40 | 40 | 30 | 12/10/100 |
 | WARRIOR | 80 | 30 | ∞ | 25 | 30 | 20 | 15/14/130 |
-| ARCHER | 45 | 60 | ∞ | 55 | 70 | 20 | 18/9/95 |
+| ARCHER | 45 | 45 | ∞ | 40 | 70 | 20 | 12/9/95 (dano = DEX) |
 | MERCHANT | 55 | 40 | ∞ | 35 | 60 | 20 | 15/11/115 |
 
 Identidade: **Warrior** = dano+HP (lento, pouca esquiva); **Archer** = acerto+velocidade+crit (golpes extras, esquiva, frágil); **Merchant** = equilibrado, sorte alta. Números são placeholders — a sonda valida.

@@ -28,14 +28,19 @@ class CombatBalanceProbeTest {
 
     // ── Construção de build ─────────────────────────────────────────────────────
 
+    /** [REBALANCE] dano da classe: Archer escala com DEX, resto com STR (espelha getTotalBaseAttack). */
+    private static int dmgAttr(WarriorClass c, int str, int dex) {
+        return c == WarriorClass.ARCHER ? dex : str;
+    }
+
     /** [atk, def, hp, dex, agi, luk] a partir de classe + atributos. */
     private static int[] stats(WarriorClass c, int str, int dex, int con, int agi, int luk) {
-        return new int[]{ c.baseAttack + str, c.baseDefense, c.baseHealth + con * 8, dex, agi, luk };
+        return new int[]{ c.baseAttack + dmgAttr(c, str, dex), c.baseDefense, c.baseHealth + con * 8, dex, agi, luk };
     }
 
     private record Build(String label, WarriorClass cls, int str, int dex, int con, int agi, int luk) {
         int[] arr() { return stats(cls, str, dex, con, agi, luk); }
-        int atk()   { return cls.baseAttack + str; }
+        int atk()   { return cls.baseAttack + dmgAttr(cls, str, dex); }
         int hp()    { return cls.baseHealth + con * 8; }
         String line() {
             return String.format("%-22s STR%-3d DEX%-3d AGI%-3d CON%-3d LUK%-3d | ATK %-3d HP %-4d acc+%d dodge-%d crit@%d",
@@ -186,9 +191,9 @@ class CombatBalanceProbeTest {
     /** "Melhor" build por classe: stat forte + acerto/esquiva, resto CON. */
     private static Build best(WarriorClass c, int level) {
         return switch (c) {
-            case ARCHER   -> alloc("Archer Opt",   c, level, 2, 1, 3, 0); // AGI, DEX, LUK, STR
-            case MERCHANT -> alloc("Merchant Opt", c, level, 0, 3, 1, 2); // STR, LUK, DEX, AGI
-            default       -> alloc("Warrior Opt",  c, level, 0, 1, 2);    // STR, DEX, AGI
+            case ARCHER   -> alloc("Archer Opt",   c, level, 1, 2, 3);    // DEX (dano+acerto), AGI, LUK
+            case MERCHANT -> alloc("Merchant Opt", c, level, 0, 1, 3, 2); // STR, DEX, LUK, AGI
+            default       -> alloc("Warrior Opt",  c, level, 0, 1, 2);    // STR, DEX, AGI (depois resto CON)
         };
     }
 

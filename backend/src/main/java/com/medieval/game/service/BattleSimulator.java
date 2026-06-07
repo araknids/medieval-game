@@ -28,9 +28,9 @@ public class BattleSimulator {
 
     /** [REBALANCE] Alvo do teste de acerto (d20 + DEX/5 − AGI_def/8 ≥ este valor). */
     private static final int HIT_DC = 11;
-    /** [REBALANCE] Cada ponto de AGI a mais que o inimigo = +1.5% de chance de um golpe extra (cap 90%). */
-    private static final double EXTRA_PER_AGI = 1.5;
-    private static final int    EXTRA_CAP     = 90;
+    /** [REBALANCE] Cada ponto de AGI a mais que o inimigo = +1% de chance de um golpe extra (cap 75%). */
+    private static final double EXTRA_PER_AGI = 1.0;
+    private static final int    EXTRA_CAP     = 75;
     /** [REBALANCE] Multiplicador do crítico (era 2.0 — matava de um golpe no nível alto). */
     private static final double CRIT_MULT     = 1.5;
 

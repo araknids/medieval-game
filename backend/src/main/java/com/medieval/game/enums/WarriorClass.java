@@ -14,7 +14,7 @@ public enum WarriorClass {
     //        displayName,  atk, def,  hp, strCap, dexCap,           conCap, agiCap, lukCap, intCap
     RECRUIT  ("Recruit",     12,  10, 100,     40,     40, Integer.MAX_VALUE,     40,     40,     30),
     WARRIOR  ("Warrior",     15,  14, 130,     80,     30, Integer.MAX_VALUE,     25,     30,     20),
-    ARCHER   ("Archer",      18,   9,  95,     45,     60, Integer.MAX_VALUE,     55,     70,     20),
+    ARCHER   ("Archer",      12,   9,  95,     45,     45, Integer.MAX_VALUE,     40,     70,     20), // [REBALANCE] DEX escala o dano → base ATK menor
     MERCHANT ("Merchant",    15,  11, 115,     55,     40, Integer.MAX_VALUE,     35,     60,     20); // classe de economia (machado/marreta) [MERCADOR]
 
     public final String displayName;
@@ -56,6 +56,12 @@ public enum WarriorClass {
 
     /** false só pra RECRUIT — ainda não escolheu o caminho na Trial. [CLASSES] */
     public boolean isSpecialized() { return this != RECRUIT; }
+
+    /**
+     * [REBALANCE] Atributo que escala o DANO da classe. Arqueiro (arco) = DEX (precisão) — não faz
+     * sentido Força aumentar o dano do arco; as classes de corpo-a-corpo (espada/machado) = STR.
+     */
+    public Attribute damageAttribute() { return this == ARCHER ? Attribute.DEXTERITY : Attribute.STRENGTH; }
 
     /** Categoria de arma que a classe pode equipar: Archer = RANGED, resto = MELEE. [CLASSES_ARMAS] */
     public WeaponCategory weaponCategory() {

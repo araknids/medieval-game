@@ -782,8 +782,8 @@ const ALL_SLOTS = [
 
 // [REBALANCE] cap = maior cap entre as classes (o backend ainda valida o cap real da SUA classe).
 const ATTR_INFO = {
-  STRENGTH:     { icon: '⚔',  label: 'Strength (STR)',     cap: 80,  effect: '+1 ATK per point (raw damage)' },
-  DEXTERITY:    { icon: '🎯', label: 'Dexterity (DEX)',    cap: 60,  effect: 'Accuracy — land more hits (d20 + DEX/5)' },
+  STRENGTH:     { icon: '⚔',  label: 'Strength (STR)',     cap: 80,  effect: '+1 ATK/pt — melee damage (sword/axe/mace)' },
+  DEXTERITY:    { icon: '🎯', label: 'Dexterity (DEX)',    cap: 60,  effect: 'Accuracy (d20 + DEX/5) — and bow damage for Archers' },
   CONSTITUTION: { icon: '❤',  label: 'Constitution (CON)', cap: null, effect: '+8 HP per point · no cap' },
   AGILITY:      { icon: '💨', label: 'Agility (AGI)',      cap: 55,  effect: 'Speed — extra strikes vs slower foes + dodge incoming hits' },
   LUCK:         { icon: '🍀', label: 'Luck (LUK)',         cap: 70,  effect: '+1% drop · widens crit window · Fortune Save' },

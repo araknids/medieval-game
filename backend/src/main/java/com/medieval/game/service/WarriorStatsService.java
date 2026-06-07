@@ -119,7 +119,10 @@ public class WarriorStatsService {
         // Postura: tradeoff ATK/DEF aplicado por ÚLTIMO, sobre o total (base+gear+buff). [POSTURE]
         com.medieval.game.enums.CombatPosture posture = warrior.getCombatPosture() != null
                 ? warrior.getCombatPosture() : com.medieval.game.enums.CombatPosture.BALANCED;
-        int atk = (int) Math.round((warrior.getTotalBaseAttack()  + g.atk() + g.str() + buff[0]) * posture.atkMult());
+        // [REBALANCE] Afixo de dano do gear segue o atributo da classe: Arqueiro = DEX (precisão), resto = STR.
+        // (DEX do gear do arqueiro entra duas vezes — dano aqui + acerto no slot 3 — coerente com a identidade.)
+        int gearDmgAffix = warrior.getWarriorClass() == com.medieval.game.enums.WarriorClass.ARCHER ? g.dex() : g.str();
+        int atk = (int) Math.round((warrior.getTotalBaseAttack()  + g.atk() + gearDmgAffix + buff[0]) * posture.atkMult());
         int def = (int) Math.round((warrior.getTotalBaseDefense() + g.def() + buff[1]) * posture.defMult());
         // Pet equipado: bônus de combate (empilha com base+gear+buff+montaria). [PETS]
         var pet = petRepository.findByPlayerAndEquippedTrue(player).map(com.medieval.game.model.Pet::getPetType).orElse(null);
