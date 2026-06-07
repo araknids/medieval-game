@@ -30,6 +30,7 @@ class ZoneCombatHuntTest extends BaseIntegrationTest {
     @Autowired PlayerRepository  playerRepository;
     @Autowired WarriorRepository warriorRepository;
     @Autowired ZoneService       zoneService;
+    @Autowired com.medieval.game.service.GatheringService gatheringService; // [MONSTER_CORE_BATALHA]
 
     String token;
 
@@ -95,5 +96,29 @@ class ZoneCombatHuntTest extends BaseIntegrationTest {
                 .activity().getXpGained();
 
         assertThat(redXp).isGreaterThan(greenXp); // 2.5× vs 1.0×
+    }
+
+    // ── TC-232: batalha PvE vencida DURANTE a coleta (minerando/pescando) também dropa Monster Core ──
+    @Test
+    @DisplayName("TC-232 | Vencer um encontro PvE coletando (GATHERING) dropa Monster Core")
+    void tc232_gatheringBattle_dropsMonsterCore() {
+        Player p = playerOf();
+        crusher(p, 30); // esmaga qualquer NPC → sempre vence o encontro
+
+        boolean gotCore = false;
+        // HIGH_RISK tem 35% de encontro de NPC por farm; em ~50 coletas vence vários → dropa Monster Core.
+        for (int i = 0; i < 50 && !gotCore; i++) {
+            Player fp = playerRepository.findById(p.getId()).orElseThrow();
+            fp.setCurrentStamina(100); fp.setStaminaUpdatedAt(LocalDateTime.now()); playerRepository.save(fp);
+            warriorRepository.findByPlayer(fp).ifPresent(w -> {
+                w.setCurrentHpSnapshot(100); w.setHpUpdatedAt(LocalDateTime.now()); warriorRepository.save(w);
+            });
+            var act = zoneService.enter(playerRepository.findById(p.getId()).orElseThrow(),
+                    Zone.HIGH_RISK, ActivityRole.GATHERING, com.medieval.game.enums.SkillType.FISHING, 20);
+            var r = zoneService.collect(playerRepository.findById(p.getId()).orElseThrow(), act.getId());
+            if (r.drops().stream().anyMatch(d -> d.type() == ResourceType.MONSTER_CORE)) gotCore = true;
+        }
+        assertThat(gotCore).as("uma batalha PvE vencida na coleta deveria dropar Monster Core").isTrue();
+        assertThat(gatheringService.resourceQuantityTotal(p, ResourceType.MONSTER_CORE)).isPositive();
     }
 }

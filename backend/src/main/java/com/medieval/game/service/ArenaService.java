@@ -33,6 +33,7 @@ public class ArenaService {
     private final WarriorStatsService  statsService;
     private final AbilityService       abilityService; // ativas no combate [HABILIDADES]
     private final AchievementService   achievementService; // [TITULOS]
+    private final GatheringService     gatheringService;   // [MONSTER_CORE_BATALHA]
 
     @Value("${app.dev.instant-complete:false}")
     private boolean instantComplete;
@@ -113,6 +114,13 @@ public class ArenaService {
         if (challengerWon) challenger.setArenaWins(challenger.getArenaWins() + 1);
         else               challenger.setArenaLosses(challenger.getArenaLosses() + 1);
         playerRepository.save(challenger);
+
+        // [MONSTER_CORE_BATALHA] toda batalha de arena vencida rende Monster Core (cap pela bag).
+        if (challengerWon) {
+            long got = gatheringService.addResource(challenger,
+                    com.medieval.game.enums.ResourceType.MONSTER_CORE, 2 + cWarrior.getLevel() / 20);
+            if (got > 0) battleLog.add("🧩 +" + got + " Monster Core");
+        }
 
         if (opponent != null) {
             int oppChange = challengerWon ? -15 : 25;

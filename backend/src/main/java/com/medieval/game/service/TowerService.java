@@ -25,6 +25,7 @@ public class TowerService {
     private final WarriorStatsService     statsService;
     private final PlayerService           playerService;
     private final AchievementService      achievementService; // [TITULOS]
+    private final GatheringService        gatheringService;   // [MONSTER_CORE_BATALHA]
 
     @Value("${app.dev.instant-complete:false}")
     private boolean instantComplete;
@@ -180,6 +181,10 @@ public class TowerService {
                 warrior.levelUp();
             }
             warriorRepository.save(warrior);
+
+            // [MONSTER_CORE_BATALHA] cada andar vencido rende Monster Core (escala com a profundidade).
+            long got = gatheringService.addResource(player, com.medieval.game.enums.ResourceType.MONSTER_CORE, 1 + floor / 5);
+            if (got > 0) battleLog.add("🧩 +" + got + " Monster Core");
 
             run.setHighestFloor(floor);
             run.setCurrentFloor(floor + 1);
