@@ -57,7 +57,9 @@ public class TowerController {
         var ranking = towerService.getRanking().stream().map(p -> {
             String warriorName = warriorRepository.findByPlayer(p)
                     .map(w -> w.getName()).orElse(p.getUsername());
-            return Map.of("warriorName", warriorName, "bestFloor", p.getTowerBestFloor());
+            return Map.of("warriorName", warriorName,
+                    "title", com.medieval.game.service.AchievementService.titleString(p), // [TITULOS]
+                    "bestFloor", p.getTowerBestFloor());
         }).toList();
         return ResponseEntity.ok(ranking);
     }

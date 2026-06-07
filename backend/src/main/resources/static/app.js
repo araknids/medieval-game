@@ -2031,7 +2031,7 @@ function towerRankingHtml(ranking) {
           ${ranking.map((r, i) => `
             <tr class="${r.warriorName === warrior?.name ? 'me' : ''}">
               <td class="rank-pos">${i + 1}</td>
-              <td class="rank-name">${escapeHtml(r.warriorName)}</td>
+              <td class="rank-name">${titlePrefix(r)}${escapeHtml(r.warriorName)}</td>
               <td class="rank-pts">🏰 ${r.bestFloor}</td>
             </tr>`).join('')}
         </tbody>
