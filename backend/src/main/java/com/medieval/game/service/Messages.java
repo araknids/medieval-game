@@ -22,4 +22,14 @@ public class Messages {
     public String get(String key, Object... args) {
         return messageSource.getMessage(key, args, key, LocaleContextHolder.getLocale());
     }
+
+    /**
+     * Texto da {@code key} no idioma do request, com {@code defaultEn} de fallback (em geral a prosa
+     * EN que já vive no catálogo/enum). Em EN não há messages_en → cai no {@code defaultEn}; em PT,
+     * messages_pt fornece a tradução (ou {@code defaultEn} se a key ainda não foi traduzida).
+     * Assim só o PT precisa ir pro .properties — o EN continua sendo o catálogo (sem duplicar). [I18N]
+     */
+    public String getOr(String key, String defaultEn, Object... args) {
+        return messageSource.getMessage(key, args, defaultEn, LocaleContextHolder.getLocale());
+    }
 }

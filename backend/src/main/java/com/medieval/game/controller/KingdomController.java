@@ -21,8 +21,9 @@ import java.util.Map;
 @RequiredArgsConstructor
 public class KingdomController {
 
-    private final KingdomService    kingdomService;
-    private final PlayerService     playerService;
+    private final KingdomService                   kingdomService;
+    private final PlayerService                    playerService;
+    private final com.medieval.game.service.Messages messages; // [I18N] nome/flavor/diálogo da quest por idioma
 
     // ── Kingdom overview ──────────────────────────────────────────────────────
     @GetMapping
@@ -62,8 +63,8 @@ public class KingdomController {
                     boolean done = kingdomService.isQuestDoneThisPeriod(player, qt); // [DAILY_QUESTS]
                     return Map.<String, Object>ofEntries(
                         Map.entry("id",                qt.name()),
-                        Map.entry("displayName",       qt.displayName),
-                        Map.entry("flavor",            qt.flavor), // [QUESTS_LORE] linha narrativa (semeia a lore)
+                        Map.entry("displayName",       messages.getOr("quest." + qt.name() + ".name", qt.displayName)),   // [I18N]
+                        Map.entry("flavor",            messages.getOr("quest." + qt.name() + ".flavor", qt.flavor)),      // [I18N][QUESTS_LORE]
                         Map.entry("durationMinutes",   qt.durationMinutes),
                         Map.entry("bronzeReward",      qt.bronzeReward),
                         Map.entry("expReward",         qt.expReward),
@@ -82,7 +83,7 @@ public class KingdomController {
             boolean done = kingdomService.isQuestDoneThisPeriod(player, luna);
             quests.add(Map.<String, Object>ofEntries(
                 Map.entry("id",                luna.name()),
-                Map.entry("displayName",       "🐶 " + luna.displayName),
+                Map.entry("displayName",       "🐶 " + messages.getOr("quest." + luna.name() + ".name", luna.displayName)), // [I18N]
                 Map.entry("durationMinutes",   luna.durationMinutes),
                 Map.entry("bronzeReward",      luna.bronzeReward),
                 Map.entry("expReward",         luna.expReward),
@@ -120,10 +121,13 @@ public class KingdomController {
         KingdomQuestType qt = quest.getQuestType();
         InteractiveQuests.dialogFor(qt).ifPresent(d -> {
             resp.put("interactive", true);
+            String base = "questdlg." + qt.name(); // [I18N] intro/opções por idioma; EN = a prosa do catálogo
             resp.put("dialog", Map.of(
-                "intro", d.intro(),
+                "intro", messages.getOr(base + ".intro", d.intro()),
                 "options", d.options().stream().map(o -> Map.of(
-                    "id", o.id(), "label", o.label(), "hint", o.hint())).toList()
+                    "id", o.id(),
+                    "label", messages.getOr(base + ".opt." + o.id() + ".label", o.label()),
+                    "hint",  messages.getOr(base + ".opt." + o.id() + ".hint",  o.hint()))).toList()
             ));
         });
         return ResponseEntity.ok(resp);
@@ -224,7 +228,7 @@ public class KingdomController {
             "id",              q.getId(),
             "kingdom",         q.getKingdom().name(),
             "questType",       q.getQuestType().name(),
-            "displayName",     q.getQuestType().displayName,
+            "displayName",     messages.getOr("quest." + q.getQuestType().name() + ".name", q.getQuestType().displayName), // [I18N]
             "status",          q.getStatus().name(),
             "bronzeReward",    q.getBronzeReward(),
             "expReward",       q.getExpReward(),

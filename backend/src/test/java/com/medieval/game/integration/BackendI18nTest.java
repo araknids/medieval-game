@@ -59,4 +59,22 @@ class BackendI18nTest extends BaseIntegrationTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.paths[0].intro", containsString("campo de provas")));
     }
+
+    @Test
+    @DisplayName("GET /api/world/FISHING/quests → nomes das quests localizam (en≠pt na mesma janela) [P2]")
+    void questNameFollowsAcceptLanguage() throws Exception {
+        // O endpoint devolve a rotação (2 quests da janela atual) — em vez de fixar uma quest, comparo
+        // os displayNames EN vs PT da MESMA janela: têm que diferir (nomes traduzidos). Robusto à rotação.
+        String enBody = mockMvc.perform(get("/api/world/FISHING/quests").header("Authorization", bearer(token))
+                        .header("Accept-Language", "en")).andExpect(status().isOk())
+                .andReturn().getResponse().getContentAsString(java.nio.charset.StandardCharsets.UTF_8);
+        String ptBody = mockMvc.perform(get("/api/world/FISHING/quests").header("Authorization", bearer(token))
+                        .header("Accept-Language", "pt")).andExpect(status().isOk())
+                .andReturn().getResponse().getContentAsString(java.nio.charset.StandardCharsets.UTF_8);
+
+        java.util.List<String> enNames = com.jayway.jsonpath.JsonPath.read(enBody, "$[*].displayName");
+        java.util.List<String> ptNames = com.jayway.jsonpath.JsonPath.read(ptBody, "$[*].displayName");
+        org.assertj.core.api.Assertions.assertThat(enNames).isNotEmpty();
+        org.assertj.core.api.Assertions.assertThat(ptNames).isNotEqualTo(enNames); // traduzidos
+    }
 }

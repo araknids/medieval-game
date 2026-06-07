@@ -45,6 +45,7 @@ public class KingdomService {
     private final KingdomQuestNarrator         narrator;
     private final PetService                   petService; // quest rara da Luna. [PETS]
     private final AbilityService               abilityService; // +drop do Mercador (Treasure Hunter) [MERCADOR]
+    private final Messages                     messages;       // [I18N] desfechos de quest interativa por idioma
 
     // ── Quest rara da Luna (pet): aparição + chance de pity. [PETS] ──
     private static final int  LUNA_WINDOW_DENOM = 12;      // ~1 a cada 12 janelas de 12h (~1x por semana) — evento raro [QUESTS_LORE]
@@ -247,7 +248,9 @@ public class KingdomService {
             QuestOption option = dialog.options().stream().filter(o -> o.id().equals(optionId)).findFirst()
                     .orElseThrow(() -> new IllegalArgumentException("Invalid choice for this quest."));
             log.info("[KingdomService] player={} interactive quest={} chose option={}", player.getId(), qt, optionId);
-            res = resolveOutcome(option.outcome(), player, warrior, qt, rng);
+            // [I18N] keyBase do desfecho: questdlg.<QT>.out.<optionId> (+ .ok/.fail no Check, + .text/.win/.lose)
+            res = resolveOutcome(option.outcome(), player, warrior, qt, rng,
+                    "questdlg." + qt.name() + ".out." + optionId);
         } else {
             // Não-interativa: encontro de monstro aleatório (escala com a dificuldade). [Quests V2]
             res = new OutcomeResult();
@@ -302,13 +305,16 @@ public class KingdomService {
         if ("leave".equals(optionId)) {
             log.info("[KingdomService] player={} luna quest: walked away", player.getId());
             return new CollectResult(quest, null, 0, 0,
-                    "You walk past the whimpering stray and continue on your way.",
+                    messages.getOr("questdlg.RESCUE_STRAY_DOG.out.leave.text",
+                            "You walk past the whimpering stray and continue on your way."),
                     false, false, null, null, null, null);
         }
         // "help": sem loot, rola a chance de pet
         if (petService.owns(player, PetType.LUNA)) {
             return new CollectResult(quest, null, 0, 0,
-                    "You help the little stray. She's already safe with you.", false, false, null, null, null, null);
+                    messages.getOr("questdlg.RESCUE_STRAY_DOG.out.help.owned",
+                            "You help the little stray. She's already safe with you."),
+                    false, false, null, null, null, null);
         }
         int attempts  = player.getPetPityAttempts();
         int chancePpm = Math.min(LUNA_CAP_PPM, LUNA_BASE_PPM + LUNA_STEP_PPM * attempts);
@@ -319,25 +325,29 @@ public class KingdomService {
             petService.grant(player, PetType.LUNA);
             log.info("[KingdomService] player={} LUNA ACQUIRED (attempts={} chance={})", player.getId(), attempts, pct);
             return new CollectResult(quest, null, 0, 0,
-                    "You nurse the sick dog through the night. By dawn she's on her feet, tail wagging — and she won't leave your side. 🐶 Luna is now your companion!",
+                    messages.getOr("questdlg.RESCUE_STRAY_DOG.out.help.got",
+                            "You nurse the sick dog through the night. By dawn she's on her feet, tail wagging — and she won't leave your side. 🐶 Luna is now your companion!"),
                     false, false, null, null, null, "Luna");
         }
         player.setPetPityAttempts(attempts + 1);
         playerRepository.save(player);
         log.info("[KingdomService] player={} luna quest: helped, no pet (chance={} attemptsNow={})", player.getId(), pct, attempts + 1);
         return new CollectResult(quest, null, 0, 0,
-                "You nurse the sick dog back to health. She licks your hand gratefully and trots off into the wild. (Bond chance was " + pct + ")",
+                messages.getOr("questdlg.RESCUE_STRAY_DOG.out.help.nopet",
+                        "You nurse the sick dog back to health. She licks your hand gratefully and trots off into the wild. (Bond chance was {0})", pct),
                 false, false, null, null, null, null);
     }
 
     // ── Resolução de outcome interativo (recursivo p/ Check) [QUESTS_INTERATIVAS] ──
 
+    // [I18N] keyBase identifica o desfecho (questdlg.<QT>.out.<optId>[.ok|.fail]); o sufixo final
+    // (.text/.win/.lose) vem do tipo resolvido. EN = a prosa do catálogo (default do getOr).
     private OutcomeResult resolveOutcome(QuestOutcome outcome, Player player, Warrior warrior,
-                                         KingdomQuestType qt, ThreadLocalRandom rng) {
+                                         KingdomQuestType qt, ThreadLocalRandom rng, String keyBase) {
         if (outcome instanceof QuestOutcome.Peaceful p) {
             OutcomeResult r = new OutcomeResult();
             r.rewarded = true; r.bronzeMult = p.bronzeMult(); r.xpMult = p.xpMult();
-            r.dropChance = p.dropChance(); r.narrative = p.narrative();
+            r.dropChance = p.dropChance(); r.narrative = messages.getOr(keyBase + ".text", p.narrative());
             return r;
         }
         if (outcome instanceof QuestOutcome.Fight f) {
@@ -345,7 +355,8 @@ public class KingdomService {
             OutcomeResult r = new OutcomeResult();
             r.encountered = true; r.won = fr.won(); r.rewarded = fr.won();
             r.bronzeMult = f.bronzeMult(); r.xpMult = f.xpMult(); r.dropChance = f.dropChance();
-            r.narrative = fr.won() ? f.winNarrative() : f.loseNarrative();
+            r.narrative = fr.won() ? messages.getOr(keyBase + ".win",  f.winNarrative())
+                                   : messages.getOr(keyBase + ".lose", f.loseNarrative());
             r.monsterName = fr.monsterName(); r.battleLog = fr.battleLog();
             return r;
         }
@@ -356,7 +367,8 @@ public class KingdomService {
             RollInfo roll = new RollInfo(attrAbbrev(c.attr()), d20, mod, c.dc(), passed);
             log.info("[KingdomService] player={} attr-check {} d20={}+{} vs DC{} -> {}",
                     player.getId(), roll.attr(), d20, mod, c.dc(), passed ? "PASS" : "FAIL");
-            OutcomeResult r = resolveOutcome(passed ? c.onSuccess() : c.onFail(), player, warrior, qt, rng);
+            OutcomeResult r = resolveOutcome(passed ? c.onSuccess() : c.onFail(), player, warrior, qt, rng,
+                    keyBase + (passed ? ".ok" : ".fail"));
             r.roll = roll;
             return r;
         }
