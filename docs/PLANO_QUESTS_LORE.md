@@ -129,6 +129,13 @@ sent to hold the line came back — but they came back wrong."*
 - Monstros (`KingdomQuestNarrator.MONSTERS`): manter (já temáticos) ou leve reskin futuro.
 - i18n: textos em EN agora; tradução PT depois.
 
+## Status: IMPLEMENTADO ✅
+- `KingdomQuestType` — 30 `displayName` reskinnados + campo `flavor` (1 linha/quest) + Luna.
+- `Kingdom.lore` — 5 reinos reescritos.
+- `KingdomController` — `flavor` exposto no DTO da quest; UI mostra no card (itálico, abaixo do título).
+- 598 testes verdes. Nomes/flavors em EN (i18n PT depois).
+
 ## Em aberto
-- Confirmar nomes/flavors (taste pass).
-- Onde plugar o **briefing de onboarding** (depende de ter fluxo de intro/primeiro login).
+- **Briefing de onboarding** (o texto de chegada da guarnição) — **adiado**: o jogo não tem fluxo de
+  intro/primeiro login hoje. Quando existir uma tela de chegada, plugar o briefing (já escrito acima).
+- Taste pass nos nomes/flavors (ajuste fino opcional).

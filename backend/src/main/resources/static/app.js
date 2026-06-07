@@ -3402,6 +3402,7 @@ function renderKingdomDetail(kingdom, quests, activeQuests, training, zoneSessio
             <span>⚡ ${q.staminaCost}</span>
           </div>
         </div>
+        ${q.flavor ? `<div style="font-size:12px;color:#8a93a0;font-style:italic;margin-top:5px;line-height:1.45">${escapeHtml(q.flavor)}</div>` : ''}
         <div style="display:flex;flex-wrap:wrap;gap:4px;margin-top:8px;align-items:center">
           ${actionHtml}
         </div>

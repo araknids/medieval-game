@@ -63,6 +63,7 @@ public class KingdomController {
                     return Map.<String, Object>ofEntries(
                         Map.entry("id",                qt.name()),
                         Map.entry("displayName",       qt.displayName),
+                        Map.entry("flavor",            qt.flavor), // [QUESTS_LORE] linha narrativa (semeia a lore)
                         Map.entry("durationMinutes",   qt.durationMinutes),
                         Map.entry("bronzeReward",      qt.bronzeReward),
                         Map.entry("expReward",         qt.expReward),

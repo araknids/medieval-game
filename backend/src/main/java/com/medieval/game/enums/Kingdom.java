@@ -10,31 +10,32 @@ package com.medieval.game.enums;
  */
 public enum Kingdom {
 
+    // [QUESTS_LORE] descrições reescritas pra semear a verdade na entrelinha (docs/PLANO_QUESTS_LORE.md)
     FISHING(
         "Bone Gorge", "🎣", SkillType.FISHING,
         "Skeleton Warrior", 1.0, 1.0, 0.8, 20,   // npcDef, npcAtk, npcHp, exclusiveBonus (% fishing yield)
-        "A kingdom of tides and bounty. Master fishermen and sea hunters rule these waters."
+        "A drowned gorge where the tide gives more than any net should hold — and gives back more than the living. Fish here long enough and you learn not to look too closely at the catch."
     ),
     MINING(
         "Black Iron Mines", "⛏", SkillType.MINING,
         "Iron Golem", 0.8, 0.7, 2.0, 20,         // exclusiveBonus = % ore yield
-        "Deep tunnels rich in rare minerals. Those who control the ores control the forge."
+        "The deeper the shaft, the richer the vein — and the warmer the stone. The old miners say the mountain has a pulse. The new ones learn not to mention it."
     ),
     COMBAT(
         "Cursed Fortress", "⚔", null,
         "Cursed Knight", 1.2, 1.0, 1.0, 10,      // exclusiveBonus = % quest XP
-        "An ancient fortress where warriors train, battle for glory, and hunt the beasts prowling its walls. No mining, no fishing — only war."
+        "The old fortress in the Tower's shadow, where the corruption runs thickest. The soldiers sent to hold the line came back — but they came back wrong."
     ),
     // ── Reinos V2 — not guild-war by default (exclusiveBonus 0) ──
     GRUTAS_DE_CRISTAL(
         "Crystal Grottoes", "🔎", SkillType.GARIMPO,
         "Crystal Beast", 1.0, 1.0, 1.0, 0,
-        "Glittering caverns where prospectors dig out fragments of rare gems."
+        "Caverns where gems grow like frost, beautiful past reason. Prospectors who linger too long stop digging — and start listening."
     ),
     MAR_ABENCOADO(
         "Blessed Sea", "🐟", SkillType.FISHING,   // same skill, LIFE fish pool
         "Tide Servant", 1.0, 1.0, 1.0, 0,
-        "Sacred waters where fish swim that restore the life of those who eat them."
+        "Sacred waters where the fish restore the life of those who eat them. No one asks how a dead-cold sea learned to heal. The drowned here do not rest — they reach for the deep."
     );
 
     public final String    displayName;
