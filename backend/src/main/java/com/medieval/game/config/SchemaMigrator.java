@@ -151,7 +151,9 @@ public class SchemaMigrator {
     // Reinos V2 adicionou/alterou valores em enums (SkillType.GARIMPO, novos ResourceType,
     // KingdomQuestType reescrito, Kingdom no lugar de Territory). Os check constraints que o
     // Hibernate criou na 1ª vez ficam defasados e rejeitam os novos valores (ex.: GARIMPO em
-    // skill_levels). Como a validação do enum já é feita na camada JPA, derrubamos esses checks.
+    // skill_levels E em zone_activities.skill_type — coleta unificada). Como a validação do enum já
+    // é feita na camada JPA, derrubamos esses checks. (role/status de zone_activities NÃO batem no
+    // regex abaixo, então os checks recriados por patchZoneActivity{Role,Status}Check sobrevivem.)
     // Genérico: acha e dropa qualquer CHECK que referencie as colunas de enum afetadas. [REINOS_V2]
     // Inclui warrior_class: a check antiga só aceitava 'WARRIOR' e rejeitaria RECRUIT/ARCHER. [CLASSES]
     private void dropStaleEnumCheckConstraints() {
@@ -171,7 +173,7 @@ public class SchemaMigrator {
                               'skill_levels', 'resource_inventory', 'kingdom_active_quests',
                               'territory_controls', 'territory_declarations', 'territory_battle_logs',
                               'gathering_sessions', 'warriors', 'meal_inventory', 'pets',
-                              'player_achievements')
+                              'player_achievements', 'zone_activities')
                           AND pg_get_constraintdef(con.oid) ~ '(skill_type|resource_type|quest_type|kingdom|territory|meal|pet_type|warrior_class|achievement)'
                     LOOP
                         EXECUTE format('ALTER TABLE %I DROP CONSTRAINT %I', r.tbl, r.con);
