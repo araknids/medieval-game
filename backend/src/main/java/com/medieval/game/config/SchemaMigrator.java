@@ -24,6 +24,7 @@ public class SchemaMigrator {
     @EventListener(ApplicationReadyEvent.class)
     public void migrate() {
         patchZoneActivityKingdomColumn();
+        patchPlayerLanguageColumn();
         patchPlayerSoulStoneColumns();
         patchMailItemColumns();
         patchPlayerVipColumns();
@@ -401,6 +402,16 @@ public class SchemaMigrator {
             log.info("[SchemaMigrator] zone_activities.kingdom column ensured");
         } catch (Exception e) {
             log.warn("[SchemaMigrator] zone_activities.kingdom patch failed: {}", e.getMessage());
+        }
+    }
+
+    // players.language: idioma preferido do jogador (en/pt). [I18N]
+    private void patchPlayerLanguageColumn() {
+        try {
+            jdbc.execute("ALTER TABLE players ADD COLUMN IF NOT EXISTS language varchar(5) NOT NULL DEFAULT 'en'");
+            log.info("[SchemaMigrator] players.language column ensured");
+        } catch (Exception e) {
+            log.warn("[SchemaMigrator] players.language patch failed: {}", e.getMessage());
         }
     }
 

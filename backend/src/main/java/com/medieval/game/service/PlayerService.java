@@ -61,6 +61,18 @@ public class PlayerService {
         if (!p.isOnboardingSeen()) { p.setOnboardingSeen(true); playerRepository.save(p); }
     }
 
+    /** [I18N] Salva o idioma preferido (en/pt). Valida contra os suportados. Devolve o valor aplicado. */
+    @Transactional
+    public String setLanguage(Player playerArg, String language) {
+        String lang = language == null ? "" : language.trim().toLowerCase();
+        if (!com.medieval.game.config.I18nConfig.SUPPORTED_TAGS.contains(lang))
+            throw new IllegalArgumentException("Unsupported language: " + language);
+        Player p = findById(playerArg.getId());
+        p.setLanguage(lang);
+        playerRepository.save(p);
+        return lang;
+    }
+
     // ── Sistema de 3 moedas (100 bronze = 1 prata, 100 prata = 1 ouro) ──
 
     /** Adiciona bronze e auto-converte para prata/ouro se necessário */

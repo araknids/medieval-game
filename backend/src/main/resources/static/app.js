@@ -54,6 +54,10 @@ async function toggleLanguage() {
   const next = _currentLang === 'en' ? 'pt' : 'en';
   await loadLanguage(next);
 
+  // [I18N] persiste a preferência no servidor (Player.language) — pro Godot/cross-device.
+  // Fire-and-forget; o conteúdo do backend já re-busca no novo idioma via api() (Accept-Language).
+  if (token) api('POST', '/api/settings/language', { language: next }).catch(() => {});
+
   // Re-render sidebar (always visible, uses t() for labels)
   if (warrior) loadWarrior();
 
@@ -82,6 +86,7 @@ async function api(method, path, body) {
     method,
     headers: {
       'Content-Type': 'application/json',
+      'Accept-Language': _currentLang, // [I18N] backend serve quests/lore/torre neste idioma
       ...(token ? { 'Authorization': 'Bearer ' + token } : {})
     },
     body: body ? JSON.stringify(body) : undefined

@@ -75,6 +75,11 @@ public class Player {
     @Column(columnDefinition = "boolean default false")
     private boolean onboardingSeen = false;
 
+    // [I18N] Idioma preferido do jogador (ex.: "en", "pt"). O cliente lê isto e manda no header
+    // Accept-Language; o backend serve o conteúdo (quests/lore/torre/erros) já no idioma. Default "en".
+    @Column(columnDefinition = "varchar(5) default 'en'")
+    private String language = "en";
+
     private int currentStamina = 100;
 
     @Column(nullable = false)

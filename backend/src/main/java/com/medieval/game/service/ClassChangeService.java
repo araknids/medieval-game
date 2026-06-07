@@ -32,6 +32,7 @@ public class ClassChangeService {
     private final MailService         mailService;
     private final AchievementService  achievementService; // [TITULOS]
     private final GatheringService    gatheringService;   // [TRIAL_CUSTO] custo de Monster Core
+    private final Messages            messages;            // [I18N] lore da Trial por idioma do request
 
     /** Level mínimo pra destravar a Trial. */
     public static final int TRIAL_LEVEL = 10;
@@ -88,7 +89,7 @@ public class ClassChangeService {
         };
         return new ClassPath(c.name(), c.displayName, c.baseAttack, c.baseDefense, c.baseHealth,
                 c.strCap, c.dexCap, c.lukCap, g.name(), desc,
-                com.medieval.game.quest.ClassTrialLore.forPath(c).intro()); // [TRIAL_NARRATIVA]
+                messages.get("class.trial." + c.name() + ".intro")); // [TRIAL_NARRATIVA][I18N]
     }
 
     /**
@@ -129,9 +130,8 @@ public class ClassChangeService {
         battleLog.remove(battleLog.size() - 1); // remove a tag interna WINNER
         boolean won = outcome.firstWon();
 
-        // [TRIAL_NARRATIVA] desfecho narrado (mostrado como flavor no modal de resultado)
-        var lore = com.medieval.game.quest.ClassTrialLore.forPath(path);
-        String narrative = won ? lore.victory() : lore.defeat();
+        // [TRIAL_NARRATIVA][I18N] desfecho narrado (flavor no modal), no idioma do request
+        String narrative = messages.get("class.trial." + path.name() + (won ? ".victory" : ".defeat"));
 
         if (won) {
             // [TRIAL_CUSTO] consome os Monster Core (bag+stash) SÓ na vitória (perder mantém o estoque)
