@@ -179,11 +179,18 @@ public class AuthController {
         return java.util.Base64.getUrlEncoder().withoutPadding().encodeToString(bytes);
     }
 
-    /** IP do cliente — respeita X-Forwarded-For (Railway roda atrás de proxy). */
+    /**
+     * IP do cliente p/ o rate-limit (Railway roda atrás de proxy). [AUDITORIA_2 A7]
+     * Usa o **último** IP do X-Forwarded-For (o que o proxy CONFIÁVEL do Railway anexou), NÃO o primeiro:
+     * o cliente pode mandar um X-Forwarded-For falso e o Railway só anexa o IP real no fim. Pegar o
+     * primeiro deixava qualquer um rotacionar a chave de rate-limit e furar o limite de login/reset.
+     */
     private String clientIp(HttpServletRequest http) {
         String fwd = http.getHeader("X-Forwarded-For");
         if (fwd != null && !fwd.isBlank()) {
-            return fwd.split(",")[0].trim(); // primeiro IP da cadeia
+            String[] parts = fwd.split(",");
+            String last = parts[parts.length - 1].trim(); // right-most = anexado pelo proxy confiável
+            if (!last.isBlank()) return last;
         }
         return http.getRemoteAddr();
     }

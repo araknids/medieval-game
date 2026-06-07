@@ -24,7 +24,11 @@ public class JwtUtil {
     @Value("${spring.profiles.active:dev}")
     private String activeProfile;
 
-    private static final long EXPIRATION_MS = 7L * 24 * 60 * 60 * 1000; // 7 dias
+    // [AUDITORIA_2 A8] Validade do token configurável (env JWT_EXPIRATION_HOURS). Default 7 dias =
+    // comportamento atual; dá pra apertar (ex.: 24) antes do launch público sem mexer no código.
+    @Value("${app.jwt.expiration-hours:168}")
+    private long expirationHours;
+    private long expirationMs() { return expirationHours * 60L * 60 * 1000; }
 
     // SEGURANÇA: aborta o boot se o JWT_SECRET não foi definido em produção — senão
     // qualquer um forjaria tokens com a string padrão que está no repositório. [AUDITORIA M6]
@@ -46,7 +50,7 @@ public class JwtUtil {
                 .withSubject(String.valueOf(playerId))
                 .withClaim("username", username)
                 .withIssuedAt(new Date())
-                .withExpiresAt(new Date(System.currentTimeMillis() + EXPIRATION_MS))
+                .withExpiresAt(new Date(System.currentTimeMillis() + expirationMs()))
                 .sign(Algorithm.HMAC256(secret));
     }
 

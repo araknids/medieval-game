@@ -28,6 +28,9 @@ public class SecurityConfig {
     @Value("${app.cors.allowed-origins}")
     private String allowedOrigins;
 
+    @Value("${spring.profiles.active:dev}")
+    private String activeProfile; // [AUDITORIA_2 A8] proíbe CORS '*' em prod
+
     @Bean
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
         return http
@@ -67,6 +70,10 @@ public class SecurityConfig {
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration config = new CorsConfiguration();
         if ("*".equals(allowedOrigins.trim())) {
+            // [AUDITORIA_2 A8] '*' só em dev/test. Em prod falha o boot (evita abrir CORS por engano
+            // ao tentar "consertar" um erro de CORS). Sempre defina origens explícitas em produção.
+            if (activeProfile != null && activeProfile.contains("prod"))
+                throw new IllegalStateException("[SEGURANÇA] APP_CORS_ALLOWED_ORIGINS='*' não é permitido em prod — defina origens explícitas.");
             config.addAllowedOriginPattern("*");
         } else {
             config.setAllowedOrigins(Arrays.asList(allowedOrigins.split(",")));
