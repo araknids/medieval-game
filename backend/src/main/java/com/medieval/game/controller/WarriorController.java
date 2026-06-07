@@ -51,6 +51,19 @@ public class WarriorController {
         return ResponseEntity.ok(buildResponse(warrior, player));
     }
 
+    // ── [ONBOARDING] tela de boas-vindas: viu? / marcar como vista ──
+    @GetMapping("/onboarding")
+    public ResponseEntity<?> onboarding(Authentication auth) {
+        Player p = playerService.findById((Long) auth.getPrincipal());
+        return ResponseEntity.ok(java.util.Map.of("seen", p.isOnboardingSeen()));
+    }
+
+    @PostMapping("/onboarding/seen")
+    public ResponseEntity<?> markOnboardingSeen(Authentication auth) {
+        playerService.markOnboardingSeen((Long) auth.getPrincipal());
+        return ResponseEntity.ok(java.util.Map.of("seen", true));
+    }
+
     // ── Postura de combate (toggle livre) — vale em todo combate. [POSTURE] ──
     @GetMapping("/postures")
     public ResponseEntity<?> getPostures() {

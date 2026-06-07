@@ -223,6 +223,8 @@ public class SchemaMigrator {
             jdbc.execute("ALTER TABLE players ADD COLUMN IF NOT EXISTS active_title varchar(40)");
             // [MERCADO_STEAM] SteamID64 da conta linkada (null = não linkado). Fundação do Mercador Azul.
             jdbc.execute("ALTER TABLE players ADD COLUMN IF NOT EXISTS steam_id varchar(20)");
+            // [ONBOARDING] tela de boas-vindas já vista? (não reaparece ao limpar cache).
+            jdbc.execute("ALTER TABLE players ADD COLUMN IF NOT EXISTS onboarding_seen boolean NOT NULL DEFAULT false");
             log.info("[SchemaMigrator] warriors.ability_points + players war formation + active_title columns ensured");
         } catch (Exception e) {
             log.warn("[SchemaMigrator] warriors.ability_points patch failed: {}", e.getMessage());

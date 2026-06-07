@@ -250,6 +250,50 @@ function enterGame() {
   document.getElementById('game-screen').style.display = 'block';
   loadWarrior();
   loadWorld(); // Default to World tab
+  maybeShowOnboarding(); // [ONBOARDING] boas-vindas no 1º login
+}
+
+// [ONBOARDING] Mostra a tela de boas-vindas (lore breve + recruta + 1ª missão) só uma vez.
+async function maybeShowOnboarding() {
+  const r = await api('GET', '/api/warrior/onboarding');
+  if (!r || r.error || r.seen) return;
+  showOnboardingModal();
+}
+
+function showOnboardingModal() {
+  closeCollectModal();
+  const el = document.createElement('div');
+  el.id = 'collect-modal-overlay';
+  el.setAttribute('style',
+    'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.9);' +
+    'z-index:9999;display:flex;align-items:center;justify-content:center;padding:16px;box-sizing:border-box');
+  el.innerHTML = `
+    <div onclick="event.stopPropagation()" style="background:#14121c;border:2px solid #c9a84c;border-radius:14px;
+      padding:26px;max-width:520px;width:100%;max-height:90vh;overflow-y:auto;box-shadow:0 8px 40px rgba(0,0,0,0.7)">
+      <h2 style="margin:0 0 4px;color:#c9a84c;font-size:20px">⚜ Coroa de Arka</h2>
+      <div style="color:#888;font-size:12px;margin-bottom:16px;letter-spacing:.04em;text-transform:uppercase">A Recruit's Orders</div>
+      <div style="color:#cdd;font-size:13.5px;line-height:1.7">
+        <p style="margin:0 0 12px">A new continent, rich beyond the Old World's dreams — gold in the hills,
+        fish in the tides. The explorers who found it built a city at its heart and crowned a king: <b>Arka</b>.</p>
+        <p style="margin:0 0 12px">Then the beasts came, and King Arka shut himself in his tower and never came
+        down. The corruption spread through the territories. The city begged the Old Crown for soldiers —
+        and the Old Crown sent <b>recruits</b>. It sent <b>you</b>.</p>
+        <p style="margin:0 0 12px;color:#e6d29a"><b>Your first orders:</b> report to the <b>territories</b>,
+        take on their work, and grow strong. Earn your place, recruit — and one day, climb the King's Tower
+        and bring him home.</p>
+      </div>
+      <button onclick="finishOnboarding()" style="margin-top:18px;width:100%;background:#c9a84c;color:#1a1208;
+        font-weight:bold;padding:12px;border-radius:8px;cursor:pointer;font-size:15px;border:none">
+        ⚔ Report for duty
+      </button>
+    </div>`;
+  document.body.appendChild(el);
+}
+
+async function finishOnboarding() {
+  await api('POST', '/api/warrior/onboarding/seen');
+  closeCollectModal();
+  goTo('world'); // leva o recruta direto aos territórios (a 1ª missão)
 }
 
 // ── Guerreiro ──

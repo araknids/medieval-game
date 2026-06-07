@@ -70,6 +70,11 @@ public class Player {
     @Column(name = "steam_id", unique = true)
     private String steamId;
 
+    // [ONBOARDING] true depois que o jogador viu a tela de boas-vindas (lore + 1ª missão). Persiste no
+    // banco pra não reaparecer ao limpar cache. Default false.
+    @Column(columnDefinition = "boolean default false")
+    private boolean onboardingSeen = false;
+
     private int currentStamina = 100;
 
     @Column(nullable = false)

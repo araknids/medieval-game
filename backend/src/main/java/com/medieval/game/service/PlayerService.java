@@ -54,6 +54,13 @@ public class PlayerService {
         return passwordEncoder.matches(rawPassword, player.getPasswordHash());
     }
 
+    /** [ONBOARDING] Marca a tela de boas-vindas como vista (idempotente). */
+    @Transactional
+    public void markOnboardingSeen(Long playerId) {
+        Player p = findById(playerId);
+        if (!p.isOnboardingSeen()) { p.setOnboardingSeen(true); playerRepository.save(p); }
+    }
+
     // ── Sistema de 3 moedas (100 bronze = 1 prata, 100 prata = 1 ouro) ──
 
     /** Adiciona bronze e auto-converte para prata/ouro se necessário */
