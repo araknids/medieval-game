@@ -220,6 +220,8 @@ public class SchemaMigrator {
             jdbc.execute("ALTER TABLE players ADD COLUMN IF NOT EXISTS war_depth integer NOT NULL DEFAULT -1");
             // [TITULOS] título ativo escolhido (player_achievements é auto-criada pelo ddl-auto).
             jdbc.execute("ALTER TABLE players ADD COLUMN IF NOT EXISTS active_title varchar(40)");
+            // [MERCADO_STEAM] SteamID64 da conta linkada (null = não linkado). Fundação do Mercador Azul.
+            jdbc.execute("ALTER TABLE players ADD COLUMN IF NOT EXISTS steam_id varchar(20)");
             log.info("[SchemaMigrator] warriors.ability_points + players war formation + active_title columns ensured");
         } catch (Exception e) {
             log.warn("[SchemaMigrator] warriors.ability_points patch failed: {}", e.getMessage());

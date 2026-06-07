@@ -65,6 +65,11 @@ public class Player {
     @Column(columnDefinition = "integer default 0")
     private int towerBestFloor = 0; // melhor andar já alcançado na Torre Infernal
 
+    // [MERCADO_STEAM] SteamID64 da conta Steam linkada (null = não linkado). Setado via auth ticket do
+    // cliente Godot (futuro). Pré-requisito p/ o Mercador Azul exportar itens pro inventário Steam.
+    @Column(name = "steam_id", unique = true)
+    private String steamId;
+
     private int currentStamina = 100;
 
     @Column(nullable = false)
