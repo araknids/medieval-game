@@ -247,6 +247,8 @@ public class SchemaMigrator {
     private void patchInventoryListedColumn() {
         try {
             jdbc.execute("ALTER TABLE inventory_items ADD COLUMN IF NOT EXISTS listed boolean NOT NULL DEFAULT false");
+            // [MERCADOR] forjador do item (p/ bônus de self-crafted do Mercador). Null p/ itens antigos/dropados.
+            jdbc.execute("ALTER TABLE inventory_items ADD COLUMN IF NOT EXISTS crafted_by bigint");
             log.info("[SchemaMigrator] inventory_items.listed column ensured");
         } catch (Exception e) {
             log.warn("[SchemaMigrator] inventory_items.listed patch failed: {}", e.getMessage());

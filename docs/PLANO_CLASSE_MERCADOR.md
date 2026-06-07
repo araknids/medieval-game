@@ -103,7 +103,20 @@ mexem no combate; mexem em drop/craft/venda/coleta.
 2. **Habilidades de economia:** 5 skills + getters no `AbilityService` + hooks em
    sell/drop/craft/gather + Crushing Blow no combate + UI da árvore.
 
+## Self-crafted gear bonus — [MERCADOR_SELFCRAFT]
+"Forjou e usa = melhor nas suas mãos." Itens que o **próprio Mercador forjou** dão **+2.5% nos stats por
+nível de Master Craftsman** (até **+25%** no nível 10) quando equipados por ele.
+- `InventoryItem.craftedBy` (playerId do forjador; setado em `SmithingService.craftEquipment`) +
+  `isSelfCraftedBy(playerId)`. Migração: `inventory_items.crafted_by bigint` (null p/ itens antigos/dropados).
+- `AbilityService.selfCraftedStatBonusPct(player)` = `MASTER_CRAFTSMAN.level × 2.5%` (0 se não-Mercador/sem skill).
+- Aplicado em `WarriorStatsService.equippedGear`: escala os stats-base (atk/def/hp/str/dex/luk) **do item
+  craftado** por `(1+pct%)`. Joias/afixos socketados depois **não** entram nessa escala (é o item em si).
+- Só os **seus** itens (comprou de outro Mercador → sem bônus). Caminho de mail (bag cheia no craft) ainda
+  não marca `craftedBy` — TODO. Cobertura: `MerchantClassTest.selfCrafted_*`.
+
 ## Fora de escopo (futuro)
+- **Bônus de riqueza** (stats por bronze que tem/já gastou) — desenhado, adiado a pedido (definir fórmula).
+- Marcar `craftedBy` no item entregue por **mail** (quando a bag está cheia no craft).
 - Skills ativas de economia (ex.: "leilão relâmpago", "suborno" no PvP).
 - Mercador influenciar a Casa de Leilão (taxa menor).
 - 4ª classe (Mage, com o INT reservado).

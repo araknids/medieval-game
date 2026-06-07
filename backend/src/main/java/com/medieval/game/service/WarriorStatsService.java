@@ -65,13 +65,19 @@ public class WarriorStatsService {
                 .toList();
         if (equipped.isEmpty()) return new GearBonus(matk, mdef, mhp, 0, 0, 0); // só a montaria (se houver)
 
-        int atk = equipped.stream().mapToInt(InventoryItem::getEffectiveAttack).sum()  + matk;
-        int def = equipped.stream().mapToInt(InventoryItem::getEffectiveDefense).sum() + mdef;
-        int hp  = equipped.stream().mapToInt(InventoryItem::getEffectiveHealth).sum()  + mhp;
-        // [CLASSES_ARMAS] str/dex/luk BASE dos itens (perfil das armas) — somam com os afixos abaixo.
-        int str = equipped.stream().mapToInt(InventoryItem::getEffectiveStr).sum();
-        int dex = equipped.stream().mapToInt(InventoryItem::getEffectiveDex).sum();
-        int luk = equipped.stream().mapToInt(InventoryItem::getEffectiveLuk).sum();
+        // [MERCADOR] Bônus de self-crafted: stats do item forjado pelo próprio Mercador × (1 + pct%).
+        int craftPct = abilityService.selfCraftedStatBonusPct(player); // 0 se não-Mercador / sem Master Craftsman
+        int atk = matk, def = mdef, hp = mhp, str = 0, dex = 0, luk = 0;
+        for (InventoryItem i : equipped) {
+            int p = (craftPct > 0 && i.isSelfCraftedBy(player.getId())) ? craftPct : 0;
+            atk += scaleStat(i.getEffectiveAttack(),  p);
+            def += scaleStat(i.getEffectiveDefense(), p);
+            hp  += scaleStat(i.getEffectiveHealth(),  p);
+            // [CLASSES_ARMAS] str/dex/luk BASE dos itens (perfil das armas) — somam com os afixos abaixo.
+            str += scaleStat(i.getEffectiveStr(),     p);
+            dex += scaleStat(i.getEffectiveDex(),     p);
+            luk += scaleStat(i.getEffectiveLuk(),     p);
+        }
 
         // Joias de todos os itens equipados em uma única query (evita N+1)
         Map<Long, List<SocketedGem>> gemsByItem = gemRepository.findAllByItemIn(equipped).stream()
@@ -100,6 +106,11 @@ public class WarriorStatsService {
             }
         }
         return new GearBonus(atk, def, hp, str, dex, luk);
+    }
+
+    /** [MERCADOR] stat × (1 + pct%), arredondado. pct=0 → valor inalterado. */
+    private static int scaleStat(int value, int pct) {
+        return pct == 0 ? value : (int) Math.round(value * (1 + pct / 100.0));
     }
 
     /** Compat: bônus plano (atk/def/hp) do gear equipado, já incluindo afixos planos. */

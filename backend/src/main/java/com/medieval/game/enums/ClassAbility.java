@@ -25,7 +25,7 @@ public enum ClassAbility {
     // Mercador — economia (passivas que mexem em loot/craft/venda/coleta) + 1 ativa de combate. [MERCADOR]
     HAGGLER          (WarriorClass.MERCHANT, Kind.PASSIVE, null,                       0, "Haggler",          "🪙", "📦 +2 LUK/lvl and +3% sell price per level."),
     TREASURE_HUNTER  (WarriorClass.MERCHANT, Kind.PASSIVE, null,                       0, "Treasure Hunter",  "📦", "📦 +2% item drop chance per level."),
-    MASTER_CRAFTSMAN (WarriorClass.MERCHANT, Kind.PASSIVE, null,                       0, "Master Craftsman", "🔨", "📦 +3% craft success per level."),
+    MASTER_CRAFTSMAN (WarriorClass.MERCHANT, Kind.PASSIVE, null,                       0, "Master Craftsman", "🔨", "📦 +3% craft success/lvl · +2.5% stats/lvl on gear you forged yourself."),
     PROSPECTOR       (WarriorClass.MERCHANT, Kind.PASSIVE, null,                       0, "Prospector",       "⛏", "📦 +5% gathering yield per level."),
     CRUSHING_BLOW    (WarriorClass.MERCHANT, Kind.ACTIVE,  AbilityEffect.BONUS_DAMAGE, 5, "Crushing Blow",    "💥", "Every 5 rounds: +(8+4×lvl) bonus damage.");
 

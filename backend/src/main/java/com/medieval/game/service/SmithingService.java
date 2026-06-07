@@ -221,6 +221,7 @@ public class SmithingService {
             InventoryItem result = inventoryService.make(player, recipe.name(), itemType,
                     recipe.atk(), recipe.def(), recipe.hp(), recipe.rarity(), sell, recipe.itemLevel(), desc, origin);
             result.setSockets(recipe.sockets());
+            result.setCraftedBy(player.getId()); // [MERCADOR] marca o forjador p/ o bônus de self-crafted
             inventoryRepository.save(result);
             log.info("[SmithingService] player={} action=craftEquipment OK recipeId={} itemId={} name={}", player.getId(), recipeId, result.getId(), result.getName());
             return new CraftResult(true, false, successPct, result, "Crafted successfully!");

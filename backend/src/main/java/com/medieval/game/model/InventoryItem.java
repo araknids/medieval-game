@@ -91,8 +91,15 @@ public class InventoryItem {
     @Column(columnDefinition = "integer default 100")
     private int durability = 100;
 
+    // [MERCADOR] Quem forjou este item (playerId). Usado pelo bônus de self-crafted do Mercador.
+    @Column(name = "crafted_by")
+    private Long craftedBy;
+
     /** Item dá bônus apenas se tiver durabilidade > 0. */
     public boolean isBroken() { return durability <= 0; }
+
+    /** [MERCADOR] true se este item foi forjado pelo próprio jogador {@code playerId}. */
+    public boolean isSelfCraftedBy(Long playerId) { return craftedBy != null && craftedBy.equals(playerId); }
 
     public int getEffectiveAttack()  { return isBroken() ? 0 : attackBonus; }
     public int getEffectiveDefense() { return isBroken() ? 0 : defenseBonus; }

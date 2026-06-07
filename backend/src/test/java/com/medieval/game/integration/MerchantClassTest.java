@@ -30,6 +30,7 @@ class MerchantClassTest extends BaseIntegrationTest {
     @Autowired PlayerRepository      playerRepository;
     @Autowired WarriorRepository     warriorRepository;
     @Autowired InventoryItemRepository itemRepo;
+    @Autowired com.medieval.game.service.WarriorStatsService statsService;
 
     private Player reload(Player p) { return playerRepository.findById(p.getId()).orElseThrow(); }
 
@@ -99,5 +100,36 @@ class MerchantClassTest extends BaseIntegrationTest {
         inventoryService.sell(reload(p), ring.getId());
 
         assertThat(reload(p).totalBronze()).isEqualTo(before + 1060); // 1000 × 1.06
+    }
+
+    @Test
+    @DisplayName("Master Craftsman: item forjado pelo próprio Mercador ganha +stats; outros não")
+    void selfCrafted_statBonus() {
+        Player p = newPlayer("mc", WarriorClass.MERCHANT, 5);
+        for (int i = 0; i < 4; i++) abilityService.learn(reload(p), ClassAbility.MASTER_CRAFTSMAN); // nível 4 → 10%
+        assertThat(abilityService.selfCraftedStatBonusPct(reload(p))).isEqualTo(10);
+
+        // Item forjado por ELE (RING, stats não são sobrescritos por WeaponType): +10% no ATK.
+        InventoryItem mine = inventoryService.make(p, "Trade Charm", ItemType.RING, 0, 0, 0, 1, 100);
+        mine.setAttackBonus(100); mine.setDefenseBonus(0); mine.setHealthBonus(0);
+        mine.setCraftedBy(p.getId()); mine.setEquipped(true);
+        itemRepo.save(mine);
+        assertThat(statsService.equippedGear(reload(p)).atk()).isEqualTo(110); // 100 × 1.10
+
+        // Mesmo item, mas forjado por OUTRO → sem bônus.
+        mine.setCraftedBy(999_999L); itemRepo.save(mine);
+        assertThat(statsService.equippedGear(reload(p)).atk()).isEqualTo(100);
+    }
+
+    @Test
+    @DisplayName("Bônus de self-crafted só vale pro Mercador (Warrior = 0)")
+    void selfCrafted_merchantOnly() {
+        Player warr = newPlayer("wc", WarriorClass.WARRIOR, 5);
+        assertThat(abilityService.selfCraftedStatBonusPct(reload(warr))).isZero();
+
+        InventoryItem ring = inventoryService.make(warr, "Trinket", ItemType.RING, 0, 0, 0, 1, 100);
+        ring.setAttackBonus(100); ring.setCraftedBy(warr.getId()); ring.setEquipped(true);
+        itemRepo.save(ring);
+        assertThat(statsService.equippedGear(reload(warr)).atk()).isEqualTo(100); // sem bônus
     }
 }

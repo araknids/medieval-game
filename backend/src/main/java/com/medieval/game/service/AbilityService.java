@@ -133,4 +133,15 @@ public class AbilityService {
     public int craftSuccessBonus(Player player)   { return economy(player, ClassAbility.MASTER_CRAFTSMAN); }
     /** +% no rendimento de coleta de recursos (Prospector). */
     public int gatherYieldBonusPct(Player player) { return economy(player, ClassAbility.PROSPECTOR); }
+
+    /**
+     * [MERCADOR] +% nos stats de itens que o PRÓPRIO Mercador forjou e equipou (Master Craftsman).
+     * Escala 2.5%/nível → +25% no nível 10. 0 se não for Mercador / sem a skill. Números placeholder.
+     */
+    public int selfCraftedStatBonusPct(Player player) {
+        Warrior w = warriorRepository.findByPlayer(player).orElse(null);
+        if (w == null || w.getWarriorClass() != com.medieval.game.enums.WarriorClass.MERCHANT) return 0;
+        int level = levels(w).getOrDefault(ClassAbility.MASTER_CRAFTSMAN, 0);
+        return level * 25 / 10; // 2.5%/nível
+    }
 }
