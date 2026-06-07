@@ -90,6 +90,12 @@ A `Kingdom.COMBAT` virou um reino com a **mesma cara dos de coleta**, mas a "col
 ### Achievements + Títulos — [TITULOS]
 Sistema de achievements de 1ª classe + **títulos** exibidos antes do nick, visíveis pros outros. Catálogo no enum `Achievement` (`category, title, displayName, description, metric, threshold`) — desbloqueia quando `valor(metric) >= threshold` (lógica genérica no `AchievementService`, sem lambda no enum, padrão tipo `KingdomQuestType`). `AchievementMetric` mapeia pra stats que já existem (nível, arenaWins, rankPoints, towerBestFloor, totalBronze, classe, guilda/líder). Desbloqueios rastreados em `PlayerAchievement` (tabela `player_achievements`, auto-criada; único por player+achievement). O jogador **escolhe** 1 título ativo (`Player.activeTitle` = `Achievement.name()`; coluna `players.active_title`); `AchievementService.selectTitle` valida desbloqueio. **`AchievementService.titleString(player)`** é **estático e puro** (só lê `activeTitle`, sem DB/lazy) → usado nos DTOs de ranking/guilda/guerra/header sem N+1. Endpoints: `GET /api/achievements` (lista + título ativo, roda `checkAndUnlock` lazy silencioso) e `POST /api/achievements/title` (`{id}` ou null). **Gatilhos** de `checkAndUnlock(player, true)` (manda mail "🏆 Achievement unlocked") em: level-up (`WarriorService.addExperience`), arena (`ArenaService.fight`), torre (`TowerService`), Trial de classe (`ClassChangeService`), criar/entrar/transferir guilda (`GuildService`). Soft-wipe apaga `player_achievements` + zera `activeTitle`. Arena-opponent (modal) ficou fora do v1. Números/nomes são placeholders. Desenho: `docs/PLANO_TITULOS.md`.
 
+### Casa de Leilão — [LEILAO]
+Mercado **entre jogadores** por preço fixo (buyout), no mesmo servidor. `AuctionService` + `AuctionController` (`/api/auction`: `GET` browse, `GET /mine`, `POST /list`, `POST /buy/{id}`, `POST /cancel/{id}`) + `AuctionListing` (tabela `auction_listings`) + `AuctionScheduler` (expira de hora em hora + no boot; lazy-on-read também). **Postar**: taxa **5% adiantada** (queima, `spendBronze`) + máx **10 listagens ativas** + janela de **2 dias**; o item vira `InventoryItem.listed=true` (sai da bag, não vende/stasha/guarda/equipa) e **só muda de dono na venda**. Não dá pra listar item equipado/stashed/guarded/pvpLocked. **Comprar** (buyout): paga o preço; **15% queimado** na venda → vendedor recebe **85%** do preço (líquido ≈80% contando os 5% adiantados); precisa de slot livre na bag; não compra a própria listagem. **Cancelar/expirar**: item volta pro vendedor. Números (5%/15%, 2 dias, 10) são placeholders. Desenho: `docs/PLANO_LEILAO.md`.
+
+### VIP / SoulStone — [VIP]
+**SoulStone** é uma **4ª moeda** (premium), separada do trio bronze/silver/gold: `Player.soulStones` (int, não passa pelo `addBronzeAmount`/`spendBronze`). `VipService` + `VipController` (`/api/vip/status`, `/api/vip/buy`): gasta SoulStone pra virar **VIP** por um período (`Player.vipExpiresAt`, `isVip()`). Perks do VIP: **bag maior** (`getMaxInventorySlots` 50 vs 30), **mais lutas de arena/dia** (`getArenaFightLimit` 10 vs 5), **cura grátis com CD** (`lastVipHealAt`) + cura instantânea via SoulStone (`lastSoulstoneHealAt`). Soft-wipe zera soulStones/VIP. Números são placeholders.
+
 ### HP do Guerreiro
 HP é armazenado como porcentagem (0-100) em `warrior.currentHpSnapshot`. Usa o mesmo padrão da stamina (snapshot + tempo decorrido). Regen: 100% em 1 hora. Guerreiro com HP=0 está inconsciente e não pode entrar em combate.
 
@@ -173,12 +179,14 @@ ALTER TABLE tabela ADD CONSTRAINT tabela_coluna_check CHECK (coluna IN ('VAL1','
 | Guerreiro | `WarriorService` | `WarriorController` | Stats, atributos, HP, buff |
 | Classes | `ClassChangeService` | `ClassController` | Recruit→Trial(Lv10)→Warrior/Archer/Merchant; caps por classe; respec. [CLASSES][MERCADOR] |
 | Habilidades | `AbilityService` | `AbilityController` | Árvore por classe (passivas + ativas c/ cooldown); 1 ponto/level; respec. [HABILIDADES] |
-| Missões | `QuestService` (legado) / `KingdomService` | `QuestController` / `KingdomController` | Instantâneo (gate=estamina), drops, narrativa. As missões vivas são as do reino (`/api/world/{kingdom}/quests`). |
+| Missões | `KingdomService` | `KingdomController` | Instantâneo (gate=estamina), drops, narrativa. Missões vivas = as do reino (`/api/world/{kingdom}/quests`). O legado `QuestService`/`QuestController`/`/api/quests` foi **removido**. |
 | Arena PvP | `ArenaService` | `ArenaController` | Duelo instantâneo por ranking (1 chamada resolve tudo) |
 | Torre | `TowerService` | `TowerController` | Andares, chefes escalonados |
 | Trabalho | `WorkService` | `WorkController` | Por profissão, level separado |
 | Inventário | `InventoryService` | `InventoryController` | Equip, sell, sockets, guarded |
 | Loja | `ShopService` | `ShopController` | Rotação 6h, raridade, compra única |
+| Casa de Leilão | `AuctionService` | `AuctionController` | Mercado entre players (buyout); taxa 5%+15%, 2 dias, máx 10. [LEILAO] |
+| VIP / SoulStone | `VipService` | `VipController` | 4ª moeda (SoulStone), status VIP (cura/bag/limites). [VIP] |
 | Coleta | `GatheringService` | `GatheringController` | Roller de drops por reino + consumo de peixe. A coleta em si roda pelo ZoneService (unificada). |
 | Forja | `SmithingService` | `SmithingController` | Refino, craft, joias, sockets |
 | Zonas | `ZoneService` | `ZoneController` | Coleta + combate instantâneos; PvP por flag/tiers, raid, item-lock; drops por reino (`kingdom`) |

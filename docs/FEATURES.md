@@ -111,7 +111,7 @@ Sem teto — progressão exponencialmente mais difícil inspirada em Tibia.
 
 ## 4. Stamina
 
-- 0-100%, regenera 100% em 2 horas
+- 0-100%, regenera 100% em 1 hora
 - Consumida por: missões (10-50), arena (25), torre (25), zona (grátis)
 - Guerreiro com stamina insuficiente não pode iniciar atividades
 
@@ -142,7 +142,7 @@ Sem teto — progressão exponencialmente mais difícil inspirada em Tibia.
 - Item recebe lore e origem automaticamente
 
 ### Abandonar Missão
-- `POST /api/quests/{id}/abandon`: não recebe recompensa, guerreiro liberado imediatamente
+- `POST /api/world/{kingdom}/quests/{id}/abandon`: não recebe recompensa (o legado `/api/quests` foi removido)
 
 ---
 
@@ -784,16 +784,12 @@ caçada PvE ficam **dentro de cada reino**. (A Forja/Smithing fica no Commerce.)
 | Recurso | Detalhe |
 |---------|---------|
 | **Treino** | Paga bronze → guerreiro treina X horas → coleta **XP puro** (timer estilo Work) |
-| **Zonas de combate** | Campo de Batalha (PvP, Lv.10+) e Zona de Guerra (HIGH_RISK, Lv.20+) |
-| **Caçada PvE** | `POST /api/world/COMBAT/raid` — mobs escalam com o nível, custa 15⚡; vitória rende gold (lv×10), XP (lv×12) e materiais (Núcleo de Fera sempre, Pele de Fera 25%) |
-| **Guild War** | Declarar ataque / ver status fica dentro da tela do reino |
+| **Zonas de caçada** | 🟢/🟡/🔴 na Fortaleza Maldita (role `COMBAT` em `/api/zones/enter`) — caçar monstro = "coleta" |
 
-> A caçada PvE era o reino "Covil das Feras" no plano original; como tinha só essa mecânica, foi
-> fundida na Fortaleza Maldita.
-
-### Caçada PvE (antigo Covil das Feras)
-- Repetível; reusa o BattleSimulator. Chefes (boss) ficam reservados para a Torre.
-- Drop de materiais: `MONSTER_CORE` (1 + level/25, sempre na vitória) e `BEAST_HIDE` (25%).
+> ⚠️ **DESATUALIZADO:** o antigo "Hunt Beasts" / Caçada PvE (`POST /api/world/COMBAT/raid` + `CombatPveService`,
+> "Covil das Feras") foi **REMOVIDO**. A caça virou as 3 zonas da Fortaleza Maldita (`COMBAT`), com Monster
+> Core/Beast Hide dropando das zonas. Ver [FORTALEZA_ZONAS] na CLAUDE.md. Monster Core também dropa de
+> **toda batalha PvE vencida** (encontros na coleta, arena, torre) [MONSTER_CORE_BATALHA].
 
 ### Interdependência forçada
 | Necessidade | Fonte |
@@ -809,7 +805,7 @@ caçada PvE ficam **dentro de cada reino**. (A Forja/Smithing fica no Commerce.)
 ## 24. Funcionalidades Futuras Planejadas
 
 - [ ] Cliente Godot (Steam)
-- [ ] Mercado entre jogadores (integração Steam Marketplace)
+- [x] Mercado entre jogadores — **implementado** via Casa de Leilão (`/api/auction`, buyout). Ver [LEILAO] / `docs/PLANO_LEILAO.md`. (Integração Steam Marketplace continua futuro.)
 - [ ] Masmorra em grupo (requer guilda)
 - [ ] Dominação de Castelo (requer guilda)
 - [ ] Mais classes de guerreiro
@@ -833,7 +829,7 @@ Moeda premium da conta (não do personagem). Obtida via compra (futuro: Stripe/S
 |--------|--------|
 | Compra direta (Stripe/Steam) | Planejado — admin endpoint por enquanto para testes |
 | Login diário consecutivo | Futuro (+1 💎 a cada 7 dias) |
-| Conquistas | Futuro |
+| Conquistas | **Implementado** (achievements + títulos, `/api/achievements`). Ver [TITULOS] / `docs/PLANO_TITULOS.md` |
 | Eventos sazonais | Futuro |
 
 ---

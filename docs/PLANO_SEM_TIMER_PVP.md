@@ -1,7 +1,8 @@
 # Plano — Jogo sem Timer + PvP de Zona com Flag
 
-> Planejamento (fase de design). Decisões aprovadas com o dono em 2026-06-04.
-> **Status: design travado. NÃO implementado.** Regra: discutir + documentar ANTES de codar.
+> Decisões aprovadas com o dono em 2026-06-04.
+> **Status: IMPLEMENTADO (Fases 1–3 concluídas, 2026-06-05). Fonte da verdade do modelo sem-timer + PvP de zona.**
+> (Regra de processo: discutir + documentar ANTES de codar.)
 
 ## Visão
 Tirar os **timers** de quest/trabalho/coleta — o jogo passa a ser **centrado em estamina**:
