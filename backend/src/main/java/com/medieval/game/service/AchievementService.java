@@ -80,6 +80,11 @@ public class AchievementService {
         return newly;
     }
 
+    /** [TITULOS] true se o player já desbloqueou este achievement. */
+    public boolean has(Player player, Achievement a) {
+        return achievementRepository.existsByPlayerAndAchievement(player, a);
+    }
+
     private Set<Achievement> unlockedSet(Player p) {
         Set<Achievement> set = EnumSet.noneOf(Achievement.class);
         achievementRepository.findByPlayer(p).forEach(pa -> set.add(pa.getAchievement()));

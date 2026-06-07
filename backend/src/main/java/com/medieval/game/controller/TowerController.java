@@ -10,6 +10,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -23,94 +24,91 @@ public class TowerController {
     private final PlayerService     playerService;
     private final WarriorRepository warriorRepository;
 
-    // Estado atual do jogador na torre
-    @GetMapping("/current")
-    public ResponseEntity<?> getCurrent(Authentication auth) {
-        Player player = getPlayer(auth);
-        Optional<TowerRun> run = towerService.getCurrentRun(player);
-
-        if (run.isEmpty()) return ResponseEntity.ok(Map.of("active", false));
-
-        TowerRun r = run.get();
-        var boss = towerService.bossForFloor(r.getCurrentFloor());
-
-        return ResponseEntity.ok(Map.of(
-            "active",        true,
-            "runId",         r.getId(),
-            "currentFloor",  r.getCurrentFloor(),
-            "highestFloor",  r.getHighestFloor(),
-            "bossName",      boss.name(),
-            "bossHp",        boss.health(),
-            "bossAtk",       boss.attack(),
-            "bossDef",       boss.defense(),
-            "bossAc",   10 + boss.dex(),
-            "recommendedLevel", TowerService.recommendedLevel(r.getCurrentFloor())
-        ));
+    /** Estado da run + preview do andar atual (atmosfera/monstros/MVP). */
+    private Map<String, Object> runState(TowerRun r) {
+        TowerService.FloorView fv = towerService.floorView(r.getCurrentFloor());
+        Map<String, Object> m = new LinkedHashMap<>();
+        m.put("active", true);
+        m.put("runId", r.getId());
+        m.put("currentFloor", r.getCurrentFloor());
+        m.put("highestFloor", r.getHighestFloor());
+        m.put("maxFloor", com.medieval.game.service.TowerFloors.maxFloor());
+        m.put("atmosphere", fv.atmosphere());            // [TORRE_NARRATIVA]
+        m.put("isMvp", fv.isMvp());
+        m.put("monsters", fv.monsters());
+        m.put("bossName", fv.primary().name());
+        m.put("bossHp", fv.primary().health());
+        m.put("bossAtk", fv.primary().attack());
+        m.put("bossDef", fv.primary().defense());
+        m.put("bossAc", 10 + fv.primary().dex());
+        m.put("recommendedLevel", fv.recommendedLevel());
+        return m;
     }
 
-    // Ranking global
+    @GetMapping("/current")
+    public ResponseEntity<?> getCurrent(Authentication auth) {
+        Optional<TowerRun> run = towerService.getCurrentRun(getPlayer(auth));
+        if (run.isEmpty()) return ResponseEntity.ok(Map.of("active", false));
+        return ResponseEntity.ok(runState(run.get()));
+    }
+
     @GetMapping("/ranking")
     public ResponseEntity<List<?>> getRanking() {
         var ranking = towerService.getRanking().stream().map(p -> {
             String warriorName = warriorRepository.findByPlayer(p)
                     .map(w -> w.getName()).orElse(p.getUsername());
-            return Map.of(
-                "warriorName", warriorName,
-                "bestFloor",   p.getTowerBestFloor()
-            );
+            return Map.of("warriorName", warriorName, "bestFloor", p.getTowerBestFloor());
         }).toList();
         return ResponseEntity.ok(ranking);
     }
 
-    // Lista info do boss de um andar específico
+    /** Preview de um andar específico. */
     @GetMapping("/boss/{floor}")
     public ResponseEntity<?> getBoss(@PathVariable int floor) {
-        var boss = towerService.bossForFloor(floor);
-        return ResponseEntity.ok(Map.of(
-            "floor",    floor,
-            "name",     boss.name(),
-            "hp",       boss.health(),
-            "atk",      boss.attack(),
-            "def",      boss.defense(),
-            "ac",  10 + boss.dex(),
-            "recommendedLevel", TowerService.recommendedLevel(floor)
-        ));
+        TowerService.FloorView fv = towerService.floorView(floor);
+        Map<String, Object> m = new LinkedHashMap<>();
+        m.put("floor", fv.floor());
+        m.put("atmosphere", fv.atmosphere());
+        m.put("isMvp", fv.isMvp());
+        m.put("monsters", fv.monsters());
+        m.put("name", fv.primary().name());
+        m.put("hp", fv.primary().health());
+        m.put("atk", fv.primary().attack());
+        m.put("def", fv.primary().defense());
+        m.put("ac", 10 + fv.primary().dex());
+        m.put("recommendedLevel", fv.recommendedLevel());
+        return ResponseEntity.ok(m);
     }
 
-    // Entra na torre
     @PostMapping("/enter")
     public ResponseEntity<?> enter(Authentication auth) {
-        Player  player = getPlayer(auth);
-        TowerRun run   = towerService.enter(player);
-        var boss = towerService.bossForFloor(run.getCurrentFloor());
-        return ResponseEntity.ok(Map.of(
-            "active",       true,
-            "runId",        run.getId(),
-            "currentFloor", run.getCurrentFloor(),
-            "highestFloor", run.getHighestFloor(),
-            "bossName",     boss.name(),
-            "bossHp",       boss.health(),
-            "bossAtk",      boss.attack(),
-            "bossDef",      boss.defense(),
-            "bossAc",  10 + boss.dex()
-        ));
+        return ResponseEntity.ok(runState(towerService.enter(getPlayer(auth))));
     }
 
-    // Luta contra o chefe do andar atual
     @PostMapping("/fight")
     public ResponseEntity<?> fight(Authentication auth) {
-        Player player = getPlayer(auth);
-        var result = towerService.fight(player);
-        return ResponseEntity.ok(Map.of(
-            "won",          result.won(),
-            "floor",        result.floor(),
-            "bossName",     result.bossName(),
-            "bronzeEarned", result.bronzeEarned(),
-            "expEarned",    result.expEarned(),
-            "log",          result.log(),
-            "runOver",      result.runOver()
-        ));
+        var result = towerService.fight(getPlayer(auth));
+        Map<String, Object> m = new LinkedHashMap<>();
+        m.put("won", result.won());
+        m.put("floor", result.floor());
+        m.put("bossName", result.bossName());
+        m.put("atmosphere", result.atmosphere());           // [TORRE_NARRATIVA]
+        m.put("bronzeEarned", result.bronzeEarned());
+        m.put("expEarned", result.expEarned());
+        m.put("log", result.log());
+        m.put("runOver", result.runOver());
+        m.put("arkaChoicePending", result.arkaChoicePending()); // topo: a escolha (poupar/matar)
+        return ResponseEntity.ok(m);
     }
+
+    /** [TORRE_NARRATIVA] A escolha no topo: poupar (spare=true) ou matar o Rei Arka → título oculto. */
+    @PostMapping("/arka")
+    public ResponseEntity<?> arkaChoice(@RequestBody ArkaRequest req, Authentication auth) {
+        String narrative = towerService.resolveArkaChoice(getPlayer(auth), req.spare());
+        return ResponseEntity.ok(Map.of("message", narrative, "spared", req.spare()));
+    }
+
+    public record ArkaRequest(boolean spare) {}
 
     private Player getPlayer(Authentication auth) {
         return playerService.findById((Long) auth.getPrincipal());

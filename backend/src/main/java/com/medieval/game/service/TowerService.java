@@ -32,45 +32,57 @@ public class TowerService {
 
     private static final int STAMINA_COST = 25;
 
-    // ── Nomes dos chefes por grupo de andares (3 por grupo) ──
-    private static final String[][] BOSSES = {
-        {"Esqueleto Errante",    "Goblin Briga-Tudo",    "Rato Gigante"},         // 1-3
-        {"Aranha das Trevas",    "Orc Batalhador",       "Troll da Pedra"},       // 4-6
-        {"Zumbi Corrompido",     "Vampiro Menor",        "Golem de Ossos"},       // 7-9
-        {"Cavaleiro Negro",      "Arqueiro Sombrio",     "Ogro Enfurecido"},      // 10-12
-        {"Xamã das Trevas",      "Wyvern Jovem",         "Lich Menor"},           // 13-15
-        {"Dragão de Sombra",     "Titan Corrompido",     "Lich Ancião"},          // 16-18
-        {"Campeão Infernal",     "Senhor dos Mortos",    "Arcanista Caído"},      // 19-21
-        {"Arquidemônio",         "Diabo Ancestral",      "O Guardião da Torre"},  // 22+
-    };
-
-    // ── Info do chefe para um andar ──
-    /** [REBALANCE] Boss stats: dex = acerto (d20+dex/5), agi = esquiva/velocidade. */
+    // ── [TORRE_NARRATIVA] Stats por andar (1 monstro / MVP). Tunável pela sonda; alvo ~1 andar por nível. ──
+    /** [REBALANCE] Stats: dex = acerto (d20+dex/5), agi = esquiva/velocidade. */
     public record BossInfo(String name, int attack, int defense, int health, int dex, int agi, int luk) {}
 
-    public BossInfo bossForFloor(int floor) {
-        int group = Math.min((floor - 1) / 3, BOSSES.length - 1);
-        int idx   = (floor - 1) % 3;
-        String name = BOSSES[group][idx] + " (Andar " + floor + ")";
-        return new BossInfo(
-            name,
-            12 + floor * 5,            // ATK — escala forte: Andar 1 já é parede p/ lvl1 [COMBATE_V2]
-            5  + floor * 3,            // DEF
-            120 + floor * 45,          // HP
-            Math.min(12 + floor, 40),  // dex → acerto (d20 + dex/5)
-            Math.min(floor / 4, 10),   // agi → esquiva/velocidade (modesta)
-            Math.min(floor, 18)        // luk
-        );
+    private BossInfo monster(int floor, String name, int hpDivisor, double atkMult, boolean mvp) {
+        int atk = (int) Math.round((9 + floor * 1.3) * atkMult * (mvp ? 1.4 : 1.0));
+        int def = (int) Math.round((4 + floor * 0.5) * (mvp ? 1.2 : 1.0));
+        int hp  = (int) Math.round((50 + floor * 11) * (mvp ? 1.9 : 1.0) / hpDivisor);
+        int dex = Math.min(10 + floor / 2, 40);
+        int agi = Math.min(floor / 6, 10) + (mvp ? 3 : 0);
+        int luk = Math.min(floor / 5, 15) + (mvp ? 3 : 0);
+        return new BossInfo(name, atk, def, Math.max(1, hp), dex, agi, luk);
     }
 
-    /** Nível recomendado para encarar o andar (referência de dificuldade exibida na UI). [COMBATE_V2] */
+    /** Gauntlet do andar: 1 MVP, ou N monstros (HP do andar dividido entre eles, atk levemente menor). */
+    public List<BossInfo> monstersFor(int floor) {
+        TowerFloors.FloorDef d = TowerFloors.forFloor(floor);
+        if (d.isMvp()) return List.of(monster(floor, d.mvp() + " (Floor " + floor + ")", 1, 1.0, true));
+        String[] ms = d.monsters().length > 0 ? d.monsters() : new String[]{"Tower Horror"};
+        int n = ms.length;
+        List<BossInfo> out = new java.util.ArrayList<>(n);
+        for (String name : ms) out.add(monster(floor, name, n, n > 1 ? 0.85 : 1.0, false));
+        return out;
+    }
+
+    /** Representante do andar (MVP ou 1º monstro) — preview de stats na UI. */
+    public BossInfo bossForFloor(int floor) {
+        return monstersFor(floor).get(0);
+    }
+
+    public String  floorAtmosphere(int floor) { return TowerFloors.forFloor(floor).atmosphere(); }
+    public boolean isMvpFloor(int floor)       { return TowerFloors.forFloor(floor).isMvp(); }
+
+    /** Preview do andar pra UI: atmosfera + nomes dos monstros + stats do representante + nível recomendado. */
+    public record FloorView(int floor, String atmosphere, boolean isMvp, List<String> monsters,
+                            BossInfo primary, int recommendedLevel) {}
+    public FloorView floorView(int floor) {
+        TowerFloors.FloorDef d = TowerFloors.forFloor(floor);
+        List<String> names = d.isMvp() ? List.of(d.mvp()) : List.of(d.monsters());
+        return new FloorView(floor, d.atmosphere(), d.isMvp(), names, bossForFloor(floor), recommendedLevel(floor));
+    }
+
+    /** Nível recomendado: ~1 andar por nível (alvo de tuning; placeholder p/ playtest). [TORRE_NARRATIVA] */
     public static int recommendedLevel(int floor) {
-        return Math.max(1, floor * 3);
+        return Math.max(1, floor);
     }
 
     // ── Resultado de um combate ──
     public record FightResult(boolean won, int floor, long bronzeEarned, long expEarned,
-                              List<String> log, String bossName, boolean runOver) {}
+                              List<String> log, String bossName, boolean runOver,
+                              String atmosphere, boolean arkaChoicePending) {}
 
     public Optional<TowerRun> getCurrentRun(Player player) {
         return towerRunRepository.findByPlayerAndStatus(player, TowerStatus.IN_PROGRESS);
@@ -116,6 +128,10 @@ public class TowerService {
         int startFloor = player.getTowerBestFloor() > 0
                 ? player.getTowerBestFloor() + 1
                 : 1;
+        // [TORRE_NARRATIVA] A Torre tem 50 andares (S1). Quem já chegou ao topo a conquistou.
+        if (startFloor > TowerFloors.maxFloor()) {
+            throw new IllegalStateException("You stand atop the Tower. There is nothing above — only what waits below.");
+        }
 
         TowerRun run = new TowerRun();
         run.setPlayer(player);
@@ -133,10 +149,12 @@ public class TowerService {
                 .orElseThrow(() -> new IllegalStateException("You are not in the tower"));
 
         int floor = run.getCurrentFloor();
-        BossInfo boss = bossForFloor(floor);
+        TowerFloors.FloorDef fdef = TowerFloors.forFloor(floor);
+        List<BossInfo> monsters = monstersFor(floor);
+        String headline = fdef.isMvp() ? fdef.mvp()
+                : (monsters.size() > 1 ? monsters.size() + " monsters" : monsters.get(0).name());
 
         // Climb fee (scalable sink) — the Tower stops being pure income. [AUDITORIA A3]
-        // Cost = floor × 15. A win pays floor × 40 (net floor × 25); a loss costs the fee.
         long climbCost = (long) floor * 15;
         if (player.totalBronze() < climbCost) {
             log.warn("[TowerService] player={} REJECTED: insufficient bronze to climb (have={} need={})",
@@ -146,33 +164,36 @@ public class TowerService {
         }
         playerService.spendBronze(player, climbCost);
 
-        // Stats do guerreiro (base + atributos + itens + joias — fonte única) [AUDITORIA A1/A9]
         Warrior warrior = warriorRepository.findByPlayer(player)
                 .orElseThrow(() -> new IllegalStateException("Warrior not found"));
-
         int[] s = statsService.combatStats(player, warrior);
-        BattleSimulator.BattleOutcome outcome = battleSimulator.simulateDetailed(
-            warrior.getName(), s[0], s[1], s[2], s[3], s[4], s[5],
-            boss.name(), boss.attack(), boss.defense(), boss.health(), boss.dex(), boss.agi(), boss.luk(),
-            true, // PvE: não matou o chefe em 40 rounds = derrota [COMBATE_V2]
-            warrior.getWarriorClass().isRanged(), false // [KITING] chefe da torre = melee
-        );
+        boolean ranged = warrior.getWarriorClass().isRanged();
 
-        // Desgaste de equipamento por lutar (1-10 de durabilidade por item)
-        inventoryService.wearEquippedItems(player);
+        // [TORRE_NARRATIVA] Atmosfera do andar + gauntlet sequencial (HP carrega entre os monstros).
+        List<String> battleLog = new java.util.ArrayList<>();
+        battleLog.add("🗼 Floor " + floor + " — " + fdef.atmosphere());
+        boolean won = true;
+        int hp = s[2]; // começa o andar com HP cheio; carrega só ENTRE os monstros do gauntlet
+        for (BossInfo m : monsters) {
+            BattleSimulator.BattleOutcome out = battleSimulator.simulateDetailed(
+                warrior.getName(), s[0], s[1], hp, s[3], s[4], s[5],
+                m.name(), m.attack(), m.defense(), m.health(), m.dex(), m.agi(), m.luk(),
+                true, ranged, false); // PvE: timeout = derrota; chefe melee [KITING]
+            List<String> lg = new java.util.ArrayList<>(out.log());
+            lg.remove(lg.size() - 1); // tira a tag WINNER
+            battleLog.addAll(lg);
+            if (!out.firstWon()) { won = false; break; }
+            hp = out.firstHpFinal(); // carrega pro próximo monstro do andar
+        }
 
-        // Vencedor explícito do simulador (sem parsear string). [AUDITORIA M13]
-        boolean won = outcome.firstWon();
-        List<String> battleLog = new java.util.ArrayList<>(outcome.log());
-        battleLog.remove(battleLog.size() - 1);
+        inventoryService.wearEquippedItems(player); // desgaste de equipamento
 
-        long bronzeEarned = 0;
-        long expEarned    = 0;
+        long bronzeEarned = 0, expEarned = 0;
+        boolean arkaChoicePending = false;
 
         if (won) {
             bronzeEarned = (long) floor * 40;
             expEarned    = (long) floor * 20;
-
             player.addBronzeAmount(bronzeEarned);
             playerRepository.save(player);
 
@@ -183,21 +204,24 @@ public class TowerService {
             }
             warriorRepository.save(warrior);
 
-            // [MONSTER_CORE_BATALHA] cada andar vencido rende Monster Core (escala com a profundidade).
             long got = gatheringService.addResource(player, com.medieval.game.enums.ResourceType.MONSTER_CORE, 1 + floor / 5);
             if (got > 0) battleLog.add("🧩 +" + got + " Monster Core");
 
             run.setHighestFloor(floor);
             run.setCurrentFloor(floor + 1);
-
-            // Atualiza melhor andar histórico do jogador
             if (floor > player.getTowerBestFloor()) {
                 player.setTowerBestFloor(floor);
                 playerRepository.save(player);
                 achievementService.checkAndUnlock(player, true); // [TITULOS] Tower Climber/Conqueror
             }
+
+            // [TORRE_NARRATIVA] Topo: derrotou o Rei Arka (andar 50) → a escolha (poupar/matar) + fim da S1.
+            if (fdef.isMvp() && floor >= TowerFloors.maxFloor()) {
+                run.setStatus(TowerStatus.EXITED); // a Torre acaba aqui
+                arkaChoicePending = !achievementService.has(player, com.medieval.game.enums.Achievement.REGICIDE)
+                                 && !achievementService.has(player, com.medieval.game.enums.Achievement.THE_MERCIFUL);
+            }
         } else {
-            // Derrotado — sai da torre, HP = 0, perde buff
             run.setStatus(TowerStatus.DEFEATED);
             warrior.applyDamagePercent(100);
             warrior.clearBuff();
@@ -205,9 +229,31 @@ public class TowerService {
         }
 
         towerRunRepository.save(run);
-        log.info("[TowerService] player={} action=climbToNextFloor OK floor={} won={} bronze={} xp={}", player.getId(), floor, won, bronzeEarned, expEarned);
-        return new FightResult(won, floor, bronzeEarned, expEarned, battleLog, boss.name(),
-                run.getStatus() == TowerStatus.DEFEATED);
+        log.info("[TowerService] player={} action=climb OK floor={} won={} mvp={} bronze={} xp={}",
+                player.getId(), floor, won, fdef.isMvp(), bronzeEarned, expEarned);
+        boolean runOver = run.getStatus() == TowerStatus.DEFEATED || run.getStatus() == TowerStatus.EXITED;
+        return new FightResult(won, floor, bronzeEarned, expEarned, battleLog, headline,
+                runOver, fdef.atmosphere(), arkaChoicePending);
+    }
+
+    /**
+     * [TORRE_NARRATIVA][TITULOS] Resolve a escolha no topo da Torre, depois de derrotar o Rei Arka:
+     * poupar (→ The Merciful) ou matar (→ Regicide). Uma só vez. Os dois "abrem o portal" (fim da S1).
+     */
+    @Transactional
+    public String resolveArkaChoice(Player player, boolean spare) {
+        if (player.getTowerBestFloor() < TowerFloors.maxFloor())
+            throw new IllegalStateException("You have not yet faced the King.");
+        if (achievementService.has(player, com.medieval.game.enums.Achievement.REGICIDE)
+                || achievementService.has(player, com.medieval.game.enums.Achievement.THE_MERCIFUL))
+            throw new IllegalStateException("The choice is already made.");
+        boolean granted = achievementService.grant(player,
+                spare ? com.medieval.game.enums.Achievement.THE_MERCIFUL
+                      : com.medieval.game.enums.Achievement.REGICIDE);
+        log.info("[TowerService] player={} arkaChoice spare={} granted={}", player.getId(), spare, granted);
+        return spare
+            ? "You lower your blade. King Arka thanks you — and buries the ritual dagger in his own heart, over the mark on the floor. \"Worse things are coming,\" he breathes. The floor opens beneath you."
+            : "You strike. The King's blood spills across the mark, and the floor gives way beneath you. Far below, something begins to wake.";
     }
 
 }

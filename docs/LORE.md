@@ -103,9 +103,14 @@ O portal leva **para baixo**, ao **Deus que Dorme**, agora despertando. Contrast
 - Títulos da escolha final: **Regicide** (matar) / **The Merciful** (poupar) — ambos **ocultos**
 - Magia / o poder do Deus: *o Dom* / *a Febre* (a definir)
 
+## Construído ✅
+- **Torre narrativa** — 50 andares (`TowerFloors`: atmosfera + monstros por andar, 5 zonas), gauntlet
+  sequencial (HP carrega), 5 MVPs (10 Fallen Captain / 20 Coin-Eaten / 30 Crowned Echo / 40 Xamã / 50 Arka),
+  escala ~1/level (tunada com `TowerBalanceProbeTest`: normais passáveis at-level, MVPs viram paredes a
+  cada 10). A escolha no andar 50 (poupar/matar) → `POST /api/tower/arka` → `grant(The Merciful/Regicide)`.
+- **Achievements ocultos** (flag `hidden`) + os 2 títulos da escolha. UI: atmosfera do andar + modal da escolha.
+
 ## Em aberto (a decidir / construir)
-- **Balanceamento** do gate do andar 50 (~nível 50) e dos MVPs 10/20/30/40.
-- Construir a **Torre narrativa** (50 andares, os 5 MVPs como chefes de história) — design feito, falta codar.
-- Implementação dos **achievements ocultos** (flag `hidden` no sistema de Títulos) + o **ponto de escolha** no combate do Arka.
-- Reskin das **quests dos reinos** → ver `docs/PLANO_QUESTS_LORE.md`.
-- Sorte do Arka/Xamã e forma de Mordûn na **S2**.
+- **Balanceamento fino** dos andares no playtest (números são placeholders; a sonda dá a base).
+- Reskin das **quests dos reinos** → ver `docs/PLANO_QUESTS_LORE.md` (design pronto, falta codar).
+- **S2** (pós-lançamento): descida ao Mordûn, sorte do Arka/Xamã, forma do Deus.

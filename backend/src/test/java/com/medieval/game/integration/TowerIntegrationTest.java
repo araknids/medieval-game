@@ -58,4 +58,41 @@ class TowerIntegrationTest extends BaseIntegrationTest {
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.error").isNotEmpty());
     }
+
+    // ── [TORRE_NARRATIVA] A escolha no topo (andar 50): matar/poupar o Rei Arka → título oculto ──
+    @org.springframework.beans.factory.annotation.Autowired
+    com.medieval.game.repository.PlayerRepository playerRepository;
+    @org.springframework.beans.factory.annotation.Autowired
+    com.medieval.game.service.AchievementService achievementService;
+
+    @Test
+    @DisplayName("Arka: só depois do andar 50; matar concede Regicide (oculto); só uma vez")
+    void arkaChoice_grantsHiddenTitleOnce() throws Exception {
+        var p = playerRepository.findAll().stream()
+                .filter(x -> x.getUsername().startsWith("tower"))
+                .reduce((a, b) -> b.getId() > a.getId() ? b : a).orElseThrow();
+
+        // ainda não enfrentou o Rei (towerBestFloor < 50) → rejeita
+        mockMvc.perform(post("/api/tower/arka").header("Authorization", bearer(token))
+                        .contentType(org.springframework.http.MediaType.APPLICATION_JSON).content("{\"spare\":false}"))
+                .andExpect(status().isBadRequest());
+
+        // chegou ao topo
+        p.setTowerBestFloor(com.medieval.game.service.TowerFloors.maxFloor());
+        playerRepository.save(p);
+
+        // matar → Regicide
+        mockMvc.perform(post("/api/tower/arka").header("Authorization", bearer(token))
+                        .contentType(org.springframework.http.MediaType.APPLICATION_JSON).content("{\"spare\":false}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.spared").value(false));
+        org.assertj.core.api.Assertions.assertThat(
+                achievementService.has(playerRepository.findById(p.getId()).orElseThrow(),
+                        com.medieval.game.enums.Achievement.REGICIDE)).isTrue();
+
+        // a escolha é definitiva → segunda vez rejeita
+        mockMvc.perform(post("/api/tower/arka").header("Authorization", bearer(token))
+                        .contentType(org.springframework.http.MediaType.APPLICATION_JSON).content("{\"spare\":true}"))
+                .andExpect(status().isBadRequest());
+    }
 }

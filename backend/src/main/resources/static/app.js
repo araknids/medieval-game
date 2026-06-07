@@ -2031,12 +2031,16 @@ async function showTowerFloor(state) {
   document.getElementById('tower-floor').style.display  = 'block';
 
   // Renderiza o andar na hora; o ranking entra logo abaixo (mesma tela). [TOWER_RANK_JUNTO]
+  const monsters = Array.isArray(state.monsters) ? state.monsters : [];
+  const isMvp = !!state.isMvp;
   document.getElementById('tower-floor-content').innerHTML = `
     <div class="tower-floor-box">
-      <div class="tower-floor-num">🏰 Andar ${state.currentFloor}</div>
+      <div class="tower-floor-num">🏰 Floor ${state.currentFloor}${state.maxFloor ? ` / ${state.maxFloor}` : ''}</div>
       ${state.highestFloor > 0 ? `<div class="tower-cleared">✓ Highest floor cleared: ${state.highestFloor}</div>` : ''}
-      <div class="tower-boss-card">
-        <div class="tower-boss-name">${state.bossName}</div>
+      ${state.atmosphere ? `<div style="font-style:italic;color:#9aa6b2;font-size:.82rem;border-left:3px solid ${isMvp ? '#c9a84c' : '#556'};padding:7px 11px;margin:8px 0;background:#12121c;line-height:1.5">${escapeHtml(state.atmosphere)}</div>` : ''}
+      <div class="tower-boss-card"${isMvp ? ' style="border-color:#c9a84c"' : ''}>
+        <div class="tower-boss-name">${isMvp ? '👑 ' : ''}${escapeHtml(monsters.length ? monsters[0] : state.bossName)}</div>
+        ${monsters.length > 1 ? `<div style="font-size:.72rem;color:#b08;margin:2px 0">⚔ Gauntlet — ${monsters.map(escapeHtml).join(' · ')}</div>` : ''}
         ${state.recommendedLevel ? `<div style="font-size:11px;color:#e6a23c;margin:2px 0">⚑ Recommended Lv.${state.recommendedLevel}+</div>` : ''}
         <div class="tower-boss-stats">
           <span>❤ ${state.bossHp} HP</span>
@@ -2045,7 +2049,7 @@ async function showTowerFloor(state) {
           <span>🎯 AC ${state.bossAc}</span>
         </div>
         <div class="tower-rewards-preview">
-          Recompensa: ${fmtBronze(state.currentFloor * 40)} · ⭐ ${state.currentFloor * 20} exp
+          Reward: ${fmtBronze(state.currentFloor * 40)} · ⭐ ${state.currentFloor * 20} exp
         </div>
       </div>
       <div style="display:flex;gap:.5rem;margin-top:.8rem">
@@ -2072,7 +2076,52 @@ async function fightTower() {
   if (data.error) { showMessage(data.error, true); return; }
   await loadWarrior();
   await loadTower();             // atualiza a tela atrás do modal (próximo andar OU lobby se perdeu)
+  if (data.arkaChoicePending) { showArkaChoiceModal(data); return; } // [TORRE_NARRATIVA] o topo
   showTowerFightModal(data);     // resultado no modal padrão (igual zonas)
+}
+
+// [TORRE_NARRATIVA] Andar 50: o Rei Arka caído implora. O jogador ESCOLHE — e a escolha é definitiva.
+function showArkaChoiceModal(data) {
+  closeCollectModal();
+  const el = document.createElement('div');
+  el.id = 'collect-modal-overlay';
+  el.setAttribute('style',
+    'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.9);' +
+    'z-index:9999;display:flex;align-items:center;justify-content:center;padding:16px;box-sizing:border-box');
+  el.innerHTML = `
+    <div onclick="event.stopPropagation()" style="background:#16121a;border:2px solid #c9a84c;border-radius:14px;
+      padding:24px;max-width:480px;width:100%;max-height:88vh;overflow-y:auto;box-shadow:0 8px 32px rgba(0,0,0,0.7)">
+      <h3 style="margin:0 0 12px;color:#c9a84c;font-size:18px">👑 The King Falls</h3>
+      <div style="font-style:italic;color:#cdd;font-size:13px;line-height:1.6;margin-bottom:18px">
+        King Arka sinks to his knees, the borrowed light guttering out of him. For a heartbeat, the man who
+        founded a kingdom looks up at you — and he is afraid. <b>"Mercy,"</b> he breathes. <b>"Please."</b>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:10px">
+        <button onclick="arkaChoice(true)" style="background:#2a3a2a;border:1px solid #4c7c4c;color:#cfe;
+          padding:12px;border-radius:8px;cursor:pointer;font-size:14px;text-align:left">
+          🕊 <b>Spare him</b> <span style="color:#9a9;font-size:12px">— lower your blade.</span>
+        </button>
+        <button onclick="arkaChoice(false)" style="background:#3a2222;border:1px solid #8b3a3a;color:#fcc;
+          padding:12px;border-radius:8px;cursor:pointer;font-size:14px;text-align:left">
+          🗡 <b>Strike him down</b> <span style="color:#c99;font-size:12px">— end the King.</span>
+        </button>
+      </div>
+      <div style="color:#777;font-size:11px;margin-top:14px;text-align:center">This choice cannot be undone.</div>
+    </div>`;
+  document.body.appendChild(el);
+}
+
+async function arkaChoice(spare) {
+  const r = await api('POST', '/api/tower/arka', { spare });
+  closeCollectModal();
+  if (r.error) { showMessage(r.error, true); return; }
+  await loadWarrior();
+  showCollectModal({
+    title: spare ? '🕊 The Merciful' : '🗡 Regicide',
+    color: spare ? '#4caf82' : '#8b3a3a',
+    note: r.message,
+    rows: [{ icon: '🏆', label: 'Title unlocked', value: spare ? 'The Merciful' : 'Regicide', color: '#c9a84c' }]
+  });
 }
 
 // Resultado da luta da torre no modal padrão. Sem "sair com os ganhos" — os ganhos já foram
@@ -2087,7 +2136,8 @@ function showTowerFightModal(r) {
   }
   const title = r.won ? `🏆 Floor ${r.floor} cleared!` : `💀 Defeated on Floor ${r.floor}`;
   const color = r.won ? '#4caf82' : '#ef5350';
-  const note  = r.won && !r.runOver ? 'Boss down! Climb to the next floor whenever you like.' : '';
+  // [TORRE_NARRATIVA] a atmosfera do andar vira a nota narrativa do resultado.
+  const note  = r.atmosphere || (r.won && !r.runOver ? 'Boss down! Climb to the next floor whenever you like.' : '');
   showCollectModal({ title, color, rows, note, log: r.log || [] });
 }
 
