@@ -48,6 +48,12 @@ public class GuildService {
             throw new IllegalArgumentException("Nome deve ter entre 3 e 30 caracteres.");
         }
 
+        // [TOWER_OPTLOCK] Recarrega o player GERENCIADO: o controller o passa detached e este método o
+        // salva 2x (spendBronze + setGuild). Sem isso, o 2º merge vê a @Version defasada →
+        // OptimisticLockException ("Row was updated by another transaction"). Mesmo padrão do donate().
+        player = playerRepository.findById(player.getId())
+                .orElseThrow(() -> new IllegalStateException("Player not found"));
+
         playerService.spendBronze(player, CREATE_COST_BRONZE);
 
         Guild guild = new Guild();
