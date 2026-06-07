@@ -138,6 +138,10 @@ mvn spring-boot:run
 | `BREVO_API_KEY` | Chave da API Brevo |
 | `BREVO_FROM_EMAIL` | Email remetente verificado |
 | `APP_BASE_URL` | URL base do app |
+| `SERVER_ID` / `SERVER_NAME` / `SERVER_ENV` | [SERVIDORES] identidade do servidor/realm (deploy separado); `env` = dev/test/prod. Exposto em `GET /api/server-info` (público) |
+
+### Servidores / Realms — [SERVIDORES]
+Multi-servidor = **deploys separados** (1 app + 1 Postgres por servidor), não há coluna `realm`. O app já é "multi-tenant by deploy": front usa caminho relativo, config toda por env var, JWT por instância, `localStorage` por origem. Criar `test`/`prod1`/`prod2` = novo serviço + banco + env vars (`SERVER_*`, `JWT_SECRET` único, `PG*`, CORS/URL próprios). Contas são **por servidor**. O front tem `GET /api/server-info` + `/servers.json` → seletor de servidor na tela de login (botões que abrem a URL do servidor) + badge do servidor no header (cor por `env`). Desenho + passo a passo no Railway: `docs/PLANO_SERVIDORES.md`.
 
 ---
 

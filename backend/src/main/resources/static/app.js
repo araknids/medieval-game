@@ -2142,6 +2142,49 @@ async function attemptClassTrial(path) {
 }
 
 // ── Init — load language FIRST, then check token ──
+// ── [SERVIDORES] Qual servidor (realm) este deploy é + seletor pra trocar ──
+let serverInfo = null;
+const SERVER_ENV_COLOR = { dev: '#888', test: '#e0a800', prod: '#4caf50' };
+
+async function loadServerInfo() {
+  const [info, list] = await Promise.all([
+    fetch('/api/server-info').then(r => r.ok ? r.json() : null).catch(() => null),
+    fetch('/servers.json').then(r => r.ok ? r.json() : []).catch(() => [])
+  ]);
+  serverInfo = info;
+  renderServerBadge(info);
+  renderServerBar(info, Array.isArray(list) ? list : []);
+}
+
+function renderServerBadge(info) {
+  const el = document.getElementById('hdr-server');
+  if (!el || !info) return;
+  const c = SERVER_ENV_COLOR[info.env] || '#888';
+  el.textContent = '🌐 ' + info.name;
+  el.style.background = c + '22';
+  el.style.color = c;
+  el.style.borderColor = c;
+}
+
+function renderServerBar(info, list) {
+  const el = document.getElementById('server-bar');
+  if (!el) return;
+  const curId = info ? info.id : null;
+  const c = info ? (SERVER_ENV_COLOR[info.env] || '#888') : '#888';
+  const others = list.filter(s => s && s.url && s.id !== curId);
+  el.innerHTML = `
+    <div style="text-align:center;margin-bottom:12px">
+      <div style="font-size:.68rem;color:#888;text-transform:uppercase;letter-spacing:.5px">Server</div>
+      <div style="font-size:.95rem;font-weight:700;color:${c}">🌐 ${info ? escapeHtml(info.name) : '—'}</div>
+      ${others.length ? `
+        <div style="display:flex;gap:6px;flex-wrap:wrap;justify-content:center;margin-top:7px">
+          ${others.map(s => `<button onclick="window.location.href='${s.url}'" style="font-size:.72rem;padding:3px 10px;background:#14141f;border:1px solid #444;border-radius:6px;color:${SERVER_ENV_COLOR[s.env]||'#ccc'};cursor:pointer">↪ ${escapeHtml(s.name)}</button>`).join('')}
+        </div>` : ''}
+    </div>`;
+}
+
+loadServerInfo(); // [SERVIDORES] roda no boot (login bar + badge do header)
+
 loadLanguage(_currentLang).finally(() => {
   const resetTokenParam = new URLSearchParams(window.location.search).get('reset');
   if (resetTokenParam) {

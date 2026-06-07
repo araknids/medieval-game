@@ -1,0 +1,3 @@
+[
+  { "id": "prod1", "name": "Prod 1", "env": "prod", "url": "https://medieval-game-production.up.railway.app" }
+]

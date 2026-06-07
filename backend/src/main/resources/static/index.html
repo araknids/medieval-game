@@ -11,6 +11,7 @@
   <!-- TELA DE LOGIN/REGISTER -->
   <div id="login-screen" style="display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:100vh;background:#0d0d1a">
     <div class="auth-box">
+      <div id="server-bar"></div> <!-- [SERVIDORES] qual servidor + trocar -->
       <h2>Log In</h2>
       <div id="auth-error" style="color:#ef5350;font-size:.8rem;min-height:1.2rem"></div>
       <div id="login-form">
@@ -44,7 +45,7 @@
   <!-- TELA DO JOGO -->
   <div id="game-screen" style="display:none">
     <header class="game-header">
-      <div class="header-logo">⚔ Medieval Game</div>
+      <div class="header-logo">⚔ Medieval Game <span id="hdr-server" style="font-size:.7rem;font-weight:600;padding:.1rem .4rem;border-radius:4px;margin-left:.4rem;vertical-align:middle"></span></div>
       <div class="header-info">
         <span id="hdr-username"></span>
         <span id="hdr-currency"></span>

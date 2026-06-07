@@ -106,15 +106,16 @@ class ZoneCombatHuntTest extends BaseIntegrationTest {
         crusher(p, 30); // esmaga qualquer NPC → sempre vence o encontro
 
         boolean gotCore = false;
-        // HIGH_RISK tem 35% de encontro de NPC por farm; em ~50 coletas vence vários → dropa Monster Core.
-        for (int i = 0; i < 50 && !gotCore; i++) {
+        // SAFE: 20% de encontro de NPC por farm e SEM PvP (a vermelha poderia cruzar com players flagged
+        // de outros testes → raid PvP, que não dá Monster Core). ~60 coletas vencem vários NPCs → Monster Core.
+        for (int i = 0; i < 60 && !gotCore; i++) {
             Player fp = playerRepository.findById(p.getId()).orElseThrow();
             fp.setCurrentStamina(100); fp.setStaminaUpdatedAt(LocalDateTime.now()); playerRepository.save(fp);
             warriorRepository.findByPlayer(fp).ifPresent(w -> {
                 w.setCurrentHpSnapshot(100); w.setHpUpdatedAt(LocalDateTime.now()); warriorRepository.save(w);
             });
             var act = zoneService.enter(playerRepository.findById(p.getId()).orElseThrow(),
-                    Zone.HIGH_RISK, ActivityRole.GATHERING, com.medieval.game.enums.SkillType.FISHING, 20);
+                    Zone.SAFE, ActivityRole.GATHERING, com.medieval.game.enums.SkillType.FISHING, 20);
             var r = zoneService.collect(playerRepository.findById(p.getId()).orElseThrow(), act.getId());
             if (r.drops().stream().anyMatch(d -> d.type() == ResourceType.MONSTER_CORE)) gotCore = true;
         }
