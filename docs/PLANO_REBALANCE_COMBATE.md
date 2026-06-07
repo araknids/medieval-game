@@ -22,6 +22,21 @@ do gear (`combatStats`) seguem esse atributo.
 
 **Sai o AC** (`10 + DEX`). DEF continua como **mitigação de dano** (`ATK×100/(100+DEF)`), vinda de base de classe + gear (nenhum atributo aumenta DEF direto).
 
+## Kiting — Arqueiro vs corpo-a-corpo (distância) — [KITING]
+
+O Arqueiro escala dano+acerto com DEX e velocidade+esquiva com AGI → muito eficiente, dominava o melee.
+Correção temática: quando o **melee cola no arqueiro**, o arqueiro **atira de perto com dano reduzido** e
+depois **perde um turno recuando** pra reabrir distância.
+
+- O simulador agora sabe quem é **ranged** (`Combatant/Side.ranged`, `WarriorClass.isRanged()` = Archer);
+  passado em todos os call sites (Arena/Zona PvE+PvP/Torre/Quest/Guerra). NPC/chefe/guardião = melee.
+- Estado do arqueiro: `0` à distância (tiro cheio) → o melee **cola** (chance) → `2` encurralado
+  (tiro de perto a `ARCHER_CLOSE_DMG=×0.5`) → `1` recuando (**perde o turno**) → volta a `0`.
+- Chance do melee colar: `clamp(20,85, MELEE_CLOSE_CHANCE(60) + (AGI_melee − AGI_arqueiro)/3)` — melee rápido
+  cola mais, arqueiro ágil escapa um pouco (mas não some).
+- **Resultado (sonda, Lv50, sem gear):** virou um **triângulo** — Archer › Warrior (56%) › Merchant (63%) ›
+  Archer (55%). Tudo soft-counter (55–63%), sem atropelo. Números são placeholders.
+
 ## Motor de combate (BattleSimulator)
 
 Mantém d20, 40 rounds, desempate por %HP. Por golpe:

@@ -648,8 +648,9 @@ public class TerritoryService {
         }
 
         BattleSimulator.Combatant toCombatant() {
+            boolean ranged = warrior != null && warrior.getWarriorClass().isRanged(); // [KITING] NPC = melee
             return BattleSimulator.Combatant.of(name, new int[]{atk, def, hp, dex, agi, luk},
-                    weaponElement, armorElement, abilities);
+                    weaponElement, armorElement, abilities, ranged);
         }
     }
 

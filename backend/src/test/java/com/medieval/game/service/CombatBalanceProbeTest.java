@@ -73,9 +73,10 @@ class CombatBalanceProbeTest {
             boolean aFirst = (i % 2 == 0); // alterna pra anular vantagem de iniciativa
             Build first = aFirst ? a : b, second = aFirst ? b : a;
             int[] f = first.arr(), s = second.arr();
+            boolean fRanged = first.cls() == WarriorClass.ARCHER, sRanged = second.cls() == WarriorClass.ARCHER;
             BattleSimulator.BattleOutcome o = SIM.simulateDetailed(
                     first.label, f[0], f[1], f[2], f[3], f[4], f[5],
-                    second.label, s[0], s[1], s[2], s[3], s[4], s[5], false);
+                    second.label, s[0], s[1], s[2], s[3], s[4], s[5], false, fRanged, sRanged);
             boolean aWon = aFirst == o.firstWon();
             if (aWon) aWins++;
             int fHp = o.firstHpFinal(), sHp = o.secondHpFinal();

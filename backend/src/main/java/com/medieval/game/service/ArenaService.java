@@ -78,6 +78,7 @@ public class ArenaService {
         com.medieval.game.enums.Element cArmor  = cWarrior.getActiveArmorElement();
         com.medieval.game.enums.Element oWeapon = null, oArmor = null;
         java.util.List<BattleSimulator.ActiveAbility> oAbilities = java.util.List.of();
+        boolean oRanged = false; // [KITING] preenchido se o oponente for um Arqueiro real
 
         // Oponente: outro jogador real (rank próximo) ou NPC
         Player opponent = findOpponent(challenger);
@@ -90,15 +91,17 @@ public class ArenaService {
             if (oWarrior != null) {
                 oWeapon = oWarrior.getActiveWeaponElement(); oArmor = oWarrior.getActiveArmorElement();
                 oAbilities = abilityService.activeLoadout(oWarrior);
+                oRanged = oWarrior.getWarriorClass().isRanged();
             }
         } else {
             opponentName = NPC_NAMES[java.util.concurrent.ThreadLocalRandom.current().nextInt(NPC_NAMES.length)];
             oStats = npcStats();
         }
 
+        boolean cRanged = cWarrior.getWarriorClass().isRanged(); // [KITING] NPC/oponente melee = false
         BattleSimulator.BattleOutcome outcome = battleSimulator.simulate(
-                BattleSimulator.Combatant.of(cWarrior.getName(), cStats, cWeapon, cArmor, abilityService.activeLoadout(cWarrior)),
-                BattleSimulator.Combatant.of(opponentName,       oStats, oWeapon, oArmor, oAbilities),
+                BattleSimulator.Combatant.of(cWarrior.getName(), cStats, cWeapon, cArmor, abilityService.activeLoadout(cWarrior), cRanged),
+                BattleSimulator.Combatant.of(opponentName,       oStats, oWeapon, oArmor, oAbilities, oRanged),
                 false); // PvP %HP
         inventoryService.wearEquippedItems(challenger);
 

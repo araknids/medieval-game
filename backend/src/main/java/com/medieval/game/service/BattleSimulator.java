@@ -34,6 +34,13 @@ public class BattleSimulator {
     /** [REBALANCE] Multiplicador do crítico (era 2.0 — matava de um golpe no nível alto). */
     private static final double CRIT_MULT     = 1.5;
 
+    // [KITING] Arqueiro (ranged) vs corpo-a-corpo (melee): quando o melee "fecha a distância", o arqueiro
+    // atira de perto com dano reduzido e depois PERDE um turno recuando pra reabrir espaço.
+    /** Chance-base do melee colar no arqueiro num round (ajustada por AGI/3: melee rápido cola mais). */
+    private static final int    MELEE_CLOSE_CHANCE = 60;
+    /** Dano do "tiro de perto" do arqueiro encurralado (× no golpe). */
+    private static final double ARCHER_CLOSE_DMG   = 0.5;
+
     private static final String[] HIT_TEXTS = {
         "charges fiercely and lands a precise blow",
         "launches a swift and accurate attack",
@@ -102,12 +109,16 @@ public class BattleSimulator {
     /** Habilidade ativa pronta p/ o simulador: efeito, cooldown (rounds) e magnitude (já do nível). [HABILIDADES] */
     public record ActiveAbility(AbilityEffect effect, int cooldown, int magnitude) {}
 
-    /** Lutador completo (stats + elementos + ativas). stats = [atk, def, hp, dex, agi, luk]. */
+    /** Lutador completo (stats + elementos + ativas + ranged). stats = [atk, def, hp, dex, agi, luk]. */
     public record Combatant(String name, int atk, int def, int hp, int dex, int agi, int luk,
-                            Element weapon, Element armor, List<ActiveAbility> abilities) {
+                            Element weapon, Element armor, List<ActiveAbility> abilities, boolean ranged) {
         public static Combatant of(String name, int[] s, Element weapon, Element armor, List<ActiveAbility> abilities) {
+            return of(name, s, weapon, armor, abilities, false);
+        }
+        /** [KITING] ranged=true p/ Arqueiro (arco) — sofre/aplica a dinâmica de distância vs melee. */
+        public static Combatant of(String name, int[] s, Element weapon, Element armor, List<ActiveAbility> abilities, boolean ranged) {
             return new Combatant(name, s[0], s[1], s[2], s[3], s[4], s[5], weapon, armor,
-                    abilities != null ? abilities : List.of());
+                    abilities != null ? abilities : List.of(), ranged);
         }
     }
 
@@ -139,7 +150,17 @@ public class BattleSimulator {
             boolean firstLosesOnTimeout) {
         return simulateDetailed(cName, cAtk, cDef, cHp, cDex, cAgi, cLuk,
                 oName, oAtk, oDef, oHp, oDex, oAgi, oLuk,
-                firstLosesOnTimeout, null, null, null, null);
+                firstLosesOnTimeout, false, false);
+    }
+
+    /** [KITING] Variante raw com flags ranged (Arqueiro). NPCs/melee = false. */
+    public BattleOutcome simulateDetailed(
+            String cName, int cAtk, int cDef, int cHp, int cDex, int cAgi, int cLuk,
+            String oName, int oAtk, int oDef, int oHp, int oDex, int oAgi, int oLuk,
+            boolean firstLosesOnTimeout, boolean cRanged, boolean oRanged) {
+        return simulateDetailed(cName, cAtk, cDef, cHp, cDex, cAgi, cLuk,
+                oName, oAtk, oDef, oHp, oDex, oAgi, oLuk,
+                firstLosesOnTimeout, null, null, null, null, List.of(), List.of(), cRanged, oRanged);
     }
 
     /** Versão com ELEMENTOS (sem habilidades ativas). [ELEMENTOS] */
@@ -150,16 +171,16 @@ public class BattleSimulator {
             Element cWeapon, Element cArmor, Element oWeapon, Element oArmor) {
         return simulateDetailed(cName, cAtk, cDef, cHp, cDex, cAgi, cLuk,
                 oName, oAtk, oDef, oHp, oDex, oAgi, oLuk,
-                firstLosesOnTimeout, cWeapon, cArmor, oWeapon, oArmor, List.of(), List.of());
+                firstLosesOnTimeout, cWeapon, cArmor, oWeapon, oArmor, List.of(), List.of(), false, false);
     }
 
-    /** Conveniência: dois {@link Combatant} (stats + elementos + ativas). [HABILIDADES] */
+    /** Conveniência: dois {@link Combatant} (stats + elementos + ativas + ranged). [HABILIDADES] */
     public BattleOutcome simulate(Combatant a, Combatant b, boolean firstLosesOnTimeout) {
         return simulateDetailed(
                 a.name(), a.atk(), a.def(), a.hp(), a.dex(), a.agi(), a.luk(),
                 b.name(), b.atk(), b.def(), b.hp(), b.dex(), b.agi(), b.luk(),
                 firstLosesOnTimeout, a.weapon(), a.armor(), b.weapon(), b.armor(),
-                a.abilities(), b.abilities());
+                a.abilities(), b.abilities(), a.ranged(), b.ranged());
     }
 
     // ── Núcleo ──────────────────────────────────────────────────────────────────
@@ -169,13 +190,14 @@ public class BattleSimulator {
             String oName, int oAtk, int oDef, int oHp, int oDex, int oAgi, int oLuk,
             boolean firstLosesOnTimeout,
             Element cWeapon, Element cArmor, Element oWeapon, Element oArmor,
-            List<ActiveAbility> cAbilities, List<ActiveAbility> oAbilities) {
+            List<ActiveAbility> cAbilities, List<ActiveAbility> oAbilities,
+            boolean cRanged, boolean oRanged) {
 
         List<String> log = new ArrayList<>();
         Random rng = java.util.concurrent.ThreadLocalRandom.current();
 
-        Side c = new Side(cName, cAtk, cDef, cHp, cDex, cAgi, cLuk, cWeapon, cArmor, cAbilities);
-        Side o = new Side(oName, oAtk, oDef, oHp, oDex, oAgi, oLuk, oWeapon, oArmor, oAbilities);
+        Side c = new Side(cName, cAtk, cDef, cHp, cDex, cAgi, cLuk, cWeapon, cArmor, cAbilities, cRanged);
+        Side o = new Side(oName, oAtk, oDef, oHp, oDex, oAgi, oLuk, oWeapon, oArmor, oAbilities, oRanged);
 
         log.add("⚔ " + c.name + " vs " + o.name + " — The battle begins!");
         log.add("HP: [" + c.name + ": ❤ " + c.maxHp + "] | [" + o.name + ": ❤ " + o.maxHp + "]");
@@ -228,21 +250,45 @@ public class BattleSimulator {
         }
     }
 
-    /** Ação do atacante no round: golpe base + chance de golpe EXTRA por AGI (velocidade). [REBALANCE] */
+    /** Ação do atacante no round: kiting do arqueiro + golpe base + golpe EXTRA por AGI. [REBALANCE][KITING] */
     private void attackRound(Side atk, Side def, String[] hitTexts, List<String> log, Random rng) {
-        attack(atk, def, hitTexts, log, rng);
+        double dmgMult = 1.0;
+        // [KITING] Arqueiro (ranged) encurralado por um corpo-a-corpo (melee).
+        if (atk.ranged && !def.ranged) {
+            if (atk.pinned == 1) {            // recuando: PERDE o turno pra reabrir espaço
+                atk.pinned = 0;
+                log.add("  🏃 " + atk.name + " backpedals to open up space — no clean shot this round.");
+                return;
+            } else if (atk.pinned == 2) {     // tiro de perto: dano REDUZIDO
+                dmgMult = ARCHER_CLOSE_DMG;
+                atk.pinned = 1;
+                log.add("  🎯 " + atk.name + " is forced into a point-blank shot — reduced power.");
+            }
+        }
+
+        attack(atk, def, hitTexts, log, rng, dmgMult);
         if (def.hp <= 0 || atk.hp <= 0) return;
+
         int chance = (int) Math.round((atk.agi - def.agi) * EXTRA_PER_AGI);
-        if (chance <= 0) return;
         if (chance > EXTRA_CAP) chance = EXTRA_CAP;
-        if (rng.nextInt(100) < chance) {
+        if (chance > 0 && rng.nextInt(100) < chance) {
             log.add("  💨 " + atk.name + " moves with blinding speed — an extra strike!");
-            attack(atk, def, hitTexts, log, rng);
+            attack(atk, def, hitTexts, log, rng, dmgMult);
+            if (def.hp <= 0 || atk.hp <= 0) return;
+        }
+
+        // [KITING] Um melee cola no arqueiro à distância (AGI: melee rápido cola mais, arqueiro ágil escapa).
+        if (!atk.ranged && def.ranged && def.pinned == 0) {
+            int close = Math.max(20, Math.min(85, MELEE_CLOSE_CHANCE + (atk.agi - def.agi) / 3));
+            if (rng.nextInt(100) < close) {
+                def.pinned = 2;
+                log.add("  ⚔ " + atk.name + " closes the distance — " + def.name + " is pinned in melee range!");
+            }
         }
     }
 
-    /** Um ataque de {@code atk} em {@code def}, com elementos + habilidades ativas. */
-    private void attack(Side atk, Side def, String[] hitTexts, List<String> log, Random rng) {
+    /** Um ataque de {@code atk} em {@code def}, com elementos + habilidades ativas. {@code dmgMult} = penalidade de kiting. */
+    private void attack(Side atk, Side def, String[] hitTexts, List<String> log, Random rng, double dmgMult) {
         int roll = rng.nextInt(20) + 1;
         boolean precise = atk.ready(AbilityEffect.GUARANTEED_CRIT); // Precise Shot: hit + crit garantidos
 
@@ -298,6 +344,7 @@ public class BattleSimulator {
         }
         dmg += preciseBonus;
         if (isCrit) dmg = Math.max(1, (int) Math.round(dmg * CRIT_MULT)); // [REBALANCE] crit ×1.5 (era ×2)
+        if (dmgMult != 1.0) dmg = Math.max(1, (int) Math.round(dmg * dmgMult)); // [KITING] tiro de perto = dano reduzido
 
         int defAfter = Math.max(0, def.hp - dmg);
         String bodyPart = BODY_PARTS[rng.nextInt(BODY_PARTS.length)];
@@ -316,7 +363,7 @@ public class BattleSimulator {
         if (def.hp > 0 && atk.ready(AbilityEffect.EXTRA_ATTACK)) {
             atk.trigger(AbilityEffect.EXTRA_ATTACK);
             int extra = Math.max(1, (int) Math.round(
-                    mitigatedDamage(atk.effAtk(), def.def) * elemMult * atk.mag(AbilityEffect.EXTRA_ATTACK) / 100.0));
+                    mitigatedDamage(atk.effAtk(), def.def) * elemMult * dmgMult * atk.mag(AbilityEffect.EXTRA_ATTACK) / 100.0));
             int after = Math.max(0, def.hp - extra);
             log.add("  ☄ " + atk.name + " looses a Volley — extra hit! [-" + extra + " HP] " + def.name + " ❤ " + after + "/" + def.maxHp);
             def.hp -= extra;
@@ -332,18 +379,21 @@ public class BattleSimulator {
     private static final class Side {
         final String name;
         final int atk, def, dex, agi, luk, critThreshold, fortuneSave, maxHp;
+        final boolean ranged;     // [KITING] Arqueiro (arco)
         final Element weapon, armor;
         final Map<AbilityEffect, ActiveAbility> abilities = new EnumMap<>(AbilityEffect.class);
         final Map<AbilityEffect, Integer> cooldowns = new EnumMap<>(AbilityEffect.class);
         int hp;
         int berserkRounds = 0;
         boolean secondWindUsed = false;
+        // [KITING] 0 = à distância (tiro cheio); 2 = encurralado (tiro de perto fraco); 1 = recuando (perde o turno).
+        int pinned = 0;
 
         Side(String name, int atk, int def, int hp, int dex, int agi, int luk,
-             Element weapon, Element armor, List<ActiveAbility> kit) {
+             Element weapon, Element armor, List<ActiveAbility> kit, boolean ranged) {
             this.name = name; this.atk = atk; this.def = def; this.dex = dex;
             this.agi = agi; this.luk = luk; this.weapon = weapon; this.armor = armor;
-            this.maxHp = hp; this.hp = hp;
+            this.maxHp = hp; this.hp = hp; this.ranged = ranged;
             this.critThreshold = critThreshold(luk);
             this.fortuneSave = luk / 10;
             if (kit != null) for (ActiveAbility a : kit) {
