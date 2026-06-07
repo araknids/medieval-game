@@ -31,9 +31,13 @@ public class ClassChangeService {
     private final InventoryService    inventoryService;
     private final MailService         mailService;
     private final AchievementService  achievementService; // [TITULOS]
+    private final GatheringService    gatheringService;   // [TRIAL_CUSTO] custo de Monster Core
 
     /** Level mínimo pra destravar a Trial. */
     public static final int TRIAL_LEVEL = 10;
+
+    /** [TRIAL_CUSTO] Custo da Path Trial: precisa TER tantos Monster Core p/ tentar; só consome ao VENCER. */
+    public static final int TRIAL_MONSTER_CORE_COST = 100;
 
     // ── Guardiões da Trial (placeholder, ajustar no playtest) ──
     // Cada caminho tem um guardião com o "sabor" do arquétipo: o da Lâmina é tanky de corpo-a-corpo,
@@ -67,8 +71,10 @@ public class ClassChangeService {
                 .orElseThrow(() -> new IllegalStateException("Warrior not found"));
         WarriorClass current = w.getWarriorClass();
         boolean available = !current.isSpecialized() && w.getLevel() >= TRIAL_LEVEL;
+        long cores = gatheringService.resourceQuantityTotal(player, com.medieval.game.enums.ResourceType.MONSTER_CORE); // [TRIAL_CUSTO]
         return new ClassInfo(
                 current.name(), current.displayName, w.getLevel(), TRIAL_LEVEL, available,
+                TRIAL_MONSTER_CORE_COST, cores,
                 List.of(pathOf(WarriorClass.WARRIOR), pathOf(WarriorClass.ARCHER), pathOf(WarriorClass.MERCHANT)));
     }
 
@@ -102,6 +108,11 @@ public class ClassChangeService {
             throw new IllegalStateException("Reach level " + TRIAL_LEVEL + " to take the Path Trial.");
         if (w.isKnockedOut())
             throw new IllegalStateException("Your warrior is unconscious. Visit the Temple to heal first!");
+        // [TRIAL_CUSTO] Precisa TER 100 Monster Core (bag + stash) p/ encarar o Guardião (só consome se vencer).
+        long cores = gatheringService.resourceQuantityTotal(player, com.medieval.game.enums.ResourceType.MONSTER_CORE);
+        if (cores < TRIAL_MONSTER_CORE_COST)
+            throw new IllegalStateException("You need " + TRIAL_MONSTER_CORE_COST + " Monster Core to face the Guardian (you have "
+                    + cores + "). Hunt in the Cursed Fortress to gather them.");
 
         int[]    c = statsService.combatStats(player, w);
         Guardian g = guardianFor(path);
@@ -118,6 +129,8 @@ public class ClassChangeService {
         boolean won = outcome.firstWon();
 
         if (won) {
+            // [TRIAL_CUSTO] consome os Monster Core (bag+stash) SÓ na vitória (perder mantém o estoque)
+            gatheringService.removeResourceTotal(player, com.medieval.game.enums.ResourceType.MONSTER_CORE, TRIAL_MONSTER_CORE_COST);
             applyClassChange(w, path);
             // [CLASSES_ARMAS/MERCADOR] Archer/Merchant têm armas restritas: desequipa o que não usam
             // (ficaria travado) e dá uma arma inicial da classe.
@@ -170,7 +183,8 @@ public class ClassChangeService {
                             int strCap, int dexCap, int lukCap, String trialName, String description) {}
 
     public record ClassInfo(String currentClass, String currentClassName, int level, int trialLevel,
-                            boolean available, List<ClassPath> paths) {}
+                            boolean available, int monsterCoreCost, long monsterCoreHave, // [TRIAL_CUSTO]
+                            List<ClassPath> paths) {}
 
     public record TrialResult(boolean won, String classId, String className, List<String> log) {}
 

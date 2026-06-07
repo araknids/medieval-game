@@ -29,6 +29,15 @@ class WeaponClassTest extends BaseIntegrationTest {
     @Autowired PlayerRepository        playerRepository;
     @Autowired WarriorRepository       warriorRepository;
     @Autowired InventoryItemRepository itemRepo;
+    @Autowired com.medieval.game.repository.ResourceInventoryRepository resourceInventoryRepository; // [TRIAL_CUSTO]
+
+    /** Estoque de Monster Core (stashed) p/ passar no gate da Trial. [TRIAL_CUSTO] */
+    private void giveCore(Player p, long qty) {
+        var r = new com.medieval.game.model.ResourceInventory();
+        r.setPlayer(p); r.setResourceType(com.medieval.game.enums.ResourceType.MONSTER_CORE);
+        r.setStashed(true); r.setQuantity(qty);
+        resourceInventoryRepository.save(r);
+    }
 
     private Player newPlayer(String prefix) {
         String u = uniqueUser(prefix);
@@ -120,6 +129,7 @@ class WeaponClassTest extends BaseIntegrationTest {
         // Recruit forte → vence a Trial com folga.
         w.setAttack(300); w.setStrength(800); w.setConstitution(200);
         warriorRepository.save(w);
+        giveCore(p, 100); // [TRIAL_CUSTO] custo da Trial
 
         InventoryItem sword = weapon(p, "Iron Sword");
         inventoryService.equip(p, sword.getId());

@@ -93,6 +93,34 @@ public class GatheringService {
         resourceRepository.save(inv);
     }
 
+    /** Total de um recurso na BAG + STASH (a bag cabe ~30; o estoque grande fica no stash). [TRIAL_CUSTO] */
+    public long resourceQuantityTotal(Player player, ResourceType type) {
+        long bag   = resourceRepository.findByPlayerAndResourceTypeAndStashed(player, type, false)
+                .map(ResourceInventory::getQuantity).orElse(0L);
+        long stash = resourceRepository.findByPlayerAndResourceTypeAndStashed(player, type, true)
+                .map(ResourceInventory::getQuantity).orElse(0L);
+        return bag + stash;
+    }
+
+    /** Consome qty de um recurso pegando da BAG primeiro, depois do STASH. Lança se o total não cobrir. [TRIAL_CUSTO] */
+    @Transactional
+    public void removeResourceTotal(Player player, ResourceType type, long qty) {
+        if (qty < 0) throw new IllegalArgumentException("qty must be >= 0");
+        if (resourceQuantityTotal(player, type) < qty)
+            throw new IllegalStateException("Insufficient quantity of " + type.displayName);
+        long remaining = qty;
+        for (boolean stashed : new boolean[]{false, true}) { // bag primeiro, depois stash
+            if (remaining <= 0) break;
+            var opt = resourceRepository.findByPlayerAndResourceTypeAndStashed(player, type, stashed);
+            if (opt.isEmpty()) continue;
+            ResourceInventory inv = opt.get();
+            long take = Math.min(remaining, inv.getQuantity());
+            inv.setQuantity(inv.getQuantity() - take);
+            resourceRepository.save(inv);
+            remaining -= take;
+        }
+    }
+
     // ── Sessão de coleta ──
 
     public record ResourceDrop(ResourceType type, long quantity) {}

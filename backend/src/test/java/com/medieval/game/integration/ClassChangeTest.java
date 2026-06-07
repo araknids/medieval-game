@@ -26,6 +26,28 @@ class ClassChangeTest extends BaseIntegrationTest {
     @Autowired WarriorService     warriorService;
     @Autowired PlayerRepository   playerRepository;
     @Autowired WarriorRepository  warriorRepository;
+    @Autowired com.medieval.game.service.GatheringService gatheringService; // [TRIAL_CUSTO]
+    @Autowired com.medieval.game.repository.ResourceInventoryRepository resourceInventoryRepository;
+
+    /** Dá N Monster Core: enche a bag (≈30) e o resto vai pro stash (a bag não cabe 100). [TRIAL_CUSTO] */
+    private void giveCore(Player p, long qty) {
+        long added = gatheringService.addResource(p, com.medieval.game.enums.ResourceType.MONSTER_CORE, qty);
+        long rest  = qty - added;
+        if (rest > 0) {
+            var r = resourceInventoryRepository
+                .findByPlayerAndResourceTypeAndStashed(p, com.medieval.game.enums.ResourceType.MONSTER_CORE, true)
+                .orElseGet(() -> {
+                    var x = new com.medieval.game.model.ResourceInventory();
+                    x.setPlayer(p); x.setResourceType(com.medieval.game.enums.ResourceType.MONSTER_CORE); x.setStashed(true);
+                    return x;
+                });
+            r.setQuantity(r.getQuantity() + rest);
+            resourceInventoryRepository.save(r);
+        }
+    }
+    private long coreTotal(Player p) {
+        return gatheringService.resourceQuantityTotal(p, com.medieval.game.enums.ResourceType.MONSTER_CORE);
+    }
 
     private Player newPlayer(String prefix) {
         String u = uniqueUser(prefix);
@@ -85,11 +107,14 @@ class ClassChangeTest extends BaseIntegrationTest {
         w.setConstitution(200); // HP gigante → sobrevive a qualquer crit
         w.setAvailablePoints(3);
         warriorRepository.save(w);
+        giveCore(p, 100); // [TRIAL_CUSTO] bag (~30) + stash (~70)
 
         TrialResult r = classService.attemptTrial(p, WarriorClass.WARRIOR);
 
         assertThat(r.won()).isTrue();
         assertThat(r.classId()).isEqualTo("WARRIOR");
+        // [TRIAL_CUSTO] venceu → consumiu os 100 Monster Core (bag + stash)
+        assertThat(coreTotal(p)).isZero();
 
         Warrior after = reload(w);
         assertThat(after.getWarriorClass()).isEqualTo(WarriorClass.WARRIOR);
@@ -108,15 +133,41 @@ class ClassChangeTest extends BaseIntegrationTest {
     void loseTrial_noChange() {
         Player p = newPlayer("cls");
         Warrior w = makeWarrior(p, WarriorClass.RECRUIT, 10);
-        // Recruit fraquíssimo: ATK 1 → impossível causar os 160 de HP do Guardião em 40 rounds (perde no timeout).
+        // Recruit fraquíssimo: ATK 1 → impossível matar o Guardião em 40 rounds (perde no timeout).
         w.setAttack(1);
         w.setStrength(0);
         warriorRepository.save(w);
+        giveCore(p, 100); // [TRIAL_CUSTO]
 
         TrialResult r = classService.attemptTrial(p, WarriorClass.WARRIOR);
 
         assertThat(r.won()).isFalse();
         assertThat(reload(w).getWarriorClass()).isEqualTo(WarriorClass.RECRUIT); // inalterado
+        // [TRIAL_CUSTO] perdeu → NÃO consome os Monster Core (só consome na vitória)
+        assertThat(coreTotal(p)).isEqualTo(100);
+    }
+
+    // ── [TRIAL_CUSTO] Gate de Monster Core ──
+    @Test
+    @DisplayName("Sem 100 Monster Core a Trial é rejeitada (gate de custo)")
+    void trial_requiresMonsterCore() {
+        Player p = newPlayer("cls");
+        Warrior w = makeWarrior(p, WarriorClass.RECRUIT, 10);
+        w.setAttack(300); w.setStrength(800); w.setConstitution(200);
+        warriorRepository.save(w);
+        giveCore(p, 99); // falta 1
+
+        assertThatThrownBy(() -> classService.attemptTrial(p, WarriorClass.WARRIOR))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("Monster Core");
+        // não consumiu nada e a classe segue RECRUIT
+        assertThat(coreTotal(p)).isEqualTo(99);
+        assertThat(reload(w).getWarriorClass()).isEqualTo(WarriorClass.RECRUIT);
+
+        // info() expõe o custo + quanto tem
+        var info = classService.info(p);
+        assertThat(info.monsterCoreCost()).isEqualTo(100);
+        assertThat(info.monsterCoreHave()).isEqualTo(99);
     }
 
     // ── Guards ──

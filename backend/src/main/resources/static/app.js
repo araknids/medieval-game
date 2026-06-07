@@ -2085,6 +2085,14 @@ async function openClassTrial() {
   closeCollectModal();
   const color = '#a855f7';
   const CLASS_ICON = { WARRIOR: '🛡', ARCHER: '🏹', MERCHANT: '💰' }; // [MERCADOR]
+  // [TRIAL_CUSTO] precisa TER 100 Monster Core (bag + stash) p/ encarar o Guardião; só consome se vencer.
+  const costCore = info.monsterCoreCost ?? 0, haveCore = info.monsterCoreHave ?? 0;
+  const enough = haveCore >= costCore;
+  const coreBanner = `
+    <div style="background:${enough?'#10240f':'#2a1010'};border:1px solid ${enough?'#3a7a1f':'#7a1f1f'};border-radius:8px;padding:9px 11px;margin-bottom:14px;font-size:12px;color:#cdd">
+      🧩 <strong>Monster Core</strong>: ${haveCore}/${costCore}
+      <span style="color:#999"> — ${enough ? 'consumed only if you win.' : 'hunt in the Cursed Fortress to gather more.'}</span>
+    </div>`;
   const cardFor = (p) => `
     <div style="background:#0d0d18;border:1px solid #3a2a4a;border-radius:10px;padding:14px;margin-bottom:12px">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
@@ -2093,8 +2101,8 @@ async function openClassTrial() {
       </div>
       <div style="font-size:12px;color:#aaa;line-height:1.5;margin-bottom:8px">${escapeHtml(p.description)}</div>
       <div style="font-size:11px;color:#777;margin-bottom:10px">Caps — STR ${p.strCap} · DEX ${p.dexCap} · LUK ${p.lukCap}</div>
-      <button onclick="attemptClassTrial('${p.id}')" style="width:100%;background:${color};color:#000;font-weight:bold;padding:9px;border-radius:7px;cursor:pointer;font-size:13px;border:none">
-        ⚔ Attempt ${escapeHtml(p.trialName)}
+      <button ${enough ? '' : 'disabled'} onclick="attemptClassTrial('${p.id}')" style="width:100%;background:${enough?color:'#444'};color:${enough?'#000':'#888'};font-weight:bold;padding:9px;border-radius:7px;cursor:${enough?'pointer':'not-allowed'};font-size:13px;border:none">
+        ${enough ? `⚔ Attempt ${escapeHtml(p.trialName)}` : `🔒 Need ${costCore} Monster Core`}
       </button>
     </div>`;
   const el = document.createElement('div');
@@ -2109,7 +2117,8 @@ async function openClassTrial() {
       <button onclick="closeCollectModal()" style="position:absolute;top:10px;right:10px;background:#333;
         border:none;color:#aaa;padding:4px 10px;border-radius:4px;cursor:pointer;font-size:13px">✕</button>
       <h3 style="margin:0 0 6px;color:${color};font-size:17px">⚔ Choose your Path</h3>
-      <p style="color:#999;font-size:12px;margin:0 0 16px;line-height:1.5">Defeat the trial guardian of your chosen path to specialize. <strong style="color:#d8b4fe">This is permanent.</strong> Your spent attribute points are refunded so you can rebuild for the new class.</p>
+      <p style="color:#999;font-size:12px;margin:0 0 12px;line-height:1.5">Defeat the trial guardian of your chosen path to specialize. <strong style="color:#d8b4fe">This is permanent.</strong> Your spent attribute points are refunded so you can rebuild for the new class.</p>
+      ${coreBanner}
       ${(info.paths || []).map(cardFor).join('')}
     </div>`;
   document.body.appendChild(el);
