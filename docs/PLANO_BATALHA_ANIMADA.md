@@ -1,15 +1,18 @@
 # PLANO — Batalha Animada (replay 2D estilo Domina) [BATALHA_ANIMADA]
 
-> Status: **v1 COMPLETO (placeholder)** (2026-06-08). Backend (eventos+API) + canvas `battleArena.js`
-> tocando na Arena e na Zona-chefe. Falta só **arte real** (sprites + fundos) plugar no lugar dos
-> placeholders (decisão/curadoria do dono) e validar no browser. v2 (Torre/Quests/Guerra, persistir eventos)
-> segue na seção Escopo.
+> Status: **v1 COMPLETO — esqueleto procedural** (2026-06-08). Backend (eventos+API) + canvas
+> `battleArena.js` tocando na Arena, Zona-chefe e Torre. Lutadores agora são **esqueletos procedurais
+> animados por código** (ossos + ângulos, estilo Domina): entram andando, balançam o braço no golpe,
+> levam flinch, sangram por partículas e tombam ao morrer. Falta só **arte real** (sprites desenhados
+> sobre os MESMOS ossos — troca-se só o `drawFighter`) e fundos temáticos; v2 (Quests/Guerra, persistir
+> eventos) segue na seção Escopo. Protótipo isolado de referência: `prototypes/battle_demo.html`.
 > ✅ **Feito (backend):** `BattleEvent` + `BattleOutcome.events` no `BattleSimulator` (spawn/attack/crit/
 > miss/dodge/extra/volley/heal/berserk/kiting/victory, com `hitZone` cabeça/corpo/perna e `element`);
-> combate byte-idêntico (RNG preservado), coberto por `BattleEventTest`. **API:** Arena e Zona-chefe
-> devolvem `battleEvents` + `scene` (arena/coast/sea/cave/fortress) — sem persistir (replay logo após a luta).
-> ⏳ **Próximo (frontend):** módulo `battleArena.js` — replay no canvas com **placeholder**, ritmo ≤10s,
-> sangue por partículas, fundo por cena, controles ⏩/⏭; e o `showCollectModal`/Arena consumindo `battleEvents`.
+> combate byte-idêntico (RNG preservado), coberto por `BattleEventTest`. **API:** Arena, Zona-chefe e
+> Torre devolvem `battleEvents` + `scene` (arena/coast/sea/cave/fortress/tower) — sem persistir.
+> ✅ **Feito (frontend):** `battleArena.js` — **esqueleto procedural** (FK por ângulos: pernas faseadas,
+> golpe overhead, elmo/espada/escudo, morte com tombo), entrada andando ≤10s, sangue/números, fundo por
+> cena, controles ⏩/⏭; `showCollectModal`/Arena consumindo `battleEvents`.
 > Estende o combate atual (`BattleSimulator` / Arena / Zona-chefe / Torre) **sem mudar o motor**.
 
 ## Conceito

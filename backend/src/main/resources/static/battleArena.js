@@ -1,9 +1,13 @@
 // battleArena.js — [BATALHA_ANIMADA] Replay 2D COSMÉTICO de um combate já decidido pelo backend.
 // O front não simula nada: só toca os BattleEvent (spawn/attack/crit/miss/dodge/heal/.../victory)
-// no canvas, com placeholder gráfico (formas), sangue por partículas, fundo por cena, ≤10s e ⏩/⏭.
-// API: playBattle(canvasEl, events, { scene, onDone }) → { stop() }.  Trocar por sprites depois = só
-// mexer no drawFighter/fundo. Plano: docs/PLANO_BATALHA_ANIMADA.md
+// no canvas. Lutadores = ESQUELETO PROCEDURAL (ossos + ângulos animados por código, estilo Domina):
+// entram andando, balançam o braço no golpe, levam flinch, sangram por partículas e tombam ao morrer.
+// Sem assets — quando houver sprites, desenha-se as peças sobre os MESMOS ossos (só mexe no drawFighter).
+// Fundo por cena, replay ≤10s e controles ⏩/⏭.
+// API: playBattle(canvasEl, events, { scene, onDone }) → { stop() }.  Plano: docs/PLANO_BATALHA_ANIMADA.md
 (function () {
+  const lerp = (a, b, t) => a + (b - a) * t;
+
   // Fundos placeholder por cena (gradiente). Sprites/arte reais entram depois.
   const SCENES = {
     arena:    ['#3a2f1e', '#6b5836'], coast: ['#15384a', '#2a6b6b'], sea: ['#0f2a4a', '#1f6b8a'],
@@ -11,12 +15,8 @@
   };
   const ELEM = { SUPER: { c: '#ffd24a', s: '✦' }, RESIST: { c: '#7fb0ff', s: '🛡' } };
   const HIT_TYPES = new Set(['attack', 'crit', 'volley', 'extra']);
+  const SWING_TYPES = new Set(['attack', 'crit', 'volley', 'extra', 'miss', 'dodge']); // atacante balança a arma
 
-  function zoneY(zone, top, h) {
-    if (zone === 'head') return top + h * 0.16;
-    if (zone === 'legs') return top + h * 0.82;
-    return top + h * 0.48; // body (default)
-  }
   function roundRect(c, x, y, w, h, r) {
     c.beginPath(); c.moveTo(x + r, y);
     c.arcTo(x + w, y, x + w, y + h, r); c.arcTo(x + w, y + h, x, y + h, r);
@@ -27,15 +27,19 @@
     opts = opts || {};
     const ctx = canvas.getContext('2d');
     if (!ctx || !Array.isArray(events)) return { stop() {} };
-    const W = canvas.width, H = canvas.height, ground = H - 16;
+    const W = canvas.width, H = canvas.height, ground = H - 14;
+
+    // posição de combate (interna) e de entrada (externa) por lado
+    const combatX = s => s < 0 ? W * 0.30 : W * 0.70;
+    const entryX  = s => s < 0 ? W * 0.10 : W * 0.90;
 
     const spawns = events.filter(e => e.type === 'spawn');
     if (spawns.length < 2) return { stop() {} };
     const mk = (sp, side) => ({
       name: sp.actor, maxHp: Math.max(1, sp.targetMaxHp || 1), hp: Math.max(1, sp.targetMaxHp || 1),
       shownHp: Math.max(1, sp.targetMaxHp || 1), side,
-      x: side < 0 ? W * 0.27 : W * 0.73, color: side < 0 ? '#5b9bd5' : '#e0556b',
-      flinch: 0, dead: false,
+      x: combatX(side), x0: entryX(side), color: side < 0 ? '#5b8dd6' : '#cf5b5b',
+      walk: Math.random() * 6, moving: false, flinch: 0, dead: false, deadT: 0,
     });
     let left = mk(spawns[0], -1), right = mk(spawns[1], 1);
     const F = {}; F[left.name] = left; F[right.name] = right;
@@ -43,10 +47,14 @@
     // mantém os spawns no stream → gauntlet (Torre): cada novo monstro re-inicia o lado direito.
     const steps = events.slice();
     const BUDGET = 8500; // ms — caber em ≤10s mesmo com muitos turnos [Requisito #1]
+    const INTRO_MS = 650; // entrada andando antes do 1º golpe
     const stepDur = Math.max(110, Math.min(600, steps.length ? BUDGET / steps.length : 600));
 
     let particles = [], floaters = [], shake = 0;
-    let speed = 1, idx = 0, impacted = false, stepStart = 0, done = false, raf = 0;
+    let speed = 1, idx = 0, impacted = false, stepStart = 0, done = false, raf = 0, t0 = 0;
+    let curEvent = null, curT = 0, introP = 0, introDone = false; // estado p/ o drawFighter
+
+    const zoneY = zone => zone === 'head' ? ground - 104 : zone === 'legs' ? ground - 30 : ground - 70;
 
     function blood(x, y, n) {
       for (let i = 0; i < n; i++) {
@@ -58,8 +66,8 @@
     }
     function impact(e) {
       const tgt = F[e.target], act = F[e.actor];
-      if (HIT_TYPES.has(e.type) && tgt) {
-        const y = zoneY(e.hitZone, ground - 64, 64), big = e.type === 'crit';
+      if (HIT_TYPES.has(e.type) && tgt && (e.damage || 0) > 0) {
+        const y = zoneY(e.hitZone), big = e.type === 'crit';
         blood(tgt.x, y, big ? 26 : Math.min(22, 6 + (e.damage || 0))); tgt.flinch = 1;
         floaters.push({ x: tgt.x, y: y - 8, vy: -0.8, life: 1, text: '-' + (e.damage || 0),
                         color: big ? '#ff5252' : '#fff', size: big ? 20 : 14 });
@@ -68,10 +76,10 @@
         if (big) shake = 10;
       } else if (e.type === 'miss' || e.type === 'dodge') {
         const who = e.type === 'dodge' ? act : tgt;
-        if (who) floaters.push({ x: who.x, y: ground - 76, vy: -0.7, life: 1,
+        if (who) floaters.push({ x: who.x, y: ground - 110, vy: -0.7, life: 1,
                         text: e.type === 'dodge' ? 'DODGE' : 'MISS', color: '#9fd0ff', size: 13 });
       } else if (e.type === 'heal' && act) {
-        floaters.push({ x: act.x, y: ground - 86, vy: -0.7, life: 1, text: '+' + (e.damage || 0),
+        floaters.push({ x: act.x, y: ground - 118, vy: -0.7, life: 1, text: '+' + (e.damage || 0),
                         color: '#7cfc9a', size: 14 });
       }
     }
@@ -82,24 +90,37 @@
       else if (e.type === 'heal' && act) { act.hp = e.targetHp; }
       else if (e.type === 'victory' && tgt) { tgt.dead = true; }
       else if (e.type === 'spawn') { // [gauntlet] re-init de lutador no meio do stream (Torre)
-        if (e.actor === left.name) { left.hp = left.shownHp = Math.min(left.maxHp, e.targetMaxHp || left.hp); left.dead = false; }
-        else if (e.actor !== right.name) { right = mk(e, 1); F[right.name] = right; } // novo monstro
-        else { right.hp = right.shownHp = right.maxHp = e.targetMaxHp || right.maxHp; right.dead = false; }
+        if (e.actor === left.name) { left.hp = left.shownHp = Math.min(left.maxHp, e.targetMaxHp || left.hp); left.dead = false; left.deadT = 0; }
+        else if (e.actor !== right.name) { right = mk(e, 1); right.x0 = right.x; F[right.name] = right; } // novo monstro (sem walk-in)
+        else { right.hp = right.shownHp = right.maxHp = e.targetMaxHp || right.maxHp; right.dead = false; right.deadT = 0; }
       }
     }
 
     function frame(now) {
-      if (!stepStart) stepStart = now;
-      if (!done) {
+      if (!t0) t0 = now;
+      introP = Math.min(1, (now - t0) * speed / INTRO_MS);
+      introDone = introP >= 1;
+      curEvent = null;
+
+      if (introDone && !done) {
+        if (!stepStart) stepStart = now;
         const e = steps[idx];
         if (!e) { finish(); }
         else {
-          const t = Math.min(1, (now - stepStart) * speed / stepDur);
-          if (t >= 0.45 && !impacted) { impact(e); impacted = true; }
-          if (t >= 1) { stepEnd(e); idx++; impacted = false; stepStart = now; if (idx >= steps.length) finish(); }
+          curEvent = e;
+          curT = Math.min(1, (now - stepStart) * speed / stepDur);
+          if (curT >= 0.45 && !impacted) { impact(e); impacted = true; }
+          if (curT >= 1) { stepEnd(e); idx++; impacted = false; stepStart = now; if (idx >= steps.length) finish(); }
         }
       }
-      [left, right].forEach(f => { f.shownHp += (f.hp - f.shownHp) * 0.25; f.flinch *= 0.85; });
+
+      [left, right].forEach(f => {
+        f.moving = !introDone && !f.dead;
+        f.walk += f.moving ? 0.24 : 0.05;
+        f.shownHp += (f.hp - f.shownHp) * 0.25;
+        f.flinch *= 0.86;
+        if (f.dead && f.deadT < 1) f.deadT = Math.min(1, f.deadT + 0.05 * speed);
+      });
       draw();
       raf = requestAnimationFrame(frame);
     }
@@ -112,10 +133,10 @@
       const g = ctx.createLinearGradient(0, 0, 0, H); g.addColorStop(0, sc[0]); g.addColorStop(1, sc[1]);
       ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
       ctx.fillStyle = 'rgba(0,0,0,.28)'; ctx.fillRect(0, ground, W, H - ground);
+      drawFighter(left); drawFighter(right);
       particles.forEach(p => { p.x += p.vx; p.y += p.vy; p.vy += 0.18; p.life -= 0.02;
         ctx.globalAlpha = Math.max(0, p.life); ctx.fillStyle = '#b5121b'; ctx.fillRect(p.x, p.y, p.size, p.size); });
       ctx.globalAlpha = 1; particles = particles.filter(p => p.life > 0 && p.y < ground + 6);
-      drawFighter(left); drawFighter(right);
       drawHp(left, 10); drawHp(right, W - 130);
       floaters.forEach(f => { f.y += f.vy; f.life -= 0.018; ctx.globalAlpha = Math.max(0, f.life);
         ctx.fillStyle = f.color; ctx.font = 'bold ' + f.size + 'px system-ui'; ctx.textAlign = 'center';
@@ -123,16 +144,72 @@
       ctx.globalAlpha = 1; floaters = floaters.filter(f => f.life > 0);
       ctx.restore();
     }
+
+    // ── Esqueleto procedural (FK por ângulos) ──────────────────────────────────
     function drawFighter(f) {
-      const x = f.x + (f.flinch > 0.02 ? f.side * -6 * f.flinch : 0), h = 60, w = 20;
+      const dir = -f.side;                                  // encara o inimigo (side<0 olha p/ direita)
+      const drawX = introDone ? f.x : lerp(f.x0, f.x, introP);
+      let atkP = -1;                                        // progresso do golpe deste lutador (0..1)
+      if (introDone && curEvent && curEvent.actor === f.name && SWING_TYPES.has(curEvent.type)) atkP = curT;
+
+      const swing = f.moving ? 0.5 : 0.06;                 // amplitude do passo (anda x respira)
+      const bob = (f.moving ? 2.5 : 1.0) * Math.sin(f.walk * 2);
+      const lean = 0.06 + 0.04 * Math.sin(f.walk * 2) - 0.5 * f.flinch;  // tronco; flinch = inclina p/ trás
+      const lunge = atkP >= 0 ? Math.sin(Math.PI * atkP) * 7 : 0;        // avança no golpe
+      const xoff = dir * lunge - dir * 5 * f.flinch;
+
+      let hipY = ground - 56 - bob;
+      if (f.dead) hipY = lerp(hipY, ground - 12, f.deadT);
+
       ctx.save();
-      if (f.dead) { ctx.translate(x, ground - 8); ctx.rotate(f.side * 1.4); ctx.translate(-x, -(ground - 8)); ctx.globalAlpha = 0.85; }
-      ctx.fillStyle = f.flinch > 0.3 ? '#ffffff' : f.color;
-      roundRect(ctx, x - w / 2, ground - h, w, h - 14, 6); ctx.fill();
-      ctx.beginPath(); ctx.arc(x, ground - h - 2, 8, 0, 6.283); ctx.fill();
-      ctx.fillRect(x - 7, ground - 14, 5, 14); ctx.fillRect(x + 2, ground - 14, 5, 14);
+      ctx.translate(drawX + xoff, hipY);
+      if (f.dead) ctx.rotate(f.deadT * (Math.PI / 2) * -dir);            // tomba p/ trás ao morrer
+      ctx.globalAlpha = f.dead ? lerp(1, 0.85, f.deadT) : 1;
+
+      const L = { torso: 42, neck: 5, head: 11, thigh: 30, shin: 30, upper: 23, fore: 21, weapon: 46 };
+      const down = (b, a, len) => ({ x: b.x + Math.sin(a) * len * dir, y: b.y + Math.cos(a) * len }); // 0 = p/ baixo
+      const hip = { x: 0, y: 0 };
+      const ux = Math.sin(lean) * dir, uy = -Math.cos(lean);            // vetor "pra cima" do tronco
+      const sh = { x: ux * L.torso, y: uy * L.torso };
+      const head = { x: sh.x + ux * (L.neck + L.head), y: sh.y + uy * (L.neck + L.head) };
+
+      const legPose = p => { const tA = swing * Math.sin(p), kA = 0.1 + 0.5 * Math.max(0, -Math.sin(p));
+        const k = down(hip, tA, L.thigh); return { k, ft: down(k, tA + kA, L.shin) }; };
+      const bl = legPose(f.walk + Math.PI), fl = legPose(f.walk);
+
+      const bSh = -0.4 + 0.07 * Math.sin(f.walk), bEl = 0.8;            // braço de trás (escudo)
+      const bE = down(sh, bSh, L.upper), bH = down(bE, bSh + bEl, L.fore);
+
+      let fSh = 0.75, fEl = 0.5;                                        // braço da frente (arma) — golpe
+      if (atkP >= 0) { const t = atkP;
+        if (t < 0.35)      { const k = t / 0.35;          fSh = lerp(0.75, -2.1, k); fEl = lerp(0.5, 0.3, k); } // ergue atrás
+        else if (t < 0.58) { const k = (t - 0.35) / 0.23; fSh = lerp(-2.1, 1.25, k); fEl = lerp(0.3, 0.5, k); } // desce o corte
+        else               { const k = (t - 0.58) / 0.42; fSh = lerp(1.25, 0.75, k); fEl = 0.5; }              // recupera
+      }
+      const fE = down(sh, fSh, L.upper), fH = down(fE, fSh + fEl, L.fore);
+      const wAng = fSh + fEl - 0.05, wTip = down(fH, wAng, L.weapon);
+
+      const armor = f.flinch > 0.35 ? '#ffffff' : f.color;
+      const skin = '#caa37a', dark = '#2b2118', steel = '#d8d8e0';
+      const limb = (a, b, w, c) => { ctx.strokeStyle = c; ctx.lineWidth = w; ctx.lineCap = 'round';
+        ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); ctx.stroke(); };
+
+      limb(bl.k, bl.ft, 6, dark); limb(hip, bl.k, 7, dark);            // perna de trás
+      limb(bE, bH, 5, skin); limb(sh, bE, 6, skin);                    // braço de trás
+      ctx.fillStyle = armor; ctx.beginPath(); ctx.arc(bH.x, bH.y, 10, 0, 6.283); ctx.fill();
+      ctx.strokeStyle = dark; ctx.lineWidth = 2; ctx.stroke();         // escudo
+      limb(hip, sh, 12, armor);                                        // tronco
+      limb(fl.k, fl.ft, 7, skin); limb(hip, fl.k, 8, skin);           // perna da frente
+      ctx.fillStyle = skin; ctx.beginPath(); ctx.arc(head.x, head.y, L.head, 0, 6.283); ctx.fill();
+      ctx.fillStyle = armor; ctx.beginPath(); ctx.arc(head.x, head.y, L.head + 1.5, Math.PI * 0.9, Math.PI * 2.1); ctx.fill(); // elmo
+      limb(sh, fE, 6, skin); limb(fE, fH, 5, skin);                    // braço da frente
+      limb(fH, wTip, 3, steel);                                        // lâmina
+      limb({ x: fH.x - Math.cos(wAng) * 6 * dir, y: fH.y + Math.sin(wAng) * 6 },
+           { x: fH.x + Math.cos(wAng) * 6 * dir, y: fH.y - Math.sin(wAng) * 6 }, 3, '#c9a84c'); // guarda
+
       ctx.restore();
     }
+
     function drawHp(f, x) {
       const w = 120, y = 9, pct = Math.max(0, f.shownHp) / f.maxHp;
       ctx.fillStyle = 'rgba(0,0,0,.5)'; roundRect(ctx, x, y, w, 9, 4); ctx.fill();
@@ -152,7 +229,7 @@
         b.style.cssText = 'background:#2a2a3a;color:#ddd;border:none;border-radius:6px;padding:5px 12px;cursor:pointer;font-size:12px';
         b.onclick = fn; return b; };
       const spd = mkBtn('⏩ 1×', () => { speed = speed >= 4 ? 1 : speed * 2; spd.textContent = '⏩ ' + speed + '×'; });
-      const skip = mkBtn('⏭ Skip', () => { while (idx < steps.length) { stepEnd(steps[idx]); idx++; } particles = []; floaters = []; finish(); });
+      const skip = mkBtn('⏭ Skip', () => { introP = 1; introDone = true; while (idx < steps.length) { stepEnd(steps[idx]); idx++; } particles = []; floaters = []; finish(); });
       bar.appendChild(spd); bar.appendChild(skip); host.appendChild(bar);
     }
 

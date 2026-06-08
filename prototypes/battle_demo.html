@@ -1,0 +1,291 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Protótipo — Batalha Animada (esqueleto procedural)</title>
+<!--
+  PROTÓTIPO de batalha animada estilo Domina. [BATALHA_ANIMADA]
+  - SEM assets externos: cada lutador é um ESQUELETO PROCEDURAL (ossos + ângulos animados por código).
+    É assim que o Domina se move (animação esqueletal), só que aqui feito 100% em Canvas/JS puro.
+  - É um REPLAY orientado a EVENTOS — igual ao plano: um array `events` (que viria do backend)
+    dirige a animação. Aqui os eventos são gerados na hora pra demonstrar.
+  - Quando tiver arte de verdade (sprites CC0/LPC ou próprios), troca-se o `drawFighter` por
+    desenhar as peças nos mesmos ossos — a lógica de animação continua igual.
+  Abra este arquivo direto no navegador (duplo-clique).
+-->
+<style>
+  body { margin:0; background:#1a140e; color:#e0d5c5; font-family:system-ui,Segoe UI,Arial,sans-serif;
+         display:flex; flex-direction:column; align-items:center; gap:12px; padding:18px; }
+  h1 { font-size:18px; margin:0; color:#c9a84c; }
+  p.sub { margin:0; font-size:13px; opacity:.8; max-width:760px; text-align:center; }
+  #wrap { border:3px solid #6b4f2a; border-radius:10px; overflow:hidden; box-shadow:0 8px 30px #000a; }
+  canvas { display:block; background:#000; }
+  .bar { display:flex; gap:8px; flex-wrap:wrap; justify-content:center; }
+  button { background:#3a2c1a; color:#e0d5c5; border:1px solid #6b4f2a; border-radius:6px;
+           padding:7px 12px; cursor:pointer; font-size:13px; }
+  button:hover { background:#4a3824; }
+  button.on { background:#6b4f2a; border-color:#c9a84c; color:#fff; }
+  label { font-size:13px; display:flex; align-items:center; gap:5px; }
+</style>
+</head>
+<body>
+  <h1>⚔ Protótipo — Batalha Animada (esqueleto procedural)</h1>
+  <p class="sub">Bonecos animados por código (ossos + ângulos), no estilo do Domina — sem nenhum asset.
+     A luta é um <b>replay de eventos</b> (como viria do backend). Quando tiver arte real, é só desenhar
+     as peças sobre os mesmos ossos.</p>
+  <div id="wrap"><canvas id="c" width="760" height="380"></canvas></div>
+  <div class="bar">
+    <button id="restart">↺ Nova luta</button>
+    <button class="speed" data-s="1">1×</button>
+    <button class="speed on" data-s="2">2×</button>
+    <button class="speed" data-s="4">4×</button>
+    <button id="pause">⏸ Pausar</button>
+    <label><input type="checkbox" id="blood" checked> sangue explícito</label>
+  </div>
+
+<script>
+const cv = document.getElementById('c'), ctx = cv.getContext('2d');
+const W = cv.width, H = cv.height, GROUND = 318;
+const RANGE = 132;          // distância de combate
+let speedMult = 2, paused = false, showBlood = true;
+
+const lerp = (a,b,t)=>a+(b-a)*t;
+const rnd  = (a,b)=>a+Math.random()*(b-a);
+
+// ────────────────────────────────────────────────────────────── Lutador
+class Fighter {
+  constructor(o){
+    Object.assign(this, o);
+    this.maxHp=o.hp; this.hp=o.hp;
+    this.walk=Math.random()*6; this.moving=false; this.speed=78;
+    this.atkT=-1; this.hitT=0; this.deadT=0; this.dead=false;
+  }
+  attack(){ if(!this.dead && this.atkT<0) this.atkT=0; }
+  takeHit(){ this.hitT=1; }
+  die(){ this.dead=true; }
+  update(dt){
+    this.walk += dt*(this.moving?9:2.2);
+    if(this.atkT>=0){ this.atkT+=dt/0.50; if(this.atkT>1) this.atkT=-1; }
+    if(this.hitT>0){ this.hitT=Math.max(0,this.hitT-dt/0.30); }
+    if(this.dead && this.deadT<1){ this.deadT=Math.min(1,this.deadT+dt/0.65); }
+  }
+  // FK helper: ângulo medido a partir de "para baixo" (0 = reto pra baixo), positivo gira p/ frente.
+  _down(b,a,len){ return { x:b.x+Math.sin(a)*len*this.dir, y:b.y+Math.cos(a)*len }; }
+
+  draw(ctx){
+    const d=this.dir;
+    const L={hip:32,torso:46,thigh:34,shin:34,upper:26,fore:24,head:12,neck:6,weapon:54};
+    const walking=this.moving;
+    const swing = walking?0.55:0.07;
+    const bob = (walking?3:1.3)*Math.sin(this.walk*2);
+
+    // postura do tronco (respiração + flinch ao levar dano)
+    let lean = 0.07 + 0.04*Math.sin(this.walk*2) - 0.55*this.hitT;
+
+    // posição do quadril (cai no chão ao morrer)
+    let hipY = GROUND - L.hip - L.thigh - bob - 30;
+    hipY = GROUND - 60 + bob;                       // quadril ~60px acima do chão
+    if(this.dead) hipY = lerp(hipY, GROUND-14, this.deadT);
+
+    ctx.save();
+    ctx.translate(this.x, hipY);
+    if(this.dead) ctx.rotate(this.deadT*(Math.PI/2)*-d);   // tomba pro lado ao morrer
+
+    const hip={x:0,y:0};
+    // vetor "pra cima" do tronco
+    const ux=Math.sin(lean)*d, uy=-Math.cos(lean);
+    const shoulder={x:ux*L.torso, y:uy*L.torso};
+    const neck={x:shoulder.x+ux*L.neck, y:shoulder.y+uy*L.neck};
+    const head={x:neck.x+ux*L.head, y:neck.y+uy*L.head};
+
+    // ── pernas (faseadas) ──
+    const legPose=(phase)=>{
+      const tA=swing*Math.sin(phase);
+      const kA=0.12+0.55*Math.max(0,-Math.sin(phase));
+      const knee=this._down(hip,tA,L.thigh);
+      const foot=this._down(knee,tA+kA,L.shin);
+      return {knee,foot};
+    };
+    const back=legPose(this.walk+Math.PI), front=legPose(this.walk);
+
+    // ── braço de trás (escudo) ──
+    const bSh=-0.45+0.08*Math.sin(this.walk), bEl=0.85;
+    const bElbow=this._down(shoulder,bSh,L.upper);
+    const bHand =this._down(bElbow,bSh+bEl,L.fore);
+
+    // ── braço da frente (arma) — golpe ──
+    let fSh=0.75, fEl=0.55;
+    if(this.atkT>=0){
+      const t=this.atkT;
+      if(t<0.35){ const k=t/0.35;            fSh=lerp(0.75,-2.15,k); fEl=lerp(0.55,0.30,k); } // arma sobe atrás
+      else if(t<0.58){ const k=(t-0.35)/0.23; fSh=lerp(-2.15,1.30,k); fEl=lerp(0.30,0.50,k); } // desce o golpe
+      else { const k=(t-0.58)/0.42;          fSh=lerp(1.30,0.75,k);  fEl=lerp(0.50,0.55,k); }  // recupera
+    }
+    const fElbow=this._down(shoulder,fSh,L.upper);
+    const fHand =this._down(fElbow,fSh+fEl,L.fore);
+    const wAng=fSh+fEl-0.05;
+    const wTip =this._down(fHand,wAng,L.weapon);
+
+    const skin=this.skin, armor=this.color, dark='#2b2118';
+
+    // ordem de desenho (fundo → frente)
+    limb(back.knee, back.foot, 8, dark);          // canela de trás
+    limb(hip, back.knee, 9, dark);                // coxa de trás
+    limb(bElbow,bHand,7,skin); limb(shoulder,bElbow,8,skin); // braço de trás
+    shield(bHand, armor);                          // escudo
+    limb(hip, shoulder, 15, armor);                // tronco
+    limb(front.knee, front.foot, 9, skin);         // canela da frente
+    limb(hip, front.knee, 10, skin);               // coxa da frente
+    // cabeça + elmo
+    ctx.fillStyle=skin; ctx.beginPath(); ctx.arc(head.x,head.y,L.head,0,7); ctx.fill();
+    ctx.fillStyle=armor; ctx.beginPath();
+    ctx.arc(head.x,head.y,L.head+2,Math.PI*0.9,Math.PI*2.1); ctx.fill();   // capacete
+    // braço da frente + arma
+    limb(shoulder,fElbow,8,skin); limb(fElbow,fHand,7,skin);
+    limb(fHand,wTip,4,'#d8d8e0');                  // lâmina
+    limb({x:fHand.x-Math.cos(wAng)*7*d,y:fHand.y+Math.sin(wAng)*7},
+         {x:fHand.x+Math.cos(wAng)*7*d,y:fHand.y-Math.sin(wAng)*7},4,'#c9a84c'); // guarda
+
+    ctx.restore();
+
+    function limb(a,b,w,col){
+      ctx.strokeStyle=col; ctx.lineWidth=w; ctx.lineCap='round';
+      ctx.beginPath(); ctx.moveTo(a.x,a.y); ctx.lineTo(b.x,b.y); ctx.stroke();
+    }
+    function shield(c,col){
+      ctx.fillStyle=col; ctx.strokeStyle='#3a2c1a'; ctx.lineWidth=3;
+      ctx.beginPath(); ctx.arc(c.x,c.y,13,0,7); ctx.fill(); ctx.stroke();
+    }
+  }
+}
+
+// ────────────────────────────────────────────────────────────── Sangue / números
+let parts=[], splats=[], floats=[];
+function spawnBlood(f, zone, dmg){
+  if(!showBlood) return;
+  const p = zonePos(f, zone);
+  const n = Math.min(60, 8+dmg*2);
+  for(let i=0;i<n;i++){
+    parts.push({x:p.x,y:p.y, vx:rnd(-90,90)+f.dir*-40, vy:rnd(-180,-30),
+                r:rnd(1.5,3.5), life:rnd(0.4,0.9)});
+  }
+  splats.push({x:p.x, y:GROUND-2, r:rnd(6,10+dmg)});
+  if(splats.length>40) splats.shift();
+}
+function zonePos(f, zone){
+  const y = zone==='head'?GROUND-118 : zone==='legs'?GROUND-40 : GROUND-78;
+  return {x:f.x+f.dir*4, y};
+}
+function floatDmg(f, dmg, crit){
+  floats.push({x:f.x, y:zonePos(f,'body').y, t:1, dmg, crit});
+}
+function updateFx(dt){
+  for(const p of parts){ p.vy+=520*dt; p.x+=p.vx*dt; p.y+=p.vy*dt; p.life-=dt;
+    if(p.y>GROUND){ p.y=GROUND; p.vy*=-0.25; p.vx*=0.5; } }
+  parts=parts.filter(p=>p.life>0);
+  for(const f of floats){ f.y-=34*dt; f.t-=dt/1.0; }
+  floats=floats.filter(f=>f.t>0);
+}
+function drawFx(){
+  for(const s of splats){ ctx.fillStyle='rgba(120,10,10,0.55)';
+    ctx.beginPath(); ctx.ellipse(s.x,s.y,s.r,s.r*0.35,0,0,7); ctx.fill(); }
+  for(const p of parts){ ctx.fillStyle='rgba(170,15,15,'+Math.min(1,p.life*1.6)+')';
+    ctx.beginPath(); ctx.arc(p.x,p.y,p.r,0,7); ctx.fill(); }
+  for(const f of floats){ ctx.globalAlpha=Math.min(1,f.t*1.4);
+    ctx.fillStyle=f.crit?'#ff5a3c':'#ffd86b'; ctx.font='bold '+(f.crit?22:16)+'px system-ui';
+    ctx.textAlign='center'; ctx.fillText('-'+f.dmg, f.x, f.y); ctx.globalAlpha=1; }
+}
+
+// ────────────────────────────────────────────────────────────── Cenário + HUD
+function drawScene(){
+  // arquibancada
+  const g=ctx.createLinearGradient(0,0,0,H); g.addColorStop(0,'#3b2b1c'); g.addColorStop(1,'#241a10');
+  ctx.fillStyle=g; ctx.fillRect(0,0,W,H);
+  ctx.fillStyle='#2a1f14';
+  for(let y=24;y<GROUND-90;y+=18) ctx.fillRect(0,y,W,9);
+  // areia
+  const s=ctx.createLinearGradient(0,GROUND-90,0,H); s.addColorStop(0,'#c9a86a'); s.addColorStop(1,'#9c7f4c');
+  ctx.fillStyle=s; ctx.fillRect(0,GROUND-90,W,H-(GROUND-90));
+  ctx.fillStyle='rgba(0,0,0,0.18)'; ctx.fillRect(0,GROUND-90,W,4);
+}
+function drawHUD(f, x, align){
+  const w=240, h=16, hp=Math.max(0,f.hp/f.maxHp);
+  ctx.fillStyle='#000a'; ctx.fillRect(x,16,w,h);
+  ctx.fillStyle=f.color; ctx.fillRect(align==='r'?x+w*(1-hp):x,16,w*hp,h);
+  ctx.strokeStyle='#6b4f2a'; ctx.lineWidth=2; ctx.strokeRect(x,16,w,h);
+  ctx.fillStyle='#e0d5c5'; ctx.font='bold 14px system-ui'; ctx.textAlign=align==='r'?'right':'left';
+  ctx.fillText(f.name+'  ❤ '+Math.max(0,f.hp|0), align==='r'?x+w:x, 48);
+}
+
+// ────────────────────────────────────────────────────────────── Diretor (replay de eventos)
+let A,B,phase,turn,atkTimer,pending,endTimer,banner;
+function reset(){
+  A=new Fighter({name:'Você',     color:'#5b8dd6', skin:'#caa37a', dir: 1, x:210, hp:120});
+  B=new Fighter({name:'Gladiador',color:'#cf5b5b', skin:'#b8946b', dir:-1, x:W-210, hp:120});
+  phase='approach'; turn=0; atkTimer=0; pending=[]; endTimer=0; banner='';
+  parts=[]; splats=[]; floats=[];
+}
+function step(dt){
+  A.update(dt); B.update(dt); updateFx(dt);
+  for(const p of pending) p.t-=dt;
+  pending = pending.filter(p=>{ if(p.t<=0){ p.fn(); return false; } return true; });
+
+  if(phase==='approach'){
+    A.moving=B.moving=true;
+    if(Math.abs(B.x-A.x)>RANGE){ A.x+=A.speed*dt; B.x-=B.speed*dt; }
+    else { A.moving=B.moving=false; phase='fight'; atkTimer=0.45; }
+  } else if(phase==='fight'){
+    atkTimer-=dt;
+    if(atkTimer<=0){
+      const atk=turn%2===0?A:B, def=turn%2===0?B:A;
+      atk.attack();
+      const crit=Math.random()<0.22;
+      const dmg=(crit?2:1)*(6+Math.floor(Math.random()*11));
+      const zone=crit?'head':(Math.random()<0.35?'legs':'body');   // crit mira a cabeça
+      pending.push({t:0.30, fn:()=>{                                 // dano cai no momento do golpe
+        def.hp=Math.max(0,def.hp-dmg); def.takeHit();
+        spawnBlood(def,zone,dmg); floatDmg(def,dmg,crit);
+        if(def.hp<=0){ def.die(); banner='🏆 '+atk.name+' venceu!'; phase='end'; endTimer=3.2; }
+      }});
+      turn++; atkTimer=0.80;
+    }
+  } else if(phase==='end'){
+    endTimer-=dt; if(endTimer<=0) reset();
+  }
+}
+function render(){
+  drawScene();
+  // ordena por X pra quem está atrás desenhar primeiro
+  const order=[A,B].sort((a,b)=>a.y-b.y);
+  drawFx();                 // splats no chão por baixo
+  for(const f of [A,B]) f.draw(ctx);
+  drawFx();                 // partículas/números por cima
+  drawHUD(A,16,'l'); drawHUD(B,W-256,'r');
+  if(banner){ ctx.fillStyle='#000a'; ctx.fillRect(W/2-150,H/2-26,300,52);
+    ctx.fillStyle='#c9a84c'; ctx.font='bold 24px system-ui'; ctx.textAlign='center';
+    ctx.fillText(banner,W/2,H/2+9); }
+}
+
+// ────────────────────────────────────────────────────────────── Loop
+let last=0;
+function frame(ts){
+  const real=Math.min(0.05,(ts-last)/1000||0); last=ts;
+  if(!paused){ step(real*speedMult); }   // ⏩ = acelera o tempo do replay
+  render();
+  requestAnimationFrame(frame);
+}
+
+// ────────────────────────────────────────────────────────────── Controles
+document.getElementById('restart').onclick=reset;
+document.getElementById('pause').onclick=e=>{ paused=!paused; e.target.textContent=paused?'▶ Continuar':'⏸ Pausar'; };
+document.getElementById('blood').onchange=e=>showBlood=e.target.checked;
+document.querySelectorAll('.speed').forEach(b=>b.onclick=()=>{
+  speedMult=+b.dataset.s; document.querySelectorAll('.speed').forEach(x=>x.classList.remove('on')); b.classList.add('on');
+});
+
+reset();
+requestAnimationFrame(frame);
+</script>
+</body>
+</html>
