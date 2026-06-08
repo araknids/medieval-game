@@ -3515,12 +3515,51 @@ function mailMsg(text, ok = true) {
 // ═══════════════════════════════════════════════════════════════════
 
 let worldCurrentKingdom = null;
+let worldOpenKingdom = null;          // [PILOTO_UI] qual reino está EXPANDIDO (pra toggle/colapso)
+let kingdomCache = {};                // [PILOTO_UI] cache do último detalhe por reino (evita re-fetch ao reabrir)
 let selectedZoneElement = 'FIRE'; // [ELEMENTOS] área de elemento selecionada nas zonas de coleta
-function selectZoneElement(el) { selectedZoneElement = el; if (worldCurrentKingdom) enterKingdom(worldCurrentKingdom); }
+
+// [PILOTO_UI] Trocar o elemento re-renderiza do CACHE (sem novo request) — o elemento é só de render.
+function selectZoneElement(el) {
+  selectedZoneElement = el;
+  const k = worldCurrentKingdom, c = k && kingdomCache[k];
+  if (c) renderKingdomDetail(k, c.quests, c.activeQuests, c.training, c.zoneSession, c.pvpStatus);
+  else if (k) enterKingdom(k);
+}
+
+// [PILOTO_UI] Move o painel pra DENTRO do card clicado (+ scroll na abertura).
+function openKingdomDetailInCard(kingdom) {
+  const el = document.getElementById('kingdom-detail');
+  const card = document.getElementById('kingdom-card-' + kingdom);
+  if (el && card && el.parentElement !== card) {
+    card.appendChild(el);
+    card.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  }
+}
+
+// [PILOTO_UI] Clique no card: alterna. Já aberto → COLAPSA. Senão abre — do CACHE se houver (sem request).
+function toggleKingdom(kingdom) {
+  if (worldOpenKingdom === kingdom) {            // re-clique no aberto → colapsa
+    const el = document.getElementById('kingdom-detail');
+    if (el) el.innerHTML = '';
+    worldOpenKingdom = null;
+    return;
+  }
+  const c = kingdomCache[kingdom];
+  if (c) {                                       // reabre do cache (instantâneo, sem fetch)
+    worldCurrentKingdom = kingdom;
+    openKingdomDetailInCard(kingdom);
+    renderKingdomDetail(kingdom, c.quests, c.activeQuests, c.training, c.zoneSession, c.pvpStatus);
+    worldOpenKingdom = kingdom;
+    return;
+  }
+  enterKingdom(kingdom);                          // 1ª vez: busca + cacheia
+}
 
 async function loadWorld() {
   const el = document.getElementById('world-content');
   el.innerHTML = '<p>Loading...</p>';
+  kingdomCache = {}; worldOpenKingdom = null; // [PILOTO_UI] dados frescos ao (re)entrar no World
   try {
     const [kingdoms, territories] = await Promise.all([
       api('GET', '/api/world'),
@@ -3588,7 +3627,7 @@ function renderWorldOverview(kingdoms, territories) {
       ? `<div style="text-align:right;font-size:11px;color:#666">Next war<br><strong style="color:#eee">${secsH}h ${secsM}m</strong></div>`
       : '';
 
-    return `<div id="kingdom-card-${k.kingdom}" onclick="enterKingdom('${k.kingdom}')" style="background:#1a1a2e;border:1px solid ${k.isMine ? '#4caf50' : '#444'};border-radius:10px;padding:16px;margin-bottom:12px;cursor:pointer">
+    return `<div id="kingdom-card-${k.kingdom}" onclick="toggleKingdom('${k.kingdom}')" style="background:#1a1a2e;border:1px solid ${k.isMine ? '#4caf50' : '#444'};border-radius:10px;padding:16px;margin-bottom:12px;cursor:pointer">
       <div style="display:flex;justify-content:space-between;align-items:flex-start">
         <div>
           <h3 style="margin:0 0 4px;font-size:16px">${k.icon} ${k.displayName}</h3>
@@ -3610,18 +3649,14 @@ function renderWorldOverview(kingdoms, territories) {
   if (openK) enterKingdom(openK);
 }
 
+// [PILOTO_UI] Busca o detalhe do reino, CACHEIA e renderiza dentro do card. Usado na 1ª abertura e
+// como refresh forçado pós-ação (coletar/gather) — sempre traz dados frescos e atualiza o cache.
 async function enterKingdom(kingdom, _depth = 0) {
   worldCurrentKingdom = kingdom;
   const el = document.getElementById('kingdom-detail');
   if (!el) return;
-  // Abre o painel logo ABAIXO do card clicado (não lá no fim da lista). Só move/scrolla na abertura
-  // inicial — refresh pós-coleta não fica re-scrollando. [FIX_KINGDOM_PANEL]
-  const card = document.getElementById('kingdom-card-' + kingdom);
-  if (card && el.parentElement !== card) {
-    card.appendChild(el); // [PILOTO_UI] abre DENTRO do card (1 nome só — sem duplicar o nome do território)
-    card.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-  }
-  el.innerHTML = '<p>Loading kingdom...</p>';
+  openKingdomDetailInCard(kingdom);
+  el.innerHTML = '<p style="color:#888;font-size:12px">Loading…</p>';
   try {
     const [, quests, activeQuests, training, zoneSession, pvpStatus] = await Promise.all([
       loadWarrior(),
@@ -3636,7 +3671,9 @@ async function enterKingdom(kingdom, _depth = 0) {
       await api('POST', `/api/zones/${zoneSession.id}/collect`).catch(() => {});
       return enterKingdom(kingdom, _depth + 1);
     }
+    kingdomCache[kingdom] = { quests, activeQuests, training, zoneSession, pvpStatus }; // [PILOTO_UI] cacheia o último estado
     renderKingdomDetail(kingdom, quests, activeQuests, training, zoneSession, pvpStatus);
+    worldOpenKingdom = kingdom;
   } catch(e) {
     console.error('[WORLD] enterKingdom ERROR:', e);
     el.innerHTML = '<p style="color:red">Error loading kingdom: ' + e.message + '</p>';
