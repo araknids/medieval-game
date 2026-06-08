@@ -11,3 +11,6 @@ godot-client/export_presets.cfg
 
 # Editor atomic-write temp artifacts
 *.java.tmp.*
+
+# Raw downloaded asset packs (source). Game-used copies live in backend/.../static/assets/.
+/assets/

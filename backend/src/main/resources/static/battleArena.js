@@ -1,14 +1,12 @@
 // battleArena.js — [BATALHA_ANIMADA] Replay 2D COSMÉTICO de um combate já decidido pelo backend.
-// O front não simula nada: só toca os BattleEvent (spawn/attack/crit/miss/dodge/heal/.../victory)
-// no canvas. Lutadores = ESQUELETO PROCEDURAL (ossos + ângulos animados por código, estilo Domina):
-// entram andando, balançam o braço no golpe, levam flinch, sangram por partículas e tombam ao morrer.
-// Sem assets — quando houver sprites, desenha-se as peças sobre os MESMOS ossos (só mexe no drawFighter).
-// Fundo por cena, replay ≤10s e controles ⏩/⏭.
+// O front não simula nada: só toca os BattleEvent (spawn/attack/crit/miss/dodge/heal/.../victory).
+// Lutadores = SPRITES reais (CraftPix Knight, frames 128×128): idle/walk/attack/hurt/dead. Sangue por
+// partículas, fundo por cena, replay ≤10s e controles ⏩/⏭.
 // API: playBattle(canvasEl, events, { scene, onDone }) → { stop() }.  Plano: docs/PLANO_BATALHA_ANIMADA.md
 (function () {
   const lerp = (a, b, t) => a + (b - a) * t;
 
-  // Fundos placeholder por cena (gradiente). Sprites/arte reais entram depois.
+  // Fundos placeholder por cena (gradiente). Arte de cenário real entra depois.
   const SCENES = {
     arena:    ['#3a2f1e', '#6b5836'], coast: ['#15384a', '#2a6b6b'], sea: ['#0f2a4a', '#1f6b8a'],
     cave:     ['#1a1a22', '#33333f'], fortress: ['#241018', '#4a1a2a'], tower: ['#1a1424', '#3a2450'],
@@ -16,6 +14,25 @@
   const ELEM = { SUPER: { c: '#ffd24a', s: '✦' }, RESIST: { c: '#7fb0ff', s: '🛡' } };
   const HIT_TYPES = new Set(['attack', 'crit', 'volley', 'extra']);
   const SWING_TYPES = new Set(['attack', 'crit', 'volley', 'extra', 'miss', 'dodge']); // atacante balança a arma
+
+  // ── Sprites (CraftPix Knight). Cada PNG é um strip horizontal de frames 128×128. ──
+  const FRAME_W = 128, FRAME_H = 128, DRAW_H = 150;
+  const FRAME_MS = { idle: 130, walk: 80, attack: 55, hurt: 90, dead: 110 };
+  const KNIGHT = {
+    blue: {
+      idle: '/assets/knights/blue/idle.png',   walk: '/assets/knights/blue/walk.png',
+      attack: '/assets/knights/blue/attack.png', hurt: '/assets/knights/blue/hurt.png',
+      dead: '/assets/knights/blue/dead.png',
+    },
+    purple: {
+      idle: '/assets/knights/purple/idle.png',   walk: '/assets/knights/purple/walk.png',
+      attack: '/assets/knights/purple/attack.png', hurt: '/assets/knights/purple/hurt.png',
+      dead: '/assets/knights/purple/dead.png',
+    },
+  };
+  const _img = {};
+  function sprite(url) { let im = _img[url]; if (!im) { im = new Image(); im.src = url; _img[url] = im; } return im; }
+  Object.values(KNIGHT).forEach(set => Object.values(set).forEach(sprite)); // preload no load do script
 
   function roundRect(c, x, y, w, h, r) {
     c.beginPath(); c.moveTo(x + r, y);
@@ -29,7 +46,6 @@
     if (!ctx || !Array.isArray(events)) return { stop() {} };
     const W = canvas.width, H = canvas.height, ground = H - 14;
 
-    // posição de combate (interna) e de entrada (externa) por lado
     const combatX = s => s < 0 ? W * 0.30 : W * 0.70;
     const entryX  = s => s < 0 ? W * 0.10 : W * 0.90;
 
@@ -39,22 +55,27 @@
       name: sp.actor, maxHp: Math.max(1, sp.targetMaxHp || 1), hp: Math.max(1, sp.targetMaxHp || 1),
       shownHp: Math.max(1, sp.targetMaxHp || 1), side,
       x: combatX(side), x0: entryX(side), color: side < 0 ? '#5b8dd6' : '#cf5b5b',
-      walk: Math.random() * 6, moving: false, flinch: 0, dead: false, deadT: 0,
+      set: side < 0 ? 'blue' : 'purple',
+      anim: 'idle', animStart: 0, animOnce: false, moving: false, flinch: 0, dead: false,
     });
     let left = mk(spawns[0], -1), right = mk(spawns[1], 1);
     const F = {}; F[left.name] = left; F[right.name] = right;
 
-    // mantém os spawns no stream → gauntlet (Torre): cada novo monstro re-inicia o lado direito.
     const steps = events.slice();
-    const BUDGET = 8500; // ms — caber em ≤10s mesmo com muitos turnos [Requisito #1]
-    const INTRO_MS = 650; // entrada andando antes do 1º golpe
+    const BUDGET = 8500;   // ms — caber em ≤10s mesmo com muitos turnos
+    const INTRO_MS = 700;  // entrada andando antes do 1º golpe
     const stepDur = Math.max(110, Math.min(600, steps.length ? BUDGET / steps.length : 600));
 
     let particles = [], floaters = [], shake = 0;
     let speed = 1, idx = 0, impacted = false, stepStart = 0, done = false, raf = 0, t0 = 0;
-    let curEvent = null, curT = 0, introP = 0, introDone = false; // estado p/ o drawFighter
+    let curEvent = null, curT = 0, introP = 0, introDone = false, stepRef = null, nowTs = 0;
 
-    const zoneY = zone => zone === 'head' ? ground - 104 : zone === 'legs' ? ground - 30 : ground - 70;
+    const zoneY = zone => zone === 'head' ? ground - 118 : zone === 'legs' ? ground - 32 : ground - 78;
+
+    function setAnim(f, name, once) {
+      if (!once && f.anim === name) return; // looping (idle/walk): só troca se mudou
+      f.anim = name; f.animStart = nowTs; f.animOnce = !!once; // one-shot (attack/hurt): sempre reinicia
+    }
 
     function blood(x, y, n) {
       for (let i = 0; i < n; i++) {
@@ -69,6 +90,7 @@
       if (HIT_TYPES.has(e.type) && tgt && (e.damage || 0) > 0) {
         const y = zoneY(e.hitZone), big = e.type === 'crit';
         blood(tgt.x, y, big ? 26 : Math.min(22, 6 + (e.damage || 0))); tgt.flinch = 1;
+        setAnim(tgt, 'hurt', true);
         floaters.push({ x: tgt.x, y: y - 8, vy: -0.8, life: 1, text: '-' + (e.damage || 0),
                         color: big ? '#ff5252' : '#fff', size: big ? 20 : 14 });
         if (ELEM[e.element]) floaters.push({ x: tgt.x, y: y - 26, vy: -0.6, life: 1,
@@ -76,27 +98,28 @@
         if (big) shake = 10;
       } else if (e.type === 'miss' || e.type === 'dodge') {
         const who = e.type === 'dodge' ? act : tgt;
-        if (who) floaters.push({ x: who.x, y: ground - 110, vy: -0.7, life: 1,
+        if (who) floaters.push({ x: who.x, y: ground - 120, vy: -0.7, life: 1,
                         text: e.type === 'dodge' ? 'DODGE' : 'MISS', color: '#9fd0ff', size: 13 });
       } else if (e.type === 'heal' && act) {
-        floaters.push({ x: act.x, y: ground - 118, vy: -0.7, life: 1, text: '+' + (e.damage || 0),
+        floaters.push({ x: act.x, y: ground - 128, vy: -0.7, life: 1, text: '+' + (e.damage || 0),
                         color: '#7cfc9a', size: 14 });
       }
     }
     function stepEnd(e) {
       const tgt = F[e.target], act = F[e.actor];
       if (HIT_TYPES.has(e.type) && tgt) { tgt.hp = e.targetHp; if (e.targetHp <= 0) tgt.dead = true; }
-      else if (e.type === 'dodge' && tgt) { tgt.hp = e.targetHp; }   // alvo = atacante que levou o reflect
+      else if (e.type === 'dodge' && tgt) { tgt.hp = e.targetHp; }
       else if (e.type === 'heal' && act) { act.hp = e.targetHp; }
       else if (e.type === 'victory' && tgt) { tgt.dead = true; }
       else if (e.type === 'spawn') { // [gauntlet] re-init de lutador no meio do stream (Torre)
-        if (e.actor === left.name) { left.hp = left.shownHp = Math.min(left.maxHp, e.targetMaxHp || left.hp); left.dead = false; left.deadT = 0; }
-        else if (e.actor !== right.name) { right = mk(e, 1); right.x0 = right.x; F[right.name] = right; } // novo monstro (sem walk-in)
-        else { right.hp = right.shownHp = right.maxHp = e.targetMaxHp || right.maxHp; right.dead = false; right.deadT = 0; }
+        if (e.actor === left.name) { left.hp = left.shownHp = Math.min(left.maxHp, e.targetMaxHp || left.hp); left.dead = false; setAnim(left, 'idle', false); }
+        else if (e.actor !== right.name) { right = mk(e, 1); right.x0 = right.x; F[right.name] = right; }
+        else { right.hp = right.shownHp = right.maxHp = e.targetMaxHp || right.maxHp; right.dead = false; setAnim(right, 'idle', false); }
       }
     }
 
     function frame(now) {
+      nowTs = now;
       if (!t0) t0 = now;
       introP = Math.min(1, (now - t0) * speed / INTRO_MS);
       introDone = introP >= 1;
@@ -107,6 +130,10 @@
         const e = steps[idx];
         if (!e) { finish(); }
         else {
+          if (e !== stepRef) { // novo passo → dispara o golpe do atacante
+            stepRef = e;
+            if (SWING_TYPES.has(e.type) && F[e.actor] && !F[e.actor].dead) setAnim(F[e.actor], 'attack', true);
+          }
           curEvent = e;
           curT = Math.min(1, (now - stepStart) * speed / stepDur);
           if (curT >= 0.45 && !impacted) { impact(e); impacted = true; }
@@ -116,10 +143,18 @@
 
       [left, right].forEach(f => {
         f.moving = !introDone && !f.dead;
-        f.walk += f.moving ? 0.24 : 0.05;
         f.shownHp += (f.hp - f.shownHp) * 0.25;
         f.flinch *= 0.86;
-        if (f.dead && f.deadT < 1) f.deadT = Math.min(1, f.deadT + 0.05 * speed);
+        // gestão de animação: morte > one-shot em andamento > base (walk/idle)
+        if (f.dead) {
+          if (f.anim !== 'dead') { f.anim = 'dead'; f.animStart = nowTs; f.animOnce = true; }
+        } else if (f.animOnce) {
+          const im = sprite(KNIGHT[f.set][f.anim]);
+          const frames = im.naturalWidth ? Math.floor(im.naturalWidth / FRAME_W) : 1;
+          if (nowTs - f.animStart >= frames * FRAME_MS[f.anim]) setAnim(f, f.moving ? 'walk' : 'idle', false);
+        } else {
+          setAnim(f, f.moving ? 'walk' : 'idle', false);
+        }
       });
       draw();
       raf = requestAnimationFrame(frame);
@@ -145,68 +180,23 @@
       ctx.restore();
     }
 
-    // ── Esqueleto procedural (FK por ângulos) ──────────────────────────────────
     function drawFighter(f) {
-      const dir = -f.side;                                  // encara o inimigo (side<0 olha p/ direita)
       const drawX = introDone ? f.x : lerp(f.x0, f.x, introP);
-      let atkP = -1;                                        // progresso do golpe deste lutador (0..1)
-      if (introDone && curEvent && curEvent.actor === f.name && SWING_TYPES.has(curEvent.type)) atkP = curT;
-
-      const swing = f.moving ? 0.5 : 0.06;                 // amplitude do passo (anda x respira)
-      const bob = (f.moving ? 2.5 : 1.0) * Math.sin(f.walk * 2);
-      const lean = 0.06 + 0.04 * Math.sin(f.walk * 2) - 0.5 * f.flinch;  // tronco; flinch = inclina p/ trás
-      const lunge = atkP >= 0 ? Math.sin(Math.PI * atkP) * 7 : 0;        // avança no golpe
-      const xoff = dir * lunge - dir * 5 * f.flinch;
-
-      let hipY = ground - 56 - bob;
-      if (f.dead) hipY = lerp(hipY, ground - 12, f.deadT);
-
-      ctx.save();
-      ctx.translate(drawX + xoff, hipY);
-      if (f.dead) ctx.rotate(f.deadT * (Math.PI / 2) * -dir);            // tomba p/ trás ao morrer
-      ctx.globalAlpha = f.dead ? lerp(1, 0.85, f.deadT) : 1;
-
-      const L = { torso: 42, neck: 5, head: 11, thigh: 30, shin: 30, upper: 23, fore: 21, weapon: 46 };
-      const down = (b, a, len) => ({ x: b.x + Math.sin(a) * len * dir, y: b.y + Math.cos(a) * len }); // 0 = p/ baixo
-      const hip = { x: 0, y: 0 };
-      const ux = Math.sin(lean) * dir, uy = -Math.cos(lean);            // vetor "pra cima" do tronco
-      const sh = { x: ux * L.torso, y: uy * L.torso };
-      const head = { x: sh.x + ux * (L.neck + L.head), y: sh.y + uy * (L.neck + L.head) };
-
-      const legPose = p => { const tA = swing * Math.sin(p), kA = 0.1 + 0.5 * Math.max(0, -Math.sin(p));
-        const k = down(hip, tA, L.thigh); return { k, ft: down(k, tA + kA, L.shin) }; };
-      const bl = legPose(f.walk + Math.PI), fl = legPose(f.walk);
-
-      const bSh = -0.4 + 0.07 * Math.sin(f.walk), bEl = 0.8;            // braço de trás (escudo)
-      const bE = down(sh, bSh, L.upper), bH = down(bE, bSh + bEl, L.fore);
-
-      let fSh = 0.75, fEl = 0.5;                                        // braço da frente (arma) — golpe
-      if (atkP >= 0) { const t = atkP;
-        if (t < 0.35)      { const k = t / 0.35;          fSh = lerp(0.75, -2.1, k); fEl = lerp(0.5, 0.3, k); } // ergue atrás
-        else if (t < 0.58) { const k = (t - 0.35) / 0.23; fSh = lerp(-2.1, 1.25, k); fEl = lerp(0.3, 0.5, k); } // desce o corte
-        else               { const k = (t - 0.58) / 0.42; fSh = lerp(1.25, 0.75, k); fEl = 0.5; }              // recupera
+      const faceRight = f.side < 0;                       // sprites encaram a DIREITA por padrão
+      const knock = f.flinch > 0.02 ? (f.side < 0 ? -1 : 1) * 6 * f.flinch : 0;
+      const im = sprite(KNIGHT[f.set][f.anim] || KNIGHT[f.set].idle);
+      if (!im.complete || !im.naturalWidth) {            // placeholder enquanto a imagem carrega
+        ctx.fillStyle = f.color; roundRect(ctx, drawX - 12, ground - 70, 24, 66, 6); ctx.fill(); return;
       }
-      const fE = down(sh, fSh, L.upper), fH = down(fE, fSh + fEl, L.fore);
-      const wAng = fSh + fEl - 0.05, wTip = down(fH, wAng, L.weapon);
-
-      const armor = f.flinch > 0.35 ? '#ffffff' : f.color;
-      const skin = '#caa37a', dark = '#2b2118', steel = '#d8d8e0';
-      const limb = (a, b, w, c) => { ctx.strokeStyle = c; ctx.lineWidth = w; ctx.lineCap = 'round';
-        ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); ctx.stroke(); };
-
-      limb(bl.k, bl.ft, 6, dark); limb(hip, bl.k, 7, dark);            // perna de trás
-      limb(bE, bH, 5, skin); limb(sh, bE, 6, skin);                    // braço de trás
-      ctx.fillStyle = armor; ctx.beginPath(); ctx.arc(bH.x, bH.y, 10, 0, 6.283); ctx.fill();
-      ctx.strokeStyle = dark; ctx.lineWidth = 2; ctx.stroke();         // escudo
-      limb(hip, sh, 12, armor);                                        // tronco
-      limb(fl.k, fl.ft, 7, skin); limb(hip, fl.k, 8, skin);           // perna da frente
-      ctx.fillStyle = skin; ctx.beginPath(); ctx.arc(head.x, head.y, L.head, 0, 6.283); ctx.fill();
-      ctx.fillStyle = armor; ctx.beginPath(); ctx.arc(head.x, head.y, L.head + 1.5, Math.PI * 0.9, Math.PI * 2.1); ctx.fill(); // elmo
-      limb(sh, fE, 6, skin); limb(fE, fH, 5, skin);                    // braço da frente
-      limb(fH, wTip, 3, steel);                                        // lâmina
-      limb({ x: fH.x - Math.cos(wAng) * 6 * dir, y: fH.y + Math.sin(wAng) * 6 },
-           { x: fH.x + Math.cos(wAng) * 6 * dir, y: fH.y - Math.sin(wAng) * 6 }, 3, '#c9a84c'); // guarda
-
+      const frames = Math.max(1, Math.floor(im.naturalWidth / FRAME_W));
+      const dur = FRAME_MS[f.anim] || 120;
+      let fi = Math.floor((nowTs - f.animStart) / dur);
+      fi = f.animOnce ? Math.min(fi, frames - 1) : (fi % frames);
+      const scale = DRAW_H / FRAME_H, dw = FRAME_W * scale, dh = FRAME_H * scale, footPad = scale * 8;
+      ctx.save();
+      ctx.translate(drawX + knock, ground + footPad);
+      if (!faceRight) ctx.scale(-1, 1);
+      ctx.drawImage(im, fi * FRAME_W, 0, FRAME_W, FRAME_H, -dw / 2, -dh, dw, dh);
       ctx.restore();
     }
 

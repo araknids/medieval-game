@@ -10,9 +10,12 @@
 > miss/dodge/extra/volley/heal/berserk/kiting/victory, com `hitZone` cabeça/corpo/perna e `element`);
 > combate byte-idêntico (RNG preservado), coberto por `BattleEventTest`. **API:** Arena, Zona-chefe e
 > Torre devolvem `battleEvents` + `scene` (arena/coast/sea/cave/fortress/tower) — sem persistir.
-> ✅ **Feito (frontend):** `battleArena.js` — **esqueleto procedural** (FK por ângulos: pernas faseadas,
-> golpe overhead, elmo/espada/escudo, morte com tombo), entrada andando ≤10s, sangue/números, fundo por
-> cena, controles ⏩/⏭; `showCollectModal`/Arena consumindo `battleEvents`.
+> ✅ **Feito (frontend):** `battleArena.js` — **sprites reais** (CraftPix Knight, frames 128×128:
+> idle/walk/attack/hurt/dead; azul=player, roxo=inimigo; em `static/assets/knights/`). Entrada andando
+> ≤10s, golpe/flinch/morte por animação, sangue/números, fundo por cena, controles ⏩/⏭; `showCollectModal`/
+> Arena consumindo `battleEvents`. (Antes era esqueleto procedural — substituído pelos sprites.)
+> Pack cru fica fora do git (`.gitignore /assets/`); só as cópias usadas no jogo entram. Licença: CraftPix
+> free (uso comercial OK; **não** redistribuir o pack cru).
 > Estende o combate atual (`BattleSimulator` / Arena / Zona-chefe / Torre) **sem mudar o motor**.
 
 ## Conceito
