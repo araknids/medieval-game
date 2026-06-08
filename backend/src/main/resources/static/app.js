@@ -3872,7 +3872,7 @@ function worldMsg(text, ok = true) {
 // log:  string[] (battle log lines)
 // note: string (narrative/lore paragraph shown above the rows)
 let _collectAgainFn = null; // [PILOTO_UI] guarda o "repetir ação" do modal de coleta/caça
-function showCollectModal({ title, color = '#4caf50', rows = [], log = [], note = '', again = null, equipId = null }) {
+function showCollectModal({ title, color = '#4caf50', rows = [], log = [], note = '', again = null, equipId = null, equipUpgrade = false }) {
   closeCollectModal();
   _collectAgainFn = again;
 
@@ -3915,7 +3915,7 @@ function showCollectModal({ title, color = '#4caf50', rows = [], log = [], note 
       ${rowsHtml || '<div style="color:#888;font-size:13px">Nothing this time.</div>'}
       ${logHtml}
       <div style="display:flex;gap:10px;margin-top:18px;flex-wrap:wrap">
-        ${equipId ? `<button id="loot-equip-btn" onclick="equipFromLoot(${equipId})" style="flex:1;min-width:110px;background:#c9a84c;color:#1a1a2e;font-weight:bold;padding:10px;border-radius:8px;cursor:pointer;font-size:14px;border:none">🛡 Equip</button>` : ''}
+        ${equipId ? `<button id="loot-equip-btn" onclick="equipFromLoot(${equipId})" style="flex:1;min-width:110px;background:#c9a84c;color:#1a1a2e;font-weight:bold;padding:10px;border-radius:8px;cursor:pointer;font-size:14px;border:none">🛡 ${equipUpgrade ? 'Equip ✓ better' : 'Equip'}</button>` : ''}
         ${again ? `<button onclick="collectAgain()" style="flex:1;min-width:110px;background:${color};color:#000;font-weight:bold;padding:10px;border-radius:8px;cursor:pointer;font-size:14px;border:none">🔁 Again</button>` : ''}
         <button onclick="closeCollectModal()" style="${(again||equipId) ? 'flex:0 0 auto;background:#2a2a3a;color:#ddd;padding:10px 16px' : 'flex:1;background:'+color+';color:#000;padding:10px'};font-weight:bold;border-radius:8px;cursor:pointer;font-size:14px;border:none">${(again||equipId) ? 'Close' : 'Continue'}</button>
       </div>
@@ -4212,8 +4212,23 @@ async function renderZoneResult(r) {
   const canAgain = (typeof again === 'function') && !(r.wasAttacked && !r.survived);
   // [PILOTO_UI] Equip no loot: só quando o item está na bag (id>0; null se foi pro mail por bag cheia).
   const equipId = (r.lootItemId && r.lootItemId > 0) ? r.lootItemId : null;
+  // [PILOTO_UI] "é upgrade?" — compara a soma de stats do drop vs o equipado no mesmo slot (frontend).
+  let equipUpgrade = false;
+  if (equipId) {
+    try {
+      const inv = await api('GET', '/api/inventory');
+      if (Array.isArray(inv)) {
+        const dropped = inv.find(i => i.id === equipId);
+        if (dropped) {
+          const statSum = x => (x.attackBonus||0)+(x.defenseBonus||0)+(x.healthBonus||0)+(x.strBonus||0)+(x.dexBonus||0)+(x.lukBonus||0);
+          const cur = inv.find(i => i.equipped && i.type === dropped.type);
+          equipUpgrade = !cur || statSum(dropped) > statSum(cur);
+        }
+      }
+    } catch (e) { /* sem comparação → botão fica "Equip" normal */ }
+  }
   dismissOnboardClue(); // [ONBOARDING] 1ª expedição feita → tira o coachmark
-  showCollectModal({ title, color, rows, note: r.narrative || '', log: r.battleLog || [], again: canAgain ? again : null, equipId });
+  showCollectModal({ title, color, rows, note: r.narrative || '', log: r.battleLog || [], again: canAgain ? again : null, equipId, equipUpgrade });
   if (worldCurrentKingdom) await enterKingdom(worldCurrentKingdom);
 }
 

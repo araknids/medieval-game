@@ -519,8 +519,9 @@ section {
 .item-lore   { color: #888; font-size: .72rem; font-style: italic; margin-top: .1rem; }
 .item-origin { color: #5b9bd5; font-size: .68rem; margin-top: .05rem; }
 .rarity-1 { color: #aaa; } .rarity-2 { color: #4caf82; }
-.rarity-3 { color: #5b9bd5; } .rarity-4 { color: #c97ddb; }
-.rarity-5 { color: #e6a23c; text-shadow: 0 0 6px rgba(230,162,60,.45); } /* Lendário [ITENS_V2] */
+.rarity-3 { color: #5b9bd5; }
+.rarity-4 { color: #c97ddb; text-shadow: 0 0 6px rgba(201,125,219,.40); } /* Épico — glow [PILOTO_UI juice] */
+.rarity-5 { color: #e6a23c; text-shadow: 0 0 8px rgba(230,162,60,.6), 0 0 2px rgba(230,162,60,.9); } /* Lendário [ITENS_V2] */
 
 /* Afixos de item (Itens V2) */
 .item-affixes { display: flex; flex-direction: column; gap: 1px; margin-top: .15rem; }
@@ -616,9 +617,25 @@ section {
   font-size: 0.82rem; display: none; max-width: 300px; z-index: 99;
   white-space: pre-line;
   line-height: 1.6;
+  animation: mg-pop .28s ease;
 }
 #game-message.drop {
   border-color: #c97ddb;
   background: #1e1030;
 }
 .error { color: #cf6679; font-size: 0.85rem; text-align: center; }
+
+/* [PILOTO_UI juice] micro-animações: toast e modais "pop" ao aparecer */
+@keyframes mg-pop    { from { transform: translateY(8px) scale(.96); opacity: 0; } to { transform: none; opacity: 1; } }
+@keyframes modal-pop { from { transform: scale(.94); opacity: 0; } to { transform: none; opacity: 1; } }
+#collect-modal-overlay > div { animation: modal-pop .22s cubic-bezier(.2,.8,.3,1.1); }
+
+/* [PILOTO_UI §10] header responsivo: em telas estreitas prioriza ❤/⚡ + Heal/Bag */
+@media (max-width: 760px) {
+  header { gap: .5rem; padding: .4rem .6rem; }
+  #hdr-username, #hdr-rank { display: none; }
+  .hdr-bar-track { width: 52px; }
+  .hdr-bar b { min-width: 0; }
+  .header-info { gap: .5rem; }
+  .hdr-quick { padding: .25rem .45rem; font-size: .75rem; }
+}
