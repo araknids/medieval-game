@@ -3222,6 +3222,18 @@ function updateMailBadge(unread) {
   } else {
     badge.style.display = 'none';
   }
+  updateSocialDot();
+}
+
+// [PILOTO_UI] dot no grupo Social quando há mail não-lido ou daily disponível. O badge individual
+// fica oculto fora do grupo (nav 9→5); o dot mantém o sinal no nível do grupo.
+function updateSocialDot() {
+  const dot = document.getElementById('grp-social-dot');
+  if (!dot) return;
+  const mail  = document.getElementById('mail-badge');
+  const daily = document.getElementById('daily-badge');
+  const has = (mail && mail.style.display !== 'none') || (daily && daily.style.display !== 'none');
+  dot.style.display = has ? 'inline-block' : 'none';
 }
 
 function renderMailPanel(letters, unread) {
@@ -3434,6 +3446,7 @@ async function claimDailyReward() {
 function updateDailyBadge(show) {
   const b = document.getElementById('daily-badge');
   if (b) b.style.display = show ? 'inline-block' : 'none';
+  updateSocialDot();
 }
 
 // Checa no login: atualiza o badge e, se houver recompensa, abre o popup (se nenhum modal estiver aberto).
@@ -3896,8 +3909,8 @@ function showCollectModal({ title, color = '#4caf50', rows = [], log = [], note 
   const noteHtml = note ? `
     <div style="background:#0d0d18;border-left:3px solid ${color};border-radius:6px;padding:10px 12px;margin-bottom:14px;font-size:13px;color:#cdd;font-style:italic;line-height:1.5">${note}</div>` : '';
 
-  const rowsHtml = rows.map(r => `
-    <div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid #2a2a3a">
+  const rowsHtml = rows.map((r, i) => `
+    <div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid #2a2a3a;animation:row-in .32s ease both;animation-delay:${i * 55}ms">
       <span style="font-size:18px;min-width:24px;text-align:center">${r.icon}</span>
       <span style="font-size:13px;color:#bbb;flex:1">${r.label}</span>
       <span style="display:flex;flex-direction:column;align-items:flex-end;text-align:right;min-width:0">
@@ -3936,6 +3949,23 @@ function showCollectModal({ title, color = '#4caf50', rows = [], log = [], note 
       </div>
     </div>`;
   document.body.appendChild(el);
+  animateModalNumbers(el); // [PILOTO_UI juice] "número subindo" nas recompensas
+}
+
+// [PILOTO_UI juice] anima spans [data-cu] de 0 até o valor (ease-out cúbico).
+function animateModalNumbers(root) {
+  if (!root) return;
+  root.querySelectorAll('[data-cu]').forEach(span => {
+    const to = parseInt(span.dataset.cu, 10);
+    if (!isFinite(to) || to <= 0) return;
+    const dur = 500, start = performance.now();
+    const tick = (now) => {
+      const p = Math.min(1, (now - start) / dur);
+      span.textContent = Math.round(to * (1 - Math.pow(1 - p, 3)));
+      if (p < 1) requestAnimationFrame(tick); else span.textContent = to;
+    };
+    requestAnimationFrame(tick);
+  });
 }
 
 function closeCollectModal() {
@@ -4220,7 +4250,7 @@ async function renderZoneResult(r) {
     if (r.bronzeGained > 0)
       rows.push({ icon:'🪙', label:'Bronze', value:fmtBronze(r.bronzeGained), color:'#cd7f32' });
     if (r.xpGained > 0)
-      rows.push({ icon:'⭐', label:'Experience', value:`+${r.xpGained} XP`, color:'#ffd700' });
+      rows.push({ icon:'⭐', label:'Experience', value:`+<span data-cu="${r.xpGained}">0</span> XP`, color:'#ffd700' });
   }
 
   // [PILOTO_UI] "Again" só quando faz sentido repetir (não morreu na expedição).

@@ -77,11 +77,11 @@
         <!-- NAV: 5 grupos por intenção (topo) + sub-linha do grupo ativo. Todos os destinos
              continuam acessíveis (nada escondido) — só reagrupados. [PILOTO_UI nav 9→5] -->
         <nav class="group-nav" id="group-nav">
-          <button class="grp-btn active" data-grp="adventure" onclick="goGroup('adventure')">🗺 Adventure</button>
-          <button class="grp-btn"        data-grp="character" onclick="goGroup('character')">👤 <span data-i18n="nav.character">Character</span></button>
-          <button class="grp-btn"        data-grp="town"      onclick="goGroup('town')">🏪 <span data-i18n="nav.commerce">Commerce</span></button>
-          <button class="grp-btn"        data-grp="battle"    onclick="goGroup('battle')">⚔ Battle</button>
-          <button class="grp-btn"        data-grp="social"    onclick="goGroup('social')">📜 Social</button>
+          <button class="grp-btn active" data-grp="adventure" onclick="goGroup('adventure')"><span class="grp-ico">🗺</span><span class="grp-label">Adventure</span></button>
+          <button class="grp-btn"        data-grp="character" onclick="goGroup('character')"><span class="grp-ico">👤</span><span class="grp-label" data-i18n="nav.character">Character</span></button>
+          <button class="grp-btn"        data-grp="town"      onclick="goGroup('town')"><span class="grp-ico">🏪</span><span class="grp-label" data-i18n="nav.commerce">Commerce</span></button>
+          <button class="grp-btn"        data-grp="battle"    onclick="goGroup('battle')"><span class="grp-ico">⚔</span><span class="grp-label">Battle</span></button>
+          <button class="grp-btn"        data-grp="social"    onclick="goGroup('social')"><span class="grp-ico">📜</span><span class="grp-label">Social</span> <span id="grp-social-dot" style="display:none;width:7px;height:7px;border-radius:50%;background:#ef5350;vertical-align:middle;margin-left:1px"></span></button>
           <button id="lang-toggle" class="grp-btn" onclick="toggleLanguage()" style="margin-left:auto;background:#1a3a1a;border-color:#2e7d32" title="Switch language">🌐 EN</button>
         </nav>
         <nav class="location-nav" id="loc-nav">

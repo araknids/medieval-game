@@ -211,6 +211,26 @@ main {
 /* sub-linha recuada (destinos do grupo ativo) */
 .location-nav { background: var(--bg-0); }
 .location-nav .loc-btn { font-size: .82rem; padding: .45rem 1rem; }
+.grp-ico { margin-right: .4rem; }
+
+/* [PILOTO_UI §10] mobile: coluna única + nav primária vira TAB BAR fixa no rodapé (icon-only).
+   A barra persistente do topo já mostra HP/⚡/🪙, então a sidebar pode encolher. */
+@media (max-width: 760px) {
+  .game-layout { grid-template-columns: 1fr; height: auto; }
+  aside.warrior-sidebar { border-right: none; border-bottom: 1px solid var(--line); max-height: 42vh; }
+  main { overflow: visible; }
+  main section { overflow-y: visible; padding-bottom: 64px; }
+
+  .group-nav { position: fixed; left: 0; right: 0; bottom: 0; z-index: 80; padding: 0; gap: 0;
+    justify-content: space-around; border-top: 1px solid var(--line); border-bottom: none;
+    box-shadow: 0 -2px 10px rgba(0,0,0,.4); }
+  .grp-btn { flex: 1; padding: .55rem .2rem; font-size: 1.35rem; border-bottom: none; border-top: 2px solid transparent; }
+  .grp-btn.active { border-top-color: var(--gold); border-bottom-color: transparent; }
+  .grp-ico { margin-right: 0; }
+  .grp-label { display: none; }       /* icon-only no mobile */
+  #lang-toggle { display: none; }     /* idioma só no desktop (gap conhecido do mobile) */
+  .location-nav { overflow-x: auto; -webkit-overflow-scrolling: touch; flex-wrap: nowrap; }
+}
 
 /* ── SEÇÕES ── */
 section {
@@ -641,6 +661,7 @@ section {
 /* [PILOTO_UI juice] micro-animações: toast e modais "pop" ao aparecer */
 @keyframes mg-pop    { from { transform: translateY(8px) scale(.96); opacity: 0; } to { transform: none; opacity: 1; } }
 @keyframes modal-pop { from { transform: scale(.94); opacity: 0; } to { transform: none; opacity: 1; } }
+@keyframes row-in    { from { opacity: 0; transform: translateX(10px); } to { opacity: 1; transform: none; } }
 #collect-modal-overlay > div { animation: modal-pop .22s cubic-bezier(.2,.8,.3,1.1); }
 
 /* [PILOTO_UI §10] header responsivo: em telas estreitas prioriza ❤/⚡ + Heal/Bag */
