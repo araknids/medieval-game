@@ -137,7 +137,7 @@ public class ZoneController {
     private Map<String, Object> collectResponse(ZoneService.CollectResult result) {
         var dropsResponse = result.drops().stream().map(d -> Map.of(
             "type",        d.type().name(),
-            "displayName", d.type().displayName,
+            "displayName", com.medieval.game.service.Messages.tr("resource." + d.type().name() + ".name", d.type().displayName),
             "quantity",    d.quantity()
         )).toList();
 

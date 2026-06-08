@@ -27,7 +27,7 @@ public class ShopController {
                 Map.entry("id",           i.id()),
                 Map.entry("name",         i.name()),
                 Map.entry("type",         i.type().name()),
-                Map.entry("typeDisplay",  i.type().displayName),
+                Map.entry("typeDisplay",  com.medieval.game.service.Messages.tr("itemtype." + i.type().name() + ".name", i.type().displayName)),
                 Map.entry("attackBonus",  i.atk()),
                 Map.entry("defenseBonus", i.def()),
                 Map.entry("healthBonus",  i.hp()),

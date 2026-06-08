@@ -30,7 +30,7 @@ public class StashController {
                 "id",           i.getId(),
                 "name",         i.getName(),
                 "type",         i.getType().name(),
-                "typeDisplay",  i.getType().displayName,
+                "typeDisplay",  com.medieval.game.service.Messages.tr("itemtype." + i.getType().name() + ".name", i.getType().displayName),
                 "rarity",       i.getRarity(),
                 "rarityName",   rarityName(i.getRarity()),
                 "itemLevel",    i.getItemLevel(),
@@ -41,7 +41,7 @@ public class StashController {
 
         List<Map<String, Object>> resources = stashService.stashResources(p).stream().map(r -> Map.<String, Object>of(
                 "type",        r.getResourceType().name(),
-                "displayName", r.getResourceType().displayName,
+                "displayName", com.medieval.game.service.Messages.tr("resource." + r.getResourceType().name() + ".name", r.getResourceType().displayName),
                 "category",    r.getResourceType().category.name(),
                 "quantity",    r.getQuantity()
         )).toList();
@@ -75,14 +75,14 @@ public class StashController {
     public ResponseEntity<?> depositResource(@PathVariable ResourceType type, @RequestBody QtyRequest req, Authentication auth) {
         Player p = getPlayer(auth);
         stashService.depositResource(p, type, req.quantity());
-        return ResponseEntity.ok(result(p, type.displayName + " moved to stash."));
+        return ResponseEntity.ok(result(p, com.medieval.game.service.Messages.tr("toast.stash_in", "{0} moved to stash.", com.medieval.game.service.Messages.tr("resource." + type.name() + ".name", type.displayName))));
     }
 
     @PostMapping("/withdraw/resource/{type}")
     public ResponseEntity<?> withdrawResource(@PathVariable ResourceType type, @RequestBody QtyRequest req, Authentication auth) {
         Player p = getPlayer(auth);
         stashService.withdrawResource(p, type, req.quantity());
-        return ResponseEntity.ok(result(p, type.displayName + " taken from stash."));
+        return ResponseEntity.ok(result(p, com.medieval.game.service.Messages.tr("toast.stash_out", "{0} taken from stash.", com.medieval.game.service.Messages.tr("resource." + type.name() + ".name", type.displayName))));
     }
 
     private Map<String, Object> result(Player p, String message) {

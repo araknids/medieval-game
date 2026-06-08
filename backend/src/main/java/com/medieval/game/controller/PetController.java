@@ -24,7 +24,7 @@ public class PetController {
         Player player = getPlayer(auth);
         var pets = petService.list(player).stream().map(v -> Map.of(
             "type",           v.type().name(),
-            "displayName",    v.displayName(),
+            "displayName",    com.medieval.game.service.Messages.tr("pet." + v.type().name() + ".name", v.displayName()),
             "icon",           v.icon(),
             "hpBonusPercent", v.hpBonusPercent(),
             "dexBonus",       v.dexBonus(),
@@ -41,7 +41,7 @@ public class PetController {
         Player player = getPlayer(auth);
         petService.buy(player, petType);
         return ResponseEntity.ok(Map.of(
-            "message",    petType.displayName + " adopted!",
+            "message",    com.medieval.game.service.Messages.tr("toast.pet_adopted", "{0} adopted!", com.medieval.game.service.Messages.tr("pet." + petType.name() + ".name", petType.displayName)),
             "soulStones", player.getSoulStones()
         ));
     }
@@ -49,7 +49,7 @@ public class PetController {
     @PostMapping("/equip/{petType}")
     public ResponseEntity<?> equip(@PathVariable PetType petType, Authentication auth) {
         petService.equip(getPlayer(auth), petType);
-        return ResponseEntity.ok(Map.of("message", petType.displayName + " equipped."));
+        return ResponseEntity.ok(Map.of("message", com.medieval.game.service.Messages.tr("toast.pet_equipped", "{0} equipped.", com.medieval.game.service.Messages.tr("pet." + petType.name() + ".name", petType.displayName))));
     }
 
     @PostMapping("/unequip")

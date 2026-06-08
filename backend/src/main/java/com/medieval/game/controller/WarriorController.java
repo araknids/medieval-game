@@ -156,14 +156,14 @@ public class WarriorController {
         // Montaria equipada (Estábulo) — exibida na ficha do personagem. [ESTABULO]
         MountInfo equippedMount = mountRepository.findByPlayerAndEquippedTrue(player)
                 .map(m -> { var mt = m.getMountType();
-                    return new MountInfo(mt.name(), mt.displayName, mt.icon, mt.staminaReductionPct,
+                    return new MountInfo(mt.name(), com.medieval.game.service.Messages.tr("mount." + mt.name() + ".name", mt.displayName), mt.icon, mt.staminaReductionPct,
                             mt.attackBonus, mt.defenseBonus, mt.healthBonus); })
                 .orElse(null);
 
         // Pet equipado — exibido na ficha do personagem. [PETS]
         PetInfo equippedPet = petRepository.findByPlayerAndEquippedTrue(player)
                 .map(p -> { var pt = p.getPetType();
-                    return new PetInfo(pt.name(), pt.displayName, pt.icon, pt.hpBonusPercent, pt.dexBonus); })
+                    return new PetInfo(pt.name(), com.medieval.game.service.Messages.tr("pet." + pt.name() + ".name", pt.displayName), pt.icon, pt.hpBonusPercent, pt.dexBonus); })
                 .orElse(null);
 
         // [ELEMENTOS] Encantamentos elementais ativos (arma/armadura) + tempo restante.

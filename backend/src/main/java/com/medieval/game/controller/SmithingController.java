@@ -43,9 +43,9 @@ public class SmithingController {
         var refine = SmithingService.REFINE_RECIPES.stream().map(r -> Map.of(
             "type",        "refine",
             "ore",         r.ore().name(),
-            "oreName",     r.ore().displayName,
+            "oreName",     com.medieval.game.service.Messages.tr("resource." + r.ore().name() + ".name", r.ore().displayName),
             "bar",         r.bar().name(),
-            "barName",     r.bar().displayName,
+            "barName",     com.medieval.game.service.Messages.tr("resource." + r.bar().name() + ".name", r.bar().displayName),
             "oreQty",      r.oreQty(),
             "bronzeCost",  r.bronzeCost(),
             "levelRequired", r.smithingLevelRequired(),
@@ -64,10 +64,10 @@ public class SmithingController {
                 Map.entry("type",        "craft"),
                 Map.entry("id",          r.id()),
                 Map.entry("name",        r.name()),
-                Map.entry("weaponType",  isWeapon ? wt.displayName : ""),
+                Map.entry("weaponType",  isWeapon ? com.medieval.game.service.Messages.tr("weapontype." + wt.name() + ".name", wt.displayName) : ""),
                 Map.entry("ingredients", r.ingredients().entrySet().stream().map(e -> Map.of(
                     "resource", e.getKey().name(),
-                    "name",     e.getKey().displayName,
+                    "name",     com.medieval.game.service.Messages.tr("resource." + e.getKey().name() + ".name", e.getKey().displayName),
                     "qty",      e.getValue()
                 )).toList()),
                 Map.entry("levelRequired", r.smithingLevel()),
@@ -94,9 +94,9 @@ public class SmithingController {
                 return Map.of(
                     "type",         "gem",
                     "fragment",     frag.name(),
-                    "fragmentName", frag.displayName,
+                    "fragmentName", com.medieval.game.service.Messages.tr("resource." + frag.name() + ".name", frag.displayName),
                     "gem",          gem.name(),
-                    "gemName",      gem.displayName,
+                    "gemName",      com.medieval.game.service.Messages.tr("gem." + gem.name() + ".name", gem.displayName),
                     "bonus",        SmithingService.GemBonus.of(gem)
                 );
             }).toList();
@@ -110,7 +110,7 @@ public class SmithingController {
         Player player = getPlayer(auth);
         smithingService.refineOre(player, req.oreType(), req.quantity());
         return ResponseEntity.ok(Map.of("message",
-            req.quantity() + " " + req.oreType().displayName + " bar(s) created!"));
+            com.medieval.game.service.Messages.tr("toast.bars_created", "{0} {1} bar(s) created!", req.quantity(), com.medieval.game.service.Messages.tr("resource." + req.oreType().name() + ".name", req.oreType().displayName))));
     }
 
     // Craftar equipamento (pode falhar — success rate cresce com o nível de Forja). [PROFISSAO_SUCCESS]
@@ -181,7 +181,7 @@ public class SmithingController {
                 .stream().map(g -> Map.of(
                     "slot",    g.getSlotIndex(),
                     "gem",     g.getGemType().name(),
-                    "gemName", g.getGemType().displayName
+                    "gemName", com.medieval.game.service.Messages.tr("gem." + g.getGemType().name() + ".name", g.getGemType().displayName)
                 )).toList();
         return ResponseEntity.ok(gems);
     }

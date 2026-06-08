@@ -51,7 +51,7 @@ public class WorkController {
 
             return Map.ofEntries(
                 Map.entry("id",                   wt.name()),
-                Map.entry("displayName",          wt.displayName),
+                Map.entry("displayName",          com.medieval.game.service.Messages.tr("profession." + wt.name() + ".name", wt.displayName)),
                 Map.entry("description",          wt.description),
                 Map.entry("goldPerHour",          wt.goldPerHour),
                 Map.entry("minWorkLevel",         wt.minWorkLevel),
@@ -102,7 +102,7 @@ public class WorkController {
         return ResponseEntity.ok(Map.of(
                 "goldEarned", session.getGoldReward(),
                 "xpEarned",   session.getXpReward(),
-                "jobName",    session.getWorkType().displayName
+                "jobName",    com.medieval.game.service.Messages.tr("profession." + session.getWorkType().name() + ".name", session.getWorkType().displayName)
         ));
     }
 
@@ -117,7 +117,7 @@ public class WorkController {
                         boolean readyToCollect) {
         static WorkResponse from(WorkSession s) {
             long secs = Math.max(0, ChronoUnit.SECONDS.between(LocalDateTime.now(), s.getFinishesAt()));
-            return new WorkResponse(s.getId(), s.getWorkType().displayName,
+            return new WorkResponse(s.getId(), com.medieval.game.service.Messages.tr("profession." + s.getWorkType().name() + ".name", s.getWorkType().displayName),
                     s.getWorkType().description, s.getHours(),
                     s.getGoldReward(), s.getXpReward(), secs, s.isReadyToCollect());
         }

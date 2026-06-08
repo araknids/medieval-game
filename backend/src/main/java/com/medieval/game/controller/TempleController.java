@@ -48,7 +48,7 @@ public class TempleController {
 
         var buffs = Arrays.stream(BuffType.values()).map(b -> Map.of(
             "id",          b.name(),
-            "displayName", b.displayName,
+            "displayName", com.medieval.game.service.Messages.tr("buff." + b.name() + ".name", b.displayName),
             "icon",        b.icon,
             "effect",      b.effect,
             "bronzeCost",  b.bronzeCost
@@ -77,11 +77,11 @@ public class TempleController {
                 ? Math.max(0, ChronoUnit.SECONDS.between(LocalDateTime.now(), warrior.getArmorElementUntil())) : 0;
         var elements = Arrays.stream(Element.values()).map(e -> Map.of(
             "id",          e.name(),
-            "displayName", e.displayName,
+            "displayName", com.medieval.game.service.Messages.tr("element." + e.name() + ".name", e.displayName),
             "icon",        e.icon,
-            "beats",       e.beatsTarget().displayName,
+            "beats",       com.medieval.game.service.Messages.tr("element." + e.beatsTarget().name() + ".name", e.beatsTarget().displayName),
             "essence",     e.essence().name(),
-            "essenceName", e.essence().displayName,
+            "essenceName", com.medieval.game.service.Messages.tr("resource." + e.essence().name() + ".name", e.essence().displayName),
             "owned",       gatheringService.resourceQuantity(player, e.essence())
         )).toList();
 
@@ -125,7 +125,7 @@ public class TempleController {
     public ResponseEntity<?> applyBuff(@PathVariable BuffType buffType, Authentication auth) {
         templeService.applyBuff(getPlayer(auth), buffType);
         return ResponseEntity.ok(Map.of(
-            "message", buffType.displayName + " ativado por 1 hora!",
+            "message", com.medieval.game.service.Messages.tr("toast.buff_on", "{0} activated for 1 hour!", com.medieval.game.service.Messages.tr("buff." + buffType.name() + ".name", buffType.displayName)),
             "buff",    buffType.name()
         ));
     }
@@ -134,13 +134,13 @@ public class TempleController {
     @PostMapping("/enchant/weapon/{element}")
     public ResponseEntity<?> enchantWeapon(@PathVariable Element element, Authentication auth) {
         templeService.enchantWeapon(getPlayer(auth), element);
-        return ResponseEntity.ok(Map.of("message", element.icon + " Weapon enchanted with " + element.displayName + " for 1 hour!"));
+        return ResponseEntity.ok(Map.of("message", com.medieval.game.service.Messages.tr("toast.enchant_weapon", "{0} Weapon enchanted with {1} for 1 hour!", element.icon, com.medieval.game.service.Messages.tr("element." + element.name() + ".name", element.displayName))));
     }
 
     @PostMapping("/enchant/armor/{element}")
     public ResponseEntity<?> enchantArmor(@PathVariable Element element, Authentication auth) {
         templeService.enchantArmor(getPlayer(auth), element);
-        return ResponseEntity.ok(Map.of("message", element.icon + " Armor enchanted with " + element.displayName + " for 1 hour!"));
+        return ResponseEntity.ok(Map.of("message", com.medieval.game.service.Messages.tr("toast.enchant_armor", "{0} Armor enchanted with {1} for 1 hour!", element.icon, com.medieval.game.service.Messages.tr("element." + element.name() + ".name", element.displayName))));
     }
 
     // VIP — cura grátis (CD 10 min)

@@ -28,7 +28,7 @@ public class GatheringController {
         Player player = getPlayer(auth);
         var skills = gatheringService.getAllSkills(player).stream().map(s -> Map.<String, Object>of(
             "skillType",   s.getSkillType().name(),
-            "displayName", s.getSkillType().displayName,
+            "displayName", com.medieval.game.service.Messages.tr("skill." + s.getSkillType().name() + ".name", s.getSkillType().displayName),
             "icon",        s.getSkillType().icon,
             "level",       s.getLevel(),
             "experience",  s.getExperience(),
@@ -45,7 +45,7 @@ public class GatheringController {
         Player player = getPlayer(auth);
         var resources = gatheringService.getResources(player).stream().map(r -> Map.of(
             "type",        r.getResourceType().name(),
-            "displayName", r.getResourceType().displayName,
+            "displayName", com.medieval.game.service.Messages.tr("resource." + r.getResourceType().name() + ".name", r.getResourceType().displayName),
             "category",    r.getResourceType().category.name(),
             "quantity",    r.getQuantity()
         )).toList();
@@ -58,7 +58,7 @@ public class GatheringController {
         Player player = getPlayer(auth);
         var result = gatheringService.consumeFish(player, resourceType);
         return ResponseEntity.ok(Map.of(
-            "message",    resourceType.displayName + " consumido!",
+            "message",    com.medieval.game.service.Messages.tr("toast.resource_consumed", "{0} consumed!", com.medieval.game.service.Messages.tr("resource." + resourceType.name() + ".name", resourceType.displayName)),
             "newStamina", result.newStamina(),
             "newHpPercent", result.newHpPercent()
         ));

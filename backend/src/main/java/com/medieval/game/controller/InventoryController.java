@@ -112,7 +112,7 @@ public class InventoryController {
 
         static ItemResponse from(InventoryItem i, List<SocketedGem> socketedGems, List<ItemAffix> itemAffixes) {
             List<GemSlot> gems = socketedGems.stream()
-                    .map(g -> new GemSlot(g.getSlotIndex(), g.getGemType().name(), g.getGemType().displayName))
+                    .map(g -> new GemSlot(g.getSlotIndex(), g.getGemType().name(), com.medieval.game.service.Messages.tr("gem." + g.getGemType().name() + ".name", g.getGemType().displayName)))
                     .toList();
             List<AffixLine> affixes = itemAffixes.stream()
                     .map(a -> new AffixLine(a.getAffix().name(), a.getAffix().word,
@@ -120,7 +120,7 @@ public class InventoryController {
                     .toList();
             return new ItemResponse(
                 i.getId(), i.getName(),
-                i.getType().name(), i.getType().displayName,
+                i.getType().name(), com.medieval.game.service.Messages.tr("itemtype." + i.getType().name() + ".name", i.getType().displayName),
                 i.getAttackBonus(), i.getDefenseBonus(), i.getHealthBonus(),
                 i.getStrBonus(), i.getDexBonus(), i.getLukBonus(),
                 i.getRarity(), rarityName(i.getRarity()), i.getSellPrice(),

@@ -49,7 +49,7 @@ public class AbilityController {
     @PostMapping("/learn/{ability}")
     public ResponseEntity<?> learn(@PathVariable ClassAbility ability, Authentication auth) {
         abilityService.learn(getPlayer(auth), ability);
-        return ResponseEntity.ok(Map.of("message", ability.icon + " " + ability.displayName + " upgraded!"));
+        return ResponseEntity.ok(Map.of("message", com.medieval.game.service.Messages.tr("toast.ability_upgraded", "{0} {1} upgraded!", ability.icon, com.medieval.game.service.Messages.tr("ability." + ability.name() + ".name", ability.displayName))));
     }
 
     @PostMapping("/respec")

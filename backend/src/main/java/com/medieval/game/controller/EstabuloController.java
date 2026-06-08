@@ -26,7 +26,7 @@ public class EstabuloController {
         Player player = getPlayer(auth);
         List<?> mounts = estabuloService.list(player).stream().map(v -> Map.ofEntries(
             Map.entry("id",                  v.type().name()),
-            Map.entry("displayName",         v.type().displayName),
+            Map.entry("displayName",         com.medieval.game.service.Messages.tr("mount." + v.type().name() + ".name", v.type().displayName)),
             Map.entry("icon",                v.type().icon),
             Map.entry("staminaReductionPct", v.type().staminaReductionPct),
             Map.entry("attackBonus",         v.type().attackBonus),
@@ -51,7 +51,7 @@ public class EstabuloController {
         Player player = getPlayer(auth);
         estabuloService.buy(player, mountType);
         return ResponseEntity.ok(Map.of(
-            "message",    mountType.displayName + " bought!",
+            "message",    com.medieval.game.service.Messages.tr("toast.mount_bought", "{0} bought!", com.medieval.game.service.Messages.tr("mount." + mountType.name() + ".name", mountType.displayName)),
             "gold",       player.getGold(),
             "soulStones", player.getSoulStones()
         ));
@@ -60,7 +60,7 @@ public class EstabuloController {
     @PostMapping("/equip/{mountType}")
     public ResponseEntity<?> equip(@PathVariable MountType mountType, Authentication auth) {
         estabuloService.equip(getPlayer(auth), mountType);
-        return ResponseEntity.ok(Map.of("message", mountType.displayName + " equipped!"));
+        return ResponseEntity.ok(Map.of("message", com.medieval.game.service.Messages.tr("toast.mount_equipped", "{0} equipped!", com.medieval.game.service.Messages.tr("mount." + mountType.name() + ".name", mountType.displayName))));
     }
 
     @PostMapping("/unequip")

@@ -32,9 +32,9 @@ public class CookingController {
             long owned = cookingService.fishOwned(player, m.fishIngredient);
             return Map.ofEntries(
                 Map.entry("id",              m.name()),
-                Map.entry("displayName",     m.displayName),
+                Map.entry("displayName",     com.medieval.game.service.Messages.tr("meal." + m.name() + ".name", m.displayName)),
                 Map.entry("icon",            m.icon),
-                Map.entry("ingredient",      m.fishIngredient.displayName),
+                Map.entry("ingredient",      com.medieval.game.service.Messages.tr("resource." + m.fishIngredient.name() + ".name", m.fishIngredient.displayName)),
                 Map.entry("ingredientQty",   m.fishQty),
                 Map.entry("fishOwned",       owned),
                 Map.entry("effect",          m.effectText()),
@@ -51,7 +51,7 @@ public class CookingController {
         Player player = getPlayer(auth);
         var list = cookingService.getMeals(player).stream().map(mi -> Map.of(
             "id",              mi.getMeal().name(),
-            "displayName",     mi.getMeal().displayName,
+            "displayName",     com.medieval.game.service.Messages.tr("meal." + mi.getMeal().name() + ".name", mi.getMeal().displayName),
             "icon",            mi.getMeal().icon,
             "effect",          mi.getMeal().effectText(),
             "durationMinutes", mi.getMeal().durationMinutes,
@@ -66,7 +66,7 @@ public class CookingController {
         Player player = getPlayer(auth);
         var inv = cookingService.cook(player, req.meal());
         return ResponseEntity.ok(Map.of(
-            "message",  req.meal().displayName + " cooked!",
+            "message",  com.medieval.game.service.Messages.tr("toast.meal_cooked", "{0} cooked!", com.medieval.game.service.Messages.tr("meal." + req.meal().name() + ".name", req.meal().displayName)),
             "meal",     req.meal().name(),
             "quantity", inv.getQuantity()
         ));
@@ -81,7 +81,7 @@ public class CookingController {
                 ? Math.max(0, ChronoUnit.MINUTES.between(LocalDateTime.now(), w.getMealBuffExpiresAt()))
                 : 0;
         return ResponseEntity.ok(Map.of(
-            "message",       "You ate " + req.meal().displayName + "! " + req.meal().effectText(),
+            "message",       com.medieval.game.service.Messages.tr("toast.meal_eaten", "You ate {0}! {1}", com.medieval.game.service.Messages.tr("meal." + req.meal().name() + ".name", req.meal().displayName), req.meal().effectText()),
             "mealBuff",      req.meal().name(),
             "effect",        req.meal().effectText(),
             "minutesLeft",   minutesLeft
