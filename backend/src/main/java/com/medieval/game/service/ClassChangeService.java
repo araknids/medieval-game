@@ -74,21 +74,27 @@ public class ClassChangeService {
         boolean available = !current.isSpecialized() && w.getLevel() >= TRIAL_LEVEL;
         long cores = gatheringService.resourceQuantityTotal(player, com.medieval.game.enums.ResourceType.MONSTER_CORE); // [TRIAL_CUSTO]
         return new ClassInfo(
-                current.name(), current.displayName, w.getLevel(), TRIAL_LEVEL, available,
+                current.name(), className(current), w.getLevel(), TRIAL_LEVEL, available, // [I18N]
                 TRIAL_MONSTER_CORE_COST, cores,
                 List.of(pathOf(WarriorClass.WARRIOR), pathOf(WarriorClass.ARCHER), pathOf(WarriorClass.MERCHANT)));
     }
 
+    /** Nome da classe no idioma do request (EN = WarriorClass.displayName). [I18N] */
+    private String className(WarriorClass c) {
+        return messages.getOr("class." + c.name() + ".name", c.displayName);
+    }
+
     private ClassPath pathOf(WarriorClass c) {
         Guardian g = guardianFor(c);
-        String desc = switch (c) {
+        String enDesc = switch (c) {
             case WARRIOR  -> "Frontline tank. STR & CON, heavy HP and armor — relies on raw mitigation, not dodge.";
             case ARCHER   -> "Glass cannon. DEX & LUK — high evasion and frequent crits, but fragile when hit.";
             case MERCHANT -> "Economy class (axe & mace). A bit weaker in a fight, but its skills boost loot, crafting and trade — snowballs through wealth.";
             default       -> "";
         };
-        return new ClassPath(c.name(), c.displayName, c.baseAttack, c.baseDefense, c.baseHealth,
-                c.strCap, c.dexCap, c.lukCap, g.name(), desc,
+        return new ClassPath(c.name(), className(c), c.baseAttack, c.baseDefense, c.baseHealth,
+                c.strCap, c.dexCap, c.lukCap, g.name(),
+                messages.getOr("class." + c.name() + ".desc", enDesc),                 // [I18N]
                 messages.get("class.trial." + c.name() + ".intro")); // [TRIAL_NARRATIVA][I18N]
     }
 
@@ -154,7 +160,7 @@ public class ClassChangeService {
         if (won) achievementService.checkAndUnlock(player, true); // [TITULOS] título da classe escolhida
 
         log.info("[ClassChangeService] player={} trial path={} won={}", player.getId(), path, won);
-        return new TrialResult(won, path.name(), path.displayName, battleLog, narrative);
+        return new TrialResult(won, path.name(), className(path), battleLog, narrative); // [I18N]
     }
 
     /** Arma inicial da classe (make-or-mail: não pode dar throw e abortar a troca). [CLASSES_ARMAS/MERCADOR] */

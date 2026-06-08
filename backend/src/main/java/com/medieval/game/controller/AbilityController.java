@@ -28,9 +28,9 @@ public class AbilityController {
         var levels = abilityService.levels(w);
         var tree = ClassAbility.forClass(w.getWarriorClass()).stream().map(a -> Map.<String, Object>ofEntries(
             Map.entry("id",          a.name()),
-            Map.entry("displayName", a.displayName),
+            Map.entry("displayName", com.medieval.game.service.Messages.tr("ability." + a.name() + ".name", a.displayName)), // [I18N]
             Map.entry("icon",        a.icon),
-            Map.entry("description", a.description),
+            Map.entry("description", com.medieval.game.service.Messages.tr("ability." + a.name() + ".desc", a.description)), // [I18N]
             Map.entry("kind",        a.kind.name()),
             Map.entry("active",      a.isActive()),
             Map.entry("cooldown",    a.cooldown),
@@ -38,7 +38,7 @@ public class AbilityController {
             Map.entry("maxLevel",    ClassAbility.MAX_LEVEL)
         )).toList();
         return ResponseEntity.ok(Map.of(
-            "class",         w.getWarriorClass().displayName,
+            "class",         com.medieval.game.service.Messages.tr("class." + w.getWarriorClass().name() + ".name", w.getWarriorClass().displayName), // [I18N]
             "classId",       w.getWarriorClass().name(),
             "abilityPoints", w.getAbilityPoints(),
             "respecCost",    abilityService.respecCost(),

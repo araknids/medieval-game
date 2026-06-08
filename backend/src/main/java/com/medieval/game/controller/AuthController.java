@@ -66,7 +66,7 @@ public class AuthController {
                 "warrior",  Map.of(
                         "id",    warrior.getId(),
                         "name",  warrior.getName(),
-                        "class", warrior.getWarriorClass().displayName
+                        "class", com.medieval.game.service.Messages.tr("class." + warrior.getWarriorClass().name() + ".name", warrior.getWarriorClass().displayName) // [I18N]
                 )
         ));
     }
@@ -96,7 +96,7 @@ public class AuthController {
                     "warrior",  Map.of(
                             "id",    warrior.getId(),
                             "name",  warrior.getName(),
-                            "class", warrior.getWarriorClass().displayName,
+                            "class", com.medieval.game.service.Messages.tr("class." + warrior.getWarriorClass().name() + ".name", warrior.getWarriorClass().displayName), // [I18N]
                             "level", warrior.getLevel()
                     )
             ));

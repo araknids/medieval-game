@@ -175,7 +175,8 @@ public class WarriorController {
                 java.time.LocalDateTime.now(), warrior.getArmorElementUntil())) : 0;
 
         return new WarriorResponse(
-                warrior.getId(), warrior.getName(), warrior.getWarriorClass().displayName,
+                warrior.getId(), warrior.getName(),
+                messages.getOr("class." + warrior.getWarriorClass().name() + ".name", warrior.getWarriorClass().displayName), // [I18N]
                 warrior.getWarriorClass().name(), // id estável do enum p/ a UI decidir a Path Trial [CLASSES]
                 warrior.getLevel(), warrior.getExperience(), warrior.expNeededForNextLevel(),
                 warrior.getTotalBaseAttack(),  warrior.getTotalBaseDefense(),  warrior.getTotalBaseHealth(),
