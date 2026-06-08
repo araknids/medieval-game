@@ -2,19 +2,24 @@ package com.medieval.game.service;
 
 import com.medieval.game.enums.Kingdom;
 import com.medieval.game.enums.KingdomQuestType;
+import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
 import java.util.Map;
 import java.util.Random;
 
 /**
- * Gera a narrativa curta (em inglês) exibida ao coletar uma quest de reino, e
- * sorteia o monstro temático do reino quando há combate. Sem estado, testável. [Quests V2]
+ * Gera a narrativa curta exibida ao coletar uma quest de reino, e sorteia o monstro temático do reino
+ * quando há combate. [Quests V2] [I18N] template + nome de quest/reino/monstro resolvidos no idioma do
+ * request (EN = a prosa daqui, default do getOr); o nome do monstro localizado propaga pro battle log.
  *
  * Três desfechos: PEACE (sem monstro), VICTORY (monstro derrotado), DEFEAT (monstro venceu).
  */
 @Component
+@RequiredArgsConstructor
 public class KingdomQuestNarrator {
+
+    private final Messages messages; // [I18N]
 
     // Monstros comuns por reino (chefes ficam na Torre).
     private static final Map<Kingdom, String[]> MONSTERS = Map.of(
@@ -43,10 +48,11 @@ public class KingdomQuestNarrator {
         "The %3$s proved too strong during '%1$s'. You fled with your life but nothing else."
     };
 
-    /** Sorteia um monstro temático do reino. */
+    /** Sorteia um monstro temático do reino (nome localizado p/ idioma do request → propaga ao log). [I18N] */
     public String pickMonster(Kingdom kingdom, Random rng) {
         String[] pool = MONSTERS.getOrDefault(kingdom, new String[]{"Wild Beast"});
-        return pool[rng.nextInt(pool.length)];
+        String en = pool[rng.nextInt(pool.length)];
+        return messages.getOr("monster." + en.replace(' ', '_'), en);
     }
 
     /**
@@ -56,12 +62,16 @@ public class KingdomQuestNarrator {
      * @param monster     nome do monstro (só relevante se encountered)
      */
     public String narrate(KingdomQuestType quest, boolean encountered, boolean defeated, String monster, Random rng) {
-        String questName = quest.displayName;
-        String realm     = quest.kingdom.displayName;
+        // [I18N] nome da quest/reino localizados; o template vem do idioma do request (EN = a prosa daqui).
+        String questName = messages.getOr("quest." + quest.name() + ".name", quest.displayName);
+        String realm     = messages.getOr("kingdom." + quest.kingdom.name() + ".name", quest.kingdom.displayName);
         if (!encountered) {
-            return String.format(PEACE[rng.nextInt(PEACE.length)], questName, realm);
+            int i = rng.nextInt(PEACE.length);
+            return String.format(messages.getOr("narrator.peace." + i, PEACE[i]), questName, realm);
         }
         String[] pool = defeated ? VICTORY : DEFEAT;
-        return String.format(pool[rng.nextInt(pool.length)], questName, realm, monster);
+        int i = rng.nextInt(pool.length);
+        String key = (defeated ? "narrator.victory." : "narrator.defeat.") + i;
+        return String.format(messages.getOr(key, pool[i]), questName, realm, monster); // monster já localizado
     }
 }

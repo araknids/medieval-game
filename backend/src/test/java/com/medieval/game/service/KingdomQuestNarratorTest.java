@@ -13,7 +13,9 @@ import static org.assertj.core.api.Assertions.assertThat;
 @DisplayName("Quests V2 | KingdomQuestNarrator — lore de coleta")
 class KingdomQuestNarratorTest {
 
-    private final KingdomQuestNarrator narrator = new KingdomQuestNarrator();
+    // [I18N] Messages com MessageSource vazio → getOr sempre cai no default EN (narrativa em inglês).
+    private final KingdomQuestNarrator narrator = new KingdomQuestNarrator(
+            new Messages(new org.springframework.context.support.StaticMessageSource()));
 
     @Test
     @DisplayName("Paz: narrativa cita a quest e não menciona combate")
