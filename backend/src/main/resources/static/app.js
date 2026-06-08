@@ -335,10 +335,12 @@ async function loadWarrior() {
   const data = await api('GET', '/api/warrior');
   if (data.error) return;
   warrior = data;
-  // Sempre atualiza as skills — exibidas no card do personagem (nível de Pesca/Mineração/Garimpo/Forja). [PROFISSAO]
-  if (token) {
+  // [PILOTO_UI requests] Skills (profissões no card) mudam pouco — refetch só na 1ª vez ou a cada 30s.
+  // loadWarrior roda após TODA ação (54 call-sites) → isso corta ~metade das suas chamadas. A coleta,
+  // onde a skill realmente sobe, zera _skillsAt (renderZoneResult) p/ refresh imediato. [PROFISSAO]
+  if (token && (!skillsData.length || Date.now() - _skillsAt > 30000)) {
     const s = await api('GET', '/api/gathering/skills');
-    if (Array.isArray(s)) skillsData = s;
+    if (Array.isArray(s)) { skillsData = s; _skillsAt = Date.now(); }
   }
 
   document.getElementById('hdr-username').innerHTML =
@@ -1866,6 +1868,7 @@ function pvpStatusBanner(pvp) {
 // ── HABILIDADES (Pesca / Mineração / Forja) ──
 
 let skillsData     = [];
+let _skillsAt      = 0; // [PILOTO_UI requests] timestamp do último fetch de skills (TTL 30s no loadWarrior)
 let resourcesData  = [];
 let gatheringState = null;
 let gatheringTimer = null;
@@ -4272,7 +4275,8 @@ async function resolveZoneBoss(activityId, action, again) {
   await renderZoneResult(r, again);
 }
 
-async function renderZoneResult(r) {
+async function renderZoneResult(r, again) {
+  _skillsAt = 0; // [PILOTO_UI requests] coleta pode subir a skill → força refresh no próximo loadWarrior
   let title, color, rows = [];
 
   if (r.wasAttacked && !r.survived) {
