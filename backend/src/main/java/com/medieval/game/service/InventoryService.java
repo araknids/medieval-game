@@ -76,18 +76,38 @@ public class InventoryService {
         return equipped.size();
     }
 
-    // Inventário V2: bag unificada — conta itens não-equipados (na bag) + recursos na bag POR UNIDADE.
-    public int bagSize(Player player) {
+    // [BAG_WEIGHT] Bag unificada: 1 item = 1 slot inteiro; cada unidade de RECURSO pesa 0.2 slot
+    // (5 recursos = 1 slot). Contamos em "quintos de slot" (inteiro) p/ evitar erro de ponto
+    // flutuante com 0.2: item = 5 quintos, recurso = 1 quinto.
+    private static final int SLOT_FIFTHS     = 5; // 1 slot = 5 quintos
+    private static final int RESOURCE_FIFTHS = 1; // 1 recurso = 1 quinto (0.2 slot)
+
+    /** Peso ocupado na bag, em quintos de slot (itens não-equipados/listados/consignados + recursos não-stashed). */
+    private long bagFifths(Player player) {
         long items = inventoryRepository.findAllByPlayer(player).stream()
                 .filter(i -> !i.isEquipped() && !i.isStashed() && !i.isListed() && !i.isConsigned()).count(); // [LEILAO/MERCADO_STEAM] listado/consignado não conta na bag
         long resources = resourceRepository.findAllByPlayerAndStashed(player, false).stream()
                 .mapToLong(ResourceInventory::getQuantity).sum();
-        return (int) (items + resources);
+        return items * SLOT_FIFTHS + resources * RESOURCE_FIFTHS;
     }
 
-    /** Slots livres na bag (nunca negativo). */
+    private long freeFifths(Player player) {
+        return Math.max(0, (long) player.getMaxInventorySlots() * SLOT_FIFTHS - bagFifths(player));
+    }
+
+    /** Slots ocupados (arredonda p/ cima): 1 item = 1 slot, 5 recursos = 1 slot. [BAG_WEIGHT] */
+    public int bagSize(Player player) {
+        return (int) ((bagFifths(player) + SLOT_FIFTHS - 1) / SLOT_FIFTHS); // ceil
+    }
+
+    /** Slots livres p/ ITENS (cada item ocupa 1 slot inteiro). Nunca negativo. */
     public int bagSpaceLeft(Player player) {
-        return Math.max(0, player.getMaxInventorySlots() - bagSize(player));
+        return (int) (freeFifths(player) / SLOT_FIFTHS); // floor — quantos itens inteiros ainda cabem
+    }
+
+    /** Quantas UNIDADES de RECURSO ainda cabem na bag (cada uma pesa 0.2 slot). [BAG_WEIGHT] */
+    public long resourceSpaceLeft(Player player) {
+        return freeFifths(player) / RESOURCE_FIFTHS;
     }
 
     @Transactional

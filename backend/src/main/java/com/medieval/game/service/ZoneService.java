@@ -794,7 +794,7 @@ public class ZoneService {
         long total = 0;
         for (ResourceInventory r : resourceRepo.findAllByPlayerAndStashed(victim, false)) {
             if (r.getQuantity() <= 0) continue;
-            if (inventoryService.bagSpaceLeft(attacker) <= 0) break;
+            if (inventoryService.resourceSpaceLeft(attacker) <= 0) break; // [BAG_WEIGHT] recurso = 0.2 slot
             long take  = Math.max(1, r.getQuantity() / 2);
             long added = gatheringService.addResource(attacker, r.getResourceType(), take);
             if (added > 0) {

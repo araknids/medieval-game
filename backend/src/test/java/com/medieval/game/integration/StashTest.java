@@ -16,7 +16,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-// Inventário V2 — bag unificada (recurso conta slot por unidade) + stash.
+// Inventário V2 — bag unificada ([BAG_WEIGHT] recurso pesa 0.2 slot → 5 recursos = 1 slot) + stash.
 @DisplayName("Inventário V2 | bag unificada + stash")
 class StashTest extends BaseIntegrationTest {
 
@@ -42,18 +42,19 @@ class StashTest extends BaseIntegrationTest {
     private Player player() { return playerRepo.findById(playerId).orElseThrow(); }
 
     @Test
-    @DisplayName("Recurso conta slot na bag (por unidade)")
+    @DisplayName("Recurso pesa 0.2 slot na bag (5 recursos = 1 slot)")
     void resourcesCountBagSlots() {
         long added = gathering.addResource(player(), ResourceType.SMALL_FISH, 5);
         assertThat(added).isEqualTo(5);
-        assertThat(inv.bagSize(player())).isEqualTo(5);
+        assertThat(inv.bagSize(player())).isEqualTo(1); // [BAG_WEIGHT] 5 × 0.2 = 1 slot
     }
 
     @Test
-    @DisplayName("Bag free clampa em 30 — excedente é perdido")
+    @DisplayName("Bag clampa em 150 recursos (30 slots × 5) — excedente é perdido")
     void bagClampsAt30() {
-        long added = gathering.addResource(player(), ResourceType.SMALL_FISH, 100);
-        assertThat(added).isEqualTo(30);          // só 30 cabem
+        // [BAG_WEIGHT] 30 slots × 5 recursos/slot = 150 unidades cabem.
+        long added = gathering.addResource(player(), ResourceType.SMALL_FISH, 200);
+        assertThat(added).isEqualTo(150);         // só 150 cabem (30 slots cheios)
         assertThat(inv.bagSize(player())).isEqualTo(30);
         long more = gathering.addResource(player(), ResourceType.SALMON, 5);
         assertThat(more).isZero();                // bag cheia → nada adicionado
@@ -64,11 +65,11 @@ class StashTest extends BaseIntegrationTest {
     void depositWithdrawResource() {
         gathering.addResource(player(), ResourceType.SALMON, 10);
         stash.depositResource(player(), ResourceType.SALMON, 6);
-        assertThat(inv.bagSize(player())).isEqualTo(4);
+        assertThat(inv.bagSize(player())).isEqualTo(1);   // [BAG_WEIGHT] 4 recursos × 0.2 = 0.8 → 1 slot (ceil)
         assertThat(stash.stashSize(player())).isEqualTo(6);
 
         stash.withdrawResource(player(), ResourceType.SALMON, 6);
-        assertThat(inv.bagSize(player())).isEqualTo(10);
+        assertThat(inv.bagSize(player())).isEqualTo(2);   // [BAG_WEIGHT] 10 recursos × 0.2 = 2 slots
         assertThat(stash.stashSize(player())).isZero();
     }
 

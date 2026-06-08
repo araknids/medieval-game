@@ -102,7 +102,7 @@ public class StashService {
         ResourceInventory st = resourceRepository.findByPlayerAndResourceTypeAndStashed(player, type, true)
                 .orElseThrow(() -> new IllegalStateException("That resource isn't in your stash."));
         if (st.getQuantity() < qty) throw new IllegalStateException("Insufficient quantity in stash.");
-        if (inventoryService.bagSpaceLeft(player) < qty) throw new IllegalStateException("Not enough bag space.");
+        if (inventoryService.resourceSpaceLeft(player) < qty) throw new IllegalStateException("Not enough bag space."); // [BAG_WEIGHT] recurso = 0.2 slot
         playerService.spendBronze(player, STASH_FEE);
         st.setQuantity(st.getQuantity() - qty);
         resourceRepository.save(st);

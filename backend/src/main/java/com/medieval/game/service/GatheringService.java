@@ -58,13 +58,13 @@ public class GatheringService {
     }
 
     /**
-     * Adiciona recurso à BAG respeitando o limite (Inventário V2: cada unidade = 1 slot).
+     * Adiciona recurso à BAG respeitando o limite ([BAG_WEIGHT] cada unidade pesa 0.2 slot → 5 = 1 slot).
      * Adiciona só o que cabe; retorna a quantidade efetivamente adicionada (o excedente é perdido).
      */
     @Transactional
     public long addResource(Player player, ResourceType type, long qty) {
         if (qty < 0) throw new IllegalArgumentException("qty must be >= 0"); // [AUDITORIA C2]
-        long toAdd = Math.min(qty, inventoryService.bagSpaceLeft(player));
+        long toAdd = Math.min(qty, inventoryService.resourceSpaceLeft(player)); // [BAG_WEIGHT] recurso = 0.2 slot
         if (toAdd <= 0) return 0; // bag cheia — nada adicionado
         ResourceInventory inv = resourceRepository.findByPlayerAndResourceTypeAndStashed(player, type, false)
                 .orElseGet(() -> {
