@@ -40,15 +40,19 @@ final class GatheringNarrator {
         "Patient panning turned a handful of mud into a fragment worth keeping.",
     };
 
-    /** Returns a random flavour line for the finished session, with {place} resolved to the realm name. */
+    /** Linha de flavor da coleta, com {place}=nome do reino. [I18N] resolve no idioma do request (gather.<skill>.<i>);
+     *  EN = o literal (com {place}→{0}); o nome do reino também vem localizado. Messages.tr é estático. */
     static String narrate(SkillType skill, Kingdom kingdom) {
-        String[] pool = switch (skill) {
-            case MINING  -> MINING;
-            case GARIMPO -> GARIMPO;
-            default      -> FISHING; // FISHING and any other skill fall back to the angler lines
-        };
-        String line = pool[ThreadLocalRandom.current().nextInt(pool.length)];
-        String place = kingdom != null ? kingdom.displayName : "the wilds";
-        return line.replace("{place}", place);
+        String prefix; String[] pool;
+        switch (skill) {
+            case MINING  -> { prefix = "gather.mining.";  pool = MINING;  }
+            case GARIMPO -> { prefix = "gather.garimpo."; pool = GARIMPO; }
+            default      -> { prefix = "gather.fishing."; pool = FISHING; } // FISHING e qualquer outra → pesca
+        }
+        int i = ThreadLocalRandom.current().nextInt(pool.length);
+        String place = kingdom != null
+                ? Messages.tr("kingdom." + kingdom.name() + ".name", kingdom.displayName)
+                : Messages.tr("gather.wilds", "the wilds");
+        return Messages.tr(prefix + i, pool[i].replace("{place}", "{0}"), place);
     }
 }
