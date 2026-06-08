@@ -163,6 +163,23 @@ public class Warrior {
                 && LocalDateTime.now().isBefore(armorElementUntil)) ? armorElement : null;
     }
 
+    // ── Buff da Taverna: stackável, +0.01%/stack em TODOS os stats, cap 100%, dura 5min, renova no gole. [TAVERNA] ──
+    @Column(columnDefinition = "integer default 0")
+    private int tavernBuffStacks = 0;
+    @Column(name = "tavern_buff_expires_at")
+    private LocalDateTime tavernBuffExpiresAt;
+
+    public static final int TAVERN_BUFF_CAP = 10_000; // 100% (0.01% por stack)
+
+    public boolean tavernBuffActive() {
+        return tavernBuffStacks > 0 && tavernBuffExpiresAt != null
+               && LocalDateTime.now().isBefore(tavernBuffExpiresAt);
+    }
+    /** Stacks que VALEM agora (0 se expirou). */
+    public int activeTavernStacks() { return tavernBuffActive() ? Math.min(TAVERN_BUFF_CAP, tavernBuffStacks) : 0; }
+    /** Multiplicador aplicado a todos os stats de combate (1.0 se inativo). */
+    public double tavernBuffMultiplier() { return 1.0 + activeTavernStacks() * 0.0001; }
+
     public void clearBuff() {
         activeBuff    = null;
         buffExpiresAt = null;
@@ -172,6 +189,8 @@ public class Warrior {
         // Encantamentos elementais também somem na derrota/KO. [ELEMENTOS]
         weaponElement = null; weaponElementUntil = null;
         armorElement  = null; armorElementUntil  = null;
+        // Porre da Taverna também some no KO/derrota. [TAVERNA]
+        tavernBuffStacks = 0; tavernBuffExpiresAt = null;
     }
 
     // ── Postura de combate (tradeoff ATK/DEF) — vale em qualquer combate (PvE/PvP). [POSTURE] ──

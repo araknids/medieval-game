@@ -202,6 +202,10 @@ public class Player {
     @Column(name = "active_title", length = 40)
     private String activeTitle;
 
+    // [TAVERNA] Garrafas bebidas com sucesso (acumulado) — usado nos avisos de marco (10/25/50/…).
+    @Column(columnDefinition = "integer default 0")
+    private int bottlesDrunk = 0;
+
     // ── [DAILY] Recompensa de login diária (ciclo de 7 dias) ───────────────────
     /** Data da última coleta da daily; null = nunca coletou. Reset por comparação de data (sem scheduler). */
     @Column(name = "last_daily_claim_date")

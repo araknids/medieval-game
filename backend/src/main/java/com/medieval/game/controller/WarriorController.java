@@ -130,6 +130,14 @@ public class WarriorController {
         int newbieRegenMin = player.regenMinutes();
         int hpPercent = warrior.getCalculatedHpPercent(newbieRegenMin);
 
+        // [TAVERNA] Buff da Taverna (badge no sidebar): % em todos os stats + tempo restante.
+        int    tavernStacks = warrior.activeTavernStacks();
+        double tavernBuffPct = tavernStacks * 0.01; // 0.01% por stack
+        long   tavernBuffSecondsLeft = (tavernStacks > 0 && warrior.getTavernBuffExpiresAt() != null)
+                ? Math.max(0, java.time.temporal.ChronoUnit.SECONDS.between(
+                        java.time.LocalDateTime.now(), warrior.getTavernBuffExpiresAt()))
+                : 0;
+
         // Normalise currency
         long total   = player.getBronze() + player.getSilver() * 100L + player.getGold() * 10_000L;
         long gold    = total / 10_000L;
@@ -207,7 +215,8 @@ public class WarriorController {
                 wElem != null ? wElem.name() : "", wElemSecs, // [ELEMENTOS]
                 aElem != null ? aElem.name() : "", aElemSecs,
                 com.medieval.game.service.AchievementService.titleString(player), // [TITULOS]
-                player.isNewbieBuffActive(), player.getNewbieBuffHoursLeft() // [BUFF_NOVATO]
+                player.isNewbieBuffActive(), player.getNewbieBuffHoursLeft(), // [BUFF_NOVATO]
+                tavernBuffPct, tavernBuffSecondsLeft // [TAVERNA]
         );
     }
 
@@ -245,5 +254,6 @@ public class WarriorController {
                            String weaponElement, long weaponElementSecondsLeft, // [ELEMENTOS]
                            String armorElement,  long armorElementSecondsLeft,
                            String title, // [TITULOS] título ativo do jogador
-                           boolean newbieBuffActive, long newbieBuffHoursLeft) {} // [BUFF_NOVATO]
+                           boolean newbieBuffActive, long newbieBuffHoursLeft, // [BUFF_NOVATO]
+                           double tavernBuffPct, long tavernBuffSecondsLeft) {} // [TAVERNA]
 }

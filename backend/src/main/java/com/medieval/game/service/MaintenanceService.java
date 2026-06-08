@@ -41,6 +41,7 @@ public class MaintenanceService {
     private final ResourceInventoryRepository  resourceInventoryRepository;
     private final ShopPurchaseRepository       shopPurchaseRepository;
     private final MailRepository               mailRepository;
+    private final com.medieval.game.repository.TavernMessageRepository tavernMessageRepository; // [TAVERNA]
     private final PasswordResetTokenRepository passwordResetTokenRepository;
     private final TerritoryDeclarationRepository territoryDeclarationRepository;
     private final TerritoryBattleLogRepository  territoryBattleLogRepository;
@@ -82,6 +83,7 @@ public class MaintenanceService {
         resourceInventoryRepository.deleteAllInBatch();
         shopPurchaseRepository.deleteAllInBatch();
         mailRepository.deleteAllInBatch();
+        tavernMessageRepository.deleteAllInBatch();   // [TAVERNA] limpa o chat/avisos no fresh start
         passwordResetTokenRepository.deleteAllInBatch();
         mealInventoryRepository.deleteAllInBatch();  // progressão por player → fresh start
         petRepository.deleteAllInBatch();            // progressão por player → fresh start
@@ -168,5 +170,6 @@ public class MaintenanceService {
         p.setActiveTitle(null);     // [TITULOS] título zera (conquistas foram apagadas)
         p.setLastDailyClaimDate(null); // [DAILY] zera o streak de login diário
         p.setDailyStreak(0);
+        p.setBottlesDrunk(0);          // [TAVERNA] zera as garrafas (o buff do warrior some no clearBuff)
     }
 }

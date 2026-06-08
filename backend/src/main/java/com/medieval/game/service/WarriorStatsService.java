@@ -151,6 +151,9 @@ public class WarriorStatsService {
         // [HABILIDADES] Passivas (Toughness→HP, Weapon Mastery→ATK, Eagle Eye→LUK, Agility→AGI).
         int[] passive = abilityService.passiveStatBonus(warrior);
         for (int i = 0; i < stats.length; i++) stats[i] += passive[i];
+        // [TAVERNA] Buff da Taverna: multiplica TODOS os stats por (1 + stacks×0.01%), cap 100%. Renova no gole.
+        double tavernMult = warrior.tavernBuffMultiplier();
+        if (tavernMult != 1.0) for (int i = 0; i < stats.length; i++) stats[i] = (int) Math.round(stats[i] * tavernMult);
         return stats;
     }
 

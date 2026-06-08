@@ -30,6 +30,7 @@ public class SchemaMigrator {
         patchPlayerVipColumns();
         patchWarriorBuff2Columns();
         patchWarriorIntellectColumn();
+        patchWarriorTavernBuffColumns();
         patchInventoryItemDurabilityColumn();
         patchOptimisticLockVersionColumns();
         patchTerritoryLastResolvedCycleColumn();
@@ -468,6 +469,18 @@ public class SchemaMigrator {
             log.info("[SchemaMigrator] warriors intellect column ensured");
         } catch (Exception e) {
             log.warn("[SchemaMigrator] warriors intellect column patch failed: {}", e.getMessage());
+        }
+    }
+
+    // Taverna: buff stackável (warriors) + contador de garrafas (players). [TAVERNA]
+    private void patchWarriorTavernBuffColumns() {
+        try {
+            jdbc.execute("ALTER TABLE warriors ADD COLUMN IF NOT EXISTS tavern_buff_stacks integer NOT NULL DEFAULT 0");
+            jdbc.execute("ALTER TABLE warriors ADD COLUMN IF NOT EXISTS tavern_buff_expires_at timestamp");
+            jdbc.execute("ALTER TABLE players  ADD COLUMN IF NOT EXISTS bottles_drunk integer NOT NULL DEFAULT 0");
+            log.info("[SchemaMigrator] tavern columns ensured (warriors buff + players bottles)");
+        } catch (Exception e) {
+            log.warn("[SchemaMigrator] tavern columns patch failed: {}", e.getMessage());
         }
     }
 

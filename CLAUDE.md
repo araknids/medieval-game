@@ -121,6 +121,13 @@ Pacote pra segurar o recém-chegado no **primeiro penhasco de estamina** (desenh
 ### Luna interrompe a missão (pet) — [LUNA_INTERRUPT]
 A Luna (pet) deixou de ser uma **quest avulsa** rara e passou a **interromper missões normais**: no `KingdomService.collectQuest`, antes de resolver, rola `shouldLunaInterrupt(player)` (só sem a Luna + `LUNA_INTERRUPT_PER_MILLE`≈8% + flag `app.luna.interrupt-enabled`). Se interromper, a missão entra em `QuestStatus.LUNA_PENDING` (guarda `KingdomActiveQuest.pendingOptionId` — migração) e devolve `CollectResult.lunaPending=true` — espelha o chefe errante [ZONA_CHEFE]. O jogador decide via **`POST /api/world/{kingdom}/quests/{id}/luna/{help|ignore}`**: **ignore** (terminar) → `resolveLunaIgnore` retoma a resolução normal (`resolveAndReward` com a escolha guardada, recompensa intacta); **help** (ajudar) → `resolveLunaHelp` abre mão da recompensa, marca COLLECTED e roda `rollLunaHelp` (pity escalante `LUNA_BASE/STEP/CAP_PPM`): pega a Luna ou **pity++ + texto de afeição** ("começando a gostar de você"). A flag fica **false nos testes** (collect determinístico; o teste exercita `resolveLunaHelp/Ignore` direto, igual ao `ZoneBossIntegrationTest`). Removidos: `lunaQuestActive`/`isLunaWindow` + a vitrine da Luna no controller. A `RESCUE_STRAY_DOG` continua no enum só pelos textos i18n. Números são placeholders. Desenho: `docs/PLANO_LUNA_INTERRUPCAO.md`.
 
+### Taverna (aba do Comércio): beber + buff stackável + chat + avisos — [TAVERNA]
+Aba 🍺 no Comércio com 4 partes (`TavernService`/`TavernController` em `/api/tavern`; desenho: `docs/PLANO_TAVERNA.md`):
+- **Beber** (`POST /drink {success}`): cobra **1 bronze sempre** (sem estamina); um **minigame de timing** roda no front e manda o resultado. Sucesso → **+1 stack** de buff. *(Confiança no cliente: o gate real é o bronze.)*
+- **Buff stackável** ([TAVERNA]): `Warrior.tavernBuffStacks` + `tavernBuffExpiresAt` (migração). Multiplica **TODOS** os 6 stats por `(1 + stacks×0.01%)` no `WarriorStatsService.combatStats` (fonte de verdade do combate). Cap `TAVERN_BUFF_CAP=10000` (=100%). **Cada gole renova os 5 min INTEIROS** (treadmill — para 5min = perde tudo). Some no `clearBuff()` (KO). `WarriorResponse.tavernBuffPct/tavernBuffSecondsLeft` → badge 🍺 no sidebar.
+- **Chat** (`GET /feed?since=` + `POST /chat`): tabela `tavern_messages` (`TavernMessage`/repo), **por-servidor** (1 banco por deploy [SERVIDORES]). **Tempo real = polling** (~4s, sem WebSocket/SSE — não há infra). Cooldown anti-spam em memória; render escapado (XSS); prune mantendo ~200.
+- **Avisos globais**: `TavernService.announce(text)` salva msg de sistema no MESMO feed (destacada). v1: **marco de garrafas** (`Player.bottlesDrunk`, marcos `[10,25,…]`). Os gatilhos de **level-up** (`WarriorService.addExperience`) e **drop lendário** (`KingdomService.rollDrop`/`ZoneService.rollBossLoot`) ficam mapeados como follow-up (ligar "mais pra frente"). Soft-wipe apaga `tavern_messages` + zera `bottlesDrunk`/buff. Números são placeholders.
+
 ### Currency Safety
 `InventoryService.sell()`, `WorkService.collectWork()` e `WorkService.cancelWork()` usam `player.addBronzeAmount()` para evitar somar no campo gold diretamente.
 
@@ -220,6 +227,7 @@ ALTER TABLE tabela ADD CONSTRAINT tabela_coluna_check CHECK (coluna IN ('VAL1','
 | Casa de Leilão | `AuctionService` | `AuctionController` | Mercado entre players (buyout); taxa 5%+15%, 2 dias, máx 10. [LEILAO] |
 | VIP / SoulStone | `VipService` | `VipController` | 4ª moeda (SoulStone), status VIP (cura/bag/limites). [VIP] |
 | Recompensa Diária | `DailyRewardService` | `DailyRewardController` | Login diário, ciclo de 7 dias (peixe de stamina), streak, popup+aba+badge. [DAILY] |
+| Taverna | `TavernService` | `TavernController` | Beber (1 bronze + minigame) → buff stackável; chat + avisos globais (polling). [TAVERNA] |
 | Coleta | `GatheringService` | `GatheringController` | Roller de drops por reino + consumo de peixe. A coleta em si roda pelo ZoneService (unificada). |
 | Forja | `SmithingService` | `SmithingController` | Refino, craft, joias, sockets |
 | Zonas | `ZoneService` | `ZoneController` | Coleta + combate instantâneos; PvP por flag/tiers, raid, item-lock; drops por reino (`kingdom`) |

@@ -402,6 +402,18 @@ async function loadWarrior() {
             </div>`;
   })() : '';
 
+  // [TAVERNA] Selo do porre da Taverna: +X% em todos os stats + tempo restante (m:ss).
+  const tavernBuffLine = (warrior.tavernBuffPct > 0) ? (() => {
+    const secs = warrior.tavernBuffSecondsLeft ?? 0;
+    const timeStr = `${Math.floor(secs/60)}:${String(secs%60).padStart(2,'0')}`;
+    return `<div style="margin-top:.3rem;font-size:.75rem;padding:3px 6px;
+                         background:#2a1a0a;border:1px solid #c9893e;border-radius:4px;
+                         color:#e0b878;display:inline-block">
+              🍺 +${(warrior.tavernBuffPct ?? 0).toFixed(2)}% ${t('tavern.buff.allstats')}
+              <span style="color:#aaa;font-size:.7em">(${timeStr})</span>
+            </div>`;
+  })() : '';
+
   const hpColor      = (warrior.hpPercent ?? 100) <= 0 ? '#cf6679'
                      : (warrior.hpPercent ?? 100) < 50  ? '#c9a84c' : '#4caf82';
   const staminaColor = stamina < 30 ? '#cf6679' : stamina < 60 ? '#c9a84c' : '#4caf82';
@@ -451,6 +463,7 @@ async function loadWarrior() {
     </div>
 
     ${newbieBuffLine}
+    ${tavernBuffLine}
     ${buffLine}
     ${mealBuffLine}
     ${mountLine}
@@ -485,6 +498,7 @@ async function loadWarrior() {
 
 // ── Navegação de locais ──
 function goTo(loc) {
+  if (loc !== 'commerce') stopTavernPolling(); // [TAVERNA] para o polling ao sair do comércio
   ['inventory','commerce','temple','work','tower','arena','guild','world','mail','daily'].forEach(l => {
     document.getElementById('loc-panel-' + l).style.display = l === loc ? 'block' : 'none';
     document.getElementById('loc-' + l).classList.toggle('active', l === loc);
@@ -503,6 +517,7 @@ function goTo(loc) {
 
 // ── COMÉRCIO: loja ──
 function switchCommerceTab(tab) {
+  stopTavernPolling(); // [TAVERNA] para o polling ao trocar de aba (loadTavern reinicia)
   document.getElementById('panel-shop').style.display      = tab === 'shop'      ? 'block' : 'none';
   document.getElementById('panel-sell').style.display      = tab === 'sell'      ? 'block' : 'none';
   document.getElementById('panel-smith').style.display     = tab === 'smith'     ? 'block' : 'none';
@@ -511,6 +526,7 @@ function switchCommerceTab(tab) {
   document.getElementById('panel-vipshop').style.display   = tab === 'vipshop'   ? 'block' : 'none';
   document.getElementById('panel-auction').style.display   = tab === 'auction'   ? 'block' : 'none';
   document.getElementById('panel-bluemerchant').style.display = tab === 'bluemerchant' ? 'block' : 'none';
+  document.getElementById('panel-tavern').style.display    = tab === 'tavern'    ? 'block' : 'none';
   document.getElementById('tab-shop').classList.toggle('active',      tab === 'shop');
   document.getElementById('tab-sell').classList.toggle('active',      tab === 'sell');
   document.getElementById('tab-smith').classList.toggle('active',     tab === 'smith');
@@ -519,6 +535,7 @@ function switchCommerceTab(tab) {
   document.getElementById('tab-vipshop').classList.toggle('active',   tab === 'vipshop');
   document.getElementById('tab-auction').classList.toggle('active',   tab === 'auction');
   document.getElementById('tab-bluemerchant').classList.toggle('active', tab === 'bluemerchant');
+  document.getElementById('tab-tavern').classList.toggle('active',    tab === 'tavern');
   if (tab === 'sell')      loadSellList();
   if (tab === 'smith')     loadSmithingInCommerce();
   if (tab === 'cooking')   loadCooking();
@@ -526,6 +543,134 @@ function switchCommerceTab(tab) {
   if (tab === 'vipshop')   loadVipShop();
   if (tab === 'auction')   loadAuctionHouse();
   if (tab === 'bluemerchant') loadBlueMerchant();
+  if (tab === 'tavern')    loadTavern();
+}
+
+// ── [TAVERNA] Beber + buff stackável + chat + avisos (tempo real por polling) ──
+let tavernPollInterval = null;
+let tavernLastId = 0;
+let tavernMini = null;
+
+async function loadTavern() {
+  document.getElementById('tavern-content').innerHTML = `
+    <div class="tavern">
+      <div id="tavern-buff" class="tavern-buff"></div>
+      <div id="tavern-minigame" class="tavern-minigame"></div>
+      <button id="tavern-drink-btn" class="btn-buy" onclick="startDrinkMinigame()">🍺 ${t('tavern.drink')} (1 🥉)</button>
+      <div id="tavern-msg" class="tavern-msg"></div>
+      <div class="tavern-chat-title">💬 ${t('tavern.chat')}</div>
+      <div id="tavern-feed" class="tavern-feed"></div>
+      <div class="tavern-chatbar">
+        <input id="tavern-chat-input" maxlength="200" placeholder="${t('tavern.chat.placeholder')}"
+               onkeydown="if(event.key==='Enter')tavernSend()">
+        <button class="btn-buy" onclick="tavernSend()">${t('tavern.send')}</button>
+      </div>
+    </div>`;
+  tavernLastId = 0;
+  await refreshTavernStatus();
+  const feed = await api('GET', '/api/tavern/feed');
+  renderTavernFeed((feed && feed.messages) || [], true);
+  startTavernPolling();
+}
+
+async function refreshTavernStatus() {
+  const s = await api('GET', '/api/tavern/status');
+  if (s && !s.error) updateTavernBuff(s);
+}
+
+function updateTavernBuff(s) {
+  const el = document.getElementById('tavern-buff'); if (!el) return;
+  if (s.stacks > 0) {
+    const secs = s.buffSecondsLeft ?? 0;
+    el.innerHTML = `🍺 <strong>+${(s.buffPct ?? 0).toFixed(2)}%</strong> ${t('tavern.buff.allstats')} · `
+                 + `${s.stacks} ${t('tavern.stacks')} · ${Math.floor(secs/60)}:${String(secs%60).padStart(2,'0')}`;
+  } else {
+    el.textContent = t('tavern.nobuzz');
+  }
+}
+
+function startDrinkMinigame() {
+  if (tavernMini) return;
+  const slot = document.getElementById('tavern-minigame');
+  const btn  = document.getElementById('tavern-drink-btn');
+  const zoneWidth = 22;                                   // % (largura da zona = dificuldade)
+  const zoneStart = Math.floor(Math.random() * (100 - zoneWidth));
+  slot.innerHTML = `<div class="mini-track">
+      <div class="mini-zone" style="left:${zoneStart}%;width:${zoneWidth}%"></div>
+      <div class="mini-marker" id="mini-marker"></div>
+    </div>`;
+  btn.textContent = `🍺 ${t('tavern.drinknow')}`;
+  btn.onclick = stopDrinkMinigame;
+  tavernMini = { zoneStart, zoneWidth, pos: 0, interval: 0 };
+  let dir = 1;
+  const marker = document.getElementById('mini-marker');
+  tavernMini.interval = setInterval(() => {
+    tavernMini.pos += dir * 2.2;
+    if (tavernMini.pos >= 100) { tavernMini.pos = 100; dir = -1; }
+    if (tavernMini.pos <= 0)   { tavernMini.pos = 0;   dir =  1; }
+    if (marker) marker.style.left = tavernMini.pos + '%';
+  }, 16);
+}
+
+async function stopDrinkMinigame() {
+  if (!tavernMini) return;
+  clearInterval(tavernMini.interval);
+  const { pos, zoneStart, zoneWidth } = tavernMini;
+  const success = pos >= zoneStart && pos <= zoneStart + zoneWidth;
+  tavernMini = null;
+  const slot = document.getElementById('tavern-minigame'); if (slot) slot.innerHTML = '';
+  const btn = document.getElementById('tavern-drink-btn');
+  if (btn) { btn.textContent = `🍺 ${t('tavern.drink')} (1 🥉)`; btn.onclick = startDrinkMinigame; }
+  const r = await api('POST', '/api/tavern/drink', { success });
+  if (r.error) { tavernMsg(r.error, true); return; }
+  tavernMsg(success ? t('tavern.hit') : t('tavern.miss'), !success);
+  updateTavernBuff(r);   // o drink devolve o status atualizado
+  loadWarrior();         // atualiza o bronze no header + badge do buff
+}
+
+function tavernMsg(text, isError) {
+  const el = document.getElementById('tavern-msg'); if (!el) return;
+  el.textContent = text;
+  el.style.color = isError ? '#ef5350' : '#7fd1b9';
+  setTimeout(() => { if (el.textContent === text) el.textContent = ''; }, 3000);
+}
+
+function renderTavernFeed(msgs, replace) {
+  const el = document.getElementById('tavern-feed'); if (!el) return;
+  if (replace) el.innerHTML = '';
+  for (const m of msgs) {
+    if (m.id > tavernLastId) tavernLastId = m.id;
+    const div = document.createElement('div');
+    div.className = m.system ? 'tavern-line tavern-announce' : 'tavern-line';
+    div.innerHTML = m.system
+      ? `<span class="ta-text">${escapeHtml(m.text)}</span>`
+      : `<span class="ta-sender">${escapeHtml(m.sender)}:</span> <span class="ta-text">${escapeHtml(m.text)}</span>`;
+    el.appendChild(div);
+  }
+  el.scrollTop = el.scrollHeight;
+}
+
+async function pollTavernFeed() {
+  const r = await api('GET', `/api/tavern/feed?since=${tavernLastId}`);
+  if (r && r.messages && r.messages.length) renderTavernFeed(r.messages, false);
+}
+
+async function tavernSend() {
+  const input = document.getElementById('tavern-chat-input'); if (!input) return;
+  const text = input.value.trim(); if (!text) return;
+  input.value = '';
+  const r = await api('POST', '/api/tavern/chat', { text });
+  if (r.error) { tavernMsg(r.error, true); return; }
+  await pollTavernFeed();
+}
+
+function startTavernPolling() {
+  stopTavernPolling();
+  tavernPollInterval = setInterval(pollTavernFeed, 4000);
+}
+function stopTavernPolling() {
+  if (tavernPollInterval) { clearInterval(tavernPollInterval); tavernPollInterval = null; }
+  if (tavernMini) { clearInterval(tavernMini.interval); tavernMini = null; }
 }
 
 // ── Casa de Leilão (Auction House) — preço fixo (buyout). [LEILAO] ──
