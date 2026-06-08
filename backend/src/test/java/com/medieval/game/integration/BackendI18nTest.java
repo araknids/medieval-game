@@ -119,4 +119,19 @@ class BackendI18nTest extends BaseIntegrationTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$[?(@.id=='STRENGTH')].displayName", hasItem("Força (STR)")));
     }
+
+    @Test
+    @DisplayName("Erro estático localiza pelo Accept-Language (handler traduz ex.getMessage) [P6]")
+    void staticErrorFollowsAcceptLanguage() throws Exception {
+        // RECRUIT não é um caminho especializável → IllegalArgumentException("Choose a path: ...") estático
+        mockMvc.perform(post("/api/class/trial/RECRUIT").header("Authorization", bearer(token))
+                        .header("Accept-Language", "en"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error", containsString("Choose a path")));
+
+        mockMvc.perform(post("/api/class/trial/RECRUIT").header("Authorization", bearer(token))
+                        .header("Accept-Language", "pt"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error", containsString("Escolha um caminho")));
+    }
 }

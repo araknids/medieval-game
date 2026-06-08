@@ -31,10 +31,18 @@ public class GlobalExceptionHandler {
         return ResponseEntity.badRequest().body(Map.of("error", errors));
     }
 
+    // [I18N] Erro com mensagem interpolada (key + args) → resolve no idioma do request.
+    @ExceptionHandler(LocalizedException.class)
+    public ResponseEntity<?> handleLocalized(LocalizedException ex) {
+        log.warn("[GlobalExceptionHandler] Business rule rejected: {}", ex.getMessage());
+        return ResponseEntity.badRequest().body(Map.of("error",
+                com.medieval.game.service.Messages.tr(ex.key(), ex.getMessage(), ex.args())));
+    }
+
     @ExceptionHandler(IllegalArgumentException.class)
     public ResponseEntity<?> handleIllegalArgument(IllegalArgumentException ex) {
         log.warn("[GlobalExceptionHandler] Bad request: {}", ex.getMessage());
-        return ResponseEntity.badRequest().body(Map.of("error", ex.getMessage()));
+        return ResponseEntity.badRequest().body(Map.of("error", tr(ex.getMessage())));
     }
 
     // Regra de negócio rejeitada (saldo insuficiente, bag cheia, já coletado, etc.)
@@ -43,7 +51,14 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(IllegalStateException.class)
     public ResponseEntity<?> handleIllegalState(IllegalStateException ex) {
         log.warn("[GlobalExceptionHandler] Business rule rejected: {}", ex.getMessage());
-        return ResponseEntity.badRequest().body(Map.of("error", ex.getMessage()));
+        return ResponseEntity.badRequest().body(Map.of("error", tr(ex.getMessage())));
+    }
+
+    // [I18N] Traduz uma mensagem de erro ESTÁTICA (sem interpolação) usando a própria mensagem EN como
+    // key (messages_pt.properties tem a EN com espaços escapados → PT). Em EN, ou se não houver tradução,
+    // devolve a própria mensagem (graceful). Os erros interpolados usam LocalizedException (key+args).
+    private static String tr(String enMessage) {
+        return enMessage == null ? null : com.medieval.game.service.Messages.tr(enMessage, enMessage);
     }
 
     // Conflito de escrita concorrente (optimistic locking) — ex.: dois cliques no mesmo
@@ -52,7 +67,7 @@ public class GlobalExceptionHandler {
     public ResponseEntity<?> handleOptimisticLock(OptimisticLockingFailureException ex) {
         log.warn("[GlobalExceptionHandler] Concurrent modification: {}", ex.getMessage());
         return ResponseEntity.status(409).body(Map.of(
-            "error", "Ação concorrente detectada. Tente novamente."));
+            "error", com.medieval.game.service.Messages.tr("error.concurrent", "Concurrent action detected. Please try again.")));
     }
 
     // Método HTTP errado para a rota (ex.: GET num endpoint POST). Em URL pública isto é
@@ -63,7 +78,8 @@ public class GlobalExceptionHandler {
     public ResponseEntity<?> handleMethodNotSupported(HttpRequestMethodNotSupportedException ex, HttpServletRequest req) {
         log.warn("[GlobalExceptionHandler] 405 {} {} (suportado: {})",
                 req.getMethod(), req.getRequestURI(), ex.getSupportedHttpMethods());
-        return ResponseEntity.status(HttpStatus.METHOD_NOT_ALLOWED).body(Map.of("error", "Method not allowed"));
+        return ResponseEntity.status(HttpStatus.METHOD_NOT_ALLOWED).body(Map.of("error",
+                com.medieval.game.service.Messages.tr("error.method_not_allowed", "Method not allowed")));
     }
 
     // Path inexistente (bots probando /wp-login.php, /.env, etc.). Mesma classe de ruído:
@@ -71,12 +87,14 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(NoResourceFoundException.class)
     public ResponseEntity<?> handleNotFound(NoResourceFoundException ex, HttpServletRequest req) {
         log.warn("[GlobalExceptionHandler] 404 {} {}", req.getMethod(), req.getRequestURI());
-        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of("error", "Not found"));
+        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of("error",
+                com.medieval.game.service.Messages.tr("error.not_found", "Not found")));
     }
 
     @ExceptionHandler(Exception.class)
     public ResponseEntity<?> handleGeneric(Exception ex) {
         log.error("[GlobalExceptionHandler] Unexpected error: {}", ex.getMessage(), ex);
-        return ResponseEntity.status(500).body(Map.of("error", "Internal server error"));
+        return ResponseEntity.status(500).body(Map.of("error",
+                com.medieval.game.service.Messages.tr("error.internal", "Internal server error")));
     }
 }
