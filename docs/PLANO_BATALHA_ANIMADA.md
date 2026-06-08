@@ -1,11 +1,12 @@
 # PLANO — Batalha Animada (replay 2D estilo Domina) [BATALHA_ANIMADA]
 
 > Status: **EM IMPLEMENTAÇÃO** (2026-06-08).
-> ✅ **Feito:** `BattleEvent` + `BattleOutcome.events` no `BattleSimulator` (spawn/attack/crit/miss/dodge/
-> extra/volley/heal/berserk/kiting/victory, com `hitZone` cabeça/corpo/perna e `element`). Combate
-> byte-idêntico (RNG preservado); coberto por `BattleEventTest`.
-> ⏳ **Próximo:** expor `battleEvents` + `scene` nas respostas (Arena + Zona-chefe) → depois o módulo de
-> canvas `battleArena.js` (replay com placeholder, ≤10s, sangue, fundo por cena).
+> ✅ **Feito (backend):** `BattleEvent` + `BattleOutcome.events` no `BattleSimulator` (spawn/attack/crit/
+> miss/dodge/extra/volley/heal/berserk/kiting/victory, com `hitZone` cabeça/corpo/perna e `element`);
+> combate byte-idêntico (RNG preservado), coberto por `BattleEventTest`. **API:** Arena e Zona-chefe
+> devolvem `battleEvents` + `scene` (arena/coast/sea/cave/fortress) — sem persistir (replay logo após a luta).
+> ⏳ **Próximo (frontend):** módulo `battleArena.js` — replay no canvas com **placeholder**, ritmo ≤10s,
+> sangue por partículas, fundo por cena, controles ⏩/⏭; e o `showCollectModal`/Arena consumindo `battleEvents`.
 > Estende o combate atual (`BattleSimulator` / Arena / Zona-chefe / Torre) **sem mudar o motor**.
 
 ## Conceito
