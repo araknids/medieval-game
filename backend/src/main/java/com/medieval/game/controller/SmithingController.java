@@ -52,18 +52,25 @@ public class SmithingController {
             "canCraft",    smithingLevel >= r.smithingLevelRequired()
         )).toList();
 
-        // [CLASSES_ARMAS] Só mostra as armas da categoria da classe (Archer vê arcos, resto vê espadas).
-        // Stats da arma vêm do perfil do tipo (mesmo cálculo do make()); armadura usa os fixos do recipe.
+        // [FORJA_ARMADURA] Todas as recipes (trava de arma por classe removida): armas, armadura completa
+        // e acessórios. Arma usa o perfil do WeaponType; armadura/acessório usam os stats fixos do recipe.
+        // Manda slot/category/material p/ a mini-aba de filtro do front.
         WarriorClass cls = warriorRepository.findByPlayer(player).map(Warrior::getWarriorClass).orElse(WarriorClass.RECRUIT);
         var craft = SmithingService.craftRecipesFor(cls).stream().map(r -> {
-            boolean isWeapon = !r.name().toLowerCase().contains("armadura");
+            boolean isWeapon = r.type() == com.medieval.game.enums.ItemType.WEAPON;
             com.medieval.game.enums.WeaponType wt = isWeapon ? com.medieval.game.enums.WeaponType.fromName(r.name()) : null;
             int[] st = isWeapon ? wt.stats(r.itemLevel(), r.rarity())
                                 : new int[]{ r.atk(), r.def(), r.hp(), 0, 0, 0 };
+            String category = isWeapon ? "weapon"
+                            : (r.type() == com.medieval.game.enums.ItemType.RING
+                            || r.type() == com.medieval.game.enums.ItemType.NECKLACE) ? "accessory" : "armor";
             return Map.<String,Object>ofEntries(
                 Map.entry("type",        "craft"),
                 Map.entry("id",          r.id()),
                 Map.entry("name",        r.name()),
+                Map.entry("slot",        r.type().name()),   // ItemType p/ o comparativo (compareHtml)
+                Map.entry("category",    category),          // weapon | armor | accessory (filtro)
+                Map.entry("material",    r.material()),      // copper|iron|silver|gold|mithril (filtro)
                 Map.entry("weaponType",  isWeapon ? com.medieval.game.service.Messages.tr("weapontype." + wt.name() + ".name", wt.displayName) : ""),
                 Map.entry("ingredients", r.ingredients().entrySet().stream().map(e -> Map.of(
                     "resource", e.getKey().name(),

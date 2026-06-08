@@ -1963,6 +1963,40 @@ function skillBar(skill) {
 function repairCostFor(item) { return (100 - (item.durability ?? 100)) * item.rarity * 5; }
 function reforgeCostFor(item) { return item.rarity * item.rarity * item.rarity * 500; }
 
+// [FORJA_ARMADURA] Mini-aba de filtro da forja: por categoria (arma/armadura/acessório) e por metal.
+let forgeCat = 'all', forgeMat = 'all';
+function forgeFilterBar() {
+  const cats = [['all','Tudo'],['weapon','⚔ Armas'],['armor','🛡 Armadura'],['accessory','💍 Acessórios']];
+  const mats = [['all','Todos'],['copper','Cobre'],['iron','Ferro'],['silver','Prata'],['gold','Ouro'],['mithril','Mithril']];
+  const st = on => `background:${on?'#6b4f2a':'#2a2a3a'};color:${on?'#fff':'#bbb'};border:none;border-radius:6px;padding:4px 10px;margin:2px;cursor:pointer;font-size:.72rem`;
+  const chip = (kind, val, label, cur) =>
+    `<button class="forge-chip" data-kind="${kind}" data-val="${val}" style="${st(cur===val)}" onclick="setForgeFilter('${kind}','${val}')">${label}</button>`;
+  return `<div class="forge-filter" style="margin:2px 0 8px">
+      <div style="display:flex;flex-wrap:wrap;margin-bottom:2px">${cats.map(([v,l])=>chip('cat',v,l,forgeCat)).join('')}</div>
+      <div style="display:flex;flex-wrap:wrap">${mats.map(([v,l])=>chip('mat',v,l,forgeMat)).join('')}</div>
+    </div>`;
+}
+function setForgeFilter(kind, val) {
+  if (kind === 'cat') forgeCat = val; else forgeMat = val;
+  document.querySelectorAll('.forge-chip').forEach(c => {
+    const on = (c.dataset.kind === 'cat' ? forgeCat : forgeMat) === c.dataset.val;
+    c.style.background = on ? '#6b4f2a' : '#2a2a3a';
+    c.style.color = on ? '#fff' : '#bbb';
+  });
+  applyForgeFilter();
+}
+function applyForgeFilter() {
+  let shown = 0;
+  document.querySelectorAll('#craft-list .sk-recipe-card').forEach(card => {
+    const ok = (forgeCat === 'all' || card.dataset.cat === forgeCat)
+            && (forgeMat === 'all' || card.dataset.mat === forgeMat);
+    card.style.display = ok ? '' : 'none';
+    if (ok) shown++;
+  });
+  const empty = document.getElementById('craft-empty');
+  if (empty) empty.style.display = shown ? 'none' : 'block';
+}
+
 async function renderSmithing() {
   const smithSkill = getSkill('SMITHING');
   const recipes = await api('GET', '/api/smithing/recipes');
@@ -2003,13 +2037,13 @@ async function renderSmithing() {
     </div>`).join('') || '';
 
   const craftHtml = recipes.craft?.map(r => `
-    <div class="sk-recipe-card ${r.canCraft ? '' : 'locked'}">
+    <div class="sk-recipe-card ${r.canCraft ? '' : 'locked'}" data-cat="${r.category||'weapon'}" data-mat="${r.material||''}">
       <div class="sk-recipe-title rarity-${r.rarity}">${r.name} (${r.sockets} socket${r.sockets !== 1 ? 's' : ''})</div>
       <div style="font-size:.75rem;color:#aaa">
         ${r.ingredients.map(i => `${RESOURCE_ICONS[i.resource]||''} ${i.name} ×${i.qty}`).join(' + ')}
         ${r.atk > 0 ? ` · +${r.atk} ATK` : ''}${r.def > 0 ? ` · +${r.def} DEF` : ''}${r.hp > 0 ? ` · +${r.hp} HP` : ''}${r.str > 0 ? ` · +${r.str} STR` : ''}${r.dex > 0 ? ` · +${r.dex} DEX` : ''}${r.luk > 0 ? ` · +${r.luk} LUK` : ''}
       </div>
-      ${compareHtml(r, r.weaponType ? 'WEAPON' : 'ARMOR')}
+      ${compareHtml(r, r.slot)}
       <div style="font-size:.75rem;color:#888">Forja Lv.${r.levelRequired} ${!r.canCraft ? '🔒' : ''}</div>
       ${r.canCraft ? `
         <div style="font-size:.72rem;color:#8bc34a;margin-top:.2rem">🎲 Success: ${r.successPct}% · Fee: ${fmtBronze(r.bronzeCost)}</div>
@@ -2037,7 +2071,9 @@ async function renderSmithing() {
     </div>
     <div class="sk-section">
       <div class="sk-title">Craftar Equipamento</div>
-      ${craftHtml}
+      ${forgeFilterBar()}
+      <div id="craft-list">${craftHtml}</div>
+      <p id="craft-empty" style="display:none;color:#888;font-size:.8rem">Nada nesse filtro.</p>
     </div>
     <div class="sk-section">
       <div class="sk-title">Criar Joias</div>
@@ -2047,6 +2083,7 @@ async function renderSmithing() {
       <div class="sk-title">🔧 Manutenção (Reparar / Reforjar)</div>
       ${maintHtml}
     </div>`;
+  applyForgeFilter(); // [FORJA_ARMADURA] aplica o filtro atual (persiste entre re-renders)
 }
 
 // ── INVENTÁRIO DE RECURSOS ──

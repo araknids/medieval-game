@@ -73,6 +73,7 @@ public class SmithingService {
     // ── Receitas de craft de equipamento (bronzeCost = taxa por tentativa, perdida na falha) ──
     // itemLevel = nível de poder/equip do item (SEPARADO do smithingLevel = gate de skill). [CLASSES_ARMAS]
     public record CraftRecipe(String id, String name,
+                              com.medieval.game.enums.ItemType type, String material,
                               Map<ResourceType, Integer> ingredients,
                               int smithingLevel, long bronzeCost,
                               int atk, int def, int hp, int rarity, int sockets, int itemLevel) {}
@@ -101,35 +102,64 @@ public class SmithingService {
         new WeaponKind("longbow",    "Arco Longo"),
         new WeaponKind("crossbow",   "Besta")
     );
+    // [FORJA_ARMADURA] Peças de armadura por tier — def/hp escalam o valor-base do peito (armorDef/armorHp).
+    private record ArmorKind(com.medieval.game.enums.ItemType type, String idKey, String pt, double defFrac, double hpFrac, int bars) {}
+    private static final List<ArmorKind> ARMOR_KINDS = List.of(
+        new ArmorKind(com.medieval.game.enums.ItemType.ARMOR,    "armor",    "Armadura", 1.00, 1.00, 5),
+        new ArmorKind(com.medieval.game.enums.ItemType.HELMET,   "helmet",   "Elmo",     0.60, 0.60, 3),
+        new ArmorKind(com.medieval.game.enums.ItemType.PANTS,    "pants",    "Calça",    0.70, 0.70, 4),
+        new ArmorKind(com.medieval.game.enums.ItemType.SHOULDER, "shoulder", "Ombreira", 0.55, 0.50, 3),
+        new ArmorKind(com.medieval.game.enums.ItemType.BOOTS,    "boots",    "Botas",    0.50, 0.45, 3),
+        new ArmorKind(com.medieval.game.enums.ItemType.GLOVES,   "gloves",   "Luvas",    0.45, 0.45, 3),
+        new ArmorKind(com.medieval.game.enums.ItemType.SHIELD,   "shield",   "Escudo",   0.80, 0.30, 4)
+    );
+    // [FORJA_ARMADURA] Acessórios por tier — atk/def + hp (anel ofensivo, colar defensivo). atk escala o itemLevel.
+    private record AccessoryKind(com.medieval.game.enums.ItemType type, String idKey, String pt, double atkFrac, double defFrac, double hpFrac) {}
+    private static final List<AccessoryKind> ACCESSORY_KINDS = List.of(
+        new AccessoryKind(com.medieval.game.enums.ItemType.RING,     "ring",     "Anel",  0.40, 0.00, 0.50),
+        new AccessoryKind(com.medieval.game.enums.ItemType.NECKLACE, "necklace", "Colar", 0.00, 0.40, 0.60)
+    );
 
     public static final List<CraftRecipe> CRAFT_RECIPES = buildRecipes();
 
     private static List<CraftRecipe> buildRecipes() {
         List<CraftRecipe> list = new java.util.ArrayList<>();
         for (MatTier m : MAT_TIERS) {
+            // Armas (perfil de stats vem do WeaponType no make() → atk/def/hp aqui = 0)
             for (WeaponKind w : WEAPON_KINDS) {
                 list.add(new CraftRecipe(m.en() + "_" + w.idKey(), w.pt() + " de " + m.pt(),
+                        com.medieval.game.enums.ItemType.WEAPON, m.en(),
                         Map.of(m.bar(), 3), m.smithingLevel(), m.weaponCost(),
-                        0, 0, 0, m.rarity(), m.sockets(), m.itemLevel())); // arma: stats via perfil no make()
+                        0, 0, 0, m.rarity(), m.sockets(), m.itemLevel()));
             }
-            list.add(new CraftRecipe(m.en() + "_armor", "Armadura de " + m.pt(),
-                    Map.of(m.bar(), 5), m.smithingLevel() + 5, m.armorCost(),
-                    0, m.armorDef(), m.armorHp(), m.rarity(), m.sockets(), m.itemLevel()));
+            // Armadura completa (peito, elmo, calça, ombreira, botas, luvas, escudo)
+            for (ArmorKind a : ARMOR_KINDS) {
+                int def = Math.max(1, (int) Math.round(m.armorDef() * a.defFrac()));
+                int hp  = Math.max(1, (int) Math.round(m.armorHp()  * a.hpFrac()));
+                list.add(new CraftRecipe(m.en() + "_" + a.idKey(), a.pt() + " de " + m.pt(),
+                        a.type(), m.en(),
+                        Map.of(m.bar(), a.bars()), m.smithingLevel() + 5, m.armorCost(),
+                        0, def, hp, m.rarity(), m.sockets(), m.itemLevel()));
+            }
+            // Acessórios (anel, colar)
+            for (AccessoryKind ac : ACCESSORY_KINDS) {
+                int atk = (int) Math.round(m.itemLevel() * ac.atkFrac());
+                int def = (int) Math.round(m.armorDef()  * ac.defFrac());
+                int hp  = (int) Math.round(m.armorHp()   * ac.hpFrac());
+                list.add(new CraftRecipe(m.en() + "_" + ac.idKey(), ac.pt() + " de " + m.pt(),
+                        ac.type(), m.en(),
+                        Map.of(m.bar(), 2), m.smithingLevel() + 2, Math.round(m.armorCost() * 0.8),
+                        atk, def, hp, m.rarity(), 0, m.itemLevel()));
+            }
         }
         return List.copyOf(list);
     }
 
-    /** Recipes visíveis p/ a classe: armaduras + as armas que a classe consegue equipar (tier-ordered). [CLASSES_ARMAS/MERCADOR] */
+    /** Todas as recipes (tier-ordered). A trava de arma por classe foi removida → todas visíveis. [CLASSES_ARMAS] */
     public static List<CraftRecipe> craftRecipesFor(com.medieval.game.enums.WarriorClass cls) {
         return CRAFT_RECIPES.stream()
-                .filter(r -> isArmorRecipe(r)
-                        || cls.canEquip(com.medieval.game.enums.WeaponType.fromName(r.name())))
                 .sorted(java.util.Comparator.comparingInt(CraftRecipe::smithingLevel))
                 .toList();
-    }
-
-    private static boolean isArmorRecipe(CraftRecipe r) {
-        return r.name().toLowerCase().contains("armadura");
     }
 
     // Resultados (success/falha) p/ o controller exibir ✅/❌. [PROFISSAO_SUCCESS]
@@ -207,9 +237,7 @@ public class SmithingService {
         // Sucesso: consome ingredientes + cria item + XP cheio.
         recipe.ingredients().forEach((res, qty) -> gatheringService.removeResource(player, res, qty));
 
-        com.medieval.game.enums.ItemType itemType = recipe.name().toLowerCase().contains("armadura")
-                ? com.medieval.game.enums.ItemType.ARMOR
-                : com.medieval.game.enums.ItemType.WEAPON;
+        com.medieval.game.enums.ItemType itemType = recipe.type();
 
         String desc   = loreGenerator.generateLore(recipe.rarity(), itemType, new java.util.Random());
         String origin = loreGenerator.originFromSmithing();

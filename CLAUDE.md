@@ -229,7 +229,7 @@ ALTER TABLE tabela ADD CONSTRAINT tabela_coluna_check CHECK (coluna IN ('VAL1','
 | Recompensa Diária | `DailyRewardService` | `DailyRewardController` | Login diário, ciclo de 7 dias (peixe de stamina), streak, popup+aba+badge. [DAILY] |
 | Taverna | `TavernService` | `TavernController` | Beber (1 bronze + minigame) → buff stackável; chat + avisos globais (polling). [TAVERNA] |
 | Coleta | `GatheringService` | `GatheringController` | Roller de drops por reino + consumo de peixe. A coleta em si roda pelo ZoneService (unificada). |
-| Forja | `SmithingService` | `SmithingController` | Refino, craft, joias, sockets |
+| Forja | `SmithingService` | `SmithingController` | Refino, craft, joias, sockets. [FORJA_ARMADURA] crafta **armas + armadura completa** (peito/elmo/calça/ombreira/botas/luvas/escudo) **+ acessórios** (anel/colar), por tier de metal; `CraftRecipe.type` (ItemType) + `material`; UI tem mini-filtro (categoria + metal). `craftRecipesFor` não filtra mais por classe. |
 | Zonas | `ZoneService` | `ZoneController` | Coleta + combate instantâneos; PvP por flag/tiers, raid, item-lock; drops por reino (`kingdom`) |
 | Templo | `TempleService` | `TempleController` | Cura HP, buffs, proteção de itens |
 | Achievements/Títulos | `AchievementService` | `AchievementController` | Desbloqueio por marco + título escolhido, exibido pros outros. [TITULOS] |
