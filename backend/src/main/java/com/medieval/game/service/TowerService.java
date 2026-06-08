@@ -93,7 +93,8 @@ public class TowerService {
     // ── Resultado de um combate ──
     public record FightResult(boolean won, int floor, long bronzeEarned, long expEarned,
                               List<String> log, String bossName, boolean runOver,
-                              String atmosphere, boolean arkaChoicePending) {}
+                              String atmosphere, boolean arkaChoicePending,
+                              List<BattleSimulator.BattleEvent> events) {} // [BATALHA_ANIMADA]
 
     public Optional<TowerRun> getCurrentRun(Player player) {
         return towerRunRepository.findByPlayerAndStatus(player, TowerStatus.IN_PROGRESS);
@@ -190,6 +191,7 @@ public class TowerService {
 
         // [TORRE_NARRATIVA] Atmosfera do andar + gauntlet sequencial (HP carrega entre os monstros).
         List<String> battleLog = new java.util.ArrayList<>();
+        List<BattleSimulator.BattleEvent> allEvents = new java.util.ArrayList<>(); // [BATALHA_ANIMADA] gauntlet
         battleLog.add("🗼 Floor " + floor + " — " + floorAtmosphere(floor)); // [I18N]
         boolean won = true;
         int hp = s[2]; // começa o andar com HP cheio; carrega só ENTRE os monstros do gauntlet
@@ -201,6 +203,7 @@ public class TowerService {
             List<String> lg = new java.util.ArrayList<>(out.log());
             lg.remove(lg.size() - 1); // tira a tag WINNER
             battleLog.addAll(lg);
+            allEvents.addAll(out.events()); // [BATALHA_ANIMADA] eventos de cada monstro do gauntlet
             if (!out.firstWon()) { won = false; break; }
             hp = out.firstHpFinal(); // carrega pro próximo monstro do andar
         }
@@ -252,7 +255,7 @@ public class TowerService {
                 player.getId(), floor, won, fdef.isMvp(), bronzeEarned, expEarned);
         boolean runOver = run.getStatus() == TowerStatus.DEFEATED || run.getStatus() == TowerStatus.EXITED;
         return new FightResult(won, floor, bronzeEarned, expEarned, battleLog, headline,
-                runOver, floorAtmosphere(floor), arkaChoicePending); // [I18N]
+                runOver, floorAtmosphere(floor), arkaChoicePending, allEvents); // [I18N][BATALHA_ANIMADA]
     }
 
     /**

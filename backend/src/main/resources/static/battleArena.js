@@ -7,7 +7,7 @@
   // Fundos placeholder por cena (gradiente). Sprites/arte reais entram depois.
   const SCENES = {
     arena:    ['#3a2f1e', '#6b5836'], coast: ['#15384a', '#2a6b6b'], sea: ['#0f2a4a', '#1f6b8a'],
-    cave:     ['#1a1a22', '#33333f'], fortress: ['#241018', '#4a1a2a'],
+    cave:     ['#1a1a22', '#33333f'], fortress: ['#241018', '#4a1a2a'], tower: ['#1a1424', '#3a2450'],
   };
   const ELEM = { SUPER: { c: '#ffd24a', s: '✦' }, RESIST: { c: '#7fb0ff', s: '🛡' } };
   const HIT_TYPES = new Set(['attack', 'crit', 'volley', 'extra']);
@@ -37,10 +37,11 @@
       x: side < 0 ? W * 0.27 : W * 0.73, color: side < 0 ? '#5b9bd5' : '#e0556b',
       flinch: 0, dead: false,
     });
-    const left = mk(spawns[0], -1), right = mk(spawns[1], 1);
+    let left = mk(spawns[0], -1), right = mk(spawns[1], 1);
     const F = {}; F[left.name] = left; F[right.name] = right;
 
-    const steps = events.filter(e => e.type !== 'spawn'); // attacks…+victory (pose final)
+    // mantém os spawns no stream → gauntlet (Torre): cada novo monstro re-inicia o lado direito.
+    const steps = events.slice();
     const BUDGET = 8500; // ms — caber em ≤10s mesmo com muitos turnos [Requisito #1]
     const stepDur = Math.max(110, Math.min(600, steps.length ? BUDGET / steps.length : 600));
 
@@ -80,6 +81,11 @@
       else if (e.type === 'dodge' && tgt) { tgt.hp = e.targetHp; }   // alvo = atacante que levou o reflect
       else if (e.type === 'heal' && act) { act.hp = e.targetHp; }
       else if (e.type === 'victory' && tgt) { tgt.dead = true; }
+      else if (e.type === 'spawn') { // [gauntlet] re-init de lutador no meio do stream (Torre)
+        if (e.actor === left.name) { left.hp = left.shownHp = Math.min(left.maxHp, e.targetMaxHp || left.hp); left.dead = false; }
+        else if (e.actor !== right.name) { right = mk(e, 1); F[right.name] = right; } // novo monstro
+        else { right.hp = right.shownHp = right.maxHp = e.targetMaxHp || right.maxHp; right.dead = false; }
+      }
     }
 
     function frame(now) {

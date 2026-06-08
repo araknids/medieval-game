@@ -2435,7 +2435,7 @@ function showTowerFightModal(r) {
   const color = r.won ? '#4caf82' : '#ef5350';
   // [TORRE_NARRATIVA] a atmosfera do andar vira a nota narrativa do resultado.
   const note  = r.atmosphere || (r.won && !r.runOver ? 'Boss down! Climb to the next floor whenever you like.' : '');
-  showCollectModal({ title, color, rows, note, log: r.log || [] });
+  showCollectModal({ title, color, rows, note, log: r.log || [], battleEvents: r.battleEvents, scene: r.scene || 'tower' });
 }
 
 // ── ARENA ──

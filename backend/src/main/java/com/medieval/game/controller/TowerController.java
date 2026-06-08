@@ -100,6 +100,8 @@ public class TowerController {
         m.put("log", result.log());
         m.put("runOver", result.runOver());
         m.put("arkaChoicePending", result.arkaChoicePending()); // topo: a escolha (poupar/matar)
+        m.put("battleEvents", result.events()); // [BATALHA_ANIMADA] replay do andar (gauntlet)
+        m.put("scene", "tower");                 // [BATALHA_ANIMADA]
         return ResponseEntity.ok(m);
     }
 
