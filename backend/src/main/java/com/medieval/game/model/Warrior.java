@@ -62,14 +62,32 @@ public class Warrior {
     @Column(nullable = false)
     private LocalDateTime hpUpdatedAt = LocalDateTime.now();
 
+    // HP regenera 100% em 1h — ou 15 min no buff de novato (herdado do Player). [BUFF_NOVATO]
     public int getCalculatedHpPercent() {
+        return getCalculatedHpPercent(hpRegenMinutes());
+    }
+
+    /** Overload p/ contextos detached (controllers): recebe a janela de regen do Player já carregado. */
+    public int getCalculatedHpPercent(int regenMinutes) {
         long minutes = Duration.between(hpUpdatedAt, LocalDateTime.now()).toMinutes();
-        int regen = (int)(minutes * 100.0 / 60.0);
+        int regen = (int)(minutes * 100.0 / regenMinutes);
         return Math.min(100, currentHpSnapshot + regen);
+    }
+
+    /** Janela de regen do HP — herda o buff de novato do Player. Fallback 60 min se o player estiver detached. */
+    private int hpRegenMinutes() {
+        try {
+            if (player != null) return player.regenMinutes();
+        } catch (RuntimeException lazyDetached) { /* fora de transação → sem buff */ }
+        return 60;
     }
 
     public boolean isKnockedOut() {
         return getCalculatedHpPercent() <= 0;
+    }
+
+    public boolean isKnockedOut(int regenMinutes) {
+        return getCalculatedHpPercent(regenMinutes) <= 0;
     }
 
     /** Aplica dano (em %). Regen começa automaticamente a partir do valor atual */

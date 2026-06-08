@@ -153,6 +153,7 @@ public class MaintenanceService {
         p.setTowerBestFloor(0);
         p.setCurrentStamina(100);
         p.setStaminaUpdatedAt(LocalDateTime.now());
+        p.setCreatedAt(LocalDateTime.now()); // [BUFF_NOVATO] "renasce" → re-concede o buff de novato (3 dias)
         p.setLocation(Location.TAVERN);
         p.setGuildDonatedBronze(0);
         p.setSoulStones(0);

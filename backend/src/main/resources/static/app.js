@@ -391,6 +391,16 @@ async function loadWarrior() {
     return (w || a) ? `<div style="margin-top:.3rem">${w}${a}</div>` : '';
   })();
 
+  // [BUFF_NOVATO] Selo do buff de novato: estamina + HP regeneram em 15 min nos primeiros 3 dias.
+  const newbieBuffLine = warrior.newbieBuffActive ? (() => {
+    const h = warrior.newbieBuffHoursLeft ?? 0;
+    return `<div style="margin-top:.3rem;font-size:.75rem;padding:3px 6px;
+                         background:#10242a;border:1px solid #4dd0e1;border-radius:4px;
+                         color:#80deea;display:inline-block">
+              ✨ ${t('buff.newbie')} <span style="color:#aaa;font-size:.7em">(${h}h)</span>
+            </div>`;
+  })() : '';
+
   const hpColor      = (warrior.hpPercent ?? 100) <= 0 ? '#cf6679'
                      : (warrior.hpPercent ?? 100) < 50  ? '#c9a84c' : '#4caf82';
   const staminaColor = stamina < 30 ? '#cf6679' : stamina < 60 ? '#c9a84c' : '#4caf82';
@@ -439,6 +449,7 @@ async function loadWarrior() {
       <span class="value ${stamina < 30 ? 'stamina-low' : ''}">${stamina}/100${staminaInfo}</span>
     </div>
 
+    ${newbieBuffLine}
     ${buffLine}
     ${mealBuffLine}
     ${mountLine}

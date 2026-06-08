@@ -85,17 +85,37 @@ public class Player {
     @Column(nullable = false)
     private LocalDateTime staminaUpdatedAt = LocalDateTime.now();
 
-    // Estamina regenera 100% em 1h (jogo sem timer — estamina é o gate). [SEM_TIMER]
+    // [BUFF_NOVATO] Nos primeiros 3 dias da conta, estamina E HP regeneram 100% em 15 min (em vez de 60),
+    // pra suavizar o "penhasco de estamina" do recém-chegado. Janela derivada de createdAt — sem coluna nova.
+    // Soft-wipe reseta createdAt → re-concede o buff. O HP herda esta janela via Warrior.hpRegenMinutes().
+    public static final int NEWBIE_BUFF_DAYS = 3;
+
+    public boolean isNewbieBuffActive() {
+        return createdAt != null
+                && Duration.between(createdAt, LocalDateTime.now()).toDays() < NEWBIE_BUFF_DAYS;
+    }
+
+    /** Minutos p/ regen 100% (estamina e HP): 15 no buff de novato, 60 normal. [BUFF_NOVATO] */
+    public int regenMinutes() { return isNewbieBuffActive() ? 15 : 60; }
+
+    /** Horas restantes do buff de novato (0 se inativo) — p/ exibir na UI. */
+    public long getNewbieBuffHoursLeft() {
+        if (!isNewbieBuffActive()) return 0;
+        long mins = Duration.between(LocalDateTime.now(), createdAt.plusDays(NEWBIE_BUFF_DAYS)).toMinutes();
+        return Math.max(1, (long) Math.ceil(mins / 60.0));
+    }
+
+    // Estamina regenera 100% em 1h — ou 15 min no buff de novato (estamina é o gate). [SEM_TIMER][BUFF_NOVATO]
     public int getCalculatedStamina() {
         long minutes = Duration.between(staminaUpdatedAt, LocalDateTime.now()).toMinutes();
-        int regen = (int) (minutes * 100.0 / 60.0);
+        int regen = (int) (minutes * 100.0 / regenMinutes());
         return Math.min(100, currentStamina + regen);
     }
 
     public long getMinutesToFullStamina() {
         int stamina = getCalculatedStamina();
         if (stamina >= 100) return 0;
-        return (long) Math.ceil((100 - stamina) * 60.0 / 100.0);
+        return (long) Math.ceil((100 - stamina) * regenMinutes() / 100.0);
     }
 
     @Enumerated(EnumType.STRING)

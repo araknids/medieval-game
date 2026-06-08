@@ -126,8 +126,9 @@ public class WarriorController {
         int baseEvasion  = warrior.getEvasionChance(); // from dexterity, before buff
         int totalEvasion = baseEvasion + buffEva;
 
-        // HP actual (with passive regen)
-        int hpPercent = warrior.getCalculatedHpPercent();
+        // HP actual (with passive regen) — usa a janela de regen do Player (buff de novato). [BUFF_NOVATO]
+        int newbieRegenMin = player.regenMinutes();
+        int hpPercent = warrior.getCalculatedHpPercent(newbieRegenMin);
 
         // Normalise currency
         long total   = player.getBronze() + player.getSilver() * 100L + player.getGold() * 10_000L;
@@ -193,7 +194,7 @@ public class WarriorController {
                 player.getCalculatedStamina(), player.getMinutesToFullStamina(),
                 bronze, silver, gold,
                 player.getRankPoints(),
-                hpPercent, warrior.isKnockedOut(),
+                hpPercent, warrior.isKnockedOut(newbieRegenMin),
                 buffName, buffSecsLeft,
                 player.getSoulStones(),
                 isVip, vipExpiresAt,
@@ -205,7 +206,8 @@ public class WarriorController {
                 equippedPet, // [PETS]
                 wElem != null ? wElem.name() : "", wElemSecs, // [ELEMENTOS]
                 aElem != null ? aElem.name() : "", aElemSecs,
-                com.medieval.game.service.AchievementService.titleString(player) // [TITULOS]
+                com.medieval.game.service.AchievementService.titleString(player), // [TITULOS]
+                player.isNewbieBuffActive(), player.getNewbieBuffHoursLeft() // [BUFF_NOVATO]
         );
     }
 
@@ -242,5 +244,6 @@ public class WarriorController {
                            PetInfo equippedPet,
                            String weaponElement, long weaponElementSecondsLeft, // [ELEMENTOS]
                            String armorElement,  long armorElementSecondsLeft,
-                           String title) {} // [TITULOS] título ativo do jogador
+                           String title, // [TITULOS] título ativo do jogador
+                           boolean newbieBuffActive, long newbieBuffHoursLeft) {} // [BUFF_NOVATO]
 }

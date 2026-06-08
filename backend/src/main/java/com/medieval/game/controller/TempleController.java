@@ -34,7 +34,8 @@ public class TempleController {
         Player  player  = getPlayer(auth);
         Warrior warrior = warriorRepository.findByPlayer(player).orElse(null);
 
-        int  hpPct  = warrior != null ? warrior.getCalculatedHpPercent() : 100;
+        int  regenMin = player.regenMinutes(); // [BUFF_NOVATO] janela de regen (buff de novato)
+        int  hpPct  = warrior != null ? warrior.getCalculatedHpPercent(regenMin) : 100;
         long healCost = warrior != null ? templeService.healCost(warrior) : 0;
         long protectedCount = templeService.countProtected(player);
 
@@ -87,7 +88,7 @@ public class TempleController {
 
         return ResponseEntity.ok(Map.ofEntries(
             Map.entry("hpPercent",          hpPct),
-            Map.entry("isKnockedOut",        warrior != null && warrior.isKnockedOut()),
+            Map.entry("isKnockedOut",        warrior != null && warrior.isKnockedOut(regenMin)),
             Map.entry("healCost",            healCost),
             Map.entry("healFree",            healCost == 0),
             Map.entry("protectedCount",      protectedCount),
