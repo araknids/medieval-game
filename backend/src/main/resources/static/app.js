@@ -256,6 +256,7 @@ function enterGame() {
   loadWarrior();
   loadWorld(); // Default to World tab
   maybeShowOnboarding(); // [ONBOARDING] boas-vindas no 1º login
+  checkDailyReward();    // [DAILY] badge + popup de recompensa diária (pula popup se já tem modal aberto)
 }
 
 // [ONBOARDING] Mostra a tela de boas-vindas (lore breve + recruta + 1ª missão) só uma vez.
@@ -484,7 +485,7 @@ async function loadWarrior() {
 
 // ── Navegação de locais ──
 function goTo(loc) {
-  ['inventory','commerce','temple','work','tower','arena','guild','world','mail'].forEach(l => {
+  ['inventory','commerce','temple','work','tower','arena','guild','world','mail','daily'].forEach(l => {
     document.getElementById('loc-panel-' + l).style.display = l === loc ? 'block' : 'none';
     document.getElementById('loc-' + l).classList.toggle('active', l === loc);
   });
@@ -497,6 +498,7 @@ function goTo(loc) {
   if (loc === 'guild')     { loadGuild(); }
   if (loc === 'world')      { loadWorld(); }
   if (loc === 'mail')      { loadMail(); }
+  if (loc === 'daily')     { loadDailyReward(); }
 }
 
 // ── COMÉRCIO: loja ──
@@ -3012,7 +3014,8 @@ function renderMailPanel(letters, unread) {
             ${!m.isRead ? '<span style="color:#5c6bc0;font-size:.75em;margin-left:6px">● NEW</span>' : ''}
             ${m.goldAmount > 0 && !m.isCollected ? '<span style="color:#ffd700;font-size:.75em;margin-left:6px">💰 ' + m.goldAmount + ' gold</span>' : ''}
             ${m.hasItem && !m.itemCollected && !m.isExpired ? '<span style="color:#a78bfa;font-size:.75em;margin-left:6px">📦 ITEM</span>' : ''}
-            ${m.hasItem && m.isExpired ? '<span style="color:#ef5350;font-size:.75em;margin-left:6px">⏰ EXPIRED</span>' : ''}
+            ${m.hasResource && !m.isExpired ? '<span style="color:#4dd0e1;font-size:.75em;margin-left:6px">🐟 ' + m.resourceQty + '×</span>' : ''}
+            ${(m.hasItem || m.hasResource) && m.isExpired ? '<span style="color:#ef5350;font-size:.75em;margin-left:6px">⏰ EXPIRED</span>' : ''}
             <div style="color:#888;font-size:.8em;margin-top:2px">
               ${escapeHtml(m.message.length > 60 ? m.message.substring(0, 60) + '…' : m.message)}
             </div>
@@ -3097,6 +3100,20 @@ async function mailOpen(id) {
     }
   }
 
+  // [DAILY] anexo de recurso (ex.: peixe da daily / overflow de bag cheia)
+  let resBtn = '';
+  if (r.hasResource) {
+    const exp = r.expiresAt ? r.expiresAt.substring(0, 10) : '';
+    resBtn = `
+      <div style="background:#10242a;border:1px solid #4dd0e1;border-radius:6px;padding:10px;margin-top:10px">
+        <div style="color:#80deea;font-weight:bold">🐟 ${escapeHtml(r.resourceName)} ×${r.resourceQty}</div>
+        ${exp ? `<div style="color:#888;font-size:11px">Expires: ${exp}</div>` : ''}
+        <button onclick="mailClaimResource(${id})" style="margin-top:6px;background:#00838f;font-size:12px">
+          📦 Add to Bag
+        </button>
+      </div>`;
+  }
+
   panel.innerHTML = `
     <div style="display:flex;justify-content:space-between;align-items:flex-start">
       <strong>From: ${escapeHtml(r.from)}</strong>
@@ -3107,6 +3124,7 @@ async function mailOpen(id) {
                 white-space:pre-wrap;font-size:13px;line-height:1.5">${escapeHtml(r.message)}</div>
     ${goldBtn}
     ${itemBtn}
+    ${resBtn}
   `;
 
   // Refresh unread badge
@@ -3130,6 +3148,101 @@ async function mailClaimItem(id) {
   loadWarrior();
   loadInventory();
 }
+
+async function mailClaimResource(id) {
+  const r = await api('POST', `/api/mail/${id}/claim-resource`);
+  if (r.error) { mailMsg(r.error, false); return; }
+  mailMsg(`📦 ${r.message}`);
+  await loadMail();
+  loadWarrior();
+  loadInventory();
+}
+
+// ── [DAILY] Recompensa de login diária (ciclo de 7 dias, peixe de stamina) ──
+async function loadDailyReward() {
+  const el = document.getElementById('daily-content');
+  el.innerHTML = '<p style="color:#aaa">Loading...</p>';
+  const s = await api('GET', '/api/daily-reward/status');
+  if (!s || s.error) { el.innerHTML = '<p style="color:#ef5350">Error loading daily reward.</p>'; return; }
+  el.innerHTML = renderDailyCalendar(s);
+}
+
+function renderDailyCalendar(s) {
+  const days = (s.days || []).map(d => {
+    const isToday = d.day === s.claimDay;
+    const border  = isToday ? '#4dd0e1' : '#3a3a4a';
+    const bg      = isToday ? '#10242a' : '#161622';
+    const bronze  = d.bronze > 0 ? `<div style="color:#cd7f32;font-size:.7rem">+${fmtBronze(d.bronze)}</div>` : '';
+    return `
+      <div style="flex:1;min-width:78px;border:1px solid ${border};background:${bg};border-radius:8px;padding:8px;text-align:center">
+        <div style="color:#888;font-size:.7rem">${t('daily.day')} ${d.day}</div>
+        <div style="font-size:1.4rem">🐟</div>
+        <div style="font-size:.76rem;color:#cfe">${escapeHtml(d.fishName)} ×${d.qty}</div>
+        ${bronze}
+        ${isToday ? `<div style="color:#4dd0e1;font-size:.68rem;margin-top:2px">${s.canClaim ? '◀ ' + t('daily.today') : '✓'}</div>` : ''}
+      </div>`;
+  }).join('');
+
+  const claimBtn = s.canClaim
+    ? `<button onclick="claimDailyReward()" style="margin-top:14px;background:#00838f;font-size:1rem;padding:8px 20px">🎁 ${t('daily.claim')}</button>`
+    : `<div style="margin-top:14px;color:#888">${t('daily.come_back')}</div>`;
+
+  return `
+    <div style="margin-bottom:10px;color:#c9a84c">🔥 ${t('daily.streak')}: <strong>${s.streak}</strong></div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap">${days}</div>
+    <div style="text-align:center">${claimBtn}</div>`;
+}
+
+async function claimDailyReward() {
+  const r = await api('POST', '/api/daily-reward/claim');
+  if (r.error) { showMessage(r.error, true); return; }
+  const rows = [{ icon:'🐟', label:r.fishName, value:`×${r.qty}`, color:'#4dd0e1' }];
+  if (r.bronze > 0) rows.push({ icon:'🪙', label:'Bronze', value:fmtBronze(r.bronze), color:'#cd7f32' });
+  if (r.mailed > 0) rows.push({ icon:'📬', label:t('daily.mailed'), value:`×${r.mailed}`, color:'#aaa' });
+  showCollectModal({ title: `🎁 ${t('daily.claimed_title')} — 🔥 ${r.streak}`, color:'#00838f', rows });
+  await loadWarrior();
+  loadInventory();
+  updateDailyBadge(false);
+  if (document.getElementById('loc-panel-daily').style.display === 'block') loadDailyReward();
+}
+
+function updateDailyBadge(show) {
+  const b = document.getElementById('daily-badge');
+  if (b) b.style.display = show ? 'inline-block' : 'none';
+}
+
+// Checa no login: atualiza o badge e, se houver recompensa, abre o popup (se nenhum modal estiver aberto).
+async function checkDailyReward() {
+  const s = await api('GET', '/api/daily-reward/status');
+  if (!s || s.error) return;
+  updateDailyBadge(!!s.canClaim);
+  if (s.canClaim && !document.getElementById('collect-modal-overlay') && !document.getElementById('daily-modal-overlay')) {
+    showDailyPopup(s);
+  }
+}
+
+function showDailyPopup(s) {
+  const reward = (s.days || []).find(d => d.day === s.claimDay);
+  const overlay = document.createElement('div');
+  overlay.id = 'daily-modal-overlay';
+  overlay.setAttribute('style',
+    'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.85);' +
+    'z-index:9998;display:flex;align-items:center;justify-content:center;padding:16px;box-sizing:border-box');
+  const bronze = reward && reward.bronze > 0 ? `<div style="color:#cd7f32">+${fmtBronze(reward.bronze)}</div>` : '';
+  overlay.innerHTML = `
+    <div style="background:#14141f;border:1px solid #4dd0e1;border-radius:12px;padding:22px;max-width:340px;text-align:center">
+      <div style="font-size:1.2rem;color:#80deea;margin-bottom:6px">🎁 ${t('daily.title')}</div>
+      <div style="color:#c9a84c;margin-bottom:10px">🔥 ${t('daily.streak')}: ${s.streak} · ${t('daily.day')} ${s.claimDay}</div>
+      <div style="font-size:2rem">🐟</div>
+      <div style="color:#cfe;margin-bottom:4px">${reward ? escapeHtml(reward.fishName) + ' ×' + reward.qty : ''}</div>
+      ${bronze}
+      <button onclick="claimFromPopup()" style="margin-top:14px;background:#00838f;font-size:1rem;padding:8px 22px">🎁 ${t('daily.claim')}</button>
+      <div style="margin-top:8px"><a onclick="closeDailyPopup()" style="color:#888;font-size:.8rem;cursor:pointer">${t('daily.later')}</a></div>
+    </div>`;
+  document.body.appendChild(overlay);
+}
+function closeDailyPopup() { const o = document.getElementById('daily-modal-overlay'); if (o) o.remove(); }
+async function claimFromPopup() { closeDailyPopup(); await claimDailyReward(); }
 
 async function mailDelete(id) {
   if (!confirm('Delete this letter?')) return;

@@ -27,6 +27,7 @@ public class MailController {
     private final MailService     mailService;
     private final PlayerService   playerService;
     private final InventoryService inventoryService;
+    private final com.medieval.game.service.GatheringService gatheringService; // [DAILY] claim de recurso
 
     // ── Inbox ─────────────────────────────────────────────────────────────────
     @GetMapping("/inbox")
@@ -86,6 +87,17 @@ public class MailController {
         ));
     }
 
+    // ── Claim resource from mail (ex.: peixe da daily / overflow de bag cheia) [DAILY] ──
+    @PostMapping("/{id}/claim-resource")
+    public ResponseEntity<?> claimResource(@PathVariable Long id, Authentication auth) {
+        Player player = getPlayer(auth);
+        long added = mailService.claimResource(player, id, gatheringService);
+        return ResponseEntity.ok(Map.of(
+            "message", com.medieval.game.service.Messages.tr("msg.resource_claimed", "{0} added to your bag!", added),
+            "added",   added
+        ));
+    }
+
     // ── Delete ────────────────────────────────────────────────────────────────
     @DeleteMapping("/{id}")
     public ResponseEntity<?> delete(@PathVariable Long id, Authentication auth) {
@@ -111,6 +123,14 @@ public class MailController {
             Map.entry("hasItem",         m.hasItem()),
             Map.entry("itemName",        m.getItemName()  != null ? m.getItemName()  : ""),
             Map.entry("itemCollected",   m.isItemCollected()),
+            Map.entry("hasResource",     m.hasResource() && !m.isResourceCollected()), // [DAILY]
+            Map.entry("resourceType",    m.getResourceType() != null ? m.getResourceType() : ""),
+            Map.entry("resourceQty",     m.getResourceQty()),
+            Map.entry("resourceName",    m.hasResource()
+                    ? com.medieval.game.service.Messages.tr("resource." + m.getResourceType() + ".name",
+                          com.medieval.game.enums.ResourceType.valueOf(m.getResourceType()).displayName)
+                    : ""),
+            Map.entry("resourceCollected", m.isResourceCollected()),
             Map.entry("isExpired",       m.isExpired()),
             Map.entry("expiresAt",       m.getExpiresAt() != null ? m.getExpiresAt().toString() : "")
         );

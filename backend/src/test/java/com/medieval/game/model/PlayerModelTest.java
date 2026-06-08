@@ -16,12 +16,13 @@ class PlayerModelTest {
     @DisplayName("TC-005 | getCalculatedStamina recupera ao longo do tempo")
     void tc005_calculatedStamina_regenOverTime() {
         Player player = new Player();
+        player.setCreatedAt(LocalDateTime.now().minusDays(10)); // [BUFF_NOVATO] conta antiga → regen normal 60min
         player.setCurrentStamina(0);
         player.setStaminaUpdatedAt(LocalDateTime.now().minusMinutes(30)); // 30 min atrás
 
         int stamina = player.getCalculatedStamina();
 
-        // SEM_TIMER: regen 100% em 1h → 30 min = 50. (1h cheia = 100)
+        // SEM_TIMER: regen 100% em 1h → 30 min = 50. (1h cheia = 100). Buff de novato (15min) testado em NewbieBuffTest.
         assertThat(stamina).isEqualTo(50);
     }
 

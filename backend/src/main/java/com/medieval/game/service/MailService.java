@@ -202,6 +202,57 @@ public class MailService {
         return item;
     }
 
+    // ── Resource mail (recompensa de recurso, ex.: peixe da daily / overflow de bag cheia) [DAILY] ──
+
+    /** Envia uma carta de sistema com um recurso anexado (peixe etc.), reivindicável depois. */
+    @Transactional
+    public Mail sendResourceMail(Player recipient, String reason,
+                                 com.medieval.game.enums.ResourceType type, int qty) {
+        if (qty <= 0) throw new IllegalArgumentException("qty must be > 0");
+        Mail mail = new Mail();
+        mail.setSenderPlayerId(0L);           // 0 = system sender
+        mail.setSenderWarriorName("System");
+        mail.setRecipientPlayerId(recipient.getId());
+        mail.setMessage("📦 " + reason + "\n\n⏳ Expires in " + ITEM_MAIL_EXPIRY_DAYS + " days.");
+        mail.setResourceType(type.name());
+        mail.setResourceQty(qty);
+        mail.setExpiresAt(LocalDateTime.now().plusDays(ITEM_MAIL_EXPIRY_DAYS));
+        return mailRepository.save(mail);
+    }
+
+    /**
+     * Reivindica o recurso anexado, adicionando à bag (respeitando o espaço). Se não couber tudo, o
+     * restante FICA na carta p/ reivindicar depois. Recebe o GatheringService por parâmetro (igual ao
+     * claimItem com o InventoryService) p/ evitar dependência circular.
+     * @return quantidade efetivamente adicionada à bag.
+     */
+    @Transactional
+    public long claimResource(Player player, Long mailId, GatheringService gatheringService) {
+        Mail mail = requireRecipient(player, mailId);
+        if (!mail.hasResource())
+            throw new IllegalStateException("This letter has no resource attached.");
+        if (mail.isResourceCollected())
+            throw new IllegalStateException("Resource already collected.");
+        if (mail.isExpired())
+            throw new IllegalStateException("This letter has expired. The resource was lost.");
+
+        com.medieval.game.enums.ResourceType type = com.medieval.game.enums.ResourceType.valueOf(mail.getResourceType());
+        long added = gatheringService.addResource(player, type, mail.getResourceQty());
+        if (added <= 0)
+            throw new com.medieval.game.config.LocalizedException("error.bag_full_resource",
+                    "Your bag is full. Free up space and claim again.");
+
+        int remaining = mail.getResourceQty() - (int) added;
+        if (remaining > 0) {
+            mail.setResourceQty(remaining);   // coube só uma parte → o resto continua na carta
+        } else {
+            mail.setResourceCollected(true);
+        }
+        if (!mail.isRead()) mail.setReadAt(LocalDateTime.now());
+        mailRepository.save(mail);
+        return added;
+    }
+
     // ── Helper ────────────────────────────────────────────────────────────────
     private Mail requireRecipient(Player player, Long mailId) {
         Mail mail = mailRepository.findById(mailId)

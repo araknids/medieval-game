@@ -166,5 +166,7 @@ public class MaintenanceService {
         p.clearPvpFlag();           // [PVP_FLAG] não pode acordar "exposto" depois do wipe
         p.setPvpShieldUntil(null);
         p.setActiveTitle(null);     // [TITULOS] título zera (conquistas foram apagadas)
+        p.setLastDailyClaimDate(null); // [DAILY] zera o streak de login diário
+        p.setDailyStreak(0);
     }
 }

@@ -35,36 +35,37 @@ class TimerPathIntegrationTest extends BaseIntegrationTest {
                 .reduce((a, b) -> b.getId() > a.getId() ? b : a).orElseThrow();
     }
 
-    // Sem timer: o trabalho é coletável na hora (collect logo após o start funciona).
+    // [WORK_IDLE] Exceção ao sem-timer: com instant-complete=false o Trabalho virou IDLE em tempo real
+    // (finishesAt = agora+horas), então NÃO é coletável na hora — coletar logo após o start é rejeitado.
     @Test
-    @DisplayName("Trabalho é coletável na hora (sem timer)")
-    void work_instantlyCollectable() throws Exception {
+    @DisplayName("Trabalho idle: timer real → coleta imediata rejeitada (não pronto)")
+    void work_idleNotInstantlyCollectable() throws Exception {
         String resp = mockMvc.perform(post("/api/work/start")
                         .header("Authorization", bearer(token))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"workType\":\"TAVERN_HELPER\",\"hours\":1}"))
                 .andExpect(status().isOk())
+                .andExpect(jsonPath("$.readyToCollect").value(false))
                 .andReturn().getResponse().getContentAsString();
         long sessionId = objectMapper.readTree(resp).get("id").asLong();
 
-        // sem espera: coleta imediata já funciona (gate é estamina, não tempo)
+        // ainda trabalhando (timer real rodando) → collect rejeitado
         mockMvc.perform(post("/api/work/" + sessionId + "/collect")
                         .header("Authorization", bearer(token)))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.goldEarned").isNumber());
+                .andExpect(status().isBadRequest());
     }
 
-    // A estamina É consumida ao iniciar o trabalho (horas×5) — a estamina é o gate.
+    // [WORK_IDLE] Trabalho NÃO custa estamina (o gate é tempo + a trava de aventura, não estamina).
     @Test
-    @DisplayName("Stamina é consumida ao iniciar trabalho (não fica em 100)")
-    void staminaConsumed() throws Exception {
+    @DisplayName("Trabalho idle NÃO consome estamina (fica em 100)")
+    void work_doesNotConsumeStamina() throws Exception {
         mockMvc.perform(post("/api/work/start")
                         .header("Authorization", bearer(token))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"workType\":\"TAVERN_HELPER\",\"hours\":2}"))
                 .andExpect(status().isOk());
 
-        assertThat(player().getCalculatedStamina()).isLessThan(100);
+        assertThat(player().getCalculatedStamina()).isEqualTo(100);
     }
 
     // Sem timer: o farm de zona é instantâneo, então a estamina é o gate (antes era o timer).

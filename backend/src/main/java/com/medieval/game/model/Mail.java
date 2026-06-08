@@ -67,8 +67,17 @@ public class Mail {
     private boolean itemCollected = false;
     private LocalDateTime expiresAt;  // null = no expiry; +7 days for item mails
 
-    public boolean isRead()      { return readAt      != null; }
-    public boolean isCollected() { return collectedAt != null; }
-    public boolean hasItem()     { return itemName    != null; }
-    public boolean isExpired()   { return expiresAt   != null && LocalDateTime.now().isAfter(expiresAt); }
+    // ── Resource attachment (recompensas de recurso, ex.: peixe da daily / overflow de bag cheia) [DAILY] ──
+    @Column(length = 40)
+    private String  resourceType;            // ResourceType.name(); null = sem recurso
+    @Column(columnDefinition = "integer default 0")
+    private int     resourceQty = 0;
+    @Column(columnDefinition = "boolean default false")
+    private boolean resourceCollected = false;
+
+    public boolean isRead()        { return readAt      != null; }
+    public boolean isCollected()   { return collectedAt != null; }
+    public boolean hasItem()       { return itemName    != null; }
+    public boolean hasResource()   { return resourceType != null && resourceQty > 0; }
+    public boolean isExpired()     { return expiresAt   != null && LocalDateTime.now().isAfter(expiresAt); }
 }

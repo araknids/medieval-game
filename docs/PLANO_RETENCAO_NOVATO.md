@@ -1,9 +1,9 @@
 # PLANO — Retenção do Novato (Daily Reward + Buff de Novato + Work Idle)
 
-> **Status:** ✅ **Design aprovado — NÃO IMPLEMENTAR AINDA.**
-> ⏸️ **BLOQUEADO:** outra aba/sessão do Claude está trabalhando em outro assunto neste mesmo repositório.
-> **Esperar essa outra sessão terminar** antes de começar a codar qualquer coisa daqui (pra evitar conflito
-> de arquivos / merge sujo). Quando liberar, seguir a "Ordem de implementação sugerida" abaixo.
+> **Status:** ✅ **IMPLEMENTADO** (2026-06-08) — as 3 features estão no `main`:
+> Feature 1 (buff de novato) `be42b5d`; Feature 2 (work idle) `8cc918b`; Feature 3 (mail de recurso +
+> daily reward) commitada na sequência. Testes: `NewbieBuffTest`, `DailyRewardServiceTest` + suíte existente.
+> Números (tabela do ciclo, recompensa do work, custo) seguem placeholders pra tuning no playtest.
 >
 > **Objetivo:** Atacar o **primeiro penhasco de estamina** do jogador recém-chegado — o momento em que
 > ele queima os 100 de estamina em ~10–20 min de cliques e bate num muro de ~1h de regen, fechando a aba.

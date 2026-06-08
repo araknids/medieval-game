@@ -202,6 +202,14 @@ public class Player {
     @Column(name = "active_title", length = 40)
     private String activeTitle;
 
+    // ── [DAILY] Recompensa de login diária (ciclo de 7 dias) ───────────────────
+    /** Data da última coleta da daily; null = nunca coletou. Reset por comparação de data (sem scheduler). */
+    @Column(name = "last_daily_claim_date")
+    private java.time.LocalDate lastDailyClaimDate;
+    /** Dias consecutivos coletados (streak). Faltar um dia zera; cicla a tabela de 7 dias por (streak-1)%7. */
+    @Column(columnDefinition = "integer default 0")
+    private int dailyStreak = 0;
+
     @Column(nullable = false)
     private LocalDateTime createdAt = LocalDateTime.now();
 

@@ -73,6 +73,7 @@
           <button id="loc-arena"     class="loc-btn"        onclick="goTo('arena')">⚔ Arena</button>
           <button id="loc-guild"     class="loc-btn"        onclick="goTo('guild')">🛡 <span data-i18n="nav.guild">Guild</span></button>
           <button id="loc-mail"      class="loc-btn"        onclick="goTo('mail')">📬 <span data-i18n="nav.mail">Mail</span> <span id="mail-badge" style="display:none;background:#ef5350;color:#fff;border-radius:10px;padding:0 5px;font-size:.7em"></span></button>
+          <button id="loc-daily"     class="loc-btn"        onclick="goTo('daily')">🎁 <span data-i18n="nav.daily">Daily</span> <span id="daily-badge" style="display:none;background:#ef5350;color:#fff;border-radius:10px;padding:0 5px;font-size:.7em">!</span></button>
           <button id="lang-toggle"   class="loc-btn"        onclick="toggleLanguage()" style="margin-left:auto;background:#1a3a1a;border-color:#2e7d32" title="Switch language">🌐 EN</button>
         </nav>
 
@@ -190,6 +191,15 @@
             <p class="loc-desc" data-i18n="section.mail.desc">Send letters and bronze to other warriors.</p>
           </div>
           <div id="mail-content"></div>
+        </section>
+
+        <!-- RECOMPENSA DIÁRIA [DAILY] -->
+        <section id="loc-panel-daily" style="display:none">
+          <div class="loc-header">
+            <h2>🎁 <span data-i18n="nav.daily">Daily Reward</span></h2>
+            <p class="loc-desc" data-i18n="section.daily.desc">Log in every day for stamina fish — keep the streak going!</p>
+          </div>
+          <div id="daily-content"></div>
         </section>
 
         <!-- Hidden divs still needed by smithing/bag + territory JS logic -->

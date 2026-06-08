@@ -107,6 +107,17 @@ Plano + scaffold pra **vender item de jogo na Steam** (futuro, exige appid + cli
 ### HP do Guerreiro
 HP é armazenado como porcentagem (0-100) em `warrior.currentHpSnapshot`. Usa o mesmo padrão da stamina (snapshot + tempo decorrido). Regen: 100% em 1 hora. Guerreiro com HP=0 está inconsciente e não pode entrar em combate.
 
+### Retenção do Novato — buff + daily + work idle — [BUFF_NOVATO][DAILY]
+Pacote pra segurar o recém-chegado no **primeiro penhasco de estamina** (desenho: `docs/PLANO_RETENCAO_NOVATO.md`). Três frentes:
+
+**Buff de Novato** ([BUFF_NOVATO]): nos **primeiros 3 dias da conta** (`Player.createdAt`, sem coluna nova), estamina **e** HP regeneram 100% em **15 min** (em vez de 60). `Player.regenMinutes()`/`isNewbieBuffActive()`/`getNewbieBuffHoursLeft()` derivam a janela; `getCalculatedStamina`/`getMinutesToFullStamina` usam. O HP fica no `Warrior`: `getCalculatedHpPercent(int regenMinutes)` recebe a janela; o no-arg lê `player.regenMinutes()` com fallback 60 se detached; os controllers (`Warrior`/`Temple`) passam `player.regenMinutes()` explícito (player em escopo). `WarriorResponse` expõe `newbieBuffActive`/`newbieBuffHoursLeft` (badge no sidebar). **Soft-wipe reseta `createdAt`** → re-concede o buff.
+
+**Trabalho idle** ([WORK_IDLE]): ver a exceção no [SEM_TIMER] acima.
+
+**Daily Reward** ([DAILY]): `DailyRewardService`/`DailyRewardController` (`/api/daily-reward/status|claim`) — **ciclo de 7 dias** dando **peixe de stamina** (escala dia 1→7, dia 7 = lendário + bronze). `Player.lastDailyClaimDate`/`dailyStreak` (migração `SchemaMigrator.patchPlayerDailyRewardColumns`). Reset por comparação de data (sem scheduler); faltar um dia zera o streak (cicla por `(streak-1)%7`). UI: aba 🎁 + popup no login + badge no nav. Entrega via `gatheringService.addResource`; **o que não couber na bag vai por mail de recurso**. Soft-wipe zera os campos.
+
+**Mail de recurso**: `Mail` ganhou `resourceType`/`resourceQty`/`resourceCollected` (migração em `patchMailItemColumns`); `MailService.sendResourceMail` + `claimResource(player, id, gatheringService)` (recebe o service por parâmetro, igual ao `claimItem`, sem ciclo); `POST /api/mail/{id}/claim-resource`. Reaproveitável p/ qualquer recompensa de recurso, não só a daily.
+
 ### Currency Safety
 `InventoryService.sell()`, `WorkService.collectWork()` e `WorkService.cancelWork()` usam `player.addBronzeAmount()` para evitar somar no campo gold diretamente.
 
@@ -205,6 +216,7 @@ ALTER TABLE tabela ADD CONSTRAINT tabela_coluna_check CHECK (coluna IN ('VAL1','
 | Loja | `ShopService` | `ShopController` | Rotação 6h, raridade, compra única |
 | Casa de Leilão | `AuctionService` | `AuctionController` | Mercado entre players (buyout); taxa 5%+15%, 2 dias, máx 10. [LEILAO] |
 | VIP / SoulStone | `VipService` | `VipController` | 4ª moeda (SoulStone), status VIP (cura/bag/limites). [VIP] |
+| Recompensa Diária | `DailyRewardService` | `DailyRewardController` | Login diário, ciclo de 7 dias (peixe de stamina), streak, popup+aba+badge. [DAILY] |
 | Coleta | `GatheringService` | `GatheringController` | Roller de drops por reino + consumo de peixe. A coleta em si roda pelo ZoneService (unificada). |
 | Forja | `SmithingService` | `SmithingController` | Refino, craft, joias, sockets |
 | Zonas | `ZoneService` | `ZoneController` | Coleta + combate instantâneos; PvP por flag/tiers, raid, item-lock; drops por reino (`kingdom`) |

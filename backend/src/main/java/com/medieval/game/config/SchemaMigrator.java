@@ -37,6 +37,7 @@ public class SchemaMigrator {
         patchGuildLifetimeGoldColumn();
         patchWarriorCombatPostureColumn();
         patchPlayerPetPityColumn();
+        patchPlayerDailyRewardColumns();
         patchGuildEverControlledColumn();
         patchInventoryListedColumn();
         patchInventoryWeaponCategoryColumn();
@@ -283,6 +284,17 @@ public class SchemaMigrator {
         }
     }
 
+    // Recompensa de login diária (ciclo de 7 dias). [DAILY]
+    private void patchPlayerDailyRewardColumns() {
+        try {
+            jdbc.execute("ALTER TABLE players ADD COLUMN IF NOT EXISTS last_daily_claim_date date");
+            jdbc.execute("ALTER TABLE players ADD COLUMN IF NOT EXISTS daily_streak integer NOT NULL DEFAULT 0");
+            log.info("[SchemaMigrator] players daily-reward columns ensured");
+        } catch (Exception e) {
+            log.warn("[SchemaMigrator] players daily-reward columns patch failed: {}", e.getMessage());
+        }
+    }
+
     // Postura de combate (tradeoff ATK/DEF) no warrior. [POSTURE]
     private void patchWarriorCombatPostureColumn() {
         try {
@@ -387,6 +399,10 @@ public class SchemaMigrator {
             jdbc.execute("ALTER TABLE mail ADD COLUMN IF NOT EXISTS item_origin      varchar(255)");
             jdbc.execute("ALTER TABLE mail ADD COLUMN IF NOT EXISTS item_collected   boolean NOT NULL DEFAULT false");
             jdbc.execute("ALTER TABLE mail ADD COLUMN IF NOT EXISTS expires_at       timestamp");
+            // [DAILY] anexo de recurso (peixe da daily / overflow de bag cheia)
+            jdbc.execute("ALTER TABLE mail ADD COLUMN IF NOT EXISTS resource_type      varchar(40)");
+            jdbc.execute("ALTER TABLE mail ADD COLUMN IF NOT EXISTS resource_qty       integer NOT NULL DEFAULT 0");
+            jdbc.execute("ALTER TABLE mail ADD COLUMN IF NOT EXISTS resource_collected boolean NOT NULL DEFAULT false");
             log.info("[SchemaMigrator] mail item columns ensured");
         } catch (Exception e) {
             log.warn("[SchemaMigrator] mail item columns patch failed: {}", e.getMessage());
