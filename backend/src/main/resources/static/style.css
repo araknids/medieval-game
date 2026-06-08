@@ -42,6 +42,7 @@ h1, .header-logo, .warrior-name, .auth-box h1, .auth-box h2 {
 .warrior-stat-row .value, .attr-val, .shop-price, .rank-pts, .timer, .qp-timer, .fight-timer {
   font-variant-numeric: tabular-nums;
 }
+.sidebar-caret { display: none; font-size: .8rem; color: var(--ink-1); } /* só aparece no mobile (sidebar colapsável) */
 
 /* ── AUTH ── */
 #login-screen {
@@ -217,7 +218,13 @@ main {
    A barra persistente do topo já mostra HP/⚡/🪙, então a sidebar pode encolher. */
 @media (max-width: 760px) {
   .game-layout { grid-template-columns: 1fr; height: auto; }
-  aside.warrior-sidebar { border-right: none; border-bottom: 1px solid var(--line); max-height: 42vh; }
+  /* sidebar do guerreiro vira seção COLAPSÁVEL (vitals já estão no topo) — recolhida por padrão */
+  aside.warrior-sidebar { border-right: none; border-bottom: 1px solid var(--line); max-height: none; padding: .55rem 1rem; }
+  .sidebar-title { cursor: pointer; display: flex; align-items: center; justify-content: space-between; }
+  .sidebar-caret { display: inline; transition: transform .15s; }
+  .warrior-sidebar #warrior-card { display: none; }                 /* recolhido por padrão */
+  .warrior-sidebar.expanded #warrior-card { display: block; margin-top: .6rem; }
+  .warrior-sidebar.expanded .sidebar-caret { transform: rotate(90deg); }
   main { overflow: visible; }
   main section { overflow-y: visible; padding-bottom: 64px; }
 
@@ -228,7 +235,8 @@ main {
   .grp-btn.active { border-top-color: var(--gold); border-bottom-color: transparent; }
   .grp-ico { margin-right: 0; }
   .grp-label { display: none; }       /* icon-only no mobile */
-  #lang-toggle { display: none; }     /* idioma só no desktop (gap conhecido do mobile) */
+  /* idioma ACESSÍVEL no mobile: item compacto no fim da tab bar (não estica como os grupos) */
+  #lang-toggle { flex: 0 0 auto; margin-left: 0; font-size: .8rem; padding: .55rem .5rem; border-top: 2px solid transparent; }
   .location-nav { overflow-x: auto; -webkit-overflow-scrolling: touch; flex-wrap: nowrap; }
 }
 

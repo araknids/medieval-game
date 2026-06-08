@@ -572,6 +572,11 @@ function goGroup(g) {
   goTo(PRIMARY[g] || 'world');
 }
 
+// [PILOTO_UI] Mobile: recolhe/expande o card do guerreiro (vitals já estão no topo). Sem efeito visual no desktop.
+function toggleSidebar() {
+  document.querySelector('.warrior-sidebar')?.classList.toggle('expanded');
+}
+
 // ── COMÉRCIO: loja ──
 function switchCommerceTab(tab) {
   stopTavernPolling(); // [TAVERNA] para o polling ao trocar de aba (loadTavern reinicia)
