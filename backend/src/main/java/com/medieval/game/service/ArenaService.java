@@ -162,18 +162,38 @@ public class ArenaService {
 
     // ── Privados ──
 
-    // Matchmaking: sorteia entre os 10 jogadores de rank mais próximo (query limitada
+    // Matchmaking: escolhe entre os 10 jogadores de rank mais próximo (query limitada
     // no banco — não carrega todos os jogadores). Sem candidatos → NPC. [AUDITORIA M14]
     private Player findOpponent(Player challenger) {
         // [AUDITORIA_2 A6] os 5 logo abaixo + 5 logo acima do rank (cada query usa o índice + LIMIT),
-        // mescla e sorteia — em vez de ordenar a tabela inteira por ABS(rank-alvo) a cada luta.
+        // mescla — em vez de ordenar a tabela inteira por ABS(rank-alvo) a cada luta.
         var page5 = org.springframework.data.domain.PageRequest.of(0, 5);
         List<Player> candidates = new java.util.ArrayList<>();
         candidates.addAll(playerRepository.findOpponentsBelow(challenger.getId(), challenger.getRankPoints(), page5));
         candidates.addAll(playerRepository.findOpponentsAbove(challenger.getId(), challenger.getRankPoints(), page5));
         candidates = candidates.stream().distinct().toList(); // o de rank == challenger cai nas duas
         if (candidates.isEmpty()) return null;
-        return candidates.get(java.util.concurrent.ThreadLocalRandom.current().nextInt(candidates.size()));
+        return weightedPickByRankProximity(candidates, challenger.getRankPoints());
+    }
+
+    // [ARENA_MATCHMAKING] Sorteio PONDERADO pela proximidade de rank: peso = 1/(1+|Δrank|).
+    // Quem tem rank parecido ganha quase sempre (dist 0 ≫ dist 40), mas ainda há variedade —
+    // ao contrário do sorteio uniforme antigo, que dava a mesma chance pro candidato distante.
+    private Player weightedPickByRankProximity(List<Player> candidates, int targetRank) {
+        double[] weights = new double[candidates.size()];
+        double total = 0.0;
+        for (int i = 0; i < candidates.size(); i++) {
+            int dist = Math.abs(candidates.get(i).getRankPoints() - targetRank);
+            weights[i] = 1.0 / (1.0 + dist);
+            total += weights[i];
+        }
+        double roll = java.util.concurrent.ThreadLocalRandom.current().nextDouble(total);
+        double acc = 0.0;
+        for (int i = 0; i < candidates.size(); i++) {
+            acc += weights[i];
+            if (roll < acc) return candidates.get(i);
+        }
+        return candidates.get(candidates.size() - 1); // fallback p/ arredondamento de ponto flutuante
     }
 
     private int[] totalStats(Player player, Warrior warrior) {
