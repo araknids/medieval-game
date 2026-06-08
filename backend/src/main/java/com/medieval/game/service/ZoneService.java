@@ -85,7 +85,7 @@ public class ZoneService {
 
         if (warrior.getLevel() < zone.minLevel) {
             log.warn("[ZoneService] player={} REJECTED: level {} too low for zone {} (required {})", player.getId(), warrior.getLevel(), zone, zone.minLevel);
-            throw new IllegalStateException("Level too low. Required: " + zone.minLevel);
+            throw new com.medieval.game.config.LocalizedException("error.zone_level", "Level too low. Required: {0}", zone.minLevel);
         }
 
         if (durationMinutes < 5 || durationMinutes > 720) { // coleta usa chunk curto (~20min); combate maior
@@ -109,7 +109,7 @@ public class ZoneService {
             int cur = player.getCalculatedStamina();
             if (cur < staminaCost) {
                 log.warn("[ZoneService] player={} REJECTED: stamina {}/{}", player.getId(), cur, staminaCost);
-                throw new IllegalStateException("Not enough stamina (" + cur + "/" + staminaCost + "). Rest to recover.");
+                throw new com.medieval.game.config.LocalizedException("error.stamina_rest", "Not enough stamina ({0}/{1}). Rest to recover.", cur, staminaCost);
             }
             player.setCurrentStamina(cur - staminaCost);
             player.setStaminaUpdatedAt(LocalDateTime.now());
@@ -180,7 +180,7 @@ public class ZoneService {
             long secs = java.time.Duration.between(
                     LocalDateTime.now(), activity.getEndsAt()).getSeconds();
             log.warn("[ZoneService] player={} REJECTED: activity {} still in progress, {}s remaining", player.getId(), activityId, secs);
-            throw new IllegalStateException("Expedition still in progress. " + secs + "s");
+            throw new com.medieval.game.config.LocalizedException("error.expedition_progress", "Expedition still in progress. {0}s", secs);
         }
 
         // ── [ZONA_CHEFE] Chefe errante: rola ANTES do encontro normal (expedições com encontro). ──

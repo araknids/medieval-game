@@ -82,11 +82,11 @@ public class TempleService {
         long cdSecs = soulstoneHealCooldownSecs(player);
         if (cdSecs > 0) {
             log.warn("[TempleService] player={} REJECTED: soulstoneHeal on cooldown {}s", player.getId(), cdSecs);
-            throw new IllegalStateException("Instant heal on cooldown. Wait " + (cdSecs / 60) + "m " + (cdSecs % 60) + "s.");
+            throw new com.medieval.game.config.LocalizedException("error.heal_cd", "Instant heal on cooldown. Wait {0}m {1}s.", (cdSecs / 60), (cdSecs % 60));
         }
         if (player.getSoulStones() < SS_HEAL_COST) {
             log.warn("[TempleService] player={} REJECTED: not enough SoulStones ({}<{})", player.getId(), player.getSoulStones(), SS_HEAL_COST);
-            throw new IllegalStateException("Not enough SoulStones. Required: " + SS_HEAL_COST);
+            throw new com.medieval.game.config.LocalizedException("error.soulstones_required", "Not enough SoulStones. Required: {0}", SS_HEAL_COST);
         }
 
         Warrior warrior = warriorRepository.findByPlayer(player)
@@ -121,7 +121,7 @@ public class TempleService {
         long cdSecs = vipService.vipHealCooldownSecs(player);
         if (cdSecs > 0) {
             log.warn("[TempleService] player={} REJECTED: vipHeal on cooldown {}s", player.getId(), cdSecs);
-            throw new IllegalStateException("VIP heal on cooldown. Wait " + (cdSecs / 60) + "m " + (cdSecs % 60) + "s.");
+            throw new com.medieval.game.config.LocalizedException("error.vip_heal_cd", "VIP heal on cooldown. Wait {0}m {1}s.", (cdSecs / 60), (cdSecs % 60));
         }
         Warrior warrior = warriorRepository.findByPlayer(player)
                 .orElseThrow(() -> new IllegalStateException("Warrior not found"));
@@ -190,8 +190,7 @@ public class TempleService {
         ResourceType essence = element.essence();
         if (gatheringService.resourceQuantity(player, essence) < 1) {
             log.warn("[TempleService] player={} REJECTED: no {} to enchant", player.getId(), essence);
-            throw new IllegalStateException("Not enough " + essence.displayName + ". Farm the "
-                    + element.displayName + " area to gather it.");
+            throw new com.medieval.game.config.LocalizedException("error.temple_essence", "Not enough {0}. Farm the {1} area to gather it.", essence.displayName, element.displayName);
         }
 
         playerService.spendBronze(player, ENCHANT_BRONZE_COST);   // lança se não tiver saldo (rollback)
@@ -230,7 +229,7 @@ public class TempleService {
         }
         if (countProtected(player) >= MAX_PROTECTED) {
             log.warn("[TempleService] player={} REJECTED: max {} protected items reached", player.getId(), MAX_PROTECTED);
-            throw new IllegalStateException("Maximum of " + MAX_PROTECTED + " protected items reached");
+            throw new com.medieval.game.config.LocalizedException("error.max_protected", "Maximum of {0} protected items reached", MAX_PROTECTED);
         }
 
         playerService.spendBronze(player, PROTECT_COST);

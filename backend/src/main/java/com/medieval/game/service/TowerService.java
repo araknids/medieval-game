@@ -121,7 +121,7 @@ public class TowerService {
             int stamina = player.getCalculatedStamina();
             if (stamina < cost) {
                 log.warn("[TowerService] player={} REJECTED: insufficient stamina {}/{}", player.getId(), stamina, cost);
-                throw new IllegalStateException("Insufficient stamina (" + stamina + "/" + cost + ")");
+                throw new com.medieval.game.config.LocalizedException("error.tower_stamina", "Insufficient stamina ({0}/{1})", stamina, cost);
             }
             player.setCurrentStamina(stamina - cost);
             player.setStaminaUpdatedAt(java.time.LocalDateTime.now());
@@ -169,8 +169,7 @@ public class TowerService {
         if (player.totalBronze() < climbCost) {
             log.warn("[TowerService] player={} REJECTED: insufficient bronze to climb (have={} need={})",
                     player.getId(), player.totalBronze(), climbCost);
-            throw new IllegalStateException("Not enough bronze to face floor " + floor
-                    + " (cost " + climbCost + " bronze).");
+            throw new com.medieval.game.config.LocalizedException("error.tower_bronze", "Not enough bronze to face floor {0} (cost {1} bronze).", floor, climbCost);
         }
         playerService.spendBronze(player, climbCost);
 

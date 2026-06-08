@@ -216,7 +216,7 @@ public class KingdomService {
         }
         if (!quest.isReadyToCollect()) {
             log.warn("[KingdomService] player={} REJECTED: quest {} not yet complete, {}s remaining", player.getId(), questId, quest.secondsRemaining());
-            throw new IllegalStateException("Quest not yet complete. " + quest.secondsRemaining() + "s remaining.");
+            throw new com.medieval.game.config.LocalizedException("error.quest_not_complete", "Quest not yet complete. {0}s remaining.", quest.secondsRemaining());
         }
 
         // Bônus de guild + território (aplicados só se houver recompensa)
@@ -372,7 +372,7 @@ public class KingdomService {
             r.roll = roll;
             return r;
         }
-        throw new IllegalStateException("Unknown outcome type: " + outcome);
+        throw new com.medieval.game.config.LocalizedException("error.unknown_outcome", "Unknown outcome type: {0}", outcome);
     }
 
     /** Roda uma luta contra o monstro temático da quest; aplica HP/desgaste. */
@@ -515,7 +515,7 @@ public class KingdomService {
         if (!session.isReadyToCollect()) {
             long mins = java.time.Duration.between(LocalDateTime.now(), session.getFinishesAt()).toMinutes();
             log.warn("[KingdomService] player={} REJECTED: session {} still in progress, ~{}min remaining", player.getId(), sessionId, mins);
-            throw new IllegalStateException("Still training. ~" + mins + " minutes remaining.");
+            throw new com.medieval.game.config.LocalizedException("error.still_training", "Still training. ~{0} minutes remaining.", mins);
         }
 
         warriorService.addExperience(

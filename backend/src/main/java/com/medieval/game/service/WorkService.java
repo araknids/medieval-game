@@ -91,7 +91,7 @@ public class WorkService {
             int cur = player.getCalculatedStamina();
             if (cur < staminaCost) {
                 log.warn("[WorkService] player={} REJECTED: stamina {}/{}", player.getId(), cur, staminaCost);
-                throw new IllegalStateException("Not enough stamina (" + cur + "/" + staminaCost + "). Rest to recover.");
+                throw new com.medieval.game.config.LocalizedException("error.stamina_rest", "Not enough stamina ({0}/{1}). Rest to recover.", cur, staminaCost);
             }
             player.setCurrentStamina(cur - staminaCost);
             player.setStaminaUpdatedAt(LocalDateTime.now());
@@ -128,7 +128,7 @@ public class WorkService {
         if (!session.isReadyToCollect()) {
             long mins = java.time.Duration.between(LocalDateTime.now(), session.getFinishesAt()).toMinutes();
             log.warn("[WorkService] player={} REJECTED: session {} still in progress, ~{}min remaining", player.getId(), sessionId, mins);
-            throw new IllegalStateException("Work in progress. ~" + mins + " minutes remaining");
+            throw new com.medieval.game.config.LocalizedException("error.work_progress", "Work in progress. ~{0} minutes remaining", mins);
         }
 
         // Apply guild + territory passive bonuses

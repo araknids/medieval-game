@@ -41,9 +41,9 @@ public class PetService {
     @Transactional
     public Pet buy(Player player, PetType type) {
         if (type.soulStoneCost <= 0) throw new IllegalArgumentException(type.displayName + " is not for sale.");
-        if (owns(player, type))      throw new IllegalStateException("You already own " + type.displayName + ".");
+        if (owns(player, type))      throw new com.medieval.game.config.LocalizedException("error.pet_owned", "You already own {0}.", type.displayName);
         if (player.getSoulStones() < type.soulStoneCost)
-            throw new IllegalStateException("Not enough SoulStones. Required: " + type.soulStoneCost);
+            throw new com.medieval.game.config.LocalizedException("error.soulstones_required", "Not enough SoulStones. Required: {0}", type.soulStoneCost);
         player.setSoulStones(player.getSoulStones() - type.soulStoneCost);
         playerRepository.save(player);
         log.info("[PetService] player={} action=buyPet type={} cost={}SS", player.getId(), type, type.soulStoneCost);

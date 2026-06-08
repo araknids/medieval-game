@@ -58,7 +58,7 @@ public class StashService {
         if (item.isEquipped()) throw new IllegalStateException("Unequip the item before stashing it.");
         if (item.isPvpLocked() && player.isPvpFlagged())
             throw new IllegalStateException("Item exposto no PvP — não pode guardar no stash enquanto flagged.");
-        if (stashSpaceLeft(player) < 1) throw new IllegalStateException("Stash full (" + STASH_MAX + " slots).");
+        if (stashSpaceLeft(player) < 1) throw new com.medieval.game.config.LocalizedException("error.stash_full", "Stash full ({0} slots).", STASH_MAX);
         playerService.spendBronze(player, STASH_FEE);
         item.setStashed(true);
         inventoryRepository.save(item);
@@ -86,7 +86,7 @@ public class StashService {
         ResourceInventory bag = resourceRepository.findByPlayerAndResourceTypeAndStashed(player, type, false)
                 .orElseThrow(() -> new IllegalStateException("You don't have that resource."));
         if (bag.getQuantity() < qty) throw new IllegalStateException("Insufficient quantity.");
-        if (stashSpaceLeft(player) < qty) throw new IllegalStateException("Stash full (" + STASH_MAX + " slots).");
+        if (stashSpaceLeft(player) < qty) throw new com.medieval.game.config.LocalizedException("error.stash_full", "Stash full ({0} slots).", STASH_MAX);
         playerService.spendBronze(player, STASH_FEE);
         bag.setQuantity(bag.getQuantity() - qty);
         resourceRepository.save(bag);

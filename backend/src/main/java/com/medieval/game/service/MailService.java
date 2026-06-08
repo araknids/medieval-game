@@ -55,8 +55,7 @@ public class MailService {
         long totalCost   = SEND_FEE_BRONZE + goldAmount;
         long senderTotal = sender.getBronze() + sender.getSilver() * 100L + sender.getGold() * 10_000L;
         if (senderTotal < totalCost)
-            throw new IllegalStateException("Insufficient funds. Need " + totalCost
-                    + " bronze (" + SEND_FEE_BRONZE + " fee + " + goldAmount + " attached).");
+            throw new com.medieval.game.config.LocalizedException("error.mail_funds", "Insufficient funds. Need {0} bronze ({1} fee + {2} attached).", totalCost, SEND_FEE_BRONZE, goldAmount);
 
         // Deduct fee + attached gold from sender
         playerService.spendBronze(sender, totalCost);

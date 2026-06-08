@@ -113,14 +113,13 @@ public class ClassChangeService {
         if (w.getWarriorClass().isSpecialized())
             throw new IllegalStateException("You have already chosen your path — class change is permanent.");
         if (w.getLevel() < TRIAL_LEVEL)
-            throw new IllegalStateException("Reach level " + TRIAL_LEVEL + " to take the Path Trial.");
+            throw new com.medieval.game.config.LocalizedException("error.trial_level", "Reach level {0} to take the Path Trial.", TRIAL_LEVEL);
         if (w.isKnockedOut())
             throw new IllegalStateException("Your warrior is unconscious. Visit the Temple to heal first!");
         // [TRIAL_CUSTO] Precisa TER 100 Monster Core (bag + stash) p/ encarar o Guardião (só consome se vencer).
         long cores = gatheringService.resourceQuantityTotal(player, com.medieval.game.enums.ResourceType.MONSTER_CORE);
         if (cores < TRIAL_MONSTER_CORE_COST)
-            throw new IllegalStateException("You need " + TRIAL_MONSTER_CORE_COST + " Monster Core to face the Guardian (you have "
-                    + cores + "). Hunt in the Cursed Fortress to gather them.");
+            throw new com.medieval.game.config.LocalizedException("error.trial_cores", "You need {0} Monster Core to face the Guardian (you have {1}). Hunt in the Cursed Fortress to gather them.", TRIAL_MONSTER_CORE_COST, cores);
 
         int[]    c = statsService.combatStats(player, w);
         Guardian g = guardianFor(path);

@@ -6,7 +6,10 @@ package com.medieval.game.config;
  * usada no log) e {@code args} p/ placeholders {0},{1}…. Usado nos throws com texto INTERPOLADO (os
  * estáticos são traduzidos pelo handler usando a própria mensagem EN como key). Vira HTTP 400.
  */
-public class LocalizedException extends RuntimeException {
+// extends IllegalStateException (não RuntimeException) p/ preservar o contrato: handlers e testes que
+// tratavam IllegalStateException (regra de negócio → 400) continuam valendo; o @ExceptionHandler mais
+// específico (LocalizedException) tem precedência e faz a tradução. [I18N]
+public class LocalizedException extends IllegalStateException {
 
     private final String key;
     private final transient Object[] args;

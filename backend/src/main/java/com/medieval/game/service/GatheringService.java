@@ -88,7 +88,7 @@ public class GatheringService {
         if (qty < 0) throw new IllegalArgumentException("qty must be >= 0"); // [AUDITORIA C2]
         ResourceInventory inv = resourceRepository.findByPlayerAndResourceTypeAndStashed(player, type, false)
                 .orElseThrow(() -> new IllegalStateException("Resource not found"));
-        if (inv.getQuantity() < qty) throw new IllegalStateException("Insufficient quantity of " + type.displayName);
+        if (inv.getQuantity() < qty) throw new com.medieval.game.config.LocalizedException("error.gather_insufficient", "Insufficient quantity of {0}", type.displayName);
         inv.setQuantity(inv.getQuantity() - qty);
         resourceRepository.save(inv);
     }
@@ -107,7 +107,7 @@ public class GatheringService {
     public void removeResourceTotal(Player player, ResourceType type, long qty) {
         if (qty < 0) throw new IllegalArgumentException("qty must be >= 0");
         if (resourceQuantityTotal(player, type) < qty)
-            throw new IllegalStateException("Insufficient quantity of " + type.displayName);
+            throw new com.medieval.game.config.LocalizedException("error.gather_insufficient", "Insufficient quantity of {0}", type.displayName);
         long remaining = qty;
         for (boolean stashed : new boolean[]{false, true}) { // bag primeiro, depois stash
             if (remaining <= 0) break;

@@ -85,7 +85,7 @@ public class GuildService {
         int memberCount = playerRepository.countByGuild(guild);
         if (memberCount >= guild.maxMembers()) {
             log.warn("[GuildService] player={} REJECTED: guild {} is full ({}/{})", player.getId(), guild.getName(), memberCount, guild.maxMembers());
-            throw new IllegalStateException("Guild is full (" + guild.maxMembers() + " max members).");
+            throw new com.medieval.game.config.LocalizedException("error.guild_full", "Guild is full ({0} max members).", guild.maxMembers());
         }
 
         player.setGuild(guild);
@@ -181,7 +181,7 @@ public class GuildService {
                 ? java.util.Set.of() : new java.util.HashSet<>(memberIds);
         if (wanted.size() > WAR_ROSTER_MAX) {
             log.warn("[GuildService] player={} REJECTED: roster too large ({}/{})", leader.getId(), wanted.size(), WAR_ROSTER_MAX);
-            throw new IllegalArgumentException("Battle roster can have at most " + WAR_ROSTER_MAX + " members.");
+            throw new com.medieval.game.config.LocalizedException("error.roster_max", "Battle roster can have at most {0} members.", WAR_ROSTER_MAX);
         }
 
         List<Player> members = playerRepository.findAllByGuild(guild);
@@ -211,7 +211,7 @@ public class GuildService {
         requireLeader(leader, guild);
 
         if (slots.size() > WAR_ROSTER_MAX)
-            throw new IllegalArgumentException("Formation has at most " + WAR_ROSTER_MAX + " members.");
+            throw new com.medieval.game.config.LocalizedException("error.formation_max", "Formation has at most {0} members.", WAR_ROSTER_MAX);
 
         List<Player> members = playerRepository.findAllByGuild(guild);
         java.util.Set<Long> memberIdSet = members.stream().map(Player::getId)

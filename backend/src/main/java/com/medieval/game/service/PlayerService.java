@@ -25,11 +25,11 @@ public class PlayerService {
         log.info("[PlayerService] action=register username={}", username);
         if (playerRepository.existsByUsername(username)) {
             log.warn("[PlayerService] action=register REJECTED: username already exists: {}", username);
-            throw new IllegalArgumentException("Username already exists: " + username);
+            throw new com.medieval.game.config.LocalizedException("error.username_exists", "Username already exists: {0}", username);
         }
         if (playerRepository.existsByEmail(email)) {
             log.warn("[PlayerService] action=register REJECTED: email already registered: {}", email);
-            throw new IllegalArgumentException("Email already registered: " + email);
+            throw new com.medieval.game.config.LocalizedException("error.email_registered", "Email already registered: {0}", email);
         }
         Player player = new Player();
         player.setUsername(username);
@@ -66,7 +66,7 @@ public class PlayerService {
     public String setLanguage(Player playerArg, String language) {
         String lang = language == null ? "" : language.trim().toLowerCase();
         if (!com.medieval.game.config.I18nConfig.SUPPORTED_TAGS.contains(lang))
-            throw new IllegalArgumentException("Unsupported language: " + language);
+            throw new com.medieval.game.config.LocalizedException("error.unsupported_language", "Unsupported language: {0}", language);
         Player p = findById(playerArg.getId());
         p.setLanguage(lang);
         playerRepository.save(p);

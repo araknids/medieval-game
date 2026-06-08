@@ -59,7 +59,7 @@ public class EstabuloService {
             }
             if (player.getSoulStones() < type.priceSoulStones) {
                 log.warn("[EstabuloService] player={} REJECTED: SoulStones {}/{}", player.getId(), player.getSoulStones(), type.priceSoulStones);
-                throw new IllegalStateException("Not enough SoulStones. Required: " + type.priceSoulStones);
+                throw new com.medieval.game.config.LocalizedException("error.soulstones_required", "Not enough SoulStones. Required: {0}", type.priceSoulStones);
             }
             player.setSoulStones(player.getSoulStones() - type.priceSoulStones);
             playerRepository.save(player);

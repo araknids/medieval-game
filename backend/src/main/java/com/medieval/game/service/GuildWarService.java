@@ -110,7 +110,7 @@ public class GuildWarService {
         if (aw.isKnockedOut())  throw new IllegalStateException("Your warrior is unconscious. Heal at the Temple.");
         if (tw.isKnockedOut())  throw new IllegalStateException("That player is already down.");
         if (attacker.getCalculatedStamina() < ATTACK_STAMINA)
-            throw new IllegalStateException("Not enough stamina (need " + ATTACK_STAMINA + ").");
+            throw new com.medieval.game.config.LocalizedException("error.war_stamina", "Not enough stamina (need {0}).", ATTACK_STAMINA);
 
         playerService.consumeStamina(attacker, ATTACK_STAMINA);
 

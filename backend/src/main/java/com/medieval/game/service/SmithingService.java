@@ -154,7 +154,7 @@ public class SmithingService {
         SkillLevel smithing = gatheringService.getOrCreateSkill(player, SkillType.SMITHING);
         if (smithing.getLevel() < recipe.smithingLevelRequired()) {
             log.warn("[SmithingService] player={} REJECTED: smithing level {} too low for {} (required {})", player.getId(), smithing.getLevel(), oreType, recipe.smithingLevelRequired());
-            throw new IllegalStateException("Smithing level too low. Required: " + recipe.smithingLevelRequired());
+            throw new com.medieval.game.config.LocalizedException("error.smithing_level_low", "Smithing level too low. Required: {0}", recipe.smithingLevelRequired());
         }
 
         int batches = quantity; // 1 batch = recipe.oreQty() ores → 1 bar
@@ -179,14 +179,14 @@ public class SmithingService {
         SkillLevel smithing = gatheringService.getOrCreateSkill(player, SkillType.SMITHING);
         if (smithing.getLevel() < recipe.smithingLevel()) {
             log.warn("[SmithingService] player={} REJECTED: smithing level {} too low for recipe {} (required {})", player.getId(), smithing.getLevel(), recipeId, recipe.smithingLevel());
-            throw new IllegalStateException("Smithing level too low. Required: " + recipe.smithingLevel());
+            throw new com.medieval.game.config.LocalizedException("error.smithing_level_low", "Smithing level too low. Required: {0}", recipe.smithingLevel());
         }
 
         // Pré-checa materiais ANTES de cobrar a taxa/rolar (senão a falha cobraria sem ter como craftar)
         for (var e : recipe.ingredients().entrySet()) {
             if (gatheringService.resourceQuantity(player, e.getKey()) < e.getValue()) {
                 log.warn("[SmithingService] player={} REJECTED: missing {} for recipe {}", player.getId(), e.getKey(), recipeId);
-                throw new IllegalStateException("Not enough " + e.getKey().displayName + ".");
+                throw new com.medieval.game.config.LocalizedException("error.smithing_material", "Not enough {0}.", e.getKey().displayName);
             }
         }
 
@@ -247,7 +247,7 @@ public class SmithingService {
         SkillLevel smithing = gatheringService.getOrCreateSkill(player, SkillType.SMITHING);
         if (smithing.getLevel() < fragmentType.levelRequired) {
             log.warn("[SmithingService] player={} REJECTED: smithing level {} too low for gem {} (required {})", player.getId(), smithing.getLevel(), fragmentType, fragmentType.levelRequired);
-            throw new IllegalStateException("Smithing level too low. Required: " + fragmentType.levelRequired);
+            throw new com.medieval.game.config.LocalizedException("error.smithing_level_low", "Smithing level too low. Required: {0}", fragmentType.levelRequired);
         }
 
         gatheringService.removeResource(player, fragmentType, 3);

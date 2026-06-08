@@ -99,7 +99,7 @@ public class InventoryService {
         }
         if (player.getSoulStones() < SS_EXPAND_COST) {
             log.warn("[InventoryService] player={} REJECTED: not enough SoulStones ({}<{})", player.getId(), player.getSoulStones(), SS_EXPAND_COST);
-            throw new IllegalStateException("Not enough SoulStones. Required: " + SS_EXPAND_COST);
+            throw new com.medieval.game.config.LocalizedException("error.soulstones_required", "Not enough SoulStones. Required: {0}", SS_EXPAND_COST);
         }
         player.setSoulStones(player.getSoulStones() - SS_EXPAND_COST);
         player.setInventoryExpanded(true);
@@ -135,7 +135,7 @@ public class InventoryService {
         int level = warrior != null ? warrior.getLevel() : 1;
         if (item.getItemLevel() > level) {
             log.warn("[InventoryService] player={} REJECTED: item {} requires level {} (have {})", player.getId(), itemId, item.getItemLevel(), level);
-            throw new IllegalStateException("Requires level " + item.getItemLevel() + " to equip.");
+            throw new com.medieval.game.config.LocalizedException("error.equip_level", "Requires level {0} to equip.", item.getItemLevel());
         }
         // [CLASSES_ARMAS/MERCADOR] Trava por TIPO: Archer só arco; Merchant só machado/marreta;
         // Warrior/Recruit qualquer corpo-a-corpo.
@@ -276,7 +276,7 @@ public class InventoryService {
         int max = player.getMaxInventorySlots();
         if (bagSize(player) >= max) {
             log.warn("[InventoryService] player={} bag full ({}/{}) — item '{}' not added", player.getId(), bagSize(player), max, name);
-            throw new IllegalStateException("Inventory full (" + max + " slots). Sell items or expand with SoulStones.");
+            throw new com.medieval.game.config.LocalizedException("error.inventory_full", "Inventory full ({0} slots). Sell items or expand with SoulStones.", max);
         }
         InventoryItem item = new InventoryItem();
         item.setPlayer(player);

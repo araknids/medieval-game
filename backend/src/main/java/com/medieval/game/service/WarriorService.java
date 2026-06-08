@@ -89,11 +89,11 @@ public class WarriorService {
         WarriorClass wc = warrior.getWarriorClass();
         int cap = wc.capFor(attribute);
         switch (attribute) {
-            case STRENGTH     -> { if (warrior.getStrength()     >= cap) throw new IllegalStateException("STR is at cap (" + cap + ") for " + wc.displayName + "."); warrior.setStrength(warrior.getStrength() + 1); }
-            case DEXTERITY    -> { if (warrior.getDexterity()    >= cap) throw new IllegalStateException("DEX is at cap (" + cap + ") for " + wc.displayName + "."); warrior.setDexterity(warrior.getDexterity() + 1); }
-            case CONSTITUTION -> { if (warrior.getConstitution() >= cap) throw new IllegalStateException("CON is at cap (" + cap + ") for " + wc.displayName + "."); warrior.setConstitution(warrior.getConstitution() + 1); } // RECRUIT/WARRIOR/ARCHER: ∞ (MAX_VALUE)
-            case AGILITY      -> { if (warrior.getAgility()      >= cap) throw new IllegalStateException("AGI is at cap (" + cap + ") for " + wc.displayName + "."); warrior.setAgility(warrior.getAgility() + 1); }
-            case LUCK         -> { if (warrior.getLuck()         >= cap) throw new IllegalStateException("LUK is at cap (" + cap + ") for " + wc.displayName + "."); warrior.setLuck(warrior.getLuck() + 1); }
+            case STRENGTH     -> { if (warrior.getStrength()     >= cap) throw new com.medieval.game.config.LocalizedException("error.attr_at_cap", "{0} is at cap ({1}) for {2}.", "STR", cap, wc.displayName); warrior.setStrength(warrior.getStrength() + 1); }
+            case DEXTERITY    -> { if (warrior.getDexterity()    >= cap) throw new com.medieval.game.config.LocalizedException("error.attr_at_cap", "{0} is at cap ({1}) for {2}.", "DEX", cap, wc.displayName); warrior.setDexterity(warrior.getDexterity() + 1); }
+            case CONSTITUTION -> { if (warrior.getConstitution() >= cap) throw new com.medieval.game.config.LocalizedException("error.attr_at_cap", "{0} is at cap ({1}) for {2}.", "CON", cap, wc.displayName); warrior.setConstitution(warrior.getConstitution() + 1); } // RECRUIT/WARRIOR/ARCHER: ∞ (MAX_VALUE)
+            case AGILITY      -> { if (warrior.getAgility()      >= cap) throw new com.medieval.game.config.LocalizedException("error.attr_at_cap", "{0} is at cap ({1}) for {2}.", "AGI", cap, wc.displayName); warrior.setAgility(warrior.getAgility() + 1); }
+            case LUCK         -> { if (warrior.getLuck()         >= cap) throw new com.medieval.game.config.LocalizedException("error.attr_at_cap", "{0} is at cap ({1}) for {2}.", "LUK", cap, wc.displayName); warrior.setLuck(warrior.getLuck() + 1); }
             case INTELLECT    -> throw new IllegalStateException("Intellect is reserved — it has no effect yet."); // [INT_RESERVADO] S2/Mage
         }
 

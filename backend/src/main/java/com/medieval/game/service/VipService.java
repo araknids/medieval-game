@@ -32,7 +32,7 @@ public class VipService {
         if (player.getSoulStones() < VIP_COST_STONES) {
             log.warn("[VipService] player={} REJECTED: not enough SoulStones ({}<{})",
                     player.getId(), player.getSoulStones(), VIP_COST_STONES);
-            throw new IllegalStateException("Not enough SoulStones. Required: " + VIP_COST_STONES);
+            throw new com.medieval.game.config.LocalizedException("error.soulstones_required", "Not enough SoulStones. Required: {0}", VIP_COST_STONES);
         }
 
         player.setSoulStones(player.getSoulStones() - VIP_COST_STONES);
