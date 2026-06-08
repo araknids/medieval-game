@@ -72,6 +72,10 @@ public class BattleSimulator {
         "on the arm", "in the side", "on the legs", "in the abdomen",
         "on the back", "across the face",
     };
+    /** [BATALHA_ANIMADA] Zona de cada BODY_PARTS (por índice) → "head"|"body"|"legs" p/ a animação. */
+    private static final String[] BODY_ZONE = {
+        "head", "body", "body", "head", "body", "body", "legs", "body", "body", "head",
+    };
 
     private static final String[] MISS_TEXTS = {
         "misses — the attack sails wide",
@@ -111,7 +115,14 @@ public class BattleSimulator {
     }
 
     /** Rich battle outcome: log + winner flag + final HP of both fighters (for ambush HP carry). */
-    public record BattleOutcome(List<String> log, boolean firstWon, int firstHpFinal, int secondHpFinal) {}
+    public record BattleOutcome(List<String> log, List<BattleEvent> events, boolean firstWon, int firstHpFinal, int secondHpFinal) {}
+
+    /** [BATALHA_ANIMADA] Evento estruturado p/ o replay animado (metadado de máquina — NÃO traduzido).
+     *  type: spawn|attack|crit|miss|dodge|extra|volley|heal|berserk|backpedal|pointblank|pinned|victory.
+     *  hitZone: head|body|legs (null se não-golpe). element: SUPER|RESIST|null. */
+    public record BattleEvent(int round, String type, String actor, String target,
+                              int damage, int targetHp, int targetMaxHp,
+                              String element, String hitZone) {}
 
     /** Habilidade ativa pronta p/ o simulador: efeito, cooldown (rounds) e magnitude (já do nível). [HABILIDADES] */
     public record ActiveAbility(AbilityEffect effect, int cooldown, int magnitude) {}
@@ -201,6 +212,7 @@ public class BattleSimulator {
             boolean cRanged, boolean oRanged) {
 
         List<String> log = new ArrayList<>();
+        List<BattleEvent> events = new ArrayList<>(); // [BATALHA_ANIMADA] eventos do replay (ao lado do log)
         Random rng = java.util.concurrent.ThreadLocalRandom.current();
 
         Side c = new Side(cName, cAtk, cDef, cHp, cDex, cAgi, cLuk, cWeapon, cArmor, cAbilities, cRanged);
@@ -209,17 +221,20 @@ public class BattleSimulator {
         log.add(Messages.tr("combat.begins", "⚔ {0} vs {1} — The battle begins!", c.name, o.name)); // [I18N]
         log.add(Messages.tr("combat.hpline", "HP: [{0}: ❤ {1}] | [{2}: ❤ {3}]", c.name, c.maxHp, o.name, o.maxHp));
         log.add("─────────────────────────");
+        // [BATALHA_ANIMADA] spawn dos dois lutadores (o front desenha as barras de HP a partir do maxHp).
+        events.add(new BattleEvent(0, "spawn", c.name, null, 0, c.maxHp, c.maxHp, null, null));
+        events.add(new BattleEvent(0, "spawn", o.name, null, 0, o.maxHp, o.maxHp, null, null));
 
         for (int round = 1; round <= 40 && c.hp > 0 && o.hp > 0; round++) {
             log.add(Messages.tr("combat.round", "— Round {0} —", round)); // [I18N]
 
-            applySelfTriggers(c, log);
-            applySelfTriggers(o, log);
+            applySelfTriggers(c, log, events, round);
+            applySelfTriggers(o, log, events, round);
 
-            attackRound(c, o, HIT_TEXTS, log, rng);
+            attackRound(c, o, HIT_TEXTS, log, rng, events, round);
             if (o.hp <= 0 || c.hp <= 0) { tick(c); tick(o); break; }
 
-            attackRound(o, c, ENEMY_HIT_TEXTS, log, rng);
+            attackRound(o, c, ENEMY_HIT_TEXTS, log, rng, events, round);
 
             tick(c);
             tick(o);
@@ -235,11 +250,12 @@ public class BattleSimulator {
         String loser  = cWon ? o.name : c.name;
         log.add(Messages.tr("combat.victoryline", "🏆 {0} {1}", winner, pick(VICTORY_TEXTS, "combat.victory.", rng))); // [I18N]
         log.add("WINNER:" + winner + "|LOSER:" + loser); // tag de máquina (parseada) — NÃO traduzir
-        return new BattleOutcome(log, cWon, Math.max(0, c.hp), Math.max(0, o.hp));
+        events.add(new BattleEvent(0, "victory", winner, loser, 0, 0, 0, null, null)); // [BATALHA_ANIMADA]
+        return new BattleOutcome(log, events, cWon, Math.max(0, c.hp), Math.max(0, o.hp));
     }
 
     /** Gatilhos de auto-buff/cura no início do round (Berserk, Second Wind). [HABILIDADES] */
-    private void applySelfTriggers(Side s, List<String> log) {
+    private void applySelfTriggers(Side s, List<String> log, List<BattleEvent> events, int round) {
         if (s.hp <= 0) return;
         // Second Wind: 1×/luta, cura ao cair abaixo de 30%.
         if (s.has(AbilityEffect.HEAL_LOW) && !s.secondWindUsed && s.hp < s.maxHp * 0.30) {
@@ -247,6 +263,7 @@ public class BattleSimulator {
             s.hp = Math.min(s.maxHp, s.hp + heal);
             s.secondWindUsed = true;
             log.add(Messages.tr("combat.secondwind", "  ❤ {0} uses Second Wind — heals +{1} HP! ({2}/{3})", s.name, heal, s.hp, s.maxHp)); // [I18N]
+            events.add(new BattleEvent(round, "heal", s.name, s.name, heal, s.hp, s.maxHp, null, null)); // [BATALHA_ANIMADA]
         }
         // Berserk: ao cair abaixo de 50%, +ATK% por 3 rounds (respeita cooldown).
         if (s.has(AbilityEffect.ATK_BUFF_LOW) && s.berserkRounds <= 0 && s.ready(AbilityEffect.ATK_BUFF_LOW)
@@ -254,33 +271,37 @@ public class BattleSimulator {
             s.berserkRounds = 3;
             s.trigger(AbilityEffect.ATK_BUFF_LOW);
             log.add(Messages.tr("combat.berserk", "  🔥 {0} enters a Berserk rage! +{1}% ATK", s.name, s.mag(AbilityEffect.ATK_BUFF_LOW))); // [I18N]
+            events.add(new BattleEvent(round, "berserk", s.name, s.name, 0, s.hp, s.maxHp, null, null)); // [BATALHA_ANIMADA]
         }
     }
 
     /** Ação do atacante no round: kiting do arqueiro + golpe base + golpe EXTRA por AGI. [REBALANCE][KITING] */
-    private void attackRound(Side atk, Side def, String[] hitTexts, List<String> log, Random rng) {
+    private void attackRound(Side atk, Side def, String[] hitTexts, List<String> log, Random rng, List<BattleEvent> events, int round) {
         double dmgMult = 1.0;
         // [KITING] Arqueiro (ranged) encurralado por um corpo-a-corpo (melee).
         if (atk.ranged && !def.ranged) {
             if (atk.pinned == 1) {            // recuando: PERDE o turno pra reabrir espaço
                 atk.pinned = 0;
                 log.add(Messages.tr("combat.backpedal", "  🏃 {0} backpedals to open up space — no clean shot this round.", atk.name)); // [I18N]
+                events.add(new BattleEvent(round, "backpedal", atk.name, null, 0, atk.hp, atk.maxHp, null, null)); // [BATALHA_ANIMADA]
                 return;
             } else if (atk.pinned == 2) {     // tiro de perto: dano REDUZIDO
                 dmgMult = ARCHER_CLOSE_DMG;
                 atk.pinned = 1;
                 log.add(Messages.tr("combat.pointblank", "  🎯 {0} is forced into a point-blank shot — reduced power.", atk.name)); // [I18N]
+                events.add(new BattleEvent(round, "pointblank", atk.name, def.name, 0, def.hp, def.maxHp, null, null)); // [BATALHA_ANIMADA]
             }
         }
 
-        attack(atk, def, hitTexts, log, rng, dmgMult);
+        attack(atk, def, hitTexts, log, rng, dmgMult, events, round);
         if (def.hp <= 0 || atk.hp <= 0) return;
 
         int chance = (int) Math.round((atk.agi - def.agi) * EXTRA_PER_AGI);
         if (chance > EXTRA_CAP) chance = EXTRA_CAP;
         if (chance > 0 && rng.nextInt(100) < chance) {
             log.add(Messages.tr("combat.extrastrike", "  💨 {0} moves with blinding speed — an extra strike!", atk.name)); // [I18N]
-            attack(atk, def, hitTexts, log, rng, dmgMult);
+            events.add(new BattleEvent(round, "extra", atk.name, def.name, 0, def.hp, def.maxHp, null, null)); // [BATALHA_ANIMADA]
+            attack(atk, def, hitTexts, log, rng, dmgMult, events, round);
             if (def.hp <= 0 || atk.hp <= 0) return;
         }
 
@@ -290,17 +311,19 @@ public class BattleSimulator {
             if (rng.nextInt(100) < close) {
                 def.pinned = 2;
                 log.add(Messages.tr("combat.pinned", "  ⚔ {0} closes the distance — {1} is pinned in melee range!", atk.name, def.name)); // [I18N]
+                events.add(new BattleEvent(round, "pinned", atk.name, def.name, 0, def.hp, def.maxHp, null, null)); // [BATALHA_ANIMADA]
             }
         }
     }
 
     /** Um ataque de {@code atk} em {@code def}, com elementos + habilidades ativas. {@code dmgMult} = penalidade de kiting. */
-    private void attack(Side atk, Side def, String[] hitTexts, List<String> log, Random rng, double dmgMult) {
+    private void attack(Side atk, Side def, String[] hitTexts, List<String> log, Random rng, double dmgMult, List<BattleEvent> events, int round) {
         int roll = rng.nextInt(20) + 1;
         boolean precise = atk.ready(AbilityEffect.GUARANTEED_CRIT); // Precise Shot: hit + crit garantidos
 
         if (roll == 1 && !precise) {
             log.add(Messages.tr("combat.fumbleline", "  {0} {1}", atk.name, pick(FUMBLE_TEXTS, "combat.fumble.", rng))); // [I18N]
+            events.add(new BattleEvent(round, "miss", atk.name, def.name, 0, def.hp, def.maxHp, null, null)); // [BATALHA_ANIMADA]
             return;
         }
 
@@ -316,6 +339,7 @@ public class BattleSimulator {
         if (!hit) {
             log.add(Messages.tr("combat.missline", "  {0} {1} [d20 {2} +DEX {3} −AGI {4} = {5} vs {6}]", // [I18N]
                     atk.name, pick(MISS_TEXTS, "combat.miss.", rng), roll, atk.dex / 5, def.agi / 8, acc, HIT_DC));
+            events.add(new BattleEvent(round, "miss", atk.name, def.name, 0, def.hp, def.maxHp, null, null)); // [BATALHA_ANIMADA]
             return;
         }
 
@@ -325,6 +349,7 @@ public class BattleSimulator {
             int reflect = def.mag(AbilityEffect.DODGE_INCOMING);
             atk.hp -= reflect;
             log.add(Messages.tr("combat.evasive", "  🌀 {0} rolls aside — dodges the blow and reflects {1} damage!", def.name, reflect)); // [I18N]
+            events.add(new BattleEvent(round, "dodge", def.name, atk.name, reflect, Math.max(0, atk.hp), atk.maxHp, null, null)); // [BATALHA_ANIMADA]
             return;
         }
 
@@ -340,6 +365,7 @@ public class BattleSimulator {
         double elemMult = Element.multiplier(atk.weapon, def.armor);
         int dmg = Math.max(1, (int) Math.round(mitigatedDamage(atk.effAtk(), def.def) * elemMult));
         String note = elementNote(elemMult);
+        String elemStr = elemMult > 1.0 ? "SUPER" : elemMult < 1.0 ? "RESIST" : null; // [BATALHA_ANIMADA]
 
         // Shield Bash: dano bônus no golpe. [HABILIDADES]
         String bashTag = "";
@@ -354,15 +380,19 @@ public class BattleSimulator {
         if (dmgMult != 1.0) dmg = Math.max(1, (int) Math.round(dmg * dmgMult)); // [KITING] tiro de perto = dano reduzido
 
         int defAfter = Math.max(0, def.hp - dmg);
-        String bodyPart = pick(BODY_PARTS, "combat.body.", rng); // [I18N]
+        int bpIdx = rng.nextInt(BODY_PARTS.length);                          // [BATALHA_ANIMADA] mesmo consumo de RNG do pick()
+        String bodyPart = Messages.tr("combat.body." + bpIdx, BODY_PARTS[bpIdx]); // [I18N]
+        String hitZone  = BODY_ZONE[bpIdx];                                  // head|body|legs p/ o evento
         if (isCrit) {
             // [I18N] {3}=def.name reusado; {5}=note {6}=bashTag {7}=preciseTag (fragmentos), {8}/{9}=HP
             log.add(Messages.tr("combat.critline", "  💥 {0} {1} {2} of {3}! [-{4} HP{5}{6}{7}] {3} ❤ {8}/{9}",
                     atk.name, pick(CRIT_TEXTS, "combat.crit.", rng), bodyPart, def.name, dmg, note, bashTag, preciseTag, defAfter, def.maxHp));
+            events.add(new BattleEvent(round, "crit", atk.name, def.name, dmg, defAfter, def.maxHp, elemStr, hitZone)); // [BATALHA_ANIMADA]
         } else {
             String hitKey = (hitTexts == HIT_TEXTS) ? "combat.hit." : "combat.enemyhit."; // [I18N] prefixo por array
             log.add(Messages.tr("combat.hitline", "  {0} {1} {2} of {3}! [-{4} HP{5}{6}] {3} ❤ {7}/{8}",
                     atk.name, pick(hitTexts, hitKey, rng), bodyPart, def.name, dmg, note, bashTag, defAfter, def.maxHp));
+            events.add(new BattleEvent(round, "attack", atk.name, def.name, dmg, defAfter, def.maxHp, elemStr, hitZone)); // [BATALHA_ANIMADA]
         }
         def.hp -= dmg;
 
@@ -373,6 +403,7 @@ public class BattleSimulator {
                     mitigatedDamage(atk.effAtk(), def.def) * elemMult * dmgMult * atk.mag(AbilityEffect.EXTRA_ATTACK) / 100.0));
             int after = Math.max(0, def.hp - extra);
             log.add(Messages.tr("combat.volley", "  ☄ {0} looses a Volley — extra hit! [-{1} HP] {2} ❤ {3}/{4}", atk.name, extra, def.name, after, def.maxHp)); // [I18N]
+            events.add(new BattleEvent(round, "volley", atk.name, def.name, extra, after, def.maxHp, elemStr, hitZone)); // [BATALHA_ANIMADA]
             def.hp -= extra;
         }
     }
