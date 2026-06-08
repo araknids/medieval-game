@@ -1062,6 +1062,25 @@ async function sellItem(itemId) {
   loadWarrior();
 }
 
+// [PILOTO_UI] Sell Junk: vende TODOS os comuns (raridade 1) de uma vez. ~20 cliques → 1.
+// Sequencial de propósito: cada venda credita bronze e bate no @Version do Player —
+// vendas em paralelo dariam 409 no lock otimista. [AUDITORIA_DUPE]
+async function sellJunk() {
+  const items = await api('GET', '/api/inventory');
+  if (!Array.isArray(items)) return;
+  const junk = items.filter(i => !i.equipped && i.rarity === 1 && !i.pvpLocked);
+  if (!junk.length) { showMessage(t('inventory.no_junk') || 'No common items to sell.', true); return; }
+  if (!confirm((t('inventory.sell_junk_confirm') || 'Sell {n} common item(s)?').replace('{n}', junk.length))) return;
+  let total = 0, sold = 0;
+  for (const it of junk) {
+    const data = await api('POST', `/api/inventory/${it.id}/sell`);
+    if (!data.error) { total += (data.goldEarned || 0); sold++; }
+  }
+  showMessage(`🗑 Sold ${sold} item${sold !== 1 ? 's' : ''} — ${fmtBronze(total)}`);
+  loadInventory();
+  loadWarrior();
+}
+
 async function buyItem(shopItemId) {
   const data = await api('POST', `/api/shop/buy/${shopItemId}`);
   if (data.error) { showMessage(data.error, true); return; }
@@ -1316,6 +1335,9 @@ async function loadInventory() {
   ]);
   if (!Array.isArray(items)) return;
 
+  // [PILOTO_UI] contagem de "lixo" (itens comuns) p/ o botão Sell Junk
+  const junkCount = items.filter(i => !i.equipped && i.rarity === 1 && !i.pvpLocked).length;
+
   // Barra de slots da bag
   const slotEl = document.getElementById('bag-slot-info');
   if (slotEl && slots && !slots.error) {
@@ -1333,6 +1355,7 @@ async function loadInventory() {
           <div style="width:${pct}%;height:100%;background:${color};border-radius:3px"></div>
         </div>
         <button onclick="openStash()" style="font-size:11px;padding:3px 8px;background:#00695c">🏛 Stash</button>
+        ${junkCount > 0 ? `<button onclick="sellJunk()" style="font-size:11px;padding:3px 8px;background:#5a3a1a" title="Sell all common items in one click">🗑 Sell Junk (${junkCount})</button>` : ''}
         ${expandBtn}
       </div>`;
   }
@@ -3820,8 +3843,10 @@ function worldMsg(text, ok = true) {
 // rows: [{icon, label, value, color}]
 // log:  string[] (battle log lines)
 // note: string (narrative/lore paragraph shown above the rows)
-function showCollectModal({ title, color = '#4caf50', rows = [], log = [], note = '' }) {
+let _collectAgainFn = null; // [PILOTO_UI] guarda o "repetir ação" do modal de coleta/caça
+function showCollectModal({ title, color = '#4caf50', rows = [], log = [], note = '', again = null }) {
   closeCollectModal();
+  _collectAgainFn = again;
 
   const GATHER_ICONS = { FISH:'🐟', ORE:'🪨', GEM:'💎', BAR:'🔩', CRYSTAL:'🔮' };
 
@@ -3861,14 +3886,24 @@ function showCollectModal({ title, color = '#4caf50', rows = [], log = [], note 
       ${noteHtml}
       ${rowsHtml || '<div style="color:#888;font-size:13px">Nothing this time.</div>'}
       ${logHtml}
-      <button onclick="closeCollectModal()" style="margin-top:18px;width:100%;background:${color};color:#000;
-        font-weight:bold;padding:10px;border-radius:8px;cursor:pointer;font-size:14px;border:none">Continue</button>
+      <div style="display:flex;gap:10px;margin-top:18px">
+        ${again ? `<button onclick="collectAgain()" style="flex:1;background:${color};color:#000;font-weight:bold;padding:10px;border-radius:8px;cursor:pointer;font-size:14px;border:none">🔁 Again</button>` : ''}
+        <button onclick="closeCollectModal()" style="${again ? 'flex:0 0 auto;background:#2a2a3a;color:#ddd;padding:10px 16px' : 'flex:1;background:'+color+';color:#000;padding:10px'};font-weight:bold;border-radius:8px;cursor:pointer;font-size:14px;border:none">${again ? 'Close' : 'Continue'}</button>
+      </div>
     </div>`;
   document.body.appendChild(el);
 }
 
 function closeCollectModal() {
   document.getElementById('collect-modal-overlay')?.remove();
+}
+
+// [PILOTO_UI] "Again": fecha o modal e repete a última ação (coleta/caça) — aventurar de novo em 1 clique.
+// A estamina é o gate natural: quando acabar, o enter retorna erro e o loop para sozinho.
+function collectAgain() {
+  const fn = _collectAgainFn;
+  closeCollectModal();
+  if (typeof fn === 'function') fn();
 }
 
 async function startKingdomQuest(kingdom, questTypeId) {
@@ -4053,25 +4088,27 @@ async function collectTraining(sessionId) {
 async function enterKingdomZone(zone, skillType, durationMinutes, kingdom, element) {
   const r = await api('POST', '/api/zones/enter', { zone, role: 'GATHERING', skillType, durationMinutes, kingdom, element: element || null });
   if (r.error) { worldMsg(r.error, false); return; }
-  await collectKingdomZoneSession(r.id); // instantâneo: resolve e abre o resultado direto
+  const again = () => enterKingdomZone(zone, skillType, durationMinutes, kingdom, element); // [PILOTO_UI] repetir coleta
+  await collectKingdomZoneSession(r.id, again); // instantâneo: resolve e abre o resultado direto
 }
 
 async function enterCombatZone(zone, durationMinutes, element) {
   // [FORTALEZA_ZONAS] caçada por zona/elemento — instantâneo (enter + collect direto)
   const r = await api('POST', '/api/zones/enter', { zone, role: 'COMBAT', durationMinutes, kingdom: 'COMBAT', element });
   if (r.error) { worldMsg(r.error, false); return; }
-  await collectKingdomZoneSession(r.id); // [SEM_TIMER] instantâneo: resolve e abre o resultado direto
+  const again = () => enterCombatZone(zone, durationMinutes, element); // [PILOTO_UI] repetir caçada
+  await collectKingdomZoneSession(r.id, again); // [SEM_TIMER] instantâneo: resolve e abre o resultado direto
 }
 
-async function collectKingdomZoneSession(activityId) {
+async function collectKingdomZoneSession(activityId, again) {
   const r = await api('POST', `/api/zones/${activityId}/collect`);
   if (r.error) { worldMsg(r.error, false); return; }
-  if (r.bossPending) { showBossModal(activityId, r); return; } // [ZONA_CHEFE] pausa: fugir/encarar
-  await renderZoneResult(r);
+  if (r.bossPending) { showBossModal(activityId, r, again); return; } // [ZONA_CHEFE] pausa: fugir/encarar
+  await renderZoneResult(r, again);
 }
 
 // [ZONA_CHEFE] Um chefe da Torre escapou e está rondando a área: fugir (teste de stat) ou encarar.
-function showBossModal(activityId, r) {
+function showBossModal(activityId, r, again) {
   closeCollectModal();
   const color = '#b71c1c';
   const el = document.createElement('div');
@@ -4093,17 +4130,17 @@ function showBossModal(activityId, r) {
       <div style="margin-top:10px;font-size:11px;color:#888;text-align:center">Fleeing rolls your class stat — fail and you're forced to fight.</div>
     </div>`;
   document.body.appendChild(el);
-  document.getElementById('boss-flee-btn').onclick  = () => resolveZoneBoss(activityId, 'flee');
-  document.getElementById('boss-fight-btn').onclick = () => resolveZoneBoss(activityId, 'fight');
+  document.getElementById('boss-flee-btn').onclick  = () => resolveZoneBoss(activityId, 'flee', again);
+  document.getElementById('boss-fight-btn').onclick = () => resolveZoneBoss(activityId, 'fight', again);
 }
 
-async function resolveZoneBoss(activityId, action) {
+async function resolveZoneBoss(activityId, action, again) {
   const flee = document.getElementById('boss-flee-btn'), fight = document.getElementById('boss-fight-btn');
   if (flee)  { flee.disabled = true;  flee.style.opacity = '0.5'; }
   if (fight) { fight.disabled = true; fight.style.opacity = '0.5'; }
   const r = await api('POST', `/api/zones/${activityId}/boss/${action}`);
   if (r.error) { worldMsg(r.error, false); closeCollectModal(); return; }
-  await renderZoneResult(r);
+  await renderZoneResult(r, again);
 }
 
 async function renderZoneResult(r) {
@@ -4131,7 +4168,9 @@ async function renderZoneResult(r) {
       rows.push({ icon:'⭐', label:'Experience', value:`+${r.xpGained} XP`, color:'#ffd700' });
   }
 
-  showCollectModal({ title, color, rows, note: r.narrative || '', log: r.battleLog || [] });
+  // [PILOTO_UI] "Again" só quando faz sentido repetir (não morreu na expedição).
+  const canAgain = (typeof again === 'function') && !(r.wasAttacked && !r.survived);
+  showCollectModal({ title, color, rows, note: r.narrative || '', log: r.battleLog || [], again: canAgain ? again : null });
   if (worldCurrentKingdom) await enterKingdom(worldCurrentKingdom);
 }
 
