@@ -43,6 +43,7 @@ public class SecurityConfig {
                         .requestMatchers("/h2-console/**").permitAll()
                         .requestMatchers("/", "/index.html", "/style.css", "/app.js", "/battleArena.js", "/favicon.ico", "/servers.json").permitAll()
                         .requestMatchers("/lang/**").permitAll()
+                        .requestMatchers("/assets/**").permitAll() // [BATALHA_ANIMADA] sprites/imagens estáticas (img sem JWT)
                         .anyRequest().authenticated()
                 )
                 // Headers de segurança. frameOptions=SAMEORIGIN (em vez de disable) ainda
