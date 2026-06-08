@@ -13,11 +13,32 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @DisplayName("I18N | Backend locale-aware (Accept-Language + /api/settings)")
 class BackendI18nTest extends BaseIntegrationTest {
 
+    @org.springframework.beans.factory.annotation.Autowired
+    com.medieval.game.service.BattleSimulator battleSimulator;
+
     String token;
 
     @BeforeEach
     void setup() throws Exception {
         token = registerAndGetToken(uniqueUser("i18n"));
+    }
+
+    @Test
+    @DisplayName("Battle log do BattleSimulator localiza pelo locale (en vs pt) [P7]")
+    void battleLogFollowsLocale() {
+        var a = com.medieval.game.service.BattleSimulator.Combatant.of("Hero",  new int[]{20, 5, 100, 10, 5, 5}, null, null, java.util.List.of());
+        var b = com.medieval.game.service.BattleSimulator.Combatant.of("Goblin", new int[]{10, 2,  60,  5, 2, 2}, null, null, java.util.List.of());
+        try {
+            org.springframework.context.i18n.LocaleContextHolder.setLocale(java.util.Locale.forLanguageTag("pt"));
+            var pt = battleSimulator.simulate(a, b, false);
+            org.assertj.core.api.Assertions.assertThat(pt.log()).anyMatch(l -> l.contains("A batalha começa"));
+
+            org.springframework.context.i18n.LocaleContextHolder.setLocale(java.util.Locale.ENGLISH);
+            var en = battleSimulator.simulate(a, b, false);
+            org.assertj.core.api.Assertions.assertThat(en.log()).anyMatch(l -> l.contains("The battle begins"));
+        } finally {
+            org.springframework.context.i18n.LocaleContextHolder.resetLocaleContext();
+        }
     }
 
     @Test
