@@ -113,7 +113,7 @@ class MerchantClassTest extends BaseIntegrationTest {
         InventoryItem mine = inventoryService.make(p, "Trade Charm", ItemType.RING, 0, 0, 0, 1, 100);
         mine.setAttackBonus(100); mine.setDefenseBonus(0); mine.setHealthBonus(0);
         mine.setCraftedBy(p.getId()); mine.setEquipped(true);
-        itemRepo.save(mine);
+        mine = itemRepo.save(mine); // [AUDITORIA_DUPE] captura a instância com @Version atualizado (reuso detached)
         assertThat(statsService.equippedGear(reload(p)).atk()).isEqualTo(110); // 100 × 1.10
 
         // Mesmo item, mas forjado por OUTRO → sem bônus.
