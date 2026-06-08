@@ -76,3 +76,31 @@ via `Messages`, roda os testes. Números/escopo podem ajustar no caminho.
 ## Fora de escopo
 - UI do cliente web (Camada 1).
 - Outros idiomas além de EN/PT (a arquitetura já permite — é só adicionar `messages_xx.properties`).
+
+---
+
+## Progresso (2026-06-07) — [I18N]
+
+**Feito + pushado (9 commits, suíte 605 verde, ~700 strings PT em messages_pt.properties):**
+- **P0** infra: `I18nConfig` (MessageSource + AcceptHeaderLocaleResolver en/pt), `Messages`
+  (`get`/`getOr`/`tr` estático; `locale()` default EN fora de request), `Player.language` +
+  migração, `SettingsController` (`/api/settings`), web `api()` manda `Accept-Language` +
+  `toggleLanguage` persiste. `LocalizedException` (config) + `GlobalExceptionHandler` traduz.
+- **P1** Path Trial (lore). **P2** Quests (nome/flavor/diálogo/opções/desfechos). **P3** Torre
+  (50 atmosferas + Arka). **P4** Achievements (título/nome/desc). **P5a** Atributos + Reinos
+  (nome/lore). **P5b** Habilidades + nome/desc de classe. **P5c** Narrador de quest (templates +
+  nomes de monstro do narrador). **P6** TODOS os 217 erros (141 estáticos via EN-como-key
+  escapada no handler; 47 interpolados via `LocalizedException(key, EN, args)`).
+
+**FALTA (P7 + caudas) — passe dedicado recomendado (mexe no núcleo de combate / decisão de storage):**
+- **P7 battle logs**: `BattleSimulator` (~30 `log.add` templates + arrays VICTORY/MISS/CRIT/FUMBLE/
+  hit/bodyPart). Converter cada um pra key+placeholders via `messages.getOr`, EN default = literal
+  atual (preserva EN). ⚠ Núcleo de combate — rodar TODA a suíte de combate. Os números/nomes já
+  entram pelos args; o NOME do combatente vem localizado da fonte (ver abaixo).
+- **Nomes de combatente restantes**: `TowerFloors` (~50 monstros/MVPs), `Kingdom.npcName` (5),
+  monstros de zona (`ZoneService`), nomes de zona/tier. Padrão: `messages.getOr("monster.<Nome_Com_Underscore>", en)`
+  na FONTE do nome (ex.: onde `BossInfo.name`/combatant é montado) → propaga pro log sem tocar combate.
+- **ItemLoreGenerator**: lore é **PERSISTIDO** no item na criação (não é request-time) → precisa
+  **guardar uma key** em vez do texto e resolver no display (refactor de storage + DTO de item).
+  Idem origin strings ("Found during X").
+- **GatheringNarrator**, labels de loja/forja, `ResourceType`/`WeaponType`/`ItemType` displayName.
