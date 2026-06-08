@@ -4176,7 +4176,8 @@ function showQuestResultModal(r) {
       color: '#ef5350',
       note:  r.narrative,
       rows:  [...rollRow, { icon:'☠', label:'Reward', value:'None — you were beaten', color:'#ef5350' }],
-      log:   r.battleLog || []
+      log:   r.battleLog || [],
+      battleEvents: r.battleEvents, scene: r.scene // [BATALHA_ANIMADA]
     });
     return;
   }
@@ -4196,7 +4197,7 @@ function showQuestResultModal(r) {
     });
   }
   const title = r.monsterEncountered ? `⚔ ${r.monsterName} slain!` : '⚔ Quest Completed!';
-  showCollectModal({ title, color:'#4caf50', note:r.narrative, rows, log:r.battleLog || [] });
+  showCollectModal({ title, color:'#4caf50', note:r.narrative, rows, log:r.battleLog || [], battleEvents: r.battleEvents, scene: r.scene }); // [BATALHA_ANIMADA]
 }
 
 async function abandonKingdomQuest(kingdom, questId) {

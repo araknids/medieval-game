@@ -268,7 +268,7 @@ public class KingdomService {
             res.bronzeMult = 1; res.xpMult = 1; res.dropChance = qt.dropChance;
             if (res.encountered) {
                 MonsterFight fr = fightQuestMonster(player, warrior, qt, rng);
-                res.won = fr.won(); res.monsterName = fr.monsterName(); res.battleLog = fr.battleLog();
+                res.won = fr.won(); res.monsterName = fr.monsterName(); res.battleLog = fr.battleLog(); res.battleEvents = fr.events();
                 res.monsterLevel = fr.monsterLevel(); // [ITEM_DROP_LEVEL] drop sai no nível do monstro
             }
             res.rewarded = res.won;
@@ -299,7 +299,7 @@ public class KingdomService {
                 player.getId(), InteractiveQuests.isInteractive(qt), res.encountered, res.won, totalBronze, totalXp,
                 drop != null ? drop.getName() : "none", res.roll);
         return new CollectResult(quest, drop, totalBronze, totalXp,
-                res.narrative, res.encountered, res.won, res.monsterName, res.battleLog, res.roll, null, false);
+                res.narrative, res.encountered, res.won, res.monsterName, res.battleLog, res.roll, null, false, res.battleEvents);
     }
 
     // ── [LUNA_INTERRUPT] Interrupção da Luna (substitui a antiga quest avulsa RESCUE_STRAY_DOG) ──
@@ -314,7 +314,7 @@ public class KingdomService {
     private CollectResult lunaPendingResult(KingdomActiveQuest quest) {
         String intro = messages.getOr("luna.interrupt.intro",
                 "A trembling stray dog stumbles into your path, whimpering. She looks up at you with tired, hopeful eyes.");
-        return new CollectResult(quest, null, 0, 0, intro, false, false, null, null, null, null, true);
+        return new CollectResult(quest, null, 0, 0, intro, false, false, null, null, null, null, true, List.of());
     }
 
     private KingdomActiveQuest requireLunaPending(Player player, Long questId) {
@@ -357,7 +357,7 @@ public class KingdomService {
             return new CollectResult(quest, null, 0, 0,
                     messages.getOr("questdlg.RESCUE_STRAY_DOG.out.help.owned",
                             "You help the little stray. She's already safe with you."),
-                    false, false, null, null, null, null, false);
+                    false, false, null, null, null, null, false, List.of());
         }
         int attempts  = player.getPetPityAttempts();
         int chancePpm = Math.min(LUNA_CAP_PPM, LUNA_BASE_PPM + LUNA_STEP_PPM * attempts);
@@ -370,7 +370,7 @@ public class KingdomService {
             return new CollectResult(quest, null, 0, 0,
                     messages.getOr("questdlg.RESCUE_STRAY_DOG.out.help.got",
                             "You nurse the sick dog through the night. By dawn she's on her feet, tail wagging — and she won't leave your side. 🐶 Luna is now your companion!"),
-                    false, false, null, null, null, "Luna", false);
+                    false, false, null, null, null, "Luna", false, List.of());
         }
         player.setPetPityAttempts(attempts + 1);
         playerRepository.save(player);
@@ -378,7 +378,7 @@ public class KingdomService {
         return new CollectResult(quest, null, 0, 0,
                 messages.getOr("luna.interrupt.help.nopet",
                         "You tend to the trembling stray until she stops shaking. She nuzzles your hand and licks your fingers — she's starting to like you. (Bond chance was {0})", pct),
-                false, false, null, null, null, null, false);
+                false, false, null, null, null, null, false, List.of());
     }
 
     // ── Resolução de outcome interativo (recursivo p/ Check) [QUESTS_INTERATIVAS] ──
@@ -400,7 +400,7 @@ public class KingdomService {
             r.bronzeMult = f.bronzeMult(); r.xpMult = f.xpMult(); r.dropChance = f.dropChance();
             r.narrative = fr.won() ? messages.getOr(keyBase + ".win",  f.winNarrative())
                                    : messages.getOr(keyBase + ".lose", f.loseNarrative());
-            r.monsterName = fr.monsterName(); r.battleLog = fr.battleLog();
+            r.monsterName = fr.monsterName(); r.battleLog = fr.battleLog(); r.battleEvents = fr.events();
             return r;
         }
         if (outcome instanceof QuestOutcome.Check c) {
@@ -440,7 +440,7 @@ public class KingdomService {
         int finalPct = maxHp > 0 ? Math.max(0, out.firstHpFinal() * 100 / maxHp) : 0;
         warrior.setCurrentHpSnapshot(finalPct);     // 0 = nocauteado
         warrior.setHpUpdatedAt(LocalDateTime.now());
-        return new MonsterFight(won, monsterName, lg, monsterLevel);
+        return new MonsterFight(won, monsterName, lg, monsterLevel, out.events()); // [BATALHA_ANIMADA]
     }
 
     private static int attrValue(Warrior w, Attribute a) {
@@ -467,11 +467,13 @@ public class KingdomService {
         double bronzeMult = 1, xpMult = 1; int dropChance = 0;
         String narrative = "", monsterName = null;
         List<String> battleLog = List.of();
+        List<BattleSimulator.BattleEvent> battleEvents = List.of(); // [BATALHA_ANIMADA]
         RollInfo roll = null;
         int monsterLevel = 0; // [ITEM_DROP_LEVEL] nível do monstro morto → vira o nível do item dropado (0 = sem monstro)
     }
 
-    private record MonsterFight(boolean won, String monsterName, List<String> battleLog, int monsterLevel) {}
+    private record MonsterFight(boolean won, String monsterName, List<String> battleLog, int monsterLevel,
+                                List<BattleSimulator.BattleEvent> events) {} // [BATALHA_ANIMADA]
 
     @Transactional
     public void abandonQuest(Player player, Long questId) {
@@ -692,7 +694,8 @@ public class KingdomService {
             List<String> battleLog,
             RollInfo roll,             // [QUESTS_INTERATIVAS] null se não houve teste de atributo
             String acquiredPet,        // [PETS] nome do pet ganho (ex.: "Luna") ou null
-            boolean lunaPending        // [LUNA_INTERRUPT] true = a Luna interrompeu; aguardando ajudar/terminar
+            boolean lunaPending,       // [LUNA_INTERRUPT] true = a Luna interrompeu; aguardando ajudar/terminar
+            List<BattleSimulator.BattleEvent> battleEvents // [BATALHA_ANIMADA]
     ) {}
 
     /** Resultado do roll d20 de um teste de atributo (pro modal). [QUESTS_INTERATIVAS] */

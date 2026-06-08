@@ -141,6 +141,18 @@ public class KingdomController {
     }
 
     /** Serializa o CollectResult de uma quest (reusado por collect + decisão da Luna). [LUNA_INTERRUPT] */
+    // [BATALHA_ANIMADA] fundo do replay por reino (mesma regra do ZoneController).
+    private static String sceneFor(com.medieval.game.enums.Kingdom k) {
+        if (k == null) return "fortress";
+        return switch (k) {
+            case FISHING -> "coast";
+            case MAR_ABENCOADO -> "sea";
+            case MINING, GRUTAS_DE_CRISTAL -> "cave";
+            case COMBAT -> "fortress";
+            default -> "fortress";
+        };
+    }
+
     private Map<String, Object> collectResultToMap(KingdomService.CollectResult result) {
         var resp = new java.util.HashMap<String, Object>();
         resp.put("bronzeEarned", result.bronzeEarned());
@@ -151,6 +163,8 @@ public class KingdomController {
         resp.put("monsterDefeated",    result.monsterDefeated());
         if (result.monsterName() != null) resp.put("monsterName", result.monsterName());
         resp.put("battleLog",          result.battleLog());
+        resp.put("battleEvents",       result.battleEvents()); // [BATALHA_ANIMADA]
+        resp.put("scene",              sceneFor(result.quest().getKingdom())); // [BATALHA_ANIMADA]
         if (result.acquiredPet() != null) resp.put("acquiredPet", result.acquiredPet()); // [PETS]
         if (result.lunaPending()) resp.put("lunaPending", true);                          // [LUNA_INTERRUPT]
         if (result.roll() != null) { // [QUESTS_INTERATIVAS] resultado do teste de atributo (d20)
