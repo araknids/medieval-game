@@ -59,7 +59,7 @@ public class GuildWarController {
     @PostMapping("/declare/{guildId}")
     public ResponseEntity<?> declare(@PathVariable Long guildId, Authentication auth) {
         GuildWar war = guildWarService.declare(getPlayer(auth), guildId);
-        return ResponseEntity.ok(Map.of("message", "War declared!", "warId", war.getId()));
+        return ResponseEntity.ok(Map.of("message", com.medieval.game.service.Messages.tr("msg.war_declared", "War declared!"), "warId", war.getId()));
     }
 
     // Atacar um membro da guilda inimiga (qualquer membro)

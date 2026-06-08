@@ -117,7 +117,7 @@ public class TempleController {
     @PostMapping("/heal")
     public ResponseEntity<?> heal(Authentication auth) {
         templeService.heal(getPlayer(auth));
-        return ResponseEntity.ok(Map.of("message", "Warrior healed! HP restored to 100%."));
+        return ResponseEntity.ok(Map.of("message", com.medieval.game.service.Messages.tr("msg.warrior_healed", "Warrior healed! HP restored to 100%.")));
     }
 
     // Aplicar bênção
@@ -148,21 +148,21 @@ public class TempleController {
     public ResponseEntity<?> vipHeal(Authentication auth) {
         Player player = getPlayer(auth);
         templeService.vipHeal(player);
-        return ResponseEntity.ok(Map.of("message", "VIP Heal! HP restored to 100% for free."));
+        return ResponseEntity.ok(Map.of("message", com.medieval.game.service.Messages.tr("msg.vip_healed", "VIP Heal! HP restored to 100% for free.")));
     }
 
     // Proteger item
     @PostMapping("/protect/{itemId}")
     public ResponseEntity<?> protect(@PathVariable Long itemId, Authentication auth) {
         templeService.protectItem(getPlayer(auth), itemId);
-        return ResponseEntity.ok(Map.of("message", "Item protegido pelo Templo!"));
+        return ResponseEntity.ok(Map.of("message", com.medieval.game.service.Messages.tr("msg.item_protected", "Item protected by the Temple!")));
     }
 
     // Remover proteção
     @PostMapping("/unprotect/{itemId}")
     public ResponseEntity<?> unprotect(@PathVariable Long itemId, Authentication auth) {
         templeService.unprotectItem(getPlayer(auth), itemId);
-        return ResponseEntity.ok(Map.of("message", "Protection removed."));
+        return ResponseEntity.ok(Map.of("message", com.medieval.game.service.Messages.tr("msg.protection_removed", "Protection removed.")));
     }
 
     // SoulStone — cura instantânea (1 💎, CD 30 min)
@@ -171,7 +171,7 @@ public class TempleController {
         Player player = getPlayer(auth);
         templeService.soulstoneHeal(player);
         return ResponseEntity.ok(Map.of(
-            "message",    "Warrior instantly healed! HP restored to 100%.",
+            "message",    com.medieval.game.service.Messages.tr("msg.warrior_instant_healed", "Warrior instantly healed! HP restored to 100%."),
             "soulStones", player.getSoulStones()
         ));
     }

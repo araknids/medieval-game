@@ -179,7 +179,7 @@ public class KingdomController {
             @PathVariable Long id,
             Authentication auth) {
         kingdomService.abandonQuest(getPlayer(auth), id);
-        return ResponseEntity.ok(Map.of("message", "Quest abandoned."));
+        return ResponseEntity.ok(Map.of("message", com.medieval.game.service.Messages.tr("msg.quest_abandoned", "Quest abandoned.")));
     }
 
     // ── Training (Combat Kingdom) ─────────────────────────────────────────────
@@ -204,7 +204,7 @@ public class KingdomController {
             @PathVariable Long id, Authentication auth) {
         Player player = getPlayer(auth);
         kingdomService.cancelTraining(player, id);
-        return ResponseEntity.ok(Map.of("message", "Training cancelled. Warrior freed."));
+        return ResponseEntity.ok(Map.of("message", com.medieval.game.service.Messages.tr("msg.training_cancelled", "Training cancelled. Warrior freed.")));
     }
 
     @PostMapping("/COMBAT/training/{id}/collect")
@@ -213,7 +213,7 @@ public class KingdomController {
         Player player = getPlayer(auth);
         TrainingSession session = kingdomService.collectTraining(player, id);
         return ResponseEntity.ok(Map.of(
-            "message",   "Training complete! +" + session.getXpReward() + " XP",
+            "message",   com.medieval.game.service.Messages.tr("msg.training_complete", "Training complete! +{0} XP", session.getXpReward()),
             "xpEarned",  session.getXpReward()
         ));
     }

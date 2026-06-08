@@ -77,13 +77,13 @@ public class AuthController {
         String rlKey = "login:" + clientIp(http) + ":" + req.username().toLowerCase();
         if (rateLimiter.isBlocked(rlKey, LOGIN_MAX_FAILS, RL_WINDOW_MS)) {
             return ResponseEntity.status(429).body(Map.of("error",
-                    "Muitas tentativas de login. Tente novamente em alguns minutos."));
+                    com.medieval.game.service.Messages.tr("msg.too_many_logins", "Too many login attempts. Please try again in a few minutes.")));
         }
         try {
             Player  player  = playerService.findByUsername(req.username());
             if (!playerService.checkPassword(player, req.password())) {
                 rateLimiter.recordAttempt(rlKey, RL_WINDOW_MS);
-                return ResponseEntity.status(401).body(Map.of("error", "Invalid username or password"));
+                return ResponseEntity.status(401).body(Map.of("error", com.medieval.game.service.Messages.tr("msg.invalid_login", "Invalid username or password")));
             }
             rateLimiter.reset(rlKey); // sucesso limpa o contador
             Warrior warrior = warriorService.getWarrior(player);
@@ -102,7 +102,7 @@ public class AuthController {
             ));
         } catch (IllegalArgumentException e) {
             rateLimiter.recordAttempt(rlKey, RL_WINDOW_MS);
-            return ResponseEntity.status(401).body(Map.of("error", "Invalid username or password"));
+            return ResponseEntity.status(401).body(Map.of("error", com.medieval.game.service.Messages.tr("msg.invalid_login", "Invalid username or password")));
         }
     }
 
@@ -110,14 +110,14 @@ public class AuthController {
     public ResponseEntity<?> forgotPassword(@RequestBody Map<String, String> body, HttpServletRequest http) {
         String email = body.get("email");
         if (email == null || email.isBlank()) {
-            return ResponseEntity.badRequest().body(Map.of("error", "Please provide your email"));
+            return ResponseEntity.badRequest().body(Map.of("error", com.medieval.game.service.Messages.tr("msg.provide_email", "Please provide your email")));
         }
 
         // Anti-spam de email: limita requisições de reset por IP. [AUDITORIA A10]
         String rlKey = "forgot:" + clientIp(http);
         if (rateLimiter.isBlocked(rlKey, FORGOT_MAX_REQS, RL_WINDOW_MS)) {
             return ResponseEntity.status(429).body(Map.of("error",
-                    "Muitas solicitações. Tente novamente em alguns minutos."));
+                    com.medieval.game.service.Messages.tr("msg.too_many_requests", "Too many requests. Please try again in a few minutes.")));
         }
         rateLimiter.recordAttempt(rlKey, RL_WINDOW_MS);
 
@@ -139,7 +139,7 @@ public class AuthController {
         }
 
         return ResponseEntity.ok(Map.of("message",
-                "If this email is registered, you will receive instructions shortly."));
+                com.medieval.game.service.Messages.tr("msg.reset_email_sent", "If this email is registered, you will receive instructions shortly.")));
     }
 
     @PostMapping("/reset-password")
@@ -148,14 +148,14 @@ public class AuthController {
         String newPassword = body.get("password");
 
         if (token == null || newPassword == null || newPassword.length() < 8) {
-            return ResponseEntity.badRequest().body(Map.of("error", "Invalid token or password (mín. 8 caracteres)"));
+            return ResponseEntity.badRequest().body(Map.of("error", com.medieval.game.service.Messages.tr("msg.invalid_token_or_password", "Invalid token or password (min. 8 characters)")));
         }
 
         PasswordResetToken reset = resetTokenRepository.findByToken(token)
                 .orElse(null);
 
         if (reset == null || reset.isUsed() || reset.isExpired()) {
-            return ResponseEntity.badRequest().body(Map.of("error", "Invalid or expired link"));
+            return ResponseEntity.badRequest().body(Map.of("error", com.medieval.game.service.Messages.tr("msg.invalid_or_expired_link", "Invalid or expired link")));
         }
 
         // Carrega o player diretamente do banco para evitar LazyInitializationException
@@ -168,7 +168,7 @@ public class AuthController {
         reset.setUsed(true);
         resetTokenRepository.save(reset);
 
-        return ResponseEntity.ok(Map.of("message", "Password changed successfully! Please log in."));
+        return ResponseEntity.ok(Map.of("message", com.medieval.game.service.Messages.tr("msg.password_changed", "Password changed successfully! Please log in.")));
     }
 
     /** Token de reset seguro: 32 bytes de SecureRandom em base64url (~256 bits). [AUDITORIA B5] */

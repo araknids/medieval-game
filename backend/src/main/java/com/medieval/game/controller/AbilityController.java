@@ -55,7 +55,7 @@ public class AbilityController {
     @PostMapping("/respec")
     public ResponseEntity<?> respec(Authentication auth) {
         abilityService.respec(getPlayer(auth));
-        return ResponseEntity.ok(Map.of("message", "Abilities reset — points refunded."));
+        return ResponseEntity.ok(Map.of("message", com.medieval.game.service.Messages.tr("msg.abilities_reset", "Abilities reset — points refunded.")));
     }
 
     private Player getPlayer(Authentication auth) {

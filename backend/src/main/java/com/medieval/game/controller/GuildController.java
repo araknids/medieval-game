@@ -82,14 +82,14 @@ public class GuildController {
     @PostMapping("/leave")
     public ResponseEntity<?> leave(Authentication auth) {
         guildService.leave(getPlayer(auth));
-        return ResponseEntity.ok(Map.of("message", "You left the guild.", "inGuild", false));
+        return ResponseEntity.ok(Map.of("message", com.medieval.game.service.Messages.tr("msg.guild_left", "You left the guild."), "inGuild", false));
     }
 
     // ── Expulsar membro ───────────────────────────────────────────────────────
     @PostMapping("/kick/{playerId}")
     public ResponseEntity<?> kick(@PathVariable Long playerId, Authentication auth) {
         guildService.kick(getPlayer(auth), playerId);
-        return ResponseEntity.ok(Map.of("message", "Member kicked."));
+        return ResponseEntity.ok(Map.of("message", com.medieval.game.service.Messages.tr("msg.member_kicked", "Member kicked.")));
     }
 
     // ── Transferir liderança ──────────────────────────────────────────────────
@@ -97,7 +97,7 @@ public class GuildController {
     public ResponseEntity<?> transfer(@PathVariable Long playerId, Authentication auth) {
         Player leader = getPlayer(auth);
         guildService.transfer(leader, playerId);
-        return ResponseEntity.ok(Map.of("message", "Leadership transferred."));
+        return ResponseEntity.ok(Map.of("message", com.medieval.game.service.Messages.tr("msg.leadership_transferred", "Leadership transferred.")));
     }
 
     // ── Doar bronze para a guilda (sobe o nível automaticamente) ──────────────── [GUILD_LEVEL_GOLD]
@@ -107,7 +107,7 @@ public class GuildController {
         GuildService.DonateResult res = guildService.donate(player, req.amount());
         Guild guild = res.guild();
         return ResponseEntity.ok(Map.of(
-            "message",   "Donation successful!",
+            "message",   com.medieval.game.service.Messages.tr("msg.donation_ok", "Donation successful!"),
             "guildGold", guild.getGold(),
             "level",     res.newLevel(),
             "leveledUp", res.leveledUp()
@@ -118,14 +118,14 @@ public class GuildController {
     @DeleteMapping
     public ResponseEntity<?> disband(Authentication auth) {
         guildService.disband(getPlayer(auth));
-        return ResponseEntity.ok(Map.of("message", "Guild disbanded.", "inGuild", false));
+        return ResponseEntity.ok(Map.of("message", com.medieval.game.service.Messages.tr("msg.guild_disbanded", "Guild disbanded."), "inGuild", false));
     }
 
     // ── Roster de guerra (líder escolhe até 15 p/ a batalha de território) ────── [GUERRA_ROSTER]
     @PostMapping("/roster")
     public ResponseEntity<?> setRoster(@Valid @RequestBody RosterRequest req, Authentication auth) {
         guildService.setWarRoster(getPlayer(auth), req.memberIds());
-        return ResponseEntity.ok(Map.of("message", "Battle roster saved."));
+        return ResponseEntity.ok(Map.of("message", com.medieval.game.service.Messages.tr("msg.roster_saved", "Battle roster saved.")));
     }
 
     // ── Formação 3×5 da guerra (líder posiciona os membros) ────── [GUERRA_FORMACAO]
@@ -135,7 +135,7 @@ public class GuildController {
                 .map(s -> new com.medieval.game.service.GuildService.FormationSlot(s.playerId(), s.lane(), s.depth()))
                 .toList();
         guildService.setWarFormation(getPlayer(auth), slots);
-        return ResponseEntity.ok(Map.of("message", "War formation saved."));
+        return ResponseEntity.ok(Map.of("message", com.medieval.game.service.Messages.tr("msg.formation_saved", "War formation saved.")));
     }
 
     // ── Helpers ───────────────────────────────────────────────────────────────

@@ -132,7 +132,7 @@ public class SmithingController {
     public ResponseEntity<?> craftGem(@Valid @RequestBody GemRequest req, Authentication auth) {
         Player player = getPlayer(auth);
         smithingService.craftGem(player, req.fragmentType());
-        return ResponseEntity.ok(Map.of("message", "Gem created successfully!"));
+        return ResponseEntity.ok(Map.of("message", com.medieval.game.service.Messages.tr("msg.gem_created", "Gem created successfully!")));
     }
 
     // Encaixar joia em item (pode falhar — success rate cresce com o nível). [PROFISSAO_SUCCESS]
@@ -156,7 +156,7 @@ public class SmithingController {
         Player player = getPlayer(auth);
         InventoryItem item = smithingService.repairItem(player, itemId);
         return ResponseEntity.ok(Map.of(
-            "message",    item.getName() + " reparado! Durabilidade 100%.",
+            "message",    com.medieval.game.service.Messages.tr("msg.item_repaired", "{0} repaired! Durability 100%.", item.getName()),
             "durability", item.getDurability()
         ));
     }
@@ -167,7 +167,7 @@ public class SmithingController {
         Player player = getPlayer(auth);
         InventoryItem item = smithingService.reforgeItem(player, itemId);
         return ResponseEntity.ok(Map.of(
-            "message",      item.getName() + " reforjado!",
+            "message",      com.medieval.game.service.Messages.tr("msg.item_reforged", "{0} reforged!", item.getName()),
             "attackBonus",  item.getAttackBonus(),
             "defenseBonus", item.getDefenseBonus(),
             "healthBonus",  item.getHealthBonus()

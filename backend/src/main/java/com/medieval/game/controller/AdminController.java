@@ -28,14 +28,14 @@ public class AdminController {
             Authentication auth) {
         int amount = body.getOrDefault("amount", 5);
         if (amount <= 0 || amount > 100)
-            return ResponseEntity.badRequest().body(Map.of("error", "amount must be 1-100"));
+            return ResponseEntity.badRequest().body(Map.of("error", com.medieval.game.service.Messages.tr("msg.amount_range_1_100", "amount must be 1-100")));
 
         Player player = playerService.findById((Long) auth.getPrincipal());
         player.setSoulStones(player.getSoulStones() + amount);
         playerRepository.save(player);
 
         return ResponseEntity.ok(Map.of(
-            "message",    "Granted " + amount + " SoulStones.",
+            "message",    com.medieval.game.service.Messages.tr("msg.soulstones_granted", "Granted {0} SoulStones.", amount),
             "soulStones", player.getSoulStones()
         ));
     }

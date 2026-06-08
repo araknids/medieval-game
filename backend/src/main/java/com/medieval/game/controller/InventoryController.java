@@ -66,7 +66,7 @@ public class InventoryController {
         Player        player = getPlayer(auth);
         InventoryItem item   = inventoryService.sell(player, id);
         return ResponseEntity.ok(Map.of(
-            "message",    item.getName() + " sold!",
+            "message",    com.medieval.game.service.Messages.tr("msg.item_sold", "{0} sold!", item.getName()),
             "goldEarned", item.getSellPrice(),
             "gold",       player.getGold()
         ));
@@ -90,7 +90,7 @@ public class InventoryController {
         Player player = getPlayer(auth);
         inventoryService.expandInventory(player);
         return ResponseEntity.ok(Map.of(
-            "message",    "Inventory expanded to 20 slots!",
+            "message",    com.medieval.game.service.Messages.tr("msg.inventory_expanded", "Inventory expanded to {0} slots!", player.getMaxInventorySlots()),
             "maxSlots",   player.getMaxInventorySlots(),
             "soulStones", player.getSoulStones()
         ));

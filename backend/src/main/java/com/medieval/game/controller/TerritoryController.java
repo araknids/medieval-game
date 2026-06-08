@@ -105,7 +105,7 @@ public class TerritoryController {
         Player player = getPlayer(auth);
         TerritoryDeclaration decl = territoryService.declare(player, territory);
         return ResponseEntity.ok(Map.of(
-            "message",    "Attack declared on " + territory.displayName + "!",
+            "message",    com.medieval.game.service.Messages.tr("msg.attack_declared", "Attack declared on {0}!", territory.displayName),
             "territory",  territory.name(),
             "cycleId",    decl.getBattleCycleId()
         ));
@@ -115,7 +115,7 @@ public class TerritoryController {
     @PostMapping("/cancel")
     public ResponseEntity<?> cancel(Authentication auth) {
         territoryService.cancelDeclaration(getPlayer(auth));
-        return ResponseEntity.ok(Map.of("message", "Declaration cancelled."));
+        return ResponseEntity.ok(Map.of("message", com.medieval.game.service.Messages.tr("msg.declaration_cancelled", "Declaration cancelled.")));
     }
 
     // ── Battle history ────────────────────────────────────────────────────────

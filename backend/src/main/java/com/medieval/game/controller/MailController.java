@@ -52,7 +52,7 @@ public class MailController {
         Mail mail = mailService.send(sender,
                 req.recipientWarriorName(), req.message(), req.goldAmount());
         return ResponseEntity.ok(Map.of(
-            "message", "Letter sent to " + req.recipientWarriorName() + "!",
+            "message", com.medieval.game.service.Messages.tr("msg.letter_sent", "Letter sent to {0}!", req.recipientWarriorName()),
             "id",      mail.getId()
         ));
     }
@@ -70,7 +70,7 @@ public class MailController {
         Player player = getPlayer(auth);
         Mail mail = mailService.collectGold(player, id);
         return ResponseEntity.ok(Map.of(
-            "message",    "Collected " + mail.getGoldAmount() + " gold!",
+            "message",    com.medieval.game.service.Messages.tr("msg.gold_collected", "Collected {0} gold!", mail.getGoldAmount()),
             "goldAmount", mail.getGoldAmount()
         ));
     }
@@ -81,7 +81,7 @@ public class MailController {
         Player player = getPlayer(auth);
         InventoryItem item = mailService.claimItem(player, id, inventoryService);
         return ResponseEntity.ok(Map.of(
-            "message",  "Item '" + item.getName() + "' added to your bag!",
+            "message",  com.medieval.game.service.Messages.tr("msg.item_claimed", "Item ''{0}'' added to your bag!", item.getName()),
             "itemName", item.getName()
         ));
     }
@@ -90,7 +90,7 @@ public class MailController {
     @DeleteMapping("/{id}")
     public ResponseEntity<?> delete(@PathVariable Long id, Authentication auth) {
         mailService.delete(getPlayer(auth), id);
-        return ResponseEntity.ok(Map.of("message", "Letter deleted."));
+        return ResponseEntity.ok(Map.of("message", com.medieval.game.service.Messages.tr("msg.letter_deleted", "Letter deleted.")));
     }
 
     // ── Helpers ───────────────────────────────────────────────────────────────

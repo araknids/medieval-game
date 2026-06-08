@@ -169,7 +169,7 @@ public class ZoneController {
     @PostMapping("/{id}/cancel")
     public ResponseEntity<?> cancel(@PathVariable Long id, Authentication auth) {
         zoneService.cancel(getPlayer(auth), id);
-        return ResponseEntity.ok(Map.of("message", "Expedition cancelled."));
+        return ResponseEntity.ok(Map.of("message", com.medieval.game.service.Messages.tr("msg.expedition_cancelled", "Expedition cancelled.")));
     }
 
     private Player getPlayer(Authentication auth) {

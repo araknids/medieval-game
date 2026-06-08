@@ -34,8 +34,8 @@ public class BlueMerchantController {
         Consignment c = blueMerchant.consign(getPlayer(auth), itemId);
         return ResponseEntity.ok(Map.of(
                 "message", c.getStatus() == Consignment.Status.LINKED
-                        ? "Item linked to the Steam marketplace!"
-                        : "Item handed to the Blue Merchant (held until Steam selling opens).",
+                        ? com.medieval.game.service.Messages.tr("msg.consign_linked", "Item linked to the Steam marketplace!")
+                        : com.medieval.game.service.Messages.tr("msg.consign_held", "Item handed to the Blue Merchant (held until Steam selling opens)."),
                 "consignmentId", c.getId(),
                 "status", c.getStatus().name()));
     }
@@ -43,13 +43,13 @@ public class BlueMerchantController {
     @PostMapping("/cancel/{id}")
     public ResponseEntity<?> cancel(@PathVariable Long id, Authentication auth) {
         blueMerchant.cancel(getPlayer(auth), id);
-        return ResponseEntity.ok(Map.of("message", "Consignment cancelled — item returned to your bag."));
+        return ResponseEntity.ok(Map.of("message", com.medieval.game.service.Messages.tr("msg.consign_cancelled", "Consignment cancelled — item returned to your bag.")));
     }
 
     @PostMapping("/link")
     public ResponseEntity<?> link(@RequestBody LinkRequest req, Authentication auth) {
         blueMerchant.linkSteam(getPlayer(auth), req.steamId());
-        return ResponseEntity.ok(Map.of("message", "Steam account linked."));
+        return ResponseEntity.ok(Map.of("message", com.medieval.game.service.Messages.tr("msg.steam_linked", "Steam account linked.")));
     }
 
     public record LinkRequest(String steamId) {}

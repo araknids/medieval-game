@@ -31,7 +31,7 @@ public class ClassController {
         try {
             wc = WarriorClass.valueOf(path.toUpperCase());
         } catch (IllegalArgumentException e) {
-            return ResponseEntity.badRequest().body(Map.of("error", "Unknown class path: " + path));
+            return ResponseEntity.badRequest().body(Map.of("error", com.medieval.game.service.Messages.tr("msg.unknown_class_path", "Unknown class path: {0}", path)));
         }
         return ResponseEntity.ok(classService.attemptTrial(getPlayer(auth), wc));
     }

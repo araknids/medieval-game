@@ -55,7 +55,7 @@ public class PetController {
     @PostMapping("/unequip")
     public ResponseEntity<?> unequip(Authentication auth) {
         petService.unequip(getPlayer(auth));
-        return ResponseEntity.ok(Map.of("message", "Pet unequipped."));
+        return ResponseEntity.ok(Map.of("message", com.medieval.game.service.Messages.tr("msg.pet_unequipped", "Pet unequipped.")));
     }
 
     private Player getPlayer(Authentication auth) {

@@ -56,12 +56,12 @@ public class ShopController {
         InventoryItem item   = shopService.buy(player, shopItemId);
         if (item == null) { // bag cheia → item foi pro mail
             return ResponseEntity.ok(Map.of(
-                    "message", "Bag full — the item was sent to your mail.",
+                    "message", com.medieval.game.service.Messages.tr("msg.bag_full_mailed", "Bag full — the item was sent to your mail."),
                     "gold",    player.getGold()
             ));
         }
         return ResponseEntity.ok(Map.of(
-                "message", item.getName() + " bought successfully!",
+                "message", com.medieval.game.service.Messages.tr("msg.item_bought", "{0} bought successfully!", item.getName()),
                 "gold",    player.getGold(),
                 "itemId",  item.getId()
         ));

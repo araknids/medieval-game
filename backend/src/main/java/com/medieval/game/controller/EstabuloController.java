@@ -66,7 +66,7 @@ public class EstabuloController {
     @PostMapping("/unequip")
     public ResponseEntity<?> unequip(Authentication auth) {
         estabuloService.unequip(getPlayer(auth));
-        return ResponseEntity.ok(Map.of("message", "Mount unequipped."));
+        return ResponseEntity.ok(Map.of("message", com.medieval.game.service.Messages.tr("msg.mount_unequipped", "Mount unequipped.")));
     }
 
     private Player getPlayer(Authentication auth) {

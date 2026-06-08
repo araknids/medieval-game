@@ -32,7 +32,7 @@ public class VipController {
         Player player = getPlayer(auth);
         vipService.buyVip(player);
         return ResponseEntity.ok(Map.of(
-            "message",      "VIP activated! Enjoy your 30 days of benefits.",
+            "message",      com.medieval.game.service.Messages.tr("msg.vip_activated", "VIP activated! Enjoy your 30 days of benefits."),
             "vipExpiresAt", player.getVipExpiresAt().toString(),
             "soulStones",   player.getSoulStones()
         ));

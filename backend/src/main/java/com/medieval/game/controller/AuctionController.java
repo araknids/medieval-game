@@ -33,19 +33,19 @@ public class AuctionController {
     @PostMapping("/list")
     public ResponseEntity<?> list(@RequestBody ListRequest req, Authentication auth) {
         var l = auctionService.list(getPlayer(auth), req.itemId(), req.price());
-        return ResponseEntity.ok(Map.of("message", "Item listed!", "listingId", l.getId()));
+        return ResponseEntity.ok(Map.of("message", com.medieval.game.service.Messages.tr("msg.auction_listed", "Item listed!"), "listingId", l.getId()));
     }
 
     @PostMapping("/buy/{id}")
     public ResponseEntity<?> buy(@PathVariable Long id, Authentication auth) {
         AuctionView v = auctionService.buy(getPlayer(auth), id);
-        return ResponseEntity.ok(Map.of("message", "Bought " + v.name() + "!", "price", v.price()));
+        return ResponseEntity.ok(Map.of("message", com.medieval.game.service.Messages.tr("msg.auction_bought", "Bought {0}!", v.name()), "price", v.price()));
     }
 
     @PostMapping("/cancel/{id}")
     public ResponseEntity<?> cancel(@PathVariable Long id, Authentication auth) {
         auctionService.cancel(getPlayer(auth), id);
-        return ResponseEntity.ok(Map.of("message", "Listing cancelled — item returned to your bag."));
+        return ResponseEntity.ok(Map.of("message", com.medieval.game.service.Messages.tr("msg.auction_cancelled", "Listing cancelled — item returned to your bag.")));
     }
 
     private Map<String, Object> toMap(AuctionView v) {
