@@ -1593,8 +1593,7 @@ function weaponTag(item) {
   return ` · <span style="color:${ranged ? '#7bb0ff' : '#d9a05b'}">${ranged ? '🏹 Ranged' : '🗡 Melee'}</span>`;
 }
 function weaponUsable(item) {
-  if (!item || item.type !== 'WEAPON' || !item.weaponCategory) return true;
-  return (warrior?.warriorClassId === 'ARCHER') === (item.weaponCategory === 'RANGED');
+  return true; // [CLASSES_ARMAS] trava de arma por classe REMOVIDA — qualquer classe usa qualquer arma
 }
 
 // Raridade → cor/nome (espelha .rarity-N do style.css). [ITENS_V2]

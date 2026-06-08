@@ -72,12 +72,12 @@ public enum WarriorClass {
     }
 
     /**
-     * Pode equipar este TIPO de arma? Mercador é restrito a machado/marreta; as outras classes
-     * vão pela categoria (Warrior = qualquer MELEE, Archer = qualquer RANGED). [MERCADOR/CLASSES_ARMAS]
+     * Pode equipar este TIPO de arma? [CLASSES_ARMAS] Restrição REMOVIDA — qualquer classe equipa
+     * qualquer arma (o tradeoff vira só o perfil de stats da arma vs o atributo de dano da classe:
+     * Archer escala em DEX, melee em STR — ver {@link #damageAttribute()}). Mantido como hook caso
+     * se queira reintroduzir alguma trava no futuro.
      */
     public boolean canEquip(WeaponType type) {
-        if (type == null) return true;
-        if (this == MERCHANT) return type == WeaponType.AXE || type == WeaponType.MACE;
-        return type.category == weaponCategory();
+        return true;
     }
 }

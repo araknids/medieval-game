@@ -18,7 +18,6 @@ import org.springframework.beans.factory.annotation.Autowired;
 import java.time.LocalDateTime;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 // Trava de arma por classe: arco (Archer) vs corpo-a-corpo (Warrior/Recruit). [CLASSES_ARMAS]
 @DisplayName("Armas por classe | arco vs espada + trava no equip")
@@ -73,21 +72,21 @@ class WeaponClassTest extends BaseIntegrationTest {
         assertThat(weapon(p, "Arco de Ferro Forjado").effectiveWeaponCategory()).isEqualTo(WeaponCategory.RANGED);
     }
 
-    // ── Trava no equip ──
+    // ── Trava de arma por classe REMOVIDA: qualquer classe equipa qualquer arma ──
     @Test
-    @DisplayName("Guerreiro não equipa arco; arqueiro não equipa espada")
-    void equip_rejectsCrossClassWeapon() {
+    @DisplayName("Guerreiro equipa arco e arqueiro equipa espada (trava removida)")
+    void equip_allowsCrossClassWeapon() {
         Player warriorP = newPlayer("wc");
         makeWarrior(warriorP, WarriorClass.WARRIOR, 20);
         InventoryItem bow = weapon(warriorP, "Longbow");
-        assertThatThrownBy(() -> inventoryService.equip(warriorP, bow.getId()))
-                .isInstanceOf(IllegalStateException.class);
+        inventoryService.equip(warriorP, bow.getId());
+        assertThat(itemRepo.findById(bow.getId()).orElseThrow().isEquipped()).isTrue();
 
         Player archerP = newPlayer("wc");
         makeWarrior(archerP, WarriorClass.ARCHER, 20);
         InventoryItem sword = weapon(archerP, "Iron Sword");
-        assertThatThrownBy(() -> inventoryService.equip(archerP, sword.getId()))
-                .isInstanceOf(IllegalStateException.class);
+        inventoryService.equip(archerP, sword.getId());
+        assertThat(itemRepo.findById(sword.getId()).orElseThrow().isEquipped()).isTrue();
     }
 
     @Test
@@ -120,10 +119,10 @@ class WeaponClassTest extends BaseIntegrationTest {
         assertThat(itemRepo.findById(legacy.getId()).orElseThrow().isEquipped()).isTrue();
     }
 
-    // ── Troca p/ Archer: desequipa a espada e dá um arco inicial ──
+    // ── Troca p/ Archer: ganha um arco inicial; a arma anterior CONTINUA equipada (trava removida) ──
     @Test
-    @DisplayName("Virar Archer na Trial desequipa a espada e entrega um arco inicial")
-    void classChangeToArcher_swapsToBow() {
+    @DisplayName("Virar Archer na Trial entrega um arco inicial e mantém a espada equipada")
+    void classChangeToArcher_grantsBow() {
         Player p = newPlayer("wc");
         Warrior w = makeWarrior(p, WarriorClass.RECRUIT, 10);
         // Recruit forte → vence a Trial com folga.
@@ -138,8 +137,9 @@ class WeaponClassTest extends BaseIntegrationTest {
         var r = classService.attemptTrial(p, WarriorClass.ARCHER);
         assertThat(r.won()).isTrue();
 
-        // A espada melee foi desequipada (ficaria travada) e ganhou um arco.
-        assertThat(itemRepo.findById(sword.getId()).orElseThrow().isEquipped()).isFalse();
+        // Trava removida: a espada melee CONTINUA equipada (qualquer classe usa qualquer arma)…
+        assertThat(itemRepo.findById(sword.getId()).orElseThrow().isEquipped()).isTrue();
+        // …e ainda ganha um arco inicial na bag.
         boolean hasBow = inventoryService.getInventory(playerRepository.findById(p.getId()).orElseThrow()).stream()
                 .anyMatch(i -> i.getType() == ItemType.WEAPON
                         && i.effectiveWeaponCategory() == WeaponCategory.RANGED);

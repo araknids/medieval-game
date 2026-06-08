@@ -1,7 +1,6 @@
 package com.medieval.game.service;
 
 import com.medieval.game.enums.ItemType;
-import com.medieval.game.enums.WarriorClass;
 import com.medieval.game.model.InventoryItem;
 import com.medieval.game.model.Player;
 import com.medieval.game.model.ShopPurchase;
@@ -35,12 +34,11 @@ public class ShopService {
 
     // [CLASSES_ARMAS] Nomes de arco — o slot de arma da loja troca p/ um destes quando o
     // jogador é Arqueiro (mesmos stats/preço do tier, só o nome muda → make() infere RANGED).
-    private static final String[] BOW_NAMES = {
-        "Short Bow", "Long Bow", "Crossbow", "Hunting Shortbow", "Heavy Crossbow", "Elven Longbow"
-    };
-    // [MERCADOR] Slot de arma vira machado/marreta quando o jogador é Mercador.
-    private static final String[] MERCHANT_WEAPON_NAMES = {
-        "Battle Axe", "War Axe", "Iron Mace", "Heavy Maul", "Spiked Mace", "Great Axe"
+    // [CLASSES_ARMAS] Trava de arma por classe REMOVIDA: a loja oferece TODOS os tipos (de todas as
+    // classes) — cobre os 7 WeaponType (espada/montante/machado/lança/marreta/arco curto/longo/besta).
+    private static final String[] ALL_WEAPON_NAMES = {
+        "Iron Sword", "Steel Greatsword", "Battle Axe", "War Spear", "Iron Mace",
+        "Short Bow", "Long Bow", "Crossbow"
     };
 
     // ── Nomes do mercador ──
@@ -184,11 +182,10 @@ public class ShopService {
         Random rng = new Random(rotationId);
         Warrior w = warriorRepository.findByPlayer(player).orElse(null);
         int level = w != null ? w.getLevel() : 1;
-        WarriorClass cls = w != null ? w.getWarriorClass() : WarriorClass.RECRUIT;
         Set<Integer> bought = purchaseRepository.purchasedSlots(player, rotationId);
         List<ShopItem> items = new ArrayList<>();
         for (int slot = 0; slot < SHOP_SIZE; slot++) {
-            items.add(buildSlot(rng, rotationId, slot, level, cls, bought.contains(slot)));
+            items.add(buildSlot(rng, rotationId, slot, level, bought.contains(slot)));
         }
         return items;
     }
@@ -197,7 +194,7 @@ public class ShopService {
      * Constrói o item de um slot de forma DETERMINÍSTICA (mesma sequência de rng em preview e compra).
      * Itens V3: loja vende só Comum/Incomum, nível ≈ nível do jogador ±5, stats escalam com o nível. [ITENS_V3]
      */
-    private ShopItem buildSlot(Random rng, long rotationId, int slot, int playerLevel, WarriorClass cls, boolean purchased) {
+    private ShopItem buildSlot(Random rng, long rotationId, int slot, int playerLevel, boolean purchased) {
         int rarity = rollRarity(rng);                 // só 1 (Comum) ou 2 (Incomum)
         Object[][] pool = poolFor(rarity);
         Object[] template = pool[rng.nextInt(pool.length)];
@@ -211,9 +208,10 @@ public class ShopService {
         // Nome determinístico (sem consumir rng) → preview == compra.
         String name = (String) template[0];
         if (type == ItemType.WEAPON) {
-            int idx = (int)(((rotationId + slot) % 6 + 6) % 6);
-            if (cls == WarriorClass.ARCHER)        name = BOW_NAMES[idx % BOW_NAMES.length];
-            else if (cls == WarriorClass.MERCHANT) name = MERCHANT_WEAPON_NAMES[idx % MERCHANT_WEAPON_NAMES.length];
+            // [CLASSES_ARMAS] Oferece TODOS os tipos de arma (de todas as classes), não só a da classe.
+            // Determinístico (sem consumir rng) → preview == compra.
+            int idx = (int)(((rotationId + slot) % ALL_WEAPON_NAMES.length + ALL_WEAPON_NAMES.length) % ALL_WEAPON_NAMES.length);
+            name = ALL_WEAPON_NAMES[idx];
         }
         // Arma: stats vêm do PERFIL do tipo (igual ao make()); resto usa o roll. [CLASSES_ARMAS]
         int[] st = (type == ItemType.WEAPON)
@@ -238,10 +236,9 @@ public class ShopService {
         Random rng = new Random(rotationId);
         Warrior w = warriorRepository.findByPlayer(player).orElse(null);
         int level = w != null ? w.getLevel() : 1;
-        WarriorClass cls = w != null ? w.getWarriorClass() : WarriorClass.RECRUIT;
         ShopItem item = null;
         for (int i = 0; i <= slot; i++) {
-            ShopItem si = buildSlot(rng, rotationId, i, level, cls, false);
+            ShopItem si = buildSlot(rng, rotationId, i, level, false);
             if (i == slot) item = si;
         }
 

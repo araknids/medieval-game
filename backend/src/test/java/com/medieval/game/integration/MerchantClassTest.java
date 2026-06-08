@@ -19,7 +19,6 @@ import org.springframework.beans.factory.annotation.Autowired;
 import java.time.LocalDateTime;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 // Classe Mercador: armas (machado/marreta), bônus de economia (venda/drop/craft/coleta). [MERCADOR]
 @DisplayName("Merchant | armas blunt + bônus de economia")
@@ -49,20 +48,20 @@ class MerchantClassTest extends BaseIntegrationTest {
     }
 
     @Test
-    @DisplayName("canEquip por tipo: Mercador só machado/marreta")
+    @DisplayName("canEquip: trava removida — qualquer classe equipa qualquer tipo de arma")
     void canEquip_byType() {
         assertThat(WarriorClass.MERCHANT.canEquip(WeaponType.AXE)).isTrue();
         assertThat(WarriorClass.MERCHANT.canEquip(WeaponType.MACE)).isTrue();
-        assertThat(WarriorClass.MERCHANT.canEquip(WeaponType.SWORD)).isFalse();
-        assertThat(WarriorClass.MERCHANT.canEquip(WeaponType.LONGBOW)).isFalse();
-        assertThat(WarriorClass.WARRIOR.canEquip(WeaponType.AXE)).isTrue();    // warrior usa machado
-        assertThat(WarriorClass.ARCHER.canEquip(WeaponType.MACE)).isFalse();
+        assertThat(WarriorClass.MERCHANT.canEquip(WeaponType.SWORD)).isTrue();   // antes false (trava removida)
+        assertThat(WarriorClass.MERCHANT.canEquip(WeaponType.LONGBOW)).isTrue(); // antes false
+        assertThat(WarriorClass.WARRIOR.canEquip(WeaponType.AXE)).isTrue();
+        assertThat(WarriorClass.ARCHER.canEquip(WeaponType.MACE)).isTrue();      // antes false
         assertThat(WeaponType.fromName("Iron Mace")).isEqualTo(WeaponType.MACE);
         assertThat(WeaponType.fromName("Heavy Maul")).isEqualTo(WeaponType.MACE);
     }
 
     @Test
-    @DisplayName("Mercador equipa marreta/machado, mas não espada")
+    @DisplayName("Mercador equipa marreta/machado E também espada (trava removida)")
     void merchant_equipGuards() {
         Player p = newPlayer("mc", WarriorClass.MERCHANT, 0);
         InventoryItem mace = inventoryService.make(p, "Iron Mace", ItemType.WEAPON, 5, 0, 0, 1, 20);
@@ -70,8 +69,8 @@ class MerchantClassTest extends BaseIntegrationTest {
         assertThat(itemRepo.findById(mace.getId()).orElseThrow().isEquipped()).isTrue();
 
         InventoryItem sword = inventoryService.make(p, "Iron Sword", ItemType.WEAPON, 5, 0, 0, 1, 20);
-        assertThatThrownBy(() -> inventoryService.equip(p, sword.getId()))
-                .isInstanceOf(IllegalStateException.class);
+        inventoryService.equip(p, sword.getId()); // trava removida: qualquer classe usa qualquer arma
+        assertThat(itemRepo.findById(sword.getId()).orElseThrow().isEquipped()).isTrue();
     }
 
     @Test
