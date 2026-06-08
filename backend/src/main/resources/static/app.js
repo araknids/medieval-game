@@ -1892,7 +1892,7 @@ async function showWorkJobList() {
         return `
           <div class="work-job-card ${locked ? 'locked' : ''}">
             <div class="wj-header">
-              <span class="wj-name">${_lang['work.job.'+job.id] || jot('temple.buff.'+b.id)||b.displayName}</span>
+              <span class="wj-name">${_lang['work.job.'+job.id] || job.displayName}</span>
               <span class="wj-prof-level">Lv.${job.profLevel}${job.bonusPct > 0 ? ` <span class="wl-bonus">+${job.bonusPct}%</span>` : ''}</span>
             </div>
             <div class="xp-bar-bg" style="margin-bottom:.4rem"><div class="xp-bar-fill" style="width:${xpPct}%"></div></div>
@@ -1905,13 +1905,11 @@ async function showWorkJobList() {
             ${!locked ? `
               <div class="wj-hours">
                 <div class="hours-btns">
-                  ${(() => {
-                    const h = 2; // ação fixa instantânea — a estamina é o gate, sem timer
-                    return `<button class="btn-hour" onclick="startWork('${job.id}', ${h})" ${disabled ? 'disabled' : ''}>
-                      <span class="stamina-cost">⚡ ${h * 5}</span>
+                  ${[1, 2, 6, 12].map(h => `
+                    <button class="btn-hour" onclick="startWork('${job.id}', ${h})">
+                      <span class="hour-label">${h}h</span>
                       <span class="hour-gold">${fmtBronze(Math.round(job.goldPerHourWithBonus * h))}</span>
-                    </button>`;
-                  })()}
+                    </button>`).join('')}
                 </div>
               </div>
             ` : ''}
@@ -1923,7 +1921,11 @@ async function showWorkJobList() {
 async function startWork(workType, hours) {
   const data = await api('POST', '/api/work/start', { workType, hours });
   if (data.error) { showMessage(data.error, true); return; }
-  await collectWork(data.id); // [SEM_TIMER] instantâneo: resolve e abre o resultado direto
+  // [WORK_IDLE] timer real → mostra a tela de progresso (não coleta na hora). Enquanto trabalha, o
+  // jogador fica travado de aventurar (backend rejeita). Em modo de teste (instant-complete) o backend
+  // devolve readyToCollect=true → coleta direto pra não travar o playtest solo.
+  if (data.readyToCollect) { await collectWork(data.id); }
+  else { openWorkProgress(data); }
 }
 
 function openWorkProgress(session) {
@@ -1942,11 +1944,12 @@ function renderWorkProgress(session) {
       <p style="color:#888;font-size:.82rem;margin-bottom:.6rem">${session.description}</p>
       <div class="wj-stats" style="margin-bottom:.8rem">
         <span>${fmtBronze(session.goldReward)}</span>
-        <span>⭐ ${session.xpReward} xp de trabalho</span>
-        <span class="stamina-cost">⚡ ${session.hours * 5}</span>
+        <span>⭐ ${session.xpReward} ${t('work.xp_label')}</span>
+        <span>⏳ ${session.hours}h</span>
       </div>
+      ${!done ? `<p style="color:#c9a84c;font-size:.78rem;margin-bottom:.6rem">${t('work.locked_hint')}</p>` : ''}
       <div class="qp-timer ${done ? 'done' : ''}" id="work-timer">
-        ${done ? 'Done!' : formatTime(session.secondsRemaining)}
+        ${done ? t('work.ready') : fmtResetCountdown(session.secondsRemaining)}
       </div>
       <button class="btn-collect qp-collect-btn" id="work-btn"
               ${done ? '' : 'disabled'}
@@ -1955,7 +1958,7 @@ function renderWorkProgress(session) {
       </button>
       ${!done ? `
       <button class="btn-cancel-work" onclick="cancelWork(${session.id})" style="margin-top:.5rem">
-        Cancelar (recebe horas completas)
+        ${t('work.cancel_btn_partial')}
       </button>` : ''}
     </div>`;
 
@@ -1963,17 +1966,16 @@ function renderWorkProgress(session) {
     let secs = session.secondsRemaining;
     workTimerInterval = setInterval(() => {
       secs--;
-      const t = document.getElementById('work-timer');
-      const b = document.getElementById('work-btn');
-      if (!t) { clearInterval(workTimerInterval); return; }
+      const timerEl = document.getElementById('work-timer');
+      const btnEl   = document.getElementById('work-btn');
+      if (!timerEl) { clearInterval(workTimerInterval); return; }
       if (secs <= 0) {
-        t.textContent = 'Done!';
-        t.classList.add('done');
-        b.disabled = false;
-        b.textContent = t('work.collect_money');
+        timerEl.textContent = t('work.ready');
+        timerEl.classList.add('done');
+        if (btnEl) { btnEl.disabled = false; btnEl.textContent = t('work.collect_money'); }
         clearInterval(workTimerInterval);
       } else {
-        t.textContent = formatTime(secs);
+        timerEl.textContent = fmtResetCountdown(secs);
       }
     }, 1000);
   }

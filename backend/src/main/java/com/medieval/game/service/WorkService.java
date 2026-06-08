@@ -29,7 +29,6 @@ public class WorkService {
     private final WorkProfessionRepository professionRepository;
     private final WarriorRepository        warriorRepository;
     private final PlayerRepository         playerRepository;
-    private final PlayerService            playerService;
     private final TerritoryService         territoryService;
     private final ConcurrentEntityCreator  entityCreator;
 
@@ -51,6 +50,25 @@ public class WorkService {
 
     public Optional<WorkSession> getCurrentSession(Player player) {
         return workRepository.findByPlayerAndStatus(player, WorkStatus.IN_PROGRESS);
+    }
+
+    /** [WORK_IDLE] true se o jogador está trabalhando AGORA (sessão em andamento que ainda não terminou). */
+    public boolean isWorking(Player player) {
+        return workRepository.findByPlayerAndStatus(player, WorkStatus.IN_PROGRESS)
+                .filter(s -> !s.isReadyToCollect())
+                .isPresent();
+    }
+
+    /**
+     * [WORK_IDLE] Trava cruzada: enquanto o timer do trabalho roda, o jogador não pode aventurar
+     * (zona/arena/torre/missão/guerra/trial). Estático recebendo o repo p/ NÃO criar dependência
+     * circular entre os serviços de aventura e o WorkService.
+     */
+    public static void assertNotBusy(WorkSessionRepository repo, Player player) {
+        repo.findByPlayerAndStatus(player, WorkStatus.IN_PROGRESS)
+            .filter(s -> !s.isReadyToCollect())
+            .ifPresent(s -> { throw new com.medieval.game.config.LocalizedException(
+                    "error.busy_working", "You are working — finish or cancel your job first."); });
     }
 
     @Transactional
@@ -84,20 +102,10 @@ public class WorkService {
         long goldReward = Math.round(workType.goldPerHour * hours * profession.goldBonus());
         int  xpReward   = workType.xpPerHour * hours;
 
-        // [SEM_TIMER] Trabalho instantâneo → custa estamina (horas × 5). Sem o timer, a estamina é o gate
-        // (senão seria bronze infinito). O nº de horas vira o dial recompensa × estamina. Pulado no modo de teste.
-        if (!instantComplete) {
-            int staminaCost = playerService.discountStamina(player, hours * 5); // [ESTABULO]
-            int cur = player.getCalculatedStamina();
-            if (cur < staminaCost) {
-                log.warn("[WorkService] player={} REJECTED: stamina {}/{}", player.getId(), cur, staminaCost);
-                throw new com.medieval.game.config.LocalizedException("error.stamina_rest", "Not enough stamina ({0}/{1}). Rest to recover.", cur, staminaCost);
-            }
-            player.setCurrentStamina(cur - staminaCost);
-            player.setStaminaUpdatedAt(LocalDateTime.now());
-            playerRepository.save(player);
-        }
-
+        // [WORK_IDLE] Trabalho é a atividade IDLE do jogo: roda em TEMPO REAL e NÃO custa estamina — o
+        // "custo" é o tempo + a trava de aventura (ver assertNotBusy). É a exceção deliberada ao [SEM_TIMER]:
+        // o resto do jogo continua instantâneo/gated por estamina; só o Trabalho tem timer. Em modo de teste
+        // (instant-complete) resolve na hora pra não travar o playtest solo por horas.
         WorkSession session = new WorkSession();
         session.setPlayer(player);
         session.setWorkType(workType);
@@ -105,7 +113,9 @@ public class WorkService {
         session.setGoldReward(goldReward);
         session.setXpReward(xpReward);
         session.setStartedAt(LocalDateTime.now());
-        session.setFinishesAt(LocalDateTime.now().minusSeconds(1)); // [SEM_TIMER] instantâneo; -1s evita corrida de sub-segundo no collect [FLAKE_FIX]
+        session.setFinishesAt(instantComplete
+                ? LocalDateTime.now().minusSeconds(1)        // teste: pronto na hora [FLAKE_FIX]
+                : LocalDateTime.now().plusHours(hours));     // [WORK_IDLE] timer real
         WorkSession saved = workRepository.save(session);
         log.info("[WorkService] player={} action=startWork OK id={} goldReward={}", player.getId(), saved.getId(), goldReward);
         return saved;

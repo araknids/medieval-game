@@ -36,6 +36,7 @@ public class ZoneService {
     private final ResourceInventoryRepository resourceRepo; // raid de recursos [PVP_FLAG]
     private final AbilityService           abilityService; // ativas no combate [HABILIDADES]
     private final Messages                 messages;        // [I18N] nome do NPC da zona (→ battle log)
+    private final WorkSessionRepository    workSessionRepository; // [WORK_IDLE] trava enquanto trabalha
 
     @Value("${app.dev.instant-complete:false}")
     private boolean instantComplete;
@@ -75,6 +76,8 @@ public class ZoneService {
             log.warn("[ZoneService] player={} REJECTED: warrior is unconscious", player.getId());
             throw new IllegalStateException("Your warrior is unconscious. Visit the Temple to heal!");
         }
+
+        WorkService.assertNotBusy(workSessionRepository, player); // [WORK_IDLE] não aventura enquanto trabalha
 
         // [SEM_TIMER] Auto-cancela expedição pendurada (IN_PROGRESS não coletada): tudo é instantâneo,
         // então uma atividade antiga é só lixo — cancela e segue pra nova (uma expedição ativa por vez).

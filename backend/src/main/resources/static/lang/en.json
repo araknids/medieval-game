@@ -78,6 +78,7 @@
   "work.btn.cancel": "Cancel",
   "work.in_progress": "Working...",
   "work.ready": "Work complete!",
+  "work.locked_hint": "⚒ Working — you can't adventure (quests, zones, arena, tower) until you collect or cancel.",
   "work.job.TAVERN_HELPER": "Tavern Helper",
   "work.job.STABLE_KEEPER": "Stable Keeper",
   "work.job.GOODS_CARRIER": "Goods Carrier",

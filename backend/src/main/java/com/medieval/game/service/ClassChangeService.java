@@ -26,6 +26,7 @@ public class ClassChangeService {
 
     private final PlayerRepository    playerRepository;
     private final WarriorRepository   warriorRepository;
+    private final com.medieval.game.repository.WorkSessionRepository workSessionRepository; // [WORK_IDLE]
     private final WarriorStatsService statsService;
     private final BattleSimulator     battleSimulator;
     private final InventoryService    inventoryService;
@@ -116,6 +117,7 @@ public class ClassChangeService {
             throw new com.medieval.game.config.LocalizedException("error.trial_level", "Reach level {0} to take the Path Trial.", TRIAL_LEVEL);
         if (w.isKnockedOut())
             throw new IllegalStateException("Your warrior is unconscious. Visit the Temple to heal first!");
+        WorkService.assertNotBusy(workSessionRepository, player); // [WORK_IDLE] não faz a Trial enquanto trabalha
         // [TRIAL_CUSTO] Precisa TER 100 Monster Core (bag + stash) p/ encarar o Guardião (só consome se vencer).
         long cores = gatheringService.resourceQuantityTotal(player, com.medieval.game.enums.ResourceType.MONSTER_CORE);
         if (cores < TRIAL_MONSTER_CORE_COST)

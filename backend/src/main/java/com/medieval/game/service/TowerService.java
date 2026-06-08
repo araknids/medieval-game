@@ -27,6 +27,7 @@ public class TowerService {
     private final AchievementService      achievementService; // [TITULOS]
     private final GatheringService        gatheringService;   // [MONSTER_CORE_BATALHA]
     private final Messages                messages;           // [I18N] atmosfera dos andares + escolha do Arka
+    private final WorkSessionRepository   workSessionRepository; // [WORK_IDLE] trava enquanto trabalha
 
     @Value("${app.dev.instant-complete:false}")
     private boolean instantComplete;
@@ -120,6 +121,8 @@ public class TowerService {
             log.warn("[TowerService] player={} REJECTED: warrior is unconscious", player.getId());
             throw new IllegalStateException("Your warrior is unconscious. Visit the Temple to heal!");
         }
+
+        WorkService.assertNotBusy(workSessionRepository, player); // [WORK_IDLE] não sobe a torre enquanto trabalha
 
         // Estamina ignorada quando instant-complete (modo de teste). [TESTE]
         if (!instantComplete) {

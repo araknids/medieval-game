@@ -290,6 +290,7 @@ section {
 .btn-hour:disabled { opacity: 0.4; cursor: not-allowed; }
 .hour-gold { font-size: 0.68rem; color: #4caf82; margin-top: 0.1rem; }
 .btn-hour .stamina-cost { font-size: 0.82rem; font-weight: bold; }
+.btn-hour .hour-label { font-size: 0.9rem; font-weight: bold; color: #e9dcc4; } /* [WORK_IDLE] duração */
 
 .btn-cancel-work {
   padding: 0.3rem 0.8rem;

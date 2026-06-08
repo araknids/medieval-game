@@ -34,6 +34,7 @@ public class KingdomService {
     private final TrainingSessionRepository    trainingRepo;
     private final WarriorRepository            warriorRepo;
     private final PlayerRepository             playerRepository;
+    private final WorkSessionRepository        workSessionRepository; // [WORK_IDLE] trava enquanto trabalha
     private final PlayerService                playerService;
     private final WarriorService               warriorService;
     private final InventoryService             inventoryService;
@@ -177,6 +178,7 @@ public class KingdomService {
             throw new IllegalStateException("You already did this daily quest. Comes back on the next reset.");
         }
 
+        WorkService.assertNotBusy(workSessionRepository, player); // [WORK_IDLE] não faz missão enquanto trabalha
         if (!instantComplete) playerService.consumeStamina(player, questType.staminaCost); // estamina ignorada no modo de teste [TESTE]
 
         KingdomActiveQuest quest = new KingdomActiveQuest();

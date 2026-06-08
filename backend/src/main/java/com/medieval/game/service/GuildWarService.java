@@ -36,6 +36,7 @@ public class GuildWarService {
     private final GuildRepository     guildRepository;
     private final PlayerRepository    playerRepository;
     private final WarriorRepository   warriorRepository;
+    private final com.medieval.game.repository.WorkSessionRepository workSessionRepository; // [WORK_IDLE]
     private final WarriorStatsService statsService;
     private final BattleSimulator     battleSimulator;
     private final ZoneService         zoneService;   // applyGuildWarRaid (loot/penalty/escudo)
@@ -109,6 +110,7 @@ public class GuildWarService {
                 .orElseThrow(() -> new IllegalStateException("Target has no warrior."));
         if (aw.isKnockedOut())  throw new IllegalStateException("Your warrior is unconscious. Heal at the Temple.");
         if (tw.isKnockedOut())  throw new IllegalStateException("That player is already down.");
+        WorkService.assertNotBusy(workSessionRepository, attacker); // [WORK_IDLE] não ataca na guerra enquanto trabalha
         if (attacker.getCalculatedStamina() < ATTACK_STAMINA)
             throw new com.medieval.game.config.LocalizedException("error.war_stamina", "Not enough stamina (need {0}).", ATTACK_STAMINA);
 

@@ -78,6 +78,7 @@
   "work.btn.cancel": "Cancelar",
   "work.in_progress": "Trabalhando...",
   "work.ready": "Trabalho completo!",
+  "work.locked_hint": "⚒ Trabalhando — você não pode aventurar (missões, zonas, arena, torre) até coletar ou cancelar.",
   "work.job.TAVERN_HELPER": "Ajudante da Taverna",
   "work.job.STABLE_KEEPER": "Cuidador dos Estábulos",
   "work.job.GOODS_CARRIER": "Carregador de Mercadorias",
