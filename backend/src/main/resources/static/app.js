@@ -1599,7 +1599,7 @@ async function openStash() {
       <p style="font-size:11px;color:#ffc107;margin:0 0 10px">Fee: ${s.fee} bronze per move (deposit/withdraw)</p>
       <div style="display:flex;gap:12px;flex-wrap:wrap">
         ${col('Bag', s.bagUsed + '/' + s.bagMax, bagBody)}
-        ${col('Stash', s.used + '/' + s.max, stBody)}
+        ${col('Stash', s.used + (s.max < 0 ? ' (∞)' : '/' + s.max), stBody)}
       </div></div>`;
   modal.style.display = 'flex';
 }

@@ -14,7 +14,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.util.List;
 
 /**
- * Stash (Inventário V2): armazenamento extra de 100 slots, fora da bag. Cobra uma taxa fixa de
+ * Stash (Inventário V2): armazenamento extra ILIMITADO, fora da bag. Cobra uma taxa fixa de
  * bronze por operação (depositar ou retirar). Itens e recursos guardados ficam com stashed=true.
  */
 @Slf4j
@@ -22,8 +22,7 @@ import java.util.List;
 @RequiredArgsConstructor
 public class StashService {
 
-    public static final int  STASH_MAX = 100;  // slots do stash (mesma contagem por unidade da bag)
-    public static final long STASH_FEE = 50;   // bronze por operação (depositar/retirar)
+    public static final long STASH_FEE = 50;   // bronze por operação (depositar/retirar). Stash sem limite de slots.
 
     private final InventoryItemRepository     inventoryRepository;
     private final ResourceInventoryRepository resourceRepository;
@@ -38,8 +37,6 @@ public class StashService {
                 .mapToLong(ResourceInventory::getQuantity).sum();
         return (int) (items + res);
     }
-
-    public int stashSpaceLeft(Player player) { return Math.max(0, STASH_MAX - stashSize(player)); }
 
     public List<InventoryItem> stashItems(Player player) {
         return inventoryRepository.findAllByPlayer(player).stream().filter(InventoryItem::isStashed).toList();
@@ -58,7 +55,6 @@ public class StashService {
         if (item.isEquipped()) throw new IllegalStateException("Unequip the item before stashing it.");
         if (item.isPvpLocked() && player.isPvpFlagged())
             throw new IllegalStateException("Item exposto no PvP — não pode guardar no stash enquanto flagged.");
-        if (stashSpaceLeft(player) < 1) throw new com.medieval.game.config.LocalizedException("error.stash_full", "Stash full ({0} slots).", STASH_MAX);
         playerService.spendBronze(player, STASH_FEE);
         item.setStashed(true);
         inventoryRepository.save(item);
@@ -86,7 +82,6 @@ public class StashService {
         ResourceInventory bag = resourceRepository.findByPlayerAndResourceTypeAndStashed(player, type, false)
                 .orElseThrow(() -> new IllegalStateException("You don't have that resource."));
         if (bag.getQuantity() < qty) throw new IllegalStateException("Insufficient quantity.");
-        if (stashSpaceLeft(player) < qty) throw new com.medieval.game.config.LocalizedException("error.stash_full", "Stash full ({0} slots).", STASH_MAX);
         playerService.spendBronze(player, STASH_FEE);
         bag.setQuantity(bag.getQuantity() - qty);
         resourceRepository.save(bag);

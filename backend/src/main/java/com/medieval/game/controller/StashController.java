@@ -50,7 +50,7 @@ public class StashController {
                 "items",     items,
                 "resources", resources,
                 "used",      stashService.stashSize(p),
-                "max",       StashService.STASH_MAX,
+                "max",       -1, // stash ilimitado (UI mostra ∞)
                 "fee",       StashService.STASH_FEE,
                 "bagUsed",   inventoryService.bagSize(p),
                 "bagMax",    p.getMaxInventorySlots()
