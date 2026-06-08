@@ -3597,7 +3597,6 @@ function renderWorldOverview(kingdoms, territories) {
         ${nextWar}
       </div>
       <p style="color:#888;font-size:12px;margin:8px 0 0">${k.lore}</p>
-      <div style="margin-top:8px;display:flex;gap:6px;flex-wrap:wrap">${zoneHtml}</div>
       ${warSection}
     </div>`;
   }).join('');
@@ -3618,9 +3617,9 @@ async function enterKingdom(kingdom, _depth = 0) {
   // Abre o painel logo ABAIXO do card clicado (não lá no fim da lista). Só move/scrolla na abertura
   // inicial — refresh pós-coleta não fica re-scrollando. [FIX_KINGDOM_PANEL]
   const card = document.getElementById('kingdom-card-' + kingdom);
-  if (card && el.previousElementSibling !== card) {
-    card.insertAdjacentElement('afterend', el);
-    el.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  if (card && el.parentElement !== card) {
+    card.appendChild(el); // [PILOTO_UI] abre DENTRO do card (1 nome só — sem duplicar o nome do território)
+    card.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
   }
   el.innerHTML = '<p>Loading kingdom...</p>';
   try {
@@ -3874,12 +3873,10 @@ function renderKingdomDetail(kingdom, quests, activeQuests, training, zoneSessio
     ? `<h4 style="margin:0 0 8px;color:#aaa;font-size:13px">🗓 DAILY QUESTS <span style="color:#666;font-weight:normal">· reset in ${fmtResetCountdown(quests[0].secondsUntilReset)}</span></h4>${questCards}`
     : '';
 
+  // [PILOTO_UI] Detalhe abre DENTRO do card → sem repetir o nome do território nem botão Close
+  // (trocar de reino move o painel pro outro card; só um fica aberto por vez).
   el.innerHTML = `
-    <div style="background:#111;border-radius:10px;padding:16px">
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
-        <h3 style="margin:0">${ICONS[kingdom]} ${NAMES[kingdom]}</h3>
-        <button onclick="document.getElementById('kingdom-detail').innerHTML=''" style="background:#333;font-size:12px">✕ Close</button>
-      </div>
+    <div style="border-top:1px solid #2a2a3a;margin-top:10px;padding-top:12px">
       ${pvpStatusBanner(pvpStatus)}
       ${activeHtml}
       ${activeGatherHtml}
