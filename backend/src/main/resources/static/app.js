@@ -1052,6 +1052,7 @@ async function loadShop() {
   if (!data.items) return;
 
   const { items, merchantName, merchantQuote, secondsUntilNext } = data;
+  await ensureEquipped(); // [ITEM_COMPARE] precisa do equipado p/ o comparativo
 
   // Timer da rotação
   clearInterval(shopTimerInterval);
@@ -1080,6 +1081,7 @@ async function loadShop() {
             <div class="shop-item-info">
               <h3 class="rarity-${i.rarity}">${i.name} <span style="font-size:.7rem;color:#888">Lv.${i.itemLevel}</span></h3>
               <div class="shop-stats">${(t('item.type.'+i.type)||i.typeDisplay)} · ${(t('inventory.rarity.'+i.rarity)||i.rarityName)} · ${stats}${i.itemLevel > (warrior?.level||1) ? ` · <span style="color:#ef5350">🔒 Req. Lv.${i.itemLevel}</span>` : ''}</div>
+              ${compareHtml(i)}
             </div>
             <span class="shop-price">${fmtBronze(i.price)}</span>
             ${i.purchased
@@ -1147,6 +1149,53 @@ const ALL_SLOTS = [
   { id:'GLOVES'  }, { id:'SHOULDER' },
   { id:'NECKLACE'}, { id:'RING'     },
 ];
+
+// ── [ITEM_COMPARE] Comparativo "melhor/pior que o equipado" — selo + deltas por stat ──
+// Reusado no shop, inventário, craft e dialog de loot. Tudo no frontend (zero mudança no backend):
+// soma os 6 stats (mesmo critério do antigo "Equip ✓ better"). equippedByType = cache do equipado/slot.
+let equippedByType = {};
+function setEquippedCache(inv) {
+  if (!Array.isArray(inv)) return;
+  equippedByType = {};
+  inv.forEach(i => { if (i.equipped) equippedByType[i.type] = i; });
+}
+async function ensureEquipped() { // popula o cache se ainda vazio (shop/craft/quest abertos antes do inventário)
+  if (Object.keys(equippedByType).length) return;
+  try { setEquippedCache(await api('GET', '/api/inventory')); } catch (e) {}
+}
+// aceita item (attackBonus…) OU receita de craft (atk…)
+function _cmpStats(x) {
+  return { ATK:(x.attackBonus ?? x.atk ?? 0), DEF:(x.defenseBonus ?? x.def ?? 0),
+           HP: (x.healthBonus ?? x.hp  ?? 0), STR:(x.strBonus ?? x.str ?? 0),
+           DEX:(x.dexBonus ?? x.dex ?? 0),    LUK:(x.lukBonus ?? x.luk ?? 0) };
+}
+// compara candidato (com .type ou slot explícito) ao equipado do mesmo slot. null = sem como comparar.
+function compareToEquipped(cand, slot) {
+  slot = slot || cand.type;
+  if (!slot) return null;
+  const cur = equippedByType[slot];
+  const a = _cmpStats(cand), b = _cmpStats(cur || {});
+  const KEYS = ['ATK','DEF','HP','STR','DEX','LUK'];
+  const deltas = KEYS.map(k => ({ k, d: a[k] - b[k] })).filter(x => x.d !== 0);
+  const sum = o => KEYS.reduce((s, k) => s + o[k], 0);
+  const verdict = !cur ? 'new' : sum(a) > sum(b) ? 'better' : sum(a) < sum(b) ? 'worse' : 'same';
+  return { verdict, deltas, cur };
+}
+// HTML do selo + deltas (verde/vermelho). '' se não há comparação.
+function compareHtml(cand, slot) {
+  const c = compareToEquipped(cand, slot);
+  if (!c) return '';
+  const B = { better:['▲', t('compare.better')||'Better',    '#4caf82'],
+              worse: ['▼', t('compare.worse') ||'Worse',     '#ef5350'],
+              same:  ['≈', t('compare.same')  ||'Same',      '#9e9e9e'],
+              new:   ['✦', t('compare.new')   ||'New slot',  '#5b9bd5'] };
+  const [icon, label, color] = B[c.verdict];
+  const deltas = c.deltas.map(x =>
+    `<span style="color:${x.d > 0 ? '#4caf82' : '#ef5350'}">${x.d > 0 ? '+' : ''}${x.d} ${x.k}</span>`).join(' ');
+  return `<div class="item-compare" style="font-size:.72rem;margin-top:3px;line-height:1.4">`
+       + `<span style="color:${color};font-weight:600">${icon} ${label}</span>`
+       + (deltas ? ` <span style="color:#666">·</span> ${deltas}` : '') + `</div>`;
+}
 
 // [REBALANCE] cap = maior cap entre as classes (o backend ainda valida o cap real da SUA classe).
 const ATTR_INFO = {
@@ -1413,6 +1462,7 @@ async function loadInventory() {
   const equipped = {};
   const bag = [];
   items.forEach(i => { if (i.equipped) equipped[i.type] = i; else bag.push(i); });
+  equippedByType = equipped; // [ITEM_COMPARE] mantém o cache fresco p/ o comparativo
 
   document.getElementById('equipment-slots').innerHTML = `
     <div class="equipment-grid">
@@ -1448,6 +1498,7 @@ async function loadInventory() {
           ${affixLines(item)}
           ${durabilityBar(item)}
           ${item.sockets > 0 ? renderSockets(item) : ''}
+          ${compareHtml(item)}
         </div>
         ${item.itemLevel > (warrior?.level || 1)
           ? `<button class="btn-equip" disabled style="opacity:.5;cursor:not-allowed" title="Requires level ${item.itemLevel}">🔒 Lv.${item.itemLevel}</button>`
@@ -1922,6 +1973,7 @@ async function renderSmithing() {
   // Itens do jogador (equipados + mochila) para reparo/reforja
   const inv = await api('GET', '/api/inventory');
   const equip = Array.isArray(inv) ? inv : [];
+  setEquippedCache(inv); // [ITEM_COMPARE] cache do equipado p/ o comparativo das receitas
   const maintHtml = equip.map(item => {
     const dur = item.durability ?? 100;
     const repairCost = repairCostFor(item);
@@ -1958,6 +2010,7 @@ async function renderSmithing() {
         ${r.ingredients.map(i => `${RESOURCE_ICONS[i.resource]||''} ${i.name} ×${i.qty}`).join(' + ')}
         ${r.atk > 0 ? ` · +${r.atk} ATK` : ''}${r.def > 0 ? ` · +${r.def} DEF` : ''}${r.hp > 0 ? ` · +${r.hp} HP` : ''}${r.str > 0 ? ` · +${r.str} STR` : ''}${r.dex > 0 ? ` · +${r.dex} DEX` : ''}${r.luk > 0 ? ` · +${r.luk} LUK` : ''}
       </div>
+      ${compareHtml(r, r.weaponType ? 'WEAPON' : 'ARMOR')}
       <div style="font-size:.75rem;color:#888">Forja Lv.${r.levelRequired} ${!r.canCraft ? '🔒' : ''}</div>
       ${r.canCraft ? `
         <div style="font-size:.72rem;color:#8bc34a;margin-top:.2rem">🎲 Success: ${r.successPct}% · Fee: ${fmtBronze(r.bronzeCost)}</div>
@@ -3949,7 +4002,7 @@ function worldMsg(text, ok = true) {
 // log:  string[] (battle log lines)
 // note: string (narrative/lore paragraph shown above the rows)
 let _collectAgainFn = null; // [PILOTO_UI] guarda o "repetir ação" do modal de coleta/caça
-function showCollectModal({ title, color = '#4caf50', rows = [], log = [], note = '', again = null, equipId = null, equipUpgrade = false, battleEvents = null, scene = null }) {
+function showCollectModal({ title, color = '#4caf50', rows = [], log = [], note = '', again = null, equipId = null, equipUpgrade = false, compareInfo = '', battleEvents = null, scene = null }) {
   closeCollectModal();
   _collectAgainFn = again;
 
@@ -3998,6 +4051,7 @@ function showCollectModal({ title, color = '#4caf50', rows = [], log = [], note 
       ${battleHtml}
       ${noteHtml}
       ${rowsHtml || '<div style="color:#888;font-size:13px">Nothing this time.</div>'}
+      ${compareInfo ? `<div style="margin-top:10px;padding:8px 10px;background:#0d0d18;border-radius:6px">${compareInfo}</div>` : ''}
       ${logHtml}
       <div style="display:flex;gap:10px;margin-top:18px;flex-wrap:wrap">
         ${equipId ? `<button id="loot-equip-btn" onclick="equipFromLoot(${equipId})" style="flex:1;min-width:110px;background:#c9a84c;color:#1a1a2e;font-weight:bold;padding:10px;border-radius:8px;cursor:pointer;font-size:14px;border:none">🛡 ${equipUpgrade ? 'Equip ✓ better' : 'Equip'}</button>` : ''}
@@ -4150,7 +4204,7 @@ async function resolveLuna(kingdom, questId, action) {
 }
 
 // Modal de resultado da quest: roll (se houve) + narrativa + combate; derrota = sem recompensa.
-function showQuestResultModal(r) {
+async function showQuestResultModal(r) {
   // [PETS] ganhou um pet na quest rara → celebração
   if (r.acquiredPet) {
     showCollectModal({
@@ -4186,6 +4240,7 @@ function showQuestResultModal(r) {
     { icon:'⭐', label:'Experience', value:`+${r.xpEarned} XP`,    color:'#ffd700' },
     { icon:'🪙', label:'Bronze',     value:fmtBronze(r.bronzeEarned), color:'#cd7f32' },
   ];
+  let compareInfo = '';
   if (r.droppedItem) {
     const d = r.droppedItem;
     const typeName = t('item.type.'+d.type) || d.type;
@@ -4196,9 +4251,11 @@ function showQuestResultModal(r) {
       color: rarityColor(d.rarity),
       sub:   `${rarityName(d.rarity)} · ${typeName} · ${statsText(d)}`
     });
+    await ensureEquipped();          // [ITEM_COMPARE] comparativo do item recebido
+    compareInfo = compareHtml(d);
   }
   const title = r.monsterEncountered ? `⚔ ${r.monsterName} slain!` : '⚔ Quest Completed!';
-  showCollectModal({ title, color:'#4caf50', note:r.narrative, rows, log:r.battleLog || [], battleEvents: r.battleEvents, scene: r.scene }); // [BATALHA_ANIMADA]
+  showCollectModal({ title, color:'#4caf50', note:r.narrative, rows, log:r.battleLog || [], compareInfo, battleEvents: r.battleEvents, scene: r.scene }); // [BATALHA_ANIMADA][ITEM_COMPARE]
 }
 
 async function abandonKingdomQuest(kingdom, questId) {
@@ -4321,23 +4378,24 @@ async function renderZoneResult(r, again) {
   const canAgain = (typeof again === 'function') && !(r.wasAttacked && !r.survived);
   // [PILOTO_UI] Equip no loot: só quando o item está na bag (id>0; null se foi pro mail por bag cheia).
   const equipId = (r.lootItemId && r.lootItemId > 0) ? r.lootItemId : null;
-  // [PILOTO_UI] "é upgrade?" — compara a soma de stats do drop vs o equipado no mesmo slot (frontend).
-  let equipUpgrade = false;
+  // [ITEM_COMPARE] compara o drop vs o equipado no mesmo slot (selo + deltas) e decide se é upgrade.
+  let equipUpgrade = false, compareInfo = '';
   if (equipId) {
     try {
       const inv = await api('GET', '/api/inventory');
       if (Array.isArray(inv)) {
+        setEquippedCache(inv);
         const dropped = inv.find(i => i.id === equipId);
         if (dropped) {
-          const statSum = x => (x.attackBonus||0)+(x.defenseBonus||0)+(x.healthBonus||0)+(x.strBonus||0)+(x.dexBonus||0)+(x.lukBonus||0);
-          const cur = inv.find(i => i.equipped && i.type === dropped.type);
-          equipUpgrade = !cur || statSum(dropped) > statSum(cur);
+          const c = compareToEquipped(dropped);
+          equipUpgrade = !!c && (c.verdict === 'better' || c.verdict === 'new');
+          compareInfo  = compareHtml(dropped);
         }
       }
     } catch (e) { /* sem comparação → botão fica "Equip" normal */ }
   }
   dismissOnboardClue(); // [ONBOARDING] 1ª expedição feita → tira o coachmark
-  showCollectModal({ title, color, rows, note: r.narrative || '', log: r.battleLog || [], again: canAgain ? again : null, equipId, equipUpgrade, battleEvents: r.battleEvents, scene: r.scene });
+  showCollectModal({ title, color, rows, note: r.narrative || '', log: r.battleLog || [], again: canAgain ? again : null, equipId, equipUpgrade, compareInfo, battleEvents: r.battleEvents, scene: r.scene });
   if (worldCurrentKingdom) await enterKingdom(worldCurrentKingdom);
 }
 
