@@ -17,7 +17,7 @@
 
   // ── Sprites (CraftPix Knight). Cada PNG é um strip horizontal de frames 128×128. ──
   const FRAME_W = 128, FRAME_H = 128, DRAW_H = 150;
-  const FRAME_MS = { idle: 130, walk: 80, attack: 55, hurt: 110, dead: 110, jump: 250 }; // jump lento (taunt ~1.5s)
+  const FRAME_MS = { idle: 130, walk: 80, attack: 55, hurt: 110, dead: 110, jump: 90 }; // jump suave (~11fps); repete no taunt
   const KNIGHT = {
     blue: {
       idle: '/assets/knights/blue/idle.png',   walk: '/assets/knights/blue/walk.png',
@@ -63,7 +63,7 @@
 
     const steps = events.slice();
     const BUDGET = 8500;   // ms — caber em ≤10s mesmo com muitos turnos
-    const TAUNT_MS = 1550; // pulo de taunt no início (~1.5s: 6 frames × 250ms) antes de andar
+    const TAUNT_MS = 1150; // taunt no início (~2 pulos suaves de 6×90ms) antes de andar pro combate
     const INTRO_MS = 600;  // entrada andando até o corpo-a-corpo
     const stepDur = Math.max(110, Math.min(600, steps.length ? BUDGET / steps.length : 600));
 
@@ -152,7 +152,7 @@
         if (f.dead) {
           if (f.anim !== 'dead') { f.anim = 'dead'; f.animStart = nowTs; f.animOnce = true; }
         } else if (taunting) {
-          if (f.anim !== 'jump') { f.anim = 'jump'; f.animStart = nowTs; f.animOnce = true; } // só 1x
+          setAnim(f, 'jump', false); // loop suave do pulo durante o taunt (não congela = não trava)
         } else if (f.animOnce) {
           const im = sprite(KNIGHT[f.set][f.anim]);
           const frames = im.naturalWidth ? Math.floor(im.naturalWidth / FRAME_W) : 1;
