@@ -35,6 +35,7 @@ public class ZoneService {
     private final WarriorStatsService      statsService;
     private final ResourceInventoryRepository resourceRepo; // raid de recursos [PVP_FLAG]
     private final AbilityService           abilityService; // ativas no combate [HABILIDADES]
+    private final Messages                 messages;        // [I18N] nome do NPC da zona (→ battle log)
 
     @Value("${app.dev.instant-complete:false}")
     private boolean instantComplete;
@@ -857,7 +858,8 @@ public class ZoneService {
             case PVP       -> NPC_NAMES[1];
             case HIGH_RISK -> NPC_NAMES[2];
         };
-        return pool[rng.nextInt(pool.length)];
+        String en = pool[rng.nextInt(pool.length)];
+        return messages.getOr("monster." + en.replace(' ', '_'), en); // [I18N] nome localizado → battle log
     }
 
     /** Stats do NPC baseados no nível (até +3 do guerreiro) */

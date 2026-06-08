@@ -48,13 +48,18 @@ public class TowerService {
     }
 
     /** Gauntlet do andar: 1 MVP, ou N monstros (HP do andar dividido entre eles, atk levemente menor). */
+    // [I18N] nome de combatente localizado (monster.<Nome_Com_Underscore>); EN = o nome do TowerFloors.
+    // O nome localizado vira o BossInfo.name → propaga pro battle log (sem tocar o BattleSimulator).
+    private String monName(String en) { return messages.getOr("monster." + en.replace(' ', '_'), en); }
+
     public List<BossInfo> monstersFor(int floor) {
         TowerFloors.FloorDef d = TowerFloors.forFloor(floor);
-        if (d.isMvp()) return List.of(monster(floor, d.mvp() + " (Floor " + floor + ")", 1, 1.0, true));
+        if (d.isMvp()) return List.of(monster(floor,
+                monName(d.mvp()) + messages.getOr("tower.floor_suffix", " (Floor {0})", floor), 1, 1.0, true)); // [I18N]
         String[] ms = d.monsters().length > 0 ? d.monsters() : new String[]{"Tower Horror"};
         int n = ms.length;
         List<BossInfo> out = new java.util.ArrayList<>(n);
-        for (String name : ms) out.add(monster(floor, name, n, n > 1 ? 0.85 : 1.0, false));
+        for (String name : ms) out.add(monster(floor, monName(name), n, n > 1 ? 0.85 : 1.0, false)); // [I18N]
         return out;
     }
 
@@ -74,7 +79,8 @@ public class TowerService {
                             BossInfo primary, int recommendedLevel) {}
     public FloorView floorView(int floor) {
         TowerFloors.FloorDef d = TowerFloors.forFloor(floor);
-        List<String> names = d.isMvp() ? List.of(d.mvp()) : List.of(d.monsters());
+        List<String> names = d.isMvp() ? List.of(monName(d.mvp()))
+                : java.util.Arrays.stream(d.monsters()).map(this::monName).toList(); // [I18N]
         return new FloorView(floor, floorAtmosphere(floor), d.isMvp(), names, bossForFloor(floor), recommendedLevel(floor)); // [I18N]
     }
 
@@ -161,8 +167,9 @@ public class TowerService {
         int floor = run.getCurrentFloor();
         TowerFloors.FloorDef fdef = TowerFloors.forFloor(floor);
         List<BossInfo> monsters = monstersFor(floor);
-        String headline = fdef.isMvp() ? fdef.mvp()
-                : (monsters.size() > 1 ? monsters.size() + " monsters" : monsters.get(0).name());
+        String headline = fdef.isMvp() ? monName(fdef.mvp()) // [I18N]
+                : (monsters.size() > 1 ? messages.getOr("tower.n_monsters", monsters.size() + " monsters", monsters.size())
+                                       : monsters.get(0).name()); // get(0).name() já localizado
 
         // Climb fee (scalable sink) — the Tower stops being pure income. [AUDITORIA A3]
         long climbCost = (long) floor * 15;
