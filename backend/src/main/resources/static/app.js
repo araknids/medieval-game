@@ -254,7 +254,7 @@ function enterGame() {
   document.getElementById('login-screen').style.display = 'none';
   document.getElementById('game-screen').style.display = 'block';
   loadWarrior();
-  loadWorld(); // Default to World tab
+  goTo('world'); // [PILOTO_UI nav] default + inicializa os grupos (chama loadWorld dentro)
   maybeShowOnboarding(); // [ONBOARDING] boas-vindas no 1º login
   checkDailyReward();    // [DAILY] badge + popup de recompensa diária (pula popup se já tem modal aberto)
 }
@@ -543,7 +543,7 @@ function goTo(loc) {
   if (loc !== 'commerce') stopTavernPolling(); // [TAVERNA] para o polling ao sair do comércio
   ['inventory','commerce','temple','work','tower','arena','guild','world','mail','daily'].forEach(l => {
     document.getElementById('loc-panel-' + l).style.display = l === loc ? 'block' : 'none';
-    document.getElementById('loc-' + l).classList.toggle('active', l === loc);
+    document.getElementById('loc-' + l)?.classList.toggle('active', l === loc);
   });
   if (loc === 'temple')   { loadTemple(); }
   if (loc === 'tower')    { loadTower(); }
@@ -555,6 +555,21 @@ function goTo(loc) {
   if (loc === 'world')      { loadWorld(); }
   if (loc === 'mail')      { loadMail(); }
   if (loc === 'daily')     { loadDailyReward(); }
+
+  // [PILOTO_UI nav 9→5] ativa o grupo do destino e mostra só os botões daquele grupo.
+  // Todos os botões seguem no DOM (badges/i18n intactos); só alternamos a visibilidade.
+  const grp = NAV_LOC_GROUP[loc];
+  if (grp) {
+    document.querySelectorAll('.grp-btn[data-grp]').forEach(b => b.classList.toggle('active', b.dataset.grp === grp));
+    document.querySelectorAll('.location-nav .loc-btn[data-grp]').forEach(b => { b.style.display = (b.dataset.grp === grp) ? '' : 'none'; });
+  }
+}
+
+// [PILOTO_UI nav 9→5] destino→grupo e grupo→destino primário
+const NAV_LOC_GROUP = { world:'adventure', inventory:'character', commerce:'town', temple:'town', work:'town', tower:'battle', arena:'battle', guild:'social', mail:'social', daily:'social' };
+function goGroup(g) {
+  const PRIMARY = { adventure:'world', character:'inventory', town:'commerce', battle:'arena', social:'guild' };
+  goTo(PRIMARY[g] || 'world');
 }
 
 // ── COMÉRCIO: loja ──

@@ -74,19 +74,27 @@
 
       <main>
 
-        <!-- NAV DE LOCAIS -->
-        <nav class="location-nav">
-          <button id="loc-world"     class="loc-btn active" onclick="goTo('world')">🌍 World</button>
-          <button id="loc-inventory" class="loc-btn"        onclick="goTo('inventory')">👤 <span data-i18n="nav.character">Character</span></button>
-          <button id="loc-commerce"  class="loc-btn"        onclick="goTo('commerce')">🛒 <span data-i18n="nav.commerce">Commerce</span></button>
-          <button id="loc-temple"    class="loc-btn"        onclick="goTo('temple')">⛪ <span data-i18n="nav.temple">Temple</span></button>
-          <button id="loc-work"      class="loc-btn"        onclick="goTo('work')">⚒ <span data-i18n="nav.work">Work</span></button>
-          <button id="loc-tower"     class="loc-btn"        onclick="goTo('tower')">🏰 <span data-i18n="nav.tower">Tower</span></button>
-          <button id="loc-arena"     class="loc-btn"        onclick="goTo('arena')">⚔ Arena</button>
-          <button id="loc-guild"     class="loc-btn"        onclick="goTo('guild')">🛡 <span data-i18n="nav.guild">Guild</span></button>
-          <button id="loc-mail"      class="loc-btn"        onclick="goTo('mail')">📬 <span data-i18n="nav.mail">Mail</span> <span id="mail-badge" style="display:none;background:#ef5350;color:#fff;border-radius:10px;padding:0 5px;font-size:.7em"></span></button>
-          <button id="loc-daily"     class="loc-btn"        onclick="goTo('daily')">🎁 <span data-i18n="nav.daily">Daily</span> <span id="daily-badge" style="display:none;background:#ef5350;color:#fff;border-radius:10px;padding:0 5px;font-size:.7em">!</span></button>
-          <button id="lang-toggle"   class="loc-btn"        onclick="toggleLanguage()" style="margin-left:auto;background:#1a3a1a;border-color:#2e7d32" title="Switch language">🌐 EN</button>
+        <!-- NAV: 5 grupos por intenção (topo) + sub-linha do grupo ativo. Todos os destinos
+             continuam acessíveis (nada escondido) — só reagrupados. [PILOTO_UI nav 9→5] -->
+        <nav class="group-nav" id="group-nav">
+          <button class="grp-btn active" data-grp="adventure" onclick="goGroup('adventure')">🗺 Adventure</button>
+          <button class="grp-btn"        data-grp="character" onclick="goGroup('character')">👤 <span data-i18n="nav.character">Character</span></button>
+          <button class="grp-btn"        data-grp="town"      onclick="goGroup('town')">🏪 <span data-i18n="nav.commerce">Commerce</span></button>
+          <button class="grp-btn"        data-grp="battle"    onclick="goGroup('battle')">⚔ Battle</button>
+          <button class="grp-btn"        data-grp="social"    onclick="goGroup('social')">📜 Social</button>
+          <button id="lang-toggle" class="grp-btn" onclick="toggleLanguage()" style="margin-left:auto;background:#1a3a1a;border-color:#2e7d32" title="Switch language">🌐 EN</button>
+        </nav>
+        <nav class="location-nav" id="loc-nav">
+          <button id="loc-world"     data-grp="adventure" class="loc-btn active" onclick="goTo('world')">🌍 World</button>
+          <button id="loc-inventory" data-grp="character" class="loc-btn"        onclick="goTo('inventory')">👤 <span data-i18n="nav.character">Character</span></button>
+          <button id="loc-commerce"  data-grp="town"      class="loc-btn"        onclick="goTo('commerce')">🛒 <span data-i18n="nav.commerce">Commerce</span></button>
+          <button id="loc-temple"    data-grp="town"      class="loc-btn"        onclick="goTo('temple')">⛪ <span data-i18n="nav.temple">Temple</span></button>
+          <button id="loc-work"      data-grp="town"      class="loc-btn"        onclick="goTo('work')">⚒ <span data-i18n="nav.work">Work</span></button>
+          <button id="loc-tower"     data-grp="battle"    class="loc-btn"        onclick="goTo('tower')">🏰 <span data-i18n="nav.tower">Tower</span></button>
+          <button id="loc-arena"     data-grp="battle"    class="loc-btn"        onclick="goTo('arena')">⚔ Arena</button>
+          <button id="loc-guild"     data-grp="social"    class="loc-btn"        onclick="goTo('guild')">🛡 <span data-i18n="nav.guild">Guild</span></button>
+          <button id="loc-mail"      data-grp="social"    class="loc-btn"        onclick="goTo('mail')">📬 <span data-i18n="nav.mail">Mail</span> <span id="mail-badge" style="display:none;background:#ef5350;color:#fff;border-radius:10px;padding:0 5px;font-size:.7em"></span></button>
+          <button id="loc-daily"     data-grp="social"    class="loc-btn"        onclick="goTo('daily')">🎁 <span data-i18n="nav.daily">Daily</span> <span id="daily-badge" style="display:none;background:#ef5350;color:#fff;border-radius:10px;padding:0 5px;font-size:.7em">!</span></button>
         </nav>
 
         <!-- PERSONAGEM -->

@@ -199,6 +199,19 @@ main {
 .loc-btn:hover  { color: #c9a84c; }
 .loc-btn.active { color: #c9a84c; border-bottom-color: #c9a84c; }
 
+/* [PILOTO_UI nav 9→5] linha de grupos (primária) + sub-linha de destinos (secundária) */
+.group-nav { display: flex; gap: .3rem; background: var(--bg-1); border-bottom: 1px solid var(--line); padding: 0 1rem; align-items: center; }
+.grp-btn {
+  padding: .55rem 1.1rem; background: transparent; border: none; color: var(--ink-1);
+  cursor: pointer; font-family: var(--font-display); font-size: .95rem; letter-spacing: .02em;
+  border-bottom: 2px solid transparent; transition: color .15s;
+}
+.grp-btn:hover  { color: var(--gold); }
+.grp-btn.active { color: var(--gold); border-bottom-color: var(--gold); }
+/* sub-linha recuada (destinos do grupo ativo) */
+.location-nav { background: var(--bg-0); }
+.location-nav .loc-btn { font-size: .82rem; padding: .45rem 1rem; }
+
 /* ── SEÇÕES ── */
 section {
   flex: 1;
