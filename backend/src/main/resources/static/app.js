@@ -3604,6 +3604,11 @@ function renderWorldOverview(kingdoms, territories) {
 
   el.innerHTML = cards + '<div id="kingdom-detail" style="margin-top:16px"></div>' +
                  '<div id="world-territory-msg" style="margin-top:8px;min-height:20px"></div>';
+  // [PILOTO_UI] fluidez: abre UM reino por padrão (o último visto, senão o 1º) — sem cair numa
+  // parede de cards fechados. Arquitetura leve mantida (detalhe único; clicar troca de reino).
+  const openK = (worldCurrentKingdom && kingdoms.some(k => k.kingdom === worldCurrentKingdom))
+    ? worldCurrentKingdom : (kingdoms[0] && kingdoms[0].kingdom);
+  if (openK) enterKingdom(openK);
 }
 
 async function enterKingdom(kingdom, _depth = 0) {
