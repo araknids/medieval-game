@@ -162,8 +162,22 @@ public class ZoneController {
             Map.entry("bossLevel",    result.bossLevel()),
             Map.entry("fleeChance",   result.fleeChance()),
             Map.entry("lootItemName", result.lootItemName() != null ? result.lootItemName() : ""),
-            Map.entry("lootItemId",   result.lootItemId() != null ? result.lootItemId() : 0L) // [PILOTO_UI] Equip no loot
+            Map.entry("lootItemId",   result.lootItemId() != null ? result.lootItemId() : 0L), // [PILOTO_UI] Equip no loot
+            Map.entry("battleEvents", result.battleEvents() != null ? result.battleEvents() : java.util.List.of()), // [BATALHA_ANIMADA]
+            Map.entry("scene",        sceneFor(result.activity().getKingdom())) // [BATALHA_ANIMADA] fundo do replay por reino
         );
+    }
+
+    // [BATALHA_ANIMADA] Fundo do replay derivado do reino (a Arena usa "arena" no ArenaController).
+    private static String sceneFor(com.medieval.game.enums.Kingdom k) {
+        if (k == null) return "fortress";
+        return switch (k) {
+            case FISHING -> "coast";
+            case MAR_ABENCOADO -> "sea";
+            case MINING, GRUTAS_DE_CRISTAL -> "cave";
+            case COMBAT -> "fortress";
+            default -> "fortress";
+        };
     }
 
     // Cancela expedição

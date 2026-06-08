@@ -153,7 +153,8 @@ public class ZoneService {
                                 boolean wasAttacked, boolean survived,
                                 String lostItemName, String narrative,
                                 boolean bossPending, String bossName, int bossLevel, int fleeChance,
-                                String lootItemName, Long lootItemId) {} // [ZONA_CHEFE][PILOTO_UI] lootItemId p/ Equip no loot
+                                String lootItemName, Long lootItemId,
+                                List<BattleSimulator.BattleEvent> battleEvents) {} // [ZONA_CHEFE][PILOTO_UI][BATALHA_ANIMADA]
 
     /** [PILOTO_UI] Item dropado: nome + id. id null quando foi pro mail (bag cheia) → sem botão Equip. */
     private record LootRoll(String name, Long id) {}
@@ -203,7 +204,7 @@ public class ZoneService {
                 activityRepository.save(activity);
                 log.info("[ZoneService] player={} BOSS appeared zone={} bossLvl={}", player.getId(), activity.getZone(), bossLvl);
                 return new CollectResult(activity, List.of(), false, true, null, null,
-                        true, bossName, bossLvl, fleeChance(w), null, null);
+                        true, bossName, bossLvl, fleeChance(w), null, null, List.of());
             }
         }
 
@@ -212,13 +213,13 @@ public class ZoneService {
             List<GatheringService.ResourceDrop> drops = resolveGathering(player, activity);
             activity.setStatus(ZoneActivityStatus.COMPLETED);
             applyDropsAndRewards(player, activity, drops);
-            return winResult(activity, drops, false, null);
+            return winResult(activity, drops, false, null, List.of());
         }
 
         // ── Encontros: 🟢 SAFE = só NPC (PvE); 🟡🔴 = PvP + NPC ──
         PvpResult pvp = resolveEncounters(player, activity);
         if (!pvp.survived()) {
-            return defeat(player, activity, pvp.battleLog(), pvp.attackerName(), pvp.bronzeLost());
+            return defeat(player, activity, pvp.battleLog(), pvp.attackerName(), pvp.bronzeLost(), List.of());
         }
         List<GatheringService.ResourceDrop> drops = resolveZoneDrops(player, activity);
         if (pvp.monsterCore() > 0) drops = withMonsterCore(drops, pvp.monsterCore()); // [MONSTER_CORE_BATALHA] batalha vencida na coleta
@@ -233,7 +234,7 @@ public class ZoneService {
         // [FORTALEZA_ZONAS] caçada de combate pode dropar 1 item em kill normal (além do chefe).
         LootRoll loot = activity.getRole() == ActivityRole.COMBAT ? rollCombatItemDrop(player, activity) : null;
         applyDropsAndRewards(player, activity, drops);
-        return winResult(activity, drops, pvp.wasAttacked(), loot);
+        return winResult(activity, drops, pvp.wasAttacked(), loot, List.of());
     }
 
     /** Drops da expedição por papel: COMBAT caça (materiais+essência), resto coleta. [FORTALEZA_ZONAS] */
@@ -339,15 +340,15 @@ public class ZoneService {
     }
 
     private CollectResult winResult(ZoneActivity activity, List<GatheringService.ResourceDrop> drops,
-                                    boolean wasAttacked, LootRoll loot) {
+                                    boolean wasAttacked, LootRoll loot, List<BattleSimulator.BattleEvent> events) {
         String narrative = (activity.getRole() == ActivityRole.GATHERING && activity.getSkillType() != null)
                 ? GatheringNarrator.narrate(activity.getSkillType(), activity.getKingdom()) : null;
         return new CollectResult(activity, drops, wasAttacked, true, null, narrative,
-                false, null, 0, 0, loot != null ? loot.name() : null, loot != null ? loot.id() : null);
+                false, null, 0, 0, loot != null ? loot.name() : null, loot != null ? loot.id() : null, events);
     }
 
     /** Derrota (PvP/NPC/chefe): KO + penalidade do tier. {@code bronzeLost} é só p/ exibir (já descontado, se houver). */
-    private CollectResult defeat(Player player, ZoneActivity activity, List<String> battleLog, String attackerName, long bronzeLost) {
+    private CollectResult defeat(Player player, ZoneActivity activity, List<String> battleLog, String attackerName, long bronzeLost, List<BattleSimulator.BattleEvent> events) {
         activity.setStatus(ZoneActivityStatus.DEFEATED);
         activity.setAttacked(true);
         activity.setSurvivedAttack(false);
@@ -375,7 +376,7 @@ public class ZoneService {
         }
         playerRepository.save(player);
         activityRepository.save(activity);
-        return new CollectResult(activity, List.of(), true, false, lostItem, null, false, null, 0, 0, null, null);
+        return new CollectResult(activity, List.of(), true, false, lostItem, null, false, null, 0, 0, null, null, events);
     }
 
     // ── [ZONA_CHEFE] Chefe errante ─────────────────────────────────────────────
@@ -429,7 +430,7 @@ public class ZoneService {
             activity.setStatus(ZoneActivityStatus.COMPLETED);
             applyDropsAndRewards(player, activity, drops);
             log.info("[ZoneService] player={} fled boss OK", player.getId());
-            return winResult(activity, drops, false, null);
+            return winResult(activity, drops, false, null, List.of());
         }
         log.info("[ZoneService] player={} flee FAILED → forced fight", player.getId());
         return resolveBossFight(player, activityId); // fuga falhou → encara
@@ -471,10 +472,10 @@ public class ZoneService {
             drops = withMonsterCore(drops, Math.max(2, lvl / 6)); // [MONSTER_CORE_BATALHA] chefe = batalha grande
             activity.setStatus(ZoneActivityStatus.COMPLETED);
             applyDropsAndRewards(player, activity, drops);
-            return winResult(activity, drops, true, loot);
+            return winResult(activity, drops, true, loot, out.events()); // [BATALHA_ANIMADA] eventos do chefe
         }
         persistAttackerHp(w, 0, maxHp);
-        return defeat(player, activity, log, activity.getBossName(), 0);
+        return defeat(player, activity, log, activity.getBossName(), 0, out.events()); // [BATALHA_ANIMADA] eventos do chefe
     }
 
     private ZoneActivity requireBossPending(Player player, Long activityId) {

@@ -52,8 +52,11 @@ public class ArenaService {
      * [SEM_TIMER] Duelo instantâneo: simula a batalha e aplica TUDO de uma vez (bronze, rank,
      * V/D do desafiante e do oponente, HP, desgaste). Sem timer nem etapa de collect.
      */
+    /** [BATALHA_ANIMADA] resultado do duelo: o match + os eventos do replay (não persistidos no v1). */
+    public record FightResult(ArenaMatch match, List<BattleSimulator.BattleEvent> events) {}
+
     @Transactional
-    public ArenaMatch startFight(Player challengerArg) {
+    public FightResult startFight(Player challengerArg) {
         log.info("[ArenaService] player={} action=fight", challengerArg.getId());
         // Recarrega como MANAGED (o controller passa um detached; aqui aplicamos recompensa + rank,
         // salvando o player mais de uma vez → sem isto haveria merge de versão velha). [SEM_TIMER/PVP_FLAG]
@@ -156,7 +159,7 @@ public class ArenaService {
         ArenaMatch saved = matchRepository.save(match);
         log.info("[ArenaService] player={} action=fight OK id={} opponent={} won={}", challenger.getId(), saved.getId(), opponentName, challengerWon);
         achievementService.checkAndUnlock(challenger, true); // [TITULOS] Duelist/Gladiator/Champion + riqueza
-        return saved;
+        return new FightResult(saved, outcome.events()); // [BATALHA_ANIMADA] eventos p/ o replay (transientes)
     }
 
     public List<Player> getRanking() {

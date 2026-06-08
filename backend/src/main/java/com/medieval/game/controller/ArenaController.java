@@ -53,14 +53,17 @@ public class ArenaController {
     @PostMapping("/fight")
     public ResponseEntity<?> startFight(Authentication auth) {
         Player player = getPlayer(auth);
-        ArenaMatch match = arenaService.startFight(player);
+        ArenaService.FightResult fr = arenaService.startFight(player);
+        ArenaMatch match = fr.match();
         return ResponseEntity.ok(Map.of(
-                "id",         match.getId(),
-                "won",        match.isChallengerWon(),
-                "opponent",   match.getOpponentName(),
-                "goldEarned", match.getGoldReward(),
-                "rankChange", match.getRankChange(),
-                "log",        Arrays.asList(match.getBattleLog().split("\n"))
+                "id",          match.getId(),
+                "won",         match.isChallengerWon(),
+                "opponent",    match.getOpponentName(),
+                "goldEarned",  match.getGoldReward(),
+                "rankChange",  match.getRankChange(),
+                "log",         Arrays.asList(match.getBattleLog().split("\n")),
+                "battleEvents", fr.events(), // [BATALHA_ANIMADA] eventos do replay
+                "scene",       "arena"       // [BATALHA_ANIMADA] fundo da Arena
         ));
     }
 

@@ -26,7 +26,7 @@ class ZoneCollectCoordinatorTest {
 
     private final ZoneService.CollectResult ok =
             new ZoneService.CollectResult(null, java.util.List.of(), false, true, null, null,
-                    false, null, 0, 0, null, null); // [ZONA_CHEFE] campos do chefe + lootItemId [PILOTO_UI]
+                    false, null, 0, 0, null, null, java.util.List.of()); // + lootItemId [PILOTO_UI] + battleEvents [BATALHA_ANIMADA]
 
     @Test
     @DisplayName("Conflito na 1ª tentativa, sucesso na 2ª → retorna e recarrega o player a cada vez")
