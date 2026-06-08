@@ -288,6 +288,11 @@ function showOnboardingModal() {
         take on their work, and grow strong. Earn your place, recruit — and one day, climb the King's Tower
         and bring him home.</p>
       </div>
+      <div style="margin-top:14px;background:#0d0d18;border:1px solid #2a2a3a;border-radius:8px;padding:12px 14px;font-size:13px;color:#e0d8c8;line-height:1.8">
+        <div style="color:#c9a84c;font-weight:600;margin-bottom:4px">⚔ How it works</div>
+        ⚡ Spend <b>stamina</b> on an action → 🎁 grab the <b>loot</b> → 🛡 <b>equip</b> it → ⬆ <b>level up</b>.<br>
+        No waiting — everything resolves instantly. Choose your <b>class</b> at level 10.
+      </div>
       <button onclick="finishOnboarding()" style="margin-top:18px;width:100%;background:#c9a84c;color:#1a1208;
         font-weight:bold;padding:12px;border-radius:8px;cursor:pointer;font-size:15px;border:none">
         ⚔ Report for duty
@@ -300,6 +305,29 @@ async function finishOnboarding() {
   await api('POST', '/api/warrior/onboarding/seen');
   closeCollectModal();
   goTo('world'); // leva o recruta direto aos territórios (a 1ª missão)
+  showOnboardClue(); // [ONBOARDING] coachmark flutuante: aponta a 1ª ação
+}
+
+// [ONBOARDING] Coachmark flutuante (1ª ação): aparece após o welcome e some na 1ª expedição.
+// Banner fixo (não tooltip ancorado em DOM async) → robusto. localStorage evita reaparecer.
+function showOnboardClue() {
+  if (document.getElementById('onboard-clue')) return;
+  try { if (localStorage.getItem('mg_clue_done') === '1') return; } catch (e) {}
+  const el = document.createElement('div');
+  el.id = 'onboard-clue';
+  el.setAttribute('style', 'position:fixed;top:52px;left:50%;transform:translateX(-50%);z-index:9000;' +
+    'max-width:580px;width:calc(100% - 32px);background:var(--bg-1,#16161f);border:1px solid var(--gold,#c9a84c);' +
+    'border-radius:10px;padding:10px 14px;display:flex;align-items:center;gap:10px;font-size:13px;' +
+    'color:var(--ink-0,#ECE6DA);box-shadow:0 6px 24px rgba(0,0,0,.5)');
+  el.innerHTML = `
+    <span style="font-size:20px">👉</span>
+    <span style="flex:1;line-height:1.5"><b>Start here:</b> pick an action below to spend ⚡ stamina — fight or gather, then grab the loot. Your ❤ HP and ⚡ stamina stay at the top.</span>
+    <button onclick="dismissOnboardClue()" style="background:var(--gold,#c9a84c);color:#1a1208;border:none;border-radius:6px;padding:6px 12px;font-weight:bold;cursor:pointer;font-size:12px;white-space:nowrap">Got it</button>`;
+  document.body.appendChild(el);
+}
+function dismissOnboardClue() {
+  document.getElementById('onboard-clue')?.remove();
+  try { localStorage.setItem('mg_clue_done', '1'); } catch (e) {}
 }
 
 // ── Guerreiro ──
@@ -4184,6 +4212,7 @@ async function renderZoneResult(r) {
   const canAgain = (typeof again === 'function') && !(r.wasAttacked && !r.survived);
   // [PILOTO_UI] Equip no loot: só quando o item está na bag (id>0; null se foi pro mail por bag cheia).
   const equipId = (r.lootItemId && r.lootItemId > 0) ? r.lootItemId : null;
+  dismissOnboardClue(); // [ONBOARDING] 1ª expedição feita → tira o coachmark
   showCollectModal({ title, color, rows, note: r.narrative || '', log: r.battleLog || [], again: canAgain ? again : null, equipId });
   if (worldCurrentKingdom) await enterKingdom(worldCurrentKingdom);
 }
