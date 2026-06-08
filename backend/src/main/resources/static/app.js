@@ -2528,7 +2528,7 @@ async function openClassTrial() {
   closeCollectModal();
   const color = '#a855f7';
   const CLASS_ICON = { WARRIOR: '🛡', ARCHER: '🏹', MERCHANT: '💰' }; // [MERCADOR]
-  // [TRIAL_CUSTO] precisa TER 100 Monster Core (bag + stash) p/ encarar o Guardião; só consome se vencer.
+  // [TRIAL_CUSTO] precisa TER Monster Core suficiente (bag + stash) p/ encarar o Guardião; só consome se vencer.
   const costCore = info.monsterCoreCost ?? 0, haveCore = info.monsterCoreHave ?? 0;
   const enough = haveCore >= costCore;
   const coreBanner = `

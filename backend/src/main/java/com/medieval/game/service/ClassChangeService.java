@@ -39,7 +39,7 @@ public class ClassChangeService {
     public static final int TRIAL_LEVEL = 10;
 
     /** [TRIAL_CUSTO] Custo da Path Trial: precisa TER tantos Monster Core p/ tentar; só consome ao VENCER. */
-    public static final int TRIAL_MONSTER_CORE_COST = 100;
+    public static final int TRIAL_MONSTER_CORE_COST = 20;
 
     // ── Guardiões da Trial (placeholder, ajustar no playtest) ──
     // Cada caminho tem um guardião com o "sabor" do arquétipo: o da Lâmina é tanky de corpo-a-corpo,
@@ -118,7 +118,7 @@ public class ClassChangeService {
         if (w.isKnockedOut())
             throw new IllegalStateException("Your warrior is unconscious. Visit the Temple to heal first!");
         WorkService.assertNotBusy(workSessionRepository, player); // [WORK_IDLE] não faz a Trial enquanto trabalha
-        // [TRIAL_CUSTO] Precisa TER 100 Monster Core (bag + stash) p/ encarar o Guardião (só consome se vencer).
+        // [TRIAL_CUSTO] Precisa TER Monster Core suficiente (bag + stash) p/ encarar o Guardião (só consome se vencer).
         long cores = gatheringService.resourceQuantityTotal(player, com.medieval.game.enums.ResourceType.MONSTER_CORE);
         if (cores < TRIAL_MONSTER_CORE_COST)
             throw new com.medieval.game.config.LocalizedException("error.trial_cores", "You need {0} Monster Core to face the Guardian (you have {1}). Hunt in the Cursed Fortress to gather them.", TRIAL_MONSTER_CORE_COST, cores);
