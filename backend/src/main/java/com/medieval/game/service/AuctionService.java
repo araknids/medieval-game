@@ -163,7 +163,7 @@ public class AuctionService {
     }
 
     // ── Consultas ────────────────────────────────────────────────────────────────
-    @Transactional
+    @Transactional(readOnly = true)
     public List<AuctionView> browse(Player me) {
         // [AUDITORIA_2 A5] capa em 200 (mais recentes) — não serializa o livro inteiro de uma vez
         List<AuctionListing> all = listingRepo.findTop200ByStatusOrderByListedAtDesc(Status.ACTIVE)
@@ -171,7 +171,7 @@ public class AuctionService {
         return toViews(all, me.getId());
     }
 
-    @Transactional
+    @Transactional(readOnly = true)
     public List<AuctionView> mine(Player me) {
         Player p = playerRepository.findById(me.getId()).orElseThrow();
         List<AuctionListing> all = listingRepo.findBySellerAndStatus(p, Status.ACTIVE).stream().filter(l -> !l.isExpired()).toList();

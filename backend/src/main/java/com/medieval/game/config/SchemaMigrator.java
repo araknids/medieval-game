@@ -470,7 +470,9 @@ public class SchemaMigrator {
     private void patchOptimisticLockVersionColumns() {
         String[] tables = {
             "active_quests", "work_sessions", "gathering_sessions",
-            "arena_matches", "zone_activities", "mail", "players"
+            "arena_matches", "zone_activities", "mail", "players",
+            // [AUDITORIA_DUPE] fluxos de item: serializa sell/list/buy/cancel/stash concorrentes.
+            "inventory_items", "auction_listings", "resource_inventory"
         };
         for (String table : tables) {
             try {

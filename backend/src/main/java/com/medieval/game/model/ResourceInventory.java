@@ -18,6 +18,11 @@ public class ResourceInventory {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
+    // [AUDITORIA_DUPE] Optimistic lock: serializa deposit/withdraw concorrentes da MESMA linha de recurso.
+    @Version
+    @Column(columnDefinition = "bigint default 0")
+    private long version;
+
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "player_id", nullable = false)
     private Player player;

@@ -6,8 +6,12 @@ import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.Setter;
 import lombok.NoArgsConstructor;
+import org.hibernate.annotations.DynamicUpdate;
 
+// [AUDITORIA_DUPE] @DynamicUpdate: o UPDATE só grava as colunas SUJAS, não a linha inteira — defesa
+// extra contra clobber de player_id num race comprar+cancelar do leilão (F-1). @Version serializa.
 @Entity
+@DynamicUpdate
 @Table(name = "inventory_items")
 @Getter
 @Setter
@@ -17,6 +21,12 @@ public class InventoryItem {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
+
+    // [AUDITORIA_DUPE] Optimistic lock: serializa transações concorrentes sobre o MESMO item
+    // (sell/list/equip/stash/buy paralelos). A 2ª transação falha no commit → 409 "tente de novo".
+    @Version
+    @Column(columnDefinition = "bigint default 0")
+    private long version;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "player_id", nullable = false)

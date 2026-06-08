@@ -21,6 +21,12 @@ public class AuctionListing {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
+    // [AUDITORIA_DUPE] Optimistic lock: serializa comprar+cancelar (ou 2 compras) da MESMA listagem.
+    // Tanto buy quanto cancel gravam o status → a 2ª transação falha no commit (409). Fecha F-1.
+    @Version
+    @Column(columnDefinition = "bigint default 0")
+    private long version;
+
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "item_id", nullable = false)
     private InventoryItem item;
