@@ -161,7 +161,8 @@ public class ZoneController {
             Map.entry("bossName",     result.bossName() != null ? result.bossName() : ""),
             Map.entry("bossLevel",    result.bossLevel()),
             Map.entry("fleeChance",   result.fleeChance()),
-            Map.entry("lootItemName", result.lootItemName() != null ? result.lootItemName() : "")
+            Map.entry("lootItemName", result.lootItemName() != null ? result.lootItemName() : ""),
+            Map.entry("lootItemId",   result.lootItemId() != null ? result.lootItemId() : 0L) // [PILOTO_UI] Equip no loot
         );
     }
 

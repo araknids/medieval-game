@@ -153,7 +153,10 @@ public class ZoneService {
                                 boolean wasAttacked, boolean survived,
                                 String lostItemName, String narrative,
                                 boolean bossPending, String bossName, int bossLevel, int fleeChance,
-                                String lootItemName) {} // [ZONA_CHEFE]
+                                String lootItemName, Long lootItemId) {} // [ZONA_CHEFE][PILOTO_UI] lootItemId p/ Equip no loot
+
+    /** [PILOTO_UI] Item dropado: nome + id. id null quando foi pro mail (bag cheia) → sem botão Equip. */
+    private record LootRoll(String name, Long id) {}
 
     @Transactional
     public CollectResult collect(Player playerArg, Long activityId) {
@@ -200,7 +203,7 @@ public class ZoneService {
                 activityRepository.save(activity);
                 log.info("[ZoneService] player={} BOSS appeared zone={} bossLvl={}", player.getId(), activity.getZone(), bossLvl);
                 return new CollectResult(activity, List.of(), false, true, null, null,
-                        true, bossName, bossLvl, fleeChance(w), null);
+                        true, bossName, bossLvl, fleeChance(w), null, null);
             }
         }
 
@@ -228,7 +231,7 @@ public class ZoneService {
             activity.setResolvedAt(LocalDateTime.now());
         }
         // [FORTALEZA_ZONAS] caçada de combate pode dropar 1 item em kill normal (além do chefe).
-        String loot = activity.getRole() == ActivityRole.COMBAT ? rollCombatItemDrop(player, activity) : null;
+        LootRoll loot = activity.getRole() == ActivityRole.COMBAT ? rollCombatItemDrop(player, activity) : null;
         applyDropsAndRewards(player, activity, drops);
         return winResult(activity, drops, pvp.wasAttacked(), loot);
     }
@@ -282,7 +285,7 @@ public class ZoneService {
     }
 
     /** [FORTALEZA_ZONAS] Chance pequena de item em kill normal de COMBAT (além do chefe). Nível do monstro. */
-    private String rollCombatItemDrop(Player player, ZoneActivity activity) {
+    private LootRoll rollCombatItemDrop(Player player, ZoneActivity activity) {
         Warrior w = warriorRepository.findByPlayer(player).orElse(null);
         if (w == null) return null;
         Random rng = java.util.concurrent.ThreadLocalRandom.current();
@@ -296,10 +299,12 @@ public class ZoneService {
         String name = "Beast Trophy " + type.displayName;
         long price = switch (rarity) { case 3 -> 200L; case 2 -> 80L; default -> 30L; };
         String desc = "Taken from a slain beast of the Cursed Fortress.", origin = "Combat Zone";
-        if (inventoryService.bagSpaceLeft(player) >= 1)
-            return inventoryService.make(player, name, type, 0, 0, 0, rarity, price, itemLevel, desc, origin).getName();
+        if (inventoryService.bagSpaceLeft(player) >= 1) {
+            var it = inventoryService.make(player, name, type, 0, 0, 0, rarity, price, itemLevel, desc, origin);
+            return new LootRoll(it.getName(), it.getId());
+        }
         mailService.sendItemMail(player, "Beast trophy loot.", name, type, 0, 0, 0, rarity, itemLevel, 0, desc, origin);
-        return name + " (mailed — bag full)";
+        return new LootRoll(name + " (mailed — bag full)", null);
     }
 
     // ── [ZONA_CHEFE] Finalização compartilhada (vitória) e derrota ──────────────
@@ -334,11 +339,11 @@ public class ZoneService {
     }
 
     private CollectResult winResult(ZoneActivity activity, List<GatheringService.ResourceDrop> drops,
-                                    boolean wasAttacked, String lootItemName) {
+                                    boolean wasAttacked, LootRoll loot) {
         String narrative = (activity.getRole() == ActivityRole.GATHERING && activity.getSkillType() != null)
                 ? GatheringNarrator.narrate(activity.getSkillType(), activity.getKingdom()) : null;
         return new CollectResult(activity, drops, wasAttacked, true, null, narrative,
-                false, null, 0, 0, lootItemName);
+                false, null, 0, 0, loot != null ? loot.name() : null, loot != null ? loot.id() : null);
     }
 
     /** Derrota (PvP/NPC/chefe): KO + penalidade do tier. {@code bronzeLost} é só p/ exibir (já descontado, se houver). */
@@ -370,7 +375,7 @@ public class ZoneService {
         }
         playerRepository.save(player);
         activityRepository.save(activity);
-        return new CollectResult(activity, List.of(), true, false, lostItem, null, false, null, 0, 0, null);
+        return new CollectResult(activity, List.of(), true, false, lostItem, null, false, null, 0, 0, null, null);
     }
 
     // ── [ZONA_CHEFE] Chefe errante ─────────────────────────────────────────────
@@ -453,11 +458,11 @@ public class ZoneService {
 
         if (out.firstWon()) {
             persistAttackerHp(w, out.firstHpFinal(), maxHp);
-            String loot = rollBossLoot(player, lvl); // item garantido no nível do chefe
+            LootRoll loot = rollBossLoot(player, lvl); // item garantido no nível do chefe
             long bonusXp = lvl * 30L, bonusBronze = lvl * 20L;
             warriorService.addExperience(w, bonusXp); warriorRepository.save(w);
             player.addBronzeAmount(bonusBronze); playerRepository.save(player);
-            log.add("🏆 You slew " + activity.getBossName() + "! Loot: " + loot + " (+" + bonusXp + " XP, " + bonusBronze + " bronze).");
+            log.add("🏆 You slew " + activity.getBossName() + "! Loot: " + loot.name() + " (+" + bonusXp + " XP, " + bonusBronze + " bronze).");
             activity.setAttacked(true); activity.setSurvivedAttack(true);
             activity.setAttackerWarriorName(activity.getBossName());
             activity.setBattleLog(String.join("\n", log));
@@ -483,7 +488,7 @@ public class ZoneService {
     }
 
     /** 1 item garantido no nível do chefe, raridade alta: 25% Lendário / 40% Épico / 35% Raro. */
-    private String rollBossLoot(Player player, int bossLevel) {
+    private LootRoll rollBossLoot(Player player, int bossLevel) {
         Random rng = java.util.concurrent.ThreadLocalRandom.current();
         int r = rng.nextInt(100);
         int rarity = r < 25 ? 5 : r < 65 ? 4 : 3;
@@ -492,10 +497,12 @@ public class ZoneService {
         String name = "Tower Warden's " + type.displayName;
         long price = switch (rarity) { case 5 -> 2500L; case 4 -> 1000L; default -> 400L; };
         String desc = "Spoils from the escaped Tower boss.", origin = "Roaming Boss";
-        if (inventoryService.bagSpaceLeft(player) >= 1)
-            return inventoryService.make(player, name, type, 0, 0, 0, rarity, price, bossLevel, desc, origin).getName();
+        if (inventoryService.bagSpaceLeft(player) >= 1) {
+            var it = inventoryService.make(player, name, type, 0, 0, 0, rarity, price, bossLevel, desc, origin);
+            return new LootRoll(it.getName(), it.getId());
+        }
         mailService.sendItemMail(player, "Roaming boss loot.", name, type, 0, 0, 0, rarity, bossLevel, 0, desc, origin);
-        return name + " (mailed — bag full)";
+        return new LootRoll(name + " (mailed — bag full)", null);
     }
 
     // ── Abandona expedição ──

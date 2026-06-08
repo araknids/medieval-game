@@ -3844,7 +3844,7 @@ function worldMsg(text, ok = true) {
 // log:  string[] (battle log lines)
 // note: string (narrative/lore paragraph shown above the rows)
 let _collectAgainFn = null; // [PILOTO_UI] guarda o "repetir ação" do modal de coleta/caça
-function showCollectModal({ title, color = '#4caf50', rows = [], log = [], note = '', again = null }) {
+function showCollectModal({ title, color = '#4caf50', rows = [], log = [], note = '', again = null, equipId = null }) {
   closeCollectModal();
   _collectAgainFn = again;
 
@@ -3886,9 +3886,10 @@ function showCollectModal({ title, color = '#4caf50', rows = [], log = [], note 
       ${noteHtml}
       ${rowsHtml || '<div style="color:#888;font-size:13px">Nothing this time.</div>'}
       ${logHtml}
-      <div style="display:flex;gap:10px;margin-top:18px">
-        ${again ? `<button onclick="collectAgain()" style="flex:1;background:${color};color:#000;font-weight:bold;padding:10px;border-radius:8px;cursor:pointer;font-size:14px;border:none">🔁 Again</button>` : ''}
-        <button onclick="closeCollectModal()" style="${again ? 'flex:0 0 auto;background:#2a2a3a;color:#ddd;padding:10px 16px' : 'flex:1;background:'+color+';color:#000;padding:10px'};font-weight:bold;border-radius:8px;cursor:pointer;font-size:14px;border:none">${again ? 'Close' : 'Continue'}</button>
+      <div style="display:flex;gap:10px;margin-top:18px;flex-wrap:wrap">
+        ${equipId ? `<button id="loot-equip-btn" onclick="equipFromLoot(${equipId})" style="flex:1;min-width:110px;background:#c9a84c;color:#1a1a2e;font-weight:bold;padding:10px;border-radius:8px;cursor:pointer;font-size:14px;border:none">🛡 Equip</button>` : ''}
+        ${again ? `<button onclick="collectAgain()" style="flex:1;min-width:110px;background:${color};color:#000;font-weight:bold;padding:10px;border-radius:8px;cursor:pointer;font-size:14px;border:none">🔁 Again</button>` : ''}
+        <button onclick="closeCollectModal()" style="${(again||equipId) ? 'flex:0 0 auto;background:#2a2a3a;color:#ddd;padding:10px 16px' : 'flex:1;background:'+color+';color:#000;padding:10px'};font-weight:bold;border-radius:8px;cursor:pointer;font-size:14px;border:none">${(again||equipId) ? 'Close' : 'Continue'}</button>
       </div>
     </div>`;
   document.body.appendChild(el);
@@ -3904,6 +3905,17 @@ function collectAgain() {
   const fn = _collectAgainFn;
   closeCollectModal();
   if (typeof fn === 'function') fn();
+}
+
+// [PILOTO_UI] Equip no loot: equipa o item dropado direto do modal (1 clique). loot→vestir 4→1.
+// O backend valida nível/classe; se não der, mostra o motivo. Vira "✓ Equipped" no sucesso.
+async function equipFromLoot(id) {
+  const data = await api('POST', `/api/inventory/${id}/equip`);
+  if (data.error) { showMessage(data.error, true); return; }
+  showMessage('🛡 Equipped: ' + (data.name || 'item'));
+  loadWarrior();
+  const btn = document.getElementById('loot-equip-btn');
+  if (btn) { btn.textContent = '✓ Equipped'; btn.disabled = true; btn.style.opacity = '0.6'; btn.style.cursor = 'default'; }
 }
 
 async function startKingdomQuest(kingdom, questTypeId) {
@@ -4170,7 +4182,9 @@ async function renderZoneResult(r) {
 
   // [PILOTO_UI] "Again" só quando faz sentido repetir (não morreu na expedição).
   const canAgain = (typeof again === 'function') && !(r.wasAttacked && !r.survived);
-  showCollectModal({ title, color, rows, note: r.narrative || '', log: r.battleLog || [], again: canAgain ? again : null });
+  // [PILOTO_UI] Equip no loot: só quando o item está na bag (id>0; null se foi pro mail por bag cheia).
+  const equipId = (r.lootItemId && r.lootItemId > 0) ? r.lootItemId : null;
+  showCollectModal({ title, color, rows, note: r.narrative || '', log: r.battleLog || [], again: canAgain ? again : null, equipId });
   if (worldCurrentKingdom) await enterKingdom(worldCurrentKingdom);
 }
 
