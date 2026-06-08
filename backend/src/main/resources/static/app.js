@@ -3516,24 +3516,12 @@ function mailMsg(text, ok = true) {
 
 let worldCurrentKingdom = null;
 let selectedZoneElement = 'FIRE'; // [ELEMENTOS] área de elemento selecionada nas zonas de coleta
-function selectZoneElement(el) {
-  selectedZoneElement = el;
-  // [PILOTO_UI World] picker é global → re-renderiza todos os reinos abertos in-place (sem re-fetch do overview).
-  document.querySelectorAll('[id^="kingdom-detail-"]').forEach(d => {
-    const k = d.id.replace('kingdom-detail-', '');
-    if (k) enterKingdom(k);
-  });
-}
+function selectZoneElement(el) { selectedZoneElement = el; if (worldCurrentKingdom) enterKingdom(worldCurrentKingdom); }
 
 async function loadWorld() {
   const el = document.getElementById('world-content');
   el.innerHTML = '<p>Loading...</p>';
   try {
-    // [PILOTO_UI World] auto-coleta a expedição pendurada pronta UMA vez (antes era por-reino no enterKingdom).
-    const pending = await api('GET', '/api/zones/current').catch(() => null);
-    if (pending?.active && pending.readyToCollect) {
-      await api('POST', `/api/zones/${pending.id}/collect`).catch(() => {});
-    }
     const [kingdoms, territories] = await Promise.all([
       api('GET', '/api/world'),
       api('GET', '/api/territory')
@@ -3600,9 +3588,7 @@ function renderWorldOverview(kingdoms, territories) {
       ? `<div style="text-align:right;font-size:11px;color:#666">Next war<br><strong style="color:#eee">${secsH}h ${secsM}m</strong></div>`
       : '';
 
-    // [PILOTO_UI World] card NÃO clicável e SEM chips de zona (dedup) — o detalhe (zonas/quests)
-    // já vem aberto inline em #kingdom-detail-${k.kingdom}.
-    return `<div id="kingdom-card-${k.kingdom}" style="background:#1a1a2e;border:1px solid ${k.isMine ? '#4caf50' : '#444'};border-radius:10px;padding:16px;margin-bottom:12px">
+    return `<div id="kingdom-card-${k.kingdom}" onclick="enterKingdom('${k.kingdom}')" style="background:#1a1a2e;border:1px solid ${k.isMine ? '#4caf50' : '#444'};border-radius:10px;padding:16px;margin-bottom:12px;cursor:pointer">
       <div style="display:flex;justify-content:space-between;align-items:flex-start">
         <div>
           <h3 style="margin:0 0 4px;font-size:16px">${k.icon} ${k.displayName}</h3>
@@ -3611,24 +3597,27 @@ function renderWorldOverview(kingdoms, territories) {
         ${nextWar}
       </div>
       <p style="color:#888;font-size:12px;margin:8px 0 0">${k.lore}</p>
+      <div style="margin-top:8px;display:flex;gap:6px;flex-wrap:wrap">${zoneHtml}</div>
       ${warSection}
-      <div id="kingdom-detail-${k.kingdom}" style="margin-top:12px"></div>
     </div>`;
   }).join('');
 
-  el.innerHTML = cards
-    + '<div id="world-msg" style="margin-top:8px;min-height:20px"></div>'
-    + '<div id="world-territory-msg" style="margin-top:8px;min-height:20px"></div>';
-  // [PILOTO_UI World] todos os territórios já vêm abertos (sem clique) — preenche cada detalhe inline.
-  kingdoms.forEach(k => enterKingdom(k.kingdom));
+  el.innerHTML = cards + '<div id="kingdom-detail" style="margin-top:16px"></div>' +
+                 '<div id="world-territory-msg" style="margin-top:8px;min-height:20px"></div>';
 }
 
-async function enterKingdom(kingdom) {
+async function enterKingdom(kingdom, _depth = 0) {
   worldCurrentKingdom = kingdom;
-  // [PILOTO_UI World] cada reino tem seu próprio painel inline (#kingdom-detail-${kingdom}); já vem aberto.
-  const el = document.getElementById('kingdom-detail-' + kingdom);
+  const el = document.getElementById('kingdom-detail');
   if (!el) return;
-  el.innerHTML = '<p style="color:#888;font-size:12px">Loading…</p>';
+  // Abre o painel logo ABAIXO do card clicado (não lá no fim da lista). Só move/scrolla na abertura
+  // inicial — refresh pós-coleta não fica re-scrollando. [FIX_KINGDOM_PANEL]
+  const card = document.getElementById('kingdom-card-' + kingdom);
+  if (card && el.previousElementSibling !== card) {
+    card.insertAdjacentElement('afterend', el);
+    el.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  }
+  el.innerHTML = '<p>Loading kingdom...</p>';
   try {
     const [, quests, activeQuests, training, zoneSession, pvpStatus] = await Promise.all([
       loadWarrior(),
@@ -3638,7 +3627,11 @@ async function enterKingdom(kingdom) {
       api('GET', '/api/zones/current'), // [UNIFICAÇÃO_ZONA] coleta de todo reino (pesca/mineração/combate) é zona
       api('GET', '/api/zones/pvp-status').catch(() => null)
     ]);
-    // Auto-coleta saiu daqui (agora roda 1× no loadWorld) p/ não disparar 5× na mesma sessão. [PILOTO_UI World]
+    // [SEM_TIMER] Auto-coleta sessão de zona pendurada pronta (sem banner/Collect manual). Recursão limitada.
+    if (_depth < 2 && zoneSession?.active && zoneSession.readyToCollect) {
+      await api('POST', `/api/zones/${zoneSession.id}/collect`).catch(() => {});
+      return enterKingdom(kingdom, _depth + 1);
+    }
     renderKingdomDetail(kingdom, quests, activeQuests, training, zoneSession, pvpStatus);
   } catch(e) {
     console.error('[WORLD] enterKingdom ERROR:', e);
@@ -3647,8 +3640,7 @@ async function enterKingdom(kingdom) {
 }
 
 function renderKingdomDetail(kingdom, quests, activeQuests, training, zoneSession, pvpStatus) {
-  const el = document.getElementById('kingdom-detail-' + kingdom);
-  if (!el) return;
+  const el = document.getElementById('kingdom-detail');
   const NAMES = { FISHING:'Bone Gorge', MINING:'Black Iron Mines', COMBAT:'Cursed Fortress', GRUTAS_DE_CRISTAL:'Crystal Grottoes', MAR_ABENCOADO:'Blessed Sea' };
   const ICONS = { FISHING:'🎣', MINING:'⛏', COMBAT:'⚔', GRUTAS_DE_CRISTAL:'🔎', MAR_ABENCOADO:'🐟' };
   // [SEM_TIMER] "tem tarefa ativa pra coletar" neste reino (não é mais o flag global 'busy').
@@ -3877,10 +3869,12 @@ function renderKingdomDetail(kingdom, quests, activeQuests, training, zoneSessio
     ? `<h4 style="margin:0 0 8px;color:#aaa;font-size:13px">🗓 DAILY QUESTS <span style="color:#666;font-weight:normal">· reset in ${fmtResetCountdown(quests[0].secondsUntilReset)}</span></h4>${questCards}`
     : '';
 
-  // [PILOTO_UI World] sem header interno (o card já nomeia o reino) e sem "Close" (vem sempre aberto).
-  // O #world-msg agora é único, no overview (evita id duplicado entre os reinos).
   el.innerHTML = `
-    <div style="background:#111;border-radius:10px;padding:14px">
+    <div style="background:#111;border-radius:10px;padding:16px">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+        <h3 style="margin:0">${ICONS[kingdom]} ${NAMES[kingdom]}</h3>
+        <button onclick="document.getElementById('kingdom-detail').innerHTML=''" style="background:#333;font-size:12px">✕ Close</button>
+      </div>
       ${pvpStatusBanner(pvpStatus)}
       ${activeHtml}
       ${activeGatherHtml}
@@ -3889,6 +3883,7 @@ function renderKingdomDetail(kingdom, quests, activeQuests, training, zoneSessio
       ${questsSection}
       ${combatZonesHtml}
       ${gatheringHtml}
+      <div id="world-msg" style="margin-top:8px;min-height:20px"></div>
     </div>`;
 }
 
@@ -4176,7 +4171,6 @@ async function collectTraining(sessionId) {
 
 // [UNIFICAÇÃO_ZONA] Coleta por zona (SAFE/PVP/HIGH_RISK) com drops do reino — /api/zones/enter GATHERING.
 async function enterKingdomZone(zone, skillType, durationMinutes, kingdom, element) {
-  worldCurrentKingdom = kingdom; // [PILOTO_UI World] refresh pós-ação acerta o reino certo
   const r = await api('POST', '/api/zones/enter', { zone, role: 'GATHERING', skillType, durationMinutes, kingdom, element: element || null });
   if (r.error) { worldMsg(r.error, false); return; }
   const again = () => enterKingdomZone(zone, skillType, durationMinutes, kingdom, element); // [PILOTO_UI] repetir coleta
@@ -4184,7 +4178,6 @@ async function enterKingdomZone(zone, skillType, durationMinutes, kingdom, eleme
 }
 
 async function enterCombatZone(zone, durationMinutes, element) {
-  worldCurrentKingdom = 'COMBAT'; // [PILOTO_UI World] refresh pós-ação acerta a Fortaleza
   // [FORTALEZA_ZONAS] caçada por zona/elemento — instantâneo (enter + collect direto)
   const r = await api('POST', '/api/zones/enter', { zone, role: 'COMBAT', durationMinutes, kingdom: 'COMBAT', element });
   if (r.error) { worldMsg(r.error, false); return; }
