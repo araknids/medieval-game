@@ -105,4 +105,18 @@ class BackendI18nTest extends BaseIntegrationTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.achievements[?(@.id=='LEVEL_10')].description", hasItem("Alcance o nível 10.")));
     }
+
+    @Test
+    @DisplayName("GET /api/warrior/attributes → nome/efeito localizam (en vs pt) [P5]")
+    void attributesFollowAcceptLanguage() throws Exception {
+        mockMvc.perform(get("/api/warrior/attributes").header("Authorization", bearer(token))
+                        .header("Accept-Language", "en"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[?(@.id=='STRENGTH')].displayName", hasItem("Strength (STR)")));
+
+        mockMvc.perform(get("/api/warrior/attributes").header("Authorization", bearer(token))
+                        .header("Accept-Language", "pt"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[?(@.id=='STRENGTH')].displayName", hasItem("Força (STR)")));
+    }
 }

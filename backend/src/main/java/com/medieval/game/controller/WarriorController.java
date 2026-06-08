@@ -25,6 +25,7 @@ public class WarriorController {
     private final WarriorStatsService statsService;
     private final MountRepository    mountRepository;
     private final com.medieval.game.repository.PetRepository petRepository; // [PETS]
+    private final com.medieval.game.service.Messages messages; // [I18N] nome/efeito dos atributos
 
     @GetMapping
     public ResponseEntity<WarriorResponse> getMyWarrior(Authentication auth) {
@@ -37,9 +38,9 @@ public class WarriorController {
     public ResponseEntity<?> getAttributes() {
         var list = Arrays.stream(Attribute.values()).map(a -> Map.of(
                 "id",          a.name(),
-                "displayName", a.displayName,
+                "displayName", messages.getOr("attr." + a.name() + ".name",   a.displayName), // [I18N]
                 "icon",        a.icon,
-                "effect",      a.effect
+                "effect",      messages.getOr("attr." + a.name() + ".effect", a.effect)        // [I18N]
         )).toList();
         return ResponseEntity.ok(list);
     }

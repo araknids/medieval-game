@@ -32,9 +32,9 @@ public class KingdomController {
         List<?> kingdoms = kingdomService.getAllKingdomStatus(player).stream()
                 .map(ks -> Map.ofEntries(
                     Map.entry("kingdom",          ks.kingdom().name()),
-                    Map.entry("displayName",      ks.kingdom().displayName),
+                    Map.entry("displayName",      messages.getOr("kingdom." + ks.kingdom().name() + ".name", ks.kingdom().displayName)), // [I18N]
                     Map.entry("icon",             ks.kingdom().icon),
-                    Map.entry("lore",             ks.kingdom().lore),
+                    Map.entry("lore",             messages.getOr("kingdom." + ks.kingdom().name() + ".lore", ks.kingdom().lore)),         // [I18N]
                     Map.entry("controllingGuild", ks.controllingGuild() != null ? ks.controllingGuild() : ""),
                     Map.entry("isMine",           ks.isMine()),
                     Map.entry("xpBonus",          ks.xpBonus()),
