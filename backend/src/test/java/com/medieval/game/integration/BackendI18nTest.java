@@ -91,4 +91,18 @@ class BackendI18nTest extends BaseIntegrationTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.atmosphere", containsString("primeiro salão")));
     }
+
+    @Test
+    @DisplayName("GET /api/achievements → descrição localiza (en vs pt) [P4]")
+    void achievementDescFollowsAcceptLanguage() throws Exception {
+        mockMvc.perform(get("/api/achievements").header("Authorization", bearer(token))
+                        .header("Accept-Language", "en"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.achievements[?(@.id=='LEVEL_10')].description", hasItem("Reach level 10.")));
+
+        mockMvc.perform(get("/api/achievements").header("Authorization", bearer(token))
+                        .header("Accept-Language", "pt"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.achievements[?(@.id=='LEVEL_10')].description", hasItem("Alcance o nível 10.")));
+    }
 }

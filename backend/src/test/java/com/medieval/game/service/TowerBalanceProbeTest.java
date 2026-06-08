@@ -16,7 +16,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 class TowerBalanceProbeTest {
 
     private final BattleSimulator sim = new BattleSimulator();
-    private final TowerService tower = new TowerService(null, null, null, sim, null, null, null, null, null);
+    private final TowerService tower = new TowerService(null, null, null, sim, null, null, null, null, null, null); // +messages [I18N] (probe só usa stats)
     private static final int N = 3000;
 
     /**

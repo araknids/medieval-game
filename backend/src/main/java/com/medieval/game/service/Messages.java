@@ -1,35 +1,55 @@
 package com.medieval.game.service;
 
-import lombok.RequiredArgsConstructor;
 import org.springframework.context.MessageSource;
 import org.springframework.context.i18n.LocaleContextHolder;
 import org.springframework.stereotype.Component;
 
+import java.util.Locale;
+
 /**
  * [I18N] Resolve uma key de tradução no locale do REQUEST atual ({@code Accept-Language}, via
- * {@link LocaleContextHolder}). Os textos vivem em {@code messages.properties} (EN) /
- * {@code messages_pt.properties} (PT). Ver docs/PLANO_I18N_BACKEND.md.
- *
- * Key faltando → devolve a própria key (aparece como texto, não quebra) — facilita achar buracos.
+ * {@link LocaleContextHolder}). Os textos PT vivem em {@code messages_pt.properties}; o EN é o
+ * default do catálogo/enum (passado em {@link #getOr}). Ver docs/PLANO_I18N_BACKEND.md.
  */
 @Component
-@RequiredArgsConstructor
 public class Messages {
 
     private final MessageSource messageSource;
+    /** Captura p/ o acessor estático {@link #tr} (usado em métodos estáticos como AchievementService.titleString). */
+    private static MessageSource MS;
 
-    /** Texto da {@code key} no idioma do request (args opcionais p/ placeholders {0},{1}…). */
-    public String get(String key, Object... args) {
-        return messageSource.getMessage(key, args, key, LocaleContextHolder.getLocale());
+    public Messages(MessageSource messageSource) {
+        this.messageSource = messageSource;
+        MS = messageSource;
     }
 
     /**
-     * Texto da {@code key} no idioma do request, com {@code defaultEn} de fallback (em geral a prosa
-     * EN que já vive no catálogo/enum). Em EN não há messages_en → cai no {@code defaultEn}; em PT,
-     * messages_pt fornece a tradução (ou {@code defaultEn} se a key ainda não foi traduzida).
-     * Assim só o PT precisa ir pro .properties — o EN continua sendo o catálogo (sem duplicar). [I18N]
+     * Locale do request atual; se NÃO houver contexto de request (testes, schedulers, startup), default
+     * EN — NUNCA o locale da JVM (senão o servidor responderia no idioma do SO). [I18N]
+     */
+    private static Locale locale() {
+        var ctx = LocaleContextHolder.getLocaleContext();
+        Locale l = ctx != null ? ctx.getLocale() : null;
+        return l != null ? l : Locale.ENGLISH;
+    }
+
+    /** Texto da {@code key} no idioma do request (args opcionais p/ placeholders {0},{1}…). Key faltando → a própria key. */
+    public String get(String key, Object... args) {
+        return messageSource.getMessage(key, args, key, locale());
+    }
+
+    /**
+     * Texto da {@code key} no idioma do request, com {@code defaultEn} de fallback (a prosa EN que já vive
+     * no catálogo/enum). EN → cai no defaultEn; PT → messages_pt (ou defaultEn se não traduzida). Só o PT
+     * precisa ir pro .properties. [I18N]
      */
     public String getOr(String key, String defaultEn, Object... args) {
-        return messageSource.getMessage(key, args, defaultEn, LocaleContextHolder.getLocale());
+        return messageSource.getMessage(key, args, defaultEn, locale());
+    }
+
+    /** Versão ESTÁTICA do {@link #getOr} (p/ contextos estáticos, ex.: títulos de achievement no ranking). [I18N] */
+    public static String tr(String key, String defaultEn, Object... args) {
+        if (MS == null) return defaultEn; // ainda não inicializado (ex.: startup) → EN
+        return MS.getMessage(key, args, defaultEn, locale());
     }
 }

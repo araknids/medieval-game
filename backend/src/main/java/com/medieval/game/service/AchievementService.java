@@ -42,8 +42,10 @@ public class AchievementService {
     public static String titleString(Player player) {
         String id = player.getActiveTitle();
         if (id == null || id.isBlank()) return "";
-        try { return Achievement.valueOf(id).title; }
-        catch (IllegalArgumentException e) { return ""; }
+        try { // [I18N] título no idioma de QUEM lê (ranking/guilda/header) — Messages.tr usa o locale do request
+            Achievement a = Achievement.valueOf(id);
+            return Messages.tr("achievement." + a.name() + ".title", a.title);
+        } catch (IllegalArgumentException e) { return ""; }
     }
 
     // ── Desbloqueio ────────────────────────────────────────────────────────────
@@ -144,8 +146,12 @@ public class AchievementService {
         for (Achievement a : Achievement.values()) {
             if (a.hidden && !unlocked.contains(a)) continue; // [TITULOS] oculto até desbloquear (anti-spoiler)
             long cur = metricValue(a.metric, p, w);
-            views.add(new AchievementView(a.name(), a.category.displayName, a.displayName, a.description,
-                    a.title, unlocked.contains(a), Math.min(cur, a.threshold), a.threshold));
+            String base = "achievement." + a.name(); // [I18N] EN = o catálogo (default do tr)
+            views.add(new AchievementView(a.name(), a.category.displayName,
+                    Messages.tr(base + ".display", a.displayName),
+                    Messages.tr(base + ".desc",    a.description),
+                    Messages.tr(base + ".title",   a.title),
+                    unlocked.contains(a), Math.min(cur, a.threshold), a.threshold));
         }
         return new ListResult(titleString(p), views);
     }
