@@ -2616,7 +2616,8 @@ async function attemptClassTrial(path) {
     ] : [
       { icon: '💀', label: 'Result', value: 'Knocked out — heal and retry', color: '#ef5350' },
     ],
-    log: data.log || []
+    log: data.log || [],
+    battleEvents: data.battleEvents, scene: data.scene // [BATALHA_ANIMADA] replay do duelo contra o Guardião
   });
   await loadWarrior();
 }

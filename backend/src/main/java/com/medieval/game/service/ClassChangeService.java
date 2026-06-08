@@ -161,7 +161,8 @@ public class ClassChangeService {
         if (won) achievementService.checkAndUnlock(player, true); // [TITULOS] título da classe escolhida
 
         log.info("[ClassChangeService] player={} trial path={} won={}", player.getId(), path, won);
-        return new TrialResult(won, path.name(), className(path), battleLog, narrative); // [I18N]
+        return new TrialResult(won, path.name(), className(path), battleLog, narrative,
+                outcome.events(), "fortress"); // [BATALHA_ANIMADA] replay do duelo contra o Guardião
     }
 
     /** Arma inicial da classe (make-or-mail: não pode dar throw e abortar a troca). [CLASSES_ARMAS/MERCADOR] */
@@ -200,7 +201,8 @@ public class ClassChangeService {
                             List<ClassPath> paths) {}
 
     public record TrialResult(boolean won, String classId, String className, List<String> log,
-                              String narrative) {} // [TRIAL_NARRATIVA] desfecho narrado (vitória/derrota)
+                              String narrative,
+                              List<BattleSimulator.BattleEvent> battleEvents, String scene) {} // [TRIAL_NARRATIVA][BATALHA_ANIMADA]
 
     private record Guardian(String name, int atk, int def, int hp, int dex, int agi, int luk) {}
 }
