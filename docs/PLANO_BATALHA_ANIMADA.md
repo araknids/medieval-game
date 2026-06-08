@@ -1,6 +1,9 @@
 # PLANO — Batalha Animada (replay 2D estilo Domina) [BATALHA_ANIMADA]
 
-> Status: **EM IMPLEMENTAÇÃO** (2026-06-08).
+> Status: **v1 COMPLETO (placeholder)** (2026-06-08). Backend (eventos+API) + canvas `battleArena.js`
+> tocando na Arena e na Zona-chefe. Falta só **arte real** (sprites + fundos) plugar no lugar dos
+> placeholders (decisão/curadoria do dono) e validar no browser. v2 (Torre/Quests/Guerra, persistir eventos)
+> segue na seção Escopo.
 > ✅ **Feito (backend):** `BattleEvent` + `BattleOutcome.events` no `BattleSimulator` (spawn/attack/crit/
 > miss/dodge/extra/volley/heal/berserk/kiting/victory, com `hitZone` cabeça/corpo/perna e `element`);
 > combate byte-idêntico (RNG preservado), coberto por `BattleEventTest`. **API:** Arena e Zona-chefe
