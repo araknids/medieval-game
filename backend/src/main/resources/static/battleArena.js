@@ -17,17 +17,17 @@
 
   // ── Sprites (CraftPix Knight). Cada PNG é um strip horizontal de frames 128×128. ──
   const FRAME_W = 128, FRAME_H = 128, DRAW_H = 150;
-  const FRAME_MS = { idle: 130, walk: 80, attack: 55, hurt: 90, dead: 110 };
+  const FRAME_MS = { idle: 130, walk: 80, attack: 55, hurt: 110, dead: 110, jump: 85 };
   const KNIGHT = {
     blue: {
       idle: '/assets/knights/blue/idle.png',   walk: '/assets/knights/blue/walk.png',
       attack: '/assets/knights/blue/attack.png', hurt: '/assets/knights/blue/hurt.png',
-      dead: '/assets/knights/blue/dead.png',
+      dead: '/assets/knights/blue/dead.png',     jump: '/assets/knights/blue/jump.png',
     },
     purple: {
       idle: '/assets/knights/purple/idle.png',   walk: '/assets/knights/purple/walk.png',
       attack: '/assets/knights/purple/attack.png', hurt: '/assets/knights/purple/hurt.png',
-      dead: '/assets/knights/purple/dead.png',
+      dead: '/assets/knights/purple/dead.png',     jump: '/assets/knights/purple/jump.png',
     },
   };
   const _img = {};
@@ -46,8 +46,8 @@
     if (!ctx || !Array.isArray(events)) return { stop() {} };
     const W = canvas.width, H = canvas.height, ground = H - 14;
 
-    const combatX = s => s < 0 ? W * 0.30 : W * 0.70;
-    const entryX  = s => s < 0 ? W * 0.10 : W * 0.90;
+    const combatX = s => s < 0 ? W * 0.40 : W * 0.60; // perto: corpo-a-corpo (era 0.30/0.70)
+    const entryX  = s => s < 0 ? W * 0.13 : W * 0.87;
 
     const spawns = events.filter(e => e.type === 'spawn');
     if (spawns.length < 2) return { stop() {} };
@@ -63,12 +63,13 @@
 
     const steps = events.slice();
     const BUDGET = 8500;   // ms — caber em ≤10s mesmo com muitos turnos
-    const INTRO_MS = 700;  // entrada andando antes do 1º golpe
+    const TAUNT_MS = 560;  // pulo de taunt no início (antes de andar)
+    const INTRO_MS = 600;  // entrada andando até o corpo-a-corpo
     const stepDur = Math.max(110, Math.min(600, steps.length ? BUDGET / steps.length : 600));
 
     let particles = [], floaters = [], shake = 0;
     let speed = 1, idx = 0, impacted = false, stepStart = 0, done = false, raf = 0, t0 = 0;
-    let curEvent = null, curT = 0, introP = 0, introDone = false, stepRef = null, nowTs = 0;
+    let curEvent = null, curT = 0, introP = 0, introDone = false, taunting = false, stepRef = null, nowTs = 0;
 
     const zoneY = zone => zone === 'head' ? ground - 118 : zone === 'legs' ? ground - 32 : ground - 78;
 
@@ -121,8 +122,10 @@
     function frame(now) {
       nowTs = now;
       if (!t0) t0 = now;
-      introP = Math.min(1, (now - t0) * speed / INTRO_MS);
-      introDone = introP >= 1;
+      const elapsed = (now - t0) * speed;            // taunt → walk → fight
+      taunting  = !done && elapsed < TAUNT_MS;
+      introP    = Math.min(1, Math.max(0, (elapsed - TAUNT_MS) / INTRO_MS));
+      introDone = done || elapsed >= TAUNT_MS + INTRO_MS;
       curEvent = null;
 
       if (introDone && !done) {
@@ -142,12 +145,14 @@
       }
 
       [left, right].forEach(f => {
-        f.moving = !introDone && !f.dead;
+        f.moving = !introDone && !taunting && !f.dead;  // anda só na fase de walk
         f.shownHp += (f.hp - f.shownHp) * 0.25;
         f.flinch *= 0.86;
-        // gestão de animação: morte > one-shot em andamento > base (walk/idle)
+        // gestão de animação: morte > taunt(jump) > one-shot em andamento > base (walk/idle)
         if (f.dead) {
           if (f.anim !== 'dead') { f.anim = 'dead'; f.animStart = nowTs; f.animOnce = true; }
+        } else if (taunting) {
+          if (f.anim !== 'jump') { f.anim = 'jump'; f.animStart = nowTs; f.animOnce = true; } // só 1x
         } else if (f.animOnce) {
           const im = sprite(KNIGHT[f.set][f.anim]);
           const frames = im.naturalWidth ? Math.floor(im.naturalWidth / FRAME_W) : 1;
@@ -192,9 +197,15 @@
       const dur = FRAME_MS[f.anim] || 120;
       let fi = Math.floor((nowTs - f.animStart) / dur);
       fi = f.animOnce ? Math.min(fi, frames - 1) : (fi % frames);
+      // [BATALHA_ANIMADA] lunge: avança em direção ao inimigo durante o golpe (vende o corpo-a-corpo)
+      let lunge = 0;
+      if (f.anim === 'attack') {
+        const p = Math.min(1, (nowTs - f.animStart) / (frames * dur));
+        lunge = Math.sin(p * Math.PI) * 22 * -f.side; // -side = sentido do inimigo na tela
+      }
       const scale = DRAW_H / FRAME_H, dw = FRAME_W * scale, dh = FRAME_H * scale, footPad = scale * 8;
       ctx.save();
-      ctx.translate(drawX + knock, ground + footPad);
+      ctx.translate(drawX + knock + lunge, ground + footPad);
       if (!faceRight) ctx.scale(-1, 1);
       ctx.drawImage(im, fi * FRAME_W, 0, FRAME_W, FRAME_H, -dw / 2, -dh, dw, dh);
       ctx.restore();
