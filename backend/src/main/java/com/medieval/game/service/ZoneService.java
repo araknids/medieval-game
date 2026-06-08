@@ -219,7 +219,7 @@ public class ZoneService {
         // ── Encontros: 🟢 SAFE = só NPC (PvE); 🟡🔴 = PvP + NPC ──
         PvpResult pvp = resolveEncounters(player, activity);
         if (!pvp.survived()) {
-            return defeat(player, activity, pvp.battleLog(), pvp.attackerName(), pvp.bronzeLost(), List.of());
+            return defeat(player, activity, pvp.battleLog(), pvp.attackerName(), pvp.bronzeLost(), pvp.battleEvents()); // [BATALHA_ANIMADA]
         }
         List<GatheringService.ResourceDrop> drops = resolveZoneDrops(player, activity);
         if (pvp.monsterCore() > 0) drops = withMonsterCore(drops, pvp.monsterCore()); // [MONSTER_CORE_BATALHA] batalha vencida na coleta
@@ -234,7 +234,7 @@ public class ZoneService {
         // [FORTALEZA_ZONAS] caçada de combate pode dropar 1 item em kill normal (além do chefe).
         LootRoll loot = activity.getRole() == ActivityRole.COMBAT ? rollCombatItemDrop(player, activity) : null;
         applyDropsAndRewards(player, activity, drops);
-        return winResult(activity, drops, pvp.wasAttacked(), loot, List.of());
+        return winResult(activity, drops, pvp.wasAttacked(), loot, pvp.battleEvents()); // [BATALHA_ANIMADA] eventos do encontro
     }
 
     /** Drops da expedição por papel: COMBAT caça (materiais+essência), resto coleta. [FORTALEZA_ZONAS] */
@@ -584,7 +584,8 @@ public class ZoneService {
     // ── Privados: resolução de PvP ──
 
     record PvpResult(boolean wasAttacked, boolean survived, long bronzeLost,
-                     String attackerName, List<String> battleLog, long monsterCore) {} // [MONSTER_CORE_BATALHA]
+                     String attackerName, List<String> battleLog, long monsterCore,
+                     List<BattleSimulator.BattleEvent> battleEvents) {} // [MONSTER_CORE_BATALHA][BATALHA_ANIMADA]
 
     /**
      * Resolve the encounters for the collecting player ("attacker"). [SEM_TIMER] One farm
@@ -596,7 +597,7 @@ public class ZoneService {
         Random rng  = java.util.concurrent.ThreadLocalRandom.current();
 
         Warrior attacker = warriorRepository.findByPlayer(player).orElse(null);
-        if (attacker == null) return new PvpResult(false, true, 0, null, List.of(), 0);
+        if (attacker == null) return new PvpResult(false, true, 0, null, List.of(), 0, List.of());
 
         int[] atkStats = getWarriorStats(attacker, player);
         int   atkMaxHp = atkStats[2];
@@ -634,11 +635,11 @@ public class ZoneService {
                 if (out.firstWon()) {
                     raidVictim(player, attacker.getName(), victim, victimW, zone, log); // loot + escudo + mail
                     persistAttackerHp(attacker, out.firstHpFinal(), atkMaxHp);
-                    return new PvpResult(true, true, 0, foe, log, 0); // venceu e saqueou (PvP → sem Monster Core)
+                    return new PvpResult(true, true, 0, foe, log, 0, out.events()); // venceu e saqueou (PvP → sem Monster Core)
                 } else {
                     long lost = applyDefeatPenalty(player, victim); // você perdeu; a vítima defendeu
                     persistAttackerHp(attacker, 0, atkMaxHp);
-                    return new PvpResult(true, false, lost, foe, log, 0);
+                    return new PvpResult(true, false, lost, foe, log, 0, out.events());
                 }
             }
             // Nenhum flagged → NPC ambusher (preenchimento). [PVP_FLAG]
@@ -651,7 +652,7 @@ public class ZoneService {
         }
 
         persistAttackerHp(attacker, atkHp, atkMaxHp);
-        return new PvpResult(false, true, 0, null, List.of(), 0);
+        return new PvpResult(false, true, 0, null, List.of(), 0, List.of());
     }
 
     /** Luta contra um NPC (monstro selvagem ou "ambusher" de preenchimento). Monstro usa o elemento da área. */
@@ -672,12 +673,12 @@ public class ZoneService {
         if (!out.firstWon()) {
             long lost = applyDefeatPenalty(player, null);
             persistAttackerHp(attacker, 0, atkMaxHp);
-            return new PvpResult(true, false, lost, npcName, log, 0);
+            return new PvpResult(true, false, lost, npcName, log, 0, out.events());
         }
         persistAttackerHp(attacker, out.firstHpFinal(), atkMaxHp);
         // [MONSTER_CORE_BATALHA] toda batalha PvE vencida (inclusive durante coleta/mineração) dropa Monster Core.
         long core = Math.max(1, Math.round((1 + npcLevel / 15.0) * zone.multiplier));
-        return new PvpResult(true, true, 0, npcName, log, core);
+        return new PvpResult(true, true, 0, npcName, log, core, out.events());
     }
 
     /** Sorteia um player FLAGGED (exposto) na zona, sem escudo, dentro de ±PVP_LEVEL_BAND níveis. [PVP_FLAG] */
