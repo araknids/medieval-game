@@ -118,6 +118,9 @@ Pacote pra segurar o recém-chegado no **primeiro penhasco de estamina** (desenh
 
 **Mail de recurso**: `Mail` ganhou `resourceType`/`resourceQty`/`resourceCollected` (migração em `patchMailItemColumns`); `MailService.sendResourceMail` + `claimResource(player, id, gatheringService)` (recebe o service por parâmetro, igual ao `claimItem`, sem ciclo); `POST /api/mail/{id}/claim-resource`. Reaproveitável p/ qualquer recompensa de recurso, não só a daily.
 
+### Luna interrompe a missão (pet) — [LUNA_INTERRUPT]
+A Luna (pet) deixou de ser uma **quest avulsa** rara e passou a **interromper missões normais**: no `KingdomService.collectQuest`, antes de resolver, rola `shouldLunaInterrupt(player)` (só sem a Luna + `LUNA_INTERRUPT_PER_MILLE`≈8% + flag `app.luna.interrupt-enabled`). Se interromper, a missão entra em `QuestStatus.LUNA_PENDING` (guarda `KingdomActiveQuest.pendingOptionId` — migração) e devolve `CollectResult.lunaPending=true` — espelha o chefe errante [ZONA_CHEFE]. O jogador decide via **`POST /api/world/{kingdom}/quests/{id}/luna/{help|ignore}`**: **ignore** (terminar) → `resolveLunaIgnore` retoma a resolução normal (`resolveAndReward` com a escolha guardada, recompensa intacta); **help** (ajudar) → `resolveLunaHelp` abre mão da recompensa, marca COLLECTED e roda `rollLunaHelp` (pity escalante `LUNA_BASE/STEP/CAP_PPM`): pega a Luna ou **pity++ + texto de afeição** ("começando a gostar de você"). A flag fica **false nos testes** (collect determinístico; o teste exercita `resolveLunaHelp/Ignore` direto, igual ao `ZoneBossIntegrationTest`). Removidos: `lunaQuestActive`/`isLunaWindow` + a vitrine da Luna no controller. A `RESCUE_STRAY_DOG` continua no enum só pelos textos i18n. Números são placeholders. Desenho: `docs/PLANO_LUNA_INTERRUPCAO.md`.
+
 ### Currency Safety
 `InventoryService.sell()`, `WorkService.collectWork()` e `WorkService.cancelWork()` usam `player.addBronzeAmount()` para evitar somar no campo gold diretamente.
 

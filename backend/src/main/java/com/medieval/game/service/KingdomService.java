@@ -48,14 +48,19 @@ public class KingdomService {
     private final AbilityService               abilityService; // +drop do Mercador (Treasure Hunter) [MERCADOR]
     private final Messages                     messages;       // [I18N] desfechos de quest interativa por idioma
 
-    // ── Quest rara da Luna (pet): aparição + chance de pity. [PETS] ──
-    private static final int  LUNA_WINDOW_DENOM = 12;      // ~1 a cada 12 janelas de 12h (~1x por semana) — evento raro [QUESTS_LORE]
+    // ── Luna (pet): interrompe missões normais + chance de pity escalante. [PETS][LUNA_INTERRUPT] ──
+    private static final int  LUNA_INTERRUPT_PER_MILLE = 80;      // ~8% por missão (placeholder), só sem a Luna
     private static final int  LUNA_BASE_PPM     = 100;     // 0.01% base (em ppm)
     private static final int  LUNA_STEP_PPM     = 50;      // +0.005% por tentativa
     private static final int  LUNA_CAP_PPM      = 10_000;  // teto 1%
 
     @Value("${app.dev.instant-complete:false}")
     private boolean instantComplete;
+
+    // [LUNA_INTERRUPT] Liga a interrupção da Luna nas missões. Default true; FALSE nos testes p/ collect
+    // determinístico (o teste exercita resolveLunaHelp/Ignore direto, igual ao boss em ZoneBossIntegrationTest).
+    @Value("${app.luna.interrupt-enabled:true}")
+    private boolean lunaInterruptEnabled;
 
     // [DAILY_QUESTS] Vitrine de quests = daily: gira E reseta a cada 12h (janela global fixa,
     // 00:00/12:00 UTC). epoch/43200 alinha exatamente nesses horários. Ver docs/PLANO_QUESTS.md.
@@ -107,17 +112,6 @@ public class KingdomService {
         return Arrays.stream(KingdomQuestType.values())
                 .filter(q -> q.kingdom == kingdom && q != KingdomQuestType.RESCUE_STRAY_DOG)
                 .toList();
-    }
-
-    /** A janela atual é uma "janela da Luna" para este player? Determinístico (~1 a cada 4 janelas). [PETS] */
-    public boolean isLunaWindow(Player player) {
-        long h = player.getId() * 2654435761L + currentQuestWindowId();
-        return Math.floorMod(h, LUNA_WINDOW_DENOM) == 0;
-    }
-
-    /** A quest da Luna deve aparecer na vitrine agora? (janela da Luna + ainda não tem a Luna). [PETS] */
-    public boolean lunaQuestActive(Player player) {
-        return isLunaWindow(player) && !petService.owns(player, PetType.LUNA);
     }
 
     /**
@@ -216,11 +210,30 @@ public class KingdomService {
             log.warn("[KingdomService] player={} REJECTED: quest {} reward already collected", player.getId(), questId);
             throw new IllegalStateException("Reward already collected.");
         }
+        if (quest.getStatus() == QuestStatus.LUNA_PENDING) {
+            // [LUNA_INTERRUPT] a Luna interrompeu: a decisão vai pelos endpoints /luna/{help|ignore}.
+            throw new IllegalStateException("Decide about the stray dog first.");
+        }
         if (!quest.isReadyToCollect()) {
             log.warn("[KingdomService] player={} REJECTED: quest {} not yet complete, {}s remaining", player.getId(), questId, quest.secondsRemaining());
             throw new com.medieval.game.config.LocalizedException("error.quest_not_complete", "Quest not yet complete. {0}s remaining.", quest.secondsRemaining());
         }
 
+        // [LUNA_INTERRUPT] A Luna pode interromper a missão ANTES de resolver (chance pequena, só sem a Luna).
+        // Pausa e devolve a escolha pro jogador (ajudar / terminar) — espelha o chefe errante [ZONA_CHEFE].
+        if (shouldLunaInterrupt(player)) {
+            quest.setPendingOptionId(optionId);
+            quest.setStatus(QuestStatus.LUNA_PENDING);
+            questRepo.save(quest);
+            log.info("[KingdomService] player={} LUNA interrupted quest={}", player.getId(), quest.getId());
+            return lunaPendingResult(quest);
+        }
+
+        return resolveAndReward(player, quest, optionId);
+    }
+
+    /** [LUNA_INTERRUPT] Resolve o desfecho da missão + recompensa (extraído p/ reuso no "terminar a missão"). */
+    private CollectResult resolveAndReward(Player player, KingdomActiveQuest quest, String optionId) {
         // Bônus de guild + território (aplicados só se houver recompensa)
         Guild guild = playerRepository.findGuildByPlayerId(player.getId()).orElse(null);
         int xpPct     = guild != null ? guild.xpBonus()    : 0;
@@ -233,11 +246,6 @@ public class KingdomService {
         Warrior warrior = warriorRepo.findByPlayer(player)
                 .orElseThrow(() -> new IllegalStateException("Warrior not found."));
         ThreadLocalRandom rng = ThreadLocalRandom.current();
-
-        // [PETS] Quest rara da Luna: sem loot, só a chance de pet (pity escalante).
-        if (qt == KingdomQuestType.RESCUE_STRAY_DOG) {
-            return collectLunaQuest(player, quest, optionId, rng);
-        }
 
         OutcomeResult res;
         if (InteractiveQuests.isInteractive(qt)) {
@@ -291,32 +299,65 @@ public class KingdomService {
                 player.getId(), InteractiveQuests.isInteractive(qt), res.encountered, res.won, totalBronze, totalXp,
                 drop != null ? drop.getName() : "none", res.roll);
         return new CollectResult(quest, drop, totalBronze, totalXp,
-                res.narrative, res.encountered, res.won, res.monsterName, res.battleLog, res.roll, null);
+                res.narrative, res.encountered, res.won, res.monsterName, res.battleLog, res.roll, null, false);
     }
 
-    /** Coleta da quest rara da Luna: sem loot; rola a chance de pet (pity escalante). [PETS] */
-    private CollectResult collectLunaQuest(Player player, KingdomActiveQuest quest, String optionId, ThreadLocalRandom rng) {
-        if (optionId == null || optionId.isBlank()) {
-            throw new IllegalArgumentException("This quest requires you to make a choice.");
-        }
-        // marca como coletada (consome a daily desta janela) qualquer que seja a escolha
+    // ── [LUNA_INTERRUPT] Interrupção da Luna (substitui a antiga quest avulsa RESCUE_STRAY_DOG) ──
+
+    /** Rola se a Luna interrompe esta missão: só enquanto o jogador não tem a Luna (flag liga/desliga). */
+    private boolean shouldLunaInterrupt(Player player) {
+        return lunaInterruptEnabled
+                && !petService.owns(player, PetType.LUNA)
+                && ThreadLocalRandom.current().nextInt(1000) < LUNA_INTERRUPT_PER_MILLE;
+    }
+
+    private CollectResult lunaPendingResult(KingdomActiveQuest quest) {
+        String intro = messages.getOr("luna.interrupt.intro",
+                "A trembling stray dog stumbles into your path, whimpering. She looks up at you with tired, hopeful eyes.");
+        return new CollectResult(quest, null, 0, 0, intro, false, false, null, null, null, null, true);
+    }
+
+    private KingdomActiveQuest requireLunaPending(Player player, Long questId) {
+        KingdomActiveQuest quest = questRepo.findById(questId)
+                .orElseThrow(() -> new IllegalArgumentException("Quest not found."));
+        if (!quest.getPlayer().getId().equals(player.getId()))
+            throw new IllegalStateException("This quest does not belong to you.");
+        if (quest.getStatus() != QuestStatus.LUNA_PENDING)
+            throw new IllegalStateException("No stray dog to decide about.");
+        return quest;
+    }
+
+    /** [LUNA_INTERRUPT] Terminar a missão: ignora o cãozinho e resolve a recompensa normal (escolha guardada). */
+    @Transactional
+    public CollectResult resolveLunaIgnore(Player playerArg, Long questId) {
+        final Player player = playerRepository.findById(playerArg.getId()).orElse(playerArg);
+        KingdomActiveQuest quest = requireLunaPending(player, questId);
+        String optionId = quest.getPendingOptionId();
+        quest.setPendingOptionId(null);
+        log.info("[KingdomService] player={} LUNA ignored → resolve quest={}", player.getId(), quest.getId());
+        return resolveAndReward(player, quest, optionId); // seta COLLECTED no fim
+    }
+
+    /** [LUNA_INTERRUPT] Ajudar o cãozinho: abre mão da recompensa da missão; rola a Luna (pity escalante). */
+    @Transactional
+    public CollectResult resolveLunaHelp(Player playerArg, Long questId) {
+        final Player player = playerRepository.findById(playerArg.getId()).orElse(playerArg);
+        KingdomActiveQuest quest = requireLunaPending(player, questId);
+        // consome a daily desta janela, SEM recompensa da missão
         quest.setStatus(QuestStatus.COLLECTED);
         quest.setCompletedWindowId(currentQuestWindowId());
+        quest.setPendingOptionId(null);
         questRepo.save(quest);
+        return rollLunaHelp(player, quest, ThreadLocalRandom.current());
+    }
 
-        if ("leave".equals(optionId)) {
-            log.info("[KingdomService] player={} luna quest: walked away", player.getId());
-            return new CollectResult(quest, null, 0, 0,
-                    messages.getOr("questdlg.RESCUE_STRAY_DOG.out.leave.text",
-                            "You walk past the whimpering stray and continue on your way."),
-                    false, false, null, null, null, null);
-        }
-        // "help": sem loot, rola a chance de pet
+    /** Rola a chance da Luna com pity escalante; se não pegar, pity++ + texto de afeição. [PETS][LUNA_INTERRUPT] */
+    private CollectResult rollLunaHelp(Player player, KingdomActiveQuest quest, ThreadLocalRandom rng) {
         if (petService.owns(player, PetType.LUNA)) {
             return new CollectResult(quest, null, 0, 0,
                     messages.getOr("questdlg.RESCUE_STRAY_DOG.out.help.owned",
                             "You help the little stray. She's already safe with you."),
-                    false, false, null, null, null, null);
+                    false, false, null, null, null, null, false);
         }
         int attempts  = player.getPetPityAttempts();
         int chancePpm = Math.min(LUNA_CAP_PPM, LUNA_BASE_PPM + LUNA_STEP_PPM * attempts);
@@ -329,15 +370,15 @@ public class KingdomService {
             return new CollectResult(quest, null, 0, 0,
                     messages.getOr("questdlg.RESCUE_STRAY_DOG.out.help.got",
                             "You nurse the sick dog through the night. By dawn she's on her feet, tail wagging — and she won't leave your side. 🐶 Luna is now your companion!"),
-                    false, false, null, null, null, "Luna");
+                    false, false, null, null, null, "Luna", false);
         }
         player.setPetPityAttempts(attempts + 1);
         playerRepository.save(player);
-        log.info("[KingdomService] player={} luna quest: helped, no pet (chance={} attemptsNow={})", player.getId(), pct, attempts + 1);
+        log.info("[KingdomService] player={} luna helped, no pet (chance={} attemptsNow={})", player.getId(), pct, attempts + 1);
         return new CollectResult(quest, null, 0, 0,
-                messages.getOr("questdlg.RESCUE_STRAY_DOG.out.help.nopet",
-                        "You nurse the sick dog back to health. She licks your hand gratefully and trots off into the wild. (Bond chance was {0})", pct),
-                false, false, null, null, null, null);
+                messages.getOr("luna.interrupt.help.nopet",
+                        "You tend to the trembling stray until she stops shaking. She nuzzles your hand and licks your fingers — she's starting to like you. (Bond chance was {0})", pct),
+                false, false, null, null, null, null, false);
     }
 
     // ── Resolução de outcome interativo (recursivo p/ Check) [QUESTS_INTERATIVAS] ──
@@ -650,7 +691,8 @@ public class KingdomService {
             String monsterName,
             List<String> battleLog,
             RollInfo roll,             // [QUESTS_INTERATIVAS] null se não houve teste de atributo
-            String acquiredPet         // [PETS] nome do pet ganho (ex.: "Luna") ou null
+            String acquiredPet,        // [PETS] nome do pet ganho (ex.: "Luna") ou null
+            boolean lunaPending        // [LUNA_INTERRUPT] true = a Luna interrompeu; aguardando ajudar/terminar
     ) {}
 
     /** Resultado do roll d20 de um teste de atributo (pro modal). [QUESTS_INTERATIVAS] */

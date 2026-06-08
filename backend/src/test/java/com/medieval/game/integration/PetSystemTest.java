@@ -1,12 +1,13 @@
 package com.medieval.game.integration;
 
-import com.fasterxml.jackson.databind.JsonNode;
 import com.medieval.game.enums.Kingdom;
 import com.medieval.game.enums.KingdomQuestType;
 import com.medieval.game.enums.PetType;
+import com.medieval.game.enums.QuestStatus;
 import com.medieval.game.model.KingdomActiveQuest;
 import com.medieval.game.model.Player;
 import com.medieval.game.model.Warrior;
+import com.medieval.game.repository.KingdomActiveQuestRepository;
 import com.medieval.game.repository.PlayerRepository;
 import com.medieval.game.repository.WarriorRepository;
 import com.medieval.game.service.KingdomService;
@@ -19,8 +20,6 @@ import org.springframework.beans.factory.annotation.Autowired;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 // Pets: equip + bônus de HP + quest rara da Luna (pity/aparição). [PETS]
 @DisplayName("Pets | Luna: equip, +10% HP, quest rara (pity/aparição)")
@@ -31,6 +30,7 @@ class PetSystemTest extends BaseIntegrationTest {
     @Autowired PlayerRepository   playerRepository;
     @Autowired WarriorRepository  warriorRepository;
     @Autowired WarriorStatsService statsService;
+    @Autowired KingdomActiveQuestRepository questRepo;
 
     String token;
 
@@ -128,70 +128,55 @@ class PetSystemTest extends BaseIntegrationTest {
         assertThat(agiAfter - agiBefore).isEqualTo(PetType.BANDIT_CAT.dexBonus); // +6
     }
 
-    // ── isLunaWindow determinístico + Luna fora da rotação ──
-    @Test
-    @DisplayName("isLunaWindow é determinístico e a Luna fica fora da rotação normal")
-    void lunaWindow_andRotation() {
-        Player p = player();
-        boolean a = kingdomService.isLunaWindow(p);
-        boolean b = kingdomService.isLunaWindow(p);
-        assertThat(a).isEqualTo(b); // determinístico
+    // ── [LUNA_INTERRUPT] A Luna interrompe missões normais (substituiu a quest avulsa RESCUE_STRAY_DOG) ──
 
+    /** Cria uma quest normal e força o estado LUNA_PENDING (a interrupção aleatória fica OFF nos testes). */
+    private KingdomActiveQuest lunaPending(Player p, KingdomQuestType qt, String pendingOptionId) {
+        KingdomActiveQuest q = kingdomService.startQuest(p, qt.kingdom, qt);
+        q.setStatus(QuestStatus.LUNA_PENDING);
+        q.setPendingOptionId(pendingOptionId);
+        return questRepo.save(q);
+    }
+
+    private Player freshPlayer(String prefix) throws Exception {
+        registerAndGetToken(uniqueUser(prefix));
+        return playerRepository.findAll().stream()
+                .filter(x -> x.getUsername().startsWith(prefix))
+                .reduce((a, b) -> b.getId() > a.getId() ? b : a).orElseThrow();
+    }
+
+    @Test
+    @DisplayName("A Luna fica fora da rotação normal de quests (6 por reino)")
+    void luna_outOfRotation() {
         assertThat(kingdomService.allQuestsForKingdom(Kingdom.FISHING))
                 .doesNotContain(KingdomQuestType.RESCUE_STRAY_DOG)
                 .hasSize(6);
     }
 
-    // ── Quest da Luna: "leave" não mexe na pity ──
     @Test
-    @DisplayName("leave não mexe na pity nem concede pet")
-    void lunaQuest_leave_noPity() {
-        Player p = player();
-        KingdomActiveQuest q = kingdomService.startQuest(p, Kingdom.FISHING, KingdomQuestType.RESCUE_STRAY_DOG);
-        kingdomService.collectQuest(player(), q.getId(), "leave");
-        assertThat(player().getPetPityAttempts()).isZero();
-        assertThat(petService.owns(player(), PetType.LUNA)).isFalse();
-    }
+    @DisplayName("Ajudar o cãozinho: pity vira 1 (chance ínfima de já ganhar a Luna) + quest coletada sem recompensa")
+    void lunaInterrupt_help_incrementsPity() throws Exception {
+        Player p = freshPlayer("pethelp");
+        KingdomActiveQuest q = lunaPending(p, KingdomQuestType.PATROL_COAST, "hail");
 
-    // ── help num player limpo: pity vira 1 (ou ganhou a Luna) ──
-    @Test
-    @DisplayName("help: a pity vira 1 (chance ínfima de já ganhar a Luna)")
-    void lunaQuest_help_incrementsPity() throws Exception {
-        registerAndGetToken(uniqueUser("pethelp"));
-        Player p = playerRepository.findAll().stream()
-                .filter(x -> x.getUsername().startsWith("pethelp"))
-                .reduce((a, b) -> b.getId() > a.getId() ? b : a).orElseThrow();
-
-        KingdomActiveQuest q = kingdomService.startQuest(p, Kingdom.FISHING, KingdomQuestType.RESCUE_STRAY_DOG);
-        kingdomService.collectQuest(p, q.getId(), "help");
+        kingdomService.resolveLunaHelp(p, q.getId());
 
         Player after = playerRepository.findById(p.getId()).orElseThrow();
+        assertThat(questRepo.findById(q.getId()).orElseThrow().getStatus()).isEqualTo(QuestStatus.COLLECTED);
         boolean gotLuna = petService.owns(after, PetType.LUNA);
-        // ou ganhou a Luna (raríssimo) ou a pity subiu pra 1
-        assertThat(gotLuna || after.getPetPityAttempts() == 1).isTrue();
+        assertThat(gotLuna || after.getPetPityAttempts() == 1).isTrue(); // ajudar = pity++ (ou Luna raríssima)
     }
 
-    // ── Vitrine: a Luna aparece p/ um player em "janela da Luna" e não p/ os demais ──
     @Test
-    @DisplayName("A quest da Luna aparece na vitrine numa janela da Luna")
-    void lunaShowcase_appearsInLunaWindow() throws Exception {
-        // isLunaWindow = floorMod(playerId*K + window, LUNA_WINDOW_DENOM)==0, com K≡1 mod DENOM →
-        // IDs consecutivos cobrem todos os resíduos; ≥DENOM(12) registros garantem uma janela da Luna.
-        String lunaTok = null;
-        for (int i = 0; i < 13 && lunaTok == null; i++) {
-            String tk = registerAndGetToken(uniqueUser("petshow"));
-            Player p = playerRepository.findAll().stream()
-                    .filter(x -> x.getUsername().startsWith("petshow"))
-                    .reduce((a, b) -> b.getId() > a.getId() ? b : a).orElseThrow();
-            if (kingdomService.isLunaWindow(p)) lunaTok = tk;
-        }
-        assertThat(lunaTok).as("achou um player em janela da Luna").isNotNull();
+    @DisplayName("Terminar a missão: resolve a recompensa normal (escolha guardada) e coleta")
+    void lunaInterrupt_ignore_resolvesReward() throws Exception {
+        Player p = freshPlayer("petign");
+        KingdomActiveQuest q = lunaPending(p, KingdomQuestType.PATROL_COAST, "hail"); // "hail" = pacífico → recompensa
 
-        JsonNode showcase = objectMapper.readTree(mockMvc.perform(get("/api/world/FISHING/quests")
-                        .header("Authorization", bearer(lunaTok)))
-                .andExpect(status().isOk()).andReturn().getResponse().getContentAsString());
-        boolean hasLuna = false;
-        for (JsonNode q : showcase) if ("RESCUE_STRAY_DOG".equals(q.get("id").asText())) hasLuna = true;
-        assertThat(hasLuna).isTrue();
+        var res = kingdomService.resolveLunaIgnore(p, q.getId());
+
+        assertThat(questRepo.findById(q.getId()).orElseThrow().getStatus()).isEqualTo(QuestStatus.COLLECTED);
+        assertThat(res.bronzeEarned() > 0 || res.xpEarned() > 0).isTrue(); // recompensa preservada
+        assertThat(res.lunaPending()).isFalse();
     }
 }

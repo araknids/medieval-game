@@ -3765,9 +3765,47 @@ async function abandonQuestFromDialog(kingdom, questId) {
 async function collectKingdomQuest(kingdom, questId, optionId) {
   const r = await api('POST', `/api/world/${kingdom}/quests/${questId}/collect`, optionId ? { optionId } : undefined);
   if (r.error) { worldMsg(r.error, false); return; }
+  if (r.lunaPending) { showLunaInterruptModal(kingdom, questId, r); return; } // [LUNA_INTERRUPT]
   showQuestResultModal(r);
   await enterKingdom(kingdom);
   await loadWarrior(); // refresca o card (XP/HP/bronze + pet novo). [PETS]
+}
+
+// [LUNA_INTERRUPT] A Luna interrompe a missão → escolher ajudar o cãozinho (abre mão da recompensa,
+// sobe a afeição/chance) ou terminar a missão (mantém a recompensa).
+function showLunaInterruptModal(kingdom, questId, r) {
+  closeCollectModal();
+  const el = document.createElement('div');
+  el.id = 'collect-modal-overlay';
+  el.setAttribute('style',
+    'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.85);' +
+    'z-index:9999;display:flex;align-items:center;justify-content:center;padding:16px;box-sizing:border-box');
+  el.innerHTML = `
+    <div style="background:#14141f;border:1px solid #e0b878;border-radius:12px;padding:22px;max-width:380px;text-align:center">
+      <div style="font-size:2rem">🐶</div>
+      <h3 style="color:#e0b878;margin:.3rem 0">${t('luna.title')}</h3>
+      <div style="background:#1c1408;border-left:3px solid #e0b878;border-radius:4px;padding:10px;margin:10px 0;
+                  font-size:13px;line-height:1.5;text-align:left;color:#d8c5a0">${escapeHtml(r.narrative)}</div>
+      <button onclick="resolveLuna('${kingdom}', ${questId}, 'help')"
+              style="width:100%;margin-bottom:8px;background:#8d5a2b">🐶 ${t('luna.btn.help')}</button>
+      <button onclick="resolveLuna('${kingdom}', ${questId}, 'ignore')"
+              style="width:100%;background:#333">➡ ${t('luna.btn.ignore')}</button>
+    </div>`;
+  document.body.appendChild(el);
+}
+
+async function resolveLuna(kingdom, questId, action) {
+  closeCollectModal();
+  const r = await api('POST', `/api/world/${kingdom}/quests/${questId}/luna/${action}`);
+  if (r.error) { worldMsg(r.error, false); return; }
+  if (action === 'help' && !r.acquiredPet) {
+    // afeição subindo (ainda não pegou a Luna) — sem recompensa da missão
+    showCollectModal({ title: '🐶 ' + t('luna.bond.title'), color:'#e0b878', note:r.narrative, rows:[], log:[] });
+  } else {
+    showQuestResultModal(r); // 'ignore' → recompensa normal; 'help' com pet → celebração
+  }
+  await enterKingdom(kingdom);
+  await loadWarrior();
 }
 
 // Modal de resultado da quest: roll (se houve) + narrativa + combate; derrota = sem recompensa.

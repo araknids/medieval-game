@@ -2,7 +2,6 @@ package com.medieval.game.controller;
 
 import com.medieval.game.enums.Kingdom;
 import com.medieval.game.enums.KingdomQuestType;
-import com.medieval.game.enums.QuestStatus;
 import com.medieval.game.model.*;
 import com.medieval.game.quest.InteractiveQuests;
 import com.medieval.game.service.KingdomService;
@@ -12,7 +11,6 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
-import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 
@@ -77,25 +75,8 @@ public class KingdomController {
                     );
                 }).toList());
 
-        // [PETS] Quest RARA da Luna aparece em qualquer reino durante uma "janela da Luna".
-        if (kingdomService.lunaQuestActive(player)) {
-            KingdomQuestType luna = KingdomQuestType.RESCUE_STRAY_DOG;
-            boolean done = kingdomService.isQuestDoneThisPeriod(player, luna);
-            quests.add(Map.<String, Object>ofEntries(
-                Map.entry("id",                luna.name()),
-                Map.entry("displayName",       "🐶 " + messages.getOr("quest." + luna.name() + ".name", luna.displayName)), // [I18N]
-                Map.entry("durationMinutes",   luna.durationMinutes),
-                Map.entry("bronzeReward",      luna.bronzeReward),
-                Map.entry("expReward",         luna.expReward),
-                Map.entry("staminaCost",       luna.staminaCost),
-                Map.entry("dropChance",        luna.dropChance),
-                Map.entry("interactive",       true),
-                Map.entry("doneToday",         done),
-                Map.entry("secondsUntilReset", secondsUntilReset),
-                Map.entry("canStart",          !done && stamina >= luna.staminaCost),
-                Map.entry("rare",              true) // o front destaca como rara
-            ));
-        }
+        // [LUNA_INTERRUPT] A Luna não é mais uma quest da vitrine — ela interrompe missões normais
+        // aleatoriamente (ver KingdomService.shouldLunaInterrupt). Substituiu a antiga quest avulsa.
         return ResponseEntity.ok(quests);
     }
 
@@ -142,7 +123,25 @@ public class KingdomController {
             Authentication auth) {
         Player player = getPlayer(auth);
         String optionId = req != null ? req.optionId() : null; // [QUESTS_INTERATIVAS] escolha do diálogo
-        KingdomService.CollectResult result = kingdomService.collectQuest(player, id, optionId);
+        return ResponseEntity.ok(collectResultToMap(kingdomService.collectQuest(player, id, optionId)));
+    }
+
+    // ── [LUNA_INTERRUPT] Decidir sobre o cãozinho que interrompeu a missão (help = ajudar / ignore = terminar) ──
+    @PostMapping("/{kingdom}/quests/{id}/luna/{action}")
+    public ResponseEntity<?> lunaDecision(
+            @PathVariable Kingdom kingdom,
+            @PathVariable Long id,
+            @PathVariable String action,
+            Authentication auth) {
+        Player player = getPlayer(auth);
+        KingdomService.CollectResult result = "help".equalsIgnoreCase(action)
+                ? kingdomService.resolveLunaHelp(player, id)
+                : kingdomService.resolveLunaIgnore(player, id);
+        return ResponseEntity.ok(collectResultToMap(result));
+    }
+
+    /** Serializa o CollectResult de uma quest (reusado por collect + decisão da Luna). [LUNA_INTERRUPT] */
+    private Map<String, Object> collectResultToMap(KingdomService.CollectResult result) {
         var resp = new java.util.HashMap<String, Object>();
         resp.put("bronzeEarned", result.bronzeEarned());
         resp.put("xpEarned",     result.xpEarned());
@@ -153,6 +152,7 @@ public class KingdomController {
         if (result.monsterName() != null) resp.put("monsterName", result.monsterName());
         resp.put("battleLog",          result.battleLog());
         if (result.acquiredPet() != null) resp.put("acquiredPet", result.acquiredPet()); // [PETS]
+        if (result.lunaPending()) resp.put("lunaPending", true);                          // [LUNA_INTERRUPT]
         if (result.roll() != null) { // [QUESTS_INTERATIVAS] resultado do teste de atributo (d20)
             KingdomService.RollInfo r = result.roll();
             resp.put("roll", Map.of(
@@ -169,7 +169,7 @@ public class KingdomController {
                 "healthBonus", d.getHealthBonus()
             ));
         }
-        return ResponseEntity.ok(resp);
+        return resp;
     }
 
     // ── Abandon quest ─────────────────────────────────────────────────────────

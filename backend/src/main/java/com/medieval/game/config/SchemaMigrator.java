@@ -342,13 +342,15 @@ public class SchemaMigrator {
         }
     }
 
-    // kingdom_active_quests: add completed_window_id (lock da daily quest por janela de 12h) [DAILY_QUESTS]
+    // kingdom_active_quests: completed_window_id (lock da daily por janela) [DAILY_QUESTS]
+    // + pending_option_id (escolha guardada quando a Luna interrompe a missão) [LUNA_INTERRUPT]
     private void patchKingdomQuestWindowColumn() {
         try {
             jdbc.execute("ALTER TABLE kingdom_active_quests ADD COLUMN IF NOT EXISTS completed_window_id bigint NOT NULL DEFAULT 0");
-            log.info("[SchemaMigrator] kingdom_active_quests completed_window_id column ensured");
+            jdbc.execute("ALTER TABLE kingdom_active_quests ADD COLUMN IF NOT EXISTS pending_option_id varchar(40)");
+            log.info("[SchemaMigrator] kingdom_active_quests columns ensured");
         } catch (Exception e) {
-            log.warn("[SchemaMigrator] kingdom_active_quests completed_window_id patch failed: {}", e.getMessage());
+            log.warn("[SchemaMigrator] kingdom_active_quests columns patch failed: {}", e.getMessage());
         }
     }
 

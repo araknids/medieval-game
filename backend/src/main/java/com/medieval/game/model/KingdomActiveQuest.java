@@ -58,6 +58,11 @@ public class KingdomActiveQuest {
     @Column(columnDefinition = "bigint default 0")
     private long completedWindowId = 0;
 
+    // [LUNA_INTERRUPT] Escolha do diálogo guardada quando a Luna interrompe a missão (status LUNA_PENDING),
+    // p/ retomar a resolução normal se o jogador optar por "terminar a missão". null = sem pendência.
+    @Column(name = "pending_option_id", length = 40)
+    private String pendingOptionId;
+
     public boolean isReadyToCollect() {
         return !LocalDateTime.now().isBefore(completesAt);
     }
