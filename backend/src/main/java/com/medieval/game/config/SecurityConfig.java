@@ -41,7 +41,7 @@ public class SecurityConfig {
                         .requestMatchers("/api/auth/**").permitAll()
                         .requestMatchers("/api/server-info").permitAll() // [SERVIDORES] tela de login (pré-auth)
                         .requestMatchers("/h2-console/**").permitAll()
-                        .requestMatchers("/", "/index.html", "/style.css", "/app.js", "/favicon.ico", "/servers.json").permitAll()
+                        .requestMatchers("/", "/index.html", "/style.css", "/app.js", "/battleArena.js", "/favicon.ico", "/servers.json").permitAll()
                         .requestMatchers("/lang/**").permitAll()
                         .anyRequest().authenticated()
                 )

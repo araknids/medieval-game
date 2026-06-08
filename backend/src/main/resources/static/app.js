@@ -2501,7 +2501,8 @@ async function startFight() {
       { icon:'🏅', label:'Rank',   value:`${data.won ? '+' : ''}${data.rankChange} pts`, color: data.won ? '#4caf50' : '#ef5350' },
       { icon:'🪙', label:'Bronze', value:fmtBronze(data.goldEarned), color:'#cd7f32' },
     ],
-    log: data.log || []
+    log: data.log || [],
+    battleEvents: data.battleEvents, scene: data.scene // [BATALHA_ANIMADA] replay do duelo
   });
   await loadWarrior();
   loadRank();
@@ -3947,9 +3948,16 @@ function worldMsg(text, ok = true) {
 // log:  string[] (battle log lines)
 // note: string (narrative/lore paragraph shown above the rows)
 let _collectAgainFn = null; // [PILOTO_UI] guarda o "repetir ação" do modal de coleta/caça
-function showCollectModal({ title, color = '#4caf50', rows = [], log = [], note = '', again = null, equipId = null, equipUpgrade = false }) {
+function showCollectModal({ title, color = '#4caf50', rows = [], log = [], note = '', again = null, equipId = null, equipUpgrade = false, battleEvents = null, scene = null }) {
   closeCollectModal();
   _collectAgainFn = again;
+
+  // [BATALHA_ANIMADA] se a luta trouxe eventos, monta o palco do replay no topo do modal.
+  const hasBattle = Array.isArray(battleEvents) && battleEvents.length > 0 && typeof window.playBattle === 'function';
+  const battleHtml = hasBattle ? `
+    <div id="battle-stage" style="margin:-4px 0 14px">
+      <canvas id="battle-canvas" width="440" height="200" style="width:100%;border-radius:8px;display:block;background:#111"></canvas>
+    </div>` : '';
 
   const GATHER_ICONS = { FISH:'🐟', ORE:'🪨', GEM:'💎', BAR:'🔩', CRYSTAL:'🔮' };
 
@@ -3986,6 +3994,7 @@ function showCollectModal({ title, color = '#4caf50', rows = [], log = [], note 
       <button onclick="closeCollectModal()" style="position:absolute;top:10px;right:10px;background:#333;
         border:none;color:#aaa;padding:4px 10px;border-radius:4px;cursor:pointer;font-size:13px">✕</button>
       <h3 style="margin:0 0 16px;color:${color};font-size:17px">${title}</h3>
+      ${battleHtml}
       ${noteHtml}
       ${rowsHtml || '<div style="color:#888;font-size:13px">Nothing this time.</div>'}
       ${logHtml}
@@ -3997,6 +4006,10 @@ function showCollectModal({ title, color = '#4caf50', rows = [], log = [], note 
     </div>`;
   document.body.appendChild(el);
   animateModalNumbers(el); // [PILOTO_UI juice] "número subindo" nas recompensas
+  if (hasBattle) { // [BATALHA_ANIMADA] toca o replay no canvas (placeholder, ≤10s, sangue, ⏩/⏭)
+    const cv = el.querySelector('#battle-canvas');
+    if (cv) window.playBattle(cv, battleEvents, { scene: scene || 'fortress' });
+  }
 }
 
 // [PILOTO_UI juice] anima spans [data-cu] de 0 até o valor (ease-out cúbico).
@@ -4016,6 +4029,7 @@ function animateModalNumbers(root) {
 }
 
 function closeCollectModal() {
+  if (window._battleCtrl) { try { window._battleCtrl.stop(); } catch (e) {} window._battleCtrl = null; } // [BATALHA_ANIMADA] para o replay
   document.getElementById('collect-modal-overlay')?.remove();
 }
 
@@ -4321,7 +4335,7 @@ async function renderZoneResult(r, again) {
     } catch (e) { /* sem comparação → botão fica "Equip" normal */ }
   }
   dismissOnboardClue(); // [ONBOARDING] 1ª expedição feita → tira o coachmark
-  showCollectModal({ title, color, rows, note: r.narrative || '', log: r.battleLog || [], again: canAgain ? again : null, equipId, equipUpgrade });
+  showCollectModal({ title, color, rows, note: r.narrative || '', log: r.battleLog || [], again: canAgain ? again : null, equipId, equipUpgrade, battleEvents: r.battleEvents, scene: r.scene });
   if (worldCurrentKingdom) await enterKingdom(worldCurrentKingdom);
 }
 
