@@ -17,7 +17,7 @@
 
   // ── Sprites (CraftPix Knight). Cada PNG é um strip horizontal de frames 128×128. ──
   const FRAME_W = 128, FRAME_H = 128, DRAW_H = 150;
-  const FRAME_MS = { idle: 130, walk: 80, attack: 55, hurt: 110, dead: 110, jump: 85 };
+  const FRAME_MS = { idle: 130, walk: 80, attack: 55, hurt: 110, dead: 110, jump: 250 }; // jump lento (taunt ~1.5s)
   const KNIGHT = {
     blue: {
       idle: '/assets/knights/blue/idle.png',   walk: '/assets/knights/blue/walk.png',
@@ -63,7 +63,7 @@
 
     const steps = events.slice();
     const BUDGET = 8500;   // ms — caber em ≤10s mesmo com muitos turnos
-    const TAUNT_MS = 560;  // pulo de taunt no início (antes de andar)
+    const TAUNT_MS = 1550; // pulo de taunt no início (~1.5s: 6 frames × 250ms) antes de andar
     const INTRO_MS = 600;  // entrada andando até o corpo-a-corpo
     const stepDur = Math.max(110, Math.min(600, steps.length ? BUDGET / steps.length : 600));
 
