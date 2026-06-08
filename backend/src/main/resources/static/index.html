@@ -52,9 +52,17 @@
       <div class="header-logo">⚔ Medieval Game <span id="hdr-server" style="font-size:.7rem;font-weight:600;padding:.1rem .4rem;border-radius:4px;margin-left:.4rem;vertical-align:middle"></span></div>
       <div class="header-info">
         <span id="hdr-username"></span>
+        <!-- [PILOTO_UI] barra persistente: HP + estamina SEMPRE visíveis -->
+        <div id="hdr-vitals" class="hdr-vitals">
+          <span class="hdr-bar" title="Health">❤<span class="hdr-bar-track"><i id="hdr-hp-fill" class="hdr-bar-fill"></i></span><b id="hdr-hp-txt"></b></span>
+          <span class="hdr-bar" title="Stamina">⚡<span class="hdr-bar-track"><i id="hdr-stam-fill" class="hdr-bar-fill"></i></span><b id="hdr-stam-txt"></b></span>
+        </div>
         <span id="hdr-currency"></span>
         <span id="hdr-rank"></span>
-        <button onclick="logout()" style="margin-left:1rem;padding:.2rem .7rem;font-size:.8rem">Exit</button>
+        <!-- [PILOTO_UI] quick actions: curar e abrir bag em 1 clique de qualquer tela -->
+        <button id="hdr-heal" class="hdr-quick gold" onclick="healWarrior()" title="Heal your warrior">＋ Heal</button>
+        <button class="hdr-quick" onclick="goTo('inventory')" title="Open bag (inventory)">🎒 Bag</button>
+        <button onclick="logout()" style="margin-left:.4rem;padding:.2rem .7rem;font-size:.8rem">Exit</button>
       </div>
     </header>
 

@@ -88,6 +88,24 @@ header {
 }
 .btn-small:hover { background: #c9a84c; color: #1a1a2e; }
 
+/* [PILOTO_UI] header: logo empurra o resto pra direita; info alinhada em linha */
+.header-logo { flex: 1; font-size: 1.05rem; }
+.header-info { display: flex; align-items: center; gap: 0.8rem; }
+
+/* [PILOTO_UI] barra persistente HP/estamina (sempre visível no topo) */
+.hdr-vitals { display: flex; align-items: center; gap: 0.7rem; }
+.hdr-bar { display: flex; align-items: center; gap: 0.25rem; font-size: 0.8rem; color: var(--ink-1); white-space: nowrap; }
+.hdr-bar-track { width: 78px; height: 8px; background: var(--bg-2); border: 1px solid var(--line); border-radius: 5px; overflow: hidden; display: inline-block; }
+.hdr-bar-fill { display: block; height: 100%; width: 100%; transition: width 0.3s ease; }
+.hdr-bar b { font-weight: 600; color: var(--ink-0); font-variant-numeric: tabular-nums; min-width: 2.6em; text-align: right; }
+
+/* [PILOTO_UI] quick actions: Heal (gold) e Bag — 1 clique de qualquer tela */
+.hdr-quick { padding: 0.28rem 0.6rem; background: transparent; border: 1px solid var(--line); color: var(--ink-0); border-radius: 5px; cursor: pointer; font-family: inherit; font-size: 0.8rem; white-space: nowrap; }
+.hdr-quick:hover { border-color: var(--gold); color: var(--gold); }
+.hdr-quick.gold { border-color: var(--gold); color: var(--gold); }
+.hdr-quick.gold:hover { background: var(--gold); color: var(--bg-0); }
+.hdr-quick:disabled { opacity: 0.45; cursor: default; border-color: var(--line); color: var(--ink-2); }
+
 /* ── LAYOUT ── */
 .game-layout {
   display: grid;

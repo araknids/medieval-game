@@ -418,6 +418,20 @@ async function loadWarrior() {
                      : (warrior.hpPercent ?? 100) < 50  ? '#c9a84c' : '#4caf82';
   const staminaColor = stamina < 30 ? '#cf6679' : stamina < 60 ? '#c9a84c' : '#4caf82';
 
+  // [PILOTO_UI] Barra persistente do topo: HP/estamina sempre visíveis + estado do botão Heal.
+  (function updatePersistentVitals() {
+    const hpPct = warrior.hpPercent ?? 100;
+    const setBar = (fillId, txtId, pct, color, label) => {
+      const f = document.getElementById(fillId), x = document.getElementById(txtId);
+      if (f) { f.style.width = Math.max(0, Math.min(100, pct)) + '%'; f.style.background = color; }
+      if (x) x.textContent = label;
+    };
+    setBar('hdr-hp-fill',   'hdr-hp-txt',   hpPct,   hpColor,      hpPct + '%');
+    setBar('hdr-stam-fill', 'hdr-stam-txt', stamina, staminaColor, stamina + '/100');
+    const healBtn = document.getElementById('hdr-heal');
+    if (healBtn) healBtn.disabled = (hpPct >= 100); // já com HP cheio → nada pra curar
+  })();
+
   // Profissões (Pesca/Mineração/Garimpo/Forja) — nível + onde o próximo tier desbloqueia. [PROFISSAO]
   const skillsHtml = skillsData.length ? `
     <div style="margin-top:.5rem;border-top:1px solid #333;padding-top:.4rem">
