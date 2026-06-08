@@ -92,15 +92,25 @@ via `Messages`, roda os testes. Números/escopo podem ajustar no caminho.
   nomes de monstro do narrador). **P6** TODOS os 217 erros (141 estáticos via EN-como-key
   escapada no handler; 47 interpolados via `LocalizedException(key, EN, args)`).
 
-**FALTA (P7 + caudas) — passe dedicado recomendado (mexe no núcleo de combate / decisão de storage):**
-- **P7 battle logs**: `BattleSimulator` (~30 `log.add` templates + arrays VICTORY/MISS/CRIT/FUMBLE/
-  hit/bodyPart). Converter cada um pra key+placeholders via `messages.getOr`, EN default = literal
-  atual (preserva EN). ⚠ Núcleo de combate — rodar TODA a suíte de combate. Os números/nomes já
-  entram pelos args; o NOME do combatente vem localizado da fonte (ver abaixo).
-- **Nomes de combatente restantes**: `TowerFloors` (~50 monstros/MVPs), `Kingdom.npcName` (5),
-  monstros de zona (`ZoneService`), nomes de zona/tier. Padrão: `messages.getOr("monster.<Nome_Com_Underscore>", en)`
-  na FONTE do nome (ex.: onde `BossInfo.name`/combatant é montado) → propaga pro log sem tocar combate.
-- **ItemLoreGenerator**: lore é **PERSISTIDO** no item na criação (não é request-time) → precisa
-  **guardar uma key** em vez do texto e resolver no display (refactor de storage + DTO de item).
-  Idem origin strings ("Found during X").
-- **GatheringNarrator**, labels de loja/forja, `ResourceType`/`WeaponType`/`ItemType` displayName.
+**P7 — FEITO** (commits adicionais, suíte 606 verde):
+- Battle logs do `BattleSimulator`: ~20 `log.add` + 7 arrays (hit/enemyhit/body/miss/fumble/crit/
+  victory) + elementNote via `Messages.tr` ESTÁTICO (`combat.*`); EN default = literal; tag `WINNER:`
+  intacta; `new BattleSimulator()` nos probes ok (MS null → EN). Combate/math inalterados.
+- Nomes de combatente: Torre (`TowerService.monName`, ~50 monstros/MVPs + sufixo "(Andar N)"/"N monstros"),
+  NPCs de reino, NPCs de zona (`ZoneService.npcName`) — `monster.<Nome_Com_Underscore>`, localizado na
+  FONTE → propaga pro battle log.
+- `GatheringNarrator` (15 templates de coleta).
+
+**FALTA (caudas — NÃO é "mais do mesmo": é decisão de arquitetura de strings PERSISTIDAS):**
+- **Nomes de item PERSISTIDOS** (`InventoryItem.name`, ex.: "Steel Sword"): ⚠ o nome é **FUNCIONAL** —
+  `WeaponType.fromName(item.getName())` deriva tipo/stats/categoria da arma DO NOME (parseia EN+PT).
+  Localizar o nome exibido sem quebrar o parsing exige um refactor de **store-key/estruturado** (guardar
+  tipo+raridade+nível e re-gerar o nome localizado no display) + migração dos itens existentes. Toca a
+  criação de item (drops/loja/forja/mail) — núcleo. NÃO é tradução; é design. Passe dedicado.
+- **ItemLoreGenerator** (lore/description + origin): PERSISTIDO na criação. A `description` NÃO é parseada
+  (mais seguro que o nome), mas mudar `make()` p/ guardar key ripa em todos os call sites + migração.
+- **displayNames de catálogo** (`ResourceType`/`SkillType`/`ItemType`/`WeaponType`/`BuffType`/`MealType`/
+  `MountType`/`PetType`/`Element`): display-time, localizáveis via `Messages.tr` nos DTOs dos controllers
+  (Gathering/Smithing/Stash/Zone/Inventory/Shop). Mecânico, mas muitos enums × sites; valor narrativo
+  baixo ("rótulos de coisa"). ⚠ alguns acessos a `.displayName` alimentam o NOME persistido (não localizar
+  esses — só os de display puro).
