@@ -1,12 +1,13 @@
 /* ── DESIGN TOKENS — Pacote 1 da repaginada (cores §4 + tipografia §5) [PILOTO_UI] ── */
 :root {
-  /* superfícies (dark fantasy neutro, no lugar do azul-marinho) */
-  --bg-0:#0e0e16;  --bg-1:#16161f;  --bg-2:#1f1f2b;  --line:#2c2c3d;
+  /* superfícies (couro/pergaminho — tom QUENTE medieval, no lugar do cinza frio) [PILOTO_UI §c] */
+  --bg-0:#14100b;  --bg-1:#1d1810;  --bg-2:#261f15;  --line:#3a2f20;
   /* texto (tom pergaminho) */
-  --ink-0:#ECE6DA; --ink-1:#A7A091; --ink-2:#6E6A5E;
+  --ink-0:#ECE3D2; --ink-1:#B3A98F; --ink-2:#786E58;
   /* semântica */
   --gold:#c9a84c;  --gold-hi:#e6c45f;  --danger:#e0556b;  --success:#4caf82;  --info:#5b9bd5;
-  /* tipografia: display medieval SÓ p/ títulos; corpo em sans legível */
+  /* tipografia: título ORNAMENTADO (hero) + display p/ seções; corpo em sans legível */
+  --font-title:'Cinzel Decorative', 'Cinzel', Georgia, serif;
   --font-display:'Cinzel', Georgia, 'Times New Roman', serif;
   --font-body:'Segoe UI', system-ui, -apple-system, Roboto, 'Helvetica Neue', Arial, sans-serif;
 }
@@ -15,19 +16,27 @@
 
 body {
   background: var(--bg-0);
+  /* vinheta quente sutil no topo → profundidade de "salão à luz de tocha" [PILOTO_UI §c] */
+  background-image: radial-gradient(130% 80% at 50% 0%, #241a0d 0%, rgba(0,0,0,0) 55%);
+  background-attachment: fixed;
   color: var(--ink-0);
   font-family: var(--font-body);
   min-height: 100vh;
   -webkit-font-smoothing: antialiased;
 }
 
-/* Títulos no display medieval; CORPO permanece no sans (regra §5: nada decorativo em texto). */
-h1, h2,
-.header-logo, .sidebar-title, .warrior-name,
-.loc-header h2, .auth-box h1, .auth-box h2 {
+/* CORPO permanece no sans (regra §5: nada decorativo em texto). Títulos divididos: */
+/* seções no display (Cinzel) */
+h2, .sidebar-title, .loc-header h2 {
   font-family: var(--font-display);
   letter-spacing: .02em;
   font-weight: 600;
+}
+/* identidade/herói no título ORNAMENTADO (Cinzel Decorative) */
+h1, .header-logo, .warrior-name, .auth-box h1, .auth-box h2 {
+  font-family: var(--font-title);
+  letter-spacing: .02em;
+  font-weight: 700;
 }
 /* Números tabulares: não "pulam" de largura ao mudar (HP 9→10, preços, dano). */
 .warrior-stat-row .value, .attr-val, .shop-price, .rank-pts, .timer, .qp-timer, .fight-timer {
@@ -105,6 +114,15 @@ header {
 .hdr-quick.gold { border-color: var(--gold); color: var(--gold); }
 .hdr-quick.gold:hover { background: var(--gold); color: var(--bg-0); }
 .hdr-quick:disabled { opacity: 0.45; cursor: default; border-color: var(--line); color: var(--ink-2); }
+
+/* [PILOTO_UI §c] cara de pergaminho/couro: sheen sutil + moldura dourada fina nos cards principais */
+.zone-card, .quest-card, .work-job-card, .shop-card, .attr-section, .sk-section,
+.fight-box, .tower-floor-box, .auth-box, .shop-merchant-header, .tower-enter-box, .work-level-bar {
+  background-image: linear-gradient(180deg, rgba(201,168,76,0.05), rgba(0,0,0,0.06));
+  box-shadow: inset 0 0 0 1px rgba(201,168,76,0.10), 0 2px 6px rgba(0,0,0,0.25);
+}
+/* underline dourada decorativa nos títulos de seção */
+.loc-header h2 { border-bottom: 1px solid rgba(201,168,76,0.28); padding-bottom: 0.25rem; display: inline-block; }
 
 /* ── LAYOUT ── */
 .game-layout {
