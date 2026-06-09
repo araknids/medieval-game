@@ -23,6 +23,7 @@ public class WarriorController {
     private final WarriorService     warriorService;
     private final PlayerService      playerService;
     private final WarriorStatsService statsService;
+    private final com.medieval.game.service.AbilityService abilityService; // [MERCADOR] % self-crafted
     private final MountRepository    mountRepository;
     private final com.medieval.game.repository.PetRepository petRepository; // [PETS]
     private final com.medieval.game.service.Messages messages; // [I18N] nome/efeito dos atributos
@@ -92,6 +93,8 @@ public class WarriorController {
         int bonusAtk = ib.atk();
         int bonusDef = ib.def();
         int bonusHp  = ib.hp();
+        // [POSTURE] ATK/DEF/HP EFETIVO de combate (inclui postura + buffs + abilities + pet + taverna) → a ficha reflete o stance
+        int[] cstats = statsService.combatStats(player, warrior);
 
         // Buff ativo
         int buffAtk = 0, buffDef = 0, buffHp = 0, buffEva = 0;
@@ -218,7 +221,9 @@ public class WarriorController {
                 aElem != null ? aElem.name() : "", aElemSecs,
                 com.medieval.game.service.AchievementService.titleString(player), // [TITULOS]
                 player.isNewbieBuffActive(), player.getNewbieBuffHoursLeft(), // [BUFF_NOVATO]
-                tavernBuffPct, tavernBuffSecondsLeft // [TAVERNA]
+                tavernBuffPct, tavernBuffSecondsLeft, // [TAVERNA]
+                cstats[0], cstats[1], cstats[2], // [POSTURE] ATK/DEF/HP efetivo de combate
+                abilityService.selfCraftedStatBonusPct(player) // [MERCADOR]
         );
     }
 
@@ -257,5 +262,7 @@ public class WarriorController {
                            String armorElement,  long armorElementSecondsLeft,
                            String title, // [TITULOS] título ativo do jogador
                            boolean newbieBuffActive, long newbieBuffHoursLeft, // [BUFF_NOVATO]
-                           double tavernBuffPct, long tavernBuffSecondsLeft) {} // [TAVERNA]
+                           double tavernBuffPct, long tavernBuffSecondsLeft, // [TAVERNA]
+                           int combatAttack, int combatDefense, int combatHealth, // [POSTURE] efetivo (postura+buffs+abilities+pet)
+                           int selfCraftedBonusPct) {} // [MERCADOR] +stats% em gear forjado por você
 }

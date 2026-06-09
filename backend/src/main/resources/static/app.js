@@ -489,6 +489,10 @@ async function loadWarrior() {
     ${statRow(t('stat.attack'),  warrior.baseAttack,  warrior.itemBonusAttack  ?? 0, warrior.buffBonusAttack  ?? 0)}
     ${statRow(t('stat.defense'), warrior.baseDefense, warrior.itemBonusDefense ?? 0, warrior.buffBonusDefense ?? 0)}
     ${statRow(t('stat.hp'),      warrior.baseHealth,  warrior.itemBonusHealth  ?? 0, warrior.buffBonusHealth  ?? 0)}
+    ${warrior.combatAttack != null ? `<div class="warrior-stat-row" title="ATK/DEF/HP reais de combate — já com a postura (stance), buffs, habilidades e pet">
+      <span class="label">⚔ ${t('stat.combat')||'Combat'} <span style="font-size:.7em;color:#888">(stance)</span></span>
+      <span class="value" style="color:#ffd86b">${warrior.combatAttack} / ${warrior.combatDefense} / ${warrior.combatHealth}</span>
+    </div>` : ''}
     <div class="warrior-stat-row">
       <span class="label">🎯 Accuracy / 💨 Agility</span>
       <span class="value">+${Math.floor((warrior.dexterity ?? 0) / 5)} / ${warrior.agility ?? 0}
@@ -1546,7 +1550,7 @@ async function loadInventory() {
         if (item) return `
           <div class="equip-slot filled">
             <div class="slot-label">${t('inventory.slot.'+slot.id)}${item.pvpLocked ? ' <span class="pvp-lock-badge" title="Exposto no PvP">🔒 PvP</span>' : ''}</div>
-            <div class="slot-item-name rarity-${item.rarity}">${item.name}</div>
+            <div class="slot-item-name rarity-${item.rarity}">${item.name}${selfCraftedBadge(item)}</div>
             <div class="slot-item-stats">${statsText(item)}</div>
             ${affixLines(item)}
             ${durabilityBar(item)}
@@ -1567,7 +1571,7 @@ async function loadInventory() {
     <div class="bag-item" data-icat="${itemCatOf(item.type)}" data-irar="${item.rarity}" style="flex-direction:column;align-items:flex-start;gap:.3rem">
       <div style="display:flex;justify-content:space-between;width:100%;align-items:center">
         <div>
-          <div class="bag-item-name rarity-${item.rarity}">${item.name} <span style="font-size:.7rem;color:#888">Lv.${item.itemLevel}</span>${item.pvpLocked ? ` <span class="pvp-lock-badge" title="${t('inventory.pvp_locked')||'Exposto no PvP — pode ser saqueado; não pode vender/guardar enquanto flagged'}">🔒 PvP</span>` : ''}</div>
+          <div class="bag-item-name rarity-${item.rarity}">${item.name} <span style="font-size:.7rem;color:#888">Lv.${item.itemLevel}</span>${item.pvpLocked ? ` <span class="pvp-lock-badge" title="${t('inventory.pvp_locked')||'Exposto no PvP — pode ser saqueado; não pode vender/guardar enquanto flagged'}">🔒 PvP</span>` : ''}${selfCraftedBadge(item)}</div>
           <div class="bag-item-type">${(t('item.type.'+item.type)||item.typeDisplay)} · ${(t('inventory.rarity.'+item.rarity)||item.rarityName)}${weaponTag(item)}</div>
           <div class="bag-item-stats">${statsText(item)}</div>
           ${affixLines(item)}
@@ -1676,6 +1680,17 @@ function weaponTag(item) {
 }
 function weaponUsable(item) {
   return true; // [CLASSES_ARMAS] trava de arma por classe REMOVIDA — qualquer classe usa qualquer arma
+}
+
+// [MERCADOR] Badge em item forjado pelo próprio jogador. Mostra o +stats% do Master Craftsman se houver.
+function selfCraftedBadge(item) {
+  if (!item || !item.selfCrafted) return '';
+  const pct = warrior?.selfCraftedBonusPct ?? 0;
+  const label = pct > 0 ? `🔨 +${pct}%` : '🔨';
+  const title = pct > 0
+    ? `Master Craftsman: +${pct}% nos stats deste item (você forjou). O buff está ATIVO.`
+    : 'Forjado por você';
+  return ` <span title="${title}" style="background:#5a3a1a;color:#ffd86b;border-radius:8px;padding:0 5px;font-size:.7em;white-space:nowrap">${label}</span>`;
 }
 
 // Raridade → cor/nome (espelha .rarity-N do style.css). [ITENS_V2]

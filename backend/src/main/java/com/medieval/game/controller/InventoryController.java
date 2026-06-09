@@ -44,21 +44,23 @@ public class InventoryController {
             items.stream()
                 .map(i -> ItemResponse.from(i,
                         gemsByItem.getOrDefault(i.getId(), List.of()),
-                        affixesByItem.getOrDefault(i.getId(), List.of())))
+                        affixesByItem.getOrDefault(i.getId(), List.of()), player.getId()))
                 .toList()
         );
     }
 
     @PostMapping("/{id}/equip")
     public ResponseEntity<?> equip(@PathVariable Long id, Authentication auth) {
-        InventoryItem item = inventoryService.equip(getPlayer(auth), id);
-        return ResponseEntity.ok(ItemResponse.from(item, gemRepository.findAllByItem(item), affixRepository.findAllByItem(item)));
+        Player p = getPlayer(auth);
+        InventoryItem item = inventoryService.equip(p, id);
+        return ResponseEntity.ok(ItemResponse.from(item, gemRepository.findAllByItem(item), affixRepository.findAllByItem(item), p.getId()));
     }
 
     @PostMapping("/{id}/unequip")
     public ResponseEntity<?> unequip(@PathVariable Long id, Authentication auth) {
-        InventoryItem item = inventoryService.unequip(getPlayer(auth), id);
-        return ResponseEntity.ok(ItemResponse.from(item, gemRepository.findAllByItem(item), affixRepository.findAllByItem(item)));
+        Player p = getPlayer(auth);
+        InventoryItem item = inventoryService.unequip(p, id);
+        return ResponseEntity.ok(ItemResponse.from(item, gemRepository.findAllByItem(item), affixRepository.findAllByItem(item), p.getId()));
     }
 
     @PostMapping("/{id}/sell")
@@ -108,9 +110,9 @@ public class InventoryController {
                         boolean equipped, boolean guarded,
                         String description, String origin,
                         int durability, int itemLevel, boolean pvpLocked,
-                        String weaponCategory) {
+                        String weaponCategory, boolean selfCrafted) { // [MERCADOR] forjado por você
 
-        static ItemResponse from(InventoryItem i, List<SocketedGem> socketedGems, List<ItemAffix> itemAffixes) {
+        static ItemResponse from(InventoryItem i, List<SocketedGem> socketedGems, List<ItemAffix> itemAffixes, Long playerId) {
             List<GemSlot> gems = socketedGems.stream()
                     .map(g -> new GemSlot(g.getSlotIndex(), g.getGemType().name(), com.medieval.game.service.Messages.tr("gem." + g.getGemType().name() + ".name", g.getGemType().displayName)))
                     .toList();
@@ -129,7 +131,8 @@ public class InventoryController {
                 i.getDescription() != null ? i.getDescription() : "",
                 i.getOrigin()      != null ? i.getOrigin()      : "",
                 i.getDurability(), i.getItemLevel(), i.isPvpLocked(),
-                i.effectiveWeaponCategory() != null ? i.effectiveWeaponCategory().name() : null // [CLASSES_ARMAS]
+                i.effectiveWeaponCategory() != null ? i.effectiveWeaponCategory().name() : null, // [CLASSES_ARMAS]
+                playerId != null && i.isSelfCraftedBy(playerId) // [MERCADOR] forjado por você
             );
         }
 
