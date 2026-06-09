@@ -430,7 +430,7 @@ public class KingdomService {
         BattleSimulator.BattleOutcome out = battleSimulator.simulateDetailed(
             warrior.getName(), s[0], s[1], curHp, s[3], s[4], s[5],
             monsterName, mob[0], mob[1], mob[2], mob[3], mob[4], mob[5],
-            true, warrior.getWarriorClass().isRanged(), false); // PvE: timeout = derrota; [KITING] monstro = melee
+            true, statsService.isRangedWeaponEquipped(player), false); // PvE: timeout = derrota; [KITING] arma ranged, qualquer classe; monstro = melee
 
         boolean won = out.firstWon();
         List<String> lg = new ArrayList<>(out.log());

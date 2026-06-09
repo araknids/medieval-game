@@ -65,7 +65,11 @@ public enum WarriorClass {
     @Deprecated
     public Attribute damageAttribute() { return this == ARCHER ? Attribute.DEXTERITY : Attribute.STRENGTH; }
 
-    /** [KITING] Combate à distância (arco) — sofre a dinâmica de kiting vs corpo-a-corpo. */
+    /**
+     * @deprecated [KITING][CLASSES_ARMAS] O kiting agora segue a ARMA equipada (arco→ranged), não a
+     * classe — ver {@code WarriorStatsService.isRangedWeaponEquipped}. Mantido só por referência.
+     */
+    @Deprecated
     public boolean isRanged() { return this == ARCHER; }
 
     /** Categoria de arma que a classe pode equipar: Archer = RANGED, resto = MELEE. [CLASSES_ARMAS] */

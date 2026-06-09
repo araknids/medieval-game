@@ -125,7 +125,7 @@ public class GuildWarService {
         BattleSimulator.BattleOutcome out = battleSimulator.simulateDetailed(
                 aw.getName(), a[0], a[1], aHp, a[3], a[4], a[5],
                 tw.getName(), d[0], d[1], dHp, d[3], d[4], d[5],
-                false, aw.getWarriorClass().isRanged(), tw.getWarriorClass().isRanged()); // [KITING] PvP
+                false, statsService.isRangedWeaponEquipped(attacker), statsService.isRangedWeaponEquipped(target)); // [KITING] PvP, arma ranged (arco) qualquer classe
         boolean attackerWon = out.firstWon();
 
         // HP final dos dois

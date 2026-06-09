@@ -463,7 +463,7 @@ public class TerritoryService {
         int[] cs = c.stats;
         double mult = (1.0 - debuffPercent / 100.0)                          // debuff de defensor (streak)
                     * (1.0 - c.warrior.fatiguePctForCycle(cycleId) / 100.0); // cansaço de guerra
-        return new Fighter(
+        Fighter f = new Fighter(
                 c.player.getId(), c.warrior.getName(),
                 (int) Math.max(1, cs[0] * mult),   // ATK (gear+buff+postura) × debuff × cansaço
                 (int) Math.max(1, cs[1] * mult),   // DEF
@@ -472,6 +472,8 @@ public class TerritoryService {
                 cs[4], cs[5], c.warrior,           // agi (esquiva/velocidade), luk
                 c.warrior.getActiveWeaponElement(), c.warrior.getActiveArmorElement(),
                 abilityService.activeLoadout(c.warrior));
+        f.ranged = statsService.isRangedWeaponEquipped(c.player); // [KITING] arma ranged (arco), qualquer classe
+        return f;
     }
 
     /**
@@ -625,6 +627,7 @@ public class TerritoryService {
         // [GUERRA_FORMACAO] combate completo na guerra: elementos + habilidades ativas.
         public final com.medieval.game.enums.Element weaponElement, armorElement;
         public final java.util.List<BattleSimulator.ActiveAbility> abilities;
+        public boolean ranged = false; // [KITING] arma ranged (arco) — setado na construção (toFighter); NPC = false
 
         public Fighter(Long playerId, String name, int atk, int def, int hp, int dex, int agi, int luk, Warrior warrior) {
             this(playerId, name, atk, def, hp, dex, agi, luk, warrior, null, null, java.util.List.of());
@@ -648,9 +651,8 @@ public class TerritoryService {
         }
 
         BattleSimulator.Combatant toCombatant() {
-            boolean ranged = warrior != null && warrior.getWarriorClass().isRanged(); // [KITING] NPC = melee
             return BattleSimulator.Combatant.of(name, new int[]{atk, def, hp, dex, agi, luk},
-                    weaponElement, armorElement, abilities, ranged);
+                    weaponElement, armorElement, abilities, ranged); // [KITING] ranged setado por arma na construção
         }
     }
 

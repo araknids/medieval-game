@@ -187,7 +187,7 @@ public class TowerService {
         Warrior warrior = warriorRepository.findByPlayer(player)
                 .orElseThrow(() -> new IllegalStateException("Warrior not found"));
         int[] s = statsService.combatStats(player, warrior);
-        boolean ranged = warrior.getWarriorClass().isRanged();
+        boolean ranged = statsService.isRangedWeaponEquipped(player); // [KITING] arma ranged (arco), qualquer classe
 
         // [TORRE_NARRATIVA] Atmosfera do andar + gauntlet sequencial (HP carrega entre os monstros).
         List<String> battleLog = new java.util.ArrayList<>();

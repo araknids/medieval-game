@@ -97,14 +97,14 @@ public class ArenaService {
             if (oWarrior != null) {
                 oWeapon = oWarrior.getActiveWeaponElement(); oArmor = oWarrior.getActiveArmorElement();
                 oAbilities = abilityService.activeLoadout(oWarrior);
-                oRanged = oWarrior.getWarriorClass().isRanged();
+                oRanged = statsService.isRangedWeaponEquipped(opponent); // [KITING] arma ranged (arco), qualquer classe
             }
         } else {
             opponentName = NPC_NAMES[java.util.concurrent.ThreadLocalRandom.current().nextInt(NPC_NAMES.length)];
             oStats = npcStats();
         }
 
-        boolean cRanged = cWarrior.getWarriorClass().isRanged(); // [KITING] NPC/oponente melee = false
+        boolean cRanged = statsService.isRangedWeaponEquipped(challenger); // [KITING] arma ranged (arco), qualquer classe
         BattleSimulator.BattleOutcome outcome = battleSimulator.simulate(
                 BattleSimulator.Combatant.of(cWarrior.getName(), cStats, cWeapon, cArmor, abilityService.activeLoadout(cWarrior), cRanged),
                 BattleSimulator.Combatant.of(opponentName,       oStats, oWeapon, oArmor, oAbilities, oRanged),

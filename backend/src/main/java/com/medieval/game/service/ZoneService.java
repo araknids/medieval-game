@@ -449,7 +449,7 @@ public class ZoneService {
         int[] m   = npcStatsByLevel(lvl, java.util.concurrent.ThreadLocalRandom.current());
         BattleSimulator.BattleOutcome out = battleSimulator.simulate(
             BattleSimulator.Combatant.of(w.getName(), new int[]{s[0], s[1], hp, s[3], s[4], s[5]},
-                w.getActiveWeaponElement(), w.getActiveArmorElement(), abilityService.activeLoadout(w), w.getWarriorClass().isRanged()),
+                w.getActiveWeaponElement(), w.getActiveArmorElement(), abilityService.activeLoadout(w), statsService.isRangedWeaponEquipped(player)), // [KITING] arma ranged, qualquer classe
             BattleSimulator.Combatant.of(activity.getBossName(),
                 new int[]{(int)(m[0] * 1.5), (int)(m[1] * 1.5), m[2] * 2, m[3], m[4], m[5]}, // chefe: ATK/DEF ×1.5, HP ×2
                 activity.getElement(), activity.getElement(), List.of(), false), // [KITING] chefe errante = melee
@@ -616,11 +616,11 @@ public class ZoneService {
                     BattleSimulator.Combatant.of(attacker.getName(),
                         new int[]{atkStats[0], atkStats[1], atkHp, atkStats[3], atkStats[4], atkStats[5]},
                         attacker.getActiveWeaponElement(), attacker.getActiveArmorElement(), abilityService.activeLoadout(attacker),
-                        attacker.getWarriorClass().isRanged()),
+                        statsService.isRangedWeaponEquipped(player)), // [KITING] arma ranged, qualquer classe
                     BattleSimulator.Combatant.of(victimW.getName(),
                         new int[]{vStats[0], vStats[1], vHp, vStats[3], vStats[4], vStats[5]},
                         victimW.getActiveWeaponElement(), victimW.getActiveArmorElement(), abilityService.activeLoadout(victimW),
-                        victimW.getWarriorClass().isRanged()),
+                        statsService.isRangedWeaponEquipped(victim)), // [KITING] arma ranged, qualquer classe
                     false); // PvP %HP [ELEMENTOS/HABILIDADES/KITING]
 
                 List<String> log = stripWinnerTag(out.log());
@@ -665,7 +665,7 @@ public class ZoneService {
                 BattleSimulator.Combatant.of(attacker.getName(),
                     new int[]{atkStats[0], atkStats[1], atkHp, atkStats[3], atkStats[4], atkStats[5]},
                     attacker.getActiveWeaponElement(), attacker.getActiveArmorElement(), abilityService.activeLoadout(attacker),
-                    attacker.getWarriorClass().isRanged()),
+                    statsService.isRangedWeaponEquipped(player)), // [KITING] arma ranged, qualquer classe
                 BattleSimulator.Combatant.of(npcName, npcStats, areaElement, areaElement, java.util.List.of(), false),
                 false); // PvE NPC: empate por %HP — monstro usa o elemento da área [ELEMENTOS/HABILIDADES/KITING]
         List<String> log = stripWinnerTag(out.log());
