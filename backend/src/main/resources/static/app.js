@@ -1049,6 +1049,15 @@ async function loadSmithingInCommerce() {
   if (src) el.innerHTML = src.innerHTML;
 }
 
+// [FORJA_MATERIAIS] Re-renderiza a forja após uma ação e espelha no painel do Comércio (se aberto),
+// pra o resumo de materiais + receitas atualizarem nas duas telas (Skills #sk-smith-content + Comércio).
+async function rerenderForge() {
+  await renderSmithing();
+  const src = document.getElementById('sk-smith-content');
+  const dst = document.getElementById('smith-content');
+  if (src && dst) dst.innerHTML = src.innerHTML;
+}
+
 // ── [ITEM_FILTER] Filtro genérico Tipo+Raridade (loja/vender/inventário/leilão) ──
 function itemCatOf(type) {
   if (type === 'WEAPON') return 'weapon';
@@ -2119,9 +2128,22 @@ async function renderSmithing() {
       </div>`;
   }).join('') || '';
 
+  // [FORJA_MATERIAIS] Resumo do estoque do jogador — ver o que tem sem ir no inventário.
+  const MAT_CATS = ['ORE', 'BAR', 'FRAGMENT', 'GEM', 'ESSENCE', 'MATERIAL'];
+  const myMats = (resourcesData || [])
+    .filter(r => MAT_CATS.includes(r.category) && r.quantity > 0)
+    .sort((a, b) => MAT_CATS.indexOf(a.category) - MAT_CATS.indexOf(b.category));
+  const materialsHtml = myMats.length
+    ? myMats.map(r => `<span style="display:inline-block;background:#0f3460;border:1px solid #2a4a6a;border-radius:6px;padding:2px 7px;margin:2px;font-size:.72rem;color:#e0d5c5">${RESOURCE_ICONS[r.type]||'📦'} ${r.displayName} <strong style="color:#ffd700">×${r.quantity}</strong></span>`).join('')
+    : `<span style="color:#888;font-size:.78rem">Sem materiais — minere/colete pra forjar.</span>`;
+
   document.getElementById('sk-smith-content').innerHTML = `
     <div class="sk-section">
       <div class="sk-title">🔨 Forja ${skillBar(smithSkill)}</div>
+    </div>
+    <div class="sk-section">
+      <div class="sk-title">📦 Seus materiais</div>
+      <div style="display:flex;flex-wrap:wrap">${materialsHtml}</div>
     </div>
     <div class="sk-section">
       <div class="sk-title">Refinar Minérios → Barras</div>
@@ -2189,7 +2211,7 @@ async function refineOre(oreType, barType) {
   if (data.error) { showMessage(data.error, true); return; }
   showMessage(data.message);
   resourcesData = await api('GET', '/api/gathering/resources');
-  renderSmithing();
+  rerenderForge();
 }
 
 async function craftEquipment(recipeId) {
@@ -2202,7 +2224,7 @@ async function craftEquipment(recipeId) {
   showMessage(msg, !data.success);
   resourcesData = await api('GET', '/api/gathering/resources');
   await loadWarrior();
-  renderSmithing();
+  rerenderForge();
 }
 
 async function craftGem(fragmentType) {
@@ -2210,7 +2232,7 @@ async function craftGem(fragmentType) {
   if (data.error) { showMessage(data.error, true); return; }
   showMessage(data.message);
   resourcesData = await api('GET', '/api/gathering/resources');
-  renderSmithing();
+  rerenderForge();
 }
 
 async function repairItem(itemId) {
@@ -2218,7 +2240,7 @@ async function repairItem(itemId) {
   if (data.error) { showMessage(data.error, true); return; }
   showMessage(data.message);
   await loadWarrior();
-  renderSmithing();
+  rerenderForge();
 }
 
 async function reforgeItem(itemId) {
@@ -2227,7 +2249,7 @@ async function reforgeItem(itemId) {
   if (data.error) { showMessage(data.error, true); return; }
   showMessage(`${data.message} (+${data.attackBonus} ATK · +${data.defenseBonus} DEF · +${data.healthBonus} HP)`);
   await loadWarrior();
-  renderSmithing();
+  rerenderForge();
 }
 
 async function socketGem(itemId, gemType) {
