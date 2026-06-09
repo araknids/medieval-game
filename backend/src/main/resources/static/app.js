@@ -1,6 +1,9 @@
 // ── i18n ──────────────────────────────────────────────────────────────────────
 let _lang = {};
-let _currentLang = localStorage.getItem('lang') || 'en';
+// [I18N] 1ª visita (sem preferência salva) segue o idioma do NAVEGADOR: pt-* → pt, senão en.
+// (Antes caía sempre em 'en' — conta nova abria em inglês mesmo com o navegador em PT.)
+let _currentLang = localStorage.getItem('lang')
+  || ((navigator.language || navigator.userLanguage || '').toLowerCase().startsWith('pt') ? 'pt' : 'en');
 
 async function loadLanguage(lang) {
   try {
