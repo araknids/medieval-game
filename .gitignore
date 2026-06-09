@@ -14,3 +14,6 @@ godot-client/export_presets.cfg
 
 # Raw downloaded asset packs (source). Game-used copies live in backend/.../static/assets/.
 /assets/
+
+# scratch de teste (ragdoll/sprites) — node_modules etc.
+/.ragdoll-test/
