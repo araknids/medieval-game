@@ -98,6 +98,26 @@ class AuctionTest extends BaseIntegrationTest {
         assertThat(listingRepo.findById(l.getId()).orElseThrow().getStatus()).isEqualTo(Status.SOLD);
     }
 
+    // ── [LEILAO_FK_FIX] Item comprado no leilão PODE ser vendido depois (a FK da listagem SOLD não barra) ──
+    @Test
+    @DisplayName("Item comprado no leilão pode ser vendido depois (sem erro de FK)")
+    void boughtItem_canBeSold() {
+        Player seller = rich("aucs");
+        InventoryItem item = makeItem(reload(seller));
+        auctionService.list(reload(seller), item.getId(), 1000);
+        AuctionListing l = listingRepo.findBySellerAndStatus(reload(seller), Status.ACTIVE).get(0);
+
+        Player buyer = rich("aucb");
+        auctionService.buy(reload(buyer), l.getId());
+
+        long before = reload(buyer).totalBronze();
+        inventoryService.sell(reload(buyer), item.getId()); // antes: FK auction_listings.item_id barrava
+
+        assertThat(itemRepo.findById(item.getId())).isEmpty();          // vendeu (deletou)
+        assertThat(reload(buyer).totalBronze()).isGreaterThan(before);  // recebeu bronze
+        assertThat(listingRepo.findById(l.getId())).isEmpty();          // listagem histórica também saiu
+    }
+
     @Test
     @DisplayName("Não dá pra comprar a própria listagem")
     void buy_cantBuyOwn() {

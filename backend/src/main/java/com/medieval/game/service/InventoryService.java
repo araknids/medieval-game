@@ -38,6 +38,7 @@ public class InventoryService {
     private final ResourceInventoryRepository resourceRepository;
     private final WarriorRepository       warriorRepository;
     private final AbilityService          abilityService; // bônus de venda do Mercador [MERCADOR]
+    private final com.medieval.game.repository.AuctionListingRepository auctionListingRepository; // [LEILAO_FK_FIX]
 
     private static final java.util.Random RNG = new java.util.Random();
 
@@ -256,6 +257,7 @@ public class InventoryService {
         playerRepository.save(player);
         gemRepository.deleteAllByItem(item);    // limpa joias (FK) antes de remover o item
         affixRepository.deleteByItem(item);     // limpa afixos (FK) — Itens V2
+        auctionListingRepository.deleteByItem(item); // [LEILAO_FK_FIX] limpa listagens históricas (item comprado/cancelado/expirado vendia FK)
         inventoryRepository.delete(item);
         item.setSellPrice(effectivePrice); // reflete na resposta o valor efetivamente recebido
         log.info("[InventoryService] player={} action=sell OK itemId={} name={} bronze={}", player.getId(), itemId, item.getName(), effectivePrice);
