@@ -39,7 +39,7 @@ public class DataSeeder {
         if (playerRepository.existsByUsername(adminUsername)) return;
 
         Player  player  = playerService.register(adminUsername, adminUsername + "@dev.local", adminPassword);
-        warriorService.create(player, adminWarriorName, WarriorClass.WARRIOR);
+        warriorService.create(player, adminWarriorName, WarriorClass.RECRUIT); // nasce neutro, igual a qualquer novato [CLASSES]
         inventoryService.giveStarterItems(player);
 
         log.info("==============================================");

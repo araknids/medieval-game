@@ -49,6 +49,7 @@ public class SchemaMigrator {
         dropWarriorOnMissionColumn();
         dropStaleEnumCheckConstraints();
         purgeStaleEnumRows();
+        fixSubLevel10NonRecruits();
         patchHotIndexes();
     }
 
@@ -59,6 +60,22 @@ public class SchemaMigrator {
      * que cresce com o nº de jogadores. CREATE INDEX IF NOT EXISTS funciona em Postgres e H2; cada um
      * isolado p/ um não bloquear o outro. (As tabelas com unique composto já têm índice — não repetir.)
      */
+    /**
+     * [CLASSES] Corrige personagens que estão como WARRIOR/ARCHER/MERCHANT mas com nível < 10 — anomalia:
+     * só se especializa GANHANDO a Path Trial (Lv10+). Esses são seeds antigos / contas pré-RECRUIT que
+     * apareciam como "Warrior" no início. Reseta-os p/ RECRUIT + base de recruta (12/10/100). Idempotente.
+     */
+    private void fixSubLevel10NonRecruits() {
+        try {
+            int n = jdbc.update("UPDATE warriors SET warrior_class = 'RECRUIT', attack = 12, defense = 10, health = 100 "
+                    + "WHERE warrior_class <> 'RECRUIT' AND level < 10");
+            if (n > 0) log.warn("[SchemaMigrator] {} personagem(ns) <Lv10 não-recruta resetado(s) p/ RECRUIT.", n);
+            else       log.info("[SchemaMigrator] starter-class check: nenhum não-recruta abaixo do Lv10.");
+        } catch (Exception e) {
+            log.warn("[SchemaMigrator] fixSubLevel10NonRecruits skipped — {}", e.getMessage());
+        }
+    }
+
     private void patchHotIndexes() {
         String[] idx = {
             "CREATE INDEX IF NOT EXISTS idx_warriors_player         ON warriors(player_id)",
