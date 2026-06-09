@@ -1051,7 +1051,13 @@ async function loadSmithingInCommerce() {
 
 // [FORJA_MATERIAIS] Re-renderiza a forja após uma ação e espelha no painel do Comércio (se aberto),
 // pra o resumo de materiais + receitas atualizarem nas duas telas (Skills #sk-smith-content + Comércio).
+// Recarrega skills + recursos ANTES de renderizar → a barra de nível da Forja sobe ao vivo (XP de
+// refino/craft). [FORJA_LEVEL] Sem isso, a skillsData ficava stale e o nível parecia não subir.
 async function rerenderForge() {
+  [skillsData, resourcesData] = await Promise.all([
+    api('GET', '/api/gathering/skills'),
+    api('GET', '/api/gathering/resources')
+  ]);
   await renderSmithing();
   const src = document.getElementById('sk-smith-content');
   const dst = document.getElementById('smith-content');
