@@ -1,0 +1,9 @@
+[gd_scene load_steps=3 format=3]
+
+[ext_resource type="PackedScene" uid="uid://bms1wxqr1p8dm" path="res://addons/quaternius_ik_rigged/Models_with_rigging/Male_rigged.tscn" id="1_char"]
+[ext_resource type="Script" path="res://Main.gd" id="2_main"]
+
+[node name="Main" type="Node3D"]
+script = ExtResource("2_main")
+
+[node name="Player" parent="." instance=ExtResource("1_char")]
