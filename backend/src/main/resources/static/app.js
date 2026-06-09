@@ -4078,13 +4078,10 @@ function showCollectModal({ title, color = '#4caf50', rows = [], log = [], note 
     'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.82);' +
     'z-index:9999;display:flex;align-items:center;justify-content:center;padding:16px;box-sizing:border-box');
   el.onclick = closeCollectModal;
-  el.innerHTML = `
-    <div onclick="event.stopPropagation()" style="background:#16162a;border:2px solid ${color};border-radius:14px;
-      padding:24px;max-width:460px;width:100%;max-height:85vh;overflow-y:auto;position:relative;box-shadow:0 8px 32px rgba(0,0,0,0.6)">
-      <button onclick="closeCollectModal()" style="position:absolute;top:10px;right:10px;background:#333;
-        border:none;color:#aaa;padding:4px 10px;border-radius:4px;cursor:pointer;font-size:13px">✕</button>
-      <h3 style="margin:0 0 16px;color:${color};font-size:17px">${title}</h3>
-      ${battleHtml}
+  // [BATALHA_ANIMADA] Sem spoiler: com luta, o título fica neutro e o RESULTADO (narrativa/recompensas/
+  // botões) fica escondido até o replay terminar (onDone — dispara tb no Skip).
+  const revealMode = hasBattle;
+  const resultBody = `
       ${noteHtml}
       ${rowsHtml || '<div style="color:#888;font-size:13px">Nothing this time.</div>'}
       ${compareInfo ? `<div style="margin-top:10px;padding:8px 10px;background:#0d0d18;border-radius:6px">${compareInfo}</div>` : ''}
@@ -4093,13 +4090,30 @@ function showCollectModal({ title, color = '#4caf50', rows = [], log = [], note 
         ${equipId ? `<button id="loot-equip-btn" onclick="equipFromLoot(${equipId})" style="flex:1;min-width:110px;background:#c9a84c;color:#1a1a2e;font-weight:bold;padding:10px;border-radius:8px;cursor:pointer;font-size:14px;border:none">🛡 ${equipUpgrade ? 'Equip ✓ better' : 'Equip'}</button>` : ''}
         ${again ? `<button onclick="collectAgain()" style="flex:1;min-width:110px;background:${color};color:#000;font-weight:bold;padding:10px;border-radius:8px;cursor:pointer;font-size:14px;border:none">🔁 Again</button>` : ''}
         <button onclick="closeCollectModal()" style="${(again||equipId) ? 'flex:0 0 auto;background:#2a2a3a;color:#ddd;padding:10px 16px' : 'flex:1;background:'+color+';color:#000;padding:10px'};font-weight:bold;border-radius:8px;cursor:pointer;font-size:14px;border:none">${(again||equipId) ? 'Close' : 'Continue'}</button>
-      </div>
+      </div>`;
+  el.innerHTML = `
+    <div onclick="event.stopPropagation()" style="background:#16162a;border:2px solid ${color};border-radius:14px;
+      padding:24px;max-width:460px;width:100%;max-height:85vh;overflow-y:auto;position:relative;box-shadow:0 8px 32px rgba(0,0,0,0.6)">
+      <button onclick="closeCollectModal()" style="position:absolute;top:10px;right:10px;background:#333;
+        border:none;color:#aaa;padding:4px 10px;border-radius:4px;cursor:pointer;font-size:13px">✕</button>
+      <h3 id="cm-title" style="margin:0 0 16px;color:${revealMode ? '#c9a84c' : color};font-size:17px">${revealMode ? '⚔ Battle!' : title}</h3>
+      ${battleHtml}
+      <div id="cm-reveal"${revealMode ? ' style="display:none"' : ''}>${resultBody}</div>
     </div>`;
   document.body.appendChild(el);
-  animateModalNumbers(el); // [PILOTO_UI juice] "número subindo" nas recompensas
-  if (hasBattle) { // [BATALHA_ANIMADA] toca o replay no canvas (placeholder, ≤10s, sangue, ⏩/⏭)
+  if (!revealMode) animateModalNumbers(el); // [PILOTO_UI juice] "número subindo" nas recompensas
+
+  if (hasBattle) { // [BATALHA_ANIMADA] toca o replay; revela o resultado só no fim (ou no Skip)
+    let revealed = false;
+    const reveal = () => {
+      if (revealed) return; revealed = true;
+      const t = el.querySelector('#cm-title'); if (t) { t.innerHTML = title; t.style.color = color; }
+      const r = el.querySelector('#cm-reveal'); if (r) { r.style.display = ''; animateModalNumbers(r); }
+    };
     const cv = el.querySelector('#battle-canvas');
-    if (cv) window.playBattle(cv, battleEvents, { scene: scene || 'fortress' });
+    if (cv) window.playBattle(cv, battleEvents, { scene: scene || 'fortress', onDone: reveal });
+    else reveal();
+    setTimeout(reveal, 13000); // fallback de segurança: revela mesmo se o onDone não disparar
   }
 }
 
