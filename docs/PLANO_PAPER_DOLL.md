@@ -173,7 +173,102 @@ A `WeaponCategory` já guardada em `InventoryItem.weaponCategory` resolve qual u
 
 ---
 
-## 7. Dependências / o que já existe
+## 8. Ferramenta escolhida — PixelLab (IA) + plano de áudio
+
+**Decisão (2026-06-08):** gerar a arte via **[PixelLab](https://www.pixellab.ai/)** (IA de pixel art).
+Tem **MCP oficial** ([github.com/pixellab-code/pixellab-mcp](https://github.com/pixellab-code/pixellab-mcp))
+→ com o token ligado no Claude Code, o agente gera os sprites e liga no `battleArena.js` daqui ("vibe
+coding"). Config: `claude mcp add --transport http pixellab https://api.pixellab.ai/mcp --header "Authorization: Bearer TOKEN"`.
+
+### Licença / Steam
+- ✅ **Você é dono dos direitos** das criações; uso comercial incluído nos planos pagos. Única
+  restrição: não treinar outros modelos com as imagens; uso programático só pela API oficial.
+- ⚠️ **Declarar uso de IA no Steamworks** (campo obrigatório).
+
+### Limites de tamanho (IMPORTANTE — planejar a arte em torno disso)
+- **Animação trava em 128×128** (esqueleto até 256×256), **qualquer tier**.
+- **Cena/imagem estática** até **400×400** (Tier 2 "Artisan", ~$22–29/mês).
+- Sprite maior = menos frames por geração (32px→16 frames; 128px→4 frames). Modelos bons = ~40 créditos.
+- **Conclusão:** personagens de batalha em **~128×128**; backgrounds estáticos até 400×400.
+
+### O que o PixelLab NÃO faz
+- ❌ **Áudio.** É só pixel art. **Som da batalha** = arquivo externo (ElevenLabs / Pixabay / itch.io)
+  + **eu ligo no `battleArena.js`** (Web Audio, SFX sincronizado aos `battleEvents`). Ver [BATALHA_ANIMADA].
+- ❌ Efeito de **desmembramento** pronto — gera só as **peças**; o efeito é código ([DESMEMBRAMENTO]).
+
+### Roteiro de teste no site (validar antes de produzir — economiza crédito)
+1. **1 corpo-base** (idle, 2 frames) → o estilo detalhado saiu bom?
+2. **1 ataque** (4 frames) nesse corpo → **consistência frame-a-frame** aguentou? *(teste decisivo)*
+3. **1 background** (arena) → o fundo ficou no clima?
+4. **Inpainting trocando a arma** → paper doll é viável?
+
+### Prompts prontos (colar no site — EN, estilo grimdark)
+**Corpo-base (1 por sexo):**
+```
+Muscular male warrior, bare-chested, realistic human proportions, side view,
+standing combat idle stance, dark gritty grimdark medieval fantasy, detailed
+shading, moody torchlight, transparent background
+```
+```
+Athletic female warrior, leather chest wrap, realistic human proportions, side
+view, combat idle stance, grimdark medieval fantasy, detailed shading, transparent background
+```
+**Looks por classe (Caminho B):**
+```
+Warrior in worn iron plate armor, heavy pauldrons, side view, realistic proportions,
+battle-ready stance, dark grimdark medieval, weathered metal, transparent background
+```
+```
+Archer in dark leather armor with hood, quiver on back, side view, realistic
+proportions, agile stance, grimdark medieval fantasy, transparent background
+```
+```
+Merchant-mercenary in reinforced traveler's coat, side view, holding a heavy mace,
+realistic proportions, gritty medieval, transparent background
+```
+**Camadas trocáveis (item solto):**
+```
+Iron longsword, side view game item, blood on the blade, dark medieval, transparent background
+```
+```
+Battle-worn steel helmet with face guard, side view game item, grimdark medieval, transparent background
+```
+```
+Round wooden shield with iron rim, battle-damaged, side view game item, dark medieval, transparent background
+```
+**Animações (rodar sobre o corpo-base):** `subtle breathing idle, 2 frames` ·
+`overhead sword slash attack, 4 frames` · `draw bow and release arrow, 4 frames` ·
+`flinch and stagger backward from hit, 2 frames` · `collapse to the ground defeated, blood splatter, 4 frames`
+
+**Backgrounds (1 por `scene` da battle replay):**
+```
+arena    → Blood-stained medieval arena pit, sandy ground, wooden palisade, ominous overcast sky, side-scrolling battle backdrop, dark gritty pixel art
+fortress → Cursed fortress courtyard, dark stone walls, burning torches, drifting fog, side-view battle background, grimdark pixel art
+cave     → Crystal cavern, glowing blue crystals, damp jagged rock, side-view battle background, moody pixel art
+coast    → Rocky gray coastline, cold crashing sea, overcast sky, side-view battle background, somber pixel art
+sea      → Blessed shallow sea shore, turquoise water, soft light, side-view battle background, pixel art
+tower    → Dark tower interior, worn stone stairs, torchlight and shadows, side-view battle background, grimdark pixel art
+```
+**Peças de gore ([DESMEMBRAMENTO]):**
+```
+Severed muscular human arm, dripping blood at the cut, side view game item, dark gritty pixel art, transparent background
+```
+```
+Severed human leg, bloody stump, side view game item, grimdark pixel art, transparent background
+```
+```
+Blood splatter and spray effect, multiple frames, dark red, side view, pixel art VFX, transparent background
+```
+```
+Warrior collapsing dismembered, heavy blood spray, death animation, 4 frames, side view, grimdark medieval pixel art, transparent background
+```
+```
+Muscular male warrior with right arm severed, bloody shoulder stump, side view, combat stance, grimdark medieval pixel art, transparent background
+```
+
+---
+
+## 9. Dependências / o que já existe
 
 - ✅ `ItemType` (10 slots) + `WeaponType`/`WeaponCategory` ([CLASSES_ARMAS]) → fonte de quais camadas.
 - ✅ `InventoryItem` com equip por slot → estado do boneco.

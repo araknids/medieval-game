@@ -77,6 +77,34 @@ Mapa proposto (derivado no **serviço/controller** que dispara a luta — ele sa
 
 v1 pode começar com **2–3 fundos** + um default; os demais entram depois.
 
+### 5. **Desmembramento (gore avançado)** — [DESMEMBRAMENTO]
+Evolução do requisito #3: no **golpe fatal** (e, opcionalmente, em **crítico pesado**) o membro da
+`hitZone` é **decepado** — reforça direto o posicionamento "S&F sombrio/brutal" ([POSICIONAMENTO],
+clipável pra TikTok/Reddit). **A sacada:** com o personagem montado por **camadas (paper doll**,
+ver `PLANO_PAPER_DOLL.md`), desmembrar é barato — **remover a camada do membro + spawnar o sprite do
+membro decepado + partículas de sangue**, disparado num evento.
+
+**Não é uma geração de IA única** — o PixelLab gera **as peças** (membro decepado, spray/poça de
+sangue, frame de morte esquartejada, variante do corpo sem o membro); **o efeito é montado no
+`battleArena.js`** (código). Divisão:
+
+| Parte | Quem faz |
+|---|---|
+| Sprites: braço/perna/cabeça decepados, spray e poça de sangue, corpo sem-membro | **PixelLab** (prompts no `PLANO_PAPER_DOLL.md`) |
+| Disparar membro voando + sangue + troca pro corpo sem-membro, sincronizado ao golpe | **`battleArena.js`** (eu) |
+| SFX do corte | áudio externo (ElevenLabs/Pixabay) + eu ligo no replay |
+
+**Novo `BattleEvent.type = "dismember"`** (emitido pelo backend só no golpe fatal/crit pesado, junto
+do `death`/`crit`, com a `hitZone` que foi decepada — determinístico p/ replay). No canvas:
+1. troca o corpo pra **variante sem o membro** da `hitZone`;
+2. desenha o **membro decepado** voando (gravidade simples) + gira;
+3. **jato grande de sangue** na `hitZone` + poça acumulada;
+4. (com áudio) **SFX do corte**.
+
+⚠️ **Rating:** desmembramento empura a classificação Steam **mais ainda pra Mature/violência** — coberto
+pelo mesmo toggle "reduzir sangue" do #3 (ligado = membro fica, sangue reduzido). Default = explícito.
+**Escopo:** v2 (depois da arte real por camadas; o esqueleto procedural atual não desmembra bem).
+
 ## Decisão-chave: eventos estruturados (NÃO parsear o texto)
 
 O log atual é **texto i18n** (`Messages.tr(...)`), feito pra LER, não pra máquina parsear. Tentar
@@ -91,7 +119,7 @@ public record BattleEvent(
     int round,
     String type,        // "begin" | "attack" | "miss" | "dodge" | "crit" | "extra"
                         // | "volley" | "heal" | "berserk" | "pinned" | "backpedal"
-                        // | "pointblank" | "death" | "victory"
+                        // | "pointblank" | "death" | "victory" | "dismember"  ([DESMEMBRAMENTO], v2)
     String actor,       // nome de quem age (atacante)
     String target,      // nome do alvo (null em begin/buff próprio)
     int    damage,      // dano aplicado (0 se miss/dodge/buff)
