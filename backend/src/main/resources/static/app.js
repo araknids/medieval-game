@@ -150,6 +150,45 @@ function showMessage(text, isError = false, isDrop = false) {
   showMessage._t = setTimeout(() => el.style.display = 'none', isDrop ? 6000 : 3500);
 }
 
+// [HP_GUARD] Aviso de vida baixa antes de quest/luta + botão de curar (chama o Templo). proceed() = a ação.
+function lowHpAtFull() { return (warrior?.hpPercent ?? 100) >= 100; }
+function lowHpGuard(proceed) {
+  const hp = Math.max(0, Math.round(warrior?.hpPercent ?? 100));
+  const ko = !!warrior?.isKnockedOut;
+  const old = document.getElementById('hp-guard-overlay'); if (old) old.remove();
+  const el = document.createElement('div');
+  el.id = 'hp-guard-overlay';
+  el.setAttribute('style', 'position:fixed;inset:0;background:rgba(0,0,0,.8);z-index:10000;display:flex;align-items:center;justify-content:center;padding:16px');
+  const close = () => el.remove();
+  el.onclick = (e) => { if (e.target === el) close(); };
+  el.innerHTML = `
+    <div onclick="event.stopPropagation()" style="background:#16162a;border:2px solid ${ko ? '#cf6679' : '#c9a84c'};border-radius:14px;padding:22px;max-width:380px;width:100%;text-align:center;box-shadow:0 8px 32px rgba(0,0,0,.6)">
+      <h3 style="margin:0 0 8px;color:${ko ? '#cf6679' : '#c9a84c'};font-size:17px">${ko ? '💀 Você está inconsciente' : '⚠ Vida não está cheia'}</h3>
+      <p style="color:#cdd;font-size:14px;margin:0 0 16px;line-height:1.5">${ko
+        ? 'Recupere a vida no Templo antes de entrar no combate.'
+        : `Sua vida está em <strong style="color:#ffd86b">${hp}%</strong>. Quer recuperar antes de lutar?`}</p>
+      <div style="display:flex;flex-direction:column;gap:8px">
+        <button id="hpg-heal" style="background:#4caf82;color:#06210f;font-weight:bold;border:none;border-radius:8px;padding:11px;cursor:pointer;font-size:14px">❤ Recuperar vida (Templo)</button>
+        ${ko ? '' : `<button id="hpg-go" style="background:#c9a84c;color:#1a1a2e;font-weight:bold;border:none;border-radius:8px;padding:11px;cursor:pointer;font-size:14px">⚔ Continuar assim</button>`}
+        <button id="hpg-cancel" style="background:#2a2a3a;color:#ddd;border:none;border-radius:8px;padding:9px;cursor:pointer;font-size:13px">Cancelar</button>
+      </div>
+      <div id="hpg-msg" style="margin-top:8px;min-height:16px;font-size:13px"></div>
+    </div>`;
+  document.body.appendChild(el);
+  el.querySelector('#hpg-cancel').onclick = close;
+  const goBtn = el.querySelector('#hpg-go');
+  if (goBtn) goBtn.onclick = () => { close(); proceed(); };
+  el.querySelector('#hpg-heal').onclick = async () => {
+    const msg = el.querySelector('#hpg-msg');
+    msg.innerHTML = '<span style="color:#888">Curando…</span>';
+    const r = await api('POST', '/api/temple/heal'); // mesma cura do Templo
+    if (r.error) { msg.innerHTML = `<span style="color:#cf6679">${r.error}</span>`; return; }
+    await loadWarrior();
+    close();
+    proceed(); // curado → segue direto pra ação
+  };
+}
+
 function formatTime(seconds) {
   if (seconds <= 0) return t('quest.ready_short');
   const m = Math.floor(seconds / 60);
@@ -2573,7 +2612,8 @@ async function enterTower() {
   await fightTower();
 }
 
-async function fightTower() {
+async function fightTower(skipHp) {
+  if (!skipHp && !lowHpAtFull()) { lowHpGuard(() => fightTower(true)); return; } // [HP_GUARD]
   const data = await api('POST', '/api/tower/fight');
   if (data.error) { showMessage(data.error, true); return; }
   await loadWarrior();
@@ -2695,7 +2735,8 @@ function renderFightArea() {
 
 // [SEM_TIMER] Duelo instantâneo: o /fight já resolve e retorna o resultado completo.
 // Mostra no modal compartilhado (overlay) — não é sobrescrito pelo refresh da tela da arena.
-async function startFight() {
+async function startFight(skipHp) {
+  if (!skipHp && !lowHpAtFull()) { lowHpGuard(() => startFight(true)); return; } // [HP_GUARD]
   const data = await api('POST', '/api/arena/fight');
   if (data.error) { showMessage(data.error, true); return; }
   showCollectModal({
@@ -4278,7 +4319,8 @@ async function equipFromLoot(id) {
   if (btn) { btn.textContent = '✓ Equipped'; btn.disabled = true; btn.style.opacity = '0.6'; btn.style.cursor = 'default'; }
 }
 
-async function startKingdomQuest(kingdom, questTypeId) {
+async function startKingdomQuest(kingdom, questTypeId, skipHp) {
+  if (!skipHp && !lowHpAtFull()) { lowHpGuard(() => startKingdomQuest(kingdom, questTypeId, true)); return; } // [HP_GUARD]
   const r = await api('POST', `/api/world/${kingdom}/quests/start`, { questType: questTypeId });
   if (r.error) { worldMsg(r.error, false); return; }
   if (r.interactive && r.dialog) {
@@ -4468,7 +4510,8 @@ async function enterKingdomZone(zone, skillType, durationMinutes, kingdom, eleme
   await collectKingdomZoneSession(r.id, again); // instantâneo: resolve e abre o resultado direto
 }
 
-async function enterCombatZone(zone, durationMinutes, element) {
+async function enterCombatZone(zone, durationMinutes, element, skipHp) {
+  if (!skipHp && !lowHpAtFull()) { lowHpGuard(() => enterCombatZone(zone, durationMinutes, element, true)); return; } // [HP_GUARD]
   // [FORTALEZA_ZONAS] caçada por zona/elemento — instantâneo (enter + collect direto)
   const r = await api('POST', '/api/zones/enter', { zone, role: 'COMBAT', durationMinutes, kingdom: 'COMBAT', element });
   if (r.error) { worldMsg(r.error, false); return; }
