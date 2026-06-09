@@ -410,9 +410,10 @@ public class ZoneService {
     /** Nível do monstro normal por tier: 🟢 +0..3; 🟡 +0..3 & 30% elite (+4..8); 🔴 +0..3 & 50% (+6..15). */
     private int monsterLevelFor(Zone zone, int playerLevel, Random rng) {
         int lvl = playerLevel + rng.nextInt(4); // +0..3
+        // [BALANCE] Elites mais raros e menos acima do nível (estavam empacando o jogador).
         switch (zone) {
-            case PVP       -> { if (rng.nextInt(100) < 30) lvl += 4 + rng.nextInt(5); }  // +4..8
-            case HIGH_RISK -> { if (rng.nextInt(100) < 50) lvl += 6 + rng.nextInt(10); } // +6..15
+            case PVP       -> { if (rng.nextInt(100) < 20) lvl += 3 + rng.nextInt(4); }  // 20% · +3..6 (era 30% · +4..8)
+            case HIGH_RISK -> { if (rng.nextInt(100) < 30) lvl += 4 + rng.nextInt(6); }  // 30% · +4..9 (era 50% · +6..15)
             default        -> { }
         }
         return Math.max(1, lvl);
@@ -877,9 +878,10 @@ public class ZoneService {
     /** Stats do NPC baseados no nível (até +3 do guerreiro) */
     /** Returns [atk, def, hp, dex, agi, luk] for NPCs. [REBALANCE] dex=acerto, agi=esquiva/velocidade. */
     private int[] npcStatsByLevel(int level, Random rng) {
-        int atk = 4 + level * 3 + rng.nextInt(4);
-        int def = 2 + level * 2 + rng.nextInt(3);
-        int hp  = 70 + level * 20 + rng.nextInt(30);
+        // [BALANCE] Monstro de zona nerfado (~30-35% menos HP/ATK, ~25% DEF) — estava forte demais.
+        int atk = 3 + level * 2 + rng.nextInt(3);
+        int def = 2 + (level * 3) / 2 + rng.nextInt(2);
+        int hp  = 50 + level * 13 + rng.nextInt(20);
         int dex = Math.min(10 + level / 2, 35); // acerto do NPC (d20 + dex/5)
         int agi = Math.min(level / 5, 12);      // esquiva/velocidade modesta (raramente golpe extra)
         int luk = Math.min(level / 3, 10);
