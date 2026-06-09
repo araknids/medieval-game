@@ -53,9 +53,10 @@ class SmithingSuccessRateTest extends BaseIntegrationTest {
     @DisplayName("craftSuccessPct: 70% no nível da receita, +5%/nível, teto 100")
     void formula_craftSuccessPct() {
         var iron = SmithingService.CRAFT_RECIPES.stream()
-                .filter(r -> r.id().equals("iron_sword")).findFirst().orElseThrow(); // Lv20 (robusto à ordem)
-        assertThat(smithingService.craftSuccessPct(20, iron)).isEqualTo(70);
-        assertThat(smithingService.craftSuccessPct(26, iron)).isEqualTo(100);
+                .filter(r -> r.id().equals("iron_sword")).findFirst().orElseThrow();
+        int lvl = iron.smithingLevel(); // robusto ao rescale de tiers [BALANCE]
+        assertThat(smithingService.craftSuccessPct(lvl, iron)).isEqualTo(70);     // 70% no nível exato
+        assertThat(smithingService.craftSuccessPct(lvl + 6, iron)).isEqualTo(100); // +6 níveis → teto
         assertThat(smithingService.craftSuccessPct(100, iron)).isEqualTo(100);
     }
 
@@ -88,7 +89,7 @@ class SmithingSuccessRateTest extends BaseIntegrationTest {
     @DisplayName("Crafts a 70%: falhas NÃO consomem materiais (só sucessos)")
     void craft_failuresPreserveMaterials() {
         Player p = player();
-        setSmithing(p, 20); // iron_sword Lv20 → 70%
+        setSmithing(p, 12); // iron_sword Lv12 → 70% (nível exato da receita) [BALANCE]
         grantBronze(p, 1_000_000);
         gatheringService.addResource(p, ResourceType.IRON_BAR, 30);
         long initial = gatheringService.resourceQuantity(player(), ResourceType.IRON_BAR); // o que coube na bag
@@ -108,7 +109,7 @@ class SmithingSuccessRateTest extends BaseIntegrationTest {
     @DisplayName("Craft abaixo do nível da receita → rejeitado")
     void craft_belowLevel_rejected() {
         Player p = player();
-        setSmithing(p, 10); // iron_sword exige 20
+        setSmithing(p, 10); // iron_sword exige 12 [BALANCE]
         grantBronze(p, 100_000);
         gatheringService.addResource(p, ResourceType.IRON_BAR, 3);
         assertThatThrownBy(() -> smithingService.craftEquipment(player(), "iron_sword"))

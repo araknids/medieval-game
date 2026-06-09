@@ -64,10 +64,10 @@ public class SmithingService {
 
     public static final List<RefineRecipe> REFINE_RECIPES = List.of(
         new RefineRecipe(ResourceType.COPPER_ORE, ResourceType.COPPER_BAR, 5,   50,  1),
-        new RefineRecipe(ResourceType.IRON_ORE,   ResourceType.IRON_BAR,   5,  100, 20),
-        new RefineRecipe(ResourceType.SILVER_ORE, ResourceType.SILVER_BAR, 5,  250, 40),
-        new RefineRecipe(ResourceType.GOLD_ORE,   ResourceType.GOLD_BAR,   5,  500, 60),
-        new RefineRecipe(ResourceType.MITHRIL_ORE,ResourceType.MITHRIL_BAR,5, 1000, 80)
+        new RefineRecipe(ResourceType.IRON_ORE,   ResourceType.IRON_BAR,   5,  100, 12),
+        new RefineRecipe(ResourceType.SILVER_ORE, ResourceType.SILVER_BAR, 5,  250, 24),
+        new RefineRecipe(ResourceType.GOLD_ORE,   ResourceType.GOLD_BAR,   5,  500, 36),
+        new RefineRecipe(ResourceType.MITHRIL_ORE,ResourceType.MITHRIL_BAR,5, 1000, 45)
     );
 
     // ── Receitas de craft de equipamento (bronzeCost = taxa por tentativa, perdida na falha) ──
@@ -84,12 +84,13 @@ public class SmithingService {
     private record MatTier(String en, String pt, ResourceType bar, int smithingLevel,
                            long weaponCost, long armorCost, int rarity, int sockets, int itemLevel,
                            int armorDef, int armorHp) {}
+    // [BALANCE] Níveis de forja rescalados: o topo (mithril armor = base+5) cai em smithing 50 (era 85) → menos farm.
     private static final List<MatTier> MAT_TIERS = List.of(
         new MatTier("copper",  "Cobre",   ResourceType.COPPER_BAR,   1,  100,  150, 1, 0,  8,  5, 15),
-        new MatTier("iron",    "Ferro",   ResourceType.IRON_BAR,    20,  400,  500, 2, 1, 19, 10, 25),
-        new MatTier("silver",  "Prata",   ResourceType.SILVER_BAR,  40,  800,  900, 3, 2, 30, 16, 40),
-        new MatTier("gold",    "Ouro",    ResourceType.GOLD_BAR,    60, 1200, 1300, 3, 2, 45, 22, 55),
-        new MatTier("mithril", "Mithril", ResourceType.MITHRIL_BAR, 80, 1600, 1700, 4, 3, 60, 28, 70)
+        new MatTier("iron",    "Ferro",   ResourceType.IRON_BAR,    12,  400,  500, 2, 1, 19, 10, 25),
+        new MatTier("silver",  "Prata",   ResourceType.SILVER_BAR,  24,  800,  900, 3, 2, 30, 16, 40),
+        new MatTier("gold",    "Ouro",    ResourceType.GOLD_BAR,    36, 1200, 1300, 3, 2, 45, 22, 55),
+        new MatTier("mithril", "Mithril", ResourceType.MITHRIL_BAR, 45, 1600, 1700, 4, 3, 60, 28, 70)
     );
     private record WeaponKind(String idKey, String pt) {}
     private static final List<WeaponKind> WEAPON_KINDS = List.of(
@@ -192,7 +193,7 @@ public class SmithingService {
         playerService.spendBronze(player, recipe.bronzeCost() * batches);
         gatheringService.addResource(player, recipe.bar(), batches);
 
-        int xp = batches * recipe.smithingLevelRequired() * 5;
+        int xp = batches * (recipe.smithingLevelRequired() * 8 + 50); // [BALANCE] mais XP/refino → menos farm
         gatheringService.addSkillXp(smithing, xp);
         log.info("[SmithingService] player={} action=refineOre OK oreType={} batches={} bar={}", player.getId(), oreType, batches, recipe.bar());
     }
@@ -228,7 +229,7 @@ public class SmithingService {
         boolean success = java.util.concurrent.ThreadLocalRandom.current().nextInt(100) < successPct;
         if (!success) {
             // Falha: materiais NÃO consumidos; só a taxa foi perdida; XP reduzido.
-            gatheringService.addSkillXp(smithing, Math.max(1, recipe.smithingLevel() * 3));
+            gatheringService.addSkillXp(smithing, Math.max(1, recipe.smithingLevel() * 8 + 20)); // [BALANCE] menos farm
             log.info("[SmithingService] player={} action=craftEquipment FAIL recipeId={} successPct={}", player.getId(), recipeId, successPct);
             return new CraftResult(false, false, successPct, null,
                     "Forging failed (" + successPct + "% chance). Materials kept — only the bronze fee was lost.");
@@ -242,7 +243,7 @@ public class SmithingService {
         String desc   = loreGenerator.generateLore(recipe.rarity(), itemType, new java.util.Random());
         String origin = loreGenerator.originFromSmithing();
         long   sell   = recipe.smithingLevel() * 50L;
-        gatheringService.addSkillXp(smithing, recipe.smithingLevel() * 10);
+        gatheringService.addSkillXp(smithing, recipe.smithingLevel() * 25 + 40); // [BALANCE] mais XP/craft → menos farm
 
         if (inventoryService.bagSize(player) < player.getMaxInventorySlots()) {
             // itemLevel do tier (não o smithingLevel): armas recalculam stats pelo perfil no make(). [CLASSES_ARMAS]
