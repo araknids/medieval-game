@@ -551,7 +551,7 @@ function goTo(loc) {
   if (loc === 'tower')    { loadTower(); }
   if (loc === 'arena')    { loadRank(); loadCurrentFight(); }
   if (loc === 'commerce') { loadShop(); }
-  if (loc === 'inventory'){ renderAttributes(); loadAbilities(); loadAchievements(); loadInventory(); }
+  if (loc === 'inventory'){ switchCharTab(charTab); } // [USABILIDADE] carrega a sub-aba ativa
   if (loc === 'work')     { loadWork(); }
   if (loc === 'guild')     { loadGuild(); }
   if (loc === 'world')      { loadWorld(); }
@@ -572,6 +572,20 @@ const NAV_LOC_GROUP = { world:'adventure', inventory:'character', commerce:'town
 function goGroup(g) {
   const PRIMARY = { adventure:'world', character:'inventory', town:'commerce', work:'work', temple:'temple', battle:'arena', social:'guild' };
   goTo(PRIMARY[g] || 'world');
+}
+
+// [USABILIDADE] Sub-abas do Personagem: char (stats/stance/skills) · ach (achievements) · inv (inventário).
+// Carrega só a sub-aba aberta (página menor). goTo('inventory') chama com a sub-aba ativa.
+let charTab = 'char';
+function switchCharTab(tab) {
+  charTab = tab;
+  ['char', 'ach', 'inv'].forEach(t => {
+    const p = document.getElementById('cpanel-' + t); if (p) p.style.display = t === tab ? 'block' : 'none';
+    document.getElementById('ctab-' + t)?.classList.toggle('active', t === tab);
+  });
+  if (tab === 'char') { renderAttributes(); loadAbilities(); }
+  if (tab === 'ach')  { loadAchievements(); }
+  if (tab === 'inv')  { loadInventory(); }
 }
 
 // [PILOTO_UI] Mobile: recolhe/expande o card do guerreiro (vitals já estão no topo). Sem efeito visual no desktop.

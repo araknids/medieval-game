@@ -105,13 +105,25 @@
             <h2 data-i18n="nav.character">Character</h2>
             <p class="loc-desc" data-i18n="section.character.desc">Manage your equipment, attributes and socketed gems.</p>
           </div>
-          <div id="attributes-panel"></div>
-          <div id="abilities-panel"></div>
-          <div id="achievements-panel"></div>
-          <div id="equipment-slots"></div>
-          <h3 class="bag-title" data-i18n="inventory.bag">Bag</h3>
-          <div id="bag-slot-info"></div>
-          <div id="bag-items"></div>
+          <!-- [USABILIDADE] Sub-abas: Personagem (stats/stance/skills) · Achievements · Inventário -->
+          <div class="tabs">
+            <button id="ctab-char" class="tab active" onclick="switchCharTab('char')">👤 <span data-i18n="nav.character">Character</span></button>
+            <button id="ctab-ach"  class="tab"        onclick="switchCharTab('ach')">🏆 Achievements</button>
+            <button id="ctab-inv"  class="tab"        onclick="switchCharTab('inv')">🎒 Inventory</button>
+          </div>
+          <div id="cpanel-char">
+            <div id="attributes-panel"></div>
+            <div id="abilities-panel"></div>
+          </div>
+          <div id="cpanel-ach" style="display:none">
+            <div id="achievements-panel"></div>
+          </div>
+          <div id="cpanel-inv" style="display:none">
+            <div id="equipment-slots"></div>
+            <h3 class="bag-title" data-i18n="inventory.bag">Bag</h3>
+            <div id="bag-slot-info"></div>
+            <div id="bag-items"></div>
+          </div>
         </section>
 
         <!-- COMÉRCIO (Buy / Sell / Smithing / Cooking / VIP) -->
