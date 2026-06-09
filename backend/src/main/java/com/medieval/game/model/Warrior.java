@@ -252,12 +252,12 @@ public class Warrior {
     // ── Stats totais (base + atributos, sem itens) ────────────────────────────
 
     /**
-     * ATK base + atributo de dano da classe. [REBALANCE] Arqueiro escala com DEX (precisão = dano do
-     * arco); corpo-a-corpo escala com STR. {@code warriorClass} null (criação) cai em STR.
+     * ATK base + atributo de dano da ARMA. [REBALANCE][CLASSES_ARMAS] Arma ranged (arco) escala com
+     * DEX (precisão = dano do arco); melee escala com STR — independente da classe (a trava de arma
+     * por classe foi removida). O chamador passa {@code rangedWeapon} (arma equipada é RANGED?).
      */
-    public int getTotalBaseAttack()  {
-        boolean dexDmg = warriorClass == WarriorClass.ARCHER;
-        return attack + (dexDmg ? dexterity : strength);
+    public int getTotalBaseAttack(boolean rangedWeapon) {
+        return attack + (rangedWeapon ? dexterity : strength);
     }
 
     /** DEF base (from equipment via inventory, no per-level or attribute growth). */

@@ -58,9 +58,11 @@ public enum WarriorClass {
     public boolean isSpecialized() { return this != RECRUIT; }
 
     /**
-     * [REBALANCE] Atributo que escala o DANO da classe. Arqueiro (arco) = DEX (precisão) — não faz
-     * sentido Força aumentar o dano do arco; as classes de corpo-a-corpo (espada/machado) = STR.
+     * @deprecated [CLASSES_ARMAS] O atributo de dano agora segue a ARMA equipada (arco→DEX, melee→STR),
+     * não a classe — ver {@code WarriorStatsService.isRangedWeaponEquipped} + {@code Warrior.getTotalBaseAttack(boolean)}.
+     * Mantido só por referência.
      */
+    @Deprecated
     public Attribute damageAttribute() { return this == ARCHER ? Attribute.DEXTERITY : Attribute.STRENGTH; }
 
     /** [KITING] Combate à distância (arco) — sofre a dinâmica de kiting vs corpo-a-corpo. */

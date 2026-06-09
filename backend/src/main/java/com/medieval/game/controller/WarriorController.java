@@ -183,14 +183,16 @@ public class WarriorController {
         long aElemSecs = aElem != null ? Math.max(0, java.time.temporal.ChronoUnit.SECONDS.between(
                 java.time.LocalDateTime.now(), warrior.getArmorElementUntil())) : 0;
 
+        // [CLASSES_ARMAS] atributo de dano segue a arma equipada (arco→DEX, melee→STR)
+        boolean rangedWeapon = statsService.isRangedWeaponEquipped(player);
         return new WarriorResponse(
                 warrior.getId(), warrior.getName(),
                 messages.getOr("class." + warrior.getWarriorClass().name() + ".name", warrior.getWarriorClass().displayName), // [I18N]
                 warrior.getWarriorClass().name(), // id estável do enum p/ a UI decidir a Path Trial [CLASSES]
                 warrior.getLevel(), warrior.getExperience(), warrior.expNeededForNextLevel(),
-                warrior.getTotalBaseAttack(),  warrior.getTotalBaseDefense(),  warrior.getTotalBaseHealth(),
+                warrior.getTotalBaseAttack(rangedWeapon),  warrior.getTotalBaseDefense(),  warrior.getTotalBaseHealth(),
                 bonusAtk,                       bonusDef,                       bonusHp,
-                warrior.getTotalBaseAttack()  + bonusAtk,
+                warrior.getTotalBaseAttack(rangedWeapon)  + bonusAtk,
                 warrior.getTotalBaseDefense() + bonusDef,
                 warrior.getTotalBaseHealth()  + bonusHp,
                 itemBonusAtk, itemBonusDef, itemBonusHp,

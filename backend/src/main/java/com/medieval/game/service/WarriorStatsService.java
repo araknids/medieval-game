@@ -124,16 +124,25 @@ public class WarriorStatsService {
      * [atk, def, hp, dex, strBonus, luk]. Inclui base + atributos + itens + joias + buffs ativos
      * (slots do Templo + slot "Bem Alimentado" da refeição). [A1 / COZINHA]
      */
+    /** [CLASSES_ARMAS] A arma equipada é RANGED (arco)? Decide o atributo de dano: ranged→DEX, melee→STR. */
+    public boolean isRangedWeaponEquipped(Player player) {
+        return inventoryRepository
+                .findByPlayerAndTypeAndEquippedTrue(player, com.medieval.game.enums.ItemType.WEAPON)
+                .map(w -> w.effectiveWeaponCategory() == com.medieval.game.enums.WeaponCategory.RANGED)
+                .orElse(false);
+    }
+
     public int[] combatStats(Player player, Warrior warrior) {
         GearBonus g = equippedGear(player);          // planos + atributos de afixo [ITENS_V2]
         int[] buff = activeBuffBonuses(warrior);     // {atk, def, hp, eva}
         // Postura: tradeoff ATK/DEF aplicado por ÚLTIMO, sobre o total (base+gear+buff). [POSTURE]
         com.medieval.game.enums.CombatPosture posture = warrior.getCombatPosture() != null
                 ? warrior.getCombatPosture() : com.medieval.game.enums.CombatPosture.BALANCED;
-        // [REBALANCE] Afixo de dano do gear segue o atributo da classe: Arqueiro = DEX (precisão), resto = STR.
-        // (DEX do gear do arqueiro entra duas vezes — dano aqui + acerto no slot 3 — coerente com a identidade.)
-        int gearDmgAffix = warrior.getWarriorClass() == com.medieval.game.enums.WarriorClass.ARCHER ? g.dex() : g.str();
-        int atk = (int) Math.round((warrior.getTotalBaseAttack()  + g.atk() + gearDmgAffix + buff[0]) * posture.atkMult());
+        // [CLASSES_ARMAS] Atributo de dano segue a ARMA equipada: arco (RANGED) → DEX, melee → STR —
+        // independente da classe (trava de arma removida). DEX do arco entra 2× (dano + acerto), coerente.
+        boolean rangedWeapon = isRangedWeaponEquipped(player);
+        int gearDmgAffix = rangedWeapon ? g.dex() : g.str();
+        int atk = (int) Math.round((warrior.getTotalBaseAttack(rangedWeapon) + g.atk() + gearDmgAffix + buff[0]) * posture.atkMult());
         int def = (int) Math.round((warrior.getTotalBaseDefense() + g.def() + buff[1]) * posture.defMult());
         // Pet equipado: bônus de combate (empilha com base+gear+buff+montaria). [PETS]
         var pet = petRepository.findByPlayerAndEquippedTrue(player).map(com.medieval.game.model.Pet::getPetType).orElse(null);
