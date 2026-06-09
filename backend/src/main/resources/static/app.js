@@ -568,9 +568,9 @@ function goTo(loc) {
 }
 
 // [PILOTO_UI nav 9→5] destino→grupo e grupo→destino primário
-const NAV_LOC_GROUP = { world:'adventure', inventory:'character', commerce:'town', temple:'town', work:'town', tower:'battle', arena:'battle', guild:'social', mail:'social', daily:'social' };
+const NAV_LOC_GROUP = { world:'adventure', inventory:'character', commerce:'town', temple:'temple', work:'work', tower:'battle', arena:'battle', guild:'social', mail:'social', daily:'social' };
 function goGroup(g) {
-  const PRIMARY = { adventure:'world', character:'inventory', town:'commerce', battle:'arena', social:'guild' };
+  const PRIMARY = { adventure:'world', character:'inventory', town:'commerce', work:'work', temple:'temple', battle:'arena', social:'guild' };
   goTo(PRIMARY[g] || 'world');
 }
 
@@ -749,7 +749,7 @@ function aucCard(a, isMineSection) {
     ? `<button class="btn-buy" style="background:#8b0000" onclick="auctionCancel(${a.listingId})">Cancel</button>`
     : `<button class="btn-buy" ${a.isMine ? 'disabled style="opacity:.5"' : ''} onclick="auctionBuy(${a.listingId})">Buy</button>`;
   return `
-    <div class="shop-card">
+    <div class="shop-card" data-icat="${itemCatOf(a.type)}" data-irar="${a.rarity}">
       <div class="shop-item-info">
         <h3 class="rarity-${a.rarity}">${escapeHtml(a.name)} ${a.sockets ? `<span style="color:#888;font-size:.7em">◇${a.sockets}</span>` : ''}</h3>
         <div class="shop-stats">${escapeHtml(a.typeDisplay)}${stats ? ' · ' + stats : ''} · 🔧${a.durability}% · ⏳ ${aucTimeLeft(a.secondsLeft)}</div>
@@ -790,10 +790,14 @@ async function loadAuctionHouse() {
 
   el.innerHTML = `
     <div style="font-size:.75rem;color:#888;margin-bottom:8px">Fixed-price market. Fee: 5% upfront (kept) + 15% on sale → you get 80%. Listings last 2 days, max 10.</div>
-    <h4 style="margin:6px 0">🛒 Browse</h4>${browseHtml}
+    <h4 style="margin:6px 0">🛒 Browse</h4>
+    ${(Array.isArray(listings) && listings.length) ? itemFilterBar('auction') : ''}
+    <div data-ifscope="auction">${browseHtml}</div>
+    <p id="if-empty-auction" style="display:none;color:#888;font-size:.8rem">Nada nesse filtro.</p>
     <h4 style="margin:14px 0 6px">📋 My listings (${Array.isArray(mine) ? mine.length : 0}/10)</h4>${mineHtml}
     <h4 style="margin:14px 0 6px">➕ List an item</h4>${pickerHtml}
     <div id="auction-msg" style="margin-top:8px;min-height:18px"></div>`;
+  applyItemFilter('auction');
 }
 
 async function auctionBuy(id) {
@@ -1045,6 +1049,45 @@ async function loadSmithingInCommerce() {
   if (src) el.innerHTML = src.innerHTML;
 }
 
+// ── [ITEM_FILTER] Filtro genérico Tipo+Raridade (loja/vender/inventário/leilão) ──
+function itemCatOf(type) {
+  if (type === 'WEAPON') return 'weapon';
+  if (type === 'RING' || type === 'NECKLACE') return 'accessory';
+  return 'armor'; // ARMOR/HELMET/BOOTS/GLOVES/SHOULDER/PANTS/SHIELD
+}
+const _itemFilter = {}; // scope -> { cat, rar }
+function itemFilterBar(scope) {
+  const st = _itemFilter[scope] || (_itemFilter[scope] = { cat: 'all', rar: 'all' });
+  const cats = [['all','Tudo'],['weapon','⚔'],['armor','🛡'],['accessory','💍']];
+  const rars = [['all','Tudo'],['1','Comum'],['2','Incomum'],['3','Raro'],['4','Épico'],['5','Lendário']];
+  const chip = (kind, val, label, on) =>
+    `<button class="if-chip" data-scope="${scope}" data-kind="${kind}" data-val="${val}" style="background:${on?'#6b4f2a':'#2a2a3a'};color:${on?'#fff':'#bbb'};border:none;border-radius:6px;padding:3px 9px;margin:2px;cursor:pointer;font-size:.7rem" onclick="setItemFilter('${scope}','${kind}','${val}')">${label}</button>`;
+  return `<div class="if-bar" style="margin:0 0 8px">
+    <div style="display:flex;flex-wrap:wrap;margin-bottom:2px">${cats.map(([v,l])=>chip('cat',v,l,st.cat===v)).join('')}</div>
+    <div style="display:flex;flex-wrap:wrap">${rars.map(([v,l])=>chip('rar',v,l,st.rar===v)).join('')}</div>
+  </div>`;
+}
+function setItemFilter(scope, kind, val) {
+  const st = _itemFilter[scope] || (_itemFilter[scope] = { cat: 'all', rar: 'all' });
+  st[kind] = val;
+  document.querySelectorAll(`.if-chip[data-scope="${scope}"]`).forEach(c => {
+    const on = st[c.dataset.kind] === c.dataset.val;
+    c.style.background = on ? '#6b4f2a' : '#2a2a3a'; c.style.color = on ? '#fff' : '#bbb';
+  });
+  applyItemFilter(scope);
+}
+function applyItemFilter(scope) {
+  const st = _itemFilter[scope] || { cat: 'all', rar: 'all' };
+  let shown = 0;
+  document.querySelectorAll(`[data-ifscope="${scope}"] [data-icat]`).forEach(card => {
+    const ok = (st.cat === 'all' || card.dataset.icat === st.cat)
+            && (st.rar === 'all' || card.dataset.irar === String(st.rar));
+    card.style.display = ok ? '' : 'none'; if (ok) shown++;
+  });
+  const empty = document.getElementById('if-empty-' + scope);
+  if (empty) empty.style.display = shown ? 'none' : 'block';
+}
+
 let shopTimerInterval = null;
 
 async function loadShop() {
@@ -1073,11 +1116,12 @@ async function loadShop() {
       <div class="merchant-quote">"${merchantQuote}"</div>
       <div class="shop-timer-wrap"><span id="shop-timer"></span></div>
     </div>
-    <div class="shop-items-grid">
+    ${itemFilterBar('shop')}
+    <div class="shop-items-grid" data-ifscope="shop">
       ${items.map(i => {
         const stats = statsText(i);
         return `
-          <div class="shop-card ${i.purchased ? 'shop-card-sold' : ''}">
+          <div class="shop-card ${i.purchased ? 'shop-card-sold' : ''}" data-icat="${itemCatOf(i.type)}" data-irar="${i.rarity}">
             <div class="shop-item-info">
               <h3 class="rarity-${i.rarity}">${i.name} <span style="font-size:.7rem;color:#888">Lv.${i.itemLevel}</span></h3>
               <div class="shop-stats">${(t('item.type.'+i.type)||i.typeDisplay)} · ${(t('inventory.rarity.'+i.rarity)||i.rarityName)} · ${stats}${i.itemLevel > (warrior?.level||1) ? ` · <span style="color:#ef5350">🔒 Req. Lv.${i.itemLevel}</span>` : ''}</div>
@@ -1090,8 +1134,10 @@ async function loadShop() {
             }
           </div>`;
       }).join('')}
-    </div>`;
+    </div>
+    <p id="if-empty-shop" style="display:none;color:#888;font-size:.8rem">Nada nesse filtro.</p>`;
 
+  applyItemFilter('shop'); // [ITEM_FILTER] aplica o filtro atual
   renderShopTimer();
   shopTimerInterval = setInterval(() => {
     secs--;
@@ -1489,7 +1535,7 @@ async function loadInventory() {
   const resList = Array.isArray(resources) ? resources.filter(r => r.quantity > 0) : [];
   if (!bag.length && !resList.length) { bagEl.innerHTML = `<p style="color:#555;font-size:.8rem">${t('inventory.bag_empty')}</p>`; return; }
   const itemsHtml = bag.map(item => `
-    <div class="bag-item" style="flex-direction:column;align-items:flex-start;gap:.3rem">
+    <div class="bag-item" data-icat="${itemCatOf(item.type)}" data-irar="${item.rarity}" style="flex-direction:column;align-items:flex-start;gap:.3rem">
       <div style="display:flex;justify-content:space-between;width:100%;align-items:center">
         <div>
           <div class="bag-item-name rarity-${item.rarity}">${item.name} <span style="font-size:.7rem;color:#888">Lv.${item.itemLevel}</span>${item.pvpLocked ? ` <span class="pvp-lock-badge" title="${t('inventory.pvp_locked')||'Exposto no PvP — pode ser saqueado; não pode vender/guardar enquanto flagged'}">🔒 PvP</span>` : ''}</div>
@@ -1519,7 +1565,13 @@ async function loadInventory() {
           ${r.category === 'FISH' ? `<button class="btn-equip" onclick="consumeFish('${r.type}')">${t('btn.consume')||'Consume'}</button>` : ''}
         </div>`).join('')}
     </div>` : '';
-  bagEl.innerHTML = itemsHtml + resHtml;
+  // [ITEM_FILTER] filtro Tipo+Raridade só sobre os itens (recursos ficam fora do filtro)
+  const filterBar = bag.length ? itemFilterBar('inv') : '';
+  bagEl.innerHTML = filterBar
+    + `<div data-ifscope="inv">${itemsHtml}</div>`
+    + `<p id="if-empty-inv" style="display:none;color:#888;font-size:.8rem">Nada nesse filtro.</p>`
+    + resHtml;
+  applyItemFilter('inv');
 }
 
 async function loadSellList() {
@@ -1534,15 +1586,16 @@ async function loadSellList() {
     return;
   }
 
-  el.innerHTML = bag.map(item => `
-    <div class="shop-card">
+  el.innerHTML = itemFilterBar('sell') + `<div data-ifscope="sell">` + bag.map(item => `
+    <div class="shop-card" data-icat="${itemCatOf(item.type)}" data-irar="${item.rarity}">
       <div class="shop-item-info">
         <h3 class="rarity-${item.rarity}">${item.name}</h3>
         <div class="shop-stats">${(t('item.type.'+item.type)||item.typeDisplay)} · ${statsText(item)}</div>
       </div>
       <span class="shop-price">${fmtBronze(item.sellPrice)}</span>
       <button class="btn-buy" onclick="sellItem(${item.id})">${t('inventory.btn.sell')}</button>
-    </div>`).join('');
+    </div>`).join('') + `</div><p id="if-empty-sell" style="display:none;color:#888;font-size:.8rem">Nada nesse filtro.</p>`;
+  applyItemFilter('sell');
 }
 
 // Mostra sockets do item (com joias se tiver)
@@ -1733,29 +1786,7 @@ function renderTemple(data) {
       <button class="btn-equip" onclick="applyBuff('${b.id}')">${t('temple.bless_btn')}</button>
     </div>`).join('');
 
-  // [ELEMENTOS] Encantamento elemental (arma/armadura, buff 1h, custa essência + bronze).
-  const enchantHtml = (() => {
-    const els = data.elements || [];
-    const slot = (label, current, secs, kind) => `
-      <div style="margin-bottom:.55rem">
-        <div style="font-size:.8rem;color:#bbb;margin-bottom:.25rem">${label}: ${
-          current ? `<strong>${(els.find(e => e.id === current)?.icon) || ''} ${current}</strong> <span style="color:#888">(${Math.floor((secs||0)/60)}min)</span>`
-                  : '<span style="color:#888">none</span>'}</div>
-        <div style="display:flex;gap:6px;flex-wrap:wrap">
-          ${els.map(e => `
-            <button onclick="enchant('${kind}','${e.id}')" ${e.owned < 1 ? 'disabled style="opacity:.45;cursor:not-allowed"' : ''}
-              title="Beats ${e.beats} · you have ${e.owned} ${e.essenceName}"
-              style="font-size:.78rem;padding:4px 8px">${e.icon} ${e.displayName} <span style="color:#888">(${e.owned})</span></button>`).join('')}
-        </div>
-      </div>`;
-    return `
-      <div class="sk-section">
-        <div class="sk-title">⚗ Enchanting <span style="font-size:.7rem;color:#888">(1h · ${fmtBronze(data.enchantCost || 100)} + 1 essence)</span></div>
-        <p class="zone-desc">Weapon = element you deal · Armor = your defense. Wheel: 🔥→💨→🪨→💧→🔥 (each beats the next). Match-up = ±25% in combat. Farm element areas for essences. Enchants are lost on KO.</p>
-        ${slot('🗡 Weapon', data.weaponElement, data.weaponElementSecondsLeft, 'weapon')}
-        ${slot('🛡 Armor',  data.armorElement,  data.armorElementSecondsLeft,  'armor')}
-      </div>`;
-  })();
+  // [ELEMENTOS] Encantamento MOVIDO p/ a Forja (aba de crafting) — ver enchantSectionHtml(). [USABILIDADE]
 
   el.innerHTML = `
     <div class="sk-section">
@@ -1816,7 +1847,6 @@ function renderTemple(data) {
       <div style="margin-top:.5rem">${buffsHtml}</div>
     </div>
 
-    ${enchantHtml}
 
     <div class="sk-section">
       <div class="sk-title">Proteção de Itens (${data.protectedCount}/${data.maxProtected})</div>
@@ -1871,13 +1901,39 @@ async function applyBuff(buffId) {
   loadTemple();
 }
 
-// [ELEMENTOS] Encanta arma/armadura (kind = 'weapon'|'armor') com um elemento.
+// [ELEMENTOS][USABILIDADE] Seção de encantamento — agora mora na Forja (aba de crafting).
+// Recebe os dados do /api/temple (elements + encantamento atual). enchant() ainda usa o endpoint do templo.
+function enchantSectionHtml(data) {
+  if (!data || data.error) return '';
+  const els = data.elements || [];
+  const slot = (label, current, secs, kind) => `
+    <div style="margin-bottom:.55rem">
+      <div style="font-size:.8rem;color:#bbb;margin-bottom:.25rem">${label}: ${
+        current ? `<strong>${(els.find(e => e.id === current)?.icon) || ''} ${current}</strong> <span style="color:#888">(${Math.floor((secs||0)/60)}min)</span>`
+                : '<span style="color:#888">none</span>'}</div>
+      <div style="display:flex;gap:6px;flex-wrap:wrap">
+        ${els.map(e => `
+          <button onclick="enchant('${kind}','${e.id}')" ${e.owned < 1 ? 'disabled style="opacity:.45;cursor:not-allowed"' : ''}
+            title="Beats ${e.beats} · you have ${e.owned} ${e.essenceName}"
+            style="font-size:.78rem;padding:4px 8px">${e.icon} ${e.displayName} <span style="color:#888">(${e.owned})</span></button>`).join('')}
+      </div>
+    </div>`;
+  return `
+    <div class="sk-section">
+      <div class="sk-title">⚗ Enchanting <span style="font-size:.7rem;color:#888">(1h · ${fmtBronze(data.enchantCost || 100)} + 1 essence)</span></div>
+      <p class="zone-desc">Weapon = element you deal · Armor = your defense. Wheel: 🔥→💨→🪨→💧→🔥 (each beats the next). Match-up = ±25% in combat. Farm element areas for essences. Enchants are lost on KO.</p>
+      ${slot('🗡 Weapon', data.weaponElement, data.weaponElementSecondsLeft, 'weapon')}
+      ${slot('🛡 Armor',  data.armorElement,  data.armorElementSecondsLeft,  'armor')}
+    </div>`;
+}
+
+// [ELEMENTOS] Encanta arma/armadura (kind = 'weapon'|'armor') com um elemento. (UI na Forja.)
 async function enchant(kind, element) {
   const data = await api('POST', `/api/temple/enchant/${kind}/${element}`);
   if (data.error) { showMessage(data.error, true); return; }
   showMessage(data.message);
   await loadWarrior();
-  loadTemple();
+  loadSmithingInCommerce(); // [USABILIDADE] refresca a Forja (onde vive o encantamento agora)
 }
 
 async function protectItem(itemId) {
@@ -2007,6 +2063,8 @@ async function renderSmithing() {
   const inv = await api('GET', '/api/inventory');
   const equip = Array.isArray(inv) ? inv : [];
   setEquippedCache(inv); // [ITEM_COMPARE] cache do equipado p/ o comparativo das receitas
+  const templeData = await api('GET', '/api/temple').catch(() => null); // [USABILIDADE] encantamento na forja
+  const enchantHtml = enchantSectionHtml(templeData);
   const maintHtml = equip.map(item => {
     const dur = item.durability ?? 100;
     const repairCost = repairCostFor(item);
@@ -2075,6 +2133,7 @@ async function renderSmithing() {
       <div id="craft-list">${craftHtml}</div>
       <p id="craft-empty" style="display:none;color:#888;font-size:.8rem">Nada nesse filtro.</p>
     </div>
+    ${enchantHtml}
     <div class="sk-section">
       <div class="sk-title">Criar Joias</div>
       ${gemHtml}
