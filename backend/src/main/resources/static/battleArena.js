@@ -15,20 +15,25 @@
   const HIT_TYPES = new Set(['attack', 'crit', 'volley', 'extra']);
   const SWING_TYPES = new Set(['attack', 'crit', 'volley', 'extra', 'miss', 'dodge']); // atacante balança a arma
 
-  // ── Sprites (CraftPix Knight). Cada PNG é um strip horizontal de frames 128×128. ──
-  const FRAME_W = 128, FRAME_H = 128, DRAW_H = 150;
+  // ── Sprites em strips horizontais. Cada set tem frame size próprio (fw×fh) + padding de pé. ──
+  // [PAPER_DOLL] player = guerreiro PixelLab (careca, SEM armadura ainda, 143×123). Inimigo = CraftPix Knight (128×128).
+  const DRAW_H = 150;
   const FRAME_MS = { idle: 130, walk: 80, attack: 55, hurt: 110, dead: 110, jump: 90 }; // jump suave (~11fps); repete no taunt
-  const KNIGHT = {
-    blue: {
-      idle: '/assets/knights/blue/idle.png',   walk: '/assets/knights/blue/walk.png',
-      attack: '/assets/knights/blue/attack.png', hurt: '/assets/knights/blue/hurt.png',
-      dead: '/assets/knights/blue/dead.png',     jump: '/assets/knights/blue/jump.png',
-    },
-    purple: {
+  // fw×fh = frame real; sh = altura usada SÓ p/ escala (decoupla "tamanho na tela" do frame). Knight preenche
+  // ~metade do frame (sh=fh); o guerreiro é recorte colado, então sh maior o encolhe p/ casar a altura do corpo.
+  const W_BASE = '/assets/warrior/'; // warrior: só idle+attack por ora → walk/hurt/dead/jump reusam idle (anim real entra depois).
+  const SETS = {
+    warrior: { fw: 143, fh: 123, sh: 240, foot: 15,
+      idle: W_BASE + 'idle.png', walk: W_BASE + 'idle.png', attack: W_BASE + 'attack.png',
+      hurt: W_BASE + 'idle.png', dead: W_BASE + 'idle.png', jump: W_BASE + 'idle.png' },
+    purple: { fw: 128, fh: 128, foot: 8,
       idle: '/assets/knights/purple/idle.png',   walk: '/assets/knights/purple/walk.png',
       attack: '/assets/knights/purple/attack.png', hurt: '/assets/knights/purple/hurt.png',
-      dead: '/assets/knights/purple/dead.png',     jump: '/assets/knights/purple/jump.png',
-    },
+      dead: '/assets/knights/purple/dead.png',     jump: '/assets/knights/purple/jump.png' },
+    blue: { fw: 128, fh: 128, foot: 8,
+      idle: '/assets/knights/blue/idle.png',   walk: '/assets/knights/blue/walk.png',
+      attack: '/assets/knights/blue/attack.png', hurt: '/assets/knights/blue/hurt.png',
+      dead: '/assets/knights/blue/dead.png',     jump: '/assets/knights/blue/jump.png' },
   };
   // [BATALHA_ANIMADA] Fundos de cenário (CraftPix "castelo"). Por enquanto: 1 aleatório por luta.
   const BACKGROUNDS = ['/assets/backgrounds/bg1.png', '/assets/backgrounds/bg2.png',
@@ -36,7 +41,7 @@
 
   const _img = {};
   function sprite(url) { let im = _img[url]; if (!im) { im = new Image(); im.src = url; _img[url] = im; } return im; }
-  Object.values(KNIGHT).forEach(set => Object.values(set).forEach(sprite)); // preload no load do script
+  Object.values(SETS).forEach(set => Object.values(set).forEach(v => { if (typeof v === 'string') sprite(v); })); // preload (ignora fw/fh/foot)
   BACKGROUNDS.forEach(sprite);
 
   function roundRect(c, x, y, w, h, r) {
@@ -61,7 +66,8 @@
       name: sp.actor, maxHp: Math.max(1, sp.targetMaxHp || 1), hp: Math.max(1, sp.targetMaxHp || 1),
       shownHp: Math.max(1, sp.targetMaxHp || 1), side,
       x: combatX(side), x0: entryX(side), color: side < 0 ? '#5b8dd6' : '#cf5b5b',
-      set: side < 0 ? 'blue' : 'purple',
+      set: side < 0 ? 'warrior' : 'purple', // [PAPER_DOLL] player (esquerda) = guerreiro PixelLab; inimigo = knight
+
       anim: 'idle', animStart: 0, animOnce: false, moving: false, flinch: 0, dead: false,
     });
     let left = mk(spawns[0], -1), right = mk(spawns[1], 1);
@@ -160,8 +166,9 @@
         } else if (taunting) {
           setAnim(f, 'jump', false); // loop suave do pulo durante o taunt (não congela = não trava)
         } else if (f.animOnce) {
-          const im = sprite(KNIGHT[f.set][f.anim]);
-          const frames = im.naturalWidth ? Math.floor(im.naturalWidth / FRAME_W) : 1;
+          const st = SETS[f.set];
+          const im = sprite(st[f.anim]);
+          const frames = im.naturalWidth ? Math.floor(im.naturalWidth / st.fw) : 1;
           if (nowTs - f.animStart >= frames * FRAME_MS[f.anim]) setAnim(f, f.moving ? 'walk' : 'idle', false);
         } else {
           setAnim(f, f.moving ? 'walk' : 'idle', false);
@@ -202,11 +209,12 @@
       const drawX = introDone ? f.x : lerp(f.x0, f.x, introP);
       const faceRight = f.side < 0;                       // sprites encaram a DIREITA por padrão
       const knock = f.flinch > 0.02 ? (f.side < 0 ? -1 : 1) * 6 * f.flinch : 0;
-      const im = sprite(KNIGHT[f.set][f.anim] || KNIGHT[f.set].idle);
+      const st = SETS[f.set];
+      const im = sprite(st[f.anim] || st.idle);
       if (!im.complete || !im.naturalWidth) {            // placeholder enquanto a imagem carrega
         ctx.fillStyle = f.color; roundRect(ctx, drawX - 12, ground - 70, 24, 66, 6); ctx.fill(); return;
       }
-      const frames = Math.max(1, Math.floor(im.naturalWidth / FRAME_W));
+      const frames = Math.max(1, Math.floor(im.naturalWidth / st.fw));
       const dur = FRAME_MS[f.anim] || 120;
       let fi = Math.floor((nowTs - f.animStart) / dur);
       fi = f.animOnce ? Math.min(fi, frames - 1) : (fi % frames);
@@ -216,11 +224,11 @@
         const p = Math.min(1, (nowTs - f.animStart) / (frames * dur));
         lunge = Math.sin(p * Math.PI) * 22 * -f.side; // -side = sentido do inimigo na tela
       }
-      const scale = DRAW_H / FRAME_H, dw = FRAME_W * scale, dh = FRAME_H * scale, footPad = scale * 8;
+      const scale = DRAW_H / (st.sh || st.fh), dw = st.fw * scale, dh = st.fh * scale, footPad = scale * st.foot;
       ctx.save();
       ctx.translate(drawX + knock + lunge, ground + footPad);
       if (!faceRight) ctx.scale(-1, 1);
-      ctx.drawImage(im, fi * FRAME_W, 0, FRAME_W, FRAME_H, -dw / 2, -dh, dw, dh);
+      ctx.drawImage(im, fi * st.fw, 0, st.fw, st.fh, -dw / 2, -dh, dw, dh);
       ctx.restore();
     }
 
