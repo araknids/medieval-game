@@ -2400,10 +2400,10 @@ async function showWorkJobList() {
 async function startWork(workType, hours) {
   const data = await api('POST', '/api/work/start', { workType, hours });
   if (data.error) { showMessage(data.error, true); return; }
-  // [WORK_IDLE] timer real → mostra a tela de progresso (não coleta na hora). Enquanto trabalha, o
-  // jogador fica travado de aventurar (backend rejeita). Em modo de teste (instant-complete) o backend
-  // devolve readyToCollect=true → coleta direto pra não travar o playtest solo.
-  if (data.readyToCollect) { await collectWork(data.id); }
+  // [WORK_IDLE] timer SEMPRE real → mostra a tela de progresso (não coleta na hora). Enquanto trabalha,
+  // o jogador fica travado de aventurar (backend rejeita) e o coletar só libera quando o timer acaba.
+  // [WORK_EXPLOIT_FIX] instant-complete não fura mais o timer do work (era start→collect = gold infinito).
+  if (data.readyToCollect) { await collectWork(data.id); } // defensivo; com timer real vem sempre false
   else { openWorkProgress(data); }
 }
 

@@ -13,7 +13,6 @@ import com.medieval.game.repository.WorkProfessionRepository;
 import com.medieval.game.repository.WorkSessionRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -31,9 +30,6 @@ public class WorkService {
     private final PlayerRepository         playerRepository;
     private final TerritoryService         territoryService;
     private final ConcurrentEntityCreator  entityCreator;
-
-    @Value("${app.dev.instant-complete:false}")
-    private boolean instantComplete;
 
     // Retorna ou cria o registro de profissão para o jogador
     public WorkProfession getProfession(Player player, WorkType workType) {
@@ -104,8 +100,9 @@ public class WorkService {
 
         // [WORK_IDLE] Trabalho é a atividade IDLE do jogo: roda em TEMPO REAL e NÃO custa estamina — o
         // "custo" é o tempo + a trava de aventura (ver assertNotBusy). É a exceção deliberada ao [SEM_TIMER]:
-        // o resto do jogo continua instantâneo/gated por estamina; só o Trabalho tem timer. Em modo de teste
-        // (instant-complete) resolve na hora pra não travar o playtest solo por horas.
+        // o resto do jogo continua instantâneo/gated por estamina; só o Trabalho tem timer.
+        // [WORK_EXPLOIT_FIX] O timer é SEMPRE real — o flag instant-complete (que bypassa estamina) NÃO
+        // pode furar o timer do trabalho, senão vira start→collect→start = gold infinito sem lock.
         WorkSession session = new WorkSession();
         session.setPlayer(player);
         session.setWorkType(workType);
@@ -113,9 +110,7 @@ public class WorkService {
         session.setGoldReward(goldReward);
         session.setXpReward(xpReward);
         session.setStartedAt(LocalDateTime.now());
-        session.setFinishesAt(instantComplete
-                ? LocalDateTime.now().minusSeconds(1)        // teste: pronto na hora [FLAKE_FIX]
-                : LocalDateTime.now().plusHours(hours));     // [WORK_IDLE] timer real
+        session.setFinishesAt(LocalDateTime.now().plusHours(hours)); // [WORK_IDLE] timer real (1/2/6/12h)
         WorkSession saved = workRepository.save(session);
         log.info("[WorkService] player={} action=startWork OK id={} goldReward={}", player.getId(), saved.getId(), goldReward);
         return saved;
