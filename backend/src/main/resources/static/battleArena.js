@@ -30,9 +30,14 @@
       dead: '/assets/knights/purple/dead.png',     jump: '/assets/knights/purple/jump.png',
     },
   };
+  // [BATALHA_ANIMADA] Fundos de cenário (CraftPix "castelo"). Por enquanto: 1 aleatório por luta.
+  const BACKGROUNDS = ['/assets/backgrounds/bg1.png', '/assets/backgrounds/bg2.png',
+                       '/assets/backgrounds/bg3.png', '/assets/backgrounds/bg4.png'];
+
   const _img = {};
   function sprite(url) { let im = _img[url]; if (!im) { im = new Image(); im.src = url; _img[url] = im; } return im; }
   Object.values(KNIGHT).forEach(set => Object.values(set).forEach(sprite)); // preload no load do script
+  BACKGROUNDS.forEach(sprite);
 
   function roundRect(c, x, y, w, h, r) {
     c.beginPath(); c.moveTo(x + r, y);
@@ -45,6 +50,7 @@
     const ctx = canvas.getContext('2d');
     if (!ctx || !Array.isArray(events)) return { stop() {} };
     const W = canvas.width, H = canvas.height, ground = H - 14;
+    const bgUrl = BACKGROUNDS[Math.floor(Math.random() * BACKGROUNDS.length)]; // fundo aleatório por luta
 
     const combatX = s => s < 0 ? W * 0.40 : W * 0.60; // perto: corpo-a-corpo (era 0.30/0.70)
     const entryX  = s => s < 0 ? W * 0.13 : W * 0.87;
@@ -169,10 +175,17 @@
     function draw() {
       ctx.save();
       if (shake > 0.3) { ctx.translate((Math.random() - 0.5) * shake, (Math.random() - 0.5) * shake); shake *= 0.8; }
-      const sc = SCENES[opts.scene] || SCENES.fortress;
-      const g = ctx.createLinearGradient(0, 0, 0, H); g.addColorStop(0, sc[0]); g.addColorStop(1, sc[1]);
-      ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
-      ctx.fillStyle = 'rgba(0,0,0,.28)'; ctx.fillRect(0, ground, W, H - ground);
+      const bg = sprite(bgUrl);
+      if (bg.complete && bg.naturalWidth) { // fundo de cenário (cobre o canvas, ancorado embaixo)
+        const s = Math.max(W / bg.naturalWidth, H / bg.naturalHeight);
+        const dw = bg.naturalWidth * s, dh = bg.naturalHeight * s;
+        ctx.drawImage(bg, (W - dw) / 2, H - dh, dw, dh);
+      } else {                              // fallback: gradiente por cena enquanto a imagem carrega
+        const sc = SCENES[opts.scene] || SCENES.fortress;
+        const g = ctx.createLinearGradient(0, 0, 0, H); g.addColorStop(0, sc[0]); g.addColorStop(1, sc[1]);
+        ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
+      }
+      ctx.fillStyle = 'rgba(0,0,0,.18)'; ctx.fillRect(0, ground, W, H - ground); // sombra do chão
       drawFighter(left); drawFighter(right);
       particles.forEach(p => { p.x += p.vx; p.y += p.vy; p.vy += 0.18; p.life -= 0.02;
         ctx.globalAlpha = Math.max(0, p.life); ctx.fillStyle = '#b5121b'; ctx.fillRect(p.x, p.y, p.size, p.size); });
