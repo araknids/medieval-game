@@ -3012,9 +3012,10 @@ function renderGuildPanel(g) {
 
     <div id="guild-war-section" style="margin-top:14px"></div>
 
-    <div style="margin-top:16px;display:flex;gap:8px;flex-wrap:wrap;align-items:center">
-      <input id="donate-amount" type="number" min="1" placeholder="Amount in bronze"
-        style="width:160px;padding:6px;background:#111;color:#eee;border:1px solid #555;border-radius:4px">
+    <div style="margin-top:16px;display:flex;gap:6px;flex-wrap:wrap;align-items:center">
+      <input id="donate-gold"   type="number" min="0" placeholder="🥇 Gold"   style="width:84px;padding:6px;background:#111;color:#eee;border:1px solid #555;border-radius:4px">
+      <input id="donate-silver" type="number" min="0" placeholder="🥈 Silver" style="width:84px;padding:6px;background:#111;color:#eee;border:1px solid #555;border-radius:4px">
+      <input id="donate-bronze" type="number" min="0" placeholder="🥉 Bronze" style="width:84px;padding:6px;background:#111;color:#eee;border:1px solid #555;border-radius:4px">
       <button onclick="guildDonate()">💰 Donate</button>
       ${disbandBtn}
     </div>
@@ -3266,8 +3267,12 @@ async function guildTransfer(playerId) {
 }
 
 async function guildDonate() {
-  const amount = parseInt(document.getElementById('donate-amount').value);
-  if (!amount || amount <= 0) { guildMsg('Enter a valid amount.', false); return; }
+  // 3 campos (gold/prata/bronze) → bronze total. 100 bronze = 1 prata, 100 prata = 1 ouro.
+  const g = parseInt(document.getElementById('donate-gold').value)   || 0;
+  const s = parseInt(document.getElementById('donate-silver').value) || 0;
+  const b = parseInt(document.getElementById('donate-bronze').value) || 0;
+  const amount = g * 10000 + s * 100 + b;
+  if (amount <= 0) { guildMsg('Enter a valid amount.', false); return; }
   const r = await api('POST', '/api/guild/donate', { amount });
   if (r.error) { guildMsg(r.error, false); return; }
   // [GUILD_LEVEL_GOLD] doar pode subir o nível da guild automaticamente
