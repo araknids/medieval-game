@@ -18,7 +18,9 @@ bpy.ops.import_scene.gltf(filepath=src)
 arm = next((o for o in bpy.data.objects if o.type == 'ARMATURE'), None)
 meshes = [o for o in bpy.data.objects if o.type == 'MESH']
 body = max(meshes, key=lambda o: len(o.data.vertices))
+extra_meshes = [o for o in meshes if o is not body]  # Eyes/Eyebrows (vão JUNTO com a cabeça)
 print('BODY:', body.name, len(body.data.vertices), 'verts; vgroups:', len(body.vertex_groups))
+print('EXTRA (cabeça):', [o.name for o in extra_meshes])
 
 
 def part_of(bone):
@@ -75,6 +77,9 @@ for part in PARTS:
         if g: dup.vertex_groups.remove(g)
     bpy.ops.object.select_all(action='DESELECT')
     dup.select_set(True)
+    if part == 'Head':
+        for ex in extra_meshes:   # Eyes/Eyebrows vão com a cabeça
+            ex.select_set(True)
     arm.select_set(True)
     bpy.context.view_layer.objects.active = arm
     out = os.path.join(out_dir, 'Base_Male_%s.gltf' % part)

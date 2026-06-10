@@ -4,17 +4,18 @@ importer="scene"
 importer_version=1
 type="PackedScene"
 uid="uid://baselegs00001"
-path="res://.godot/imported/Base_Male_Legs.gltf-dd04dd04dd04dd04dd04dd04dd04dd04.scn"
+path="res://.godot/imported/Base_Male_Legs.gltf-2d740b584e9b89e927b4a475317262f1.scn"
 
 [deps]
 
 source_file="res://assets/base/Base_Male_Legs.gltf"
-dest_files=["res://.godot/imported/Base_Male_Legs.gltf-dd04dd04dd04dd04dd04dd04dd04dd04.scn"]
+dest_files=["res://.godot/imported/Base_Male_Legs.gltf-2d740b584e9b89e927b4a475317262f1.scn"]
 
 [params]
 
 nodes/root_type=""
 nodes/root_name=""
+nodes/root_script=null
 nodes/apply_root_scale=true
 nodes/root_scale=1.0
 nodes/import_as_skeleton_bones=false

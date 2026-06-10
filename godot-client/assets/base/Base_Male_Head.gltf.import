@@ -4,17 +4,18 @@ importer="scene"
 importer_version=1
 type="PackedScene"
 uid="uid://basehead00001"
-path="res://.godot/imported/Base_Male_Head.gltf-aa01aa01aa01aa01aa01aa01aa01aa01.scn"
+path="res://.godot/imported/Base_Male_Head.gltf-dae0c984646069463f90dcd2f8b7e925.scn"
 
 [deps]
 
 source_file="res://assets/base/Base_Male_Head.gltf"
-dest_files=["res://.godot/imported/Base_Male_Head.gltf-aa01aa01aa01aa01aa01aa01aa01aa01.scn"]
+dest_files=["res://.godot/imported/Base_Male_Head.gltf-dae0c984646069463f90dcd2f8b7e925.scn"]
 
 [params]
 
 nodes/root_type=""
 nodes/root_name=""
+nodes/root_script=null
 nodes/apply_root_scale=true
 nodes/root_scale=1.0
 nodes/import_as_skeleton_bones=false
