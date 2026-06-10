@@ -30,6 +30,12 @@ func get_warrior() -> Dictionary:
 func get_inventory() -> Dictionary:
 	return await _request(HTTPClient.METHOD_GET, "/api/inventory", null, true)
 
+## POST /api/arena/fight (autenticado) — resolve um duelo de arena e devolve o resultado completo.
+## json.battleEvents = Array de eventos (spawn/attack/crit/miss/dodge/extra/volley/heal/.../victory),
+## os MESMOS que o battleArena.js 2D toca. Usado pelo replay 3D (Fase 3). [BATALHA_ANIMADA]
+func arena_fight() -> Dictionary:
+	return await _request(HTTPClient.METHOD_POST, "/api/arena/fight", {}, true)
+
 ## Chamada genérica. method = HTTPClient.METHOD_*; body = Dictionary ou null; authed = manda o Bearer.
 func _request(method: int, path: String, body: Variant = null, authed := false) -> Dictionary:
 	var http := HTTPRequest.new()
