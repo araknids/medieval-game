@@ -517,8 +517,9 @@ func _popup(pos: Vector3, text: String, color: Color, big: bool) -> void:
 
 func _setup_scene() -> void:
 	var cam := Camera3D.new()
-	cam.position = Vector3(0.0, 2.4, 7.5)
-	cam.rotation_degrees = Vector3(-14, 0, 0)
+	# mais alta e inclinada pra baixo — abre espaço p/ formações grandes (5×5+) no futuro
+	cam.position = Vector3(0.0, 4.8, 9.5)
+	cam.rotation_degrees = Vector3(-26, 0, 0)
 	add_child(cam)
 	var sun := DirectionalLight3D.new()
 	sun.rotation_degrees = Vector3(-50, -30, 0)
