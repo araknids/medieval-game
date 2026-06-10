@@ -63,6 +63,7 @@ var events: Array = []
 var fighters := {}          # name -> dict do lutador
 var order: Array = []       # [left, right] na ordem de spawn
 var player_equip: Array = []  # tipos de armadura EQUIPADOS pelo jogador (p/ vestir o lutador da esquerda)
+var cam: Camera3D
 var victory_label: Label
 var status_label: Label
 
@@ -82,6 +83,7 @@ func _ready() -> void:
 	if events.is_empty():
 		return
 	_build_fighters()
+	_frame_camera()
 	phase = "taunt"
 	phase_t = 0.0
 	var n := 0
@@ -516,10 +518,9 @@ func _popup(pos: Vector3, text: String, color: Color, big: bool) -> void:
 	get_tree().create_timer(0.9).timeout.connect(lbl.queue_free)
 
 func _setup_scene() -> void:
-	var cam := Camera3D.new()
-	# mais alta e inclinada pra baixo — abre espaço p/ formações grandes (5×5+) no futuro
-	cam.position = Vector3(0.0, 4.8, 9.5)
-	cam.rotation_degrees = Vector3(-26, 0, 0)
+	cam = Camera3D.new()
+	cam.position = Vector3(0.0, 3.0, 5.5)   # default de 1v1; _frame_camera() reenquadra após o spawn
+	cam.look_at_from_position(cam.position, Vector3(0, 1.0, 0), Vector3.UP)
 	add_child(cam)
 	var sun := DirectionalLight3D.new()
 	sun.rotation_degrees = Vector3(-50, -30, 0)
@@ -546,6 +547,16 @@ func _setup_scene() -> void:
 	floor_col.shape = WorldBoundaryShape3D.new()
 	floor_body.add_child(floor_col)
 	add_child(floor_body)
+
+# Enquadra a câmera pela quantidade de lutadores: 1v1 fica perto; formações grandes
+# afastam e sobem. (Hoje só há 1v1; o termo por-lutador já deixa pronto p/ 3×5 etc.)
+func _frame_camera() -> void:
+	if cam == null: return
+	var n := order.size()
+	var half := COMBAT_X + maxf(0.0, n - 2) * 0.9   # meia-largura da área de combate
+	var dist := clampf((half + 1.4) * 1.9, 5.0, 16.0)
+	cam.position = Vector3(0, dist * 0.55, dist)
+	cam.look_at(Vector3(0, 1.0, 0), Vector3.UP)
 
 func _make_ui() -> void:
 	var layer := CanvasLayer.new()
