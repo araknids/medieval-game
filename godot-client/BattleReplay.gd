@@ -52,7 +52,6 @@ const LUNGE := 0.5       # avanço do melee ao golpear
 
 # timing (espelha battleArena.js)
 const BUDGET := 8.5      # s — caber em ≤10s mesmo com muitos turnos
-const TAUNT := 1.15      # s — pulo de taunt no início
 const INTRO := 0.7       # s — entrada andando até o corpo-a-corpo
 const IMPACT_AT := 0.45  # fração do passo em que o golpe acerta
 
@@ -101,7 +100,8 @@ func _ready() -> void:
 		return
 	_build_fighters()
 	_frame_camera()
-	phase = "taunt"
+	# kiting começa PARADO já posicionado (arqueiro não avança); melee-vs-melee entra andando.
+	phase = "fight" if kiting else "intro"
 	phase_t = 0.0
 	var n := 0
 	for e in events:
@@ -188,6 +188,12 @@ func _build_fighters() -> void:
 		kiting = true
 		ranged_f = order[0] if order[0]["ranged"] else order[1]
 		melee_f  = order[1] if order[0]["ranged"] else order[0]
+		# posição inicial de kiting: frente a frente (sem entrada andando). O arqueiro começa
+		# mais ao centro p/ ter espaço de recuar antes de cruzar; o melee, mais longe.
+		var rn: Node3D = ranged_f["node"]
+		var mn: Node3D = melee_f["node"]
+		rn.position = Vector3(ranged_f["side"] * 2.0, 0, 0)
+		mn.position = Vector3(melee_f["side"] * 2.8, 0, 0)
 
 # [GODOT_PAPERDOLL] Veste UM lutador: esconde a base nua, põe a cabeça sempre, roupa no slot
 # equipado e a pele cortada no slot vazio (a roupa cobre o resto → 0 clipping). Se as peças
@@ -307,20 +313,8 @@ func _process(dt: float) -> void:
 		if f.has("bar") and is_instance_valid(f["node"]):
 			f["bar"].global_position = (f["node"] as Node3D).global_position + Vector3(0, 2.05, 0)
 	match phase:
-		"taunt":  _phase_taunt(dt)
 		"intro":  _phase_intro(dt)
 		"fight":  _phase_fight(dt)
-
-func _phase_taunt(dt: float) -> void:
-	phase_t += dt
-	for f in order:
-		if f["anim"] and f["anim"].current_animation != A_JUMP:
-			var j: Animation = f["anim"].get_animation(A_JUMP)
-			if j: j.loop_mode = Animation.LOOP_LINEAR
-			f["anim"].play(A_JUMP)
-	if phase_t >= TAUNT:
-		phase = "intro"
-		phase_t = 0.0
 
 func _phase_intro(dt: float) -> void:
 	phase_t += dt
