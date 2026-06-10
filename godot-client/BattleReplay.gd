@@ -19,6 +19,24 @@ const A_JUMP := LIB + "Jump"
 const A_DEATH := LIB + "Death01"
 const BARW := 0.7
 
+# [GODOT_PAPERDOLL] paper-doll (igual ao PaperDollLive): veste o lutador com as peças Ranger.
+const PIECES := {
+	"ARMOR":    "res://assets/outfits/ranger/Male_Ranger_Body.gltf",
+	"PANTS":    "res://assets/outfits/ranger/Male_Ranger_Legs.gltf",
+	"BOOTS":    "res://assets/outfits/ranger/Male_Ranger_Feet_Boots.gltf",
+	"GLOVES":   "res://assets/outfits/ranger/Male_Ranger_Arms.gltf",
+	"HELMET":   "res://assets/outfits/ranger/Male_Ranger_Head_Hood.gltf",
+	"SHOULDER": "res://assets/outfits/ranger/Male_Ranger_Acc_Pauldron.gltf",
+}
+const BASE_HEAD := "res://assets/base/Base_Male_Head.gltf"
+const BASE_PART := {  # parte nua (pele cortada no Blender) -> slot que a cobre
+	"res://assets/base/Base_Male_Torso.gltf": "ARMOR",
+	"res://assets/base/Base_Male_Arms.gltf":  "GLOVES",
+	"res://assets/base/Base_Male_Legs.gltf":  "PANTS",
+	"res://assets/base/Base_Male_Feet.gltf":  "BOOTS",
+}
+const DEFAULT_OUTFIT := ["ARMOR", "PANTS", "BOOTS", "GLOVES", "HELMET", "SHOULDER"]  # vestido completo (inimigo / sem equip)
+
 # geometria do combate (espelha combatX/entryX do 2D, em metros)
 const COMBAT_X := 1.15   # |x| no corpo-a-corpo
 const ENTRY_X := 4.2     # |x| no spawn (entram andando)
@@ -44,6 +62,7 @@ const RANGED_MARKERS := ["volley", "pinned", "pointblank", "backpedal"]  # delat
 var events: Array = []
 var fighters := {}          # name -> dict do lutador
 var order: Array = []       # [left, right] na ordem de spawn
+var player_equip: Array = []  # tipos de armadura EQUIPADOS pelo jogador (p/ vestir o lutador da esquerda)
 var victory_label: Label
 var status_label: Label
 
@@ -92,6 +111,16 @@ func _load_events() -> void:
 		events = _mock_events()
 		return
 
+	# inventário → quais slots de armadura o jogador tem equipados (p/ o paper-doll da esquerda)
+	var inv = await client.get_inventory()
+	if inv.get("ok") and inv.get("json") is Array:
+		for it in inv["json"]:
+			if it is Dictionary and it.get("equipped") == true:
+				var ty := str(it.get("type", ""))
+				if PIECES.has(ty) and not (ty in player_equip):
+					player_equip.append(ty)
+		print(">>> equip do jogador: %s" % str(player_equip))
+
 	_status("Lutando na arena…")
 	var fr = await client.arena_fight()
 	if not fr.get("ok") or not (fr.get("json") is Dictionary):
@@ -122,12 +151,56 @@ func _build_fighters() -> void:
 	var rname := str(spawns[1].get("actor", "Foe"))
 	var lranged := _is_ranged(lname)
 	var rranged := _is_ranged(rname)
+	# esquerda = jogador (challenger) → equip real; vazio (ou mock) → set padrão p/ não ficar pelado.
+	var lequip: Array = player_equip if player_equip.size() > 0 else DEFAULT_OUTFIT
 	order = [
-		_make_fighter(lname, -1, int(spawns[0].get("targetMaxHp", 100)), lranged),
-		_make_fighter(rname,  1, int(spawns[1].get("targetMaxHp", 100)), rranged),
+		_make_fighter(lname, -1, int(spawns[0].get("targetMaxHp", 100)), lranged, lequip),
+		_make_fighter(rname,  1, int(spawns[1].get("targetMaxHp", 100)), rranged, DEFAULT_OUTFIT),
 	]
 	fighters[lname] = order[0]
 	fighters[rname] = order[1]
+
+# [GODOT_PAPERDOLL] Veste UM lutador: esconde a base nua, põe a cabeça sempre, roupa no slot
+# equipado e a pele cortada no slot vazio (a roupa cobre o resto → 0 clipping). Se as peças
+# cortadas não existirem, mantém a base visível (nu, mas não invisível).
+func _dress(node: Node3D, skel: Skeleton3D, equipped_types: Array) -> void:
+	if skel == null: return
+	var head: PackedScene = load(BASE_HEAD)
+	if head == null:
+		push_warning("paper-doll: %s não carregou — lutador fica com a base nua." % BASE_HEAD)
+		return
+	var body_meshes: Array = []
+	_collect_meshes(node, body_meshes)   # base do addon (corpo+cabeça) — esconder inteira
+	for m: MeshInstance3D in body_meshes:
+		m.visible = false
+	_attach_outfit_to(skel, head)        # rosto sempre
+	for ty in PIECES:
+		if ty in equipped_types:
+			var sc: PackedScene = load(PIECES[ty])
+			if sc: _attach_outfit_to(skel, sc)
+	for path in BASE_PART:
+		if not (str(BASE_PART[path]) in equipped_types):   # slot sem roupa → pele
+			var p: PackedScene = load(path)
+			if p: _attach_outfit_to(skel, p)
+
+func _attach_outfit_to(skel: Skeleton3D, scene: PackedScene) -> void:
+	var inst := scene.instantiate()
+	var meshes: Array = []
+	_collect_meshes(inst, meshes)
+	for mi: MeshInstance3D in meshes:
+		var skin := mi.skin
+		mi.get_parent().remove_child(mi)
+		skel.add_child(mi)
+		mi.transform = Transform3D.IDENTITY
+		mi.skin = skin
+		mi.skeleton = NodePath("..")   # esqueleto compartilhado anima a peça junto
+	inst.queue_free()
+
+func _collect_meshes(node: Node, out: Array) -> void:
+	if node is MeshInstance3D:
+		out.append(node)
+	for c in node.get_children():
+		_collect_meshes(c, out)
 
 func _is_ranged(who: String) -> bool:
 	for e in events:
@@ -135,15 +208,17 @@ func _is_ranged(who: String) -> bool:
 			return true
 	return false
 
-func _make_fighter(fname: String, side: int, maxhp: int, ranged: bool) -> Dictionary:
+func _make_fighter(fname: String, side: int, maxhp: int, ranged: bool, equipped_types: Array) -> Dictionary:
 	var node := CHAR.instantiate()
 	add_child(node)
 	node.position = Vector3(ENTRY_X * side, 0, 0)
 	node.scale = Vector3(0.92, 0.92, 0.92)
 	var ap: AnimationPlayer = node.find_child("AnimationPlayer", true, false)
+	var skel: Skeleton3D = node.find_child("GeneralSkeleton", true, false)
 	var f := {"name": fname, "node": node, "anim": ap, "side": side, "ranged": ranged,
 			  "dead": false, "maxhp": max(1, maxhp), "hp": max(1, maxhp), "busy": false}
 	_face(f, -side)   # encara o centro (o oponente)
+	_dress(node, skel, equipped_types)   # [GODOT_PAPERDOLL] veste antes da arma
 	_attach_weapon(node, ranged)
 	# barra de vida + nome
 	var bar := Node3D.new()
@@ -373,6 +448,8 @@ func _shoot_arrow(a: Dictionary, b: Dictionary) -> void:
 func _kill(f: Dictionary) -> void:
 	if f["dead"]: return
 	f["dead"] = true
+	f["hp"] = 0          # vitória por decisão/timeout pode matar com HP>0 → barra zera no corpo
+	_update_hp(f)
 	var node: Node3D = f["node"]
 	var skel: Skeleton3D = node.find_child("GeneralSkeleton", true, false)
 	if skel and _has_physical_bones(skel):
