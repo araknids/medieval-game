@@ -65,6 +65,12 @@ func _setup_scene() -> void:
 	ground.material_override = gmat
 	ground.mesh = pm
 	add_child(ground)
+	# colisão do chão (pra o ragdoll não atravessar o piso)
+	var floor_body := StaticBody3D.new()
+	var floor_col := CollisionShape3D.new()
+	floor_col.shape = WorldBoundaryShape3D.new()   # plano infinito em y=0
+	floor_body.add_child(floor_col)
+	add_child(floor_body)
 
 func _make_fighter(fname: String, pos: Vector3, rot_y: float, maxhp: int, sc: float, ranged: bool) -> Dictionary:
 	var node := CHAR.instantiate()
@@ -231,13 +237,32 @@ func _hop_back(target_x: float) -> void:
 func _kill(f: Dictionary) -> void:
 	battle_over = true
 	f["dead"] = true
-	if f["anim"]:
+	var node: Node3D = f["node"]
+	var skel: Skeleton3D = node.find_child("GeneralSkeleton", true, false)
+	if skel and _has_physical_bones(skel):
+		# RAGDOLL real: a física assume o esqueleto e o boneco tomba de verdade
+		if f["anim"]: f["anim"].stop()
+		skel.physical_bones_start_simulation()
+		var push := signf(node.position.x)        # empurra pra longe do centro
+		if push == 0.0: push = 1.0
+		for c in skel.get_children():
+			if c is PhysicalBone3D and (c.bone_name in ["Spine", "Spine1", "Spine2", "Hips"]):
+				(c as PhysicalBone3D).apply_central_impulse(Vector3(push * 2.5, 1.2, 0.0))
+	elif f["anim"]:
+		# fallback (rig sem PhysicalBone3D): toca a anim de morte, como antes
 		var d: Animation = f["anim"].get_animation(A_DEATH)
 		if d: d.loop_mode = Animation.LOOP_NONE
 		f["anim"].play(A_DEATH)
+		print("Ragdoll: rig sem PhysicalBone3D — use 'Create Physical Skeleton' no editor p/ fisica real.")
 	if victory_label:
 		var w: Dictionary = hero if f["name"] == foe["name"] else foe
 		victory_label.text = w["name"] + " venceu!"
+
+func _has_physical_bones(skel: Skeleton3D) -> bool:
+	for c in skel.get_children():
+		if c is PhysicalBone3D:
+			return true
+	return false
 
 func _shoot_arrow(a: Dictionary, b: Dictionary, dmg: int) -> void:
 	if a.is_empty() or b.is_empty() or b["dead"]: return
