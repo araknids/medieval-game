@@ -198,8 +198,8 @@ func _phase_intro(dt: float) -> void:
 	var p := clampf(phase_t / INTRO, 0.0, 1.0)
 	for f in order:
 		var node: Node3D = f["node"]
-		var tx := COMBAT_X * f["side"]
-		node.position = Vector3(lerpf(ENTRY_X * f["side"], tx, p), 0, 0)
+		var side := float(f["side"])
+		node.position = Vector3(lerpf(ENTRY_X * side, COMBAT_X * side, p), 0, 0)
 		if f["anim"] and f["anim"].current_animation != A_WALK:
 			var w: Animation = f["anim"].get_animation(A_WALK)
 			if w: w.loop_mode = Animation.LOOP_LINEAR
