@@ -24,6 +24,7 @@ const GAP := 2.2            # distância que o arqueiro tenta manter
 const EDGE := 3.8           # borda do mapa (onde o arqueiro cruza)
 const SHOOT_INTERVAL := 1.1
 const HOP_CD := 0.45        # tempo mínimo entre pulinhos pra trás
+const HOP_DIST := 0.85      # distância de cada mini-salto pra trás
 
 var hero := {}
 var foe := {}
@@ -174,30 +175,24 @@ func _process(dt: float) -> void:
 		if w: w.loop_mode = Animation.LOOP_LINEAR
 		foe["anim"].play(A_WALK)
 
-	# Arqueiro: kiting clássico — ENCARA o goblin SEMPRE e recua de costas (backpedal);
-	# cruza na borda (único momento em que sai da mira, via A_ROLL no _archer_cross)
+	# Arqueiro: kiting com MINI-SALTOS pra trás — encara o goblin SEMPRE e recua em
+	# pulinhos discretos (evita o "moonwalk" do walk invertido); cruza na borda (A_ROLL).
 	if not hero["hopping"]:
-		var away := signf(hx - gx)            # lado/direção de recuo do arqueiro
-		if away == 0.0: away = 1.0
-		var desired := gx + away * GAP        # ponto a GAP de distância do goblin
-		if absf(desired) > EDGE:
-			_archer_cross(gx - away * GAP)    # encurralado na borda → cruza
-		else:
-			var new_hx := move_toward(hx, desired, ARCHER_SPEED * dt)
-			var moving_back := absf(new_hx - hx) > 0.0008
-			hn.position = Vector3(new_hx, hn.position.y, hn.position.z)
-			# mira constante: rotação Y sempre apontando pro goblin
-			hn.rotation_degrees = Vector3(0, (90.0 if gx > hx else -90.0), 0)
-			var hca := ""
-			if hero["anim"]: hca = hero["anim"].current_animation
-			if hca != A_SHOOT:                # não interrompe o tiro (já está de frente)
-				if moving_back:
-					if hca != A_WALK:
-						var w2: Animation = hero["anim"].get_animation(A_WALK)
-						if w2: w2.loop_mode = Animation.LOOP_LINEAR
-						hero["anim"].play_backwards(A_WALK)   # sem anim de ré → Walk invertido
-				elif hca == A_WALK:
-					hero["anim"].play(A_IDLE) # parou na distância GAP: idle, ainda encarando
+		hn.rotation_degrees = Vector3(0, (90.0 if gx > hx else -90.0), 0)  # mira constante
+		hop_cd -= dt
+		var gap := absf(hx - gx)
+		var hca := ""
+		if hero["anim"]: hca = hero["anim"].current_animation
+		if gap < GAP and hop_cd <= 0.0:           # goblin colou → salta pra trás
+			var away := signf(hx - gx)
+			if away == 0.0: away = 1.0
+			var target_x := hx + away * HOP_DIST
+			if absf(target_x) > EDGE:
+				_archer_cross(gx - away * GAP)    # encurralado na borda → cruza
+			else:
+				_hop_back(target_x)
+		elif hca != A_SHOOT and hca != A_IDLE:    # distância ok: idle encarando (sem cortar tiro)
+			hero["anim"].play(A_IDLE)
 
 	# Arqueiro atira em intervalos
 	shoot_t -= dt
@@ -219,6 +214,18 @@ func _archer_cross(target_x: float) -> void:
 	tw.tween_property(hn, "position", Vector3(target_x, hn.position.y, hn.position.z), 0.55)
 	tw.tween_callback(func():
 		hero["hopping"] = false
+		if hero["anim"] and not hero["dead"]: hero["anim"].play(A_IDLE))
+
+func _hop_back(target_x: float) -> void:
+	hero["hopping"] = true
+	var hn: Node3D = hero["node"]
+	if hero["anim"]: hero["anim"].play(A_JUMP)
+	var tw := create_tween()
+	tw.tween_property(hn, "position", Vector3(target_x, hn.position.y, hn.position.z), 0.32) \
+		.set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_OUT)
+	tw.tween_callback(func():
+		hero["hopping"] = false
+		hop_cd = HOP_CD
 		if hero["anim"] and not hero["dead"]: hero["anim"].play(A_IDLE))
 
 func _kill(f: Dictionary) -> void:
