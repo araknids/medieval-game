@@ -14,6 +14,9 @@ const IDLE := "UAL1_Standard/Sword_Idle"
 @export var password := "adm123"
 ## Deixe vazio p/ usar a URL padrão do BackendClient (Railway). "http://localhost:8080" no dev local.
 @export var base_url_override := ""
+## Esconde o corpo nu (Superhero) por baixo das roupas — fica mais limpo com set quase completo.
+## (Com equip parcial, partes sem peça ficam invisíveis — é o tradeoff.)
+@export var hide_nude_body := false
 
 # ItemType (backend) -> cena da peça Ranger. Slots sem peça (WEAPON/RING/NECKLACE/SHIELD) são ignorados.
 const PIECES := {
@@ -26,6 +29,7 @@ const PIECES := {
 }
 
 var skel: Skeleton3D
+var _body_meshes: Array = []   # malhas do corpo nu (Superhero) — p/ esconder se hide_nude_body
 
 func _ready() -> void:
 	_setup_scene()
@@ -35,6 +39,7 @@ func _ready() -> void:
 	var anim: AnimationPlayer = character.find_child("AnimationPlayer", true, false)
 	if skel == null:
 		push_error("GeneralSkeleton não encontrado no personagem"); return
+	_collect_meshes(character, _body_meshes)   # guarda o corpo ANTES de vestir as peças
 	if anim:
 		var idle := anim.get_animation(IDLE)
 		if idle: idle.loop_mode = Animation.LOOP_LINEAR
@@ -90,6 +95,10 @@ func _load_and_dress() -> void:
 		print(">>> NENHUMA peça vestida. Equipe armadura (Elmo/Peito/Calça/Luvas/Botas/Ombreira) na web e rode de novo.")
 	else:
 		print(">>> %d peça(s) vestida(s) do equip real. " % dressed)
+		if hide_nude_body:
+			for m: MeshInstance3D in _body_meshes:
+				m.visible = false
+			print("    (corpo nu escondido — %d malhas)" % _body_meshes.size())
 
 ## Reparenteia as MeshInstance3D do outfit sob o Skeleton3D do personagem, mantendo o skin
 ## (binds por NOME de osso → o esqueleto compartilhado anima a peça junto). [GODOT_PAPERDOLL]
