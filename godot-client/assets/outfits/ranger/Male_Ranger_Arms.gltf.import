@@ -3,13 +3,13 @@
 importer="scene"
 importer_version=1
 type="PackedScene"
-uid="uid://rgrarms00001c"
-path="res://.godot/imported/Male_Ranger_Arms.gltf-c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3.scn"
+uid="uid://by4sfe40q7i0a"
+path="res://.godot/imported/Male_Ranger_Arms.gltf-1566aaaa33d1ea42b05ba4f8d2c71d1f.scn"
 
 [deps]
 
 source_file="res://assets/outfits/ranger/Male_Ranger_Arms.gltf"
-dest_files=["res://.godot/imported/Male_Ranger_Arms.gltf-c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3.scn"]
+dest_files=["res://.godot/imported/Male_Ranger_Arms.gltf-1566aaaa33d1ea42b05ba4f8d2c71d1f.scn"]
 
 [params]
 

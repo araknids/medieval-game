@@ -18,6 +18,16 @@ const IDLE := "UAL1_Standard/Sword_Idle"
 ## (Com equip parcial, partes sem peça ficam invisíveis — é o tradeoff.)
 @export var hide_nude_body := false
 
+# [GODOT_PAPERDOLL] Partes NUAS da base (cortadas no Blender por osso). A cabeça é sempre mostrada; cada
+# parte do corpo só aparece no slot SEM roupa (no slot equipado, a roupa cobre → some a parte nua → 0 clipping).
+const BASE_HEAD := "res://assets/base/Base_Male_Head.gltf"
+const BASE_PART := {  # parte nua -> slot de roupa que a cobre
+	"res://assets/base/Base_Male_Torso.gltf": "ARMOR",
+	"res://assets/base/Base_Male_Arms.gltf":  "GLOVES",
+	"res://assets/base/Base_Male_Legs.gltf":  "PANTS",
+	"res://assets/base/Base_Male_Feet.gltf":  "BOOTS",
+}
+
 # ItemType (backend) -> cena da peça Ranger. Slots sem peça (WEAPON/RING/NECKLACE/SHIELD) são ignorados.
 const PIECES := {
 	"ARMOR":    "res://assets/outfits/ranger/Male_Ranger_Body.gltf",
@@ -93,26 +103,24 @@ func _load_and_dress() -> void:
 		else:
 			print("  – %s [%s]: sem peça de armadura mapeada (arma/anel/colar/escudo)" % [it.get("name", "?"), ty])
 
-	if dressed == 0:
-		print(">>> NENHUMA peça vestida. Equipe armadura (Elmo/Peito/Calça/Luvas/Botas/Ombreira) na web e rode de novo.")
-	else:
-		print(">>> %d peça(s) vestida(s) do equip real. " % dressed)
-		# [Readme Quaternius] roupa cobre o corpo → clipping com o corpo-base inteiro. A base aqui é UMA
-		# malha (corpo+cabeça juntos), então não dá p/ isolar a cabeça. Regra:
-		#  • tem CAPUZ/elmo (HELMET) → a cabeça está coberta → esconde o corpo-base INTEIRO (limpo, capa
-		#    sombreada por dentro, sem "olhos flutuando").
-		#  • sem peça de cabeça → mantém o corpo-base (senão fica sem rosto), aceitando leve clipping.
-		# A pele exposta (mãos/pescoço) das peças usa T_Regular_Male (copiado p/ a pasta) → cor de pele.
-		# [GODOT_PAPERDOLL] A base é UMA malha (corpo+cabeça) → esconder = fica OCO (sem rosto). Por ora
-		# MANTÉM o corpo visível (personagem aparece; pode ter leve clipping com a roupa musculosa). A
-		# solução limpa é cortar a base em partes por osso (script Blender) p/ mostrar só a cabeça. [TODO]
-		print("    malhas do corpo-base: %s" % _body_mesh_names())
-		if hide_nude_body:
-			for m: MeshInstance3D in _body_meshes:
-				m.visible = false
-			print("    corpo-base escondido (hide_nude_body=on) — fica oco até termos as partes cortadas")
-		else:
-			print("    corpo-base MANTIDO visível (personagem aparece). Corte por osso = próximo passo p/ tirar o clipping.")
+	print(">>> %d peça(s) de roupa vestida(s) do equip real." % dressed)
+
+	# [GODOT_PAPERDOLL] Esconde a base INTEIRA do addon (substituída pelas partes nuas cortadas no Blender).
+	for m: MeshInstance3D in _body_meshes:
+		m.visible = false
+	# Cabeça (rosto) sempre — o capuz, se equipado, fica POR CIMA.
+	var head: PackedScene = load(BASE_HEAD)
+	if head:
+		_attach_outfit(head)
+		print("    + cabeça-base (rosto)")
+	# Cada parte nua só nos slots SEM roupa → a roupa cobre o resto, zero clipping.
+	for path in BASE_PART:
+		var slot: String = BASE_PART[path]
+		if not dressed_slots.has(slot):
+			var p: PackedScene = load(path)
+			if p:
+				_attach_outfit(p)
+				print("    + %s (pele, slot %s vazio)" % [String(path).get_file(), slot])
 
 ## Reparenteia as MeshInstance3D do outfit sob o Skeleton3D do personagem, mantendo o skin
 ## (binds por NOME de osso → o esqueleto compartilhado anima a peça junto). [GODOT_PAPERDOLL]

@@ -3,13 +3,13 @@
 importer="scene"
 importer_version=1
 type="PackedScene"
-uid="uid://rgrboots0001b"
-path="res://.godot/imported/Male_Ranger_Feet_Boots.gltf-b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2.scn"
+uid="uid://by4tcg5sq7iy8"
+path="res://.godot/imported/Male_Ranger_Feet_Boots.gltf-00ce502c46d65e39b7e6a5eecff1771e.scn"
 
 [deps]
 
 source_file="res://assets/outfits/ranger/Male_Ranger_Feet_Boots.gltf"
-dest_files=["res://.godot/imported/Male_Ranger_Feet_Boots.gltf-b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2.scn"]
+dest_files=["res://.godot/imported/Male_Ranger_Feet_Boots.gltf-00ce502c46d65e39b7e6a5eecff1771e.scn"]
 
 [params]
 

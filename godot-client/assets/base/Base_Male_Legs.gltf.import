@@ -3,19 +3,18 @@
 importer="scene"
 importer_version=1
 type="PackedScene"
-uid="uid://by430740q7iy7"
-path="res://.godot/imported/Male_Ranger_Legs.gltf-32a3fbc12a30942c07620dfdeda584ed.scn"
+uid="uid://baselegs00001"
+path="res://.godot/imported/Base_Male_Legs.gltf-dd04dd04dd04dd04dd04dd04dd04dd04.scn"
 
 [deps]
 
-source_file="res://assets/outfits/ranger/Male_Ranger_Legs.gltf"
-dest_files=["res://.godot/imported/Male_Ranger_Legs.gltf-32a3fbc12a30942c07620dfdeda584ed.scn"]
+source_file="res://assets/base/Base_Male_Legs.gltf"
+dest_files=["res://.godot/imported/Base_Male_Legs.gltf-dd04dd04dd04dd04dd04dd04dd04dd04.scn"]
 
 [params]
 
 nodes/root_type=""
 nodes/root_name=""
-nodes/root_script=null
 nodes/apply_root_scale=true
 nodes/root_scale=1.0
 nodes/import_as_skeleton_bones=false
