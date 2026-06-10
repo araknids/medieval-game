@@ -42,6 +42,14 @@ func _ready() -> void:
 	await _load_and_dress()
 
 func _load_and_dress() -> void:
+	# [creds] login.cfg (gitignorado) sobrepõe usuário/senha — não expõe sua senha no git.
+	# Formato:  [login]  user="Arak"  pass="12345678"
+	var cf := ConfigFile.new()
+	if cf.load("res://login.cfg") == OK:
+		username = str(cf.get_value("login", "user", username))
+		password = str(cf.get_value("login", "pass", password))
+		print("login.cfg carregado (usuário '%s')" % username)
+
 	var client := BackendClient.new()
 	if base_url_override != "":
 		client.base_url = base_url_override

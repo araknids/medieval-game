@@ -17,3 +17,6 @@ godot-client/export_presets.cfg
 
 # scratch de teste (ragdoll/sprites) — node_modules etc.
 /.ragdoll-test/
+
+# credenciais locais do cliente Godot (NUNCA commitar)
+godot-client/login.cfg
