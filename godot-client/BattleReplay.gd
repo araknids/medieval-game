@@ -22,9 +22,11 @@ const BARW := 0.7
 
 # kiting (arco vs melee) — camada de MOVIMENTO cosmética (ataques/dano seguem os eventos)
 const MELEE_SPEED := 1.9     # o inimigo VEM CORRENDO pra cima (unid/s)
-const ARCHER_SPEED := 1.45   # arqueiro recua andando (mais devagar → o melee ganha terreno e força o cruzamento)
-const KITE_APPROACH := 3.3   # gap em que o arqueiro começa a recuar
-const KITE_EDGE := 3.4       # borda onde o arqueiro cruza pro outro lado
+const ARCHER_SPEED := 1.5    # arqueiro recua andando (mais devagar → o melee ganha terreno e força o cruzamento)
+const KITE_APPROACH := 2.4   # gap em que o arqueiro começa a recuar (só quando o inimigo está REALMENTE perto)
+const KITE_EDGE := 4.0       # recua bastante antes de cruzar (dá mais espaço)
+const MELEE_REACH := 1.1     # distância em que a espada conecta o golpe (investida)
+const CROSS_GAP := 3.2       # espaço deixado quando o arqueiro cruza pro outro lado
 
 # [GODOT_PAPERDOLL] paper-doll (igual ao PaperDollLive): veste o lutador com as peças Ranger.
 const PIECES := {
@@ -66,6 +68,8 @@ const RANGED_MARKERS := ["volley", "pinned", "pointblank", "backpedal"]  # delat
 @export var base_url_override := ""
 ## TESTE: pula o backend e usa um duelo MOCK (espada vs espada) — bom p/ ver o combate sem login.
 @export var force_mock := false
+## TESTE: no mock, faz o Bandido (espada) VENCER — p/ ver como fica quando o melee ganha o arqueiro.
+@export var mock_enemy_wins := false
 
 var events: Array = []
 var fighters := {}          # name -> dict do lutador
@@ -78,6 +82,7 @@ var cam: Camera3D
 var kiting := false
 var ranged_f := {}            # lutador que recua/atira
 var melee_f := {}             # lutador que avança
+var connecting := false       # melee no meio de uma investida p/ conectar o golpe (congela o kiting)
 var victory_label: Label
 var status_label: Label
 
@@ -344,6 +349,7 @@ func _phase_fight(dt: float) -> void:
 		step_started = true
 		step_t = 0.0
 		impacted = false
+		connecting = false
 		if ty == "spawn":
 			_handle_spawn(e)         # re-init (gauntlet) — resolve no mesmo frame
 		elif ty == "victory":
@@ -368,6 +374,7 @@ func _phase_fight(dt: float) -> void:
 func _kite(dt: float) -> void:
 	if ranged_f.is_empty() or melee_f.is_empty(): return
 	if ranged_f["dead"] or melee_f["dead"]: return
+	if connecting: return            # melee investindo p/ conectar o golpe → tudo congela no impacto
 	var rn: Node3D = ranged_f["node"]
 	var mn: Node3D = melee_f["node"]
 	var side := signf(rn.position.x - mn.position.x)   # +1 = arqueiro à direita do melee
@@ -380,14 +387,14 @@ func _kite(dt: float) -> void:
 	if not melee_f["busy"]:
 		_play_loop(melee_f, A_RUN)
 
-	# arqueiro: encara o melee. Quando o inimigo se aproxima, RECUA ANDANDO; na borda, cruza.
+	# arqueiro: encara o melee. Quando o inimigo se aproxima, RECUA ANDANDO; encurralado, cruza.
 	if ranged_f["hopping"]:
 		return                       # no meio do cruzamento (roll)
 	_face(ranged_f, -side)
 	if gap < KITE_APPROACH:
 		var next_x := rn.position.x + side * ARCHER_SPEED * dt   # +side = afastando do melee
 		if absf(next_x) > KITE_EDGE:
-			_archer_cross(mn.position.x - side * 1.8)            # encurralado → cruza pro outro lado
+			_archer_cross(mn.position.x - side * CROSS_GAP)      # cruza pro outro lado deixando espaço
 		else:
 			rn.position = Vector3(next_x, rn.position.y, rn.position.z)
 			if not ranged_f["busy"] and ranged_f["anim"] and ranged_f["anim"].current_animation != A_WALK:
@@ -432,14 +439,32 @@ func _swing(e: Dictionary) -> void:
 		if act["anim"]: act["anim"].play(A_SHOOT)
 	else:
 		if act["anim"]: act["anim"].play(A_ATTACK)
-		# lunge só no combate parado; no kiting o melee já avança contínuo (sem teleporte de home)
-		if not kiting:
+		var dmg := int(e.get("damage", 0))
+		if kiting and not melee_f.is_empty() and swinger == str(melee_f.get("name", "")):
+			# melee no kiting: investe p/ ENCOSTAR só quando o golpe é dano (miss = bate no ar, ok)
+			if ty in HIT_TYPES and dmg > 0:
+				_melee_connect()
+		elif not kiting:
+			# lunge do combate parado (melee-vs-melee)
 			var node: Node3D = act["node"]
 			var home := Vector3(COMBAT_X * act["side"], 0, 0)
 			var fwd := Vector3(home.x - LUNGE * act["side"], 0, 0)
 			var tw := create_tween()
 			tw.tween_property(node, "position", fwd, step_dur * IMPACT_AT).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
 			tw.tween_property(node, "position", home, step_dur * (1.0 - IMPACT_AT)).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
+
+## Investida do melee p/ ENCOSTAR no arqueiro (conecta o golpe). Congela o kiting durante o passo.
+func _melee_connect() -> void:
+	connecting = true
+	var mn: Node3D = melee_f["node"]
+	var rn: Node3D = ranged_f["node"]
+	var side := signf(rn.position.x - mn.position.x)
+	if side == 0.0: side = 1.0
+	_face(melee_f, side)
+	var target_x := rn.position.x - side * MELEE_REACH    # para logo à frente do arqueiro
+	var tw := create_tween()
+	tw.tween_property(mn, "position", Vector3(target_x, mn.position.y, mn.position.z),
+			step_dur * IMPACT_AT).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
 
 ## Momento do impacto (45% do passo): dano/flinch/flecha/popup. HP só no fim do passo.
 func _impact(e: Dictionary) -> void:
@@ -721,7 +746,20 @@ func _status(msg: String) -> void:
 
 # Luta MOCK (fallback se o login/arena falhar) — exercita todos os tipos de evento.
 # Luta MOCK curta e "punchy" (poucos golpes, dano alto) — fácil de seguir e bem sincronizada.
+# mock_enemy_wins=true → o Bandido (espada) vence (testa o melee ganhando o arqueiro).
 func _mock_events() -> Array:
+	if mock_enemy_wins:
+		return [
+			{"type": "spawn", "actor": "Você", "target": "", "damage": 0, "targetHp": 100, "targetMaxHp": 100, "element": "", "hitZone": ""},
+			{"type": "spawn", "actor": "Bandido", "target": "", "damage": 0, "targetHp": 100, "targetMaxHp": 100, "element": "", "hitZone": ""},
+			{"type": "attack", "actor": "Você", "target": "Bandido", "damage": 22, "targetHp": 78, "targetMaxHp": 100, "element": "", "hitZone": "body"},
+			{"type": "attack", "actor": "Bandido", "target": "Você", "damage": 30, "targetHp": 70, "targetMaxHp": 100, "element": "", "hitZone": "body"},
+			{"type": "attack", "actor": "Você", "target": "Bandido", "damage": 18, "targetHp": 60, "targetMaxHp": 100, "element": "", "hitZone": "body"},
+			{"type": "crit", "actor": "Bandido", "target": "Você", "damage": 40, "targetHp": 30, "targetMaxHp": 100, "element": "SUPER", "hitZone": "head"},
+			{"type": "miss", "actor": "Você", "target": "Bandido", "damage": 0, "targetHp": 60, "targetMaxHp": 100, "element": "", "hitZone": ""},
+			{"type": "attack", "actor": "Bandido", "target": "Você", "damage": 30, "targetHp": 0, "targetMaxHp": 100, "element": "", "hitZone": "body"},
+			{"type": "victory", "actor": "Bandido", "target": "Você", "damage": 0, "targetHp": 0, "targetMaxHp": 100, "element": "", "hitZone": ""},
+		]
 	return [
 		{"type": "spawn", "actor": "Você", "target": "", "damage": 0, "targetHp": 100, "targetMaxHp": 100, "element": "", "hitZone": ""},
 		{"type": "spawn", "actor": "Bandido", "target": "", "damage": 0, "targetHp": 100, "targetMaxHp": 100, "element": "", "hitZone": ""},

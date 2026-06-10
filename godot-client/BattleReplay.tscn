@@ -5,3 +5,4 @@
 [node name="BattleReplay" type="Node3D"]
 script = ExtResource("1")
 force_mock = true
+mock_enemy_wins = true
