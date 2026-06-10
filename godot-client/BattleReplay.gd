@@ -15,17 +15,16 @@ const A_SHOOT := LIB + "Spell_Simple_Shoot"
 const A_HURT := LIB + "Hit_Chest"
 const A_HURT_HEAD := LIB + "Hit_Head"
 const A_WALK := LIB + "Walk"
-const A_JUMP := LIB + "Jump"
+const A_RUN := LIB + "Jog_Fwd"   # corrida — o inimigo vem CORRENDO pra cima
 const A_ROLL := LIB + "Roll"
 const A_DEATH := LIB + "Death01"
 const BARW := 0.7
 
 # kiting (arco vs melee) — camada de MOVIMENTO cosmética (ataques/dano seguem os eventos)
-const MELEE_SPEED := 0.85   # velocidade de avanço do melee (unid/s)
-const KITE_GAP := 2.2       # distância que o arqueiro tenta manter
-const KITE_EDGE := 3.2      # borda onde o arqueiro cruza pro outro lado
-const HOP_CD := 0.45        # tempo mínimo entre saltinhos pra trás
-const HOP_DIST := 0.85      # distância de cada salto
+const MELEE_SPEED := 1.9     # o inimigo VEM CORRENDO pra cima (unid/s)
+const ARCHER_SPEED := 1.45   # arqueiro recua andando (mais devagar → o melee ganha terreno e força o cruzamento)
+const KITE_APPROACH := 3.3   # gap em que o arqueiro começa a recuar
+const KITE_EDGE := 3.4       # borda onde o arqueiro cruza pro outro lado
 
 # [GODOT_PAPERDOLL] paper-doll (igual ao PaperDollLive): veste o lutador com as peças Ranger.
 const PIECES := {
@@ -79,7 +78,6 @@ var cam: Camera3D
 var kiting := false
 var ranged_f := {}            # lutador que recua/atira
 var melee_f := {}             # lutador que avança
-var hop_cd := 0.0
 var victory_label: Label
 var status_label: Label
 
@@ -107,7 +105,7 @@ func _ready() -> void:
 	for e in events:
 		if str(e.get("type", "")) != "spawn":
 			n += 1
-	step_dur = clampf(BUDGET / max(1, n), 0.11, 0.6)
+	step_dur = clampf(BUDGET / max(1, n), 0.22, 0.6)   # piso maior → cada golpe dá pra ver (sync)
 	print("=== BATTLE REPLAY === %d eventos (%d passos), step_dur=%.2fs" % [events.size(), n, step_dur])
 
 # ── carga dos eventos: backend real, com fallback mock ──────────────────────────
@@ -323,10 +321,7 @@ func _phase_intro(dt: float) -> void:
 		var node: Node3D = f["node"]
 		var side := float(f["side"])
 		node.position = Vector3(lerpf(ENTRY_X * side, COMBAT_X * side, p), 0, 0)
-		if f["anim"] and f["anim"].current_animation != A_WALK:
-			var w: Animation = f["anim"].get_animation(A_WALK)
-			if w: w.loop_mode = Animation.LOOP_LINEAR
-			f["anim"].play(A_WALK)
+		_play_loop(f, A_RUN)   # correm pra se encontrar (é uma batalha)
 	if p >= 1.0:
 		phase = "fight"
 		for f in order:
@@ -335,6 +330,10 @@ func _phase_intro(dt: float) -> void:
 func _phase_fight(dt: float) -> void:
 	if kiting:
 		_kite(dt)
+	# spawns são instantâneos (não gastam tempo de passo) → o 1º ataque sai logo (arqueiro atira na hora)
+	while idx < events.size() and not step_started and str(events[idx].get("type", "")) == "spawn":
+		_handle_spawn(events[idx])
+		idx += 1
 	if idx >= events.size():
 		_finish()
 		return
@@ -373,47 +372,46 @@ func _kite(dt: float) -> void:
 	var mn: Node3D = melee_f["node"]
 	var side := signf(rn.position.x - mn.position.x)   # +1 = arqueiro à direita do melee
 	if side == 0.0: side = 1.0
+	var gap := absf(rn.position.x - mn.position.x)
 
-	# melee avança rumo ao arqueiro (anda quando não está no meio de um golpe)
+	# inimigo VEM CORRENDO rumo ao arqueiro
 	mn.position = Vector3(mn.position.x + side * MELEE_SPEED * dt, mn.position.y, mn.position.z)
 	_face(melee_f, side)
-	if melee_f["anim"] and not melee_f["busy"] and melee_f["anim"].current_animation != A_WALK:
-		var w: Animation = melee_f["anim"].get_animation(A_WALK)
-		if w: w.loop_mode = Animation.LOOP_LINEAR
-		melee_f["anim"].play(A_WALK)
+	if not melee_f["busy"]:
+		_play_loop(melee_f, A_RUN)
 
-	# arqueiro: encara o melee e recua em saltos; na borda, cruza
-	if not ranged_f["hopping"]:
-		_face(ranged_f, -side)
-		hop_cd -= dt
-		var gap := absf(rn.position.x - mn.position.x)
-		if gap < KITE_GAP and hop_cd <= 0.0:
-			var target := rn.position.x + side * HOP_DIST   # afasta-se do melee (+side)
-			if absf(target) > KITE_EDGE:
-				_archer_cross(mn.position.x - side * KITE_GAP)
-			else:
-				_hop_back(target)
+	# arqueiro: encara o melee. Quando o inimigo se aproxima, RECUA ANDANDO; na borda, cruza.
+	if ranged_f["hopping"]:
+		return                       # no meio do cruzamento (roll)
+	_face(ranged_f, -side)
+	if gap < KITE_APPROACH:
+		var next_x := rn.position.x + side * ARCHER_SPEED * dt   # +side = afastando do melee
+		if absf(next_x) > KITE_EDGE:
+			_archer_cross(mn.position.x - side * 1.8)            # encurralado → cruza pro outro lado
+		else:
+			rn.position = Vector3(next_x, rn.position.y, rn.position.z)
+			if not ranged_f["busy"] and ranged_f["anim"] and ranged_f["anim"].current_animation != A_WALK:
+				ranged_f["anim"].play(A_WALK, -1, -1.0)          # walk em reverso = andar pra trás
+	elif not ranged_f["busy"] and ranged_f["anim"] and ranged_f["anim"].current_animation != A_IDLE:
+		ranged_f["anim"].play(A_IDLE)                            # longe: parado encarando
 
-func _hop_back(target_x: float) -> void:
-	ranged_f["hopping"] = true
-	var rn: Node3D = ranged_f["node"]
-	if ranged_f["anim"]: ranged_f["anim"].play(A_JUMP)
-	var tw := create_tween()
-	tw.tween_property(rn, "position", Vector3(target_x, rn.position.y, rn.position.z), 0.32) \
-		.set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_OUT)
-	tw.tween_callback(func():
-		ranged_f["hopping"] = false
-		hop_cd = HOP_CD
-		if ranged_f["anim"] and not ranged_f["dead"]: ranged_f["anim"].play(A_IDLE))
+# Toca uma animação em loop (com fallback p/ Walk se o clip não existir na lib).
+func _play_loop(f: Dictionary, anim_name: String) -> void:
+	var ap: AnimationPlayer = f["anim"]
+	if ap == null: return
+	var nm := anim_name if ap.has_animation(anim_name) else A_WALK
+	if ap.current_animation == nm: return
+	var a: Animation = ap.get_animation(nm)
+	if a: a.loop_mode = Animation.LOOP_LINEAR
+	ap.play(nm)
 
 func _archer_cross(target_x: float) -> void:
 	ranged_f["hopping"] = true
-	hop_cd = HOP_CD + 0.3
 	var rn: Node3D = ranged_f["node"]
 	if ranged_f["anim"]: ranged_f["anim"].play(A_ROLL)
 	_popup(_head(ranged_f), "↩", Color(0.8, 0.9, 1.0), false)
 	var tw := create_tween()
-	tw.tween_property(rn, "position", Vector3(target_x, rn.position.y, rn.position.z), 0.55)
+	tw.tween_property(rn, "position", Vector3(target_x, rn.position.y, rn.position.z), 0.45)
 	tw.tween_callback(func():
 		ranged_f["hopping"] = false
 		if ranged_f["anim"] and not ranged_f["dead"]: ranged_f["anim"].play(A_IDLE))
@@ -722,17 +720,15 @@ func _status(msg: String) -> void:
 	if status_label: status_label.text = msg
 
 # Luta MOCK (fallback se o login/arena falhar) — exercita todos os tipos de evento.
+# Luta MOCK curta e "punchy" (poucos golpes, dano alto) — fácil de seguir e bem sincronizada.
 func _mock_events() -> Array:
 	return [
 		{"type": "spawn", "actor": "Você", "target": "", "damage": 0, "targetHp": 100, "targetMaxHp": 100, "element": "", "hitZone": ""},
-		{"type": "spawn", "actor": "Bandido", "target": "", "damage": 0, "targetHp": 90, "targetMaxHp": 90, "element": "", "hitZone": ""},
-		{"type": "attack", "actor": "Você", "target": "Bandido", "damage": 18, "targetHp": 72, "targetMaxHp": 90, "element": "", "hitZone": "body"},
-		{"type": "miss", "actor": "Bandido", "target": "Você", "damage": 0, "targetHp": 100, "targetMaxHp": 100, "element": "", "hitZone": ""},
-		{"type": "crit", "actor": "Você", "target": "Bandido", "damage": 33, "targetHp": 39, "targetMaxHp": 90, "element": "SUPER", "hitZone": "head"},
-		{"type": "attack", "actor": "Bandido", "target": "Você", "damage": 14, "targetHp": 86, "targetMaxHp": 100, "element": "", "hitZone": "body"},
-		{"type": "dodge", "actor": "Você", "target": "Bandido", "damage": 0, "targetHp": 39, "targetMaxHp": 90, "element": "", "hitZone": ""},
-		{"type": "attack", "actor": "Você", "target": "Bandido", "damage": 22, "targetHp": 17, "targetMaxHp": 90, "element": "", "hitZone": "body"},
-		{"type": "attack", "actor": "Bandido", "target": "Você", "damage": 11, "targetHp": 75, "targetMaxHp": 100, "element": "RESIST", "hitZone": "legs"},
-		{"type": "crit", "actor": "Você", "target": "Bandido", "damage": 25, "targetHp": 0, "targetMaxHp": 90, "element": "", "hitZone": "body"},
-		{"type": "victory", "actor": "Você", "target": "Bandido", "damage": 0, "targetHp": 0, "targetMaxHp": 90, "element": "", "hitZone": ""},
+		{"type": "spawn", "actor": "Bandido", "target": "", "damage": 0, "targetHp": 100, "targetMaxHp": 100, "element": "", "hitZone": ""},
+		{"type": "attack", "actor": "Você", "target": "Bandido", "damage": 32, "targetHp": 68, "targetMaxHp": 100, "element": "", "hitZone": "body"},
+		{"type": "attack", "actor": "Bandido", "target": "Você", "damage": 28, "targetHp": 72, "targetMaxHp": 100, "element": "", "hitZone": "body"},
+		{"type": "crit", "actor": "Você", "target": "Bandido", "damage": 45, "targetHp": 23, "targetMaxHp": 100, "element": "SUPER", "hitZone": "head"},
+		{"type": "dodge", "actor": "Você", "target": "Bandido", "damage": 0, "targetHp": 23, "targetMaxHp": 100, "element": "", "hitZone": ""},
+		{"type": "attack", "actor": "Você", "target": "Bandido", "damage": 23, "targetHp": 0, "targetMaxHp": 100, "element": "", "hitZone": "body"},
+		{"type": "victory", "actor": "Você", "target": "Bandido", "damage": 0, "targetHp": 0, "targetMaxHp": 100, "element": "", "hitZone": ""},
 	]
