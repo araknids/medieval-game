@@ -16,8 +16,16 @@ const A_HURT := LIB + "Hit_Chest"
 const A_HURT_HEAD := LIB + "Hit_Head"
 const A_WALK := LIB + "Walk"
 const A_JUMP := LIB + "Jump"
+const A_ROLL := LIB + "Roll"
 const A_DEATH := LIB + "Death01"
 const BARW := 0.7
+
+# kiting (arco vs melee) — camada de MOVIMENTO cosmética (ataques/dano seguem os eventos)
+const MELEE_SPEED := 0.85   # velocidade de avanço do melee (unid/s)
+const KITE_GAP := 2.2       # distância que o arqueiro tenta manter
+const KITE_EDGE := 3.2      # borda onde o arqueiro cruza pro outro lado
+const HOP_CD := 0.45        # tempo mínimo entre saltinhos pra trás
+const HOP_DIST := 0.85      # distância de cada salto
 
 # [GODOT_PAPERDOLL] paper-doll (igual ao PaperDollLive): veste o lutador com as peças Ranger.
 const PIECES := {
@@ -67,6 +75,12 @@ var order: Array = []       # [left, right] na ordem de spawn
 var player_equip: Array = []  # tipos de armadura EQUIPADOS pelo jogador (p/ vestir o lutador da esquerda)
 var player_weapon := ""       # tipo visual da arma equipada do herói: sword|bow|axe|spear|mace
 var cam: Camera3D
+
+# kiting: ativo quando EXATAMENTE um lado é ranged (arco) e o outro melee
+var kiting := false
+var ranged_f := {}            # lutador que recua/atira
+var melee_f := {}             # lutador que avança
+var hop_cd := 0.0
 var victory_label: Label
 var status_label: Label
 
@@ -169,6 +183,11 @@ func _build_fighters() -> void:
 	]
 	fighters[lname] = order[0]
 	fighters[rname] = order[1]
+	# kiting ativo quando só um lado é ranged: ele recua/atira, o outro avança.
+	if order[0]["ranged"] != order[1]["ranged"]:
+		kiting = true
+		ranged_f = order[0] if order[0]["ranged"] else order[1]
+		melee_f  = order[1] if order[0]["ranged"] else order[0]
 
 # [GODOT_PAPERDOLL] Veste UM lutador: esconde a base nua, põe a cabeça sempre, roupa no slot
 # equipado e a pele cortada no slot vazio (a roupa cobre o resto → 0 clipping). Se as peças
@@ -251,7 +270,7 @@ func _make_fighter(fname: String, side: int, maxhp: int, weapon_kind: String, eq
 	var ap: AnimationPlayer = node.find_child("AnimationPlayer", true, false)
 	var skel: Skeleton3D = node.find_child("GeneralSkeleton", true, false)
 	var f := {"name": fname, "node": node, "anim": ap, "side": side, "ranged": ranged,
-			  "dead": false, "maxhp": max(1, maxhp), "hp": max(1, maxhp), "busy": false}
+			  "dead": false, "maxhp": max(1, maxhp), "hp": max(1, maxhp), "busy": false, "hopping": false}
 	_face(f, -side)   # encara o centro (o oponente)
 	_dress(node, skel, equipped_types)   # [GODOT_PAPERDOLL] veste antes da arma
 	_attach_weapon(node, weapon_kind)
@@ -320,6 +339,8 @@ func _phase_intro(dt: float) -> void:
 			if f["anim"]: f["anim"].play(A_IDLE)
 
 func _phase_fight(dt: float) -> void:
+	if kiting:
+		_kite(dt)
 	if idx >= events.size():
 		_finish()
 		return
@@ -348,6 +369,61 @@ func _phase_fight(dt: float) -> void:
 		if idx >= events.size():
 			_finish()
 
+# Movimento de kiting (cosmético): o melee avança contínuo encarando o arqueiro; o arqueiro
+# recua em saltinhos pra manter o gap e, encurralado na borda, CRUZA pro outro lado. Os
+# ataques/dano continuam vindo dos eventos (o arqueiro atira nos eventos de attack dele).
+func _kite(dt: float) -> void:
+	if ranged_f.is_empty() or melee_f.is_empty(): return
+	if ranged_f["dead"] or melee_f["dead"]: return
+	var rn: Node3D = ranged_f["node"]
+	var mn: Node3D = melee_f["node"]
+	var side := signf(rn.position.x - mn.position.x)   # +1 = arqueiro à direita do melee
+	if side == 0.0: side = 1.0
+
+	# melee avança rumo ao arqueiro (anda quando não está no meio de um golpe)
+	mn.position = Vector3(mn.position.x + side * MELEE_SPEED * dt, mn.position.y, mn.position.z)
+	_face(melee_f, side)
+	if melee_f["anim"] and not melee_f["busy"] and melee_f["anim"].current_animation != A_WALK:
+		var w: Animation = melee_f["anim"].get_animation(A_WALK)
+		if w: w.loop_mode = Animation.LOOP_LINEAR
+		melee_f["anim"].play(A_WALK)
+
+	# arqueiro: encara o melee e recua em saltos; na borda, cruza
+	if not ranged_f["hopping"]:
+		_face(ranged_f, -side)
+		hop_cd -= dt
+		var gap := absf(rn.position.x - mn.position.x)
+		if gap < KITE_GAP and hop_cd <= 0.0:
+			var target := rn.position.x + side * HOP_DIST   # afasta-se do melee (+side)
+			if absf(target) > KITE_EDGE:
+				_archer_cross(mn.position.x - side * KITE_GAP)
+			else:
+				_hop_back(target)
+
+func _hop_back(target_x: float) -> void:
+	ranged_f["hopping"] = true
+	var rn: Node3D = ranged_f["node"]
+	if ranged_f["anim"]: ranged_f["anim"].play(A_JUMP)
+	var tw := create_tween()
+	tw.tween_property(rn, "position", Vector3(target_x, rn.position.y, rn.position.z), 0.32) \
+		.set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_OUT)
+	tw.tween_callback(func():
+		ranged_f["hopping"] = false
+		hop_cd = HOP_CD
+		if ranged_f["anim"] and not ranged_f["dead"]: ranged_f["anim"].play(A_IDLE))
+
+func _archer_cross(target_x: float) -> void:
+	ranged_f["hopping"] = true
+	hop_cd = HOP_CD + 0.3
+	var rn: Node3D = ranged_f["node"]
+	if ranged_f["anim"]: ranged_f["anim"].play(A_ROLL)
+	_popup(_head(ranged_f), "↩", Color(0.8, 0.9, 1.0), false)
+	var tw := create_tween()
+	tw.tween_property(rn, "position", Vector3(target_x, rn.position.y, rn.position.z), 0.55)
+	tw.tween_callback(func():
+		ranged_f["hopping"] = false
+		if ranged_f["anim"] and not ranged_f["dead"]: ranged_f["anim"].play(A_IDLE))
+
 ## Início do passo: o atacante balança a arma e (melee) avança.
 ## Em `dodge` os papéis vêm invertidos do backend (actor = quem esquiva, target = quem ataca),
 ## então quem balança a arma é o `target`.
@@ -364,12 +440,14 @@ func _swing(e: Dictionary) -> void:
 		if act["anim"]: act["anim"].play(A_SHOOT)
 	else:
 		if act["anim"]: act["anim"].play(A_ATTACK)
-		var node: Node3D = act["node"]
-		var home := Vector3(COMBAT_X * act["side"], 0, 0)
-		var fwd := Vector3(home.x - LUNGE * act["side"], 0, 0)
-		var tw := create_tween()
-		tw.tween_property(node, "position", fwd, step_dur * IMPACT_AT).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
-		tw.tween_property(node, "position", home, step_dur * (1.0 - IMPACT_AT)).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
+		# lunge só no combate parado; no kiting o melee já avança contínuo (sem teleporte de home)
+		if not kiting:
+			var node: Node3D = act["node"]
+			var home := Vector3(COMBAT_X * act["side"], 0, 0)
+			var fwd := Vector3(home.x - LUNGE * act["side"], 0, 0)
+			var tw := create_tween()
+			tw.tween_property(node, "position", fwd, step_dur * IMPACT_AT).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+			tw.tween_property(node, "position", home, step_dur * (1.0 - IMPACT_AT)).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
 
 ## Momento do impacto (45% do passo): dano/flinch/flecha/popup. HP só no fim do passo.
 func _impact(e: Dictionary) -> void:
@@ -622,7 +700,8 @@ func _setup_scene() -> void:
 func _frame_camera() -> void:
 	if cam == null: return
 	var n := order.size()
-	var half := COMBAT_X + maxf(0.0, n - 2) * 0.9   # meia-largura da área de combate
+	# kiting espalha os lutadores até a borda → enquadra mais largo
+	var half := KITE_EDGE if kiting else COMBAT_X + maxf(0.0, n - 2) * 0.9
 	var dist := clampf((half + 1.4) * 1.9, 5.0, 16.0)
 	cam.position = Vector3(0, dist * 0.55, dist)
 	cam.look_at(Vector3(0, 1.0, 0), Vector3.UP)
