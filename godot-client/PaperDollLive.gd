@@ -50,13 +50,14 @@ func _load_and_dress() -> void:
 
 	var lr = await client.login(username, password)
 	if not lr.get("ok"):
-		push_error("login falhou (status %s): %s" % [lr.get("status"), lr.get("error", lr.get("raw", ""))])
+		print(">>> LOGIN FALHOU — status %s | erro: %s | raw: %s" % [lr.get("status"), lr.get("error", ""), lr.get("raw", "")])
+		print(">>> Dica: 'adm/adm123' só vale no DEV local. Em PROD use SUA conta (mude Username/Password no Inspector do nó PaperDollLive).")
 		return
 	print("login OK — buscando inventário…")
 
 	var inv = await client.get_inventory()
 	if not inv.get("ok") or not (inv.get("json") is Array):
-		push_error("inventory falhou (status %s): %s" % [inv.get("status"), inv.get("raw", "")])
+		print(">>> INVENTORY FALHOU — status %s | raw: %s" % [inv.get("status"), inv.get("raw", "")])
 		return
 
 	var items: Array = inv["json"]
