@@ -58,6 +58,8 @@ const RANGED_MARKERS := ["volley", "pinned", "pointblank", "backpedal"]  # delat
 @export var password := "adm123"
 ## Vazio = URL padrão do BackendClient (Railway). "http://localhost:8080" no dev local.
 @export var base_url_override := ""
+## TESTE: pula o backend e usa um duelo MOCK (espada vs espada) — bom p/ ver o combate sem login.
+@export var force_mock := false
 
 var events: Array = []
 var fighters := {}          # name -> dict do lutador
@@ -95,6 +97,11 @@ func _ready() -> void:
 
 # ── carga dos eventos: backend real, com fallback mock ──────────────────────────
 func _load_events() -> void:
+	if force_mock:
+		events = _mock_events()
+		_status("Modo TESTE — duelo espada vs espada (mock)")
+		print("=== force_mock: duelo MOCK (sem backend) ===")
+		return
 	var cf := ConfigFile.new()
 	if cf.load("res://login.cfg") == OK:
 		username = str(cf.get_value("login", "user", username))
@@ -410,25 +417,34 @@ func _attach_weapon(node: Node3D, ranged: bool) -> void:
 	var skel: Skeleton3D = node.find_child("GeneralSkeleton", true, false)
 	if skel == null: return
 	var ba := BoneAttachment3D.new()
-	var mi := MeshInstance3D.new()
-	var bm := BoxMesh.new()
-	var mat := StandardMaterial3D.new()
 	if ranged:
 		ba.bone_name = "LeftHand"
-		bm.size = Vector3(0.03, 0.6, 0.03)
-		mi.position = Vector3(0.10, 0.07, 0.04)
-		mat.albedo_color = Color(0.45, 0.3, 0.16)
-	else:
-		ba.bone_name = "RightHand"
-		bm.size = Vector3(0.04, 0.7, 0.04)
-		mi.rotation_degrees = Vector3(0, 0, -90)
-		mi.position = Vector3(0.30, 0.07, 0.04)
-		mat.albedo_color = Color(0.82, 0.84, 0.88)
-		mat.metallic = 0.6
-	mi.mesh = bm
-	mi.material_override = mat
+		skel.add_child(ba)
+		_box(ba, Vector3(0.03, 0.6, 0.03), Vector3(0.10, 0.07, 0.04), Color(0.45, 0.3, 0.16), 0.0)
+		return
+	# ESPADA: holder com a mesma pegada da caixa antiga (RightHand, rot -90); peças ao longo do +Y local.
+	ba.bone_name = "RightHand"
 	skel.add_child(ba)
-	ba.add_child(mi)
+	var holder := Node3D.new()
+	holder.position = Vector3(0.27, 0.05, 0.04)
+	holder.rotation_degrees = Vector3(0, 0, -90)
+	ba.add_child(holder)
+	_box(holder, Vector3(0.022, 0.5, 0.075),  Vector3(0,  0.34, 0), Color(0.82, 0.84, 0.88), 0.7)  # lâmina
+	_box(holder, Vector3(0.05, 0.035, 0.20),  Vector3(0,  0.07, 0), Color(0.28, 0.22, 0.14), 0.3)  # guarda (cruz)
+	_box(holder, Vector3(0.028, 0.13, 0.028), Vector3(0, -0.02, 0), Color(0.35, 0.22, 0.12), 0.1)  # cabo
+	_box(holder, Vector3(0.05, 0.05, 0.05),   Vector3(0, -0.10, 0), Color(0.70, 0.60, 0.20), 0.5)  # pomo
+
+func _box(parent: Node, size: Vector3, pos: Vector3, col: Color, metallic: float) -> void:
+	var mi := MeshInstance3D.new()
+	var bm := BoxMesh.new()
+	bm.size = size
+	mi.mesh = bm
+	mi.position = pos
+	var m := StandardMaterial3D.new()
+	m.albedo_color = col
+	m.metallic = metallic
+	mi.material_override = m
+	parent.add_child(mi)
 
 func _shoot_arrow(a: Dictionary, b: Dictionary) -> void:
 	var arrow := MeshInstance3D.new()
