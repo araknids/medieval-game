@@ -97,25 +97,20 @@ func _load_and_dress() -> void:
 		print(">>> NENHUMA peça vestida. Equipe armadura (Elmo/Peito/Calça/Luvas/Botas/Ombreira) na web e rode de novo.")
 	else:
 		print(">>> %d peça(s) vestida(s) do equip real. " % dressed)
-		# [Readme Quaternius] "When using the clothing, only the head is required. Using the full body
-		# results in clipping." → se tem roupa cobrindo tronco/membro, esconde o corpo-base MAS mantém a
-		# cabeça (e olhos/dentes). Zero cálculo de tamanho — só visibilidade. Slot vazio fica sem peça.
-		var covers_body: bool = dressed_slots.has("ARMOR") or dressed_slots.has("PANTS") or dressed_slots.has("GLOVES")
-		if covers_body or hide_nude_body:
-			print("    malhas do corpo-base: %s" % _body_mesh_names())
-			var kept := 0
+		# [Readme Quaternius] roupa cobre o corpo → clipping com o corpo-base inteiro. A base aqui é UMA
+		# malha (corpo+cabeça juntos), então não dá p/ isolar a cabeça. Regra:
+		#  • tem CAPUZ/elmo (HELMET) → a cabeça está coberta → esconde o corpo-base INTEIRO (limpo, capa
+		#    sombreada por dentro, sem "olhos flutuando").
+		#  • sem peça de cabeça → mantém o corpo-base (senão fica sem rosto), aceitando leve clipping.
+		# A pele exposta (mãos/pescoço) das peças usa T_Regular_Male (copiado p/ a pasta) → cor de pele.
+		print("    malhas do corpo-base: %s" % _body_mesh_names())
+		var head_covered: bool = dressed_slots.has("HELMET")
+		if head_covered or hide_nude_body:
 			for m: MeshInstance3D in _body_meshes:
-				var n := String(m.name).to_lower()
-				var is_head := n.contains("head") or n.contains("eye") or n.contains("teeth") or n.contains("face") or n.contains("brow") or n.contains("jaw") or n.contains("hair")
-				m.visible = is_head
-				if is_head: kept += 1
-			if kept == 0:
-				# nenhuma malha bateu como "cabeça" → NÃO esconde (evita ficar sem cabeça). Me manda os nomes acima.
-				for m: MeshInstance3D in _body_meshes:
-					m.visible = true
-				print("    !! nenhuma malha reconhecida como cabeça — corpo mantido. Me cole os nomes acima p/ eu ajustar.")
-			else:
-				print("    corpo-base escondido (mantida a cabeça: %d/%d malhas)" % [kept, _body_meshes.size()])
+				m.visible = false
+			print("    corpo-base escondido inteiro (capuz cobre a cabeça)")
+		else:
+			print("    corpo-base mantido (sem peça de cabeça — evita ficar sem rosto; pode ter leve clipping)")
 
 ## Reparenteia as MeshInstance3D do outfit sob o Skeleton3D do personagem, mantendo o skin
 ## (binds por NOME de osso → o esqueleto compartilhado anima a peça junto). [GODOT_PAPERDOLL]
