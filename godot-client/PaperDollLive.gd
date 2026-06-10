@@ -103,14 +103,16 @@ func _load_and_dress() -> void:
 		#    sombreada por dentro, sem "olhos flutuando").
 		#  • sem peça de cabeça → mantém o corpo-base (senão fica sem rosto), aceitando leve clipping.
 		# A pele exposta (mãos/pescoço) das peças usa T_Regular_Male (copiado p/ a pasta) → cor de pele.
+		# [GODOT_PAPERDOLL] A base é UMA malha (corpo+cabeça) → esconder = fica OCO (sem rosto). Por ora
+		# MANTÉM o corpo visível (personagem aparece; pode ter leve clipping com a roupa musculosa). A
+		# solução limpa é cortar a base em partes por osso (script Blender) p/ mostrar só a cabeça. [TODO]
 		print("    malhas do corpo-base: %s" % _body_mesh_names())
-		var head_covered: bool = dressed_slots.has("HELMET")
-		if head_covered or hide_nude_body:
+		if hide_nude_body:
 			for m: MeshInstance3D in _body_meshes:
 				m.visible = false
-			print("    corpo-base escondido inteiro (capuz cobre a cabeça)")
+			print("    corpo-base escondido (hide_nude_body=on) — fica oco até termos as partes cortadas")
 		else:
-			print("    corpo-base mantido (sem peça de cabeça — evita ficar sem rosto; pode ter leve clipping)")
+			print("    corpo-base MANTIDO visível (personagem aparece). Corte por osso = próximo passo p/ tirar o clipping.")
 
 ## Reparenteia as MeshInstance3D do outfit sob o Skeleton3D do personagem, mantendo o skin
 ## (binds por NOME de osso → o esqueleto compartilhado anima a peça junto). [GODOT_PAPERDOLL]
