@@ -65,6 +65,7 @@ var events: Array = []
 var fighters := {}          # name -> dict do lutador
 var order: Array = []       # [left, right] na ordem de spawn
 var player_equip: Array = []  # tipos de armadura EQUIPADOS pelo jogador (p/ vestir o lutador da esquerda)
+var player_weapon := ""       # tipo visual da arma equipada do herói: sword|bow|axe|spear|mace
 var cam: Camera3D
 var victory_label: Label
 var status_label: Label
@@ -96,12 +97,9 @@ func _ready() -> void:
 	print("=== BATTLE REPLAY === %d eventos (%d passos), step_dur=%.2fs" % [events.size(), n, step_dur])
 
 # ── carga dos eventos: backend real, com fallback mock ──────────────────────────
+# Sempre tenta logar p/ ler o EQUIP+ARMA reais do herói (o herói é sempre dinâmico).
+# force_mock só troca os EVENTOS por um duelo fixo e força o Bandido a ser espadachim.
 func _load_events() -> void:
-	if force_mock:
-		events = _mock_events()
-		_status("Modo TESTE — duelo espada vs espada (mock)")
-		print("=== force_mock: duelo MOCK (sem backend) ===")
-		return
 	var cf := ConfigFile.new()
 	if cf.load("res://login.cfg") == OK:
 		username = str(cf.get_value("login", "user", username))
@@ -120,15 +118,17 @@ func _load_events() -> void:
 		events = _mock_events()
 		return
 
-	# inventário → quais slots de armadura o jogador tem equipados (p/ o paper-doll da esquerda)
+	# inventário → armadura equipada (paper-doll) + ARMA equipada (visual dinâmico do herói)
 	var inv = await client.get_inventory()
 	if inv.get("ok") and inv.get("json") is Array:
-		for it in inv["json"]:
-			if it is Dictionary and it.get("equipped") == true:
-				var ty := str(it.get("type", ""))
-				if PIECES.has(ty) and not (ty in player_equip):
-					player_equip.append(ty)
-		print(">>> equip do jogador: %s" % str(player_equip))
+		_read_player_gear(inv["json"])
+		print(">>> herói: equip=%s arma=%s" % [str(player_equip), player_weapon])
+
+	if force_mock:
+		events = _mock_events()
+		_status("Modo TESTE — sua arma real vs Bandido (espada)")
+		print("=== force_mock: eventos MOCK, herói real, Bandido = espada ===")
+		return
 
 	_status("Lutando na arena…")
 	var fr = await client.arena_fight()
@@ -158,13 +158,14 @@ func _build_fighters() -> void:
 		return
 	var lname := str(spawns[0].get("actor", "Hero"))
 	var rname := str(spawns[1].get("actor", "Foe"))
-	var lranged := _is_ranged(lname)
-	var rranged := _is_ranged(rname)
-	# esquerda = jogador (challenger) → equip real; vazio (ou mock) → set padrão p/ não ficar pelado.
+	# HERÓI (esquerda = challenger): arma e equip REAIS. Sem arma equipada → espada.
+	var lweapon := player_weapon if player_weapon != "" else "sword"
 	var lequip: Array = player_equip if player_equip.size() > 0 else DEFAULT_OUTFIT
+	# INIMIGO (direita): no force_mock vira espadachim; na arena real segue o estilo dos eventos.
+	var rweapon := "sword" if force_mock else ("bow" if _is_ranged(rname) else "sword")
 	order = [
-		_make_fighter(lname, -1, int(spawns[0].get("targetMaxHp", 100)), lranged, lequip),
-		_make_fighter(rname,  1, int(spawns[1].get("targetMaxHp", 100)), rranged, DEFAULT_OUTFIT),
+		_make_fighter(lname, -1, int(spawns[0].get("targetMaxHp", 100)), lweapon, lequip),
+		_make_fighter(rname,  1, int(spawns[1].get("targetMaxHp", 100)), rweapon, DEFAULT_OUTFIT),
 	]
 	fighters[lname] = order[0]
 	fighters[rname] = order[1]
@@ -211,24 +212,49 @@ func _collect_meshes(node: Node, out: Array) -> void:
 	for c in node.get_children():
 		_collect_meshes(c, out)
 
+# Lê o inventário: armadura equipada → player_equip; arma equipada → player_weapon (tipo visual).
+func _read_player_gear(items: Array) -> void:
+	for it in items:
+		if not (it is Dictionary) or it.get("equipped") != true:
+			continue
+		var ty := str(it.get("type", ""))
+		if PIECES.has(ty) and not (ty in player_equip):
+			player_equip.append(ty)
+		elif ty == "WEAPON":
+			player_weapon = _weapon_kind(str(it.get("name", "")), str(it.get("weaponCategory", "")))
+
+# Infere o tipo visual da arma pelo nome + categoria (backend só dá MELEE/RANGED).
+func _weapon_kind(item_name: String, category: String) -> String:
+	var n := item_name.to_lower()
+	if category == "RANGED" or "bow" in n or "arco" in n or "crossbow" in n or "besta" in n:
+		return "bow"
+	if "axe" in n or "machado" in n or "hatchet" in n:
+		return "axe"
+	if "spear" in n or "lança" in n or "lanca" in n or "pike" in n or "halberd" in n:
+		return "spear"
+	if "mace" in n or "marreta" in n or "maul" in n or "hammer" in n or "martelo" in n or "club" in n:
+		return "mace"
+	return "sword"
+
 func _is_ranged(who: String) -> bool:
 	for e in events:
 		if str(e.get("actor", "")) == who and str(e.get("type", "")) in RANGED_MARKERS:
 			return true
 	return false
 
-func _make_fighter(fname: String, side: int, maxhp: int, ranged: bool, equipped_types: Array) -> Dictionary:
+func _make_fighter(fname: String, side: int, maxhp: int, weapon_kind: String, equipped_types: Array) -> Dictionary:
 	var node := CHAR.instantiate()
 	add_child(node)
 	node.position = Vector3(ENTRY_X * side, 0, 0)
 	node.scale = Vector3(0.92, 0.92, 0.92)
+	var ranged := weapon_kind == "bow"
 	var ap: AnimationPlayer = node.find_child("AnimationPlayer", true, false)
 	var skel: Skeleton3D = node.find_child("GeneralSkeleton", true, false)
 	var f := {"name": fname, "node": node, "anim": ap, "side": side, "ranged": ranged,
 			  "dead": false, "maxhp": max(1, maxhp), "hp": max(1, maxhp), "busy": false}
 	_face(f, -side)   # encara o centro (o oponente)
 	_dress(node, skel, equipped_types)   # [GODOT_PAPERDOLL] veste antes da arma
-	_attach_weapon(node, ranged)
+	_attach_weapon(node, weapon_kind)
 	# barra de vida + nome
 	var bar := Node3D.new()
 	add_child(bar)
@@ -413,32 +439,59 @@ func _face(f: Dictionary, dir: float) -> void:
 	if dir == 0.0: dir = 1.0
 	(f["node"] as Node3D).rotation_degrees = Vector3(0, (90.0 if dir > 0 else -90.0), 0)
 
-func _attach_weapon(node: Node3D, ranged: bool) -> void:
+# Desenha a arma pelo TIPO (sword|bow|axe|spear|mace). Bow vai na LeftHand; o resto na
+# RightHand num holder (rot -90; +Y local = direção da arma) com peças simples.
+func _attach_weapon(node: Node3D, kind: String) -> void:
 	var skel: Skeleton3D = node.find_child("GeneralSkeleton", true, false)
 	if skel == null: return
 	var ba := BoneAttachment3D.new()
-	if ranged:
+	if kind == "bow":
 		ba.bone_name = "LeftHand"
 		skel.add_child(ba)
 		_box(ba, Vector3(0.03, 0.6, 0.03), Vector3(0.10, 0.07, 0.04), Color(0.45, 0.3, 0.16), 0.0)
 		return
-	# ESPADA: holder com a mesma pegada da caixa antiga (RightHand, rot -90); peças ao longo do +Y local.
 	ba.bone_name = "RightHand"
 	skel.add_child(ba)
 	var holder := Node3D.new()
 	holder.position = Vector3(0.27, 0.05, 0.04)
 	holder.rotation_degrees = Vector3(0, 0, -90)
 	ba.add_child(holder)
-	_box(holder, Vector3(0.022, 0.5, 0.075),  Vector3(0,  0.34, 0), Color(0.82, 0.84, 0.88), 0.7)  # lâmina
-	_box(holder, Vector3(0.05, 0.035, 0.20),  Vector3(0,  0.07, 0), Color(0.28, 0.22, 0.14), 0.3)  # guarda (cruz)
-	_box(holder, Vector3(0.028, 0.13, 0.028), Vector3(0, -0.02, 0), Color(0.35, 0.22, 0.12), 0.1)  # cabo
-	_box(holder, Vector3(0.05, 0.05, 0.05),   Vector3(0, -0.10, 0), Color(0.70, 0.60, 0.20), 0.5)  # pomo
+	var steel := Color(0.82, 0.84, 0.88)
+	var wood := Color(0.35, 0.22, 0.12)
+	match kind:
+		"axe":
+			_box(holder, Vector3(0.028, 0.62, 0.028), Vector3(0, 0.20, 0), wood, 0.1)        # cabo longo
+			_box(holder, Vector3(0.02, 0.16, 0.17),   Vector3(0, 0.46, 0.07), steel, 0.7)    # lâmina do machado
+		"spear":
+			_box(holder, Vector3(0.024, 0.95, 0.024), Vector3(0, 0.30, 0), wood, 0.1)         # haste
+			_box(holder, Vector3(0.04, 0.16, 0.04),   Vector3(0, 0.82, 0), steel, 0.7)        # ponta
+		"mace":
+			_box(holder, Vector3(0.03, 0.42, 0.03),   Vector3(0, 0.12, 0), wood, 0.1)         # cabo
+			_sphere(holder, 0.075, Vector3(0, 0.38, 0), Color(0.55, 0.56, 0.6), 0.6)          # cabeça
+		_:  # sword (default)
+			_box(holder, Vector3(0.022, 0.5, 0.075),  Vector3(0,  0.34, 0), steel, 0.7)           # lâmina
+			_box(holder, Vector3(0.05, 0.035, 0.20),  Vector3(0,  0.07, 0), Color(0.28, 0.22, 0.14), 0.3)  # guarda
+			_box(holder, Vector3(0.028, 0.13, 0.028), Vector3(0, -0.02, 0), wood, 0.1)             # cabo
+			_box(holder, Vector3(0.05, 0.05, 0.05),   Vector3(0, -0.10, 0), Color(0.70, 0.60, 0.20), 0.5)  # pomo
 
 func _box(parent: Node, size: Vector3, pos: Vector3, col: Color, metallic: float) -> void:
 	var mi := MeshInstance3D.new()
 	var bm := BoxMesh.new()
 	bm.size = size
 	mi.mesh = bm
+	mi.position = pos
+	var m := StandardMaterial3D.new()
+	m.albedo_color = col
+	m.metallic = metallic
+	mi.material_override = m
+	parent.add_child(mi)
+
+func _sphere(parent: Node, radius: float, pos: Vector3, col: Color, metallic: float) -> void:
+	var mi := MeshInstance3D.new()
+	var sm := SphereMesh.new()
+	sm.radius = radius
+	sm.height = radius * 2.0
+	mi.mesh = sm
 	mi.position = pos
 	var m := StandardMaterial3D.new()
 	m.albedo_color = col
