@@ -26,6 +26,10 @@ func login(username: String, password: String) -> Dictionary:
 func get_warrior() -> Dictionary:
 	return await _request(HTTPClient.METHOD_GET, "/api/warrior", null, true)
 
+## GET /api/inventory (autenticado). json = Array de itens (cada um com type, equipped, name, rarity...). [GODOT_PAPERDOLL]
+func get_inventory() -> Dictionary:
+	return await _request(HTTPClient.METHOD_GET, "/api/inventory", null, true)
+
 ## Chamada genérica. method = HTTPClient.METHOD_*; body = Dictionary ou null; authed = manda o Bearer.
 func _request(method: int, path: String, body: Variant = null, authed := false) -> Dictionary:
 	var http := HTTPRequest.new()
