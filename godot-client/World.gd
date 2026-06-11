@@ -30,9 +30,9 @@ func _process(dt: float) -> void:
 
 func _update_cam() -> void:
 	var a := deg_to_rad(cam_angle)
-	var radius := 21.0
-	cam.position = Vector3(sin(a) * radius, 8.0, cos(a) * radius)   # baixa = pega a linha de árvores
-	cam.look_at(Vector3(0, 2.5, 0), Vector3.UP)
+	var radius := 16.0 if scenario == "beach" else 21.0   # praia = mais central p/ enxergar a orla/mar
+	cam.position = Vector3(sin(a) * radius, 7.0, cos(a) * radius)
+	cam.look_at(Vector3(0, 2.0, 0), Vector3.UP)
 
 # personagem (idle) na beira da clareira, p/ referência de ESCALA
 func _add_scale_char() -> void:

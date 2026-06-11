@@ -67,7 +67,7 @@ func dusk_lighting(host: Node3D) -> void:
 	env.tonemap_mode = Environment.TONE_MAPPER_FILMIC
 	env.fog_enabled = true
 	env.fog_light_color = Color(0.95, 0.55, 0.35)        # névoa quente funde no pôr do sol
-	env.fog_density = 0.006
+	env.fog_density = 0.004
 	env.glow_enabled = true
 	env.glow_intensity = 0.4
 	env.glow_bloom = 0.1
@@ -133,36 +133,37 @@ func mining(host: Node3D, rng: RandomNumberGenerator, combat_r: float) -> void:
 
 # ── cenário: PRAIA (entardecer) — ilha de areia cercada de mar ──────────────────
 func beach(host: Node3D, rng: RandomNumberGenerator, combat_r: float) -> void:
-	_ground(host, Color(0.80, 0.72, 0.52), 42.0)   # ilha de AREIA
+	var ISLE := 24.0   # raio da ilha de areia (menor → a orla e o mar ficam perto/visíveis)
+	_ground(host, Color(0.82, 0.73, 0.52), ISLE)   # ilha de AREIA
 	# colisão do chão (p/ o ragdoll não atravessar)
 	var fb := StaticBody3D.new()
 	var fc := CollisionShape3D.new()
 	fc.shape = WorldBoundaryShape3D.new()
 	fb.add_child(fc)
 	host.add_child(fb)
-	# MAR ao redor (plano enorme logo abaixo da areia → visível além da ilha, enche o horizonte)
-	_water(host, Vector3(0, -0.06, 0), 700.0)
-	# faixa de AREIA MOLHADA na beira + areia seca no meio (gradiente até a água)
-	_disc(host, Color(0.60, 0.53, 0.39), 41.0, 0.015)
-	_disc(host, Color(0.80, 0.72, 0.52), 33.0, 0.02)
-	# ROCHAS de maré meio submersas perto da água
-	for i in 14:
-		var ar := TAU * i / 14.0 + rng.randf_range(-0.25, 0.25)
-		var rr := rng.randf_range(30.0, 39.0)
-		_place(host, rng, NAT + "Rock_Medium_%d.gltf" % (1 + i % 3), Vector3(cos(ar) * rr, -0.25, sin(ar) * rr), rng.randf_range(0, 360), rng.randf_range(1.0, 2.0))
+	# MAR ao redor — BAIXO (y=-0.9) → cria uma ORLA visível (areia desce pro mar) e enche o horizonte
+	_water(host, Vector3(0, -0.9, 0), 800.0)
+	# AREIA MOLHADA na beira + areia seca no meio (gradiente até a água)
+	_disc(host, Color(0.58, 0.52, 0.40), ISLE - 0.5, 0.015)
+	_disc(host, Color(0.82, 0.73, 0.52), ISLE - 7.0, 0.02)
+	# ROCHAS de maré meio submersas na orla
+	for i in 16:
+		var ar := TAU * i / 16.0 + rng.randf_range(-0.25, 0.25)
+		var rr := rng.randf_range(ISLE - 4.0, ISLE + 1.0)
+		_place(host, rng, NAT + "Rock_Medium_%d.gltf" % (1 + i % 3), Vector3(cos(ar) * rr, -0.6, sin(ar) * rr), rng.randf_range(0, 360), rng.randf_range(1.0, 2.0))
 	# DUNA com árvores só de UM lado (o outro fica aberto pro mar/pôr do sol)
 	var trees := ["CommonTree_1", "CommonTree_2", "CommonTree_4", "TwistedTree_1", "TwistedTree_2", "TwistedTree_3"]
-	for i in 16:
+	for i in 14:
 		var at := lerpf(0.4, PI - 0.4, rng.randf())   # arco de ~180° de um lado só
-		var rt := rng.randf_range(16.0, 34.0)
+		var rt := rng.randf_range(13.0, ISLE - 2.0)
 		_place(host, rng, NAT + trees[rng.randi() % trees.size()] + ".gltf", Vector3(cos(at) * rt, 0, sin(at) * rt), rng.randf_range(0, 360), rng.randf_range(0.9, 1.6))
 	# capim de praia + arbustos (fora do combate)
-	for i in 80:
+	for i in 70:
 		var g: String = ["Grass_Wispy_Tall", "Grass_Wispy_Short", "Grass_Common_Tall", "Bush_Common", "Fern_1"][i % 5]
-		_place(host, rng, NAT + g + ".gltf", _scatter(rng, combat_r + 1.0, 39.0), rng.randf_range(0, 360), rng.randf_range(0.8, 1.5))
+		_place(host, rng, NAT + g + ".gltf", _scatter(rng, combat_r + 1.0, ISLE - 1.0), rng.randf_range(0, 360), rng.randf_range(0.8, 1.5))
 	# pedrinhas/conchas espalhadas
-	for i in 40:
-		_place(host, rng, NAT + "Pebble_Round_%d.gltf" % (1 + i % 5), _scatter(rng, combat_r + 0.5, 40.0), rng.randf_range(0, 360), rng.randf_range(0.6, 1.3))
+	for i in 36:
+		_place(host, rng, NAT + "Pebble_Round_%d.gltf" % (1 + i % 5), _scatter(rng, combat_r + 0.5, ISLE), rng.randf_range(0, 360), rng.randf_range(0.6, 1.3))
 
 # Plano d'água grande (semi-transparente, reflexivo, leve glint do pôr do sol).
 func _water(host: Node3D, center: Vector3, size: float) -> void:
@@ -171,13 +172,12 @@ func _water(host: Node3D, center: Vector3, size: float) -> void:
 	pm.size = Vector2(size, size)
 	mi.mesh = pm
 	var m := StandardMaterial3D.new()
-	m.albedo_color = Color(0.10, 0.34, 0.48, 0.9)
-	m.metallic = 0.5
-	m.roughness = 0.06
-	m.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	m.albedo_color = Color(0.07, 0.30, 0.46)   # azul-petróleo opaco (lê como mar)
+	m.metallic = 0.6
+	m.roughness = 0.12
 	m.emission_enabled = true
-	m.emission = Color(0.6, 0.35, 0.2)
-	m.emission_energy_multiplier = 0.15
+	m.emission = Color(0.5, 0.30, 0.18)
+	m.emission_energy_multiplier = 0.08
 	mi.material_override = m
 	mi.position = center
 	host.add_child(mi)
