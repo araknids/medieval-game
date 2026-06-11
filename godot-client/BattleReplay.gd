@@ -1026,7 +1026,7 @@ func _attach_shield(node: Node3D) -> void:
 	ba.bone_name = "LeftHand"
 	skel.add_child(ba)
 	var holder := Node3D.new()
-	holder.position = Vector3(0.10, 0.06, 0.10)       # à frente da mão (não deitar!)
+	holder.position = Vector3(-0.12, 0.06, 0.10)      # OUTRO lado da mão (costas, não a palma) + à frente
 	holder.rotation_degrees = Vector3(0, 0, 0)        # painel VERTICAL virado pra frente (+Z local), igual ao plano do arco
 	ba.add_child(holder)
 	var wood := Color(0.40, 0.26, 0.14)
