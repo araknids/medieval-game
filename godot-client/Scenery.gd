@@ -15,6 +15,9 @@ func build(host: Node3D, scenario: String, rng: RandomNumberGenerator, combat_r:
 		"beach":
 			dusk_lighting(host)
 			beach(host, rng, combat_r)
+		"garimpa":
+			day_lighting(host)
+			garimpa(host, rng, combat_r)
 		_:  # "mining" (default)
 			night_lighting(host)
 			mining(host, rng, combat_r)
@@ -142,7 +145,7 @@ func beach(host: Node3D, rng: RandomNumberGenerator, combat_r: float) -> void:
 	fb.add_child(fc)
 	host.add_child(fb)
 	# MAR ao redor — BAIXO (y=-0.9) → cria uma ORLA visível (areia desce pro mar) e enche o horizonte
-	_water(host, Vector3(0, -0.9, 0), 800.0)
+	_water(host, Vector3(0, -0.9, 0), Vector2(800, 800))
 	# AREIA MOLHADA na beira + areia seca no meio (gradiente até a água)
 	_disc(host, Color(0.58, 0.52, 0.40), ISLE - 0.5, 0.015)
 	_disc(host, Color(0.82, 0.73, 0.52), ISLE - 7.0, 0.02)
@@ -165,11 +168,11 @@ func beach(host: Node3D, rng: RandomNumberGenerator, combat_r: float) -> void:
 	for i in 36:
 		_place(host, rng, NAT + "Pebble_Round_%d.gltf" % (1 + i % 5), _scatter(rng, combat_r + 0.5, ISLE), rng.randf_range(0, 360), rng.randf_range(0.6, 1.3))
 
-# Plano d'água grande (semi-transparente, reflexivo, leve glint do pôr do sol).
-func _water(host: Node3D, center: Vector3, size: float) -> void:
+# Plano d'água (azul-turquesa; usado p/ o mar e p/ a faixa do rio).
+func _water(host: Node3D, center: Vector3, size: Vector2) -> void:
 	var mi := MeshInstance3D.new()
 	var pm := PlaneMesh.new()
-	pm.size = Vector2(size, size)
+	pm.size = size
 	mi.mesh = pm
 	var m := StandardMaterial3D.new()
 	m.albedo_color = Color(0.08, 0.45, 0.66)   # azul-turquesa forte
@@ -283,3 +286,80 @@ func _brazier(host: Node3D, pos: Vector3) -> void:
 	light.light_energy = 5.0
 	light.omni_range = 11.0
 	host.add_child(light); light.position = pos + Vector3(0, 1.9, 0)
+
+# ── iluminação de DIA (céu azul claro — enche o horizonte, fresco) ───────────────
+func day_lighting(host: Node3D) -> void:
+	var sky_mat := ProceduralSkyMaterial.new()
+	sky_mat.sky_top_color = Color(0.24, 0.45, 0.78)
+	sky_mat.sky_horizon_color = Color(0.72, 0.82, 0.90)
+	sky_mat.ground_horizon_color = Color(0.58, 0.60, 0.50)
+	sky_mat.ground_bottom_color = Color(0.30, 0.32, 0.24)
+	var sky := Sky.new()
+	sky.sky_material = sky_mat
+	var env := Environment.new()
+	env.background_mode = Environment.BG_SKY
+	env.sky = sky
+	env.ambient_light_source = Environment.AMBIENT_SOURCE_SKY
+	env.ambient_light_energy = 0.6
+	env.tonemap_mode = Environment.TONE_MAPPER_FILMIC
+	env.fog_enabled = true
+	env.fog_light_color = Color(0.75, 0.82, 0.86)
+	env.fog_density = 0.004
+	var we := WorldEnvironment.new()
+	we.environment = env
+	host.add_child(we)
+	var sun := DirectionalLight3D.new()
+	sun.rotation_degrees = Vector3(-52, -45, 0)
+	sun.light_color = Color(1.0, 0.97, 0.9)
+	sun.light_energy = 1.5
+	sun.shadow_enabled = true
+	host.add_child(sun)
+
+# ── cenário: GARIMPO (dia) — beira de rio com muito cascalho ────────────────────
+func garimpa(host: Node3D, rng: RandomNumberGenerator, combat_r: float) -> void:
+	var BANK := 8.0            # x onde a margem encontra a água
+	var RIVER_X := BANK + 5.0  # centro do rio (~13), correndo ao longo de Z
+	_ground(host, Color(0.37, 0.32, 0.22), 44.0)   # terra/cascalho do vale
+	var fb := StaticBody3D.new()
+	var fc := CollisionShape3D.new()
+	fc.shape = WorldBoundaryShape3D.new()
+	fb.add_child(fc)
+	host.add_child(fb)
+	# leito MOLHADO (faixa escura, mais larga que a água) + ÁGUA azul do rio (ao longo de Z)
+	_flat(host, Color(0.20, 0.18, 0.15), Vector3(RIVER_X, 0.02, 0), Vector2(12.0, 80.0))
+	_water(host, Vector3(RIVER_X, 0.05, 0), Vector2(10.0, 80.0))
+	# pedras grandes molhadas na beira do rio
+	for i in 12:
+		var x := BANK + rng.randf_range(-1.5, 1.2)
+		_place(host, rng, NAT + "Rock_Medium_%d.gltf" % (1 + i % 3), Vector3(x, 0, rng.randf_range(-30, 30)), rng.randf_range(0, 360), rng.randf_range(0.9, 1.8))
+	# CASCALHO (muito) na margem perto da água — onde se garimpa
+	for i in 80:
+		var x2 := rng.randf_range(combat_r - 1.0, BANK)
+		_place(host, rng, NAT + "Pebble_Round_%d.gltf" % (1 + i % 5), Vector3(x2, 0, rng.randf_range(-30, 30)), rng.randf_range(0, 360), rng.randf_range(0.7, 1.6))
+	# cascalho miúdo também no centro (área de garimpo/luta)
+	for i in 30:
+		_place(host, rng, NAT + "Pebble_Square_%d.gltf" % (1 + i % 6), _scatter(rng, 0.5, combat_r), rng.randf_range(0, 360), rng.randf_range(0.6, 1.2))
+	# MATA do vale no lado -X (oposto ao rio) + margem oposta
+	var trees := ["CommonTree_1", "CommonTree_2", "CommonTree_3", "CommonTree_5", "Pine_1", "Pine_2", "TwistedTree_1"]
+	for i in 24:
+		var a := lerpf(PI * 0.42, PI * 1.58, rng.randf())   # arco do lado -X
+		var r := rng.randf_range(14.0, 36.0)
+		_place(host, rng, NAT + trees[rng.randi() % trees.size()] + ".gltf", Vector3(cos(a) * r, 0, sin(a) * r), rng.randf_range(0, 360), rng.randf_range(1.0, 1.8))
+	for i in 9:   # margem oposta do rio (enquadra)
+		_place(host, rng, NAT + trees[rng.randi() % trees.size()] + ".gltf", Vector3(RIVER_X + rng.randf_range(7, 15), 0, rng.randf_range(-30, 30)), rng.randf_range(0, 360), rng.randf_range(1.0, 1.8))
+	# vegetação de margem
+	for i in 80:
+		var g: String = ["Fern_1", "Bush_Common", "Grass_Common_Tall", "Grass_Wispy_Tall", "Grass_Wispy_Short", "Mushroom_Common"][i % 6]
+		_place(host, rng, NAT + g + ".gltf", _scatter(rng, combat_r + 0.6, 34.0), rng.randf_range(0, 360), rng.randf_range(0.8, 1.5))
+
+# Faixa/plano retangular colorido (leito do rio, areia molhada, etc.).
+func _flat(host: Node3D, color: Color, center: Vector3, size: Vector2) -> void:
+	var mi := MeshInstance3D.new()
+	var pm := PlaneMesh.new()
+	pm.size = size
+	mi.mesh = pm
+	var mat := StandardMaterial3D.new()
+	mat.albedo_color = color; mat.roughness = 1.0
+	mi.material_override = mat
+	mi.position = center
+	host.add_child(mi)
