@@ -128,6 +128,8 @@ const GORE_COLORS := [Color(0.5, 0.08, 0.08), Color(0.42, 0.05, 0.05), Color(0.6
 ## TESTE: força o tipo VISUAL da arma do herói (sem equipar no jogo). Vazio = arma real do inventário.
 ## Valores: sword | greatsword | axe | spear | mace | shortbow | longbow | crossbow
 @export var force_weapon := ""
+## TESTE: força um ESCUDO na off-hand do herói (some com arco). Vazio/false = só se equipado de verdade.
+@export var force_shield := false
 ## (Legado) escala manual do monstro — hoje o tamanho vem do roster (Monsters.size_for) + auto-fit.
 @export var monster_scale := 1.0
 ## Giro extra do monstro em Y (graus) se ele nascer de lado/de costas. Tente 0, 90, 180, -90.
@@ -346,7 +348,9 @@ func _build_fighters() -> void:
 	# HERÓI (esquerda = challenger): arma e equip REAIS. Sem arma equipada → espada.
 	# force_weapon (Inspector) sobrepõe p/ TESTE — ver qualquer tipo sem equipar no jogo.
 	var lweapon := force_weapon if force_weapon != "" else (player_weapon if player_weapon != "" else "sword")
-	var lequip: Array = player_equip if player_equip.size() > 0 else DEFAULT_OUTFIT
+	var lequip: Array = (player_equip if player_equip.size() > 0 else DEFAULT_OUTFIT).duplicate()
+	if force_shield and not ("SHIELD" in lequip):
+		lequip.append("SHIELD")   # TESTE: força o escudo
 	# INIMIGO (direita): no force_mock vira espadachim; na arena real segue o estilo dos eventos.
 	var rweapon := "sword" if force_mock else ("bow" if _is_ranged(rname) else "sword")
 	# Representação do inimigo: monstro do bundle (besta) ou humano (cavaleiro/bandido/PvP).
@@ -427,6 +431,8 @@ func _read_player_gear(items: Array) -> void:
 		var ty := str(it.get("type", ""))
 		if PIECES.has(ty) and not (ty in player_equip):
 			player_equip.append(ty)
+		elif ty == "SHIELD" and not ("SHIELD" in player_equip):
+			player_equip.append("SHIELD")   # marca p/ desenhar o escudo na off-hand (_make_fighter)
 		elif ty == "WEAPON":
 			player_weapon = _weapon_kind(str(it.get("name", "")), str(it.get("weaponCategory", "")))
 
@@ -493,6 +499,9 @@ func _make_fighter(fname: String, side: int, maxhp: int, weapon_kind: String, eq
 	if not is_monster:
 		_dress(node, skel, equipped_types)   # [GODOT_PAPERDOLL] veste antes da arma
 		_attach_weapon(node, weapon_kind)
+		# escudo na off-hand (LeftHand) — só com arma MELEE (arco usa as duas mãos)
+		if ("SHIELD" in equipped_types) and not _is_bow_kind(weapon_kind):
+			_attach_shield(node)
 	# barra de vida + nome
 	var bar := Node3D.new()
 	add_child(bar)
@@ -1007,6 +1016,27 @@ func _attach_bow(ba: Node3D, kind: String) -> void:
 	var h := 0.95 if kind == "longbow" else 0.55                                                      # longbow alto, shortbow baixo
 	_box(ba, Vector3(0.03, h, 0.03),        Vector3(0.10, 0.07, 0.04), wood, 0.1)                     # corpo do arco
 	_box(ba, Vector3(0.006, h * 0.95, 0.006), Vector3(0.10, 0.07, -0.02), Color(0.85, 0.82, 0.70), 0.0)  # corda
+
+# Escudo (heater) na off-hand — corpo de madeira + borda metálica + umbo. Preso na LeftHand,
+# face virada pra frente. Posição/rotação são chute (calibrar por screenshot, igual arco/besta).
+func _attach_shield(node: Node3D) -> void:
+	var skel: Skeleton3D = node.find_child("GeneralSkeleton", true, false)
+	if skel == null: return
+	var ba := BoneAttachment3D.new()
+	ba.bone_name = "LeftHand"
+	skel.add_child(ba)
+	var holder := Node3D.new()
+	holder.position = Vector3(0.07, 0.0, 0.12)        # afasta da mão, pra frente
+	holder.rotation_degrees = Vector3(90, 0, 0)       # vira a face do escudo pra frente
+	ba.add_child(holder)
+	var wood := Color(0.40, 0.26, 0.14)
+	var rim := Color(0.58, 0.60, 0.64)
+	_box(holder, Vector3(0.34, 0.42, 0.04),  Vector3(0, 0, 0), wood, 0.1)        # corpo (mais alto que largo)
+	_box(holder, Vector3(0.36, 0.045, 0.05), Vector3(0, 0.21, 0), rim, 0.6)      # borda topo
+	_box(holder, Vector3(0.36, 0.045, 0.05), Vector3(0, -0.21, 0), rim, 0.6)     # borda base
+	_box(holder, Vector3(0.045, 0.42, 0.05), Vector3(0.17, 0, 0), rim, 0.6)      # borda direita
+	_box(holder, Vector3(0.045, 0.42, 0.05), Vector3(-0.17, 0, 0), rim, 0.6)     # borda esquerda
+	_sphere(holder, 0.055, Vector3(0, 0, 0.04), rim, 0.6)                        # umbo central
 
 func _box(parent: Node, size: Vector3, pos: Vector3, col: Color, metallic: float) -> void:
 	var mi := MeshInstance3D.new()
