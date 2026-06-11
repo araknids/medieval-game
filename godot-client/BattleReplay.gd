@@ -148,6 +148,7 @@ var melee_f := {}             # lutador que avança
 var victory_label: Label
 var status_label: Label
 var chosen_scenario := ""   # mapa sorteado/usado nesta luta
+var fight_scene := ""        # "scene" que o backend mandou (coast/sea/cave/fortress/tower/arena) → casa o mapa
 var _spray_live := 0        # [GORE] emissores de sangue vivos (cap)
 var _pools: Array = []      # [GORE] poças/decais ativos (cap)
 
@@ -163,11 +164,12 @@ var countdown_t := 0.0       # cronômetro da contagem 3,2,1
 var countdown_label: Label
 
 func _ready() -> void:
-	_setup_scene()
+	_setup_camera()
 	_make_ui()
-	await _load_events()
+	await _load_events()        # define fight_scene (scene do backend)
 	if events.is_empty():
 		return
+	_setup_map()                # monta o mapa JÁ sabendo o reino da luta (scene → mapa)
 	_build_fighters()
 	_frame_camera()
 	phase = "countdown"   # 3,2,1 antes de soltar a luta
@@ -238,6 +240,7 @@ func _apply_fight_json(j: Dictionary, label_keys: Array, win_key: String) -> boo
 	if not (be is Array and be.size() >= 2):
 		return false
 	events = be
+	fight_scene = str(j.get("scene", ""))   # casa o mapa com o reino da luta (_setup_map)
 	var foe := "?"
 	for k in label_keys:
 		if j.has(k) and str(j[k]) != "":
@@ -1262,19 +1265,33 @@ func _popup(pos: Vector3, text: String, color: Color, big: bool) -> void:
 	tw.tween_property(lbl, "modulate:a", 0.0, 0.8)
 	get_tree().create_timer(0.9).timeout.connect(lbl.queue_free)
 
-func _setup_scene() -> void:
+# "scene" do backend → mapa do BattleReplay (casa o cenário com o reino da luta).
+const SCENE_TO_MAP := {
+	"arena": "arena", "tower": "dungeon", "coast": "beach",
+	"sea": "beach", "cave": "mining", "fortress": "castle",
+}
+
+# Câmera só (cedo, antes do fetch). O MAPA é montado depois (_setup_map), já sabendo a scene.
+func _setup_camera() -> void:
 	cam = Camera3D.new()
 	cam.position = Vector3(0.0, 3.0, 5.5)   # default de 1v1; _frame_camera() reenquadra após o spawn
 	cam.look_at_from_position(cam.position, Vector3(0, 1.0, 0), Vector3.UP)
 	add_child(cam)
+
+# Monta o MAPA. Prioridade: scenario fixo (@export) > scene do backend (reino da luta) > sorteio.
+func _setup_map() -> void:
 	var srng := RandomNumberGenerator.new()
 	srng.seed = 20260611
 	var scn := scenario
-	if scn == "":   # vazio = MAPA ALEATÓRIO a cada luta (todos os lugares de luta)
-		var pick := RandomNumberGenerator.new()
-		pick.randomize()
-		scn = SCENARIOS[pick.randi() % SCENARIOS.size()]
-		print("=== mapa aleatório: %s ===" % scn)
+	if scn == "":
+		if fight_scene != "" and SCENE_TO_MAP.has(fight_scene):
+			scn = SCENE_TO_MAP[fight_scene]   # casa o mapa com o reino (coast→beach, cave→mining, …)
+			print("=== mapa pelo reino: scene=%s → %s ===" % [fight_scene, scn])
+		else:
+			var pick := RandomNumberGenerator.new()
+			pick.randomize()
+			scn = SCENARIOS[pick.randi() % SCENARIOS.size()]
+			print("=== mapa aleatório: %s ===" % scn)
 	chosen_scenario = scn
 	if scn == "coliseum":   # coliseu procedural antigo (opcional)
 		_setup_environment()
