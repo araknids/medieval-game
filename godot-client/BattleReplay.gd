@@ -86,6 +86,9 @@ const HIT_TYPES := ["attack", "crit", "volley", "extra"]       # carregam dano/H
 const SWING_TYPES := ["attack", "crit", "volley", "extra", "miss", "dodge"]  # atacante balança a arma
 const RANGED_MARKERS := ["volley", "pinned", "pointblank", "backpedal"]  # delatam um lutador ranged
 const SCENARIOS := ["mining", "beach", "garimpa", "dungeon", "arena", "city", "castle"]  # mapas p/ sorteio
+# Bestas (nomes estilo backend) p/ o modo "monster" sortear — todos casam um monstro em Monsters.pick_for.
+const SHOWCASE_FOES := ["Young Dragon", "Lesser Demon", "Stone Golem", "Sea Serpent", "Mountain Troll",
+	"Rock Spider", "Mine Wraith", "Giant Boar", "Dark Lich", "Colossal Crab", "Crystal Aberration", "Cursed Drowned"]
 
 # [GORE] sangue (sem economia) — cores + caps de performance
 const BLOOD_HIGH := Color(0.55, 0.02, 0.02)
@@ -99,6 +102,11 @@ const MAX_POOLS := 26
 @export var password := "adm123"
 ## Vazio = URL padrão do BackendClient (Railway). "http://localhost:8080" no dev local.
 @export var base_url_override := ""
+## Fonte da luta:
+##   "arena"   = duelo PvP real do backend (oponente = OUTRO PLAYER → humano).
+##   "monster" = luta MOCK local contra um MONSTRO (herói real vs bicho) — p/ VER os monstros
+##               sem precisar de PvE no backend. Usa enemy_monster (se setado) ou sorteia uma besta.
+@export_enum("arena", "monster") var fight_source := "arena"
 ## Cenário de fundo. VAZIO = sorteia um mapa aleatório a cada luta. Fixe um nome (mining/beach/
 ## garimpa/dungeon/arena/city/castle) p/ travar, ou "coliseum" p/ o coliseu procedural antigo.
 @export var scenario := ""
@@ -195,6 +203,13 @@ func _load_events() -> void:
 		events = _mock_events()
 		_status("Modo TESTE — sua arma real vs Bandido (espada)")
 		print("=== force_mock: eventos MOCK, herói real, Bandido = espada ===")
+		return
+
+	if fight_source == "monster":   # luta MOCK local contra um MONSTRO (herói real vs bicho)
+		var foe := enemy_monster if enemy_monster != "" else SHOWCASE_FOES[randi() % SHOWCASE_FOES.size()]
+		events = _mock_monster_events(foe)
+		_status("Monstro: %s (mock local)" % foe)
+		print("=== fight_source=monster: herói real vs %s ===" % foe)
 		return
 
 	_status("Lutando na arena…")
@@ -1399,4 +1414,23 @@ func _mock_events() -> Array:
 		{"type": "crit",   "actor": "Você", "target": "Bandido", "damage": 28, "targetHp": 17, "targetMaxHp": 100, "element": "SUPER", "hitZone": "head"},
 		{"type": "attack", "actor": "Você", "target": "Bandido", "damage": 17, "targetHp": 0,  "targetMaxHp": 100, "element": "", "hitZone": "body"},
 		{"type": "victory", "actor": "Você", "target": "Bandido", "damage": 0, "targetHp": 0, "targetMaxHp": 100, "element": "", "hitZone": ""},
+	]
+
+# Luta MOCK local: herói (equip real) vs um MONSTRO (`foe` vira o spawn da direita → Monsters.pick_for
+# o transforma no bicho). O monstro dá alguns golpes e o herói vence (mostra ataque + morte + sangue).
+func _mock_monster_events(foe: String) -> Array:
+	var EHP := 130   # monstro um pouco mais tankão (HP maior) p/ a luta durar
+	return [
+		{"type": "spawn",  "actor": "Você", "target": "", "damage": 0, "targetHp": 100, "targetMaxHp": 100, "element": "", "hitZone": ""},
+		{"type": "spawn",  "actor": foe,    "target": "", "damage": 0, "targetHp": EHP, "targetMaxHp": EHP, "element": "", "hitZone": ""},
+		{"type": "attack", "actor": foe,    "target": "Você", "damage": 14, "targetHp": 86, "targetMaxHp": 100, "element": "", "hitZone": "body"},
+		{"type": "attack", "actor": "Você", "target": foe,    "damage": 18, "targetHp": EHP - 18, "targetMaxHp": EHP, "element": "", "hitZone": "body"},
+		{"type": "crit",   "actor": foe,    "target": "Você", "damage": 22, "targetHp": 64, "targetMaxHp": 100, "element": "SUPER", "hitZone": "head"},
+		{"type": "attack", "actor": "Você", "target": foe,    "damage": 20, "targetHp": EHP - 38, "targetMaxHp": EHP, "element": "", "hitZone": "legs"},
+		{"type": "attack", "actor": foe,    "target": "Você", "damage": 12, "targetHp": 52, "targetMaxHp": 100, "element": "", "hitZone": "body"},
+		{"type": "crit",   "actor": "Você", "target": foe,    "damage": 34, "targetHp": EHP - 72, "targetMaxHp": EHP, "element": "SUPER", "hitZone": "head"},
+		{"type": "attack", "actor": "Você", "target": foe,    "damage": 24, "targetHp": EHP - 96, "targetMaxHp": EHP, "element": "", "hitZone": "body"},
+		{"type": "attack", "actor": foe,    "target": "Você", "damage": 10, "targetHp": 42, "targetMaxHp": 100, "element": "", "hitZone": "legs"},
+		{"type": "attack", "actor": "Você", "target": foe,    "damage": EHP - 96, "targetHp": 0, "targetMaxHp": EHP, "element": "", "hitZone": "body"},
+		{"type": "victory","actor": "Você", "target": foe,    "damage": 0, "targetHp": 0, "targetMaxHp": EHP, "element": "", "hitZone": ""},
 	]
