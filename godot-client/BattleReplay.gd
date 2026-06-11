@@ -17,7 +17,6 @@ const A_HURT := LIB + "Hit_Chest"
 const A_HURT_HEAD := LIB + "Hit_Head"
 const A_WALK := LIB + "Walk"
 const A_RUN := LIB + "Jog_Fwd"   # corrida — o inimigo vem CORRENDO pra cima
-const A_JUMP := LIB + "Jump"     # salto de escape do arqueiro
 const A_ROLL := LIB + "Roll"   # cambalhota IN-PLACE (Roll_RM tem root-motion e "voa" com o nosso tween)
 const A_DEATH := LIB + "Death01"
 const BARW := 0.7
@@ -28,7 +27,8 @@ const ATTACK_RANGE := 1.35   # alcance em que o melee conecta o golpe
 const MELEE_SPEED := 2.8     # corrida do melee fechando distância (unid/s)
 const ARCHER_SPEED := 2.2    # recuo do arqueiro (kite)
 const ARCHER_PREF := 2.4     # arqueiro recua p/ manter ~esta distância do melee (obriga o melee a perseguir)
-const FIELD_EDGE := 4.5      # borda do campo: o arqueiro recua/salta até aqui (o guerreiro o alcança)
+const FIELD_EDGE := 4.5      # borda do campo: o arqueiro recua até aqui (o guerreiro o alcança)
+const DODGE_LAND := 2.8      # distância ATRÁS do inimigo em que o arqueiro aterrissa após o roll-através
 const WINDUP := 0.18         # s — armar o golpe antes do impacto
 const RECOVER := 0.12        # s — respiro após o impacto antes do próximo evento
 const MAX_WAIT := 2.2        # s — timeout p/ disparar mesmo fora de posição (nunca trava)
@@ -386,28 +386,32 @@ func _play_loop(f: Dictionary, anim_name: String) -> void:
 	if a: a.loop_mode = Animation.LOOP_LINEAR
 	ap.play(nm)
 
-# Salto de escape: pula `dx` unidades pra trás num ARCO (sobe e desce), recuperando
-# distância. O destino é limitado à borda do campo. Anim de Jump em velocidade natural.
-func _evade_jump(f: Dictionary, dx: float) -> void:
-	if f["hopping"] or f["dead"]: return
-	f["hopping"] = true
-	var n: Node3D = f["node"]
-	var ap: AnimationPlayer = f["anim"]
-	var start_x := n.position.x
-	var end_x := clampf(start_x + dx, -FIELD_EDGE, FIELD_EDGE)
+# Roll-através: o arqueiro ROLA PRA FRENTE, passa pelo inimigo e aterrissa DODGE_LAND
+# atrás dele (com espaço pra atacar). A duração do tween = duração do clip do Roll
+# (velocidade natural, anim e deslocamento em sync — não congela nem desliza).
+func _dodge_roll(dodger: Dictionary, attacker: Dictionary) -> void:
+	if dodger["hopping"] or dodger["dead"]: return
+	dodger["hopping"] = true
+	var n: Node3D = dodger["node"]
+	var tn: Node3D = attacker["node"]
+	var toward := signf(tn.position.x - n.position.x)   # direção do rolê: pra cima do inimigo
+	if toward == 0.0: toward = 1.0
+	var land_x := clampf(tn.position.x + toward * DODGE_LAND, -FIELD_EDGE, FIELD_EDGE)
+	_face(dodger, toward)                                # encara a direção do rolê (pra frente)
+	var ap: AnimationPlayer = dodger["anim"]
 	var dur := 0.55
 	if ap:
-		var jmp := A_JUMP if ap.has_animation(A_JUMP) else A_ROLL
-		var a: Animation = ap.get_animation(jmp)
+		var roll := A_ROLL if ap.has_animation(A_ROLL) else A_WALK
+		var a: Animation = ap.get_animation(roll)
 		if a and a.get_length() > 0.05:
 			a.loop_mode = Animation.LOOP_NONE
-		ap.play(jmp)
+			dur = a.get_length()
+		ap.play(roll)
 	var tw := create_tween()
-	tw.tween_method(func(t: float): n.position = Vector3(lerpf(start_x, end_x, t), sin(t * PI) * 0.45, 0.0), 0.0, 1.0, dur)
+	tw.tween_property(n, "position", Vector3(land_x, 0, 0), dur)   # roll = velocidade constante
 	tw.tween_callback(func():
-		n.position = Vector3(end_x, 0, 0)
-		f["hopping"] = false
-		if ap and not f["dead"]: ap.play(A_IDLE))
+		dodger["hopping"] = false
+		if ap and not dodger["dead"]: ap.play(A_IDLE))
 
 # ── cursor de eventos: approach (espera posição) → windup → recover ─────────────
 func _advance(dt: float) -> void:
@@ -507,10 +511,8 @@ func _resolve(e: Dictionary) -> void:
 		var dodger = fighters.get(str(e.get("actor", "")))   # no dodge, o actor é quem esquiva
 		if dodger:
 			_popup(_head(dodger), "DODGE", Color(0.62, 0.81, 1), false)
-			if tgt:   # salta pra LONGE do atacante (tgt = atacante), recuperando distância
-				var away := signf((dodger["node"] as Node3D).position.x - (tgt["node"] as Node3D).position.x)
-				if away == 0.0: away = 1.0
-				_evade_jump(dodger, away * 2.8)
+			if tgt:   # rola PRA FRENTE através do atacante, caindo atrás dele com espaço
+				_dodge_roll(dodger, tgt)
 		if tgt: tgt["hp"] = int(e.get("targetHp", tgt["hp"])); _update_hp(tgt)   # reflect no atacante
 
 func _handle_spawn(e: Dictionary) -> void:
