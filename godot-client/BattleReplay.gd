@@ -329,6 +329,14 @@ func _move_kite(dt: float) -> void:
 	if side == 0.0: side = 1.0
 	var gap := absf(rn.position.x - mn.position.x)
 
+	# Arqueiro rolando ATRAVÉS → CONGELA o guerreiro (só vira pra acompanhar) p/ ele ser
+	# ultrapassado de verdade; senão o melee gruda no rolê e a troca de lado não aparece.
+	if ranged_f["hopping"]:
+		_face(melee_f, side)
+		if not melee_f["busy"] and melee_f["anim"] and melee_f["anim"].current_animation != A_IDLE:
+			melee_f["anim"].play(A_IDLE)
+		return
+
 	# MELEE corre pra fechar até o alcance (sem teleporte: move_toward percorre a distância)
 	var prev_m := mn.position.x
 	var desired_m := rn.position.x - side * (ATTACK_RANGE * 0.9)
@@ -337,8 +345,6 @@ func _move_kite(dt: float) -> void:
 	_locomotion(melee_f, prev_m, mn.position.x)
 
 	# ARQUEIRO: encara; pressionado recua ANDANDO; encurralado na borda PARA (o guerreiro o alcança)
-	if ranged_f["hopping"]:
-		return                       # no meio de um roll de esquiva (evento dodge)
 	_face(ranged_f, -side)
 	var prev_a := rn.position.x
 	if gap < ARCHER_PREF:
