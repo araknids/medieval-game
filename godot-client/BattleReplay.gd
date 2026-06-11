@@ -27,8 +27,7 @@ const ATTACK_RANGE := 1.35   # alcance em que o melee conecta o golpe
 const MELEE_SPEED := 2.8     # corrida do melee fechando distância (unid/s)
 const ARCHER_SPEED := 2.2    # recuo do arqueiro (kite)
 const ARCHER_PREF := 2.4     # arqueiro recua p/ manter ~esta distância do melee (obriga o melee a perseguir)
-const FIELD_EDGE := 3.7      # arqueiro cruza pro outro lado ao ser encurralado
-const CROSS_GAP := 3.2       # distância do GUERREIRO em que o arqueiro aterrissa ao cruzar (respiro)
+const FIELD_EDGE := 3.7      # borda do campo: o arqueiro recua até aqui e para (o guerreiro o alcança)
 const WINDUP := 0.18         # s — armar o golpe antes do impacto
 const RECOVER := 0.12        # s — respiro após o impacto antes do próximo evento
 const MAX_WAIT := 2.2        # s — timeout p/ disparar mesmo fora de posição (nunca trava)
@@ -336,22 +335,20 @@ func _move_kite(dt: float) -> void:
 	_face(melee_f, side)
 	_locomotion(melee_f, prev_m, mn.position.x)
 
-	# ARQUEIRO: encara; pressionado recua ANDANDO; encurralado na borda CRUZA (roll)
+	# ARQUEIRO: encara; pressionado recua ANDANDO; encurralado na borda PARA (o guerreiro o alcança)
 	if ranged_f["hopping"]:
-		return
+		return                       # no meio de um roll de esquiva (evento dodge)
 	_face(ranged_f, -side)
+	var prev_a := rn.position.x
 	if gap < ARCHER_PREF:
-		var next_x := rn.position.x + side * ARCHER_SPEED * dt
-		if absf(next_x) > FIELD_EDGE:
-			# rola pro OUTRO lado do guerreiro, aterrissando CROSS_GAP longe DELE (não coladinho)
-			var land := mn.position.x - side * CROSS_GAP
-			_evade_roll(ranged_f, land - rn.position.x)
-		else:
-			rn.position = Vector3(next_x, 0, 0)
-			if not ranged_f["busy"] and ranged_f["anim"] and ranged_f["anim"].current_animation != A_WALK:
+		var next_x := clampf(rn.position.x + side * ARCHER_SPEED * dt, -FIELD_EDGE, FIELD_EDGE)
+		rn.position = Vector3(next_x, 0, 0)
+	if not ranged_f["busy"] and ranged_f["anim"]:
+		if absf(rn.position.x - prev_a) > 0.004:
+			if ranged_f["anim"].current_animation != A_WALK:
 				ranged_f["anim"].play(A_WALK, -1, -1.0)         # walk em reverso = andar pra trás
-	elif not ranged_f["busy"] and ranged_f["anim"] and ranged_f["anim"].current_animation != A_IDLE:
-		ranged_f["anim"].play(A_IDLE)
+		elif ranged_f["anim"].current_animation != A_IDLE:
+			ranged_f["anim"].play(A_IDLE)
 
 func _move_clash(dt: float) -> void:
 	for i in 2:
@@ -388,23 +385,21 @@ func _play_loop(f: Dictionary, anim_name: String) -> void:
 	if a: a.loop_mode = Animation.LOOP_LINEAR
 	ap.play(nm)
 
-# Cambalhota evasiva: rola `dx` unidades. ESTICA o clip do "Roll" p/ durar todo o
-# deslocamento (uma cambalhota só, contínua) — sem depender de loop (que não pegava
-# na library) nem deixar congelar no último frame deslizando.
+# Cambalhota evasiva curta: o travel dura EXATAMENTE o clip do "Roll" (velocidade natural)
+# → a animação e o deslocamento começam e terminam juntos, sem congelar no meio.
 func _evade_roll(f: Dictionary, dx: float) -> void:
 	if f["hopping"] or f["dead"]: return
 	f["hopping"] = true
 	var n: Node3D = f["node"]
 	var ap: AnimationPlayer = f["anim"]
-	var dur := clampf(absf(dx) / 5.0, 0.45, 1.0)   # ~5 u/s → velocidade de cambalhota
+	var dur := 0.5
 	if ap:
 		var roll := A_ROLL if ap.has_animation(A_ROLL) else A_WALK
 		var a: Animation = ap.get_animation(roll)
-		var spd := 1.0
 		if a and a.get_length() > 0.05:
 			a.loop_mode = Animation.LOOP_NONE
-			spd = a.get_length() / dur             # estica o roll p/ cobrir o deslocamento inteiro
-		ap.play(roll, -1, spd)
+			dur = a.get_length()                   # travel = duração do roll (em sync, natural)
+		ap.play(roll)
 	var tw := create_tween()
 	tw.tween_property(n, "position", Vector3(n.position.x + dx, 0, 0), dur) \
 		.set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
@@ -752,25 +747,40 @@ func _status(msg: String) -> void:
 # Luta MOCK curta e "punchy" (poucos golpes, dano alto) — fácil de seguir e bem sincronizada.
 # mock_enemy_wins=true → o Bandido (espada) vence (testa o melee ganhando o arqueiro).
 func _mock_events() -> Array:
+	# Narrativa: o arqueiro PEPPERA (vários hits pequenos) enquanto o guerreiro corre até ele;
+	# o guerreiro chega e dá POUCOS golpes GRANDES; aí a troca fica equilibrada.
+	# (Os hits do guerreiro só disparam quando ele alcança — o sim segura por alcance.)
 	if mock_enemy_wins:
+		# o guerreiro (espada) vence: peppering do arqueiro não segura os golpões dele.
 		return [
 			{"type": "spawn", "actor": "Você", "target": "", "damage": 0, "targetHp": 100, "targetMaxHp": 100, "element": "", "hitZone": ""},
 			{"type": "spawn", "actor": "Bandido", "target": "", "damage": 0, "targetHp": 100, "targetMaxHp": 100, "element": "", "hitZone": ""},
-			{"type": "attack", "actor": "Você", "target": "Bandido", "damage": 22, "targetHp": 78, "targetMaxHp": 100, "element": "", "hitZone": "body"},
-			{"type": "attack", "actor": "Bandido", "target": "Você", "damage": 30, "targetHp": 70, "targetMaxHp": 100, "element": "", "hitZone": "body"},
-			{"type": "attack", "actor": "Você", "target": "Bandido", "damage": 18, "targetHp": 60, "targetMaxHp": 100, "element": "", "hitZone": "body"},
-			{"type": "crit", "actor": "Bandido", "target": "Você", "damage": 40, "targetHp": 30, "targetMaxHp": 100, "element": "SUPER", "hitZone": "head"},
-			{"type": "miss", "actor": "Você", "target": "Bandido", "damage": 0, "targetHp": 60, "targetMaxHp": 100, "element": "", "hitZone": ""},
-			{"type": "attack", "actor": "Bandido", "target": "Você", "damage": 30, "targetHp": 0, "targetMaxHp": 100, "element": "", "hitZone": "body"},
+			{"type": "attack", "actor": "Você", "target": "Bandido", "damage": 11, "targetHp": 89, "targetMaxHp": 100, "element": "", "hitZone": "body"},
+			{"type": "attack", "actor": "Você", "target": "Bandido", "damage": 9,  "targetHp": 80, "targetMaxHp": 100, "element": "", "hitZone": "legs"},
+			{"type": "attack", "actor": "Você", "target": "Bandido", "damage": 12, "targetHp": 68, "targetMaxHp": 100, "element": "", "hitZone": "body"},
+			{"type": "miss",   "actor": "Você", "target": "Bandido", "damage": 0,  "targetHp": 68, "targetMaxHp": 100, "element": "", "hitZone": ""},
+			{"type": "crit",   "actor": "Bandido", "target": "Você", "damage": 34, "targetHp": 66, "targetMaxHp": 100, "element": "SUPER", "hitZone": "head"},
+			{"type": "dodge",  "actor": "Você", "target": "Bandido", "damage": 0,  "targetHp": 68, "targetMaxHp": 100, "element": "", "hitZone": ""},
+			{"type": "attack", "actor": "Você", "target": "Bandido", "damage": 10, "targetHp": 58, "targetMaxHp": 100, "element": "", "hitZone": "body"},
+			{"type": "attack", "actor": "Bandido", "target": "Você", "damage": 30, "targetHp": 36, "targetMaxHp": 100, "element": "", "hitZone": "body"},
+			{"type": "attack", "actor": "Você", "target": "Bandido", "damage": 11, "targetHp": 47, "targetMaxHp": 100, "element": "", "hitZone": "body"},
+			{"type": "attack", "actor": "Bandido", "target": "Você", "damage": 36, "targetHp": 0,  "targetMaxHp": 100, "element": "", "hitZone": "body"},
 			{"type": "victory", "actor": "Bandido", "target": "Você", "damage": 0, "targetHp": 0, "targetMaxHp": 100, "element": "", "hitZone": ""},
 		]
+	# o arqueiro vence: peppera muito no começo e fecha quando o guerreiro chega.
 	return [
 		{"type": "spawn", "actor": "Você", "target": "", "damage": 0, "targetHp": 100, "targetMaxHp": 100, "element": "", "hitZone": ""},
 		{"type": "spawn", "actor": "Bandido", "target": "", "damage": 0, "targetHp": 100, "targetMaxHp": 100, "element": "", "hitZone": ""},
-		{"type": "attack", "actor": "Você", "target": "Bandido", "damage": 32, "targetHp": 68, "targetMaxHp": 100, "element": "", "hitZone": "body"},
-		{"type": "attack", "actor": "Bandido", "target": "Você", "damage": 28, "targetHp": 72, "targetMaxHp": 100, "element": "", "hitZone": "body"},
-		{"type": "crit", "actor": "Você", "target": "Bandido", "damage": 45, "targetHp": 23, "targetMaxHp": 100, "element": "SUPER", "hitZone": "head"},
-		{"type": "dodge", "actor": "Você", "target": "Bandido", "damage": 0, "targetHp": 23, "targetMaxHp": 100, "element": "", "hitZone": ""},
-		{"type": "attack", "actor": "Você", "target": "Bandido", "damage": 23, "targetHp": 0, "targetMaxHp": 100, "element": "", "hitZone": "body"},
+		{"type": "attack", "actor": "Você", "target": "Bandido", "damage": 10, "targetHp": 90, "targetMaxHp": 100, "element": "", "hitZone": "body"},
+		{"type": "attack", "actor": "Você", "target": "Bandido", "damage": 12, "targetHp": 78, "targetMaxHp": 100, "element": "", "hitZone": "legs"},
+		{"type": "attack", "actor": "Você", "target": "Bandido", "damage": 9,  "targetHp": 69, "targetMaxHp": 100, "element": "", "hitZone": "body"},
+		{"type": "miss",   "actor": "Você", "target": "Bandido", "damage": 0,  "targetHp": 69, "targetMaxHp": 100, "element": "", "hitZone": ""},
+		{"type": "attack", "actor": "Você", "target": "Bandido", "damage": 11, "targetHp": 58, "targetMaxHp": 100, "element": "", "hitZone": "body"},
+		{"type": "attack", "actor": "Bandido", "target": "Você", "damage": 26, "targetHp": 74, "targetMaxHp": 100, "element": "", "hitZone": "body"},
+		{"type": "dodge",  "actor": "Você", "target": "Bandido", "damage": 0,  "targetHp": 58, "targetMaxHp": 100, "element": "", "hitZone": ""},
+		{"type": "attack", "actor": "Você", "target": "Bandido", "damage": 13, "targetHp": 45, "targetMaxHp": 100, "element": "", "hitZone": "body"},
+		{"type": "attack", "actor": "Bandido", "target": "Você", "damage": 24, "targetHp": 50, "targetMaxHp": 100, "element": "", "hitZone": "body"},
+		{"type": "crit",   "actor": "Você", "target": "Bandido", "damage": 28, "targetHp": 17, "targetMaxHp": 100, "element": "SUPER", "hitZone": "head"},
+		{"type": "attack", "actor": "Você", "target": "Bandido", "damage": 17, "targetHp": 0,  "targetMaxHp": 100, "element": "", "hitZone": "body"},
 		{"type": "victory", "actor": "Você", "target": "Bandido", "damage": 0, "targetHp": 0, "targetMaxHp": 100, "element": "", "hitZone": ""},
 	]
