@@ -96,6 +96,9 @@ const BLOOD_LOW := Color(0.22, 0.0, 0.0)
 const POOL_TINT := Color(0.35, 0.0, 0.0)
 const MAX_SPRAYS := 12
 const MAX_POOLS := 26
+# [GORE] desmembramento: pedaços/membros voando (RigidBody) — cores de carne/sangue + cap
+const MAX_GIBS := 40
+const GORE_COLORS := [Color(0.5, 0.08, 0.08), Color(0.42, 0.05, 0.05), Color(0.62, 0.22, 0.18), Color(0.45, 0.12, 0.1)]
 
 ## Credenciais (sobrepostas por login.cfg se existir). adm/adm123 só vale no DEV local.
 @export var username := "adm"
@@ -151,6 +154,7 @@ var chosen_scenario := ""   # mapa sorteado/usado nesta luta
 var fight_scene := ""        # "scene" que o backend mandou (coast/sea/cave/fortress/tower/arena) → casa o mapa
 var _spray_live := 0        # [GORE] emissores de sangue vivos (cap)
 var _pools: Array = []      # [GORE] poças/decais ativos (cap)
+var _gibs: Array = []       # [GORE] pedaços/membros (RigidBody) ativos (cap)
 
 # director dirigido por simulação: movimento contínuo + cursor de evento com gatilho por posição
 var phase := "loading"      # loading → fight → done
@@ -859,6 +863,9 @@ func _resolve(e: Dictionary) -> void:
 			# [GORE] sangue na zona do golpe, na direção atacante→alvo
 			var bdir := Vector3.RIGHT
 			if act: bdir = ((tgt["node"] as Node3D).global_position - (act["node"] as Node3D).global_position) * Vector3(1, 0, 1)
+			# guarda a direção/força do golpe p/ o desmembramento direcional no _kill
+			tgt["last_hit_dir"] = bdir.normalized() if bdir.length() > 0.01 else Vector3.RIGHT
+			tgt["last_hit_crit"] = big
 			var bpos := _hit_pos(tgt, str(e.get("hitZone", "")))
 			_blood_spray(bpos, bdir, dmg, big, elem)
 			if big: _blood_mist(bpos)
@@ -1039,27 +1046,75 @@ func _kill(f: Dictionary) -> void:
 	f["hp"] = 0          # vitória por decisão/timeout pode matar com HP>0
 	f["shown_hp"] = 0.0  # zera a barra NA HORA da morte (o drain suave é só p/ golpes não-fatais)
 	_apply_hp_bar(f)
-	# [GORE] golpe fatal: explosão de sangue + névoa + gotejamento + poça grande sob o corpo
-	_blood_spray(_chest(f), Vector3.UP, 32, true)
+	var node: Node3D = f["node"]
+	# direção do golpe fatal (cai pra "longe do centro" se a morte não veio de um golpe — vitória/decisão)
+	var dir: Vector3 = f.get("last_hit_dir", Vector3(signf(node.position.x), 0, 0))
+	if dir.length() < 0.01: dir = Vector3.RIGHT
+	dir = dir.normalized()
+	var brutal: bool = f.get("last_hit_crit", false)
+	# [GORE] golpe fatal: jato de sangue (pra cima + na direção) + névoa + gotejamento + poça grande
+	_blood_spray(_chest(f), Vector3.UP * 1.6 + dir * 0.8, 40 if brutal else 30, true)
 	_blood_mist(_chest(f))
 	_blood_drip(f)
+	# [GORE] DESMEMBRAMENTO: membros/pedaços voam na direção do golpe (humano E monstro)
+	_gore_burst(_chest(f), dir, 9 if brutal else 5)
 	get_tree().create_timer(0.8).timeout.connect(func():
 		if is_instance_valid(f["node"]): _blood_pool((f["node"] as Node3D).global_position, true))
-	var node: Node3D = f["node"]
 	var skel: Skeleton3D = node.find_child("GeneralSkeleton", true, false)
 	if skel and _has_physical_bones(skel):
 		if f["anim"]: f["anim"].stop()
 		skel.physical_bones_start_simulation()
-		var push := signf(node.position.x)
-		if push == 0.0: push = 1.0
-		for c in skel.get_children():
+		var force := 3.4 if brutal else 2.6
+		for c in skel.get_children():   # ragdoll EMPURRADO na direção do golpe
 			if c is PhysicalBone3D and (c.bone_name in ["Spine", "Spine1", "Spine2", "Hips"]):
-				(c as PhysicalBone3D).apply_central_impulse(Vector3(push * 2.5, 1.2, 0.0))
+				(c as PhysicalBone3D).apply_central_impulse(Vector3(dir.x * force, 1.5, dir.z * force))
 	elif f["anim"]:
 		var death_clip := _clip(f, "death")
 		var d: Animation = f["anim"].get_animation(death_clip)
 		if d: d.loop_mode = Animation.LOOP_NONE
 		f["anim"].play(death_clip, BLEND)
+
+# [GORE] DESMEMBRAMENTO: dispara `count` pedaços (membros=cápsula, cabeça=esfera, naco=cubo) como
+# RigidBody3D voando na direção `dir` + pra cima, com giro. Caem no chão e somem (~4s). Cap MAX_GIBS.
+func _gore_burst(pos: Vector3, dir: Vector3, count: int) -> void:
+	for i in count:
+		var rb := RigidBody3D.new()
+		var mi := MeshInstance3D.new()
+		var col := CollisionShape3D.new()
+		var kind := i % 6
+		if kind <= 1:                       # MEMBRO (braço/perna)
+			var cm := CapsuleMesh.new(); cm.radius = 0.07; cm.height = 0.36
+			mi.mesh = cm
+			var cs := CapsuleShape3D.new(); cs.radius = 0.07; cs.height = 0.36
+			col.shape = cs
+		elif kind == 2:                     # "cabeça"
+			var sm := SphereMesh.new(); sm.radius = 0.13; sm.height = 0.26
+			mi.mesh = sm
+			var ss := SphereShape3D.new(); ss.radius = 0.13
+			col.shape = ss
+		else:                               # naco de carne
+			var bm := BoxMesh.new(); bm.size = Vector3(0.13, 0.13, 0.13)
+			mi.mesh = bm
+			var bs := BoxShape3D.new(); bs.size = Vector3(0.13, 0.13, 0.13)
+			col.shape = bs
+		var mat := StandardMaterial3D.new()
+		mat.albedo_color = GORE_COLORS[i % GORE_COLORS.size()]
+		mat.roughness = 0.85
+		mi.material_override = mat
+		rb.add_child(mi)
+		rb.add_child(col)
+		add_child(rb)
+		rb.global_position = pos + Vector3(randf_range(-0.2, 0.2), randf_range(-0.1, 0.35), randf_range(-0.2, 0.2))
+		rb.linear_velocity = Vector3(dir.x * randf_range(1.5, 3.5) + randf_range(-1.0, 1.0),
+				randf_range(2.5, 4.5),
+				dir.z * randf_range(1.5, 3.5) + randf_range(-1.0, 1.0))
+		rb.angular_velocity = Vector3(randf_range(-12, 12), randf_range(-12, 12), randf_range(-12, 12))
+		_gibs.append(rb)
+		get_tree().create_timer(randf_range(3.5, 5.0)).timeout.connect(func():
+			if is_instance_valid(rb): rb.queue_free())
+	while _gibs.size() > MAX_GIBS:   # cap: remove os mais antigos
+		var old = _gibs.pop_front()
+		if is_instance_valid(old): old.queue_free()
 
 func _has_physical_bones(skel: Skeleton3D) -> bool:
 	for c in skel.get_children():
