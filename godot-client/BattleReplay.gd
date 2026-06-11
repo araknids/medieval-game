@@ -114,6 +114,8 @@ const MAX_POOLS := 26
 @export var monster_face_offset_deg := 0.0
 ## Câmera: 0 = AUTO (escolhe pela qtde de lutadores) · 1 = 1v1 · 2 = até 3×3 · 3 = 5×5. Teclas 1/2/3 trocam ao vivo.
 @export var cam_preset := 0
+## Pós-processo grimdark (vinheta + grade + bloom/SSAO) nos mapas do Scenery. [GODOT_GRIMDARK]
+@export var grimdark := true
 
 var events: Array = []
 var fighters := {}          # name -> dict do lutador
@@ -1158,7 +1160,7 @@ func _setup_scene() -> void:
 		_setup_arena()
 	else:
 		var sc := Scenery.new()
-		sc.build(self, scn, srng, FIELD_EDGE + 1.5)   # centro livre p/ os lutadores
+		sc.build(self, scn, srng, FIELD_EDGE + 1.5, grimdark)   # centro livre p/ os lutadores
 
 # Céu procedural quente + névoa + tonemap/glow → mood de fim de tarde no coliseu.
 func _setup_environment() -> void:

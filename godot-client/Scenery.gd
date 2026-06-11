@@ -10,8 +10,39 @@ extends RefCounted
 const NAT := "res://assets/world/nature/"
 const VIL := "res://assets/world/village/"   # kit Medieval Village (grade de 2m: piso 2x2, parede 2x3m)
 
+# [GODOT_GRIMDARK] pós-processo de clima sombrio (ligado por padrão). Design: docs/PLANO_GODOT_GRIMDARK.md
+var grimdark := true
+
+# Shader de tela (overlay full-screen): vinheta + dessaturação + contraste + tint + grão.
+# Lê o frame já renderizado (3D) via hint_screen_texture e devolve a versão "grimdark".
+const GRIMDARK_SHADER := """
+shader_type canvas_item;
+uniform sampler2D screen_tex : hint_screen_texture, filter_linear_mipmap;
+uniform float vignette = 0.5;      // quão escuros ficam os cantos
+uniform float vradius = 0.55;      // onde a vinheta começa (0=centro, 1=canto)
+uniform float saturation = 0.85;   // <1 dessatura (grimdark = cor contida)
+uniform float contrast = 1.08;     // sombras mais fundas
+uniform vec3  tint = vec3(1.03, 0.99, 0.92);  // leve sépia/quente
+uniform float grain = 0.035;       // grão de filme animado
+void fragment() {
+	vec3 col = texture(screen_tex, SCREEN_UV).rgb;
+	col = (col - 0.5) * contrast + 0.5;
+	float l = dot(col, vec3(0.299, 0.587, 0.114));
+	col = mix(vec3(l), col, saturation);
+	col *= tint;
+	float n = fract(sin(dot(SCREEN_UV * (TIME + 1.0), vec2(12.9898, 78.233))) * 43758.5453);
+	col += (n - 0.5) * grain;
+	float d = length(SCREEN_UV - vec2(0.5)) * 1.41421;
+	float vig = smoothstep(vradius, 1.0, d);
+	col *= mix(1.0, 1.0 - vignette, vig);
+	COLOR = vec4(clamp(col, 0.0, 1.0), 1.0);
+}
+"""
+
 # Dispatcher: escolhe iluminação + geometria pelo nome do cenário.
-func build(host: Node3D, scenario: String, rng: RandomNumberGenerator, combat_r: float) -> void:
+# grim=false desliga o pós-processo grimdark (look cru de cada perfil) — p/ A/B.
+func build(host: Node3D, scenario: String, rng: RandomNumberGenerator, combat_r: float, grim := true) -> void:
+	grimdark = grim
 	match scenario:
 		"beach":
 			dusk_lighting(host)
@@ -34,6 +65,43 @@ func build(host: Node3D, scenario: String, rng: RandomNumberGenerator, combat_r:
 		_:  # "mining" (default)
 			night_lighting(host)
 			mining(host, rng, combat_r)
+	_grimdark_overlay(host)   # filtro de tela (vinheta+grade) por cima de qualquer mapa
+
+# [GODOT_GRIMDARK] grade no Environment (no pipeline 3D): bloom dos emissivos + SSAO + exposição.
+# Chamado no fim dos 4 perfis de luz — sobrescreve o glow de cada um por um valor unificado.
+func grimdark_grade(env: Environment) -> void:
+	if not grimdark: return
+	# GLOW: só emissivos FORTES florescem (tochas, sangue, minério) — não lava a cena toda
+	env.glow_enabled = true
+	env.glow_intensity = 0.55
+	env.glow_strength = 1.0
+	env.glow_bloom = 0.12
+	env.glow_hdr_threshold = 0.95
+	env.glow_blend_mode = Environment.GLOW_BLEND_MODE_SCREEN
+	# SSAO: oclusão de contato → cantos/junções encardidos (Forward+; ignorado de boa em Compatibility)
+	env.ssao_enabled = true
+	env.ssao_radius = 1.1
+	env.ssao_intensity = 1.8
+	env.ssao_power = 1.5
+	# exposição levemente pra baixo → mood mais sombrio
+	env.tonemap_exposure = 0.92
+
+# [GODOT_GRIMDARK] overlay de tela: CanvasLayer(0) + ColorRect full-screen com o GRIMDARK_SHADER.
+# layer 0 fica ABAIXO da UI da batalha (layer 1, criada depois) → números/vitória continuam limpos.
+func _grimdark_overlay(host: Node3D) -> void:
+	if not grimdark: return
+	var layer := CanvasLayer.new()
+	layer.layer = 0
+	host.add_child(layer)
+	var rect := ColorRect.new()
+	rect.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	rect.mouse_filter = Control.MOUSE_FILTER_IGNORE   # não rouba clique/hover
+	var sh := Shader.new()
+	sh.code = GRIMDARK_SHADER
+	var mat := ShaderMaterial.new()
+	mat.shader = sh
+	rect.material = mat
+	layer.add_child(rect)
 
 # ── iluminação NOTURNA (some o céu cinza: céu escuro + luar frio) ────────────────
 func night_lighting(host: Node3D) -> void:
@@ -56,6 +124,7 @@ func night_lighting(host: Node3D) -> void:
 	env.glow_enabled = true
 	env.glow_intensity = 0.35
 	env.glow_bloom = 0.1
+	grimdark_grade(env)
 	var we := WorldEnvironment.new()
 	we.environment = env
 	host.add_child(we)
@@ -87,6 +156,7 @@ func dusk_lighting(host: Node3D) -> void:
 	env.glow_enabled = true
 	env.glow_intensity = 0.4
 	env.glow_bloom = 0.1
+	grimdark_grade(env)
 	var we := WorldEnvironment.new()
 	we.environment = env
 	host.add_child(we)
@@ -373,6 +443,7 @@ func day_lighting(host: Node3D) -> void:
 	env.fog_enabled = true
 	env.fog_light_color = Color(0.75, 0.82, 0.86)
 	env.fog_density = 0.004
+	grimdark_grade(env)
 	var we := WorldEnvironment.new()
 	we.environment = env
 	host.add_child(we)
@@ -449,6 +520,7 @@ func dungeon_lighting(host: Node3D) -> void:
 	env.glow_enabled = true
 	env.glow_intensity = 0.4
 	env.glow_bloom = 0.1
+	grimdark_grade(env)
 	var we := WorldEnvironment.new()
 	we.environment = env
 	host.add_child(we)

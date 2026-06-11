@@ -10,6 +10,8 @@ const Scenery := preload("res://Scenery.gd")
 @export var scenario := "mining"
 ## Velocidade de órbita da câmera (graus/s). 0 = parada.
 @export var orbit_speed := 12.0
+## Pós-processo grimdark (vinheta + grade + bloom/SSAO). Desligue p/ comparar A/B. [GODOT_GRIMDARK]
+@export var grimdark := true
 
 var cam: Camera3D
 var cam_angle := 0.0
@@ -18,7 +20,7 @@ var rng := RandomNumberGenerator.new()
 func _ready() -> void:
 	rng.seed = 20260611
 	var sc := Scenery.new()
-	sc.build(self, scenario, rng, 6.0)   # "mining" | "beach"
+	sc.build(self, scenario, rng, 6.0, grimdark)   # "mining" | "beach" …
 	_add_scale_char()
 	cam = Camera3D.new()
 	add_child(cam)
