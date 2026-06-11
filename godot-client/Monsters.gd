@@ -35,9 +35,9 @@ func local_aabb(root: Node3D) -> AABB:
 	var acc := AABB()
 	var has := false
 	var inv := root.global_transform.affine_inverse()
-	for vi in _visuals(root):
+	for vi: VisualInstance3D in _visuals(root):
 		var a: AABB = vi.get_aabb()
-		var rel := inv * vi.global_transform
+		var rel: Transform3D = inv * vi.global_transform
 		for i in 8:
 			var corner := a.position + Vector3(
 				a.size.x if (i & 1) else 0.0,
