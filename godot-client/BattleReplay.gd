@@ -130,10 +130,11 @@ const GORE_COLORS := [Color(0.5, 0.08, 0.08), Color(0.42, 0.05, 0.05), Color(0.6
 @export var force_weapon := ""
 ## TESTE: força um ESCUDO na off-hand do herói (some com arco). Vazio/false = só se equipado de verdade.
 @export var force_shield := false
-## CALIBRAÇÃO do escudo (na LeftHand). Arraste no Inspector e re-F6 até encaixar; me passe os valores.
-## shield_rot.y gira a FACE (de lado ↔ pra frente); shield_pos move (X=lados, Y=cima/baixo, Z=frente/trás).
-@export var shield_pos := Vector3(-0.12, 0.06, 0.10)
-@export var shield_rot := Vector3(0, 0, 0)
+## Escudo (off-hand): offset em ESPAÇO DO OSSO p/ POSICIONAR (a orientação é automática, virada pra frente).
+## Ajuste no Inspector + re-F6 se precisar assentar melhor no antebraço. Y desliza p/ o pulso; X/Z = pra fora.
+@export var shield_grip := Vector3(-0.05, 0.18, 0.0)
+## Vira a face do escudo (use se o umbo ficar virado pro CORPO em vez do inimigo).
+@export var shield_flip := false
 ## (Legado) escala manual do monstro — hoje o tamanho vem do roster (Monsters.size_for) + auto-fit.
 @export var monster_scale := 1.0
 ## Giro extra do monstro em Y (graus) se ele nascer de lado/de costas. Tente 0, 90, 180, -90.
@@ -1021,17 +1022,18 @@ func _attach_bow(ba: Node3D, kind: String) -> void:
 	_box(ba, Vector3(0.03, h, 0.03),        Vector3(0.10, 0.07, 0.04), wood, 0.1)                     # corpo do arco
 	_box(ba, Vector3(0.006, h * 0.95, 0.006), Vector3(0.10, 0.07, -0.02), Color(0.85, 0.82, 0.70), 0.0)  # corda
 
-# Escudo (heater) na off-hand — corpo de madeira + borda metálica + umbo. Preso na LeftHand,
-# face virada pra frente. Posição/rotação são chute (calibrar por screenshot, igual arco/besta).
+# Escudo (heater) na off-hand. [Fable] A rotação local de um osso é ANIMADA → euler fixo nunca encaixa.
+# Solução: holder com top_level=true (ignora a rotação do osso) e realinhado todo frame via
+# skeleton_updated — POSIÇÃO segue o antebraço; FACE (+Z, umbo) = pra frente (longe do centro), UP = mundo.
 func _attach_shield(node: Node3D) -> void:
 	var skel: Skeleton3D = node.find_child("GeneralSkeleton", true, false)
 	if skel == null: return
+	var bone := "LeftLowerArm" if skel.find_bone("LeftLowerArm") != -1 else "LeftHand"
 	var ba := BoneAttachment3D.new()
-	ba.bone_name = "LeftHand"
+	ba.bone_name = bone
 	skel.add_child(ba)
 	var holder := Node3D.new()
-	holder.position = shield_pos          # calibrável no Inspector (ver @export shield_pos/shield_rot)
-	holder.rotation_degrees = shield_rot
+	holder.top_level = true               # destaca da rotação do osso; dirigimos o transform GLOBAL
 	ba.add_child(holder)
 	var wood := Color(0.40, 0.26, 0.14)
 	var rim := Color(0.58, 0.60, 0.64)
@@ -1040,7 +1042,17 @@ func _attach_shield(node: Node3D) -> void:
 	_box(holder, Vector3(0.36, 0.045, 0.05), Vector3(0, -0.21, 0), rim, 0.6)     # borda base
 	_box(holder, Vector3(0.045, 0.42, 0.05), Vector3(0.17, 0, 0), rim, 0.6)      # borda direita
 	_box(holder, Vector3(0.045, 0.42, 0.05), Vector3(-0.17, 0, 0), rim, 0.6)     # borda esquerda
-	_sphere(holder, 0.055, Vector3(0, 0, 0.04), rim, 0.6)                        # umbo central
+	_sphere(holder, 0.055, Vector3(0, 0, 0.04), rim, 0.6)                        # umbo (frente, +Z)
+	var grip := shield_grip
+	var flip := shield_flip
+	skel.skeleton_updated.connect(func() -> void:
+		if not is_instance_valid(holder) or not is_instance_valid(node): return
+		var fwd := Vector3(-signf(node.global_position.x), 0.0, 0.0)   # pra frente = rumo ao centro/inimigo
+		if fwd.length() < 0.01: fwd = Vector3.LEFT
+		if flip: fwd = -fwd
+		var rx := Vector3.UP.cross(fwd).normalized()
+		var ry := fwd.cross(rx)
+		holder.global_transform = Transform3D(Basis(rx, ry, fwd), ba.global_transform * grip))   # 2º ) fecha o connect(
 
 func _box(parent: Node, size: Vector3, pos: Vector3, col: Color, metallic: float) -> void:
 	var mi := MeshInstance3D.new()
