@@ -12,6 +12,13 @@ concurrency:
   group: ci-${{ github.ref }}
   cancel-in-progress: true
 
+# Repo PÚBLICO: o GITHUB_TOKEN vem read-only por padrão. O dorny/test-reporter
+# precisa de `checks: write` p/ publicar o relatório JUnit (senão dá
+# "Resource not accessible by integration"). [CI_PUBLICO]
+permissions:
+  contents: read
+  checks: write
+
 jobs:
   test:
     name: Unit + Integration Tests
@@ -43,7 +50,9 @@ jobs:
           name: Resultados JUnit
           path: backend/target/surefire-reports/*.xml
           reporter: java-junit
-          fail-on-error: true
+          # O passo do mvn test já falha o job em teste quebrado; o reporter é só
+          # publicação — não deve derrubar o build se a API de checks vacilar. [CI_PUBLICO]
+          fail-on-error: false
 
   # [TESTE_POSTGRES] roda a MESMA suíte no Postgres real (Testcontainers) — pega o que o H2 não pega
   # (SchemaMigrator com DO $$, check-constraints de enum, índices). O runner do GitHub já tem Docker.
@@ -76,4 +85,6 @@ jobs:
           name: Resultados JUnit (Postgres)
           path: backend/target/surefire-reports/*.xml
           reporter: java-junit
-          fail-on-error: true
+          # O passo do mvn test já falha o job em teste quebrado; o reporter é só
+          # publicação — não deve derrubar o build se a API de checks vacilar. [CI_PUBLICO]
+          fail-on-error: false
