@@ -20,6 +20,12 @@ const A_RUN := LIB + "Jog_Fwd"   # corrida — o inimigo vem CORRENDO pra cima
 const A_ROLL := LIB + "Roll"   # cambalhota IN-PLACE (Roll_RM tem root-motion e "voa" com o nosso tween)
 const A_DANCE := LIB + "Dance"   # warm-up durante a contagem
 const A_DEATH := LIB + "Death01"
+
+# UAL2 (lib que o dono baixou) — variações de golpe de espada (A/B/C) + combo no crit
+const LIB2 := "UAL2_Standard/"
+const UAL2_PATH := "res://addons/quaternius_ik_rigged/UAL2_Standard.glb"
+const SWORD_ATTACKS := [LIB2 + "Sword_Regular_A", LIB2 + "Sword_Regular_B", LIB2 + "Sword_Regular_C"]
+const SWORD_COMBO := LIB2 + "Sword_Regular_Combo"
 const BARW := 0.7
 
 # combate dirigido por SIMULAÇÃO: o movimento é CONTÍNUO; cada evento de dano só dispara
@@ -279,6 +285,11 @@ func _make_fighter(fname: String, side: int, maxhp: int, weapon_kind: String, eq
 	node.scale = Vector3(0.92, 0.92, 0.92)
 	var ranged := weapon_kind == "bow"
 	var ap: AnimationPlayer = node.find_child("AnimationPlayer", true, false)
+	# liga a lib UAL2 (variações de espada) no AnimationPlayer, se ainda não estiver
+	if ap and not ap.has_animation_library("UAL2_Standard"):
+		var lib2 = load(UAL2_PATH)
+		if lib2 is AnimationLibrary:
+			ap.add_animation_library("UAL2_Standard", lib2)
 	var skel: Skeleton3D = node.find_child("GeneralSkeleton", true, false)
 	var f := {"name": fname, "node": node, "anim": ap, "side": side, "ranged": ranged,
 			  "dead": false, "maxhp": max(1, maxhp), "hp": max(1, maxhp), "busy": false, "hopping": false,
@@ -546,7 +557,20 @@ func _begin(e: Dictionary) -> void:
 		_face(sw, signf((other["node"] as Node3D).position.x - (sw["node"] as Node3D).position.x))
 	sw["busy"] = true
 	if sw["anim"]:
-		sw["anim"].play(A_SHOOT if sw["ranged"] else A_ATTACK, BLEND)
+		var clip := A_SHOOT
+		if not sw["ranged"]:
+			clip = _combo_clip(sw["anim"]) if ty == "crit" else _rand_sword(sw["anim"])
+		sw["anim"].play(clip, BLEND)
+
+# Golpe de espada aleatório (A/B/C da UAL2; fallback Sword_Attack da UAL1).
+func _rand_sword(ap: AnimationPlayer) -> String:
+	var pool: Array = SWORD_ATTACKS.filter(func(a): return ap.has_animation(a))
+	if pool.is_empty(): return A_ATTACK
+	return pool[randi() % pool.size()]
+
+# Combo do crit (UAL2); fallback p/ um golpe normal se não existir.
+func _combo_clip(ap: AnimationPlayer) -> String:
+	return SWORD_COMBO if ap.has_animation(SWORD_COMBO) else _rand_sword(ap)
 
 # Resolve o evento: aplica dano/HP/flinch/flecha/popup/morte (espelha o antigo impact+step_end).
 func _resolve(e: Dictionary) -> void:
@@ -575,10 +599,6 @@ func _resolve(e: Dictionary) -> void:
 			var elem := str(e.get("element", ""))
 			if elem == "SUPER": _popup(_head(tgt), "✦", Color(1, 0.82, 0.29), false)
 			elif elem == "RESIST": _popup(_head(tgt), "🛡", Color(0.5, 0.69, 1), false)
-			# combo no CRIT: 2º golpe de espada no impacto (só temos Sword_Attack → reusa)
-			if big and act and not act["ranged"] and act["anim"]:
-				act["anim"].play(A_ATTACK, 0.05)
-				act["busy"] = true
 		tgt["hp"] = int(e.get("targetHp", tgt["hp"]))
 		_update_hp(tgt)
 		if tgt["hp"] <= 0: _kill(tgt)
