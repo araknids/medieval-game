@@ -34,3 +34,6 @@ backend/target/
 
 # Packs de asset crus (CC0), so bloat de repo
 assets externos/
+
+# Mundos/cenarios 3D (packs Quaternius copiados, pesados — local only) [GODOT_3D]
+godot-client/assets/world/
