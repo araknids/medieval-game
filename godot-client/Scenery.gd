@@ -172,12 +172,13 @@ func _water(host: Node3D, center: Vector3, size: float) -> void:
 	pm.size = Vector2(size, size)
 	mi.mesh = pm
 	var m := StandardMaterial3D.new()
-	m.albedo_color = Color(0.07, 0.30, 0.46)   # azul-petróleo opaco (lê como mar)
+	m.albedo_color = Color(0.08, 0.45, 0.66)   # azul-turquesa forte
 	m.metallic = 0.6
-	m.roughness = 0.12
+	m.roughness = 0.14
+	# emissão AZUL (ignora a luz laranja do pôr do sol) → a água lê como azul mesmo no entardecer
 	m.emission_enabled = true
-	m.emission = Color(0.5, 0.30, 0.18)
-	m.emission_energy_multiplier = 0.08
+	m.emission = Color(0.08, 0.42, 0.62)
+	m.emission_energy_multiplier = 0.6
 	mi.material_override = m
 	mi.position = center
 	host.add_child(mi)
