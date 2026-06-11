@@ -397,8 +397,9 @@ func _step_toward(f: Dictionary, desired_x: float, max_speed: float, dt: float) 
 	var n: Node3D = f["node"]
 	var dist := desired_x - n.position.x
 	var target_v := clampf(absf(dist) / 0.22, 0.0, max_speed) * signf(dist)   # zona de frenagem
-	f["vel"] = move_toward(f["vel"], target_v, ACCEL * dt)
-	var new_x := n.position.x + f["vel"] * dt
+	var vel: float = move_toward(float(f["vel"]), target_v, ACCEL * dt)
+	f["vel"] = vel
+	var new_x: float = n.position.x + vel * dt
 	n.position = Vector3(new_x, 0, 0)
 	return new_x
 
