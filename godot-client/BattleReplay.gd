@@ -24,7 +24,7 @@ const A_DEATH := LIB + "Death01"
 # UAL2 (lib que o dono baixou) — variações de golpe de espada (A/B/C) + combo no crit
 const LIB2 := "UAL2_Standard/"
 const UAL2_PATH := "res://addons/quaternius_ik_rigged/UAL2_Standard.glb"
-const SWORD_ATTACKS := [LIB2 + "Sword_Regular_A", LIB2 + "Sword_Regular_B", LIB2 + "Sword_Regular_C"]
+const SWORD_ATTACKS := [LIB2 + "Sword_Regular_A", LIB2 + "Sword_Regular_B"]   # C ficou bugado → fora
 const SWORD_COMBO := LIB2 + "Sword_Regular_Combo"
 const BARW := 0.7
 
@@ -817,6 +817,7 @@ func _quad(w: float, h: float, col: Color, prio: int) -> MeshInstance3D:
 	mat.albedo_color = col
 	mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
 	mat.billboard_mode = BaseMaterial3D.BILLBOARD_ENABLED
+	mat.billboard_keep_scale = true   # SEM isso o billboard ignora o scale → a barra nunca encolhe (não zera)
 	mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA if col.a < 1.0 else BaseMaterial3D.TRANSPARENCY_DISABLED
 	mat.render_priority = prio
 	mat.no_depth_test = true
