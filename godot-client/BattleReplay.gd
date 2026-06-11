@@ -675,8 +675,9 @@ func _arrow_step(t: float, arrow: MeshInstance3D) -> void:
 func _kill(f: Dictionary) -> void:
 	if f["dead"]: return
 	f["dead"] = true
-	f["hp"] = 0          # vitória por decisão/timeout pode matar com HP>0 → barra zera no corpo
-	_update_hp(f)
+	f["hp"] = 0          # vitória por decisão/timeout pode matar com HP>0
+	f["shown_hp"] = 0.0  # zera a barra NA HORA da morte (o drain suave é só p/ golpes não-fatais)
+	_apply_hp_bar(f)
 	var node: Node3D = f["node"]
 	var skel: Skeleton3D = node.find_child("GeneralSkeleton", true, false)
 	if skel and _has_physical_bones(skel):
