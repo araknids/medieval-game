@@ -388,19 +388,23 @@ func _play_loop(f: Dictionary, anim_name: String) -> void:
 	if a: a.loop_mode = Animation.LOOP_LINEAR
 	ap.play(nm)
 
-# Cambalhota evasiva: rola `dx` unidades. Usa o "Roll" IN-PLACE em LOOP durante todo o
-# deslocamento (o tween percorre a distância) → roda contínuo, sem idle-slide nem root-motion.
+# Cambalhota evasiva: rola `dx` unidades. ESTICA o clip do "Roll" p/ durar todo o
+# deslocamento (uma cambalhota só, contínua) — sem depender de loop (que não pegava
+# na library) nem deixar congelar no último frame deslizando.
 func _evade_roll(f: Dictionary, dx: float) -> void:
 	if f["hopping"] or f["dead"]: return
 	f["hopping"] = true
 	var n: Node3D = f["node"]
 	var ap: AnimationPlayer = f["anim"]
+	var dur := clampf(absf(dx) / 5.0, 0.45, 1.0)   # ~5 u/s → velocidade de cambalhota
 	if ap:
 		var roll := A_ROLL if ap.has_animation(A_ROLL) else A_WALK
 		var a: Animation = ap.get_animation(roll)
-		if a: a.loop_mode = Animation.LOOP_LINEAR
-		ap.play(roll)
-	var dur := clampf(absf(dx) / 5.0, 0.4, 1.1)    # ~5 u/s → velocidade de cambalhota (rolos longos duram mais)
+		var spd := 1.0
+		if a and a.get_length() > 0.05:
+			a.loop_mode = Animation.LOOP_NONE
+			spd = a.get_length() / dur             # estica o roll p/ cobrir o deslocamento inteiro
+		ap.play(roll, -1, spd)
 	var tw := create_tween()
 	tw.tween_property(n, "position", Vector3(n.position.x + dx, 0, 0), dur) \
 		.set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
