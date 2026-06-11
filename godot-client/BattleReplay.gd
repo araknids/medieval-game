@@ -9,6 +9,7 @@ extends Node3D
 # Plano: docs/PLANO_GODOT_3D.md (Fase 3) · Evento: BattleSimulator.BattleEvent
 
 const CHAR := preload("res://addons/quaternius_ik_rigged/Models_with_rigging/Male_rigged.tscn")
+const Scenery := preload("res://Scenery.gd")
 const LIB := "UAL1_Standard/"
 const A_IDLE := LIB + "Sword_Idle"
 const A_ATTACK := LIB + "Sword_Attack"

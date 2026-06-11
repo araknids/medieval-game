@@ -1,6 +1,7 @@
-class_name Scenery
 extends RefCounted
 # ── Construtor de CENÁRIOS 3D (compartilhado) ───────────────────────────────────
+# Use via preload: const Scenery := preload("res://Scenery.gd"); Scenery.mining(...)
+# (não usa class_name p/ evitar a flakiness de registro de classe global em script novo)
 # Funções estáticas que montam um cenário num `host: Node3D` (viewer World OU a
 # batalha BattleReplay). Mantém o CENTRO livre (raio combat_r) p/ os lutadores.
 # Assets: MegaKits Quaternius copiados (gitignored) em res://assets/world/.

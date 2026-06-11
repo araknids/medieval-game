@@ -4,6 +4,7 @@ extends Node3D
 # Rode World.tscn com F6. Plano: docs/PLANO_GODOT_3D.md (Fase 4 — cenários)
 
 const CHAR := preload("res://addons/quaternius_ik_rigged/Models_with_rigging/Male_rigged.tscn")
+const Scenery := preload("res://Scenery.gd")
 
 ## Cenário a montar. Por ora: "mining". Outros virão.
 @export var scenario := "mining"
