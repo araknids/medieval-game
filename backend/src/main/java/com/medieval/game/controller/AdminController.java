@@ -11,11 +11,12 @@ import org.springframework.web.bind.annotation.*;
 
 import java.util.Map;
 
-// SEGURANÇA: só existe em dev. Em produção o bean não é registrado (endpoint → 404),
-// evitando que qualquer jogador conceda SoulStones (moeda premium) a si mesmo. [AUDITORIA C1]
+// SEGURANÇA: só existe em dev/pgtest (perfis de teste). Em produção o bean NÃO é registrado
+// (endpoint → 404), evitando que qualquer jogador conceda SoulStones (moeda premium) a si mesmo.
+// `pgtest` espelha `dev` (igual ao DataSeeder) p/ os testes de SoulStone/VIP rodarem no Postgres. [AUDITORIA C1]
 @RestController
 @RequestMapping("/api/admin")
-@Profile("dev")
+@Profile({"dev", "pgtest"})
 @RequiredArgsConstructor
 public class AdminController {
 
