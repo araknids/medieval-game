@@ -893,7 +893,7 @@ func _setup_arena() -> void:
 	# chão de AREIA (disco) + colisão p/ o ragdoll
 	var floor_mi := MeshInstance3D.new()
 	var fc := CylinderMesh.new()
-	fc.top_radius = 18.0; fc.bottom_radius = 18.0; fc.height = 0.5
+	fc.top_radius = 24.0; fc.bottom_radius = 24.0; fc.height = 0.5
 	floor_mi.mesh = fc
 	var fmat := StandardMaterial3D.new()
 	fmat.albedo_color = Color(0.52, 0.43, 0.30); fmat.roughness = 1.0
@@ -915,9 +915,14 @@ func _setup_arena() -> void:
 	floor_col.shape = WorldBoundaryShape3D.new()
 	floor_body.add_child(floor_col)
 	add_child(floor_body)
-	# paredes do coliseu (2 anéis de pedra, escalonados) — a frente fica atrás da câmera
-	_arena_ring(11.5, 2.6, 0.0, Color(0.34, 0.31, 0.28), 36)
-	_arena_ring(14.5, 4.2, 0.0, Color(0.28, 0.26, 0.24), 40)
+	# ARQUIBANCADA em tiers que SOBEM (preenche o fundo / esconde o céu) — a frente fica atrás da câmera
+	for t in 7:
+		var r := 11.5 + t * 1.7
+		var yb := t * 1.5
+		var shade := 0.33 - t * 0.012
+		_arena_ring(r, 2.4, yb, Color(shade + 0.03, shade + 0.01, shade - 0.02), 36 + t * 3)
+	# muralha alta no topo, fechando de vez o céu atrás
+	_arena_ring(23.5, 9.0, 12.0, Color(0.22, 0.21, 0.20), 64)
 	# tochas com luz quente num anel uniforme (o glow faz a chama brilhar)
 	for i in 7:
 		var a := TAU * i / 7.0
