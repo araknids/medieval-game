@@ -46,7 +46,6 @@ func night_lighting(host: Node3D) -> void:
 func mining(host: Node3D, rng: RandomNumberGenerator, combat_r: float) -> void:
 	var OUTCROP := Vector3(-13.0, 0, 5.0)   # veio BEM afastado do combate (não bloqueia os lutadores)
 	_ground(host, Color(0.31, 0.28, 0.20), 40.0)
-	_disc(host, Color(0.40, 0.36, 0.30), combat_r, 0.02)
 	# colisão do chão (p/ o ragdoll da batalha não atravessar o piso)
 	var fb := StaticBody3D.new()
 	var fc := CollisionShape3D.new()
@@ -54,8 +53,9 @@ func mining(host: Node3D, rng: RandomNumberGenerator, combat_r: float) -> void:
 	fb.add_child(fc)
 	host.add_child(fb)
 
-	# CHÃO DE LADRILHO cobrindo a ÁREA DE COMBATE inteira (onde os personagens andam)
-	_cobble_floor(host, rng, combat_r - 0.2)
+	# CAMINHO de ladrilho RETO no eixo X (por onde os lutadores entram): vai até bem longe
+	# nos dois lados (some na distância). Os 2 chegam de pontas opostas e se encontram no meio.
+	_cobble_path(host, rng, 30.0, 2.0)
 
 	# VEIO de minério (outcrop lateral, LONGE): parede de rocha + veios tingidos que brilham
 	var ores := [Color(0.95, 0.78, 0.22), Color(0.82, 0.46, 0.22), Color(0.62, 0.66, 0.72), Color(0.25, 0.78, 0.5)]
@@ -66,11 +66,6 @@ func mining(host: Node3D, rng: RandomNumberGenerator, combat_r: float) -> void:
 		var off2 := Vector3(rng.randf_range(-2.8, 2.8), rng.randf_range(0, 0.7), rng.randf_range(-2.8, 2.8))
 		_place(host, rng, NAT + "Rock_Medium_%d.gltf" % (1 + i % 3), OUTCROP + off2,
 				rng.randf_range(0, 360), rng.randf_range(0.6, 1.0), ores[i % ores.size()])
-
-	# TRILHA de pedras da BORDA da clareira até o veio (começa fora do círculo)
-	for i in 6:
-		var p := Vector3.ZERO.lerp(OUTCROP, lerpf(0.5, 1.0, float(i) / 5.0)) + Vector3(rng.randf_range(-0.5, 0.5), 0, rng.randf_range(-0.5, 0.5))
-		_place(host, rng, NAT + "RockPath_Round_%s.gltf" % (["Wide", "Thin"][i % 2]), p, rng.randf_range(0, 360), rng.randf_range(1.0, 1.4))
 
 	# pedras + cascalho — BEM longe do combate (nada perto do círculo)
 	for i in 22:
@@ -95,18 +90,18 @@ func mining(host: Node3D, rng: RandomNumberGenerator, combat_r: float) -> void:
 		var a := TAU * i / 5.0 + 0.6
 		_brazier(host, Vector3(cos(a) * (combat_r + 1.2), 0, sin(a) * (combat_r + 1.2)))
 
-# Ladrilha a área de combate (grade de pedras de caminho dentro do círculo).
-func _cobble_floor(host: Node3D, rng: RandomNumberGenerator, radius: float) -> void:
+# CAMINHO de ladrilho reto no eixo X: faixa de largura 2*half_w, comprimento 2*half_len.
+# Vai de uma ponta à outra (some na distância) — os lutadores entram pelas pontas.
+func _cobble_path(host: Node3D, rng: RandomNumberGenerator, half_len: float, half_w: float) -> void:
 	var tiles := ["RockPath_Square_Wide", "RockPath_Square_Thin", "RockPath_Round_Wide"]
-	var step := 1.7
-	var x := -radius
-	while x <= radius:
-		var z := -radius
-		while z <= radius:
-			if Vector2(x, z).length() <= radius:
-				var t: String = tiles[rng.randi() % tiles.size()]
-				var pos := Vector3(x + rng.randf_range(-0.3, 0.3), 0.03, z + rng.randf_range(-0.3, 0.3))
-				_place(host, rng, NAT + t + ".gltf", pos, rng.randf_range(0, 360), rng.randf_range(1.1, 1.5))
+	var step := 1.6
+	var x := -half_len
+	while x <= half_len:
+		var z := -half_w
+		while z <= half_w:
+			var t: String = tiles[rng.randi() % tiles.size()]
+			var pos := Vector3(x + rng.randf_range(-0.25, 0.25), 0.03, z + rng.randf_range(-0.25, 0.25))
+			_place(host, rng, NAT + t + ".gltf", pos, rng.randf_range(0, 360), rng.randf_range(1.0, 1.4))
 			z += step
 		x += step
 
