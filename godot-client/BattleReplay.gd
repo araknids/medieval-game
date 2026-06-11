@@ -130,6 +130,10 @@ const GORE_COLORS := [Color(0.5, 0.08, 0.08), Color(0.42, 0.05, 0.05), Color(0.6
 @export var force_weapon := ""
 ## TESTE: força um ESCUDO na off-hand do herói (some com arco). Vazio/false = só se equipado de verdade.
 @export var force_shield := false
+## CALIBRAÇÃO do escudo (na LeftHand). Arraste no Inspector e re-F6 até encaixar; me passe os valores.
+## shield_rot.y gira a FACE (de lado ↔ pra frente); shield_pos move (X=lados, Y=cima/baixo, Z=frente/trás).
+@export var shield_pos := Vector3(-0.12, 0.06, 0.10)
+@export var shield_rot := Vector3(0, 0, 0)
 ## (Legado) escala manual do monstro — hoje o tamanho vem do roster (Monsters.size_for) + auto-fit.
 @export var monster_scale := 1.0
 ## Giro extra do monstro em Y (graus) se ele nascer de lado/de costas. Tente 0, 90, 180, -90.
@@ -1026,8 +1030,8 @@ func _attach_shield(node: Node3D) -> void:
 	ba.bone_name = "LeftHand"
 	skel.add_child(ba)
 	var holder := Node3D.new()
-	holder.position = Vector3(-0.12, 0.06, 0.10)      # OUTRO lado da mão (costas, não a palma) + à frente
-	holder.rotation_degrees = Vector3(0, 0, 0)        # painel VERTICAL virado pra frente (+Z local), igual ao plano do arco
+	holder.position = shield_pos          # calibrável no Inspector (ver @export shield_pos/shield_rot)
+	holder.rotation_degrees = shield_rot
 	ba.add_child(holder)
 	var wood := Color(0.40, 0.26, 0.14)
 	var rim := Color(0.58, 0.60, 0.64)
