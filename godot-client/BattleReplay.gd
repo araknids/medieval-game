@@ -77,6 +77,13 @@ const SWING_TYPES := ["attack", "crit", "volley", "extra", "miss", "dodge"]  # a
 const RANGED_MARKERS := ["volley", "pinned", "pointblank", "backpedal"]  # delatam um lutador ranged
 const SCENARIOS := ["mining", "beach", "garimpa", "dungeon", "arena", "city", "castle"]  # mapas p/ sorteio
 
+# [GORE] sangue (sem economia) — cores + caps de performance
+const BLOOD_HIGH := Color(0.55, 0.02, 0.02)
+const BLOOD_LOW := Color(0.22, 0.0, 0.0)
+const POOL_TINT := Color(0.35, 0.0, 0.0)
+const MAX_SPRAYS := 12
+const MAX_POOLS := 26
+
 ## Credenciais (sobrepostas por login.cfg se existir). adm/adm123 só vale no DEV local.
 @export var username := "adm"
 @export var password := "adm123"
@@ -111,6 +118,8 @@ var melee_f := {}             # lutador que avança
 var victory_label: Label
 var status_label: Label
 var chosen_scenario := ""   # mapa sorteado/usado nesta luta
+var _spray_live := 0        # [GORE] emissores de sangue vivos (cap)
+var _pools: Array = []      # [GORE] poças/decais ativos (cap)
 
 # director dirigido por simulação: movimento contínuo + cursor de evento com gatilho por posição
 var phase := "loading"      # loading → fight → done
@@ -692,6 +701,14 @@ func _resolve(e: Dictionary) -> void:
 			var elem := str(e.get("element", ""))
 			if elem == "SUPER": _popup(_head(tgt), "✦", Color(1, 0.82, 0.29), false)
 			elif elem == "RESIST": _popup(_head(tgt), "🛡", Color(0.5, 0.69, 1), false)
+			# [GORE] sangue na zona do golpe, na direção atacante→alvo
+			var bdir := Vector3.RIGHT
+			if act: bdir = ((tgt["node"] as Node3D).global_position - (act["node"] as Node3D).global_position) * Vector3(1, 0, 1)
+			var bpos := _hit_pos(tgt, str(e.get("hitZone", "")))
+			_blood_spray(bpos, bdir, dmg, big, elem)
+			if big: _blood_mist(bpos)
+			if big or randf() < 0.45:
+				_blood_pool((tgt["node"] as Node3D).global_position + bdir.normalized() * randf_range(0.2, 0.6), big)
 		tgt["hp"] = int(e.get("targetHp", tgt["hp"]))
 		_update_hp(tgt)
 		if tgt["hp"] <= 0: _kill(tgt)
@@ -867,6 +884,12 @@ func _kill(f: Dictionary) -> void:
 	f["hp"] = 0          # vitória por decisão/timeout pode matar com HP>0
 	f["shown_hp"] = 0.0  # zera a barra NA HORA da morte (o drain suave é só p/ golpes não-fatais)
 	_apply_hp_bar(f)
+	# [GORE] golpe fatal: explosão de sangue + névoa + gotejamento + poça grande sob o corpo
+	_blood_spray(_chest(f), Vector3.UP, 32, true)
+	_blood_mist(_chest(f))
+	_blood_drip(f)
+	get_tree().create_timer(0.8).timeout.connect(func():
+		if is_instance_valid(f["node"]): _blood_pool((f["node"] as Node3D).global_position, true))
 	var node: Node3D = f["node"]
 	var skel: Skeleton3D = node.find_child("GeneralSkeleton", true, false)
 	if skel and _has_physical_bones(skel):
@@ -906,6 +929,166 @@ func _head(f: Dictionary) -> Vector3:
 
 func _chest(f: Dictionary) -> Vector3:
 	return (f["node"] as Node3D).global_position + Vector3(0, 1.2, 0)
+
+# ── [GORE] SANGUE (sem economia) — partículas + decais por código ───────────────
+# Posição do golpe pela zona (head/body/legs).
+func _hit_pos(f: Dictionary, zone: String) -> Vector3:
+	var base := (f["node"] as Node3D).global_position
+	match zone:
+		"head": return base + Vector3(0, 1.6, 0)
+		"legs": return base + Vector3(0, 0.5, 0)
+		_:      return base + Vector3(0, 1.1, 0)
+
+# Material dos pingos (quad billboard, cor vem do color_ramp das partículas).
+func _drop_material() -> StandardMaterial3D:
+	var m := StandardMaterial3D.new()
+	m.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	m.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	m.vertex_color_use_as_albedo = true
+	m.billboard_mode = BaseMaterial3D.BILLBOARD_PARTICLES
+	return m
+
+# Textura radial macia (blob) p/ a poça/decal.
+func _pool_texture() -> Texture2D:
+	var g := Gradient.new()
+	g.set_color(0, Color(1, 1, 1, 1))
+	g.set_color(1, Color(1, 1, 1, 0))
+	var t := GradientTexture2D.new()
+	t.gradient = g
+	t.width = 128; t.height = 128
+	t.fill = GradientTexture2D.FILL_RADIAL
+	t.fill_from = Vector2(0.5, 0.5)
+	t.fill_to = Vector2(0.5, 0.0)
+	return t
+
+# JATO: spray de sangue saindo na direção do golpe (mais forte e largo no crit).
+func _blood_spray(pos: Vector3, dir: Vector3, amount: int, big: bool, elem := "") -> void:
+	if _spray_live >= MAX_SPRAYS: return
+	_spray_live += 1
+	var p := GPUParticles3D.new()
+	p.one_shot = true
+	p.explosiveness = 1.0
+	p.amount = clampi(amount + (22 if big else 7), 10, 70)
+	p.lifetime = 0.9
+	var m := ParticleProcessMaterial.new()
+	var d := Vector3.UP
+	if dir.length() > 0.01: d = (dir.normalized() + Vector3.UP * 0.6).normalized()
+	m.direction = d
+	m.spread = 38.0 if big else 24.0
+	m.initial_velocity_min = 2.2 if big else 1.3
+	m.initial_velocity_max = 7.5 if big else 4.0
+	m.gravity = Vector3(0, -9.0, 0)
+	m.damping_min = 0.4
+	m.damping_max = 1.6
+	m.scale_min = 0.5
+	m.scale_max = 1.35
+	var hi := BLOOD_HIGH
+	if elem == "SUPER": hi = Color(0.78, 0.12, 0.0)
+	elif elem == "RESIST": hi = Color(0.45, 0.06, 0.18)
+	var g := Gradient.new()
+	g.set_color(0, hi)
+	g.add_point(0.55, BLOOD_LOW)
+	g.set_color(2, Color(BLOOD_LOW, 0.0))
+	var gt := GradientTexture1D.new(); gt.gradient = g
+	m.color_ramp = gt
+	p.process_material = m
+	var quad := QuadMesh.new()
+	quad.size = Vector2(0.085, 0.085)
+	quad.material = _drop_material()
+	p.draw_pass_1 = quad
+	add_child(p)
+	p.global_position = pos
+	p.emitting = true
+	get_tree().create_timer(1.1).timeout.connect(func():
+		_spray_live -= 1
+		if is_instance_valid(p): p.queue_free())
+
+# NÉVOA: nuvem fina avermelhada suspensa um instante (crit/morte).
+func _blood_mist(pos: Vector3) -> void:
+	if _spray_live >= MAX_SPRAYS: return
+	_spray_live += 1
+	var p := GPUParticles3D.new()
+	p.one_shot = true
+	p.explosiveness = 1.0
+	p.amount = 6
+	p.lifetime = 1.1
+	var m := ParticleProcessMaterial.new()
+	m.direction = Vector3.UP
+	m.spread = 85.0
+	m.initial_velocity_min = 0.2
+	m.initial_velocity_max = 0.7
+	m.gravity = Vector3(0, -0.35, 0)
+	m.scale_min = 3.0
+	m.scale_max = 6.0
+	var g := Gradient.new()
+	g.set_color(0, Color(BLOOD_HIGH, 0.16))
+	g.set_color(1, Color(BLOOD_LOW, 0.0))
+	var gt := GradientTexture1D.new(); gt.gradient = g
+	m.color_ramp = gt
+	p.process_material = m
+	var quad := QuadMesh.new()
+	quad.size = Vector2(0.3, 0.3)
+	quad.material = _drop_material()
+	p.draw_pass_1 = quad
+	add_child(p)
+	p.global_position = pos
+	p.emitting = true
+	get_tree().create_timer(1.4).timeout.connect(func():
+		_spray_live -= 1
+		if is_instance_valid(p): p.queue_free())
+
+# POÇA: decal que drapeja sobre o chão e CRESCE (sangue se espalhando).
+func _blood_pool(pos: Vector3, big := false) -> void:
+	var dcl := Decal.new()
+	dcl.texture_albedo = _pool_texture()
+	dcl.modulate = POOL_TINT
+	dcl.albedo_mix = 1.0
+	dcl.size = Vector3(0.12, 0.8, 0.12)        # Y alto cobre o relevo dos ladrilhos
+	add_child(dcl)
+	dcl.global_position = Vector3(pos.x, 0.3, pos.z)
+	dcl.rotation.y = randf() * TAU
+	var s := randf_range(1.5, 2.2) if big else randf_range(0.7, 1.1)
+	create_tween().tween_property(dcl, "size", Vector3(s, 0.8, s), 1.6).set_trans(Tween.TRANS_QUART).set_ease(Tween.EASE_OUT)
+	_pools.append(dcl)
+	if _pools.size() > MAX_POOLS:
+		var old = _pools.pop_front()
+		if is_instance_valid(old):
+			var tw := create_tween()
+			tw.tween_property(old, "modulate:a", 0.0, 2.0)
+			tw.tween_callback(old.queue_free)
+
+# GOTEJAMENTO: preso ao corpo, pinga ~2.2s (acompanha o ragdoll caindo).
+func _blood_drip(f: Dictionary) -> void:
+	var p := GPUParticles3D.new()
+	p.amount = 22
+	p.lifetime = 0.55
+	var m := ParticleProcessMaterial.new()
+	m.emission_shape = ParticleProcessMaterial.EMISSION_SHAPE_SPHERE
+	m.emission_sphere_radius = 0.22
+	m.direction = Vector3.DOWN
+	m.spread = 15.0
+	m.initial_velocity_min = 0.1
+	m.initial_velocity_max = 0.5
+	m.gravity = Vector3(0, -14.0, 0)
+	m.scale_min = 0.5
+	m.scale_max = 0.9
+	var g := Gradient.new()
+	g.set_color(0, BLOOD_HIGH)
+	g.set_color(1, Color(BLOOD_LOW, 0.4))
+	var gt := GradientTexture1D.new(); gt.gradient = g
+	m.color_ramp = gt
+	p.process_material = m
+	var quad := QuadMesh.new()
+	quad.size = Vector2(0.06, 0.06)
+	quad.material = _drop_material()
+	p.draw_pass_1 = quad
+	(f["node"] as Node3D).add_child(p)
+	p.position = Vector3(0, 1.0, 0)
+	p.emitting = true
+	get_tree().create_timer(2.2).timeout.connect(func():
+		if is_instance_valid(p):
+			p.emitting = false
+			get_tree().create_timer(0.7).timeout.connect(p.queue_free))
 
 func _quad(w: float, h: float, col: Color, prio: int) -> MeshInstance3D:
 	var mi := MeshInstance3D.new()

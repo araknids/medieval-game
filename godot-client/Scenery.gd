@@ -159,6 +159,9 @@ func beach(host: Node3D, rng: RandomNumberGenerator, combat_r: float) -> void:
 	host.add_child(fb)
 	# MAR ao redor — BAIXO (y=-0.9) → cria uma ORLA visível (areia desce pro mar) e enche o horizonte
 	_water(host, Vector3(0, -0.9, 0), Vector2(800, 800))
+	# DEGRAU de areia molhada (disfarça o penhasco) + ESPUMA na linha d'água [Fable]
+	_disc(host, Color(0.50, 0.45, 0.36), ISLE + 2.0, -0.45)
+	_foam(host, ISLE + 0.6, -0.82)
 	# AREIA MOLHADA na beira + areia seca no meio (gradiente até a água)
 	_disc(host, Color(0.58, 0.52, 0.40), ISLE - 0.5, 0.015)
 	_disc(host, Color(0.82, 0.73, 0.52), ISLE - 7.0, 0.02)
@@ -277,6 +280,22 @@ func _disc(host: Node3D, color: Color, radius: float, y: float) -> void:
 	mi.position = Vector3(0, y, 0)
 	host.add_child(mi)
 
+# Anel de espuma branca (na linha d'água da praia) — emissiva p/ brilhar no pôr do sol.
+func _foam(host: Node3D, radius: float, y: float) -> void:
+	var mi := MeshInstance3D.new()
+	var c := CylinderMesh.new()
+	c.top_radius = radius; c.bottom_radius = radius; c.height = 0.04
+	mi.mesh = c
+	var m := StandardMaterial3D.new()
+	m.albedo_color = Color(0.95, 0.97, 0.95)
+	m.emission_enabled = true
+	m.emission = Color(0.9, 0.95, 1.0)
+	m.emission_energy_multiplier = 0.3
+	m.roughness = 1.0
+	mi.material_override = m
+	mi.position = Vector3(0, y, 0)
+	host.add_child(mi)
+
 func _brazier(host: Node3D, pos: Vector3) -> void:
 	var post := MeshInstance3D.new()
 	var pb := BoxMesh.new(); pb.size = Vector3(0.18, 1.7, 0.18)
@@ -299,6 +318,41 @@ func _brazier(host: Node3D, pos: Vector3) -> void:
 	light.light_energy = 5.0
 	light.omni_range = 11.0
 	host.add_child(light); light.position = pos + Vector3(0, 1.9, 0)
+	# CHAMA de partículas (pega o glow dos cenários) + FLICKER da luz [Fable]
+	var p := GPUParticles3D.new()
+	p.amount = 14
+	p.lifetime = 0.7
+	var m := ParticleProcessMaterial.new()
+	m.direction = Vector3.UP
+	m.spread = 12.0
+	m.initial_velocity_min = 0.6
+	m.initial_velocity_max = 1.4
+	m.gravity = Vector3(0, 1.5, 0)            # fogo sobe acelerando
+	m.scale_min = 0.6
+	m.scale_max = 1.2
+	var g := Gradient.new()
+	g.set_color(0, Color(1.0, 0.75, 0.2, 0.9))
+	g.add_point(0.5, Color(1.0, 0.35, 0.05, 0.6))
+	g.set_color(2, Color(0.3, 0.05, 0.02, 0.0))
+	var gt := GradientTexture1D.new(); gt.gradient = g
+	m.color_ramp = gt
+	p.process_material = m
+	var q := QuadMesh.new(); q.size = Vector2(0.22, 0.22)
+	var qm := StandardMaterial3D.new()
+	qm.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	qm.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	qm.vertex_color_use_as_albedo = true
+	qm.billboard_mode = BaseMaterial3D.BILLBOARD_PARTICLES
+	qm.emission_enabled = true
+	qm.emission = Color(1.0, 0.5, 0.1)
+	qm.emission_energy_multiplier = 2.0
+	q.material = qm
+	p.draw_pass_1 = q
+	host.add_child(p); p.position = pos + Vector3(0, 1.85, 0)
+	var tw := host.create_tween().set_loops()   # flicker (loop barato)
+	tw.tween_property(light, "light_energy", 4.2, 0.13)
+	tw.tween_property(light, "light_energy", 5.6, 0.17)
+	tw.tween_property(light, "light_energy", 4.8, 0.11)
 
 # ── iluminação de DIA (céu azul claro — enche o horizonte, fresco) ───────────────
 func day_lighting(host: Node3D) -> void:
@@ -407,10 +461,11 @@ func dungeon(host: Node3D, rng: RandomNumberGenerator, _combat_r: float) -> void
 	fc.shape = WorldBoundaryShape3D.new()
 	fb.add_child(fc)
 	host.add_child(fb)
-	# PAREDE do FUNDO (Z=-RZ-1), de frente pro salão (+Z)
+	# PAREDE do FUNDO (Z=-RZ-1), de frente pro salão (+Z) — 2 fileiras (pé-direito alto)
 	var wx := -RX
 	while wx <= RX + 0.1:
 		_place(host, rng, VIL + "Wall_UnevenBrick_Straight.gltf", Vector3(wx, 0, -RZ - 1.0), 0, 1.0)
+		_place(host, rng, VIL + "Wall_UnevenBrick_Straight.gltf", Vector3(wx, 3.0, -RZ - 1.0), 0, 1.0)
 		wx += 2.0
 	# PAREDES das PONTAS (X=±(RX+1)) viradas pra dentro; ARCO no meio (entrada dos lutadores)
 	for sx in [-1.0, 1.0]:
@@ -419,6 +474,8 @@ func dungeon(host: Node3D, rng: RandomNumberGenerator, _combat_r: float) -> void
 		while wz <= RZ + 0.1:
 			var piece: String = "Wall_Arch" if absf(wz) < 1.1 else "Wall_UnevenBrick_Straight"
 			_place(host, rng, VIL + piece + ".gltf", Vector3(sx * (RX + 1.0), 0, wz), rot, 1.0)
+			if piece != "Wall_Arch":   # 2ª fileira (não em cima do arco da entrada)
+				_place(host, rng, VIL + "Wall_UnevenBrick_Straight.gltf", Vector3(sx * (RX + 1.0), 3.0, wz), rot, 1.0)
 			wz += 2.0
 	# TOCHAS (braseiros) ao longo das paredes
 	for tz in [-6.0, -1.0, 4.0]:
