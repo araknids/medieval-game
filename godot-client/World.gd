@@ -33,60 +33,72 @@ func _process(dt: float) -> void:
 
 func _update_cam(_dt: float) -> void:
 	var a := deg_to_rad(cam_angle)
-	var radius := 24.0
-	cam.position = Vector3(sin(a) * radius, 11.0, cos(a) * radius)
-	cam.look_at(Vector3(0, 1.5, 0), Vector3.UP)
+	var radius := 21.0
+	cam.position = Vector3(sin(a) * radius, 8.0, cos(a) * radius)   # mais baixa = pega a linha de árvores
+	cam.look_at(Vector3(0, 2.5, 0), Vector3.UP)
 
 # ── cenário: MINERAÇÃO ──────────────────────────────────────────────────────────
-# Clareira rochosa: veios de minério (rochas tingidas) no centro, pedras/pebbles
-# espalhadas, árvores (mortas/pinheiros) na borda, grama. Personagem p/ escala.
+# Clareira de combate ABERTA no centro; o veio de minério fica num OUTCROP lateral.
+# Mata densa em camadas no fundo (some o céu cinza). Trilha de pedras até o veio.
+const COMBAT_R := 6.0        # raio do centro que fica LIVRE p/ os lutadores
+const OUTCROP := Vector3(-9.0, 0, 3.0)   # onde fica o veio de minério (fora do combate)
+
 func _build_mining() -> void:
-	_ground(Color(0.34, 0.27, 0.19), 26.0)          # terra batida
-	_disc(Color(0.40, 0.36, 0.30), 7.0, 0.02)        # clareira escavada (mais clara)
+	_ground(Color(0.34, 0.27, 0.19), 40.0)          # terra batida bem larga
+	_disc(Color(0.42, 0.37, 0.30), COMBAT_R, 0.02)   # arena de combate (clareira pisada)
 
-	# VEIOS DE MINÉRIO no centro — rochas tingidas (ouro / cobre / ferro / esmeralda)
+	# VEIO DE MINÉRIO — outcrop LATERAL (fora do centro): rochas grandes + tingidas
 	var ores := [Color(0.95, 0.78, 0.22), Color(0.82, 0.46, 0.22), Color(0.62, 0.66, 0.72), Color(0.25, 0.75, 0.5)]
+	for i in 4:   # "parede de rocha" do veio (cinza grande, sem tingir)
+		var off := Vector3(rng.randf_range(-2.0, 2.0), 0, rng.randf_range(-2.0, 2.0))
+		_place(NAT + "Rock_Medium_%d.gltf" % (1 + i % 3), OUTCROP + off, rng.randf_range(0, 360), rng.randf_range(1.4, 2.2))
+	for i in 7:   # veios de minério (tingidos) cravados no outcrop
+		var off2 := Vector3(rng.randf_range(-2.6, 2.6), rng.randf_range(0, 0.6), rng.randf_range(-2.6, 2.6))
+		_place(NAT + "Rock_Medium_%d.gltf" % (1 + i % 3), OUTCROP + off2,
+				rng.randf_range(0, 360), rng.randf_range(0.6, 1.1), ores[i % ores.size()])
+
+	# TRILHA de pedras ligando a clareira ao veio
 	for i in 6:
-		var a := TAU * i / 6.0 + rng.randf_range(-0.4, 0.4)
-		var r := rng.randf_range(1.0, 3.2)
-		_place(NAT + "Rock_Medium_%d.gltf" % (1 + i % 3), Vector3(cos(a) * r, 0, sin(a) * r),
-				rng.randf_range(0, 360), rng.randf_range(0.9, 1.5), ores[i % ores.size()])
+		var t := float(i) / 5.0
+		var p := Vector3(0, 0, 0).lerp(OUTCROP, t) + Vector3(rng.randf_range(-0.5, 0.5), 0, rng.randf_range(-0.5, 0.5))
+		_place(NAT + "RockPath_Round_%s.gltf" % (["Wide", "Thin"][i % 2]), p, rng.randf_range(0, 360), rng.randf_range(1.0, 1.4))
 
-	# PEDRAS normais espalhadas
-	for i in 14:
-		var p := _scatter(4.0, 22.0)
-		_place(NAT + "Rock_Medium_%d.gltf" % (1 + i % 3), p, rng.randf_range(0, 360), rng.randf_range(0.6, 1.3))
+	# PEDRAS e cascalho espalhados (FORA do círculo de combate)
+	for i in 22:
+		_place(NAT + "Rock_Medium_%d.gltf" % (1 + i % 3), _scatter(COMBAT_R + 1.0, 34.0), rng.randf_range(0, 360), rng.randf_range(0.6, 1.3))
+	for i in 55:
+		_place(NAT + "Pebble_Round_%d.gltf" % (1 + i % 5), _scatter(COMBAT_R - 1.0, 36.0), rng.randf_range(0, 360), rng.randf_range(0.7, 1.6))
 
-	# PEBBLES (cascalho)
-	for i in 40:
-		var p := _scatter(1.0, 24.0)
-		var n := 1 + (i % 5)
-		_place(NAT + "Pebble_Round_%d.gltf" % n, p, rng.randf_range(0, 360), rng.randf_range(0.7, 1.6))
+	# MATA DENSA em 3 camadas no fundo (esconde o céu cinza) — mais alta e cheia atrás
+	var near := ["DeadTree_1", "DeadTree_2", "DeadTree_3", "Pine_1", "CommonTree_3"]
+	var far := ["Pine_1", "Pine_2", "Pine_3", "CommonTree_1", "CommonTree_2", "CommonTree_4", "CommonTree_5"]
+	_tree_ring(near, 14.0, 18.0, 20, 0.9, 1.3)       # anel interno (acentos, troncos secos)
+	_tree_ring(far, 22.0, 28.0, 34, 1.1, 1.7)        # anel médio (cheio)
+	_tree_ring(far, 30.0, 38.0, 46, 1.3, 2.1)        # parede de mata ao fundo (alta)
 
-	# ÁRVORES na borda (mortas + pinheiros = clima de pedreira)
-	var trees := ["DeadTree_1", "DeadTree_2", "DeadTree_3", "Pine_1", "Pine_2", "CommonTree_3"]
-	for i in 16:
-		var a := TAU * i / 16.0 + rng.randf_range(-0.15, 0.15)
-		var r := rng.randf_range(18.0, 24.0)
-		_place(NAT + trees[i % trees.size()] + ".gltf", Vector3(cos(a) * r, 0, sin(a) * r),
-				rng.randf_range(0, 360), rng.randf_range(0.9, 1.4))
+	# GRAMA / arbustos / cogumelos (fora do combate)
+	for i in 60:
+		var g: String = ["Grass_Common_Short", "Grass_Common_Tall", "Grass_Wispy_Short", "Bush_Common", "Fern_1", "Mushroom_Common"][i % 6]
+		_place(NAT + g + ".gltf", _scatter(COMBAT_R - 1.0, 34.0), rng.randf_range(0, 360), rng.randf_range(0.8, 1.4))
 
-	# GRAMA / arbustos espalhados
-	for i in 50:
-		var p := _scatter(5.0, 24.0)
-		var g: String = ["Grass_Common_Short", "Grass_Common_Tall", "Grass_Wispy_Short", "Bush_Common", "Fern_1"][i % 5]
-		_place(NAT + g + ".gltf", p, rng.randf_range(0, 360), rng.randf_range(0.8, 1.4))
-
-	# personagem p/ ESCALA (idle), perto do minério
+	# personagem p/ ESCALA (idle), na BEIRA da clareira (não no centro)
 	var ch := CHAR.instantiate()
 	add_child(ch)
-	ch.position = Vector3(3.2, 0, 1.0)
-	ch.rotation_degrees = Vector3(0, -130, 0)
+	ch.position = Vector3(-4.5, 0, 2.4)
+	ch.rotation_degrees = Vector3(0, 60, 0)
 	var ap: AnimationPlayer = ch.find_child("AnimationPlayer", true, false)
 	if ap:
 		var il := ap.get_animation("UAL1_Standard/Sword_Idle")
 		if il: il.loop_mode = Animation.LOOP_LINEAR
 		ap.play("UAL1_Standard/Sword_Idle")
+
+# Anel de árvores num raio [r0,r1] com N elementos, escala [s0,s1].
+func _tree_ring(pool: Array, r0: float, r1: float, n: int, s0: float, s1: float) -> void:
+	for i in n:
+		var a := TAU * i / float(n) + rng.randf_range(-0.08, 0.08)
+		var r := rng.randf_range(r0, r1)
+		var tree: String = pool[rng.randi() % pool.size()]
+		_place(NAT + tree + ".gltf", Vector3(cos(a) * r, 0, sin(a) * r), rng.randf_range(0, 360), rng.randf_range(s0, s1))
 
 # ── helpers ─────────────────────────────────────────────────────────────────────
 # Posição aleatória num anel [r_min, r_max] em volta do centro.
@@ -144,10 +156,10 @@ func _disc(color: Color, radius: float, y: float) -> void:
 
 func _setup_environment() -> void:
 	var sky_mat := ProceduralSkyMaterial.new()
-	sky_mat.sky_top_color = Color(0.30, 0.50, 0.78)
-	sky_mat.sky_horizon_color = Color(0.78, 0.80, 0.78)
-	sky_mat.ground_horizon_color = Color(0.55, 0.55, 0.5)
-	sky_mat.ground_bottom_color = Color(0.32, 0.30, 0.26)
+	sky_mat.sky_top_color = Color(0.32, 0.52, 0.74)
+	sky_mat.sky_horizon_color = Color(0.66, 0.74, 0.62)   # horizonte esverdeado (some no topo da mata)
+	sky_mat.ground_horizon_color = Color(0.5, 0.54, 0.44)
+	sky_mat.ground_bottom_color = Color(0.30, 0.30, 0.24)
 	var sky := Sky.new()
 	sky.sky_material = sky_mat
 	var env := Environment.new()
@@ -157,8 +169,8 @@ func _setup_environment() -> void:
 	env.ambient_light_energy = 0.6
 	env.tonemap_mode = Environment.TONE_MAPPER_FILMIC
 	env.fog_enabled = true
-	env.fog_light_color = Color(0.75, 0.78, 0.8)
-	env.fog_density = 0.006
+	env.fog_light_color = Color(0.6, 0.66, 0.58)   # névoa esverdeada → funde com a mata ao fundo
+	env.fog_density = 0.009
 	var we := WorldEnvironment.new()
 	we.environment = env
 	add_child(we)
