@@ -9,12 +9,11 @@ const TARGET_H := 1.8          # altura-alvo padrão (m) — o auto-fit escala o
 const FACE_OFFSET_DEG := 0.0   # giro global do bundle (ajustar depois de ver no viewer)
 const HOVER_H := 0.9           # altura padrão que um VOADOR flutua acima do chão (m)
 
-# Voadores: não grudam no chão, flutuam (HOVER_H). Lista curada + auto-detecção por anim
-# ("fly"/"flying"/"hover"). Se faltar algum, é só somar aqui. Alturas finas vêm no passo 2.
+# Voadores: não grudam no chão, flutuam (HOVER_H). Lista EXPLÍCITA (sem auto-detecção por
+# anim — vários têm clip "fly" mas devem andar). Voa só quem está aqui. Alturas finas no passo 2.
 const FLYERS := [
 	"Alpaking", "Alpaking Evolved", "Armabee", "Armabee Evolved",
-	"Birb", "Demon", "Blue Demon", "Dragon", "Dragon Evolved",
-	"Ghost", "Ghost Skull", "Hywirl",
+	"Demon", "Dragon",
 ]
 
 # Os 30 do bundle (nomes = nome do arquivo sem .glb). Hard-coded p/ rodar em build exportada
@@ -70,19 +69,9 @@ func fit(node: Node3D, target_h := TARGET_H, hover := 0.0) -> Dictionary:
 	node.position.y = ground_y + hover
 	return {"scale": s, "height": h, "ground_y": ground_y}
 
-# Voador? (lista curada OU anim com "fly"/"flying"/"hover"). `node` já instanciado.
-func is_flyer(mname: String, node: Node3D) -> bool:
-	if mname in FLYERS:
-		return true
-	if node == null:
-		return false
-	var ap: AnimationPlayer = node.find_child("AnimationPlayer", true, false)
-	if ap:
-		for n in ap.get_animation_list():
-			var ln := String(n).to_lower()
-			if "fly" in ln or "flying" in ln or "hover" in ln:
-				return true
-	return false
+# Voador? Só quem está na lista EXPLÍCITA FLYERS (o `_node` fica pro caso de voltar a auto-detectar).
+func is_flyer(mname: String, _node: Node3D) -> bool:
+	return mname in FLYERS
 
 # Nome da anim idle (case-insensitive); senão a 1ª anim. "" se não houver AnimationPlayer/anim.
 func find_idle(ap: AnimationPlayer) -> String:
