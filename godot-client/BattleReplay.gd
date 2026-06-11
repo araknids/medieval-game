@@ -75,9 +75,9 @@ const ENTRY_X := 4.2     # |x| onde os lutadores nascem (a sim os aproxima)
 #   1 = 1v1 (perto) · 2 = até 3×3 · 3 = 5×5 (largo, mais alto).
 # Troque AO VIVO com as teclas 1/2/3. cam_preset=0 (default) escolhe sozinho pela qtde de lutadores.
 const CAM_PRESETS := [
-	{"dist": 6.2,  "height": 3.1,  "look_y": 1.2},   # 1 — 1v1
-	{"dist": 11.0, "height": 6.0,  "look_y": 1.6},   # 2 — até 3×3
-	{"dist": 17.0, "height": 10.0, "look_y": 2.1},   # 3 — 5×5
+	{"dist": 4.6,  "height": 2.3,  "look_y": 1.2},   # 1 — 1v1
+	{"dist": 8.2,  "height": 4.4,  "look_y": 1.5},   # 2 — até 3×3
+	{"dist": 12.5, "height": 7.2,  "look_y": 1.9},   # 3 — 5×5
 ]
 
 # tipos de evento (idênticos ao battleArena.js 2D)
