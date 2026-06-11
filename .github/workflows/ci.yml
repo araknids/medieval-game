@@ -6,6 +6,12 @@ on:
   pull_request:
     branches: [main, master]
 
+# Cancela runs antigos da MESMA branch quando chega um push novo — evita queimar
+# minutos com commits em sequência (só o último push roda até o fim).
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   test:
     name: Unit + Integration Tests
@@ -44,6 +50,9 @@ jobs:
   test-postgres:
     name: Tests on PostgreSQL (Testcontainers)
     runs-on: ubuntu-latest
+    # [CI_ECONOMIA] Job pesado (Docker + suíte repetida): só na main e em PRs,
+    # não em todo push de branch de feature. Pushes de feature rodam só o H2.
+    if: github.ref == 'refs/heads/main' || github.event_name == 'pull_request'
 
     steps:
       - name: Checkout código
