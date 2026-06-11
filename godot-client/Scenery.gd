@@ -8,6 +8,7 @@ extends RefCounted
 # mantendo o CENTRO livre (raio combat_r). Assets gitignored em res://assets/world/.
 
 const NAT := "res://assets/world/nature/"
+const VIL := "res://assets/world/village/"   # kit Medieval Village (grade de 2m: piso 2x2, parede 2x3m)
 
 # Dispatcher: escolhe iluminação + geometria pelo nome do cenário.
 func build(host: Node3D, scenario: String, rng: RandomNumberGenerator, combat_r: float) -> void:
@@ -18,6 +19,9 @@ func build(host: Node3D, scenario: String, rng: RandomNumberGenerator, combat_r:
 		"garimpa":
 			day_lighting(host)
 			garimpa(host, rng, combat_r)
+		"dungeon":
+			dungeon_lighting(host)
+			dungeon(host, rng, combat_r)
 		_:  # "mining" (default)
 			night_lighting(host)
 			mining(host, rng, combat_r)
@@ -351,6 +355,68 @@ func garimpa(host: Node3D, rng: RandomNumberGenerator, combat_r: float) -> void:
 	for i in 80:
 		var g: String = ["Fern_1", "Bush_Common", "Grass_Common_Tall", "Grass_Wispy_Tall", "Grass_Wispy_Short", "Mushroom_Common"][i % 6]
 		_place(host, rng, NAT + g + ".gltf", _scatter(rng, combat_r + 0.6, 34.0), rng.randf_range(0, 360), rng.randf_range(0.8, 1.5))
+
+# ── iluminação de MASMORRA (escura, sem sol — as tochas iluminam) ───────────────
+func dungeon_lighting(host: Node3D) -> void:
+	var env := Environment.new()
+	env.background_mode = Environment.BG_COLOR
+	env.background_color = Color(0.02, 0.02, 0.035)
+	env.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
+	env.ambient_light_color = Color(0.12, 0.13, 0.20)
+	env.ambient_light_energy = 0.4
+	env.tonemap_mode = Environment.TONE_MAPPER_FILMIC
+	env.fog_enabled = true
+	env.fog_light_color = Color(0.05, 0.05, 0.08)
+	env.fog_density = 0.018
+	env.glow_enabled = true
+	env.glow_intensity = 0.4
+	env.glow_bloom = 0.1
+	var we := WorldEnvironment.new()
+	we.environment = env
+	host.add_child(we)
+	var fill := DirectionalLight3D.new()   # leve fill frio de cima (luar pelas frestas)
+	fill.rotation_degrees = Vector3(-70, -20, 0)
+	fill.light_color = Color(0.3, 0.35, 0.5)
+	fill.light_energy = 0.25
+	host.add_child(fill)
+
+# ── cenário: DUNGEON — salão de pedra (kit Village), aberto pro lado da câmera ───
+func dungeon(host: Node3D, rng: RandomNumberGenerator, _combat_r: float) -> void:
+	var RX := 12.0   # meia-largura (X = eixo dos lutadores)
+	var RZ := 8.0    # meia-profundidade (Z); o lado +Z fica ABERTO (câmera olha pra dentro)
+	# PISO de tijolo (grade 2x2)
+	var x := -RX
+	while x <= RX + 0.1:
+		var z := -RZ
+		while z <= RZ + 0.1:
+			_place(host, rng, VIL + "Floor_UnevenBrick.gltf", Vector3(x, 0, z), rng.randi_range(0, 3) * 90.0, 1.0)
+			z += 2.0
+		x += 2.0
+	# colisão do chão
+	var fb := StaticBody3D.new()
+	var fc := CollisionShape3D.new()
+	fc.shape = WorldBoundaryShape3D.new()
+	fb.add_child(fc)
+	host.add_child(fb)
+	# PAREDE do FUNDO (Z=-RZ-1), de frente pro salão (+Z)
+	var wx := -RX
+	while wx <= RX + 0.1:
+		_place(host, rng, VIL + "Wall_UnevenBrick_Straight.gltf", Vector3(wx, 0, -RZ - 1.0), 0, 1.0)
+		wx += 2.0
+	# PAREDES das PONTAS (X=±(RX+1)) viradas pra dentro; ARCO no meio (entrada dos lutadores)
+	for sx in [-1.0, 1.0]:
+		var rot := -90.0 if sx > 0 else 90.0
+		var wz := -RZ
+		while wz <= RZ + 0.1:
+			var piece: String = "Wall_Arch" if absf(wz) < 1.1 else "Wall_UnevenBrick_Straight"
+			_place(host, rng, VIL + piece + ".gltf", Vector3(sx * (RX + 1.0), 0, wz), rot, 1.0)
+			wz += 2.0
+	# TOCHAS (braseiros) ao longo das paredes
+	for tz in [-6.0, -1.0, 4.0]:
+		_brazier(host, Vector3(-RX + 0.7, 0, tz))
+		_brazier(host, Vector3(RX - 0.7, 0, tz))
+	_brazier(host, Vector3(-5.0, 0, -RZ + 0.7))
+	_brazier(host, Vector3(5.0, 0, -RZ + 0.7))
 
 # Faixa/plano retangular colorido (leito do rio, areia molhada, etc.).
 func _flat(host: Node3D, color: Color, center: Vector3, size: Vector2) -> void:

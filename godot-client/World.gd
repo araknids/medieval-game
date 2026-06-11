@@ -30,7 +30,9 @@ func _process(dt: float) -> void:
 
 func _update_cam() -> void:
 	var a := deg_to_rad(cam_angle)
-	var radius := 16.0 if scenario == "beach" else 21.0   # praia = mais central p/ enxergar a orla/mar
+	var radius := 21.0
+	if scenario == "beach": radius = 16.0
+	elif scenario == "dungeon": radius = 15.0   # interior → câmera mais perto
 	cam.position = Vector3(sin(a) * radius, 7.0, cos(a) * radius)
 	cam.look_at(Vector3(0, 2.0, 0), Vector3.UP)
 
