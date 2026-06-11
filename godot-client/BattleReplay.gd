@@ -16,16 +16,17 @@ const A_HURT := LIB + "Hit_Chest"
 const A_HURT_HEAD := LIB + "Hit_Head"
 const A_WALK := LIB + "Walk"
 const A_RUN := LIB + "Jog_Fwd"   # corrida — o inimigo vem CORRENDO pra cima
-const A_ROLL := LIB + "Roll"
+const A_ROLL := LIB + "Roll_RM"   # cambalhota (root-motion) — usada no cruzamento do arqueiro
 const A_DEATH := LIB + "Death01"
 const BARW := 0.7
 
 # kiting (arco vs melee) — camada de MOVIMENTO cosmética (ataques/dano seguem os eventos)
-const MELEE_SPEED := 1.9     # o inimigo VEM CORRENDO pra cima (unid/s)
+const MELEE_SPEED := 2.0     # o inimigo VEM CORRENDO pra cima (unid/s)
 const ARCHER_SPEED := 1.5    # arqueiro recua andando (mais devagar → o melee ganha terreno e força o cruzamento)
 const KITE_APPROACH := 2.4   # gap em que o arqueiro começa a recuar (só quando o inimigo está REALMENTE perto)
-const KITE_EDGE := 4.0       # recua bastante antes de cruzar (dá mais espaço)
-const MELEE_REACH := 1.1     # distância em que a espada conecta o golpe (investida)
+const KITE_EDGE := 3.6       # recua bastante antes de cruzar (dá mais espaço)
+const FOLLOW_GAP := 1.7      # o melee gruda esta distância ATRÁS do arqueiro (corre p/ fechar — sem teleporte)
+const MELEE_REACH := 1.0     # distância em que a espada conecta o golpe (investida curta)
 const CROSS_GAP := 3.2       # espaço deixado quando o arqueiro cruza pro outro lado
 
 # [GODOT_PAPERDOLL] paper-doll (igual ao PaperDollLive): veste o lutador com as peças Ranger.
@@ -195,8 +196,8 @@ func _build_fighters() -> void:
 		# mais ao centro p/ ter espaço de recuar antes de cruzar; o melee, mais longe.
 		var rn: Node3D = ranged_f["node"]
 		var mn: Node3D = melee_f["node"]
-		rn.position = Vector3(ranged_f["side"] * 2.0, 0, 0)
-		mn.position = Vector3(melee_f["side"] * 2.8, 0, 0)
+		rn.position = Vector3(ranged_f["side"] * 1.8, 0, 0)
+		mn.position = Vector3(melee_f["side"] * 3.0, 0, 0)
 
 # [GODOT_PAPERDOLL] Veste UM lutador: esconde a base nua, põe a cabeça sempre, roupa no slot
 # equipado e a pele cortada no slot vazio (a roupa cobre o resto → 0 clipping). Se as peças
@@ -381,26 +382,31 @@ func _kite(dt: float) -> void:
 	if side == 0.0: side = 1.0
 	var gap := absf(rn.position.x - mn.position.x)
 
-	# inimigo VEM CORRENDO rumo ao arqueiro
-	mn.position = Vector3(mn.position.x + side * MELEE_SPEED * dt, mn.position.y, mn.position.z)
+	# ARQUEIRO: encara; pressionado, RECUA ANDANDO; encurralado na borda, CRUZA (roll)
+	if not ranged_f["hopping"]:
+		_face(ranged_f, -side)
+		if gap < KITE_APPROACH:
+			var next_x := rn.position.x + side * ARCHER_SPEED * dt
+			if absf(next_x) > KITE_EDGE:
+				_archer_cross(mn.position.x - side * CROSS_GAP)
+			else:
+				rn.position = Vector3(next_x, rn.position.y, rn.position.z)
+				if not ranged_f["busy"] and ranged_f["anim"] and ranged_f["anim"].current_animation != A_WALK:
+					ranged_f["anim"].play(A_WALK, -1, -1.0)      # walk em reverso = andar pra trás
+		elif not ranged_f["busy"] and ranged_f["anim"] and ranged_f["anim"].current_animation != A_IDLE:
+			ranged_f["anim"].play(A_IDLE)
+
+	# MELEE: CORRE e gruda a FOLLOW_GAP atrás do arqueiro (move_toward = corre a distância, sem teleporte)
+	var prev_x := mn.position.x
+	var desired := rn.position.x - side * FOLLOW_GAP
+	var new_x := move_toward(mn.position.x, desired, MELEE_SPEED * dt)
+	mn.position = Vector3(new_x, mn.position.y, mn.position.z)
 	_face(melee_f, side)
 	if not melee_f["busy"]:
-		_play_loop(melee_f, A_RUN)
-
-	# arqueiro: encara o melee. Quando o inimigo se aproxima, RECUA ANDANDO; encurralado, cruza.
-	if ranged_f["hopping"]:
-		return                       # no meio do cruzamento (roll)
-	_face(ranged_f, -side)
-	if gap < KITE_APPROACH:
-		var next_x := rn.position.x + side * ARCHER_SPEED * dt   # +side = afastando do melee
-		if absf(next_x) > KITE_EDGE:
-			_archer_cross(mn.position.x - side * CROSS_GAP)      # cruza pro outro lado deixando espaço
-		else:
-			rn.position = Vector3(next_x, rn.position.y, rn.position.z)
-			if not ranged_f["busy"] and ranged_f["anim"] and ranged_f["anim"].current_animation != A_WALK:
-				ranged_f["anim"].play(A_WALK, -1, -1.0)          # walk em reverso = andar pra trás
-	elif not ranged_f["busy"] and ranged_f["anim"] and ranged_f["anim"].current_animation != A_IDLE:
-		ranged_f["anim"].play(A_IDLE)                            # longe: parado encarando
+		if absf(new_x - prev_x) > 0.003:
+			_play_loop(melee_f, A_RUN)                          # ainda fechando distância → correndo
+		elif melee_f["anim"] and melee_f["anim"].current_animation != A_IDLE:
+			melee_f["anim"].play(A_IDLE)                         # grudado, esperando a brecha
 
 # Toca uma animação em loop (com fallback p/ Walk se o clip não existir na lib).
 func _play_loop(f: Dictionary, anim_name: String) -> void:
@@ -415,10 +421,13 @@ func _play_loop(f: Dictionary, anim_name: String) -> void:
 func _archer_cross(target_x: float) -> void:
 	ranged_f["hopping"] = true
 	var rn: Node3D = ranged_f["node"]
-	if ranged_f["anim"]: ranged_f["anim"].play(A_ROLL)
+	var ap: AnimationPlayer = ranged_f["anim"]
+	if ap:
+		var roll := A_ROLL if ap.has_animation(A_ROLL) else (LIB + "Roll")
+		ap.play(roll)
 	_popup(_head(ranged_f), "↩", Color(0.8, 0.9, 1.0), false)
 	var tw := create_tween()
-	tw.tween_property(rn, "position", Vector3(target_x, rn.position.y, rn.position.z), 0.45)
+	tw.tween_property(rn, "position", Vector3(target_x, rn.position.y, rn.position.z), 0.55)
 	tw.tween_callback(func():
 		ranged_f["hopping"] = false
 		if ranged_f["anim"] and not ranged_f["dead"]: ranged_f["anim"].play(A_IDLE))
@@ -442,8 +451,11 @@ func _swing(e: Dictionary) -> void:
 		var dmg := int(e.get("damage", 0))
 		if kiting and not melee_f.is_empty() and swinger == str(melee_f.get("name", "")):
 			# melee no kiting: investe p/ ENCOSTAR só quando o golpe é dano (miss = bate no ar, ok)
+			# e só se já estiver PERTO; longe (pós-cruzamento) segue correndo (sem teleporte)
 			if ty in HIT_TYPES and dmg > 0:
-				_melee_connect()
+				var mgap := absf((ranged_f["node"] as Node3D).position.x - (melee_f["node"] as Node3D).position.x)
+				if mgap <= FOLLOW_GAP + 0.8:
+					_melee_connect()
 		elif not kiting:
 			# lunge do combate parado (melee-vs-melee)
 			var node: Node3D = act["node"]
