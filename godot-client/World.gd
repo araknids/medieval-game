@@ -31,10 +31,13 @@ func _process(dt: float) -> void:
 func _update_cam() -> void:
 	var a := deg_to_rad(cam_angle)
 	var radius := 21.0
+	var height := 7.0
+	var look_y := 2.0
 	if scenario == "beach": radius = 16.0
 	elif scenario == "dungeon": radius = 15.0   # interior → câmera mais perto
-	cam.position = Vector3(sin(a) * radius, 7.0, cos(a) * radius)
-	cam.look_at(Vector3(0, 2.0, 0), Vector3.UP)
+	elif scenario == "arena": radius = 18.0; height = 15.0; look_y = 0.5   # alto → olha pra dentro do pit
+	cam.position = Vector3(sin(a) * radius, height, cos(a) * radius)
+	cam.look_at(Vector3(0, look_y, 0), Vector3.UP)
 
 # personagem (idle) na beira da clareira, p/ referência de ESCALA
 func _add_scale_char() -> void:

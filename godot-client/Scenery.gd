@@ -22,6 +22,9 @@ func build(host: Node3D, scenario: String, rng: RandomNumberGenerator, combat_r:
 		"dungeon":
 			dungeon_lighting(host)
 			dungeon(host, rng, combat_r)
+		"arena":
+			day_lighting(host)
+			arena(host, rng, combat_r)
 		_:  # "mining" (default)
 			night_lighting(host)
 			mining(host, rng, combat_r)
@@ -417,6 +420,53 @@ func dungeon(host: Node3D, rng: RandomNumberGenerator, _combat_r: float) -> void
 		_brazier(host, Vector3(RX - 0.7, 0, tz))
 	_brazier(host, Vector3(-5.0, 0, -RZ + 0.7))
 	_brazier(host, Vector3(5.0, 0, -RZ + 0.7))
+
+# ── cenário: ARENA de duelo — coliseu de pedra (kit Village), de dia ─────────────
+func arena(host: Node3D, rng: RandomNumberGenerator, _combat_r: float) -> void:
+	_ground(host, Color(0.60, 0.50, 0.33), 20.0)        # base
+	_disc(host, Color(0.72, 0.61, 0.41), 10.0, 0.02)    # pit de AREIA (clareira de combate)
+	# colisão do chão
+	var fb := StaticBody3D.new()
+	var fc := CollisionShape3D.new()
+	fc.shape = WorldBoundaryShape3D.new()
+	fb.add_child(fc)
+	host.add_child(fb)
+	# BARREIRA interna (parede baixa em volta do pit) + MURALHA externa alta (2 fileiras)
+	_ring(host, rng, "Wall_UnevenBrick_Straight", 11.0, 0.0, 36, 1.0)
+	_ring(host, rng, "Wall_UnevenBrick_Straight", 14.0, 0.0, 44, 1.0)
+	_ring(host, rng, "Wall_UnevenBrick_Straight", 14.0, 3.0, 44, 1.0)   # 2ª fileira empilhada → muralha alta
+	# BANNERS coloridos na barreira interna
+	var cols := [Color(0.7, 0.15, 0.15), Color(0.15, 0.3, 0.7), Color(0.85, 0.7, 0.2), Color(0.2, 0.55, 0.3)]
+	for i in 8:
+		var a := TAU * i / 8.0
+		_banner(host, Vector3(cos(a) * 10.4, 2.5, sin(a) * 10.4), cols[i % cols.size()])
+	# TOCHAS ao redor do pit
+	for i in 8:
+		var a := TAU * i / 8.0 + 0.39
+		_brazier(host, Vector3(cos(a) * 9.6, 0, sin(a) * 9.6))
+
+# Anel de peças do kit (paredes) viradas pro CENTRO (look_at), com pouco overlap.
+func _ring(host: Node3D, rng: RandomNumberGenerator, piece: String, r: float, y: float, n: int, scl: float) -> void:
+	for i in n:
+		var a := TAU * i / float(n)
+		var pos := Vector3(cos(a) * r, y, sin(a) * r)
+		var inst := _place(host, rng, VIL + piece + ".gltf", pos, 0.0, scl)
+		if inst: inst.look_at(Vector3(0, pos.y, 0), Vector3.UP)   # -Z (face fina) aponta pro centro
+
+# Estandarte de pano (quad vertical) pendurado, virado pro centro.
+func _banner(host: Node3D, pos: Vector3, color: Color) -> void:
+	var mi := MeshInstance3D.new()
+	var q := QuadMesh.new()
+	q.size = Vector2(0.95, 2.1)
+	mi.mesh = q
+	var m := StandardMaterial3D.new()
+	m.albedo_color = color
+	m.roughness = 0.9
+	m.cull_mode = BaseMaterial3D.CULL_DISABLED   # mostra dos 2 lados
+	mi.material_override = m
+	host.add_child(mi)
+	mi.position = pos
+	mi.look_at(Vector3(0, pos.y, 0), Vector3.UP)
 
 # Faixa/plano retangular colorido (leito do rio, areia molhada, etc.).
 func _flat(host: Node3D, color: Color, center: Vector3, size: Vector2) -> void:
