@@ -645,10 +645,13 @@ func _finish() -> void:
 	if not winner.is_empty() and victory_label:
 		victory_label.text = "%s venceu!" % winner["name"]
 		winner["busy"] = false
-		if not loser.is_empty():
-			_stand_over(winner, loser)          # vem pra frente do corpo
-		elif winner["anim"]:
-			winner["anim"].play(A_IDLE, BLEND)
+		if not loser.is_empty() and not winner["ranged"]:
+			_stand_over(winner, loser)          # MELEE vem pra frente do corpo
+		else:
+			# arqueiro (ou sem perdedor): fica ONDE ESTÁ, só encara o corpo
+			if not loser.is_empty():
+				_face(winner, signf((loser["node"] as Node3D).position.x - (winner["node"] as Node3D).position.x))
+			if winner["anim"]: winner["anim"].play(A_IDLE, BLEND)
 
 # O vencedor caminha até ficar À FRENTE do corpo que acabou de matar e fica em guarda.
 func _stand_over(winner: Dictionary, loser: Dictionary) -> void:
