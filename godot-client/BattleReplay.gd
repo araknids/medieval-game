@@ -75,13 +75,15 @@ const ENTRY_X := 4.2     # |x| onde os lutadores nascem (a sim os aproxima)
 const HIT_TYPES := ["attack", "crit", "volley", "extra"]       # carregam dano/HP
 const SWING_TYPES := ["attack", "crit", "volley", "extra", "miss", "dodge"]  # atacante balança a arma
 const RANGED_MARKERS := ["volley", "pinned", "pointblank", "backpedal"]  # delatam um lutador ranged
+const SCENARIOS := ["mining", "beach", "garimpa", "dungeon", "arena", "city", "castle"]  # mapas p/ sorteio
 
 ## Credenciais (sobrepostas por login.cfg se existir). adm/adm123 só vale no DEV local.
 @export var username := "adm"
 @export var password := "adm123"
 ## Vazio = URL padrão do BackendClient (Railway). "http://localhost:8080" no dev local.
 @export var base_url_override := ""
-## Cenário de fundo. Vazio = coliseu procedural; "mining" = arena de mineração noturna (Scenery.gd).
+## Cenário de fundo. VAZIO = sorteia um mapa aleatório a cada luta. Fixe um nome (mining/beach/
+## garimpa/dungeon/arena/city/castle) p/ travar, ou "coliseum" p/ o coliseu procedural antigo.
 @export var scenario := ""
 ## TESTE: pula o backend e usa um duelo MOCK (espada vs espada) — bom p/ ver o combate sem login.
 @export var force_mock := false
@@ -108,6 +110,7 @@ var ranged_f := {}            # lutador que recua/atira
 var melee_f := {}             # lutador que avança
 var victory_label: Label
 var status_label: Label
+var chosen_scenario := ""   # mapa sorteado/usado nesta luta
 
 # director dirigido por simulação: movimento contínuo + cursor de evento com gatilho por posição
 var phase := "loading"      # loading → fight → done
@@ -940,15 +943,22 @@ func _setup_scene() -> void:
 	cam.position = Vector3(0.0, 3.0, 5.5)   # default de 1v1; _frame_camera() reenquadra após o spawn
 	cam.look_at_from_position(cam.position, Vector3(0, 1.0, 0), Vector3.UP)
 	add_child(cam)
-	if scenario != "":
-		var srng := RandomNumberGenerator.new()
-		srng.seed = 20260611
-		var sc := Scenery.new()
-		sc.build(self, scenario, srng, FIELD_EDGE + 1.5)   # "mining" | "beach" — centro livre
-	else:
+	var srng := RandomNumberGenerator.new()
+	srng.seed = 20260611
+	var scn := scenario
+	if scn == "":   # vazio = MAPA ALEATÓRIO a cada luta (todos os lugares de luta)
+		var pick := RandomNumberGenerator.new()
+		pick.randomize()
+		scn = SCENARIOS[pick.randi() % SCENARIOS.size()]
+		print("=== mapa aleatório: %s ===" % scn)
+	chosen_scenario = scn
+	if scn == "coliseum":   # coliseu procedural antigo (opcional)
 		_setup_environment()
 		_setup_lights()
 		_setup_arena()
+	else:
+		var sc := Scenery.new()
+		sc.build(self, scn, srng, FIELD_EDGE + 1.5)   # centro livre p/ os lutadores
 
 # Céu procedural quente + névoa + tonemap/glow → mood de fim de tarde no coliseu.
 func _setup_environment() -> void:
