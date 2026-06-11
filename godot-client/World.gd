@@ -17,10 +17,9 @@ var rng := RandomNumberGenerator.new()
 
 func _ready() -> void:
 	rng.seed = 20260611
-	Scenery.night_lighting(self)
-	match scenario:
-		"mining": Scenery.mining(self, rng, 6.0)
-		_:        Scenery.mining(self, rng, 6.0)
+	var sc := Scenery.new()
+	sc.night_lighting(self)
+	sc.mining(self, rng, 6.0)   # (só "mining" por ora)
 	_add_scale_char()
 	cam = Camera3D.new()
 	add_child(cam)

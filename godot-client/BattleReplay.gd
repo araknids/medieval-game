@@ -943,8 +943,9 @@ func _setup_scene() -> void:
 	if scenario == "mining":
 		var srng := RandomNumberGenerator.new()
 		srng.seed = 20260611
-		Scenery.night_lighting(self)
-		Scenery.mining(self, srng, FIELD_EDGE + 1.5)   # centro livre p/ os lutadores
+		var sc := Scenery.new()
+		sc.night_lighting(self)
+		sc.mining(self, srng, FIELD_EDGE + 1.5)   # centro livre p/ os lutadores
 	else:
 		_setup_environment()
 		_setup_lights()

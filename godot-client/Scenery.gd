@@ -1,15 +1,16 @@
 extends RefCounted
 # ── Construtor de CENÁRIOS 3D (compartilhado) ───────────────────────────────────
-# Use via preload: const Scenery := preload("res://Scenery.gd"); Scenery.mining(...)
-# (não usa class_name p/ evitar a flakiness de registro de classe global em script novo)
-# Funções estáticas que montam um cenário num `host: Node3D` (viewer World OU a
-# batalha BattleReplay). Mantém o CENTRO livre (raio combat_r) p/ os lutadores.
-# Assets: MegaKits Quaternius copiados (gitignored) em res://assets/world/.
+# Uso: const Scenery := preload("res://Scenery.gd"); var sc := Scenery.new()
+#      sc.night_lighting(host); sc.mining(host, rng, combat_r)
+# (métodos de INSTÂNCIA — não static, p/ evitar erro de parse; sem class_name p/
+#  evitar flakiness de registro de classe global em script novo)
+# Monta o cenário num `host: Node3D` (viewer World OU a batalha BattleReplay),
+# mantendo o CENTRO livre (raio combat_r). Assets gitignored em res://assets/world/.
 
 const NAT := "res://assets/world/nature/"
 
 # ── iluminação NOTURNA (some o céu cinza: céu escuro + luar frio) ────────────────
-static func night_lighting(host: Node3D) -> void:
+func night_lighting(host: Node3D) -> void:
 	var sky_mat := ProceduralSkyMaterial.new()
 	sky_mat.sky_top_color = Color(0.02, 0.03, 0.07)
 	sky_mat.sky_horizon_color = Color(0.07, 0.09, 0.16)
@@ -42,7 +43,7 @@ static func night_lighting(host: Node3D) -> void:
 # ── cenário: MINERAÇÃO (noite) ──────────────────────────────────────────────────
 # Centro LIVRE p/ combate; veio de minério num OUTCROP lateral; mata densa no fundo;
 # braseiros quentes ao redor da clareira iluminam os lutadores. Minério BRILHA.
-static func mining(host: Node3D, rng: RandomNumberGenerator, combat_r: float) -> void:
+func mining(host: Node3D, rng: RandomNumberGenerator, combat_r: float) -> void:
 	var OUTCROP := Vector3(-13.0, 0, 5.0)   # veio BEM afastado do combate (não bloqueia os lutadores)
 	_ground(host, Color(0.31, 0.28, 0.20), 40.0)
 	_disc(host, Color(0.40, 0.36, 0.30), combat_r, 0.02)
@@ -95,7 +96,7 @@ static func mining(host: Node3D, rng: RandomNumberGenerator, combat_r: float) ->
 		_brazier(host, Vector3(cos(a) * (combat_r + 1.2), 0, sin(a) * (combat_r + 1.2)))
 
 # Ladrilha a área de combate (grade de pedras de caminho dentro do círculo).
-static func _cobble_floor(host: Node3D, rng: RandomNumberGenerator, radius: float) -> void:
+func _cobble_floor(host: Node3D, rng: RandomNumberGenerator, radius: float) -> void:
 	var tiles := ["RockPath_Square_Wide", "RockPath_Square_Thin", "RockPath_Round_Wide"]
 	var step := 1.7
 	var x := -radius
@@ -110,12 +111,12 @@ static func _cobble_floor(host: Node3D, rng: RandomNumberGenerator, radius: floa
 		x += step
 
 # ── helpers (estáticos) ─────────────────────────────────────────────────────────
-static func _scatter(rng: RandomNumberGenerator, r_min: float, r_max: float) -> Vector3:
+func _scatter(rng: RandomNumberGenerator, r_min: float, r_max: float) -> Vector3:
 	var a := rng.randf_range(0, TAU)
 	var r := rng.randf_range(r_min, r_max)
 	return Vector3(cos(a) * r, 0, sin(a) * r)
 
-static func _place(host: Node3D, _rng: RandomNumberGenerator, path: String, pos: Vector3, rot_y: float, scl: float, tint = null) -> Node3D:
+func _place(host: Node3D, _rng: RandomNumberGenerator, path: String, pos: Vector3, rot_y: float, scl: float, tint = null) -> Node3D:
 	var ps: PackedScene = load(path)
 	if ps == null:
 		push_warning("modelo não carregou: %s" % path)
@@ -130,7 +131,7 @@ static func _place(host: Node3D, _rng: RandomNumberGenerator, path: String, pos:
 	return inst
 
 # Pinta as malhas com uma cor (minério) + emissão sutil → brilha no escuro.
-static func _tint(node: Node, color: Color) -> void:
+func _tint(node: Node, color: Color) -> void:
 	if node is MeshInstance3D:
 		var m := StandardMaterial3D.new()
 		m.albedo_color = color
@@ -143,14 +144,14 @@ static func _tint(node: Node, color: Color) -> void:
 	for c in node.get_children():
 		_tint(c, color)
 
-static func _tree_ring(host: Node3D, rng: RandomNumberGenerator, pool: Array, r0: float, r1: float, n: int, s0: float, s1: float) -> void:
+func _tree_ring(host: Node3D, rng: RandomNumberGenerator, pool: Array, r0: float, r1: float, n: int, s0: float, s1: float) -> void:
 	for i in n:
 		var a := TAU * i / float(n) + rng.randf_range(-0.08, 0.08)
 		var r := rng.randf_range(r0, r1)
 		var tree: String = pool[rng.randi() % pool.size()]
 		_place(host, rng, NAT + tree + ".gltf", Vector3(cos(a) * r, 0, sin(a) * r), rng.randf_range(0, 360), rng.randf_range(s0, s1))
 
-static func _ground(host: Node3D, color: Color, radius: float) -> void:
+func _ground(host: Node3D, color: Color, radius: float) -> void:
 	var mi := MeshInstance3D.new()
 	var c := CylinderMesh.new()
 	c.top_radius = radius; c.bottom_radius = radius; c.height = 0.5
@@ -161,7 +162,7 @@ static func _ground(host: Node3D, color: Color, radius: float) -> void:
 	mi.position = Vector3(0, -0.25, 0)
 	host.add_child(mi)
 
-static func _disc(host: Node3D, color: Color, radius: float, y: float) -> void:
+func _disc(host: Node3D, color: Color, radius: float, y: float) -> void:
 	var mi := MeshInstance3D.new()
 	var c := CylinderMesh.new()
 	c.top_radius = radius; c.bottom_radius = radius; c.height = 0.04
@@ -172,7 +173,7 @@ static func _disc(host: Node3D, color: Color, radius: float, y: float) -> void:
 	mi.position = Vector3(0, y, 0)
 	host.add_child(mi)
 
-static func _brazier(host: Node3D, pos: Vector3) -> void:
+func _brazier(host: Node3D, pos: Vector3) -> void:
 	var post := MeshInstance3D.new()
 	var pb := BoxMesh.new(); pb.size = Vector3(0.18, 1.7, 0.18)
 	post.mesh = pb
