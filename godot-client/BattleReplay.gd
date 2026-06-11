@@ -80,10 +80,19 @@ const RANGED_MARKERS := ["volley", "pinned", "pointblank", "backpedal"]  # delat
 @export var password := "adm123"
 ## Vazio = URL padrão do BackendClient (Railway). "http://localhost:8080" no dev local.
 @export var base_url_override := ""
+## Cenário de fundo. Vazio = coliseu procedural; "mining" = arena de mineração noturna (Scenery.gd).
+@export var scenario := ""
 ## TESTE: pula o backend e usa um duelo MOCK (espada vs espada) — bom p/ ver o combate sem login.
 @export var force_mock := false
 ## TESTE: no mock, faz o Bandido (espada) VENCER — p/ ver como fica quando o melee ganha o arqueiro.
 @export var mock_enemy_wins := false
+## Troca o INIMIGO (direita) por um monstro do bundle Quaternius (res://assets/monsters/).
+## Vazio = inimigo humano normal. Ex.: "Demon", "Ghost Skull", "Blue Demon", "Dragon".
+@export var enemy_monster := ""
+## Escala do monstro (alguns nascem pequenos/gigantes — ajuste no olho pela arena).
+@export var monster_scale := 1.0
+## Giro extra do monstro em Y (graus) se ele nascer de lado/de costas. Tente 0, 90, 180, -90.
+@export var monster_face_offset_deg := 0.0
 
 var events: Array = []
 var fighters := {}          # name -> dict do lutador
@@ -189,8 +198,8 @@ func _build_fighters() -> void:
 	# INIMIGO (direita): no force_mock vira espadachim; na arena real segue o estilo dos eventos.
 	var rweapon := "sword" if force_mock else ("bow" if _is_ranged(rname) else "sword")
 	order = [
-		_make_fighter(lname, -1, int(spawns[0].get("targetMaxHp", 100)), lweapon, lequip),
-		_make_fighter(rname,  1, int(spawns[1].get("targetMaxHp", 100)), rweapon, DEFAULT_OUTFIT),
+		_make_fighter(lname, -1, int(spawns[0].get("targetMaxHp", 100)), lweapon, lequip, ""),
+		_make_fighter(rname,  1, int(spawns[1].get("targetMaxHp", 100)), rweapon, DEFAULT_OUTFIT, enemy_monster),
 	]
 	fighters[lname] = order[0]
 	fighters[rname] = order[1]
@@ -277,26 +286,35 @@ func _is_ranged(who: String) -> bool:
 			return true
 	return false
 
-func _make_fighter(fname: String, side: int, maxhp: int, weapon_kind: String, equipped_types: Array) -> Dictionary:
-	var node := CHAR.instantiate()
+func _make_fighter(fname: String, side: int, maxhp: int, weapon_kind: String, equipped_types: Array, monster_file := "") -> Dictionary:
+	var is_monster := monster_file != ""
+	var node: Node3D = _instance_monster(monster_file) if is_monster else CHAR.instantiate()
+	if node == null:   # monstro não carregou → cai no humano p/ não travar a cena
+		node = CHAR.instantiate(); is_monster = false
 	add_child(node)
 	node.position = Vector3(ENTRY_X * side, 0, 0)
-	node.scale = Vector3(0.92, 0.92, 0.92)
-	var ranged := weapon_kind == "bow"
+	var sc := monster_scale if is_monster else 0.92
+	node.scale = Vector3(sc, sc, sc)
+	# monstro é sempre melee (sem arco/kite); herói/humano segue a arma equipada
+	var ranged := weapon_kind == "bow" and not is_monster
 	var ap: AnimationPlayer = node.find_child("AnimationPlayer", true, false)
-	# liga a lib UAL2 (variações de espada) no AnimationPlayer, se ainda não estiver
-	if ap and not ap.has_animation_library("UAL2_Standard"):
+	# liga a lib UAL2 (variações de espada) — só no humano; monstro usa as próprias anims
+	if ap and not is_monster and not ap.has_animation_library("UAL2_Standard"):
 		var lib2 = load(UAL2_PATH)
 		if lib2 is AnimationLibrary:
 			ap.add_animation_library("UAL2_Standard", lib2)
 	var skel: Skeleton3D = node.find_child("GeneralSkeleton", true, false)
+	var yaw_off := deg_to_rad(monster_face_offset_deg) if is_monster else 0.0
 	var f := {"name": fname, "node": node, "anim": ap, "side": side, "ranged": ranged,
 			  "dead": false, "maxhp": max(1, maxhp), "hp": max(1, maxhp), "busy": false, "hopping": false,
-			  "vel": 0.0, "shown_hp": float(max(1, maxhp)), "face_target": deg_to_rad(90.0 if -side > 0 else -90.0)}
+			  "vel": 0.0, "shown_hp": float(max(1, maxhp)), "is_monster": is_monster, "yaw_offset": yaw_off,
+			  "amap": (_monster_anim_map(ap) if is_monster else {}),
+			  "face_target": deg_to_rad(90.0 if -side > 0 else -90.0) + yaw_off}
 	node.rotation.y = f["face_target"]   # nasce já virado pro centro (sem lerp do zero)
 	_face(f, -side)   # seta o alvo de rotação (encara o oponente)
-	_dress(node, skel, equipped_types)   # [GODOT_PAPERDOLL] veste antes da arma
-	_attach_weapon(node, weapon_kind)
+	if not is_monster:
+		_dress(node, skel, equipped_types)   # [GODOT_PAPERDOLL] veste antes da arma
+		_attach_weapon(node, weapon_kind)
 	# barra de vida + nome
 	var bar := Node3D.new()
 	add_child(bar)
@@ -314,15 +332,83 @@ func _make_fighter(fname: String, side: int, maxhp: int, weapon_kind: String, eq
 	f["bar"] = bar
 	f["fill"] = fill
 	if ap:
-		var il := ap.get_animation(A_IDLE)
+		var il := ap.get_animation(_clip(f, "idle"))
 		if il: il.loop_mode = Animation.LOOP_LINEAR
 		# one-shot (attack/shoot/hurt) terminou → libera o lutador e volta pro idle.
 		# (walk/jump/idle são LOOP → nunca disparam animation_finished)
 		ap.animation_finished.connect(func(_a):
 			f["busy"] = false
-			if not f["dead"] and not f["hopping"]: ap.play(A_IDLE, BLEND))   # não corta um roll em andamento
-		ap.play(A_IDLE)
+			if not f["dead"] and not f["hopping"]: ap.play(_clip(f, "idle"), BLEND))   # não corta um roll em andamento
+		ap.play(_clip(f, "idle"))
 	return f
+
+# ── monstro (bundle Quaternius) ─────────────────────────────────────────────────
+const MONSTERS_DIR := "res://assets/monsters/"
+
+# Instancia um .glb de monstro do bundle (self-contained: mesh + rig + anims próprias).
+func _instance_monster(file: String) -> Node3D:
+	var path := file
+	if not path.begins_with("res://"):
+		path = MONSTERS_DIR + file + ("" if file.to_lower().ends_with(".glb") else ".glb")
+	var scene = load(path)
+	if scene == null:
+		push_warning("monstro não encontrado: %s — usando humano." % path)
+		return null
+	return scene.instantiate() as Node3D
+
+# Mapeia as anims do monstro (os nomes variam por bicho) → papéis do replay, por palavra-chave.
+# Assim qualquer monstro do bundle funciona sem hard-code do set de animações dele.
+func _monster_anim_map(ap: AnimationPlayer) -> Dictionary:
+	if ap == null: return {}
+	var names := ap.get_animation_list()
+	var pick := func(keys: Array) -> String:
+		for k in keys:
+			for n in names:
+				if k in String(n).to_lower():
+					return String(n)
+		return ""
+	var m := {}
+	m["idle"]      = pick.call(["idle"])
+	m["run"]       = pick.call(["run", "gallop", "jog", "fly", "walk"])
+	m["walk"]      = pick.call(["walk", "run", "fly"])
+	m["attack"]    = pick.call(["attack", "bite", "punch", "headbutt", "clobber", "spit", "cast", "melee", "swip"])
+	m["hurt"]      = pick.call(["hit", "recieve", "receive", "hurt", "damage", "flinch", "stun"])
+	m["death"]     = pick.call(["death", "die", "dead", "defeat"])
+	m["dance"]     = pick.call(["cheer", "dance", "yes", "jump", "idle"])
+	m["roll"]      = pick.call(["roll", "dodge", "jump"])
+	m["hurt_head"] = m["hurt"]
+	m["shoot"]     = m["attack"]
+	var fallback := String(names[0]) if names.size() > 0 else ""
+	for key in m.keys():   # papel sem clip → cai no idle (ou na 1ª anim do bicho)
+		if m[key] == "":
+			m[key] = m["idle"] if m["idle"] != "" else fallback
+	# loop nos contínuos; one-shot nos pontuais (p/ animation_finished disparar e voltar pro idle)
+	for key in ["idle", "run", "walk", "dance"]:
+		var a := ap.get_animation(m[key])
+		if a: a.loop_mode = Animation.LOOP_LINEAR
+	for key in ["attack", "hurt", "death", "roll"]:
+		var a := ap.get_animation(m[key])
+		if a: a.loop_mode = Animation.LOOP_NONE
+	print(">>> monstro anims=%s → map=%s" % [str(names), str(m)])
+	return m
+
+# Resolve o clip de uma ação ("idle","run","attack","hurt","death",…) p/ ESTE lutador:
+# monstro usa o próprio mapa; humano usa as constantes UAL de sempre.
+func _clip(f: Dictionary, role: String) -> String:
+	if f.get("is_monster", false):
+		var m: Dictionary = f.get("amap", {})
+		return str(m.get(role, m.get("idle", A_IDLE)))
+	match role:
+		"idle": return A_IDLE
+		"run": return A_RUN
+		"walk": return A_WALK
+		"dance": return A_DANCE
+		"hurt": return A_HURT
+		"hurt_head": return A_HURT_HEAD
+		"death": return A_DEATH
+		"roll": return A_ROLL
+		"shoot": return A_SHOOT
+		_: return A_IDLE
 
 # ── director dirigido por SIMULAÇÃO ─────────────────────────────────────────────
 # Todo frame: (1) move os lutadores de forma contínua; (2) avança o cursor de eventos,
@@ -350,7 +436,7 @@ func _process(dt: float) -> void:
 func _countdown(dt: float) -> void:
 	countdown_t += dt
 	for f in order:
-		if not f["dead"] and f["anim"]: _play_loop(f, A_DANCE)
+		if not f["dead"] and f["anim"]: _play_loop(f, _clip(f, "dance"))
 	var remaining := COUNTDOWN - countdown_t
 	if remaining > 0.0:
 		countdown_label.text = str(int(ceil(remaining)))
@@ -359,7 +445,7 @@ func _countdown(dt: float) -> void:
 	else:
 		countdown_label.text = ""
 		for f in order:
-			if f["anim"]: f["anim"].play(A_IDLE, BLEND)
+			if f["anim"]: f["anim"].play(_clip(f, "idle"), BLEND)
 		phase = "fight"
 
 # Movimento contínuo: arco-vs-melee = perseguição/kite; senão = ambos fecham pro alcance.
@@ -383,8 +469,8 @@ func _move_kite(dt: float) -> void:
 	# o melee mantém a direção e só vira DEPOIS do roll, ao recomeçar a perseguição (1 giro natural).
 	if ranged_f["hopping"]:
 		melee_f["vel"] = 0.0
-		if not melee_f["busy"] and melee_f["anim"] and melee_f["anim"].current_animation != A_IDLE:
-			melee_f["anim"].play(A_IDLE, BLEND)
+		if not melee_f["busy"] and melee_f["anim"] and melee_f["anim"].current_animation != _clip(melee_f, "idle"):
+			melee_f["anim"].play(_clip(melee_f, "idle"), BLEND)
 		return
 
 	# MELEE corre pra fechar até o alcance (com aceleração/frenagem → não parte/para seco)
@@ -430,8 +516,8 @@ func _move_clash(dt: float) -> void:
 			# em alcance → PARA (não empurra o outro) e encara
 			f["vel"] = 0.0
 			_face(f, s)
-			if not f["busy"] and f["anim"] and f["anim"].current_animation != A_IDLE:
-				f["anim"].play(A_IDLE, BLEND)
+			if not f["busy"] and f["anim"] and f["anim"].current_animation != _clip(f, "idle"):
+				f["anim"].play(_clip(f, "idle"), BLEND)
 
 # Move o lutador rumo a desired_x com ACELERAÇÃO + frenagem perto do alvo (planta o pé,
 # em vez de partir/parar seco). Retorna o novo x. [game-feel]
@@ -451,15 +537,15 @@ func _locomotion(f: Dictionary, prev_x: float, now_x: float) -> void:
 	var ap: AnimationPlayer = f["anim"]
 	if ap == null: return
 	if absf(now_x - prev_x) > 0.004:
-		_play_loop(f, A_RUN)
-	elif ap.current_animation != A_IDLE:
-		ap.play(A_IDLE, BLEND)
+		_play_loop(f, _clip(f, "run"))
+	elif ap.current_animation != _clip(f, "idle"):
+		ap.play(_clip(f, "idle"), BLEND)
 
 # Toca uma animação em loop (com fallback p/ Walk se o clip não existir na lib).
 func _play_loop(f: Dictionary, anim_name: String) -> void:
 	var ap: AnimationPlayer = f["anim"]
 	if ap == null: return
-	var nm := anim_name if ap.has_animation(anim_name) else A_WALK
+	var nm := anim_name if ap.has_animation(anim_name) else _clip(f, "walk")
 	if ap.current_animation == nm: return
 	var a: Animation = ap.get_animation(nm)
 	if a: a.loop_mode = Animation.LOOP_LINEAR
@@ -556,8 +642,12 @@ func _begin(e: Dictionary) -> void:
 		_face(sw, signf((other["node"] as Node3D).position.x - (sw["node"] as Node3D).position.x))
 	sw["busy"] = true
 	if sw["anim"]:
-		var clip := A_SHOOT
-		if not sw["ranged"]:
+		var clip: String
+		if sw.get("is_monster", false):
+			clip = _clip(sw, "attack")          # monstro tem 1 ataque próprio
+		elif sw["ranged"]:
+			clip = A_SHOOT
+		else:
 			clip = _combo_clip(sw["anim"]) if ty == "crit" else _rand_sword(sw["anim"])
 		sw["anim"].play(clip, BLEND)
 
@@ -591,7 +681,7 @@ func _resolve(e: Dictionary) -> void:
 			if act and act["ranged"]:
 				_shoot_arrow(act, tgt)
 			var head := str(e.get("hitZone", "")) == "head"
-			if tgt["anim"]: tgt["anim"].play(A_HURT_HEAD if head else A_HURT, BLEND)
+			if tgt["anim"]: tgt["anim"].play(_clip(tgt, "hurt_head" if head else "hurt"), BLEND)
 			tgt["busy"] = true
 			var big := ty == "crit"
 			_popup(_chest(tgt), "-%d" % dmg, Color(1, 0.32, 0.32) if big else Color(1, 1, 1), big)
@@ -620,7 +710,7 @@ func _handle_spawn(e: Dictionary) -> void:
 		f["maxhp"] = max(f["maxhp"], f["hp"])
 		f["dead"] = false
 		_update_hp(f)
-		if f["anim"]: f["anim"].play(A_IDLE)
+		if f["anim"]: f["anim"].play(_clip(f, "idle"))
 
 func _finish() -> void:
 	if phase == "done": return
@@ -651,7 +741,7 @@ func _finish() -> void:
 			# arqueiro (ou sem perdedor): fica ONDE ESTÁ, só encara o corpo
 			if not loser.is_empty():
 				_face(winner, signf((loser["node"] as Node3D).position.x - (winner["node"] as Node3D).position.x))
-			if winner["anim"]: winner["anim"].play(A_IDLE, BLEND)
+			if winner["anim"]: winner["anim"].play(_clip(winner, "idle"), BLEND)
 
 # O vencedor caminha até ficar À FRENTE do corpo que acabou de matar e fica em guarda.
 func _stand_over(winner: Dictionary, loser: Dictionary) -> void:
@@ -661,16 +751,17 @@ func _stand_over(winner: Dictionary, loser: Dictionary) -> void:
 	if dir == 0.0: dir = 1.0
 	var stand_x := ln.position.x + dir * 0.9
 	_face(winner, -dir)                               # encara o corpo
-	if winner["anim"]: _play_loop(winner, A_RUN)
+	if winner["anim"]: _play_loop(winner, _clip(winner, "run"))
 	var tw := create_tween()
 	tw.tween_property(wn, "position", Vector3(stand_x, 0, 0), 0.5).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_OUT)
 	tw.tween_callback(func():
-		if winner["anim"]: winner["anim"].play(A_IDLE, BLEND))
+		if winner["anim"]: winner["anim"].play(_clip(winner, "idle"), BLEND))
 
 # ── helpers de cena / lutador (espelham Battle.gd) ──────────────────────────────
 func _face(f: Dictionary, dir: float) -> void:
 	if dir == 0.0: dir = 1.0
-	f["face_target"] = deg_to_rad(90.0 if dir > 0 else -90.0)   # o _process gira suave até aqui
+	# + yaw_offset corrige o monstro que nasce de lado/de costas (humano = 0)
+	f["face_target"] = deg_to_rad(90.0 if dir > 0 else -90.0) + f.get("yaw_offset", 0.0)   # o _process gira suave até aqui
 
 # Desenha a arma pelo TIPO (sword|bow|axe|spear|mace). Bow vai na LeftHand; o resto na
 # RightHand num holder (rot -90; +Y local = direção da arma) com peças simples.
@@ -783,9 +874,10 @@ func _kill(f: Dictionary) -> void:
 			if c is PhysicalBone3D and (c.bone_name in ["Spine", "Spine1", "Spine2", "Hips"]):
 				(c as PhysicalBone3D).apply_central_impulse(Vector3(push * 2.5, 1.2, 0.0))
 	elif f["anim"]:
-		var d: Animation = f["anim"].get_animation(A_DEATH)
+		var death_clip := _clip(f, "death")
+		var d: Animation = f["anim"].get_animation(death_clip)
 		if d: d.loop_mode = Animation.LOOP_NONE
-		f["anim"].play(A_DEATH, BLEND)
+		f["anim"].play(death_clip, BLEND)
 
 func _has_physical_bones(skel: Skeleton3D) -> bool:
 	for c in skel.get_children():
@@ -847,9 +939,15 @@ func _setup_scene() -> void:
 	cam.position = Vector3(0.0, 3.0, 5.5)   # default de 1v1; _frame_camera() reenquadra após o spawn
 	cam.look_at_from_position(cam.position, Vector3(0, 1.0, 0), Vector3.UP)
 	add_child(cam)
-	_setup_environment()
-	_setup_lights()
-	_setup_arena()
+	if scenario == "mining":
+		var srng := RandomNumberGenerator.new()
+		srng.seed = 20260611
+		Scenery.night_lighting(self)
+		Scenery.mining(self, srng, FIELD_EDGE + 1.5)   # centro livre p/ os lutadores
+	else:
+		_setup_environment()
+		_setup_lights()
+		_setup_arena()
 
 # Céu procedural quente + névoa + tonemap/glow → mood de fim de tarde no coliseu.
 func _setup_environment() -> void:

@@ -4,3 +4,5 @@
 
 [node name="BattleReplay" type="Node3D"]
 script = ExtResource("1")
+scenario = "mining"
+force_mock = true
