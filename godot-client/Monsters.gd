@@ -7,6 +7,15 @@ extends RefCounted
 const DIR := "res://assets/monsters/"
 const TARGET_H := 1.8          # altura-alvo padrão (m) — o auto-fit escala o bicho pra isso
 const FACE_OFFSET_DEG := 0.0   # giro global do bundle (ajustar depois de ver no viewer)
+const HOVER_H := 0.9           # altura padrão que um VOADOR flutua acima do chão (m)
+
+# Voadores: não grudam no chão, flutuam (HOVER_H). Lista curada + auto-detecção por anim
+# ("fly"/"flying"/"hover"). Se faltar algum, é só somar aqui. Alturas finas vêm no passo 2.
+const FLYERS := [
+	"Alpaking", "Alpaking Evolved", "Armabee", "Armabee Evolved",
+	"Birb", "Demon", "Blue Demon", "Dragon", "Dragon Evolved",
+	"Ghost", "Ghost Skull", "Hywirl",
+]
 
 # Os 30 do bundle (nomes = nome do arquivo sem .glb). Hard-coded p/ rodar em build exportada
 # (DirAccess em res:// só lista no editor).
@@ -50,14 +59,30 @@ func local_aabb(root: Node3D) -> AABB:
 				acc = AABB(p, Vector3.ZERO); has = true
 	return acc
 
-# Escala o monstro pra `target_h` e encosta os pés no chão (y=0). Retorna {scale, height}.
-func fit(node: Node3D, target_h := TARGET_H) -> Dictionary:
+# Escala o monstro pra `target_h` e ajusta a altura: pés no chão (hover=0) ou flutuando
+# `hover` metros acima dele. Retorna {scale, height, ground_y} (ground_y = y dos pés no chão).
+func fit(node: Node3D, target_h := TARGET_H, hover := 0.0) -> Dictionary:
 	var box := local_aabb(node)
 	var h: float = maxf(box.size.y, 0.001)
 	var s := target_h / h
 	node.scale = Vector3(s, s, s)
-	node.position.y = -box.position.y * s   # min.y * escala → sobe pra encostar no chão
-	return {"scale": s, "height": h}
+	var ground_y := -box.position.y * s     # min.y * escala → sobe pra encostar no chão
+	node.position.y = ground_y + hover
+	return {"scale": s, "height": h, "ground_y": ground_y}
+
+# Voador? (lista curada OU anim com "fly"/"flying"/"hover"). `node` já instanciado.
+func is_flyer(mname: String, node: Node3D) -> bool:
+	if mname in FLYERS:
+		return true
+	if node == null:
+		return false
+	var ap: AnimationPlayer = node.find_child("AnimationPlayer", true, false)
+	if ap:
+		for n in ap.get_animation_list():
+			var ln := String(n).to_lower()
+			if "fly" in ln or "flying" in ln or "hover" in ln:
+				return true
+	return false
 
 # Nome da anim idle (case-insensitive); senão a 1ª anim. "" se não houver AnimationPlayer/anim.
 func find_idle(ap: AnimationPlayer) -> String:

@@ -16,6 +16,11 @@ var idx := 0
 var current: Node3D
 var info: Label
 var cam: Camera3D
+var hover := 0.0        # altura atual do bicho (0 = pés no chão; >0 = voando)
+var ground_y := 0.0     # y dos pés no chão (do auto-fit) — base p/ somar o hover
+var cur_name := ""
+var cur_scale := 1.0
+var cur_flyer := false
 
 func _ready() -> void:
 	_stage()
@@ -74,24 +79,38 @@ func _stage() -> void:
 	hint.add_theme_font_size_override("font_size", 14)
 	hint.set_anchors_and_offsets_preset(Control.PRESET_BOTTOM_LEFT)
 	hint.offset_top = -34; hint.offset_left = 16
-	hint.text = "←/→ trocar monstro   ·   ESPAÇO girar (turntable)"
+	hint.text = "←/→ trocar monstro   ·   ↑/↓ altura (hover)   ·   ESPAÇO girar (turntable)"
 	layer.add_child(hint)
 
 func _show(i: int) -> void:
 	if current and is_instance_valid(current):
 		current.queue_free()
-	var mname: String = Monsters.NAMES[i]
-	current = mon.instance(mname)
+	cur_name = Monsters.NAMES[i]
+	current = mon.instance(cur_name)
 	if current == null:
-		info.text = "[%d/%d] %s — FALHOU ao carregar" % [i + 1, Monsters.NAMES.size(), mname]
+		info.text = "[%d/%d] %s — FALHOU ao carregar" % [i + 1, Monsters.NAMES.size(), cur_name]
 		return
 	add_child(current)
 	current.rotation_degrees.y = Monsters.FACE_OFFSET_DEG
-	var f := mon.fit(current)             # auto-escala + pé no chão
+	cur_flyer = mon.is_flyer(cur_name, current)
+	hover = Monsters.HOVER_H if cur_flyer else 0.0
+	var f := mon.fit(current, Monsters.TARGET_H, hover)   # auto-escala + pé no chão / hover
+	ground_y = f["ground_y"]
+	cur_scale = f["scale"]
 	mon.play_idle(current)
-	info.text = "[%d/%d]  %s   ·   escala %.2f   (altura crua %.2fm)" % \
-			[i + 1, Monsters.NAMES.size(), mname, f["scale"], f["height"]]
-	print(">>> %s · escala=%.3f · altura=%.3f" % [mname, f["scale"], f["height"]])
+	_refresh_info()
+	print(">>> %s · escala=%.3f · voador=%s · hover=%.2f" % [cur_name, cur_scale, cur_flyer, hover])
+
+func _refresh_info() -> void:
+	var tag := "   🕊 VOADOR" if cur_flyer else ""
+	info.text = "[%d/%d]  %s%s   ·   escala %.2f   ·   hover %.2fm" % \
+			[idx + 1, Monsters.NAMES.size(), cur_name, tag, cur_scale, hover]
+
+func _apply_hover() -> void:
+	if current and is_instance_valid(current):
+		current.position.y = ground_y + hover
+	_refresh_info()
+	print("hover  %s = %.2f" % [cur_name, hover])
 
 func _process(dt: float) -> void:
 	var n := Monsters.NAMES.size()
@@ -99,6 +118,10 @@ func _process(dt: float) -> void:
 		idx = (idx + 1) % n; _show(idx)
 	if Input.is_action_just_pressed("ui_left"):
 		idx = (idx - 1 + n) % n; _show(idx)
+	if Input.is_action_just_pressed("ui_up"):
+		hover += 0.1; _apply_hover()
+	if Input.is_action_just_pressed("ui_down"):
+		hover = maxf(0.0, hover - 0.1); _apply_hover()
 	if Input.is_action_just_pressed("ui_accept"):   # Espaço/Enter
 		turntable = not turntable
 	if turntable and current and is_instance_valid(current):
