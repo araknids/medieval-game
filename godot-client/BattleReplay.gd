@@ -104,9 +104,11 @@ const MAX_POOLS := 26
 @export var base_url_override := ""
 ## Fonte da luta:
 ##   "arena"   = duelo PvP real do backend (oponente = OUTRO PLAYER → humano).
-##   "monster" = luta MOCK local contra um MONSTRO (herói real vs bicho) — p/ VER os monstros
-##               sem precisar de PvE no backend. Usa enemy_monster (se setado) ou sorteia uma besta.
-@export_enum("arena", "monster") var fight_source := "arena"
+##   "monster" = luta MOCK local contra um MONSTRO (herói real vs bicho) — sempre funciona, sem backend.
+##   "tower"   = PvE REAL da Torre (enter+fight) — luta garantida, mas inimigo HUMANOIDE/eldritch.
+##   "quest"   = PvE REAL de quest de reino — rende BESTAS (monstro de verdade). Limitado pelo cap diário;
+##               se não houver encontro disponível, cai no mock de monstro.
+@export_enum("arena", "monster", "tower", "quest") var fight_source := "arena"
 ## Cenário de fundo. VAZIO = sorteia um mapa aleatório a cada luta. Fixe um nome (mining/beach/
 ## garimpa/dungeon/arena/city/castle) p/ travar, ou "coliseum" p/ o coliseu procedural antigo.
 @export var scenario := ""
@@ -212,25 +214,105 @@ func _load_events() -> void:
 		print("=== fight_source=monster: herói real vs %s ===" % foe)
 		return
 
+	# Fonte da luta (real, do backend). Cada uma devolve json.battleEvents no MESMO formato.
+	var ok := false
+	match fight_source:
+		"tower": ok = await _load_tower(client)   # PvE garantido (inimigo humanoide/eldritch)
+		"quest": ok = await _load_quest(client)   # PvE de besta (monstro de verdade)
+		_:       ok = await _load_arena(client)   # PvP (oponente humano)
+	if ok:
+		return
+	# falhou → fallback: arena cai no duelo MOCK; PvE cai num MOCK de monstro (ainda mostra bicho)
+	if fight_source == "arena":
+		events = _mock_events()
+		_status("Arena indisponível — luta MOCK.")
+	else:
+		var foe: String = SHOWCASE_FOES[randi() % SHOWCASE_FOES.size()]
+		events = _mock_monster_events(foe)
+		_status("PvE indisponível — mock de monstro (%s)." % foe)
+
+# Extrai json.battleEvents (qualquer fonte) → events + status. true se veio luta válida (>=2 spawns).
+# label_keys = chaves do NOME do oponente (opponent/bossName/monsterName); win_key = chave de vitória.
+func _apply_fight_json(j: Dictionary, label_keys: Array, win_key: String) -> bool:
+	var be = j.get("battleEvents")
+	if not (be is Array and be.size() >= 2):
+		return false
+	events = be
+	var foe := "?"
+	for k in label_keys:
+		if j.has(k) and str(j[k]) != "":
+			foe = str(j[k]); break
+	var who := "venceu" if j.get(win_key, false) else "perdeu"
+	_status("%s vs %s — você %s!" % [username, foe, who])
+	print(">>> luta OK (%s): vs %s, %d eventos, scene=%s" % [fight_source, foe, be.size(), str(j.get("scene", ""))])
+	return true
+
+func _load_arena(client) -> bool:
 	_status("Lutando na arena…")
 	var fr = await client.arena_fight()
-	if not fr.get("ok") or not (fr.get("json") is Dictionary):
-		_status("Arena falhou (%s) — usando luta MOCK." % fr.get("status"))
-		print(">>> ARENA FALHOU: %s | raw: %s" % [fr.get("status"), fr.get("raw", "")])
-		events = _mock_events()
-		return
+	if fr.get("ok") and fr.get("json") is Dictionary:
+		return _apply_fight_json(fr["json"], ["opponent"], "won")
+	print(">>> ARENA FALHOU: %s | raw: %s" % [fr.get("status"), fr.get("raw", "")])
+	return false
 
-	var j: Dictionary = fr["json"]
-	var be = j.get("battleEvents")
-	if be is Array and be.size() >= 2:
-		events = be
-		var who := "venceu" if j.get("won") else "perdeu"
-		_status("%s vs %s — você %s!" % [username, str(j.get("opponent", "?")), who])
-		print(">>> arena OK: %s vs %s, won=%s, %d eventos" % [username, j.get("opponent"), j.get("won"), be.size()])
-	else:
-		_status("Sem battleEvents — usando luta MOCK.")
-		print(">>> resposta sem battleEvents — mock. raw: %s" % fr.get("raw", ""))
-		events = _mock_events()
+func _load_tower(client) -> bool:
+	_status("Subindo a Torre…")
+	var fr = await client.tower_fight()
+	# tower_fight exige run ativa; se não houver, entra e tenta de novo
+	if not (fr.get("ok") and fr.get("json") is Dictionary and fr["json"].get("battleEvents") is Array):
+		await client.tower_enter()
+		fr = await client.tower_fight()
+	if fr.get("ok") and fr.get("json") is Dictionary:
+		return _apply_fight_json(fr["json"], ["bossName"], "won")
+	print(">>> TORRE FALHOU: %s | raw: %s" % [fr.get("status"), fr.get("raw", "")])
+	return false
+
+# Reinos com BESTAS (não humanoides) primeiro. Dirige pelo GET de quests (não chuta questType).
+const QUEST_KINGDOMS := ["MAR_ABENCOADO", "GRUTAS_DE_CRISTAL", "FISHING", "MINING", "COMBAT"]
+const QUEST_COMBAT_HINT := ["HUNT", "SLAY", "GUARD", "DEFEND", "CULL", "RAID", "WARLORD", "MONSTER", "BEAST", "KRAKEN", "PATROL"]
+
+func _load_quest(client) -> bool:
+	for kingdom in QUEST_KINGDOMS:
+		var lr = await client.quest_list(kingdom)
+		if not (lr.get("ok") and lr.get("json") is Array):
+			continue
+		# escolhe uma quest COMEÇÁVEL, NÃO-interativa (sem optionId), de preferência "de combate"
+		var pick := {}
+		for q in lr["json"]:
+			if not (q is Dictionary): continue
+			if not q.get("canStart", false): continue
+			if q.get("interactive", false): continue
+			var qid := str(q.get("id", ""))
+			var is_combat := false
+			for h in QUEST_COMBAT_HINT:
+				if h in qid: is_combat = true; break
+			if is_combat:
+				pick = q; break
+			elif pick.is_empty():
+				pick = q
+		if pick.is_empty():
+			continue
+		var qtype := str(pick.get("id", ""))
+		_status("Quest %s (%s)…" % [str(pick.get("displayName", qtype)), kingdom])
+		var sr = await client.quest_start(kingdom, qtype)
+		if not (sr.get("ok") and sr.get("json") is Dictionary):
+			continue
+		var qnum := int(sr["json"].get("id", 0))
+		if qnum == 0:
+			continue
+		var cr = await client.quest_collect(kingdom, qnum)
+		if not (cr.get("ok") and cr.get("json") is Dictionary):
+			continue
+		var j: Dictionary = cr["json"]
+		if j.get("lunaPending", false):   # Luna interrompeu → ignora (retoma a missão) e usa o resultado
+			var luna = await client.quest_luna(kingdom, qnum, "ignore")
+			if luna.get("ok") and luna.get("json") is Dictionary:
+				j = luna["json"]
+		if _apply_fight_json(j, ["monsterName"], "monsterDefeated"):
+			return true
+		# essa quest não teve encontro de monstro → tenta o próximo reino
+	print(">>> QUEST: nenhum encontro de monstro disponível (limite diário?).")
+	return false
 
 # ── monta os lutadores a partir dos eventos de spawn ────────────────────────────
 func _build_fighters() -> void:

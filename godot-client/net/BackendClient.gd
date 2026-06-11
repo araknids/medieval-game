@@ -36,6 +36,31 @@ func get_inventory() -> Dictionary:
 func arena_fight() -> Dictionary:
 	return await _request(HTTPClient.METHOD_POST, "/api/arena/fight", {}, true)
 
+# ── PvE (Fase 3): puxar luta de TORRE / QUEST que também devolve json.battleEvents ──────
+## POST /api/tower/enter — cria/garante uma run da torre. Retorna runState (currentFloor…). Sem corpo.
+func tower_enter() -> Dictionary:
+	return await _request(HTTPClient.METHOD_POST, "/api/tower/enter", {}, true)
+
+## POST /api/tower/fight — luta o andar atual. json.battleEvents + {won, bossName, scene:"tower"}. Exige run ativa.
+func tower_fight() -> Dictionary:
+	return await _request(HTTPClient.METHOD_POST, "/api/tower/fight", {}, true)
+
+## GET /api/world/{kingdom}/quests — lista as quests do reino (id=questType, interactive, canStart, doneToday…).
+func quest_list(kingdom: String) -> Dictionary:
+	return await _request(HTTPClient.METHOD_GET, "/api/world/%s/quests" % kingdom, null, true)
+
+## POST /api/world/{kingdom}/quests/start {questType} — inicia. Retorna {id, …} (questId p/ o collect).
+func quest_start(kingdom: String, quest_type: String) -> Dictionary:
+	return await _request(HTTPClient.METHOD_POST, "/api/world/%s/quests/start" % kingdom, {"questType": quest_type}, true)
+
+## POST /api/world/{kingdom}/quests/{id}/collect — resolve. json.battleEvents se monsterEncountered. {} = não-interativa.
+func quest_collect(kingdom: String, id: int) -> Dictionary:
+	return await _request(HTTPClient.METHOD_POST, "/api/world/%s/quests/%d/collect" % [kingdom, id], {}, true)
+
+## POST /api/world/{kingdom}/quests/{id}/luna/{action} — resolve a interrupção da Luna (ignore = retoma a missão).
+func quest_luna(kingdom: String, id: int, action: String) -> Dictionary:
+	return await _request(HTTPClient.METHOD_POST, "/api/world/%s/quests/%d/luna/%s" % [kingdom, id, action], {}, true)
+
 ## Chamada genérica. method = HTTPClient.METHOD_*; body = Dictionary ou null; authed = manda o Bearer.
 func _request(method: int, path: String, body: Variant = null, authed := false) -> Dictionary:
 	var http := HTTPRequest.new()

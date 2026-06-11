@@ -37,5 +37,17 @@ Retorna `{kind:"human"}` ou `{kind:"monster", file, target_h, hover}`.
 ## Calibração — `MonsterViewer.tscn`
 Cicla os 30 (←/→), auto-escalados, idle tocando; ↑/↓ ajusta hover ao vivo; ESPAÇO = turntable. Palco neutro.
 
-## Passo 3 (pendente)
-`BattleReplay` hoje só puxa **arena** (PvP). Falta puxar luta **PvE** (zona/torre/quest) do backend pra o monstro mapeado aparecer de verdade em jogo. Números (tamanhos/hover/×1.25 boss) são placeholders p/ tuning.
+## Passo 3 — PvE real do backend ✅
+
+`@export fight_source` no `BattleReplay` escolhe a fonte da luta (todas devolvem `json.battleEvents` no mesmo formato `{round,type,actor,target,damage,targetHp,targetMaxHp,element,hitZone}`):
+
+| fonte | endpoint(s) | inimigo | nota |
+|-------|-------------|---------|------|
+| `arena` | `POST /api/arena/fight` | outro player (humano) | PvP |
+| `monster` | — (mock local) | besta sorteada/`enemy_monster` | sempre funciona, sem backend |
+| `tower` | `POST /api/tower/enter` → `/api/tower/fight` | humanoide/eldritch (→ humano) | PvE **garantido**, repetível |
+| `quest` | `GET /api/world/{K}/quests` → `start {questType}` → `{id}/collect` | **besta** (→ monstro) | PvE de monstro; **cap diário** |
+
+`BackendClient.gd`: `tower_enter/tower_fight/quest_list/quest_start/quest_collect/quest_luna`. `_apply_fight_json(j, label_keys, win_key)` extrai os eventos de qualquer fonte. O `quest` é dirigido pelo **GET** (pega uma quest `canStart && !interactive`, prefere nomes de combate — `HUNT/SLAY/GUARD/…`), trata `lunaPending` (chama `.../luna/ignore`) e, sem encontro/cap diário, **cai no mock de monstro** (a status line avisa). Kingdom no path = nome do enum (`MAR_ABENCOADO`, `GRUTAS_DE_CRISTAL`, `FISHING`, `MINING`, `COMBAT`).
+
+**Pendente/ideia:** usar o `scene` da resposta (coast/sea/cave/fortress/tower) p/ escolher o **mapa** combinando com o reino (hoje o mapa é sorteado, e é montado antes do fetch). Números (tamanhos/hover/×1.25 boss) são placeholders p/ tuning.

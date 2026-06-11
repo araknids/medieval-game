@@ -4,4 +4,4 @@
 
 [node name="BattleReplay" type="Node3D"]
 script = ExtResource("1")
-fight_source = "monster"
+fight_source = "quest"
