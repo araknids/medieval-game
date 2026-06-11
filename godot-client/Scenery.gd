@@ -487,22 +487,28 @@ func _house(host: Node3D, rng: RandomNumberGenerator, center: Vector3, face_deg:
 	var DOOR := VIL + "Wall_UnevenBrick_Door_Round.gltf"
 	var WIN := VIL + "Wall_UnevenBrick_Window_Wide_Round.gltf"
 	var STR := VIL + "Wall_UnevenBrick_Straight.gltf"
-	# FRENTE (+Z): porta à esquerda + janela à direita (+ a lâmina da porta)
+	var SHUT := VIL + "WindowShutters_Thin_Round_Open.gltf"   # postigos visíveis na janela
+	# FRENTE (+Z): porta (+ lâmina) à esquerda + janela à direita
 	_place(c, rng, DOOR, Vector3(-1, 0, H), 0, 1.0)
-	_place(c, rng, WIN, Vector3(1, 0, H), 0, 1.0)
 	_place(c, rng, VIL + "Door_2_Round.gltf", Vector3(-1.5, 0, H + 0.06), 0, 1.0)
+	_window(c, rng, WIN, SHUT, Vector3(1, 0, H), 0)
 	# FUNDO (-Z): janela + parede
-	_place(c, rng, WIN, Vector3(-1, 0, -H), 180, 1.0)
+	_window(c, rng, WIN, SHUT, Vector3(-1, 0, -H), 180)
 	_place(c, rng, STR, Vector3(1, 0, -H), 180, 1.0)
-	# LATERAIS (±X): uma janela + uma parede de cada lado
-	_place(c, rng, WIN, Vector3(H, 0, -1), 90, 1.0)
+	# LATERAIS (±X): janela + parede de cada lado
+	_window(c, rng, WIN, SHUT, Vector3(H, 0, -1), 90)
 	_place(c, rng, STR, Vector3(H, 0, 1), 90, 1.0)
-	_place(c, rng, WIN, Vector3(-H, 0, 1), 270, 1.0)
+	_window(c, rng, WIN, SHUT, Vector3(-H, 0, 1), 270)
 	_place(c, rng, STR, Vector3(-H, 0, -1), 270, 1.0)
 	# TELHADO + FRONTÃO (gable) triangular na frente e no fundo
 	_place(c, rng, VIL + "Roof_RoundTiles_4x4.gltf", Vector3(0, 3.05, 0), 0, 1.0)
 	_place(c, rng, VIL + "Roof_Front_Brick4.gltf", Vector3(0, 3.0, H + 0.1), 0, 1.0)
 	_place(c, rng, VIL + "Roof_Front_Brick4.gltf", Vector3(0, 3.0, -H - 0.1), 180, 1.0)
+
+# Parede de janela + postigos de madeira (na mesma posição/rotação) = janela visível.
+func _window(host: Node3D, rng: RandomNumberGenerator, win: String, shut: String, pos: Vector3, rot: float) -> void:
+	_place(host, rng, win, pos, rot, 1.0)
+	_place(host, rng, shut, pos, rot, 1.0)
 
 # Ladrilha um CÍRCULO de raio `radius` com a peça `piece` (grade de 2m).
 func _tile_circle(host: Node3D, rng: RandomNumberGenerator, piece: String, radius: float) -> void:
