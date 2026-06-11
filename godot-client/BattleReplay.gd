@@ -17,7 +17,7 @@ const A_HURT := LIB + "Hit_Chest"
 const A_HURT_HEAD := LIB + "Hit_Head"
 const A_WALK := LIB + "Walk"
 const A_RUN := LIB + "Jog_Fwd"   # corrida — o inimigo vem CORRENDO pra cima
-const A_ROLL := LIB + "Roll_RM"   # cambalhota (root-motion) — usada no cruzamento do arqueiro
+const A_ROLL := LIB + "Roll"   # cambalhota IN-PLACE (Roll_RM tem root-motion e "voa" com o nosso tween)
 const A_DEATH := LIB + "Death01"
 const BARW := 0.7
 
@@ -296,7 +296,7 @@ func _make_fighter(fname: String, side: int, maxhp: int, weapon_kind: String, eq
 		# (walk/jump/idle são LOOP → nunca disparam animation_finished)
 		ap.animation_finished.connect(func(_a):
 			f["busy"] = false
-			if not f["dead"]: ap.play(A_IDLE))
+			if not f["dead"] and not f["hopping"]: ap.play(A_IDLE))   # não corta um roll em andamento
 		ap.play(A_IDLE)
 	return f
 
@@ -343,7 +343,7 @@ func _move_kite(dt: float) -> void:
 	if gap < ARCHER_PREF:
 		var next_x := rn.position.x + side * ARCHER_SPEED * dt
 		if absf(next_x) > FIELD_EDGE:
-			_archer_cross(mn.position.x - side * CROSS_GAP)
+			_evade_roll(ranged_f, -side * CROSS_GAP)   # encurralado → rola pro outro lado
 		else:
 			rn.position = Vector3(next_x, 0, 0)
 			if not ranged_f["busy"] and ranged_f["anim"] and ranged_f["anim"].current_animation != A_WALK:
@@ -354,7 +354,7 @@ func _move_kite(dt: float) -> void:
 func _move_clash(dt: float) -> void:
 	for i in 2:
 		var f: Dictionary = order[i]
-		if f["dead"]: continue
+		if f["dead"] or f["hopping"]: continue
 		var o: Dictionary = order[1 - i]
 		var fn: Node3D = f["node"]
 		var on: Node3D = o["node"]
@@ -386,19 +386,25 @@ func _play_loop(f: Dictionary, anim_name: String) -> void:
 	if a: a.loop_mode = Animation.LOOP_LINEAR
 	ap.play(nm)
 
-func _archer_cross(target_x: float) -> void:
-	ranged_f["hopping"] = true
-	var rn: Node3D = ranged_f["node"]
-	var ap: AnimationPlayer = ranged_f["anim"]
+# Cambalhota evasiva: rola `dx` unidades. Usa o "Roll" IN-PLACE em LOOP durante todo o
+# deslocamento (o tween percorre a distância) → roda contínuo, sem idle-slide nem root-motion.
+func _evade_roll(f: Dictionary, dx: float) -> void:
+	if f["hopping"] or f["dead"]: return
+	f["hopping"] = true
+	var n: Node3D = f["node"]
+	var ap: AnimationPlayer = f["anim"]
 	if ap:
-		var roll := A_ROLL if ap.has_animation(A_ROLL) else (LIB + "Roll")
+		var roll := A_ROLL if ap.has_animation(A_ROLL) else A_WALK
+		var a: Animation = ap.get_animation(roll)
+		if a: a.loop_mode = Animation.LOOP_LINEAR
 		ap.play(roll)
-	_popup(_head(ranged_f), "↩", Color(0.8, 0.9, 1.0), false)
+	var dur := clampf(absf(dx) / 4.8, 0.35, 0.8)   # ~4.8 u/s → velocidade de cambalhota
 	var tw := create_tween()
-	tw.tween_property(rn, "position", Vector3(target_x, 0, 0), 0.5)
+	tw.tween_property(n, "position", Vector3(n.position.x + dx, 0, 0), dur) \
+		.set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
 	tw.tween_callback(func():
-		ranged_f["hopping"] = false
-		if ranged_f["anim"] and not ranged_f["dead"]: ranged_f["anim"].play(A_IDLE))
+		f["hopping"] = false
+		if ap and not f["dead"]: ap.play(A_IDLE))
 
 # ── cursor de eventos: approach (espera posição) → windup → recover ─────────────
 func _advance(dt: float) -> void:
@@ -496,7 +502,12 @@ func _resolve(e: Dictionary) -> void:
 		_popup(_head(tgt), "MISS", Color(0.62, 0.81, 1), false)
 	elif ty == "dodge":
 		var dodger = fighters.get(str(e.get("actor", "")))   # no dodge, o actor é quem esquiva
-		if dodger: _popup(_head(dodger), "DODGE", Color(0.62, 0.81, 1), false)
+		if dodger:
+			_popup(_head(dodger), "DODGE", Color(0.62, 0.81, 1), false)
+			if tgt:   # rola pra LONGE do atacante (tgt = atacante)
+				var away := signf((dodger["node"] as Node3D).position.x - (tgt["node"] as Node3D).position.x)
+				if away == 0.0: away = 1.0
+				_evade_roll(dodger, away * 1.5)
 		if tgt: tgt["hp"] = int(e.get("targetHp", tgt["hp"])); _update_hp(tgt)   # reflect no atacante
 
 func _handle_spawn(e: Dictionary) -> void:
