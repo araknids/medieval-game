@@ -19,6 +19,11 @@ public class TrainingSession {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
+    // Optimistic locking: serializa double-collect concorrente do treino (XP). [AUDITORIA]
+    @Version
+    @Column(columnDefinition = "bigint default 0")
+    private long version;
+
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "player_id", nullable = false)
     private Player player;

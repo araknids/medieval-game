@@ -2,6 +2,8 @@ package com.medieval.game.integration;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.jayway.jsonpath.JsonPath;
+import com.medieval.game.model.WorkSession;
+import com.medieval.game.repository.WorkSessionRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -10,6 +12,7 @@ import org.springframework.test.annotation.DirtiesContext;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
 
+import java.time.LocalDateTime;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicInteger;
 
@@ -23,8 +26,21 @@ public abstract class BaseIntegrationTest {
 
     @Autowired protected MockMvc mockMvc;
     @Autowired protected ObjectMapper objectMapper;
+    @Autowired protected WorkSessionRepository workSessionRepository;
 
     private static final AtomicInteger counter = new AtomicInteger(1);
+
+    /**
+     * [WORK_IDLE] O Trabalho tem timer REAL (instant-complete não o fura), então coletar logo após o
+     * start é rejeitado. Para testar a COLETA, adiantamos o finishesAt p/ o passado, simulando o tempo
+     * decorrido. Devolve a sessão atualizada.
+     */
+    protected WorkSession fastForwardWork(long sessionId) {
+        WorkSession s = workSessionRepository.findById(sessionId)
+                .orElseThrow(() -> new IllegalStateException("WorkSession não encontrada: " + sessionId));
+        s.setFinishesAt(LocalDateTime.now().minusMinutes(1));
+        return workSessionRepository.save(s);
+    }
 
     /** Cria um usuário único e retorna o JWT token */
     protected String registerAndGetToken(String username) throws Exception {

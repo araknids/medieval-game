@@ -45,15 +45,30 @@ public class AuthController {
     private final LoginRateLimiter            rateLimiter;
 
     // Limites anti-brute-force / anti-spam. [AUDITORIA A10]
-    private static final long RL_WINDOW_MS    = 15 * 60 * 1000L; // 15 min
-    private static final int  LOGIN_MAX_FAILS = 10;              // por IP+usuário / 15 min
-    private static final int  FORGOT_MAX_REQS = 5;               // por IP / 15 min
+    private static final long RL_WINDOW_MS      = 15 * 60 * 1000L; // 15 min
+    private static final int  LOGIN_MAX_FAILS   = 10;              // por IP+usuário / 15 min
+    private static final int  FORGOT_MAX_REQS   = 5;               // por IP / 15 min
+    private static final int  REGISTER_MAX_REQS = 10;              // por IP / 15 min — trava enumeração de usuário/email [AUDITORIA]
 
     @PostMapping("/register")
-    public ResponseEntity<?> register(@Valid @RequestBody RegisterRequest req) {
+    public ResponseEntity<?> register(@Valid @RequestBody RegisterRequest req, HttpServletRequest http) {
+        // Rate limit por IP: impede varredura de quais usernames/emails existem via /register.
+        // Conta só tentativas FALHAS (username/email já existe) — igual o login só conta falha —
+        // então registro legítimo não acumula, mas o probe de enumeração trava após N. [AUDITORIA]
+        String rlKey = "register:" + clientIp(http);
+        if (rateLimiter.isBlocked(rlKey, REGISTER_MAX_REQS, RL_WINDOW_MS)) {
+            return ResponseEntity.status(429).body(Map.of("error",
+                    com.medieval.game.service.Messages.tr("msg.too_many_requests", "Too many requests. Please try again in a few minutes.")));
+        }
         log.info("[AuthController] register attempt username='{}' warriorName='{}' emailLen={}",
                 req.username(), req.warriorName(), req.email() != null ? req.email().length() : 0);
-        Player  player  = playerService.register(req.username(), req.email(), req.password());
+        Player player;
+        try {
+            player = playerService.register(req.username(), req.email(), req.password());
+        } catch (com.medieval.game.config.LocalizedException e) {
+            rateLimiter.recordAttempt(rlKey, RL_WINDOW_MS); // tentativa de enumeração (user/email já existe)
+            throw e; // GlobalExceptionHandler devolve a mensagem localizada original
+        }
         Warrior warrior = warriorService.create(player, req.warriorName(), WarriorClass.RECRUIT); // nasce neutro; especializa na Trial do Lv10 [CLASSES]
         inventoryService.giveStarterItems(player);
         emailService.sendWelcomeEmail(player.getEmail(), player.getUsername(), warrior.getName());

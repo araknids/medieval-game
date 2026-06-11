@@ -112,6 +112,8 @@ class WarriorExclusivityTest extends BaseIntegrationTest {
 
         long sessionId = objectMapper.readTree(r).get("id").asLong();
 
+        fastForwardWork(sessionId); // [WORK_IDLE] timer real: simula o tempo decorrido p/ poder coletar
+
         mockMvc.perform(post("/api/work/" + sessionId + "/collect")
                         .header("Authorization", bearer(token)))
                 .andExpect(status().isOk());

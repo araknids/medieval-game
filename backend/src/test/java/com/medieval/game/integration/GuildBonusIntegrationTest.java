@@ -68,6 +68,8 @@ class GuildBonusIntegrationTest extends BaseIntegrationTest {
 
         long sessionId = objectMapper.readTree(workResp).get("id").asLong();
 
+        fastForwardWork(sessionId); // [WORK_IDLE] timer real: simula o tempo decorrido p/ poder coletar
+
         mockMvc.perform(post("/api/work/" + sessionId + "/collect")
                         .header("Authorization", bearer(leaderToken)))
                 .andExpect(status().isOk())

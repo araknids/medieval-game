@@ -20,3 +20,17 @@ godot-client/export_presets.cfg
 
 # credenciais locais do cliente Godot (NUNCA commitar)
 godot-client/login.cfg
+
+# Blender portatil + downloads de ferramentas (nao commitar)
+/.tools/
+
+# Segredos / config local (NUNCA commitar) — higiene pre-repo-publico [AUDITORIA]
+.env
+.env.*
+**/application-local.properties
+
+# Build output do Maven (nao commitar)
+backend/target/
+
+# Packs de asset crus (CC0), so bloat de repo
+assets externos/
