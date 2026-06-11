@@ -17,6 +17,7 @@ const A_HURT := LIB + "Hit_Chest"
 const A_HURT_HEAD := LIB + "Hit_Head"
 const A_WALK := LIB + "Walk"
 const A_RUN := LIB + "Jog_Fwd"   # corrida — o inimigo vem CORRENDO pra cima
+const A_JUMP := LIB + "Jump"     # salto de escape do arqueiro
 const A_ROLL := LIB + "Roll"   # cambalhota IN-PLACE (Roll_RM tem root-motion e "voa" com o nosso tween)
 const A_DEATH := LIB + "Death01"
 const BARW := 0.7
@@ -27,7 +28,7 @@ const ATTACK_RANGE := 1.35   # alcance em que o melee conecta o golpe
 const MELEE_SPEED := 2.8     # corrida do melee fechando distância (unid/s)
 const ARCHER_SPEED := 2.2    # recuo do arqueiro (kite)
 const ARCHER_PREF := 2.4     # arqueiro recua p/ manter ~esta distância do melee (obriga o melee a perseguir)
-const FIELD_EDGE := 3.7      # borda do campo: o arqueiro recua até aqui e para (o guerreiro o alcança)
+const FIELD_EDGE := 4.5      # borda do campo: o arqueiro recua/salta até aqui (o guerreiro o alcança)
 const WINDUP := 0.18         # s — armar o golpe antes do impacto
 const RECOVER := 0.12        # s — respiro após o impacto antes do próximo evento
 const MAX_WAIT := 2.2        # s — timeout p/ disparar mesmo fora de posição (nunca trava)
@@ -184,8 +185,8 @@ func _build_fighters() -> void:
 		# mais ao centro p/ ter espaço de recuar antes de cruzar; o melee, mais longe.
 		var rn: Node3D = ranged_f["node"]
 		var mn: Node3D = melee_f["node"]
-		rn.position = Vector3(ranged_f["side"] * 1.8, 0, 0)
-		mn.position = Vector3(melee_f["side"] * 3.0, 0, 0)
+		rn.position = Vector3(ranged_f["side"] * 2.6, 0, 0)
+		mn.position = Vector3(melee_f["side"] * 4.4, 0, 0)
 
 # [GODOT_PAPERDOLL] Veste UM lutador: esconde a base nua, põe a cabeça sempre, roupa no slot
 # equipado e a pele cortada no slot vazio (a roupa cobre o resto → 0 clipping). Se as peças
@@ -385,25 +386,26 @@ func _play_loop(f: Dictionary, anim_name: String) -> void:
 	if a: a.loop_mode = Animation.LOOP_LINEAR
 	ap.play(nm)
 
-# Cambalhota evasiva curta: o travel dura EXATAMENTE o clip do "Roll" (velocidade natural)
-# → a animação e o deslocamento começam e terminam juntos, sem congelar no meio.
-func _evade_roll(f: Dictionary, dx: float) -> void:
+# Salto de escape: pula `dx` unidades pra trás num ARCO (sobe e desce), recuperando
+# distância. O destino é limitado à borda do campo. Anim de Jump em velocidade natural.
+func _evade_jump(f: Dictionary, dx: float) -> void:
 	if f["hopping"] or f["dead"]: return
 	f["hopping"] = true
 	var n: Node3D = f["node"]
 	var ap: AnimationPlayer = f["anim"]
-	var dur := 0.5
+	var start_x := n.position.x
+	var end_x := clampf(start_x + dx, -FIELD_EDGE, FIELD_EDGE)
+	var dur := 0.55
 	if ap:
-		var roll := A_ROLL if ap.has_animation(A_ROLL) else A_WALK
-		var a: Animation = ap.get_animation(roll)
+		var jmp := A_JUMP if ap.has_animation(A_JUMP) else A_ROLL
+		var a: Animation = ap.get_animation(jmp)
 		if a and a.get_length() > 0.05:
 			a.loop_mode = Animation.LOOP_NONE
-			dur = a.get_length()                   # travel = duração do roll (em sync, natural)
-		ap.play(roll)
+		ap.play(jmp)
 	var tw := create_tween()
-	tw.tween_property(n, "position", Vector3(n.position.x + dx, 0, 0), dur) \
-		.set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
+	tw.tween_method(func(t: float): n.position = Vector3(lerpf(start_x, end_x, t), sin(t * PI) * 0.45, 0.0), 0.0, 1.0, dur)
 	tw.tween_callback(func():
+		n.position = Vector3(end_x, 0, 0)
 		f["hopping"] = false
 		if ap and not f["dead"]: ap.play(A_IDLE))
 
@@ -505,10 +507,10 @@ func _resolve(e: Dictionary) -> void:
 		var dodger = fighters.get(str(e.get("actor", "")))   # no dodge, o actor é quem esquiva
 		if dodger:
 			_popup(_head(dodger), "DODGE", Color(0.62, 0.81, 1), false)
-			if tgt:   # rola pra LONGE do atacante (tgt = atacante)
+			if tgt:   # salta pra LONGE do atacante (tgt = atacante), recuperando distância
 				var away := signf((dodger["node"] as Node3D).position.x - (tgt["node"] as Node3D).position.x)
 				if away == 0.0: away = 1.0
-				_evade_roll(dodger, away * 1.5)
+				_evade_jump(dodger, away * 2.8)
 		if tgt: tgt["hp"] = int(e.get("targetHp", tgt["hp"])); _update_hp(tgt)   # reflect no atacante
 
 func _handle_spawn(e: Dictionary) -> void:
@@ -751,35 +753,35 @@ func _mock_events() -> Array:
 	# o guerreiro chega e dá POUCOS golpes GRANDES; aí a troca fica equilibrada.
 	# (Os hits do guerreiro só disparam quando ele alcança — o sim segura por alcance.)
 	if mock_enemy_wins:
-		# o guerreiro (espada) vence: peppering do arqueiro não segura os golpões dele.
+		# o guerreiro (espada) vence: dá 2 golpões, o arqueiro SALTA pra longe, e ele alcança de novo.
 		return [
 			{"type": "spawn", "actor": "Você", "target": "", "damage": 0, "targetHp": 100, "targetMaxHp": 100, "element": "", "hitZone": ""},
 			{"type": "spawn", "actor": "Bandido", "target": "", "damage": 0, "targetHp": 100, "targetMaxHp": 100, "element": "", "hitZone": ""},
 			{"type": "attack", "actor": "Você", "target": "Bandido", "damage": 11, "targetHp": 89, "targetMaxHp": 100, "element": "", "hitZone": "body"},
 			{"type": "attack", "actor": "Você", "target": "Bandido", "damage": 9,  "targetHp": 80, "targetMaxHp": 100, "element": "", "hitZone": "legs"},
 			{"type": "attack", "actor": "Você", "target": "Bandido", "damage": 12, "targetHp": 68, "targetMaxHp": 100, "element": "", "hitZone": "body"},
-			{"type": "miss",   "actor": "Você", "target": "Bandido", "damage": 0,  "targetHp": 68, "targetMaxHp": 100, "element": "", "hitZone": ""},
-			{"type": "crit",   "actor": "Bandido", "target": "Você", "damage": 34, "targetHp": 66, "targetMaxHp": 100, "element": "SUPER", "hitZone": "head"},
-			{"type": "dodge",  "actor": "Você", "target": "Bandido", "damage": 0,  "targetHp": 68, "targetMaxHp": 100, "element": "", "hitZone": ""},
-			{"type": "attack", "actor": "Você", "target": "Bandido", "damage": 10, "targetHp": 58, "targetMaxHp": 100, "element": "", "hitZone": "body"},
-			{"type": "attack", "actor": "Bandido", "target": "Você", "damage": 30, "targetHp": 36, "targetMaxHp": 100, "element": "", "hitZone": "body"},
-			{"type": "attack", "actor": "Você", "target": "Bandido", "damage": 11, "targetHp": 47, "targetMaxHp": 100, "element": "", "hitZone": "body"},
-			{"type": "attack", "actor": "Bandido", "target": "Você", "damage": 36, "targetHp": 0,  "targetMaxHp": 100, "element": "", "hitZone": "body"},
+			{"type": "crit",   "actor": "Bandido", "target": "Você", "damage": 28, "targetHp": 72, "targetMaxHp": 100, "element": "SUPER", "hitZone": "head"},  # golpão 1
+			{"type": "attack", "actor": "Bandido", "target": "Você", "damage": 24, "targetHp": 48, "targetMaxHp": 100, "element": "", "hitZone": "body"},      # golpão 2
+			{"type": "dodge",  "actor": "Você", "target": "Bandido", "damage": 0,  "targetHp": 68, "targetMaxHp": 100, "element": "", "hitZone": ""},          # SALTA pra longe
+			{"type": "attack", "actor": "Você", "target": "Bandido", "damage": 10, "targetHp": 58, "targetMaxHp": 100, "element": "", "hitZone": "body"},      # peppera de novo
+			{"type": "attack", "actor": "Você", "target": "Bandido", "damage": 9,  "targetHp": 49, "targetMaxHp": 100, "element": "", "hitZone": "legs"},
+			{"type": "attack", "actor": "Bandido", "target": "Você", "damage": 26, "targetHp": 22, "targetMaxHp": 100, "element": "", "hitZone": "body"},      # alcançou de novo
+			{"type": "attack", "actor": "Você", "target": "Bandido", "damage": 11, "targetHp": 38, "targetMaxHp": 100, "element": "", "hitZone": "body"},
+			{"type": "attack", "actor": "Bandido", "target": "Você", "damage": 22, "targetHp": 0,  "targetMaxHp": 100, "element": "", "hitZone": "body"},      # finaliza
 			{"type": "victory", "actor": "Bandido", "target": "Você", "damage": 0, "targetHp": 0, "targetMaxHp": 100, "element": "", "hitZone": ""},
 		]
-	# o arqueiro vence: peppera muito no começo e fecha quando o guerreiro chega.
+	# o arqueiro vence: peppera muito no começo, salta quando o guerreiro chega, e fecha.
 	return [
 		{"type": "spawn", "actor": "Você", "target": "", "damage": 0, "targetHp": 100, "targetMaxHp": 100, "element": "", "hitZone": ""},
 		{"type": "spawn", "actor": "Bandido", "target": "", "damage": 0, "targetHp": 100, "targetMaxHp": 100, "element": "", "hitZone": ""},
 		{"type": "attack", "actor": "Você", "target": "Bandido", "damage": 10, "targetHp": 90, "targetMaxHp": 100, "element": "", "hitZone": "body"},
 		{"type": "attack", "actor": "Você", "target": "Bandido", "damage": 12, "targetHp": 78, "targetMaxHp": 100, "element": "", "hitZone": "legs"},
 		{"type": "attack", "actor": "Você", "target": "Bandido", "damage": 9,  "targetHp": 69, "targetMaxHp": 100, "element": "", "hitZone": "body"},
-		{"type": "miss",   "actor": "Você", "target": "Bandido", "damage": 0,  "targetHp": 69, "targetMaxHp": 100, "element": "", "hitZone": ""},
-		{"type": "attack", "actor": "Você", "target": "Bandido", "damage": 11, "targetHp": 58, "targetMaxHp": 100, "element": "", "hitZone": "body"},
-		{"type": "attack", "actor": "Bandido", "target": "Você", "damage": 26, "targetHp": 74, "targetMaxHp": 100, "element": "", "hitZone": "body"},
-		{"type": "dodge",  "actor": "Você", "target": "Bandido", "damage": 0,  "targetHp": 58, "targetMaxHp": 100, "element": "", "hitZone": ""},
-		{"type": "attack", "actor": "Você", "target": "Bandido", "damage": 13, "targetHp": 45, "targetMaxHp": 100, "element": "", "hitZone": "body"},
-		{"type": "attack", "actor": "Bandido", "target": "Você", "damage": 24, "targetHp": 50, "targetMaxHp": 100, "element": "", "hitZone": "body"},
+		{"type": "attack", "actor": "Bandido", "target": "Você", "damage": 24, "targetHp": 76, "targetMaxHp": 100, "element": "", "hitZone": "body"},          # golpão 1
+		{"type": "attack", "actor": "Bandido", "target": "Você", "damage": 22, "targetHp": 54, "targetMaxHp": 100, "element": "", "hitZone": "body"},          # golpão 2
+		{"type": "dodge",  "actor": "Você", "target": "Bandido", "damage": 0,  "targetHp": 69, "targetMaxHp": 100, "element": "", "hitZone": ""},              # SALTA pra longe
+		{"type": "attack", "actor": "Você", "target": "Bandido", "damage": 13, "targetHp": 56, "targetMaxHp": 100, "element": "", "hitZone": "body"},          # peppera e fecha
+		{"type": "attack", "actor": "Você", "target": "Bandido", "damage": 11, "targetHp": 45, "targetMaxHp": 100, "element": "", "hitZone": "legs"},
 		{"type": "crit",   "actor": "Você", "target": "Bandido", "damage": 28, "targetHp": 17, "targetMaxHp": 100, "element": "SUPER", "hitZone": "head"},
 		{"type": "attack", "actor": "Você", "target": "Bandido", "damage": 17, "targetHp": 0,  "targetMaxHp": 100, "element": "", "hitZone": "body"},
 		{"type": "victory", "actor": "Você", "target": "Bandido", "damage": 0, "targetHp": 0, "targetMaxHp": 100, "element": "", "hitZone": ""},
