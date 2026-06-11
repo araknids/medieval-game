@@ -467,7 +467,7 @@ func city(host: Node3D, rng: RandomNumberGenerator, _combat_r: float) -> void:
 	# árvores e luminárias entre as casas
 	for i in 8:
 		var a2 := deg_to_rad(140.0 + i * 30.0)
-		var t := ["CommonTree_1", "CommonTree_3", "Pine_1"][i % 3]
+		var t: String = ["CommonTree_1", "CommonTree_3", "Pine_1"][i % 3]
 		_place(host, rng, NAT + t + ".gltf", Vector3(cos(a2) * 17.0, 0, sin(a2) * 17.0), rng.randf_range(0, 360), rng.randf_range(1.0, 1.6))
 	for i in 5:
 		var a3 := deg_to_rad(150.0 + i * 45.0)
