@@ -940,12 +940,11 @@ func _setup_scene() -> void:
 	cam.position = Vector3(0.0, 3.0, 5.5)   # default de 1v1; _frame_camera() reenquadra após o spawn
 	cam.look_at_from_position(cam.position, Vector3(0, 1.0, 0), Vector3.UP)
 	add_child(cam)
-	if scenario == "mining":
+	if scenario != "":
 		var srng := RandomNumberGenerator.new()
 		srng.seed = 20260611
 		var sc := Scenery.new()
-		sc.night_lighting(self)
-		sc.mining(self, srng, FIELD_EDGE + 1.5)   # centro livre p/ os lutadores
+		sc.build(self, scenario, srng, FIELD_EDGE + 1.5)   # "mining" | "beach" — centro livre
 	else:
 		_setup_environment()
 		_setup_lights()
