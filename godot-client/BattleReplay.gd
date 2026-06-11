@@ -10,6 +10,7 @@ extends Node3D
 
 const CHAR := preload("res://addons/quaternius_ik_rigged/Models_with_rigging/Male_rigged.tscn")
 const Scenery := preload("res://Scenery.gd")
+const Monsters := preload("res://Monsters.gd")
 const LIB := "UAL1_Standard/"
 const A_IDLE := LIB + "Sword_Idle"
 const A_ATTACK := LIB + "Sword_Attack"
@@ -105,10 +106,13 @@ const MAX_POOLS := 26
 @export var force_mock := false
 ## TESTE: no mock, faz o Bandido (espada) VENCER — p/ ver como fica quando o melee ganha o arqueiro.
 @export var mock_enemy_wins := false
-## Troca o INIMIGO (direita) por um monstro do bundle Quaternius (res://assets/monsters/).
-## Vazio = inimigo humano normal. Ex.: "Demon", "Ghost Skull", "Blue Demon", "Dragon".
+## Troca o INIMIGO (direita) por um monstro ESPECÍFICO do bundle (override manual de teste).
+## Vazio = decide pelo NOME do inimigo (Monsters.pick_for). Ex.: "Demon", "Dragon", "Ghost Skull".
 @export var enemy_monster := ""
-## Escala do monstro (alguns nascem pequenos/gigantes — ajuste no olho pela arena).
+## TESTE: finge que o inimigo do backend tem ESTE nome (p/ ver o mapa nome→monstro sem PvE real).
+## Ex.: "Young Dragon" → Dragon · "Stone Golem" → Goleling Evolved · "Orc Warrior" → humano.
+@export var force_enemy_name := ""
+## (Legado) escala manual do monstro — hoje o tamanho vem do roster (Monsters.size_for) + auto-fit.
 @export var monster_scale := 1.0
 ## Giro extra do monstro em Y (graus) se ele nascer de lado/de costas. Tente 0, 90, 180, -90.
 @export var monster_face_offset_deg := 0.0
@@ -123,6 +127,7 @@ var order: Array = []       # [left, right] na ordem de spawn
 var player_equip: Array = []  # tipos de armadura EQUIPADOS pelo jogador (p/ vestir o lutador da esquerda)
 var player_weapon := ""       # tipo visual da arma equipada do herói: sword|bow|axe|spear|mace
 var cam: Camera3D
+var mons := Monsters.new()  # helper de monstros (instancia + auto-fit + roster/mapa)
 var cam_view := 1            # preset de câmera ATIVO (1/2/3) — ver CAM_PRESETS
 var cam_hint: Label          # dica no canto: "📷 Cam N  [1/2/3]"
 
@@ -225,9 +230,20 @@ func _build_fighters() -> void:
 	var lequip: Array = player_equip if player_equip.size() > 0 else DEFAULT_OUTFIT
 	# INIMIGO (direita): no force_mock vira espadachim; na arena real segue o estilo dos eventos.
 	var rweapon := "sword" if force_mock else ("bow" if _is_ranged(rname) else "sword")
+	# Representação do inimigo: monstro do bundle (besta) ou humano (cavaleiro/bandido/PvP).
+	#   enemy_monster (override manual) > nome do backend (rname) via Monsters.pick_for.
+	var emeta: Dictionary = {}
+	if enemy_monster != "":
+		emeta = mons.meta_for(enemy_monster)
+	elif not force_mock:
+		var enemy_name := force_enemy_name if force_enemy_name != "" else rname
+		var pick := mons.pick_for(enemy_name)
+		if pick.get("kind") == "monster":
+			emeta = pick
+			print(">>> inimigo '%s' → monstro %s (h=%.1f)" % [enemy_name, emeta["file"], emeta["target_h"]])
 	order = [
-		_make_fighter(lname, -1, int(spawns[0].get("targetMaxHp", 100)), lweapon, lequip, ""),
-		_make_fighter(rname,  1, int(spawns[1].get("targetMaxHp", 100)), rweapon, DEFAULT_OUTFIT, enemy_monster),
+		_make_fighter(lname, -1, int(spawns[0].get("targetMaxHp", 100)), lweapon, lequip, {}),
+		_make_fighter(rname,  1, int(spawns[1].get("targetMaxHp", 100)), rweapon, DEFAULT_OUTFIT, emeta),
 	]
 	fighters[lname] = order[0]
 	fighters[rname] = order[1]
@@ -239,8 +255,8 @@ func _build_fighters() -> void:
 		# posição inicial de kiting: SIMÉTRICA (ambos à mesma distância do centro)
 		var rn: Node3D = ranged_f["node"]
 		var mn: Node3D = melee_f["node"]
-		rn.position = Vector3(ranged_f["side"] * 3.0, 0, 0)
-		mn.position = Vector3(melee_f["side"] * 3.0, 0, 0)
+		rn.position = Vector3(ranged_f["side"] * 3.0, ranged_f["base_y"], 0)
+		mn.position = Vector3(melee_f["side"] * 3.0, melee_f["base_y"], 0)
 
 # [GODOT_PAPERDOLL] Veste UM lutador: esconde a base nua, põe a cabeça sempre, roupa no slot
 # equipado e a pele cortada no slot vazio (a roupa cobre o resto → 0 clipping). Se as peças
@@ -314,15 +330,23 @@ func _is_ranged(who: String) -> bool:
 			return true
 	return false
 
-func _make_fighter(fname: String, side: int, maxhp: int, weapon_kind: String, equipped_types: Array, monster_file := "") -> Dictionary:
-	var is_monster := monster_file != ""
-	var node: Node3D = _instance_monster(monster_file) if is_monster else CHAR.instantiate()
+func _make_fighter(fname: String, side: int, maxhp: int, weapon_kind: String, equipped_types: Array, monster_meta := {}) -> Dictionary:
+	var is_monster := not monster_meta.is_empty()
+	var node: Node3D = mons.instance(str(monster_meta.get("file", ""))) if is_monster else CHAR.instantiate()
 	if node == null:   # monstro não carregou → cai no humano p/ não travar a cena
 		node = CHAR.instantiate(); is_monster = false
 	add_child(node)
 	node.position = Vector3(ENTRY_X * side, 0, 0)
-	var sc := monster_scale if is_monster else 0.92
-	node.scale = Vector3(sc, sc, sc)
+	var base_y := 0.0
+	var bar_off := 2.05
+	if is_monster:
+		# auto-fit pelo bounding box → tamanho do roster + pé no chão / hover (voador)
+		var th := float(monster_meta.get("target_h", Monsters.TARGET_H))
+		var fit := mons.fit(node, th, float(monster_meta.get("hover", 0.0)))
+		base_y = node.position.y                        # fit já setou y = ground_y + hover
+		bar_off = th - float(fit["ground_y"]) + 0.4     # acima da cabeça (independe do hover)
+	else:
+		node.scale = Vector3(0.92, 0.92, 0.92)
 	# monstro é sempre melee (sem arco/kite); herói/humano segue a arma equipada
 	var ranged := weapon_kind == "bow" and not is_monster
 	var ap: AnimationPlayer = node.find_child("AnimationPlayer", true, false)
@@ -336,6 +360,7 @@ func _make_fighter(fname: String, side: int, maxhp: int, weapon_kind: String, eq
 	var f := {"name": fname, "node": node, "anim": ap, "side": side, "ranged": ranged,
 			  "dead": false, "maxhp": max(1, maxhp), "hp": max(1, maxhp), "busy": false, "hopping": false,
 			  "vel": 0.0, "shown_hp": float(max(1, maxhp)), "is_monster": is_monster, "yaw_offset": yaw_off,
+			  "base_y": base_y, "bar_off": bar_off,
 			  "amap": (_monster_anim_map(ap) if is_monster else {}),
 			  "face_target": deg_to_rad(90.0 if -side > 0 else -90.0) + yaw_off}
 	node.rotation.y = f["face_target"]   # nasce já virado pro centro (sem lerp do zero)
@@ -455,7 +480,7 @@ func _process(dt: float) -> void:
 			n.rotation.y = lerp_angle(n.rotation.y, f["face_target"], 1.0 - exp(-TURN_SPEED * dt))
 		# barra: segue a cabeça + DRENA suave (shown_hp → hp) p/ leitura de impacto
 		if f.has("bar"):
-			f["bar"].global_position = n.global_position + Vector3(0, 2.05, 0)
+			f["bar"].global_position = n.global_position + Vector3(0, f.get("bar_off", 2.05), 0)
 			f["shown_hp"] = lerpf(f["shown_hp"], float(f["hp"]), 1.0 - exp(-HP_LERP * dt))
 			_apply_hp_bar(f)
 	match phase:
@@ -517,7 +542,7 @@ func _move_kite(dt: float) -> void:
 	var prev_a := rn.position.x
 	if gap < ARCHER_PREF:
 		var next_x := clampf(rn.position.x + side * ARCHER_SPEED * dt, -FIELD_EDGE, FIELD_EDGE)
-		rn.position = Vector3(next_x, 0, 0)
+		rn.position = Vector3(next_x, ranged_f["base_y"], 0)
 	if not ranged_f["busy"] and ranged_f["anim"]:
 		if absf(rn.position.x - prev_a) > 0.004:
 			if ranged_f["anim"].current_animation != A_WALK:
@@ -560,7 +585,7 @@ func _step_toward(f: Dictionary, desired_x: float, max_speed: float, dt: float) 
 	var vel: float = move_toward(float(f["vel"]), target_v, ACCEL * dt)
 	f["vel"] = vel
 	var new_x: float = n.position.x + vel * dt
-	n.position = Vector3(new_x, 0, 0)
+	n.position = Vector3(new_x, f["base_y"], 0)
 	return new_x
 
 # Run quando se move, idle quando parado (não interrompe golpe/flinch em andamento).
@@ -606,7 +631,7 @@ func _dodge_roll(dodger: Dictionary, attacker: Dictionary) -> void:
 			dur = a.get_length()
 		ap.play(roll, BLEND)
 	var tw := create_tween()
-	tw.tween_property(n, "position", Vector3(land_x, 0, 0), dur)   # roll = velocidade constante
+	tw.tween_property(n, "position", Vector3(land_x, dodger["base_y"], 0), dur)   # roll = velocidade constante
 	tw.tween_callback(func():
 		dodger["hopping"] = false
 		if ap and not dodger["dead"]: ap.play(A_IDLE, BLEND))
@@ -793,7 +818,7 @@ func _stand_over(winner: Dictionary, loser: Dictionary) -> void:
 	_face(winner, -dir)                               # encara o corpo
 	if winner["anim"]: _play_loop(winner, _clip(winner, "run"))
 	var tw := create_tween()
-	tw.tween_property(wn, "position", Vector3(stand_x, 0, 0), 0.5).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_OUT)
+	tw.tween_property(wn, "position", Vector3(stand_x, winner["base_y"], 0), 0.5).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_OUT)
 	tw.tween_callback(func():
 		if winner["anim"]: winner["anim"].play(_clip(winner, "idle"), BLEND))
 

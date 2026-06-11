@@ -16,6 +16,54 @@ const FLYERS := [
 	"Demon", "Dragon",
 ]
 
+# ── ROSTER: altura-alvo por monstro (a batalha auto-fita pra esse tamanho) ────────
+const SIZE_SMALL := 1.3
+const SIZE_NORMAL := 1.8
+const SIZE_BIG := 2.6
+const SIZE_BOSS := 3.4
+# só os que fogem do NORMAL; o resto cai em SIZE_NORMAL.
+const SIZE := {
+	"Bunny": SIZE_SMALL, "Cat": SIZE_SMALL, "Chicken": SIZE_SMALL, "Frog": SIZE_SMALL,
+	"Fish": SIZE_SMALL, "Birb": SIZE_SMALL, "Armabee": SIZE_SMALL, "Glub": SIZE_SMALL,
+	"Cactoro": SIZE_SMALL,
+	"Dino": SIZE_BIG, "Dragon": SIZE_BIG, "Goleling Evolved": SIZE_BIG,
+	"Mushnub Evolved": SIZE_BIG, "Alpaking Evolved": SIZE_BIG, "Armabee Evolved": SIZE_BIG,
+	"Glub Evolved": SIZE_BIG, "Monkroose": SIZE_BIG,
+	"Dragon Evolved": SIZE_BOSS, "Mushroom King": SIZE_BOSS,
+}
+
+# ── MAPA nome-do-inimigo (backend) → monstro. Primeira palavra que casar VENCE (ordem
+# importa: específico antes de genérico). Inimigos HUMANOIDES (cavaleiro/bandido/orc/
+# guarda…) não casam nenhuma → viram HUMANO (mesmo rig do player). Backend: ~70 nomes
+# temáticos (Young Dragon, Stone Golem, Lesser Demon, Sea Serpent, Mine Wraith, Mushnub…).
+const NAME_MAP := [
+	["dragon", "Dragon"], ["demon", "Demon"], ["devil", "Blue Demon"], ["infernal", "Blue Demon"],
+	["lich", "Ghost Skull"], ["skull", "Ghost Skull"], ["bone", "Ghost Skull"],
+	["specter", "Ghost"], ["spectre", "Ghost"], ["wraith", "Ghost"], ["ghost", "Ghost"],
+	["spirit", "Ghost"], ["husk", "Ghost"], ["phantom", "Ghost"], ["shade", "Ghost"],
+	["golem", "Goleling Evolved"], ["ogre", "Goleling Evolved"], ["troll", "Goleling Evolved"],
+	["kraken", "Glub Evolved"], ["leviathan", "Glub Evolved"], ["serpent", "Glub"],
+	["crab", "Glub"], ["drowned", "Glub"], ["tide", "Glub"], ["kelp", "Glub"],
+	["fish", "Fish"], ["sea", "Glub"], ["aquatic", "Fish"],
+	["worm", "Cactoro"], ["spider", "Hywirl"], ["aberration", "Hywirl"], ["thing", "Hywirl"],
+	["bat", "Armabee"], ["bee", "Armabee"], ["wasp", "Armabee"],
+	["mushroom", "Mushroom King"], ["mush", "Mushnub"], ["fungus", "Mushnub"], ["spore", "Mushnub"],
+	["frog", "Frog"], ["toad", "Frog"], ["bear", "Dino"], ["boar", "Dino"], ["behemoth", "Dino"],
+	["dino", "Dino"], ["lizard", "Dino"], ["raptor", "Dino"], ["beast", "Monkroose"],
+	["wolf", "Monkroose"], ["ape", "Monkroose"], ["bunny", "Bunny"], ["rabbit", "Bunny"],
+	["cat", "Cat"], ["feline", "Cat"], ["chicken", "Chicken"], ["bird", "Birb"], ["raven", "Birb"],
+	["crystal", "Green Spiky Blob"], ["gem", "Green Spiky Blob"], ["prismatic", "Green Spiky Blob"],
+	["glimmer", "Green Spiky Blob"], ["blob", "Green Blob"], ["slime", "Green Blob"],
+	["ooze", "Green Blob"], ["gel", "Green Blob"], ["alien", "Alien"], ["cactoro", "Cactoro"],
+	["deepworm", "Cactoro"], ["siren", "Glub"],
+]
+
+# palavras que indicam BOSS → aumenta a altura ×1.25
+const BOSS_WORDS := [
+	"boss", "tyrant", "behemoth", "ancient", "elder", "greater", "colossal",
+	"king", "lord", "evolved", "champion", "warden",
+]
+
 # Os 30 do bundle (nomes = nome do arquivo sem .glb). Hard-coded p/ rodar em build exportada
 # (DirAccess em res:// só lista no editor).
 const NAMES := [
@@ -72,6 +120,48 @@ func fit(node: Node3D, target_h := TARGET_H, hover := 0.0) -> Dictionary:
 # Voador? Só quem está na lista EXPLÍCITA FLYERS (o `_node` fica pro caso de voltar a auto-detectar).
 func is_flyer(mname: String, _node: Node3D) -> bool:
 	return mname in FLYERS
+
+# Altura-alvo de um monstro (roster); default NORMAL.
+func size_for(mname: String) -> float:
+	return SIZE.get(mname, SIZE_NORMAL)
+
+# Metadados p/ spawnar um monstro JÁ conhecido (override manual ou pick): file+altura+hover.
+func meta_for(mname: String) -> Dictionary:
+	return {"kind": "monster", "file": mname, "target_h": size_for(mname),
+			"hover": (HOVER_H if mname in FLYERS else 0.0)}
+
+# Decide como encenar um inimigo do backend pelo NOME:
+#   {kind:"human"}                                  → humanoide/desconhecido (mesmo rig do player)
+#   {kind:"monster", file, target_h, hover}         → besta do bundle (auto-fit + hover)
+func pick_for(enemy_name: String) -> Dictionary:
+	# casa por PALAVRA inteira (hífen vira espaço) → "Young Dragon" casa "dragon",
+	# mas "Escaped" NÃO casa "ape". Backend nomeia a besta como palavra ("Stone Golem").
+	var nm := _strip_icon(enemy_name).to_lower().replace("-", " ")
+	var padded := " " + nm + " "
+	var file := ""
+	for pair in NAME_MAP:
+		if (" " + String(pair[0]) + " ") in padded:
+			file = String(pair[1])
+			break
+	if file == "":
+		return {"kind": "human"}   # sem palavra de besta → humano (cavaleiro/bandido/orc/etc.)
+	var th := size_for(file)
+	for bw in BOSS_WORDS:
+		if (" " + String(bw) + " ") in padded:
+			th *= 1.25
+			break
+	return {"kind": "monster", "file": file, "target_h": th,
+			"hover": (HOVER_H if file in FLYERS else 0.0)}
+
+# Tira o ícone de elemento (emoji + espaço) que o backend às vezes prefixa no nome.
+func _strip_icon(s: String) -> String:
+	var sp := s.find(" ")
+	if sp > 0:
+		var first := s.substr(0, sp)
+		for ch in first:
+			if ch.unicode_at(0) > 127:   # caractere não-ASCII = emoji/ícone
+				return s.substr(sp + 1).strip_edges()
+	return s
 
 # Nome da anim idle (case-insensitive); senão a 1ª anim. "" se não houver AnimationPlayer/anim.
 func find_idle(ap: AnimationPlayer) -> String:
