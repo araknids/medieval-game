@@ -847,31 +847,121 @@ func _setup_scene() -> void:
 	cam.position = Vector3(0.0, 3.0, 5.5)   # default de 1v1; _frame_camera() reenquadra após o spawn
 	cam.look_at_from_position(cam.position, Vector3(0, 1.0, 0), Vector3.UP)
 	add_child(cam)
-	var sun := DirectionalLight3D.new()
-	sun.rotation_degrees = Vector3(-50, -30, 0)
-	sun.light_energy = 1.2
-	sun.shadow_enabled = true
-	add_child(sun)
+	_setup_environment()
+	_setup_lights()
+	_setup_arena()
+
+# Céu procedural quente + névoa + tonemap/glow → mood de fim de tarde no coliseu.
+func _setup_environment() -> void:
+	var sky_mat := ProceduralSkyMaterial.new()
+	sky_mat.sky_top_color = Color(0.30, 0.40, 0.58)
+	sky_mat.sky_horizon_color = Color(0.78, 0.62, 0.48)
+	sky_mat.ground_horizon_color = Color(0.55, 0.45, 0.38)
+	sky_mat.ground_bottom_color = Color(0.28, 0.23, 0.20)
+	var sky := Sky.new()
+	sky.sky_material = sky_mat
 	var env := Environment.new()
-	env.background_mode = Environment.BG_COLOR
-	env.background_color = Color(0.15, 0.15, 0.2)
-	env.ambient_light_energy = 0.85
+	env.background_mode = Environment.BG_SKY
+	env.sky = sky
+	env.ambient_light_source = Environment.AMBIENT_SOURCE_SKY
+	env.ambient_light_energy = 0.5
+	env.tonemap_mode = Environment.TONE_MAPPER_FILMIC
+	env.fog_enabled = true
+	env.fog_light_color = Color(0.72, 0.6, 0.5)
+	env.fog_density = 0.010
+	env.glow_enabled = true
+	env.glow_intensity = 0.3
+	env.glow_bloom = 0.05
 	var we := WorldEnvironment.new()
 	we.environment = env
 	add_child(we)
-	var ground := MeshInstance3D.new()
-	var pm := PlaneMesh.new()
-	pm.size = Vector2(24, 24)
-	var gmat := StandardMaterial3D.new()
-	gmat.albedo_color = Color(0.22, 0.2, 0.18)
-	ground.material_override = gmat
-	ground.mesh = pm
-	add_child(ground)
+
+func _setup_lights() -> void:
+	var sun := DirectionalLight3D.new()
+	sun.rotation_degrees = Vector3(-48, -35, 0)
+	sun.light_color = Color(1.0, 0.94, 0.82)   # sol quente
+	sun.light_energy = 1.4
+	sun.shadow_enabled = true
+	add_child(sun)
+	var fill := DirectionalLight3D.new()
+	fill.rotation_degrees = Vector3(-28, 150, 0)
+	fill.light_color = Color(0.55, 0.65, 0.85)  # fill frio do lado oposto
+	fill.light_energy = 0.4
+	add_child(fill)
+
+func _setup_arena() -> void:
+	# chão de AREIA (disco) + colisão p/ o ragdoll
+	var floor_mi := MeshInstance3D.new()
+	var fc := CylinderMesh.new()
+	fc.top_radius = 18.0; fc.bottom_radius = 18.0; fc.height = 0.5
+	floor_mi.mesh = fc
+	var fmat := StandardMaterial3D.new()
+	fmat.albedo_color = Color(0.52, 0.43, 0.30); fmat.roughness = 1.0
+	floor_mi.material_override = fmat
+	floor_mi.position = Vector3(0, -0.25, 0)
+	add_child(floor_mi)
+	# círculo de duelo (marca mais escura no centro)
+	var ring := MeshInstance3D.new()
+	var rc := CylinderMesh.new()
+	rc.top_radius = 6.5; rc.bottom_radius = 6.5; rc.height = 0.04
+	ring.mesh = rc
+	var rmat := StandardMaterial3D.new()
+	rmat.albedo_color = Color(0.42, 0.34, 0.22); rmat.roughness = 1.0
+	ring.material_override = rmat
+	ring.position = Vector3(0, 0.02, 0)
+	add_child(ring)
 	var floor_body := StaticBody3D.new()
 	var floor_col := CollisionShape3D.new()
 	floor_col.shape = WorldBoundaryShape3D.new()
 	floor_body.add_child(floor_col)
 	add_child(floor_body)
+	# paredes do coliseu (2 anéis de pedra, escalonados) — a frente fica atrás da câmera
+	_arena_ring(11.5, 2.6, 0.0, Color(0.34, 0.31, 0.28), 36)
+	_arena_ring(14.5, 4.2, 0.0, Color(0.28, 0.26, 0.24), 40)
+	# tochas com luz quente num anel uniforme (o glow faz a chama brilhar)
+	for i in 7:
+		var a := TAU * i / 7.0
+		_torch(Vector3(10.6 * cos(a), 0.0, 10.6 * sin(a)))
+
+# Um segmento-de-anel de pedra apontando pro centro (parede do coliseu).
+func _arena_ring(r: float, h: float, y_base: float, color: Color, segs: int) -> void:
+	var seg_w := (TAU * r / segs) * 1.18   # leve sobreposição → parede contínua
+	for i in segs:
+		var a := TAU * i / segs
+		var mi := MeshInstance3D.new()
+		var bm := BoxMesh.new()
+		bm.size = Vector3(seg_w, h, 0.9)
+		mi.mesh = bm
+		var mat := StandardMaterial3D.new()
+		mat.albedo_color = color.lerp(Color(0.5, 0.47, 0.43), float(i % 2) * 0.25)  # blocos alternados
+		mat.roughness = 0.95
+		mi.material_override = mat
+		add_child(mi)
+		mi.position = Vector3(r * cos(a), y_base + h * 0.5, r * sin(a))
+		mi.look_at(Vector3(0, mi.position.y, 0), Vector3.UP)
+
+func _torch(pos: Vector3) -> void:
+	var post := MeshInstance3D.new()
+	var pb := BoxMesh.new(); pb.size = Vector3(0.16, 1.8, 0.16)
+	post.mesh = pb
+	var pmat := StandardMaterial3D.new(); pmat.albedo_color = Color(0.18, 0.12, 0.07); pmat.roughness = 1.0
+	post.material_override = pmat
+	add_child(post); post.position = pos + Vector3(0, 0.9, 0)
+	var flame := MeshInstance3D.new()
+	var sm := SphereMesh.new(); sm.radius = 0.2; sm.height = 0.46
+	flame.mesh = sm
+	var fmat := StandardMaterial3D.new()
+	fmat.albedo_color = Color(1.0, 0.6, 0.2)
+	fmat.emission_enabled = true
+	fmat.emission = Color(1.0, 0.55, 0.12)
+	fmat.emission_energy_multiplier = 5.0
+	flame.material_override = fmat
+	add_child(flame); flame.position = pos + Vector3(0, 1.9, 0)
+	var light := OmniLight3D.new()
+	light.light_color = Color(1.0, 0.6, 0.25)
+	light.light_energy = 3.5
+	light.omni_range = 9.0
+	add_child(light); light.position = pos + Vector3(0, 2.0, 0)
 
 # Enquadra a câmera pela quantidade de lutadores: 1v1 fica perto; formações grandes
 # afastam e sobem. (Hoje só há 1v1; o termo por-lutador já deixa pronto p/ 3×5 etc.)
