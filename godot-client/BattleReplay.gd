@@ -605,13 +605,44 @@ func _handle_spawn(e: Dictionary) -> void:
 func _finish() -> void:
 	if phase == "done": return
 	phase = "done"
-	var alive: Array = order.filter(func(f): return not f["dead"])
-	if alive.size() == 1 and victory_label:
-		var w: Dictionary = alive[0]
-		victory_label.text = "%s venceu!" % w["name"]
-		w["busy"] = false
-		_face(w, signf(-(w["node"] as Node3D).position.x))   # vira pra câmera/centro
-		if w["anim"]: w["anim"].play(A_IDLE, BLEND)           # vitória: pose de Sword_Idle
+	# identifica vencedor (vivo c/ mais HP) e perdedor; garante o perdedor DERROTADO + barra 0
+	var winner: Dictionary = {}
+	var loser: Dictionary = {}
+	for f in order:
+		if f["dead"]:
+			loser = f
+		elif winner.is_empty() or int(f["hp"]) > int(winner["hp"]):
+			winner = f
+	if loser.is_empty():   # decisão (ninguém morreu): o de menor HP perde
+		for f in order:
+			if not winner.is_empty() and f["name"] != winner["name"]:
+				loser = f
+		if not loser.is_empty(): _kill(loser)
+	for f in order:        # zera de vez a barra de todos os mortos
+		if f["dead"]:
+			f["shown_hp"] = 0.0
+			_apply_hp_bar(f)
+	if not winner.is_empty() and victory_label:
+		victory_label.text = "%s venceu!" % winner["name"]
+		winner["busy"] = false
+		if not loser.is_empty():
+			_stand_over(winner, loser)          # vem pra frente do corpo
+		elif winner["anim"]:
+			winner["anim"].play(A_IDLE, BLEND)
+
+# O vencedor caminha até ficar À FRENTE do corpo que acabou de matar e fica em guarda.
+func _stand_over(winner: Dictionary, loser: Dictionary) -> void:
+	var wn: Node3D = winner["node"]
+	var ln: Node3D = loser["node"]
+	var dir := signf(wn.position.x - ln.position.x)   # lado em que o vencedor está
+	if dir == 0.0: dir = 1.0
+	var stand_x := ln.position.x + dir * 0.9
+	_face(winner, -dir)                               # encara o corpo
+	if winner["anim"]: _play_loop(winner, A_RUN)
+	var tw := create_tween()
+	tw.tween_property(wn, "position", Vector3(stand_x, 0, 0), 0.5).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_OUT)
+	tw.tween_callback(func():
+		if winner["anim"]: winner["anim"].play(A_IDLE, BLEND))
 
 # ── helpers de cena / lutador (espelham Battle.gd) ──────────────────────────────
 func _face(f: Dictionary, dir: float) -> void:
