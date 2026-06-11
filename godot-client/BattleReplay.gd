@@ -71,6 +71,15 @@ const DEFAULT_OUTFIT := ["ARMOR", "PANTS", "BOOTS", "GLOVES", "HELMET", "SHOULDE
 const COMBAT_X := 1.15   # |x| de referência p/ a câmera no 1v1 melee
 const ENTRY_X := 4.2     # |x| onde os lutadores nascem (a sim os aproxima)
 
+# Câmera: 3 presets de enquadramento por TAMANHO da luta.
+#   1 = 1v1 (perto) · 2 = até 3×3 · 3 = 5×5 (largo, mais alto).
+# Troque AO VIVO com as teclas 1/2/3. cam_preset=0 (default) escolhe sozinho pela qtde de lutadores.
+const CAM_PRESETS := [
+	{"dist": 8.5,  "height": 4.4,  "look_y": 1.2},   # 1 — 1v1
+	{"dist": 15.0, "height": 8.5,  "look_y": 1.7},   # 2 — até 3×3
+	{"dist": 23.0, "height": 14.0, "look_y": 2.4},   # 3 — 5×5
+]
+
 # tipos de evento (idênticos ao battleArena.js 2D)
 const HIT_TYPES := ["attack", "crit", "volley", "extra"]       # carregam dano/HP
 const SWING_TYPES := ["attack", "crit", "volley", "extra", "miss", "dodge"]  # atacante balança a arma
@@ -103,6 +112,8 @@ const MAX_POOLS := 26
 @export var monster_scale := 1.0
 ## Giro extra do monstro em Y (graus) se ele nascer de lado/de costas. Tente 0, 90, 180, -90.
 @export var monster_face_offset_deg := 0.0
+## Câmera: 0 = AUTO (escolhe pela qtde de lutadores) · 1 = 1v1 · 2 = até 3×3 · 3 = 5×5. Teclas 1/2/3 trocam ao vivo.
+@export var cam_preset := 0
 
 var events: Array = []
 var fighters := {}          # name -> dict do lutador
@@ -110,6 +121,8 @@ var order: Array = []       # [left, right] na ordem de spawn
 var player_equip: Array = []  # tipos de armadura EQUIPADOS pelo jogador (p/ vestir o lutador da esquerda)
 var player_weapon := ""       # tipo visual da arma equipada do herói: sword|bow|axe|spear|mace
 var cam: Camera3D
+var cam_view := 1            # preset de câmera ATIVO (1/2/3) — ver CAM_PRESETS
+var cam_hint: Label          # dica no canto: "📷 Cam N  [1/2/3]"
 
 # kiting: ativo quando EXATAMENTE um lado é ranged (arco) e o outro melee
 var kiting := false
@@ -428,6 +441,10 @@ func _clip(f: Dictionary, role: String) -> String:
 # disparando o golpe só quando o atacante está em posição (ou após timeout). Assim o
 # golpe nunca bate no ar nem teleporta — e o movimento flui.
 func _process(dt: float) -> void:
+	# câmera: 1/2/3 trocam o preset de enquadramento AO VIVO (1v1 · 3×3 · 5×5)
+	if Input.is_key_pressed(KEY_1) and cam_view != 1: cam_view = 1; _apply_camera()
+	elif Input.is_key_pressed(KEY_2) and cam_view != 2: cam_view = 2; _apply_camera()
+	elif Input.is_key_pressed(KEY_3) and cam_view != 3: cam_view = 3; _apply_camera()
 	for f in order:
 		if not is_instance_valid(f["node"]): continue
 		var n := f["node"] as Node3D
@@ -1264,12 +1281,22 @@ func _torch(pos: Vector3) -> void:
 # afastam e sobem. (Hoje só há 1v1; o termo por-lutador já deixa pronto p/ 3×5 etc.)
 func _frame_camera() -> void:
 	if cam == null: return
-	var n := order.size()
-	# kiting espalha os lutadores até a borda → enquadra mais largo
-	var half := FIELD_EDGE if kiting else COMBAT_X + maxf(0.0, n - 2) * 0.9
-	var dist := clampf((half + 1.4) * 1.9, 5.0, 16.0)
-	cam.position = Vector3(0, dist * 0.55, dist)
-	cam.look_at(Vector3(0, 1.0, 0), Vector3.UP)
+	# cam_preset>0 força o preset; 0 = AUTO pela qtde de lutadores (1v1→1, ≤3×3→2, senão→3)
+	if cam_preset >= 1 and cam_preset <= 3:
+		cam_view = cam_preset
+	else:
+		var n := order.size()
+		cam_view = 1 if n <= 2 else (2 if n <= 8 else 3)
+	_apply_camera()
+
+# Posiciona a câmera segundo o preset ATIVO (cam_view). Chamado no spawn e ao trocar com 1/2/3.
+func _apply_camera() -> void:
+	if cam == null: return
+	var p: Dictionary = CAM_PRESETS[clampi(cam_view, 1, 3) - 1]
+	cam.position = Vector3(0.0, p["height"], p["dist"])
+	cam.look_at(Vector3(0.0, p["look_y"], 0.0), Vector3.UP)
+	if cam_hint:
+		cam_hint.text = "📷 Cam %d  [1/2/3]" % cam_view
 
 func _make_ui() -> void:
 	var layer := CanvasLayer.new()
@@ -1296,6 +1323,11 @@ func _make_ui() -> void:
 	countdown_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	countdown_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	layer.add_child(countdown_label)
+	cam_hint = Label.new()                    # dica de câmera no canto superior esquerdo
+	cam_hint.add_theme_font_size_override("font_size", 16)
+	cam_hint.position = Vector2(14, 10)
+	cam_hint.text = "📷 Cam 1  [1/2/3]"
+	layer.add_child(cam_hint)
 
 func _status(msg: String) -> void:
 	if status_label: status_label.text = msg
