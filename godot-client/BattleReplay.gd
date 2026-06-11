@@ -199,12 +199,11 @@ func _build_fighters() -> void:
 		kiting = true
 		ranged_f = order[0] if order[0]["ranged"] else order[1]
 		melee_f  = order[1] if order[0]["ranged"] else order[0]
-		# posição inicial de kiting: frente a frente (sem entrada andando). O arqueiro começa
-		# mais ao centro p/ ter espaço de recuar antes de cruzar; o melee, mais longe.
+		# posição inicial de kiting: SIMÉTRICA (ambos à mesma distância do centro)
 		var rn: Node3D = ranged_f["node"]
 		var mn: Node3D = melee_f["node"]
-		rn.position = Vector3(ranged_f["side"] * 2.6, 0, 0)
-		mn.position = Vector3(melee_f["side"] * 4.4, 0, 0)
+		rn.position = Vector3(ranged_f["side"] * 3.0, 0, 0)
+		mn.position = Vector3(melee_f["side"] * 3.0, 0, 0)
 
 # [GODOT_PAPERDOLL] Veste UM lutador: esconde a base nua, põe a cabeça sempre, roupa no slot
 # equipado e a pele cortada no slot vazio (a roupa cobre o resto → 0 clipping). Se as peças
@@ -608,7 +607,8 @@ func _resolve(e: Dictionary) -> void:
 		var dodger = fighters.get(str(e.get("actor", "")))   # no dodge, o actor é quem esquiva
 		if dodger:
 			_popup(_head(dodger), "DODGE", Color(0.62, 0.81, 1), false)
-			if tgt:   # rola PRA FRENTE através do atacante, caindo atrás dele com espaço
+			# só o ARQUEIRO rola através (kiting); melee-vs-melee esquiva no lugar (sem roll)
+			if tgt and dodger["ranged"]:
 				_dodge_roll(dodger, tgt)
 		if tgt: tgt["hp"] = int(e.get("targetHp", tgt["hp"])); _update_hp(tgt)   # reflect no atacante
 
@@ -899,8 +899,10 @@ func _make_ui() -> void:
 	status_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	layer.add_child(status_label)
 	countdown_label = Label.new()
-	countdown_label.add_theme_font_size_override("font_size", 120)
-	countdown_label.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	countdown_label.add_theme_font_size_override("font_size", 64)
+	countdown_label.set_anchors_and_offsets_preset(Control.PRESET_TOP_WIDE)
+	countdown_label.offset_top = 60     # mais acima (acima dos personagens)
+	countdown_label.offset_bottom = 150
 	countdown_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	countdown_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	layer.add_child(countdown_label)
