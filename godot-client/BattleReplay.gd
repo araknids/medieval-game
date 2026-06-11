@@ -206,7 +206,7 @@ func _load_events() -> void:
 		return
 
 	if fight_source == "monster":   # luta MOCK local contra um MONSTRO (herói real vs bicho)
-		var foe := enemy_monster if enemy_monster != "" else SHOWCASE_FOES[randi() % SHOWCASE_FOES.size()]
+		var foe: String = enemy_monster if enemy_monster != "" else SHOWCASE_FOES[randi() % SHOWCASE_FOES.size()]
 		events = _mock_monster_events(foe)
 		_status("Monstro: %s (mock local)" % foe)
 		print("=== fight_source=monster: herói real vs %s ===" % foe)
