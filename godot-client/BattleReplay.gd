@@ -34,6 +34,12 @@ const RECOVER := 0.12        # s — respiro após o impacto antes do próximo e
 const MAX_WAIT := 2.2        # s — timeout p/ disparar mesmo fora de posição (nunca trava)
 const INSTANT_TYPES := ["spawn", "victory", "heal", "berserk", "backpedal", "pinned", "pointblank"]
 
+# game-feel (polish de fluidez — sugestões do Fable)
+const BLEND := 0.12          # cross-fade entre animações (mata o "pop" de troca)
+const TURN_SPEED := 13.0     # virada suave (rad/s aprox; frame-rate independente)
+const ACCEL := 12.0          # aceleração do movimento → chega à vel. máx em ~0.23s (sem partir/parar seco)
+const HP_LERP := 9.0         # drenagem suave da barra de vida
+
 # [GODOT_PAPERDOLL] paper-doll (igual ao PaperDollLive): veste o lutador com as peças Ranger.
 const PIECES := {
 	"ARMOR":    "res://assets/outfits/ranger/Male_Ranger_Body.gltf",
@@ -91,6 +97,8 @@ var idx := 0                # cursor do evento atual
 var act_state := "approach" # approach (espera posição) → windup (arma) → recover (respira)
 var act_timer := 0.0
 var wait_timer := 0.0
+var cur_windup := WINDUP     # windup/recover do golpe atual (variados p/ matar o "metrônomo")
+var cur_recover := RECOVER
 
 func _ready() -> void:
 	_setup_scene()
@@ -269,8 +277,10 @@ func _make_fighter(fname: String, side: int, maxhp: int, weapon_kind: String, eq
 	var ap: AnimationPlayer = node.find_child("AnimationPlayer", true, false)
 	var skel: Skeleton3D = node.find_child("GeneralSkeleton", true, false)
 	var f := {"name": fname, "node": node, "anim": ap, "side": side, "ranged": ranged,
-			  "dead": false, "maxhp": max(1, maxhp), "hp": max(1, maxhp), "busy": false, "hopping": false}
-	_face(f, -side)   # encara o centro (o oponente)
+			  "dead": false, "maxhp": max(1, maxhp), "hp": max(1, maxhp), "busy": false, "hopping": false,
+			  "vel": 0.0, "shown_hp": float(max(1, maxhp)), "face_target": deg_to_rad(90.0 if -side > 0 else -90.0)}
+	node.rotation.y = f["face_target"]   # nasce já virado pro centro (sem lerp do zero)
+	_face(f, -side)   # seta o alvo de rotação (encara o oponente)
 	_dress(node, skel, equipped_types)   # [GODOT_PAPERDOLL] veste antes da arma
 	_attach_weapon(node, weapon_kind)
 	# barra de vida + nome
@@ -296,7 +306,7 @@ func _make_fighter(fname: String, side: int, maxhp: int, weapon_kind: String, eq
 		# (walk/jump/idle são LOOP → nunca disparam animation_finished)
 		ap.animation_finished.connect(func(_a):
 			f["busy"] = false
-			if not f["dead"] and not f["hopping"]: ap.play(A_IDLE))   # não corta um roll em andamento
+			if not f["dead"] and not f["hopping"]: ap.play(A_IDLE, BLEND))   # não corta um roll em andamento
 		ap.play(A_IDLE)
 	return f
 
@@ -306,8 +316,16 @@ func _make_fighter(fname: String, side: int, maxhp: int, weapon_kind: String, eq
 # golpe nunca bate no ar nem teleporta — e o movimento flui.
 func _process(dt: float) -> void:
 	for f in order:
-		if f.has("bar") and is_instance_valid(f["node"]):
-			f["bar"].global_position = (f["node"] as Node3D).global_position + Vector3(0, 2.05, 0)
+		if not is_instance_valid(f["node"]): continue
+		var n := f["node"] as Node3D
+		# virada SUAVE até o alvo (sem snap de 90°) — só vivo (o cadáver fica como caiu)
+		if not f["dead"]:
+			n.rotation.y = lerp_angle(n.rotation.y, f["face_target"], 1.0 - exp(-TURN_SPEED * dt))
+		# barra: segue a cabeça + DRENA suave (shown_hp → hp) p/ leitura de impacto
+		if f.has("bar"):
+			f["bar"].global_position = n.global_position + Vector3(0, 2.05, 0)
+			f["shown_hp"] = lerpf(f["shown_hp"], float(f["hp"]), 1.0 - exp(-HP_LERP * dt))
+			_apply_hp_bar(f)
 	if phase != "fight":
 		return
 	_move(dt)
@@ -332,17 +350,18 @@ func _move_kite(dt: float) -> void:
 	# Arqueiro rolando ATRAVÉS → CONGELA o guerreiro (só vira pra acompanhar) p/ ele ser
 	# ultrapassado de verdade; senão o melee gruda no rolê e a troca de lado não aparece.
 	if ranged_f["hopping"]:
+		melee_f["vel"] = 0.0
 		_face(melee_f, side)
 		if not melee_f["busy"] and melee_f["anim"] and melee_f["anim"].current_animation != A_IDLE:
-			melee_f["anim"].play(A_IDLE)
+			melee_f["anim"].play(A_IDLE, BLEND)
 		return
 
-	# MELEE corre pra fechar até o alcance (sem teleporte: move_toward percorre a distância)
+	# MELEE corre pra fechar até o alcance (com aceleração/frenagem → não parte/para seco)
 	var prev_m := mn.position.x
 	var desired_m := rn.position.x - side * (ATTACK_RANGE * 0.9)
-	mn.position = Vector3(move_toward(mn.position.x, desired_m, MELEE_SPEED * dt), 0, 0)
+	var new_m := _step_toward(melee_f, desired_m, MELEE_SPEED, dt)
 	_face(melee_f, side)
-	_locomotion(melee_f, prev_m, mn.position.x)
+	_locomotion(melee_f, prev_m, new_m)
 
 	# ARQUEIRO: encara; pressionado recua ANDANDO; encurralado na borda PARA (o guerreiro o alcança)
 	_face(ranged_f, -side)
@@ -353,9 +372,9 @@ func _move_kite(dt: float) -> void:
 	if not ranged_f["busy"] and ranged_f["anim"]:
 		if absf(rn.position.x - prev_a) > 0.004:
 			if ranged_f["anim"].current_animation != A_WALK:
-				ranged_f["anim"].play(A_WALK, -1, -1.0)         # walk em reverso = andar pra trás
+				ranged_f["anim"].play(A_WALK, BLEND, -1.0)      # walk em reverso = andar pra trás
 		elif ranged_f["anim"].current_animation != A_IDLE:
-			ranged_f["anim"].play(A_IDLE)
+			ranged_f["anim"].play(A_IDLE, BLEND)
 
 func _move_clash(dt: float) -> void:
 	for i in 2:
@@ -368,9 +387,20 @@ func _move_clash(dt: float) -> void:
 		if s == 0.0: s = float(-int(f["side"]))
 		var prev := fn.position.x
 		var desired := on.position.x - s * (ATTACK_RANGE * 0.95)
-		fn.position = Vector3(move_toward(fn.position.x, desired, MELEE_SPEED * dt), 0, 0)
+		var new_x := _step_toward(f, desired, MELEE_SPEED, dt)
 		_face(f, s)
-		_locomotion(f, prev, fn.position.x)
+		_locomotion(f, prev, new_x)
+
+# Move o lutador rumo a desired_x com ACELERAÇÃO + frenagem perto do alvo (planta o pé,
+# em vez de partir/parar seco). Retorna o novo x. [game-feel]
+func _step_toward(f: Dictionary, desired_x: float, max_speed: float, dt: float) -> float:
+	var n: Node3D = f["node"]
+	var dist := desired_x - n.position.x
+	var target_v := clampf(absf(dist) / 0.22, 0.0, max_speed) * signf(dist)   # zona de frenagem
+	f["vel"] = move_toward(f["vel"], target_v, ACCEL * dt)
+	var new_x := n.position.x + f["vel"] * dt
+	n.position = Vector3(new_x, 0, 0)
+	return new_x
 
 # Run quando se move, idle quando parado (não interrompe golpe/flinch em andamento).
 func _locomotion(f: Dictionary, prev_x: float, now_x: float) -> void:
@@ -380,7 +410,7 @@ func _locomotion(f: Dictionary, prev_x: float, now_x: float) -> void:
 	if absf(now_x - prev_x) > 0.004:
 		_play_loop(f, A_RUN)
 	elif ap.current_animation != A_IDLE:
-		ap.play(A_IDLE)
+		ap.play(A_IDLE, BLEND)
 
 # Toca uma animação em loop (com fallback p/ Walk se o clip não existir na lib).
 func _play_loop(f: Dictionary, anim_name: String) -> void:
@@ -390,7 +420,7 @@ func _play_loop(f: Dictionary, anim_name: String) -> void:
 	if ap.current_animation == nm: return
 	var a: Animation = ap.get_animation(nm)
 	if a: a.loop_mode = Animation.LOOP_LINEAR
-	ap.play(nm)
+	ap.play(nm, BLEND)
 
 # Roll-através: o arqueiro ROLA PRA FRENTE, passa pelo inimigo e aterrissa DODGE_LAND
 # atrás dele (com espaço pra atacar). A duração do tween = duração do clip do Roll
@@ -398,6 +428,7 @@ func _play_loop(f: Dictionary, anim_name: String) -> void:
 func _dodge_roll(dodger: Dictionary, attacker: Dictionary) -> void:
 	if dodger["hopping"] or dodger["dead"]: return
 	dodger["hopping"] = true
+	dodger["vel"] = 0.0
 	var n: Node3D = dodger["node"]
 	var tn: Node3D = attacker["node"]
 	var toward := signf(tn.position.x - n.position.x)   # direção do rolê: pra cima do inimigo
@@ -412,12 +443,12 @@ func _dodge_roll(dodger: Dictionary, attacker: Dictionary) -> void:
 		if a and a.get_length() > 0.05:
 			a.loop_mode = Animation.LOOP_NONE
 			dur = a.get_length()
-		ap.play(roll)
+		ap.play(roll, BLEND)
 	var tw := create_tween()
 	tw.tween_property(n, "position", Vector3(land_x, 0, 0), dur)   # roll = velocidade constante
 	tw.tween_callback(func():
 		dodger["hopping"] = false
-		if ap and not dodger["dead"]: ap.play(A_IDLE))
+		if ap and not dodger["dead"]: ap.play(A_IDLE, BLEND))
 
 # ── cursor de eventos: approach (espera posição) → windup → recover ─────────────
 func _advance(dt: float) -> void:
@@ -438,13 +469,13 @@ func _advance(dt: float) -> void:
 				act_timer = 0.0
 		"windup":
 			act_timer += dt
-			if act_timer >= WINDUP:
+			if act_timer >= cur_windup:
 				_resolve(e)
 				act_state = "recover"
 				act_timer = 0.0
 		"recover":
 			act_timer += dt
-			if act_timer >= RECOVER:
+			if act_timer >= cur_recover:
 				idx += 1
 				act_state = "approach"
 				wait_timer = 0.0
@@ -469,6 +500,9 @@ func _ready_to_fire(e: Dictionary) -> bool:
 # Início do golpe: o atacante encara o alvo e balança a arma / arma o tiro.
 func _begin(e: Dictionary) -> void:
 	var ty := str(e.get("type", ""))
+	# micro-timing: varia o ritmo (mata o "metrônomo"); crit telegrafado com mais anticipação
+	cur_windup = WINDUP * (1.5 if ty == "crit" else randf_range(0.82, 1.3))
+	cur_recover = RECOVER * randf_range(0.85, 1.3)
 	var swinger := str(e.get("target", "")) if ty == "dodge" else str(e.get("actor", ""))
 	var faces := str(e.get("actor", "")) if ty == "dodge" else str(e.get("target", ""))
 	var sw = fighters.get(swinger)
@@ -479,7 +513,7 @@ func _begin(e: Dictionary) -> void:
 		_face(sw, signf((other["node"] as Node3D).position.x - (sw["node"] as Node3D).position.x))
 	sw["busy"] = true
 	if sw["anim"]:
-		sw["anim"].play(A_SHOOT if sw["ranged"] else A_ATTACK)
+		sw["anim"].play(A_SHOOT if sw["ranged"] else A_ATTACK, BLEND)
 
 # Resolve o evento: aplica dano/HP/flinch/flecha/popup/morte (espelha o antigo impact+step_end).
 func _resolve(e: Dictionary) -> void:
@@ -501,7 +535,7 @@ func _resolve(e: Dictionary) -> void:
 			if act and act["ranged"]:
 				_shoot_arrow(act, tgt)
 			var head := str(e.get("hitZone", "")) == "head"
-			if tgt["anim"]: tgt["anim"].play(A_HURT_HEAD if head else A_HURT)
+			if tgt["anim"]: tgt["anim"].play(A_HURT_HEAD if head else A_HURT, BLEND)
 			tgt["busy"] = true
 			var big := ty == "crit"
 			_popup(_chest(tgt), "-%d" % dmg, Color(1, 0.32, 0.32) if big else Color(1, 1, 1), big)
@@ -541,7 +575,7 @@ func _finish() -> void:
 # ── helpers de cena / lutador (espelham Battle.gd) ──────────────────────────────
 func _face(f: Dictionary, dir: float) -> void:
 	if dir == 0.0: dir = 1.0
-	(f["node"] as Node3D).rotation_degrees = Vector3(0, (90.0 if dir > 0 else -90.0), 0)
+	f["face_target"] = deg_to_rad(90.0 if dir > 0 else -90.0)   # o _process gira suave até aqui
 
 # Desenha a arma pelo TIPO (sword|bow|axe|spear|mace). Bow vai na LeftHand; o resto na
 # RightHand num holder (rot -90; +Y local = direção da arma) com peças simples.
@@ -614,11 +648,28 @@ func _shoot_arrow(a: Dictionary, b: Dictionary) -> void:
 	add_child(arrow)
 	var start: Vector3 = _chest(a)
 	var endp: Vector3 = _chest(b)
+	var dist := start.distance_to(endp)
+	# arco: ponto de controle no meio, um pouco acima (flecha sobe e desce)
+	arrow.set_meta("p0", start)
+	arrow.set_meta("p1", (start + endp) * 0.5 + Vector3(0, 0.2 + dist * 0.05, 0))
+	arrow.set_meta("p2", endp)
 	arrow.global_position = start
-	arrow.look_at(endp)
 	var tw := create_tween()
-	tw.tween_property(arrow, "global_position", endp, 0.2)
+	tw.tween_method(_arrow_step.bind(arrow), 0.0, 1.0, clampf(dist / 14.0, 0.12, 0.32))
 	tw.tween_callback(arrow.queue_free)
+
+# Move a flecha por uma bézier quadrática (arco) e a orienta na direção do voo. [game-feel]
+func _arrow_step(t: float, arrow: MeshInstance3D) -> void:
+	if not is_instance_valid(arrow): return
+	var p0: Vector3 = arrow.get_meta("p0")
+	var p1: Vector3 = arrow.get_meta("p1")
+	var p2: Vector3 = arrow.get_meta("p2")
+	var pos := p0.lerp(p1, t).lerp(p1.lerp(p2, t), t)
+	var t2 := minf(t + 0.04, 1.0)
+	var ahead := p0.lerp(p1, t2).lerp(p1.lerp(p2, t2), t2)
+	arrow.global_position = pos
+	if ahead.distance_to(pos) > 0.0005:
+		arrow.look_at(ahead)
 
 func _kill(f: Dictionary) -> void:
 	if f["dead"]: return
@@ -638,7 +689,7 @@ func _kill(f: Dictionary) -> void:
 	elif f["anim"]:
 		var d: Animation = f["anim"].get_animation(A_DEATH)
 		if d: d.loop_mode = Animation.LOOP_NONE
-		f["anim"].play(A_DEATH)
+		f["anim"].play(A_DEATH, BLEND)
 
 func _has_physical_bones(skel: Skeleton3D) -> bool:
 	for c in skel.get_children():
@@ -646,13 +697,17 @@ func _has_physical_bones(skel: Skeleton3D) -> bool:
 			return true
 	return false
 
-func _update_hp(f: Dictionary) -> void:
-	var ratio: float = float(f["hp"]) / float(f["maxhp"])
+# O alvo é f["hp"]; a barra DRENA suave no _process (shown_hp). Mantido p/ os call sites.
+func _update_hp(_f: Dictionary) -> void:
+	pass
+
+func _apply_hp_bar(f: Dictionary) -> void:
+	var ratio: float = clampf(f["shown_hp"] / float(f["maxhp"]), 0.0, 1.0)
 	var fill: MeshInstance3D = f["fill"]
 	fill.scale = Vector3(max(0.001, ratio), 1.0, 1.0)
 	fill.position = Vector3(-BARW * 0.5 * (1.0 - ratio), 0.0, 0.0)
-	var mat: StandardMaterial3D = fill.material_override
-	mat.albedo_color = Color(0.85, 0.25, 0.25).lerp(Color(0.25, 0.85, 0.35), ratio)
+	(fill.material_override as StandardMaterial3D).albedo_color = \
+		Color(0.85, 0.25, 0.25).lerp(Color(0.25, 0.85, 0.35), ratio)
 
 func _head(f: Dictionary) -> Vector3:
 	return (f["node"] as Node3D).global_position + Vector3(0, 1.7, 0)
