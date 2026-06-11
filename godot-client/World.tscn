@@ -4,4 +4,4 @@
 
 [node name="World" type="Node3D"]
 script = ExtResource("1")
-scenario = "city"
+scenario = "castle"

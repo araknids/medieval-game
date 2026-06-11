@@ -28,6 +28,9 @@ func build(host: Node3D, scenario: String, rng: RandomNumberGenerator, combat_r:
 		"city":
 			day_lighting(host)
 			city(host, rng, combat_r)
+		"castle":
+			day_lighting(host)
+			castle(host, rng, combat_r)
 		_:  # "mining" (default)
 			night_lighting(host)
 			mining(host, rng, combat_r)
@@ -447,6 +450,72 @@ func arena(host: Node3D, rng: RandomNumberGenerator, _combat_r: float) -> void:
 	for i in 8:
 		var a := TAU * i / 8.0 + 0.39
 		_brazier(host, Vector3(cos(a) * 9.6, 0, sin(a) * 9.6))
+
+# ── cenário: CASTELO — pátio cercado de muralhas (ameias) + torres de canto ─────
+func castle(host: Node3D, rng: RandomNumberGenerator, _combat_r: float) -> void:
+	var RX := 10.0   # meia-largura (X = eixo dos lutadores); FRENTE (+Z) aberta p/ a câmera
+	var RZ := 8.0
+	_ground(host, Color(0.42, 0.40, 0.33), 46.0)
+	_tile_circle(host, rng, "Floor_Brick", 10.0)   # pátio de pedra
+	var fb := StaticBody3D.new()
+	var fc := CollisionShape3D.new()
+	fc.shape = WorldBoundaryShape3D.new()
+	fb.add_child(fc)
+	host.add_child(fb)
+	# MURALHAS (fundo + 2 laterais), 2 fileiras (6m) + ameias; faces viradas pro pátio
+	_wall_run(host, rng, Vector3(-RX, 0, -RZ - 1), Vector3(RX, 0, -RZ - 1), 0)     # fundo (face +Z)
+	_wall_run(host, rng, Vector3(-RX - 1, 0, -RZ), Vector3(-RX - 1, 0, RZ), 90)    # esquerda (face +X)
+	_wall_run(host, rng, Vector3(RX + 1, 0, -RZ), Vector3(RX + 1, 0, RZ), 270)     # direita (face -X)
+	# 4 TORRES de canto (com pináculo)
+	for sx in [-1.0, 1.0]:
+		for sz in [-1.0, 1.0]:
+			_tower(host, rng, Vector3(sx * (RX + 1.0), 0, sz * (RZ + 1.0)))
+	# BANNERS na muralha do fundo + TOCHAS no pátio
+	var cols := [Color(0.7, 0.15, 0.15), Color(0.15, 0.3, 0.7), Color(0.85, 0.7, 0.2)]
+	for i in 5:
+		_banner(host, Vector3(-8.0 + i * 4.0, 3.6, -RZ - 0.6), cols[i % cols.size()])
+	for i in 6:
+		var a := TAU * i / 6.0 + 0.4
+		_brazier(host, Vector3(cos(a) * 7.5, 0, sin(a) * 7.5))
+	# mata densa no fundo (atrás do castelo)
+	_tree_ring(host, rng, ["CommonTree_1", "CommonTree_4", "Pine_1", "Pine_2", "Pine_3"], 30.0, 42.0, 42, 1.3, 2.0)
+
+# Torre redonda: anel de paredes (2 fileiras = 6m) + pináculo cônico no topo.
+func _tower(host: Node3D, rng: RandomNumberGenerator, center: Vector3) -> void:
+	var r := 2.2
+	var n := 7
+	for row in [0.0, 3.0]:
+		for i in n:
+			var a := TAU * i / float(n)
+			var pos := center + Vector3(cos(a) * r, row, sin(a) * r)
+			var inst := _place(host, rng, VIL + "Wall_UnevenBrick_Straight.gltf", pos, 0.0, 1.0)
+			if inst: inst.look_at(Vector3(center.x, pos.y, center.z), Vector3.UP)
+	_place(host, rng, VIL + "Roof_Tower_RoundTiles.gltf", center + Vector3(0, 6.0, 0), 0.0, 1.0)
+
+# Fileira de muralha (2 fileiras empilhadas) + ameias (merlons) no topo, de `a` até `b`.
+func _wall_run(host: Node3D, rng: RandomNumberGenerator, a: Vector3, b: Vector3, rot: float) -> void:
+	var d := a.distance_to(b)
+	var dir := (b - a) / maxf(d, 0.001)
+	var n := int(round(d / 2.0))
+	for i in n + 1:
+		var p := a + dir * (i * 2.0)
+		_place(host, rng, VIL + "Wall_UnevenBrick_Straight.gltf", p, rot, 1.0)
+		_place(host, rng, VIL + "Wall_UnevenBrick_Straight.gltf", p + Vector3(0, 3.0, 0), rot, 1.0)
+		_merlon(host, p + Vector3(0, 6.15, 0), rot)
+
+# Ameia (merlon) — bloco de pedra no topo da muralha.
+func _merlon(host: Node3D, pos: Vector3, rot: float) -> void:
+	var mi := MeshInstance3D.new()
+	var bm := BoxMesh.new()
+	bm.size = Vector3(0.85, 0.7, 0.5)
+	mi.mesh = bm
+	var m := StandardMaterial3D.new()
+	m.albedo_color = Color(0.5, 0.47, 0.43)
+	m.roughness = 1.0
+	mi.material_override = m
+	host.add_child(mi)
+	mi.position = pos
+	mi.rotation_degrees = Vector3(0, rot, 0)
 
 # ── cenário: CIDADE/VILA — praça de pedra cercada de casas, de dia ──────────────
 func city(host: Node3D, rng: RandomNumberGenerator, _combat_r: float) -> void:
