@@ -30,7 +30,7 @@ const BARW := 0.7
 
 # combate dirigido por SIMULAÇÃO: o movimento é CONTÍNUO; cada evento de dano só dispara
 # quando o lutador está em posição (com timeout). Mesmos eventos/resultado do backend.
-const ATTACK_RANGE := 1.35   # alcance em que o melee conecta o golpe
+const ATTACK_RANGE := 1.6    # distância em que o melee para p/ golpear (longe o bastante p/ não encostar a cabeça, mas a espada conecta)
 const MELEE_SPEED := 2.8     # corrida do melee fechando distância (unid/s)
 const ARCHER_SPEED := 2.2    # recuo do arqueiro (kite)
 const ARCHER_PREF := 2.4     # arqueiro recua p/ manter ~esta distância do melee (obriga o melee a perseguir)
@@ -379,18 +379,18 @@ func _move_kite(dt: float) -> void:
 	if side == 0.0: side = 1.0
 	var gap := absf(rn.position.x - mn.position.x)
 
-	# Arqueiro rolando ATRAVÉS → CONGELA o guerreiro (só vira pra acompanhar) p/ ele ser
-	# ultrapassado de verdade; senão o melee gruda no rolê e a troca de lado não aparece.
+	# Arqueiro rolando ATRAVÉS → CONGELA o guerreiro p/ ele ser ultrapassado de verdade.
+	# NÃO re-vira aqui (o arqueiro cruza e o side inverte → daria giro de 180° em pé, feio);
+	# o melee mantém a direção e só vira DEPOIS do roll, ao recomeçar a perseguição (1 giro natural).
 	if ranged_f["hopping"]:
 		melee_f["vel"] = 0.0
-		_face(melee_f, side)
 		if not melee_f["busy"] and melee_f["anim"] and melee_f["anim"].current_animation != A_IDLE:
 			melee_f["anim"].play(A_IDLE, BLEND)
 		return
 
 	# MELEE corre pra fechar até o alcance (com aceleração/frenagem → não parte/para seco)
 	var prev_m := mn.position.x
-	var desired_m := rn.position.x - side * (ATTACK_RANGE * 0.9)
+	var desired_m := rn.position.x - side * ATTACK_RANGE
 	var new_m := _step_toward(melee_f, desired_m, MELEE_SPEED, dt)
 	_face(melee_f, side)
 	_locomotion(melee_f, prev_m, new_m)
