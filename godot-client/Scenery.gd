@@ -25,6 +25,9 @@ func build(host: Node3D, scenario: String, rng: RandomNumberGenerator, combat_r:
 		"arena":
 			day_lighting(host)
 			arena(host, rng, combat_r)
+		"city":
+			day_lighting(host)
+			city(host, rng, combat_r)
 		_:  # "mining" (default)
 			night_lighting(host)
 			mining(host, rng, combat_r)
@@ -444,6 +447,62 @@ func arena(host: Node3D, rng: RandomNumberGenerator, _combat_r: float) -> void:
 	for i in 8:
 		var a := TAU * i / 8.0 + 0.39
 		_brazier(host, Vector3(cos(a) * 9.6, 0, sin(a) * 9.6))
+
+# ── cenário: CIDADE/VILA — praça de pedra cercada de casas, de dia ──────────────
+func city(host: Node3D, rng: RandomNumberGenerator, _combat_r: float) -> void:
+	_ground(host, Color(0.40, 0.36, 0.27), 44.0)        # terra/rua
+	_tile_circle(host, rng, "Floor_Brick", 8.0)          # PRAÇA de pedra (onde rola a luta)
+	# colisão do chão
+	var fb := StaticBody3D.new()
+	var fc := CollisionShape3D.new()
+	fc.shape = WorldBoundaryShape3D.new()
+	fb.add_child(fc)
+	host.add_child(fb)
+	# CASAS em volta (pulando o vão da FRENTE, pro lado da câmera ficar aberto)
+	for i in 7:
+		var a := deg_to_rad(130.0 + i * 40.0)            # 130°..370°, vão aberto ~50°-130° (frente)
+		var pos := Vector3(cos(a) * 12.0, 0, sin(a) * 12.0)
+		var face := rad_to_deg(atan2(-cos(a), -sin(a)))  # porta virada pro centro
+		_house(host, rng, pos, face)
+	# árvores e luminárias entre as casas
+	for i in 8:
+		var a2 := deg_to_rad(140.0 + i * 30.0)
+		var t := ["CommonTree_1", "CommonTree_3", "Pine_1"][i % 3]
+		_place(host, rng, NAT + t + ".gltf", Vector3(cos(a2) * 17.0, 0, sin(a2) * 17.0), rng.randf_range(0, 360), rng.randf_range(1.0, 1.6))
+	for i in 5:
+		var a3 := deg_to_rad(150.0 + i * 45.0)
+		_brazier(host, Vector3(cos(a3) * 9.0, 0, sin(a3) * 9.0))
+
+# Casa 4×4 (4 paredes + porta na frente + telhado). `face_deg` = porta virada pra essa direção.
+func _house(host: Node3D, rng: RandomNumberGenerator, center: Vector3, face_deg: float) -> void:
+	var c := Node3D.new()
+	host.add_child(c)
+	c.position = center
+	c.rotation_degrees = Vector3(0, face_deg, 0)
+	var H := 2.0   # meia-aresta da casa (4×4)
+	# FRENTE (+Z): porta à esquerda + parede à direita
+	_place(c, rng, VIL + "Wall_UnevenBrick_Door_Round.gltf", Vector3(-1, 0, H), 0, 1.0)
+	_place(c, rng, VIL + "Wall_UnevenBrick_Straight.gltf", Vector3(1, 0, H), 0, 1.0)
+	# FUNDO (-Z)
+	for bx in [-1.0, 1.0]:
+		_place(c, rng, VIL + "Wall_UnevenBrick_Straight.gltf", Vector3(bx, 0, -H), 180, 1.0)
+	# LATERAIS (±X)
+	for sz in [-1.0, 1.0]:
+		_place(c, rng, VIL + "Wall_UnevenBrick_Straight.gltf", Vector3(H, 0, sz), 90, 1.0)
+		_place(c, rng, VIL + "Wall_UnevenBrick_Straight.gltf", Vector3(-H, 0, sz), 270, 1.0)
+	# TELHADO (overhang cobre as juntas dos cantos)
+	_place(c, rng, VIL + "Roof_RoundTiles_4x4.gltf", Vector3(0, 3.05, 0), 0, 1.0)
+
+# Ladrilha um CÍRCULO de raio `radius` com a peça `piece` (grade de 2m).
+func _tile_circle(host: Node3D, rng: RandomNumberGenerator, piece: String, radius: float) -> void:
+	var x := -radius
+	while x <= radius + 0.1:
+		var z := -radius
+		while z <= radius + 0.1:
+			if Vector2(x, z).length() <= radius:
+				_place(host, rng, VIL + piece + ".gltf", Vector3(x, 0.01, z), rng.randi_range(0, 3) * 90.0, 1.0)
+			z += 2.0
+		x += 2.0
 
 # Anel de peças do kit (paredes) viradas pro CENTRO (look_at), com pouco overlap.
 func _ring(host: Node3D, rng: RandomNumberGenerator, piece: String, r: float, y: float, n: int, scl: float) -> void:
