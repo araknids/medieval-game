@@ -146,6 +146,7 @@ func mining(host: Node3D, rng: RandomNumberGenerator, combat_r: float) -> void:
 	for i in 5:
 		var a := TAU * i / 5.0 + 0.6
 		_brazier(host, Vector3(cos(a) * (combat_r + 1.2), 0, sin(a) * (combat_r + 1.2)))
+	_fireflies(host, 32, 15.0, Color(0.45, 0.95, 0.55))   # vagalumes (vende a noite) [Fable]
 
 # ── cenário: PRAIA (entardecer) — ilha de areia cercada de mar ──────────────────
 func beach(host: Node3D, rng: RandomNumberGenerator, combat_r: float) -> void:
@@ -418,6 +419,20 @@ func garimpa(host: Node3D, rng: RandomNumberGenerator, combat_r: float) -> void:
 	for i in 80:
 		var g: String = ["Fern_1", "Bush_Common", "Grass_Common_Tall", "Grass_Wispy_Tall", "Grass_Wispy_Short", "Mushroom_Common"][i % 6]
 		_place(host, rng, NAT + g + ".gltf", _scatter(rng, combat_r + 0.6, 34.0), rng.randf_range(0, 360), rng.randf_range(0.8, 1.5))
+	# CALHA (sluice) de garimpo na margem + baldes + carroça [Fable]
+	var sx := BANK - 1.2
+	_box(host, Vector3(0.7, 0.15, 2.4), Vector3(sx, 0.55, 5.0), Color(0.4, 0.28, 0.15), 8.0)   # calha inclinada
+	_box(host, Vector3(0.12, 1.0, 0.12), Vector3(sx - 0.2, 0.3, 4.0), Color(0.3, 0.2, 0.12))
+	_box(host, Vector3(0.12, 1.0, 0.12), Vector3(sx + 0.2, 0.3, 6.0), Color(0.3, 0.2, 0.12))
+	for k in 3:   # baldes (cilindros)
+		var bk := MeshInstance3D.new()
+		var cy := CylinderMesh.new(); cy.top_radius = 0.22; cy.bottom_radius = 0.18; cy.height = 0.4
+		bk.mesh = cy
+		var bm := StandardMaterial3D.new(); bm.albedo_color = Color(0.32, 0.22, 0.12); bm.roughness = 1.0
+		bk.material_override = bm
+		host.add_child(bk); bk.position = Vector3(BANK - rng.randf_range(0.5, 2.0), 0.2, rng.randf_range(-3, 8))
+	_place(host, rng, VIL + "Prop_Wagon.gltf", Vector3(BANK - 3.0, 0, -6.0), 120, 1.0)
+	_river_mist(host, RIVER_X)   # névoa baixa deslizando sobre o rio
 
 # ── iluminação de MASMORRA (escura, sem sol — as tochas iluminam) ───────────────
 func dungeon_lighting(host: Node3D) -> void:
@@ -483,6 +498,15 @@ func dungeon(host: Node3D, rng: RandomNumberGenerator, _combat_r: float) -> void
 		_brazier(host, Vector3(RX - 0.7, 0, tz))
 	_brazier(host, Vector3(-5.0, 0, -RZ + 0.7))
 	_brazier(host, Vector3(5.0, 0, -RZ + 0.7))
+	# COLUNAS de pedra internas (quebra o "caixote vazio") [Fable]
+	for cx in [-RX + 3.0, RX - 3.0]:
+		for cz in [-RZ + 3.0, RZ - 3.5]:
+			_box(host, Vector3(0.7, 6.4, 0.7), Vector3(cx, 3.2, cz), Color(0.42, 0.40, 0.37))
+	# ENTULHO nos cantos (rochas pequenas + tijolos caídos)
+	for i in 8:
+		_place(host, rng, NAT + "Rock_Medium_%d.gltf" % (1 + i % 3), Vector3(rng.randf_range(-RX + 1, RX - 1), 0, rng.randf_range(-RZ + 1, -RZ + 3)), rng.randf_range(0, 360), rng.randf_range(0.4, 0.7))
+	for i in 6:
+		_place(host, rng, VIL + "Prop_Brick%d.gltf" % (1 + i % 4), Vector3(rng.randf_range(-RX + 1, RX - 1), 0, rng.randf_range(-RZ + 1, RZ - 1)), rng.randf_range(0, 360), 1.0)
 
 # ── cenário: ARENA de duelo — coliseu de pedra (kit Village), de dia ─────────────
 func arena(host: Node3D, rng: RandomNumberGenerator, _combat_r: float) -> void:
@@ -507,6 +531,16 @@ func arena(host: Node3D, rng: RandomNumberGenerator, _combat_r: float) -> void:
 	for i in 8:
 		var a := TAU * i / 8.0 + 0.39
 		_brazier(host, Vector3(cos(a) * 9.6, 0, sin(a) * 9.6))
+	# AMEIAS no topo do anel externo (silhueta de coliseu) [Fable]
+	for i in 44:
+		var am := TAU * i / 44.0
+		_merlon(host, Vector3(cos(am) * 14.0, 6.15, sin(am) * 14.0), rad_to_deg(am))
+	# ARCOS de entrada nas pontas do eixo X (por onde os lutadores entram)
+	for ex in [-1.0, 1.0]:
+		var arch := _place(host, rng, VIL + "Wall_Arch.gltf", Vector3(ex * 10.6, 0, 0), 0.0, 1.0)
+		if arch: arch.look_at(Vector3(0, 0, 0), Vector3.UP)
+	# PLATEIA fake no topo do anel externo
+	_crowd(host, rng, 13.4, 6.3, 40)
 
 # ── cenário: CASTELO — pátio cercado de muralhas (ameias) + torres de canto ─────
 func castle(host: Node3D, rng: RandomNumberGenerator, _combat_r: float) -> void:
@@ -534,6 +568,10 @@ func castle(host: Node3D, rng: RandomNumberGenerator, _combat_r: float) -> void:
 	for i in 6:
 		var a := TAU * i / 6.0 + 0.4
 		_brazier(host, Vector3(cos(a) * 7.5, 0, sin(a) * 7.5))
+	# PÁTIO com vida: pilhas de caixas nos cantos + boneco de treino numa lateral [Fable]
+	_crates(host, rng, Vector3(-RX + 1.5, 0, -RZ + 1.5))
+	_crates(host, rng, Vector3(RX - 2.0, 0, -RZ + 1.5))
+	_dummy(host, Vector3(-RX + 1.5, 0, 2.0))
 	# mata densa no fundo (atrás do castelo)
 	_tree_ring(host, rng, ["CommonTree_1", "CommonTree_4", "Pine_1", "Pine_2", "Pine_3"], 30.0, 42.0, 42, 1.3, 2.0)
 
@@ -547,7 +585,12 @@ func _tower(host: Node3D, rng: RandomNumberGenerator, center: Vector3) -> void:
 			var pos := center + Vector3(cos(a) * r, row, sin(a) * r)
 			var inst := _place(host, rng, VIL + "Wall_UnevenBrick_Straight.gltf", pos, 0.0, 1.0)
 			if inst: inst.look_at(Vector3(center.x, pos.y, center.z), Vector3.UP)
+	# AMEIAS no parapeito da torre [Fable]
+	for i in n:
+		var am := TAU * i / float(n)
+		_merlon(host, center + Vector3(cos(am) * r, 6.15, sin(am) * r), rad_to_deg(am))
 	_place(host, rng, VIL + "Roof_Tower_RoundTiles.gltf", center + Vector3(0, 6.0, 0), 0.0, 1.0)
+	_flag(host, center + Vector3(0, 11.5, 0), Color(0.7, 0.15, 0.15))   # bandeira no pináculo
 
 # Fileira de muralha (2 fileiras empilhadas) + ameias (merlons) no topo, de `a` até `b`.
 func _wall_run(host: Node3D, rng: RandomNumberGenerator, a: Vector3, b: Vector3, rot: float) -> void:
@@ -598,6 +641,13 @@ func city(host: Node3D, rng: RandomNumberGenerator, _combat_r: float) -> void:
 	for i in 5:
 		var a3 := deg_to_rad(150.0 + i * 45.0)
 		_brazier(host, Vector3(cos(a3) * 9.0, 0, sin(a3) * 9.0))
+	# POÇO no fundo da praça (marco) + RUA de pedra saindo pelo vão da frente [Fable]
+	_well(host, Vector3(0, 0, -10.0))
+	var zz := 8.0
+	while zz <= 20.0:
+		for sxr in [-2.0, 0.0, 2.0]:
+			_place(host, rng, VIL + "Floor_Brick.gltf", Vector3(sxr, 0.01, zz), 0, 1.0)
+		zz += 2.0
 	# MATA densa no fundo (atrás das casas) — enche o horizonte
 	var pool := ["CommonTree_1", "CommonTree_2", "CommonTree_4", "CommonTree_5", "Pine_1", "Pine_2", "Pine_3"]
 	_tree_ring(host, rng, pool, 24.0, 31.0, 30, 1.0, 1.7)
@@ -630,6 +680,9 @@ func _house(host: Node3D, rng: RandomNumberGenerator, center: Vector3, face_deg:
 	_place(c, rng, VIL + "Roof_RoundTiles_4x4.gltf", Vector3(0, 3.05, 0), 0, 1.0)
 	_place(c, rng, VIL + "Roof_Front_Brick4.gltf", Vector3(0, 3.0, H + 0.1), 0, 1.0)
 	_place(c, rng, VIL + "Roof_Front_Brick4.gltf", Vector3(0, 3.0, -H - 0.1), 180, 1.0)
+	# CHAMINÉ + fumaça (telhado, lado de trás) [Fable]
+	_place(c, rng, VIL + "Prop_Chimney.gltf", Vector3(0.7, 2.7, -0.6), 0, 1.0)
+	_smoke(c, Vector3(0.7, 6.0, -0.6))
 
 # Parede de janela + postigos de madeira (na mesma posição/rotação) = janela visível.
 func _window(host: Node3D, rng: RandomNumberGenerator, win: String, shut: String, pos: Vector3, rot: float) -> void:
@@ -681,3 +734,137 @@ func _flat(host: Node3D, color: Color, center: Vector3, size: Vector2) -> void:
 	mi.material_override = mat
 	mi.position = center
 	host.add_child(mi)
+
+# ── helpers extras (props + partículas) — sugestões do Fable ─────────────────────
+func _box(host: Node3D, size: Vector3, pos: Vector3, color: Color, rot := 0.0) -> void:
+	var mi := MeshInstance3D.new()
+	var bm := BoxMesh.new(); bm.size = size
+	mi.mesh = bm
+	var m := StandardMaterial3D.new(); m.albedo_color = color; m.roughness = 0.95
+	mi.material_override = m
+	host.add_child(mi); mi.position = pos; mi.rotation_degrees = Vector3(0, rot, 0)
+
+func _billboard_mat(emit: Color, energy: float) -> StandardMaterial3D:
+	var m := StandardMaterial3D.new()
+	m.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	m.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	m.vertex_color_use_as_albedo = true
+	m.billboard_mode = BaseMaterial3D.BILLBOARD_PARTICLES
+	if energy > 0.0:
+		m.emission_enabled = true; m.emission = emit; m.emission_energy_multiplier = energy
+	return m
+
+# vagalumes/poeira luminosa flutuando numa esfera (noite).
+func _fireflies(host: Node3D, count: int, radius: float, color: Color) -> void:
+	var p := GPUParticles3D.new()
+	p.amount = count; p.lifetime = 4.0; p.preprocess = 2.5
+	var m := ParticleProcessMaterial.new()
+	m.emission_shape = ParticleProcessMaterial.EMISSION_SHAPE_SPHERE
+	m.emission_sphere_radius = radius
+	m.direction = Vector3.UP; m.spread = 180.0
+	m.initial_velocity_min = 0.08; m.initial_velocity_max = 0.3
+	m.gravity = Vector3.ZERO
+	m.scale_min = 0.6; m.scale_max = 1.4
+	var g := Gradient.new()
+	g.set_color(0, Color(color, 0.0)); g.add_point(0.5, color); g.set_color(2, Color(color, 0.0))
+	var gt := GradientTexture1D.new(); gt.gradient = g; m.color_ramp = gt
+	p.process_material = m
+	var q := QuadMesh.new(); q.size = Vector2(0.06, 0.06); q.material = _billboard_mat(color, 2.5)
+	p.draw_pass_1 = q
+	host.add_child(p); p.position = Vector3(0, radius * 0.4, 0); p.emitting = true
+
+# fumaça cinza subindo (chaminé).
+func _smoke(host: Node3D, pos: Vector3) -> void:
+	var p := GPUParticles3D.new()
+	p.amount = 10; p.lifetime = 3.0; p.preprocess = 1.5
+	var m := ParticleProcessMaterial.new()
+	m.direction = Vector3.UP; m.spread = 9.0
+	m.initial_velocity_min = 0.4; m.initial_velocity_max = 0.8
+	m.gravity = Vector3(0, 0.25, 0)
+	m.scale_min = 1.5; m.scale_max = 3.5
+	var g := Gradient.new()
+	g.set_color(0, Color(0.55, 0.55, 0.55, 0.0)); g.add_point(0.2, Color(0.55, 0.55, 0.55, 0.32)); g.set_color(2, Color(0.55, 0.55, 0.55, 0.0))
+	var gt := GradientTexture1D.new(); gt.gradient = g; m.color_ramp = gt
+	p.process_material = m
+	var q := QuadMesh.new(); q.size = Vector2(0.5, 0.5); q.material = _billboard_mat(Color.BLACK, 0.0)
+	p.draw_pass_1 = q
+	host.add_child(p); p.position = pos; p.emitting = true
+
+# névoa baixa branca deslizando sobre o rio.
+func _river_mist(host: Node3D, river_x: float) -> void:
+	var p := GPUParticles3D.new()
+	p.amount = 14; p.lifetime = 5.0; p.preprocess = 3.0
+	var m := ParticleProcessMaterial.new()
+	m.emission_shape = ParticleProcessMaterial.EMISSION_SHAPE_BOX
+	m.emission_box_extents = Vector3(4.0, 0.15, 36.0)
+	m.direction = Vector3(0, 0, 1); m.spread = 6.0
+	m.initial_velocity_min = 0.3; m.initial_velocity_max = 0.7
+	m.gravity = Vector3.ZERO
+	m.scale_min = 3.0; m.scale_max = 6.0
+	var g := Gradient.new()
+	g.set_color(0, Color(0.9, 0.93, 0.95, 0.0)); g.add_point(0.3, Color(0.9, 0.93, 0.95, 0.1)); g.set_color(2, Color(0.9, 0.93, 0.95, 0.0))
+	var gt := GradientTexture1D.new(); gt.gradient = g; m.color_ramp = gt
+	p.process_material = m
+	var q := QuadMesh.new(); q.size = Vector2(1.0, 1.0); q.material = _billboard_mat(Color.BLACK, 0.0)
+	p.draw_pass_1 = q
+	host.add_child(p); p.position = Vector3(river_x, 0.35, 0); p.emitting = true
+
+# pilha de caixas (Prop_Crate).
+func _crates(host: Node3D, rng: RandomNumberGenerator, pos: Vector3) -> void:
+	_place(host, rng, VIL + "Prop_Crate.gltf", pos, rng.randf_range(0, 25), 1.0)
+	_place(host, rng, VIL + "Prop_Crate.gltf", pos + Vector3(1.05, 0, -0.2), rng.randf_range(0, 25), 1.0)
+	_place(host, rng, VIL + "Prop_Crate.gltf", pos + Vector3(0.2, 1.05, 0.1), rng.randf_range(0, 25), 0.9)
+
+# poço de pedra com telhadinho.
+func _well(host: Node3D, pos: Vector3) -> void:
+	var ring := MeshInstance3D.new()
+	var cm := CylinderMesh.new(); cm.top_radius = 0.95; cm.bottom_radius = 0.95; cm.height = 0.9
+	ring.mesh = cm
+	var sm := StandardMaterial3D.new(); sm.albedo_color = Color(0.5, 0.47, 0.43); sm.roughness = 1.0
+	ring.material_override = sm
+	host.add_child(ring); ring.position = pos + Vector3(0, 0.45, 0)
+	var hole := MeshInstance3D.new()
+	var hc := CylinderMesh.new(); hc.top_radius = 0.62; hc.bottom_radius = 0.62; hc.height = 0.1
+	hole.mesh = hc
+	var hm := StandardMaterial3D.new(); hm.albedo_color = Color(0.04, 0.04, 0.06); hm.roughness = 1.0
+	hole.material_override = hm
+	host.add_child(hole); hole.position = pos + Vector3(0, 0.92, 0)
+	_box(host, Vector3(0.12, 1.9, 0.12), pos + Vector3(-0.75, 0.95, 0), Color(0.3, 0.2, 0.12))
+	_box(host, Vector3(0.12, 1.9, 0.12), pos + Vector3(0.75, 0.95, 0), Color(0.3, 0.2, 0.12))
+	_box(host, Vector3(2.0, 0.14, 1.1), pos + Vector3(0, 2.0, 0), Color(0.42, 0.22, 0.12))
+
+# boneco de treino (poste + travessão + cabeça + corpo de palha).
+func _dummy(host: Node3D, pos: Vector3) -> void:
+	_box(host, Vector3(0.12, 1.6, 0.12), pos + Vector3(0, 0.8, 0), Color(0.35, 0.22, 0.12))
+	_box(host, Vector3(1.0, 0.1, 0.1), pos + Vector3(0, 1.3, 0), Color(0.35, 0.22, 0.12))
+	_box(host, Vector3(0.42, 0.7, 0.32), pos + Vector3(0, 1.05, 0), Color(0.72, 0.6, 0.34))
+	var head := MeshInstance3D.new()
+	var hs := SphereMesh.new(); hs.radius = 0.18; hs.height = 0.36
+	head.mesh = hs
+	var hm := StandardMaterial3D.new(); hm.albedo_color = Color(0.72, 0.6, 0.34); hm.roughness = 1.0
+	head.material_override = hm
+	host.add_child(head); head.position = pos + Vector3(0, 1.6, 0)
+
+# bandeira tremulando num mastro (topo de torre).
+func _flag(host: Node3D, pos: Vector3, color: Color) -> void:
+	_box(host, Vector3(0.05, 1.0, 0.05), pos + Vector3(0, 0.5, 0), Color(0.2, 0.15, 0.1))
+	var mi := MeshInstance3D.new()
+	var q := QuadMesh.new(); q.size = Vector2(0.7, 0.4)
+	mi.mesh = q
+	var m := StandardMaterial3D.new(); m.albedo_color = color; m.roughness = 0.9
+	m.cull_mode = BaseMaterial3D.CULL_DISABLED
+	mi.material_override = m
+	host.add_child(mi); mi.position = pos + Vector3(0.37, 0.82, 0)
+
+# plateia fake: esferas dessaturadas em volta (topo do anel da arena).
+func _crowd(host: Node3D, rng: RandomNumberGenerator, r: float, y: float, n: int) -> void:
+	for i in n:
+		var a := TAU * i / float(n)
+		var mi := MeshInstance3D.new()
+		var s := SphereMesh.new(); s.radius = 0.18; s.height = 0.36
+		mi.mesh = s
+		var m := StandardMaterial3D.new()
+		m.albedo_color = Color.from_hsv(rng.randf(), 0.3, rng.randf_range(0.4, 0.7))
+		m.roughness = 1.0
+		mi.material_override = m
+		host.add_child(mi); mi.position = Vector3(cos(a) * r, y, sin(a) * r)
