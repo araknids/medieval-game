@@ -18,6 +18,7 @@ const A_HURT_HEAD := LIB + "Hit_Head"
 const A_WALK := LIB + "Walk"
 const A_RUN := LIB + "Jog_Fwd"   # corrida — o inimigo vem CORRENDO pra cima
 const A_ROLL := LIB + "Roll"   # cambalhota IN-PLACE (Roll_RM tem root-motion e "voa" com o nosso tween)
+const A_DANCE := LIB + "Dance"   # warm-up durante a contagem
 const A_DEATH := LIB + "Death01"
 const BARW := 0.7
 
@@ -32,6 +33,7 @@ const DODGE_LAND := 2.8      # distância ATRÁS do inimigo em que o arqueiro at
 const WINDUP := 0.18         # s — armar o golpe antes do impacto
 const RECOVER := 0.12        # s — respiro após o impacto antes do próximo evento
 const MAX_WAIT := 2.2        # s — timeout p/ disparar mesmo fora de posição (nunca trava)
+const COUNTDOWN := 3.0       # s — contagem 3,2,1 antes da luta (warm-up)
 const INSTANT_TYPES := ["spawn", "victory", "heal", "berserk", "backpedal", "pinned", "pointblank"]
 
 # game-feel (polish de fluidez — sugestões do Fable)
@@ -99,6 +101,8 @@ var act_timer := 0.0
 var wait_timer := 0.0
 var cur_windup := WINDUP     # windup/recover do golpe atual (variados p/ matar o "metrônomo")
 var cur_recover := RECOVER
+var countdown_t := 0.0       # cronômetro da contagem 3,2,1
+var countdown_label: Label
 
 func _ready() -> void:
 	_setup_scene()
@@ -108,7 +112,7 @@ func _ready() -> void:
 		return
 	_build_fighters()
 	_frame_camera()
-	phase = "fight"
+	phase = "countdown"   # 3,2,1 antes de soltar a luta
 	print("=== BATTLE REPLAY (sim-driven) === %d eventos · kiting=%s" % [events.size(), kiting])
 
 # ── carga dos eventos: backend real, com fallback mock ──────────────────────────
@@ -326,10 +330,27 @@ func _process(dt: float) -> void:
 			f["bar"].global_position = n.global_position + Vector3(0, 2.05, 0)
 			f["shown_hp"] = lerpf(f["shown_hp"], float(f["hp"]), 1.0 - exp(-HP_LERP * dt))
 			_apply_hp_bar(f)
-	if phase != "fight":
-		return
-	_move(dt)
-	_advance(dt)
+	match phase:
+		"countdown": _countdown(dt)
+		"fight":
+			_move(dt)
+			_advance(dt)
+
+# Contagem 3,2,1 → Lutar! Os lutadores dançam (warm-up) e encaram o oponente.
+func _countdown(dt: float) -> void:
+	countdown_t += dt
+	for f in order:
+		if not f["dead"] and f["anim"]: _play_loop(f, A_DANCE)
+	var remaining := COUNTDOWN - countdown_t
+	if remaining > 0.0:
+		countdown_label.text = str(int(ceil(remaining)))
+	elif countdown_t < COUNTDOWN + 0.7:
+		countdown_label.text = "Lutar!"
+	else:
+		countdown_label.text = ""
+		for f in order:
+			if f["anim"]: f["anim"].play(A_IDLE, BLEND)
+		phase = "fight"
 
 # Movimento contínuo: arco-vs-melee = perseguição/kite; senão = ambos fecham pro alcance.
 func _move(dt: float) -> void:
@@ -377,6 +398,9 @@ func _move_kite(dt: float) -> void:
 			ranged_f["anim"].play(A_IDLE, BLEND)
 
 func _move_clash(dt: float) -> void:
+	if order.size() < 2: return
+	# gap calculado UMA vez (posições atuais) → ambos param ao entrar no alcance, sem empurrar
+	var gap := absf((order[0]["node"] as Node3D).position.x - (order[1]["node"] as Node3D).position.x)
 	for i in 2:
 		var f: Dictionary = order[i]
 		if f["dead"] or f["hopping"]: continue
@@ -385,11 +409,19 @@ func _move_clash(dt: float) -> void:
 		var on: Node3D = o["node"]
 		var s := signf(on.position.x - fn.position.x)
 		if s == 0.0: s = float(-int(f["side"]))
-		var prev := fn.position.x
-		var desired := on.position.x - s * (ATTACK_RANGE * 0.95)
-		var new_x := _step_toward(f, desired, MELEE_SPEED, dt)
-		_face(f, s)
-		_locomotion(f, prev, new_x)
+		if gap > ATTACK_RANGE + 0.1:
+			# ainda longe → corre pra fechar
+			var prev := fn.position.x
+			var desired := on.position.x - s * ATTACK_RANGE
+			var new_x := _step_toward(f, desired, MELEE_SPEED, dt)
+			_face(f, s)
+			_locomotion(f, prev, new_x)
+		else:
+			# em alcance → PARA (não empurra o outro) e encara
+			f["vel"] = 0.0
+			_face(f, s)
+			if not f["busy"] and f["anim"] and f["anim"].current_animation != A_IDLE:
+				f["anim"].play(A_IDLE, BLEND)
 
 # Move o lutador rumo a desired_x com ACELERAÇÃO + frenagem perto do alvo (planta o pé,
 # em vez de partir/parar seco). Retorna o novo x. [game-feel]
@@ -543,6 +575,10 @@ func _resolve(e: Dictionary) -> void:
 			var elem := str(e.get("element", ""))
 			if elem == "SUPER": _popup(_head(tgt), "✦", Color(1, 0.82, 0.29), false)
 			elif elem == "RESIST": _popup(_head(tgt), "🛡", Color(0.5, 0.69, 1), false)
+			# combo no CRIT: 2º golpe de espada no impacto (só temos Sword_Attack → reusa)
+			if big and act and not act["ranged"] and act["anim"]:
+				act["anim"].play(A_ATTACK, 0.05)
+				act["busy"] = true
 		tgt["hp"] = int(e.get("targetHp", tgt["hp"]))
 		_update_hp(tgt)
 		if tgt["hp"] <= 0: _kill(tgt)
@@ -571,7 +607,11 @@ func _finish() -> void:
 	phase = "done"
 	var alive: Array = order.filter(func(f): return not f["dead"])
 	if alive.size() == 1 and victory_label:
-		victory_label.text = "%s venceu!" % alive[0]["name"]
+		var w: Dictionary = alive[0]
+		victory_label.text = "%s venceu!" % w["name"]
+		w["busy"] = false
+		_face(w, signf(-(w["node"] as Node3D).position.x))   # vira pra câmera/centro
+		if w["anim"]: w["anim"].play(A_IDLE, BLEND)           # vitória: pose de Sword_Idle
 
 # ── helpers de cena / lutador (espelham Battle.gd) ──────────────────────────────
 func _face(f: Dictionary, dir: float) -> void:
@@ -806,6 +846,12 @@ func _make_ui() -> void:
 	status_label.offset_bottom = -12
 	status_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	layer.add_child(status_label)
+	countdown_label = Label.new()
+	countdown_label.add_theme_font_size_override("font_size", 120)
+	countdown_label.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	countdown_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	countdown_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	layer.add_child(countdown_label)
 
 func _status(msg: String) -> void:
 	if status_label: status_label.text = msg
