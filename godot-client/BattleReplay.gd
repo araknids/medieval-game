@@ -125,6 +125,9 @@ const GORE_COLORS := [Color(0.5, 0.08, 0.08), Color(0.42, 0.05, 0.05), Color(0.6
 ## TESTE: finge que o inimigo do backend tem ESTE nome (p/ ver o mapa nome→monstro sem PvE real).
 ## Ex.: "Young Dragon" → Dragon · "Stone Golem" → Goleling Evolved · "Orc Warrior" → humano.
 @export var force_enemy_name := ""
+## TESTE: força o tipo VISUAL da arma do herói (sem equipar no jogo). Vazio = arma real do inventário.
+## Valores: sword | greatsword | axe | spear | mace | shortbow | longbow | crossbow
+@export var force_weapon := ""
 ## (Legado) escala manual do monstro — hoje o tamanho vem do roster (Monsters.size_for) + auto-fit.
 @export var monster_scale := 1.0
 ## Giro extra do monstro em Y (graus) se ele nascer de lado/de costas. Tente 0, 90, 180, -90.
@@ -341,7 +344,8 @@ func _build_fighters() -> void:
 	var lname := str(spawns[0].get("actor", "Hero"))
 	var rname := str(spawns[1].get("actor", "Foe"))
 	# HERÓI (esquerda = challenger): arma e equip REAIS. Sem arma equipada → espada.
-	var lweapon := player_weapon if player_weapon != "" else "sword"
+	# force_weapon (Inspector) sobrepõe p/ TESTE — ver qualquer tipo sem equipar no jogo.
+	var lweapon := force_weapon if force_weapon != "" else (player_weapon if player_weapon != "" else "sword")
 	var lequip: Array = player_equip if player_equip.size() > 0 else DEFAULT_OUTFIT
 	# INIMIGO (direita): no force_mock vira espadachim; na arena real segue o estilo dos eventos.
 	var rweapon := "sword" if force_mock else ("bow" if _is_ranged(rname) else "sword")
