@@ -28,7 +28,7 @@ const MELEE_SPEED := 2.8     # corrida do melee fechando distância (unid/s)
 const ARCHER_SPEED := 2.2    # recuo do arqueiro (kite)
 const ARCHER_PREF := 2.4     # arqueiro recua p/ manter ~esta distância do melee (obriga o melee a perseguir)
 const FIELD_EDGE := 3.7      # arqueiro cruza pro outro lado ao ser encurralado
-const CROSS_GAP := 3.0       # espaço deixado ao cruzar
+const CROSS_GAP := 3.2       # distância do GUERREIRO em que o arqueiro aterrissa ao cruzar (respiro)
 const WINDUP := 0.18         # s — armar o golpe antes do impacto
 const RECOVER := 0.12        # s — respiro após o impacto antes do próximo evento
 const MAX_WAIT := 2.2        # s — timeout p/ disparar mesmo fora de posição (nunca trava)
@@ -343,7 +343,9 @@ func _move_kite(dt: float) -> void:
 	if gap < ARCHER_PREF:
 		var next_x := rn.position.x + side * ARCHER_SPEED * dt
 		if absf(next_x) > FIELD_EDGE:
-			_evade_roll(ranged_f, -side * CROSS_GAP)   # encurralado → rola pro outro lado
+			# rola pro OUTRO lado do guerreiro, aterrissando CROSS_GAP longe DELE (não coladinho)
+			var land := mn.position.x - side * CROSS_GAP
+			_evade_roll(ranged_f, land - rn.position.x)
 		else:
 			rn.position = Vector3(next_x, 0, 0)
 			if not ranged_f["busy"] and ranged_f["anim"] and ranged_f["anim"].current_animation != A_WALK:
@@ -398,7 +400,7 @@ func _evade_roll(f: Dictionary, dx: float) -> void:
 		var a: Animation = ap.get_animation(roll)
 		if a: a.loop_mode = Animation.LOOP_LINEAR
 		ap.play(roll)
-	var dur := clampf(absf(dx) / 4.8, 0.35, 0.8)   # ~4.8 u/s → velocidade de cambalhota
+	var dur := clampf(absf(dx) / 5.0, 0.4, 1.1)    # ~5 u/s → velocidade de cambalhota (rolos longos duram mais)
 	var tw := create_tween()
 	tw.tween_property(n, "position", Vector3(n.position.x + dx, 0, 0), dur) \
 		.set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
