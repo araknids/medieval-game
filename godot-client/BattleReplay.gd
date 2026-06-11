@@ -278,13 +278,18 @@ func _load_quest(client) -> bool:
 	for kingdom in QUEST_KINGDOMS:
 		var lr = await client.quest_list(kingdom)
 		if not (lr.get("ok") and lr.get("json") is Array):
+			print(">>> quest[%s]: lista falhou (status %s)" % [kingdom, lr.get("status")])
 			continue
 		# escolhe uma quest COMEÇÁVEL, NÃO-interativa (sem optionId), de preferência "de combate"
 		var pick := {}
+		var n_start := 0   # quantas dava p/ começar (diagnóstico)
+		var n_done := 0    # quantas já feitas hoje (cap diário)
 		for q in lr["json"]:
 			if not (q is Dictionary): continue
+			if q.get("doneToday", false): n_done += 1
 			if not q.get("canStart", false): continue
 			if q.get("interactive", false): continue
+			n_start += 1
 			var qid := str(q.get("id", ""))
 			var is_combat := false
 			for h in QUEST_COMBAT_HINT:
@@ -294,27 +299,33 @@ func _load_quest(client) -> bool:
 			elif pick.is_empty():
 				pick = q
 		if pick.is_empty():
+			print(">>> quest[%s]: nenhuma começável não-interativa (%d feitas hoje, %d começáveis)" % [kingdom, n_done, n_start])
 			continue
 		var qtype := str(pick.get("id", ""))
 		_status("Quest %s (%s)…" % [str(pick.get("displayName", qtype)), kingdom])
 		var sr = await client.quest_start(kingdom, qtype)
 		if not (sr.get("ok") and sr.get("json") is Dictionary):
+			print(">>> quest[%s]: start '%s' falhou (status %s, raw %s)" % [kingdom, qtype, sr.get("status"), sr.get("raw", "")])
 			continue
 		var qnum := int(sr["json"].get("id", 0))
 		if qnum == 0:
+			print(">>> quest[%s]: start '%s' sem id" % [kingdom, qtype])
 			continue
 		var cr = await client.quest_collect(kingdom, qnum)
 		if not (cr.get("ok") and cr.get("json") is Dictionary):
+			print(">>> quest[%s]: collect %d falhou (status %s)" % [kingdom, qnum, cr.get("status")])
 			continue
 		var j: Dictionary = cr["json"]
 		if j.get("lunaPending", false):   # Luna interrompeu → ignora (retoma a missão) e usa o resultado
+			print(">>> quest[%s]: Luna interrompeu → /luna/ignore" % kingdom)
 			var luna = await client.quest_luna(kingdom, qnum, "ignore")
 			if luna.get("ok") and luna.get("json") is Dictionary:
 				j = luna["json"]
 		if _apply_fight_json(j, ["monsterName"], "monsterDefeated"):
 			return true
-		# essa quest não teve encontro de monstro → tenta o próximo reino
-	print(">>> QUEST: nenhum encontro de monstro disponível (limite diário?).")
+		# resolveu mas sem battleEvents → sem encontro de monstro nessa quest
+		print(">>> quest[%s]: '%s' resolveu SEM encontro (monsterEncountered=%s) → próximo reino" % [kingdom, qtype, str(j.get("monsterEncountered", false))])
+	print(">>> QUEST: nenhum encontro de monstro em nenhum reino (cap diário / sem combate).")
 	return false
 
 # ── monta os lutadores a partir dos eventos de spawn ────────────────────────────
