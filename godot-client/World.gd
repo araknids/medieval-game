@@ -74,7 +74,7 @@ func _build_mining() -> void:
 	# GRAMA / arbustos espalhados
 	for i in 50:
 		var p := _scatter(5.0, 24.0)
-		var g := ["Grass_Common_Short", "Grass_Common_Tall", "Grass_Wispy_Short", "Bush_Common", "Fern_1"][i % 5]
+		var g: String = ["Grass_Common_Short", "Grass_Common_Tall", "Grass_Wispy_Short", "Bush_Common", "Fern_1"][i % 5]
 		_place(NAT + g + ".gltf", p, rng.randf_range(0, 360), rng.randf_range(0.8, 1.4))
 
 	# personagem p/ ESCALA (idle), perto do minério
