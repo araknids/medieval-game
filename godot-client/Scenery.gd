@@ -42,9 +42,9 @@ static func night_lighting(host: Node3D) -> void:
 # Centro LIVRE p/ combate; veio de minério num OUTCROP lateral; mata densa no fundo;
 # braseiros quentes ao redor da clareira iluminam os lutadores. Minério BRILHA.
 static func mining(host: Node3D, rng: RandomNumberGenerator, combat_r: float) -> void:
-	var OUTCROP := Vector3(-9.0, 0, 3.0)
-	_ground(host, Color(0.30, 0.25, 0.18), 40.0)
-	_disc(host, Color(0.36, 0.32, 0.26), combat_r, 0.02)
+	var OUTCROP := Vector3(-13.0, 0, 5.0)   # veio BEM afastado do combate (não bloqueia os lutadores)
+	_ground(host, Color(0.31, 0.28, 0.20), 40.0)
+	_disc(host, Color(0.40, 0.36, 0.30), combat_r, 0.02)
 	# colisão do chão (p/ o ragdoll da batalha não atravessar o piso)
 	var fb := StaticBody3D.new()
 	var fc := CollisionShape3D.new()
@@ -52,27 +52,29 @@ static func mining(host: Node3D, rng: RandomNumberGenerator, combat_r: float) ->
 	fb.add_child(fc)
 	host.add_child(fb)
 
-	# VEIO de minério (outcrop lateral): parede de rocha grande + veios tingidos que brilham
+	# CHÃO DE LADRILHO cobrindo a ÁREA DE COMBATE inteira (onde os personagens andam)
+	_cobble_floor(host, rng, combat_r - 0.2)
+
+	# VEIO de minério (outcrop lateral, LONGE): parede de rocha + veios tingidos que brilham
 	var ores := [Color(0.95, 0.78, 0.22), Color(0.82, 0.46, 0.22), Color(0.62, 0.66, 0.72), Color(0.25, 0.78, 0.5)]
 	for i in 4:
-		var off := Vector3(rng.randf_range(-2.0, 2.0), 0, rng.randf_range(-2.0, 2.0))
-		_place(host, rng, NAT + "Rock_Medium_%d.gltf" % (1 + i % 3), OUTCROP + off, rng.randf_range(0, 360), rng.randf_range(1.4, 2.2))
+		var off := Vector3(rng.randf_range(-2.2, 2.2), 0, rng.randf_range(-2.2, 2.2))
+		_place(host, rng, NAT + "Rock_Medium_%d.gltf" % (1 + i % 3), OUTCROP + off, rng.randf_range(0, 360), rng.randf_range(1.3, 1.9))
 	for i in 7:
-		var off2 := Vector3(rng.randf_range(-2.6, 2.6), rng.randf_range(0, 0.6), rng.randf_range(-2.6, 2.6))
+		var off2 := Vector3(rng.randf_range(-2.8, 2.8), rng.randf_range(0, 0.7), rng.randf_range(-2.8, 2.8))
 		_place(host, rng, NAT + "Rock_Medium_%d.gltf" % (1 + i % 3), OUTCROP + off2,
-				rng.randf_range(0, 360), rng.randf_range(0.6, 1.1), ores[i % ores.size()])
+				rng.randf_range(0, 360), rng.randf_range(0.6, 1.0), ores[i % ores.size()])
 
-	# TRILHA de pedras da clareira ao veio
+	# TRILHA de pedras da BORDA da clareira até o veio (começa fora do círculo)
 	for i in 6:
-		var t := float(i) / 5.0
-		var p := Vector3.ZERO.lerp(OUTCROP, t) + Vector3(rng.randf_range(-0.5, 0.5), 0, rng.randf_range(-0.5, 0.5))
+		var p := Vector3.ZERO.lerp(OUTCROP, lerpf(0.5, 1.0, float(i) / 5.0)) + Vector3(rng.randf_range(-0.5, 0.5), 0, rng.randf_range(-0.5, 0.5))
 		_place(host, rng, NAT + "RockPath_Round_%s.gltf" % (["Wide", "Thin"][i % 2]), p, rng.randf_range(0, 360), rng.randf_range(1.0, 1.4))
 
-	# pedras + cascalho (fora do combate)
+	# pedras + cascalho — BEM longe do combate (nada perto do círculo)
 	for i in 22:
-		_place(host, rng, NAT + "Rock_Medium_%d.gltf" % (1 + i % 3), _scatter(rng, combat_r + 1.0, 34.0), rng.randf_range(0, 360), rng.randf_range(0.6, 1.3))
-	for i in 55:
-		_place(host, rng, NAT + "Pebble_Round_%d.gltf" % (1 + i % 5), _scatter(rng, combat_r - 1.0, 36.0), rng.randf_range(0, 360), rng.randf_range(0.7, 1.6))
+		_place(host, rng, NAT + "Rock_Medium_%d.gltf" % (1 + i % 3), _scatter(rng, combat_r + 3.5, 34.0), rng.randf_range(0, 360), rng.randf_range(0.6, 1.3))
+	for i in 50:
+		_place(host, rng, NAT + "Pebble_Round_%d.gltf" % (1 + i % 5), _scatter(rng, combat_r + 1.5, 36.0), rng.randf_range(0, 360), rng.randf_range(0.7, 1.6))
 
 	# MATA densa em 3 camadas (fundo) — esconde o céu
 	var near := ["DeadTree_1", "DeadTree_2", "DeadTree_3", "Pine_1", "CommonTree_3"]
@@ -81,15 +83,30 @@ static func mining(host: Node3D, rng: RandomNumberGenerator, combat_r: float) ->
 	_tree_ring(host, rng, far, 22.0, 28.0, 34, 1.1, 1.7)
 	_tree_ring(host, rng, far, 30.0, 38.0, 46, 1.3, 2.1)
 
-	# grama / arbustos / cogumelos
-	for i in 60:
-		var g: String = ["Grass_Common_Short", "Grass_Common_Tall", "Grass_Wispy_Short", "Bush_Common", "Fern_1", "Mushroom_Common"][i % 6]
-		_place(host, rng, NAT + g + ".gltf", _scatter(rng, combat_r - 1.0, 34.0), rng.randf_range(0, 360), rng.randf_range(0.8, 1.4))
+	# VEGETAÇÃO RASTEIRA — MUITA grama/trevo p/ o chão não ficar marrom (fora do combate)
+	for i in 150:
+		var g: String = ["Grass_Common_Short", "Grass_Common_Tall", "Grass_Wispy_Short", "Grass_Wispy_Tall", "Clover_1", "Clover_2", "Bush_Common", "Fern_1"][i % 8]
+		_place(host, rng, NAT + g + ".gltf", _scatter(rng, combat_r + 0.6, 37.0), rng.randf_range(0, 360), rng.randf_range(0.7, 1.3))
 
 	# BRASEIROS ao redor da clareira (luz quente nos lutadores)
 	for i in 5:
 		var a := TAU * i / 5.0 + 0.6
 		_brazier(host, Vector3(cos(a) * (combat_r + 1.2), 0, sin(a) * (combat_r + 1.2)))
+
+# Ladrilha a área de combate (grade de pedras de caminho dentro do círculo).
+static func _cobble_floor(host: Node3D, rng: RandomNumberGenerator, radius: float) -> void:
+	var tiles := ["RockPath_Square_Wide", "RockPath_Square_Thin", "RockPath_Round_Wide"]
+	var step := 1.7
+	var x := -radius
+	while x <= radius:
+		var z := -radius
+		while z <= radius:
+			if Vector2(x, z).length() <= radius:
+				var t: String = tiles[rng.randi() % tiles.size()]
+				var pos := Vector3(x + rng.randf_range(-0.3, 0.3), 0.03, z + rng.randf_range(-0.3, 0.3))
+				_place(host, rng, NAT + t + ".gltf", pos, rng.randf_range(0, 360), rng.randf_range(1.1, 1.5))
+			z += step
+		x += step
 
 # ── helpers (estáticos) ─────────────────────────────────────────────────────────
 static func _scatter(rng: RandomNumberGenerator, r_min: float, r_max: float) -> Vector3:
