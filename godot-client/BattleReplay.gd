@@ -138,7 +138,7 @@ var events: Array = []
 var fighters := {}          # name -> dict do lutador
 var order: Array = []       # [left, right] na ordem de spawn
 var player_equip: Array = []  # tipos de armadura EQUIPADOS pelo jogador (p/ vestir o lutador da esquerda)
-var player_weapon := ""       # tipo visual da arma equipada do herói: sword|bow|axe|spear|mace
+var player_weapon := ""       # tipo visual fino: sword|greatsword|axe|spear|mace|shortbow|longbow|crossbow
 var cam: Camera3D
 var mons := Monsters.new()  # helper de monstros (instancia + auto-fit + roster/mapa)
 var cam_view := 1            # preset de câmera ATIVO (1/2/3) — ver CAM_PRESETS
@@ -427,17 +427,23 @@ func _read_player_gear(items: Array) -> void:
 			player_weapon = _weapon_kind(str(it.get("name", "")), str(it.get("weaponCategory", "")))
 
 # Infere o tipo visual da arma pelo nome + categoria (backend só dá MELEE/RANGED).
+# Tipo visual FINO da arma pelo NOME (espelha backend WeaponType.fromName — a API não manda o tipo).
+# Ordem importa: ranged finos antes do "bow" genérico; greatsword antes de sword.
 func _weapon_kind(item_name: String, category: String) -> String:
 	var n := item_name.to_lower()
-	if category == "RANGED" or "bow" in n or "arco" in n or "crossbow" in n or "besta" in n:
-		return "bow"
-	if "axe" in n or "machado" in n or "hatchet" in n:
-		return "axe"
-	if "spear" in n or "lança" in n or "lanca" in n or "pike" in n or "halberd" in n:
-		return "spear"
-	if "mace" in n or "marreta" in n or "maul" in n or "hammer" in n or "martelo" in n or "club" in n:
-		return "mace"
+	if "crossbow" in n or "besta" in n: return "crossbow"
+	if "long bow" in n or "longbow" in n or "arco longo" in n: return "longbow"
+	if "short bow" in n or "shortbow" in n or "arco curto" in n or "bow" in n or "arco" in n: return "shortbow"
+	if category == "RANGED": return "shortbow"   # rede de segurança (nome ranged sem palavra de arco)
+	if "greatsword" in n or "great sword" in n or "two-handed" in n or "montante" in n or "espada longa" in n or "espada de duas" in n: return "greatsword"
+	if "axe" in n or "machado" in n or "hatchet" in n: return "axe"
+	if "mace" in n or "marreta" in n or "maul" in n or "hammer" in n or "martelo" in n or "club" in n or "clava" in n: return "mace"
+	if "spear" in n or "lança" in n or "lanca" in n or "lance" in n or "pike" in n or "halberd" in n: return "spear"
 	return "sword"
+
+# Arma de longa distância (arco/besta)? — controla kiting + flecha + slot de mão (LeftHand). "bow" = legado.
+func _is_bow_kind(kind: String) -> bool:
+	return kind in ["shortbow", "longbow", "crossbow", "bow"]
 
 func _is_ranged(who: String) -> bool:
 	for e in events:
@@ -463,7 +469,7 @@ func _make_fighter(fname: String, side: int, maxhp: int, weapon_kind: String, eq
 	else:
 		node.scale = Vector3(0.92, 0.92, 0.92)
 	# monstro é sempre melee (sem arco/kite); herói/humano segue a arma equipada
-	var ranged := weapon_kind == "bow" and not is_monster
+	var ranged := _is_bow_kind(weapon_kind) and not is_monster
 	var ap: AnimationPlayer = node.find_child("AnimationPlayer", true, false)
 	# liga a lib UAL2 (variações de espada) — só no humano; monstro usa as próprias anims
 	if ap and not is_monster and not ap.has_animation_library("UAL2_Standard"):
@@ -946,16 +952,16 @@ func _face(f: Dictionary, dir: float) -> void:
 	# + yaw_offset corrige o monstro que nasce de lado/de costas (humano = 0)
 	f["face_target"] = deg_to_rad(90.0 if dir > 0 else -90.0) + f.get("yaw_offset", 0.0)   # o _process gira suave até aqui
 
-# Desenha a arma pelo TIPO (sword|bow|axe|spear|mace). Bow vai na LeftHand; o resto na
-# RightHand num holder (rot -90; +Y local = direção da arma) com peças simples.
+# Desenha a arma pelo TIPO fino. Arco/besta vão na LeftHand; melee na RightHand num holder
+# (rot -90; +Y local = direção da arma) com peças simples. 8 tipos do WeaponType.
 func _attach_weapon(node: Node3D, kind: String) -> void:
 	var skel: Skeleton3D = node.find_child("GeneralSkeleton", true, false)
 	if skel == null: return
 	var ba := BoneAttachment3D.new()
-	if kind == "bow":
+	if _is_bow_kind(kind):
 		ba.bone_name = "LeftHand"
 		skel.add_child(ba)
-		_box(ba, Vector3(0.03, 0.6, 0.03), Vector3(0.10, 0.07, 0.04), Color(0.45, 0.3, 0.16), 0.0)
+		_attach_bow(ba, kind)
 		return
 	ba.bone_name = "RightHand"
 	skel.add_child(ba)
@@ -966,6 +972,11 @@ func _attach_weapon(node: Node3D, kind: String) -> void:
 	var steel := Color(0.82, 0.84, 0.88)
 	var wood := Color(0.35, 0.22, 0.12)
 	match kind:
+		"greatsword":   # espada de 2 mãos: lâmina mais longa/larga + guarda larga + cabo comprido
+			_box(holder, Vector3(0.028, 0.82, 0.10), Vector3(0, 0.54, 0), steel, 0.7)              # lâmina longa
+			_box(holder, Vector3(0.07, 0.04, 0.28),  Vector3(0, 0.10, 0), Color(0.28, 0.22, 0.14), 0.3)  # guarda larga
+			_box(holder, Vector3(0.032, 0.22, 0.032),Vector3(0, -0.04, 0), wood, 0.1)              # cabo longo (2 mãos)
+			_box(holder, Vector3(0.06, 0.06, 0.06),  Vector3(0, -0.18, 0), Color(0.70, 0.60, 0.20), 0.5)  # pomo
 		"axe":
 			_box(holder, Vector3(0.028, 0.62, 0.028), Vector3(0, 0.20, 0), wood, 0.1)        # cabo longo
 			_box(holder, Vector3(0.02, 0.16, 0.17),   Vector3(0, 0.46, 0.07), steel, 0.7)    # lâmina do machado
@@ -980,6 +991,18 @@ func _attach_weapon(node: Node3D, kind: String) -> void:
 			_box(holder, Vector3(0.05, 0.035, 0.20),  Vector3(0,  0.07, 0), Color(0.28, 0.22, 0.14), 0.3)  # guarda
 			_box(holder, Vector3(0.028, 0.13, 0.028), Vector3(0, -0.02, 0), wood, 0.1)             # cabo
 			_box(holder, Vector3(0.05, 0.05, 0.05),   Vector3(0, -0.10, 0), Color(0.70, 0.60, 0.20), 0.5)  # pomo
+
+# Arco/besta na LeftHand. shortbow/longbow = arco vertical (stave + corda); crossbow = horizontal (coronha + braço).
+func _attach_bow(ba: Node3D, kind: String) -> void:
+	var wood := Color(0.45, 0.30, 0.16)
+	if kind == "crossbow":
+		_box(ba, Vector3(0.035, 0.05, 0.40), Vector3(0.10, 0.06, 0.10), wood, 0.1)                  # coronha (pra frente)
+		_box(ba, Vector3(0.40, 0.03, 0.03),  Vector3(0.10, 0.08, 0.26), Color(0.30, 0.25, 0.18), 0.2)  # braço transversal
+		_box(ba, Vector3(0.35, 0.006, 0.006),Vector3(0.10, 0.08, 0.25), Color(0.85, 0.82, 0.70), 0.0)  # corda
+		return
+	var h := 0.95 if kind == "longbow" else 0.55                                                      # longbow alto, shortbow baixo
+	_box(ba, Vector3(0.03, h, 0.03),        Vector3(0.10, 0.07, 0.04), wood, 0.1)                     # corpo do arco
+	_box(ba, Vector3(0.006, h * 0.95, 0.006), Vector3(0.10, 0.07, -0.02), Color(0.85, 0.82, 0.70), 0.0)  # corda
 
 func _box(parent: Node, size: Vector3, pos: Vector3, col: Color, metallic: float) -> void:
 	var mi := MeshInstance3D.new()
