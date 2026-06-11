@@ -37,3 +37,6 @@ assets externos/
 
 # Mundos/cenarios 3D (packs Quaternius copiados, pesados — local only) [GODOT_3D]
 godot-client/assets/world/
+
+# Bundle de MONSTROS (Quaternius Ultimate Monsters, .glb pesados — local only) [GODOT_3D]
+godot-client/assets/monsters/
