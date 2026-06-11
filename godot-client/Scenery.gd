@@ -472,26 +472,37 @@ func city(host: Node3D, rng: RandomNumberGenerator, _combat_r: float) -> void:
 	for i in 5:
 		var a3 := deg_to_rad(150.0 + i * 45.0)
 		_brazier(host, Vector3(cos(a3) * 9.0, 0, sin(a3) * 9.0))
+	# MATA densa no fundo (atrás das casas) — enche o horizonte
+	var pool := ["CommonTree_1", "CommonTree_2", "CommonTree_4", "CommonTree_5", "Pine_1", "Pine_2", "Pine_3"]
+	_tree_ring(host, rng, pool, 24.0, 31.0, 30, 1.0, 1.7)
+	_tree_ring(host, rng, pool, 33.0, 42.0, 42, 1.2, 2.0)
 
-# Casa 4×4 (4 paredes + porta na frente + telhado). `face_deg` = porta virada pra essa direção.
+# Casa 4×4 (paredes c/ porta+janelas + frontão triangular + telhado). `face_deg` = frente virada pra essa direção.
 func _house(host: Node3D, rng: RandomNumberGenerator, center: Vector3, face_deg: float) -> void:
 	var c := Node3D.new()
 	host.add_child(c)
 	c.position = center
 	c.rotation_degrees = Vector3(0, face_deg, 0)
 	var H := 2.0   # meia-aresta da casa (4×4)
-	# FRENTE (+Z): porta à esquerda + parede à direita
-	_place(c, rng, VIL + "Wall_UnevenBrick_Door_Round.gltf", Vector3(-1, 0, H), 0, 1.0)
-	_place(c, rng, VIL + "Wall_UnevenBrick_Straight.gltf", Vector3(1, 0, H), 0, 1.0)
-	# FUNDO (-Z)
-	for bx in [-1.0, 1.0]:
-		_place(c, rng, VIL + "Wall_UnevenBrick_Straight.gltf", Vector3(bx, 0, -H), 180, 1.0)
-	# LATERAIS (±X)
-	for sz in [-1.0, 1.0]:
-		_place(c, rng, VIL + "Wall_UnevenBrick_Straight.gltf", Vector3(H, 0, sz), 90, 1.0)
-		_place(c, rng, VIL + "Wall_UnevenBrick_Straight.gltf", Vector3(-H, 0, sz), 270, 1.0)
-	# TELHADO (overhang cobre as juntas dos cantos)
+	var DOOR := VIL + "Wall_UnevenBrick_Door_Round.gltf"
+	var WIN := VIL + "Wall_UnevenBrick_Window_Wide_Round.gltf"
+	var STR := VIL + "Wall_UnevenBrick_Straight.gltf"
+	# FRENTE (+Z): porta à esquerda + janela à direita (+ a lâmina da porta)
+	_place(c, rng, DOOR, Vector3(-1, 0, H), 0, 1.0)
+	_place(c, rng, WIN, Vector3(1, 0, H), 0, 1.0)
+	_place(c, rng, VIL + "Door_2_Round.gltf", Vector3(-1.5, 0, H + 0.06), 0, 1.0)
+	# FUNDO (-Z): janela + parede
+	_place(c, rng, WIN, Vector3(-1, 0, -H), 180, 1.0)
+	_place(c, rng, STR, Vector3(1, 0, -H), 180, 1.0)
+	# LATERAIS (±X): uma janela + uma parede de cada lado
+	_place(c, rng, WIN, Vector3(H, 0, -1), 90, 1.0)
+	_place(c, rng, STR, Vector3(H, 0, 1), 90, 1.0)
+	_place(c, rng, WIN, Vector3(-H, 0, 1), 270, 1.0)
+	_place(c, rng, STR, Vector3(-H, 0, -1), 270, 1.0)
+	# TELHADO + FRONTÃO (gable) triangular na frente e no fundo
 	_place(c, rng, VIL + "Roof_RoundTiles_4x4.gltf", Vector3(0, 3.05, 0), 0, 1.0)
+	_place(c, rng, VIL + "Roof_Front_Brick4.gltf", Vector3(0, 3.0, H + 0.1), 0, 1.0)
+	_place(c, rng, VIL + "Roof_Front_Brick4.gltf", Vector3(0, 3.0, -H - 0.1), 180, 1.0)
 
 # Ladrilha um CÍRCULO de raio `radius` com a peça `piece` (grade de 2m).
 func _tile_circle(host: Node3D, rng: RandomNumberGenerator, piece: String, radius: float) -> void:
