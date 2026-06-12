@@ -11,6 +11,7 @@ const RARITY_COL := [Color(0.72, 0.72, 0.75), Color(0.45, 0.85, 0.45), Color(0.4
 var content: VBoxContainer
 var status: Label
 var busy := false
+var items: Array = []   # cache local → ações atualizam em memória (sem re-baixar a lista)
 
 func _ready() -> void:
 	set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
@@ -30,7 +31,11 @@ func _ready() -> void:
 	back.pressed.connect(func() -> void: go_back.emit())
 	header.add_child(back)
 	var ttl := Label.new(); ttl.text = "Inventário"; ttl.add_theme_font_size_override("font_size", 26)
+	ttl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	header.add_child(ttl)
+	var sync := Button.new(); sync.text = "↻"; sync.custom_minimum_size = Vector2(40, 36)   # re-sincroniza com o servidor
+	sync.pressed.connect(func() -> void: await _refresh())
+	header.add_child(sync)
 	var m := MarginContainer.new()
 	for side in ["left", "right", "top"]:
 		m.add_theme_constant_override("margin_" + side, 16)
@@ -60,12 +65,13 @@ func _refresh() -> void:
 	if not (r.get("ok") and r.get("json") is Array):
 		status.text = "Erro ao carregar (%s)" % str(r.get("status", "?"))
 		return
-	_render(r["json"])
+	items = r["json"]
+	status.text = ""
+	_render()
 
-func _render(items: Array) -> void:
+func _render() -> void:
 	for c in content.get_children():
 		c.queue_free()
-	status.text = ""
 	var equipped: Array = []
 	var bag: Array = []
 	for it in items:
@@ -120,31 +126,60 @@ func _item_row(it: Dictionary) -> PanelContainer:
 	hb.add_child(right)
 	return panel
 
+# Ações: 1 chamada só (sem re-baixar a lista). Em sucesso atualizo `items` em memória e re-renderizo;
+# em falha não mexo no estado local (nada mudou no servidor) e mostro o erro.
 func _equip(id: int) -> void:
 	if busy: return
 	busy = true
-	_show_result(await Api.equip_item(id))
-	await _refresh()
+	var r = await Api.equip_item(id)
+	if r.get("ok") and r.get("json") is Dictionary:
+		var updated: Dictionary = r["json"]
+		for it in items:   # auto-desequipa o item antigo do MESMO slot (tipo)
+			if it is Dictionary and str(it.get("type")) == str(updated.get("type")) and int(it.get("id", -1)) != int(updated.get("id", -2)):
+				it["equipped"] = false
+		_replace_item(updated)
+		status.text = ""
+		_render()
+	else:
+		_show_error(r)
 	busy = false
 
 func _unequip(id: int) -> void:
 	if busy: return
 	busy = true
-	_show_result(await Api.unequip_item(id))
-	await _refresh()
+	var r = await Api.unequip_item(id)
+	if r.get("ok") and r.get("json") is Dictionary:
+		_replace_item(r["json"])   # equipped=false agora
+		status.text = ""
+		_render()
+	else:
+		_show_error(r)
 	busy = false
 
 func _sell(id: int) -> void:
 	if busy: return
 	busy = true
-	_show_result(await Api.sell_item(id))
-	await _refresh()
+	var r = await Api.sell_item(id)
+	if r.get("ok") and r.get("json") is Dictionary:
+		items = items.filter(func(it): return not (it is Dictionary) or int(it.get("id", -1)) != id)   # some da lista
+		status.text = str(r["json"].get("message", "Vendido!"))
+		_render()
+	else:
+		_show_error(r)
 	busy = false
 
-func _show_result(r) -> void:
-	if r is Dictionary and r.get("json") is Dictionary and r["json"].has("message"):
-		status.text = str(r["json"]["message"])
-	elif not (r is Dictionary and r.get("ok")):
+func _replace_item(updated: Dictionary) -> void:
+	var uid := int(updated.get("id", -1))
+	for i in items.size():
+		if items[i] is Dictionary and int(items[i].get("id", -2)) == uid:
+			items[i] = updated
+			return
+
+func _show_error(r) -> void:
+	if r is Dictionary and r.get("json") is Dictionary:
+		var j: Dictionary = r["json"]
+		status.text = str(j.get("message", j.get("error", "Falhou")))
+	else:
 		status.text = "Falhou (%s)" % str(r.get("status", "?") if r is Dictionary else "?")
 
 func _stats_line(it: Dictionary) -> String:
