@@ -158,29 +158,40 @@ func _kingdom_card(k: Dictionary) -> PanelContainer:
 	panel.add_theme_stylebox_override("panel", sb)
 	var box := VBoxContainer.new(); box.add_theme_constant_override("separation", 4)
 	panel.add_child(box)
-	# cabeçalho do card: clicar alterna o reino
-	var head := Button.new()
-	head.flat = true
-	head.alignment = HORIZONTAL_ALIGNMENT_LEFT
+	# cabeçalho do card: clicar em QUALQUER parte da área visível alterna o reino.
+	# header captura o clique (STOP); os labels deixam passar (IGNORE) → o detalhe abaixo fica fora dele,
+	# então os botões de quest/zona continuam clicáveis.
+	var header := VBoxContainer.new()
+	header.add_theme_constant_override("separation", 4)
+	header.mouse_filter = Control.MOUSE_FILTER_STOP
+	header.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
+	header.gui_input.connect(func(ev: InputEvent) -> void:
+		if ev is InputEventMouseButton and ev.pressed and ev.button_index == MOUSE_BUTTON_LEFT:
+			_toggle(kid))
+	box.add_child(header)
+	var head := Label.new()
 	head.text = "%s %s" % [str(k.get("icon", "")), str(k.get("displayName", kid))]
 	head.add_theme_font_size_override("font_size", 17)
-	head.pressed.connect(_toggle.bind(kid))
-	box.add_child(head)
+	head.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	header.add_child(head)
 	var ctrl := Label.new()
 	var cg := str(k.get("controllingGuild", ""))
 	ctrl.text = ("🛡 " + cg) if cg != "" else "Neutro"
 	ctrl.modulate = Color(0.30, 0.80, 0.30) if cg != "" else Color(0.67, 0.67, 0.67)
 	ctrl.add_theme_font_size_override("font_size", 12)
-	box.add_child(ctrl)
+	ctrl.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	header.add_child(ctrl)
 	if is_mine:
 		var bonus := Label.new()
 		bonus.text = "Sua guilda: +%d%% XP · +%d%% bronze · +%d%% bônus" % [int(k.get("xpBonus", 0)), int(k.get("bronzeBonus", 0)), int(k.get("exclusiveBonus", 0))]
 		bonus.modulate = Color(0.30, 0.80, 0.30); bonus.add_theme_font_size_override("font_size", 11)
-		box.add_child(bonus)
+		bonus.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		header.add_child(bonus)
 	var lore := Label.new(); lore.text = str(k.get("lore", ""))
 	lore.modulate = Color(1, 1, 1, 0.5); lore.add_theme_font_size_override("font_size", 12)
 	lore.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	box.add_child(lore)
+	lore.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	header.add_child(lore)
 	if is_open:
 		box.add_child(_spacer(6))
 		_build_detail(box, kid)
