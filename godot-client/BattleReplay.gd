@@ -179,6 +179,9 @@ var _shake_time := 0.0
 var _hs_gen := 0              # geração do hit-stop/slow-mo (só o último restaura o time_scale)
 var _cam_base_fov := 75.0
 const SHAKE_DECAY := 3.2
+var _env: Environment         # [JUICE] reactivity: glow pulsa no kill; luz-chave pisca no crit
+var _key_light: Light3D
+var _env_base_glow := 0.0
 
 # kiting: ativo quando EXATAMENTE um lado é ranged (arco) e o outro melee
 var kiting := false
@@ -559,6 +562,14 @@ func _make_fighter(fname: String, side: int, maxhp: int, weapon_kind: String, eq
 			  "face_target": deg_to_rad(90.0 if -side > 0 else -90.0) + yaw_off}
 	node.rotation.y = f["face_target"]   # nasce já virado pro centro (sem lerp do zero)
 	_face(f, -side)   # seta o alvo de rotação (encara o oponente)
+	# [JUICE] rim light fria atrás (separa do fundo escuro grimdark); segue o lutador no _process
+	var rim := OmniLight3D.new()
+	rim.light_color = Color(0.55, 0.7, 1.0)
+	rim.light_energy = 1.6
+	rim.omni_range = 3.4
+	rim.shadow_enabled = false
+	add_child(rim)
+	f["rim"] = rim
 	if not is_monster:
 		_dress(node, skel, equipped_types)   # [GODOT_PAPERDOLL] veste antes da arma
 		if look.has("tint"):                 # [INIMIGO] lavagem de cor (faction) do inimigo
@@ -693,6 +704,8 @@ func _process(dt: float) -> void:
 			f["bar"].global_position = n.global_position + Vector3(0, f.get("bar_off", 2.05), 0)
 			f["shown_hp"] = lerpf(f["shown_hp"], float(f["hp"]), 1.0 - exp(-HP_LERP * dt))
 			_apply_hp_bar(f)
+		if f.has("rim") and is_instance_valid(f["rim"]):   # [JUICE] rim light atrás (−Z, longe da câmera) + acima
+			f["rim"].global_position = n.global_position + Vector3(0, 1.9, -1.1)
 	match phase:
 		"countdown": _countdown(dt)
 		"fight":
@@ -805,8 +818,39 @@ func _locomotion(f: Dictionary, prev_x: float, now_x: float) -> void:
 	if ap == null: return
 	if absf(now_x - prev_x) > 0.004:
 		_play_loop(f, _clip(f, "run"))
+		_footstep_dust(f, now_x)   # [JUICE] poeira nos passos
 	elif ap.current_animation != _clip(f, "idle"):
 		ap.play(_clip(f, "idle"), BLEND)
+
+# Poeira a cada ~0.26s de corrida, nos pés do lutador (tom do cenário).
+func _footstep_dust(f: Dictionary, x: float) -> void:
+	var t: float = f.get("dust_t", 0.0) - get_process_delta_time()
+	if t > 0.0:
+		f["dust_t"] = t
+		return
+	f["dust_t"] = 0.26
+	var pos := Vector3(x, f.get("base_y", 0.0) + 0.05, (f["node"] as Node3D).position.z)
+	var p := GPUParticles3D.new()
+	p.one_shot = true; p.amount = 7; p.lifetime = 0.6; p.explosiveness = 0.8
+	var m := ParticleProcessMaterial.new()
+	m.direction = Vector3.UP; m.spread = 35.0
+	m.initial_velocity_min = 0.3; m.initial_velocity_max = 0.9
+	m.gravity = Vector3(0, 0.4, 0)
+	m.scale_min = 0.5; m.scale_max = 1.4
+	var g := Gradient.new()
+	g.set_color(0, Color(0.62, 0.56, 0.46, 0.0)); g.add_point(0.25, Color(0.62, 0.56, 0.46, 0.4)); g.set_color(2, Color(0.62, 0.56, 0.46, 0.0))
+	var gt := GradientTexture1D.new(); gt.gradient = g; m.color_ramp = gt
+	p.process_material = m
+	var q := QuadMesh.new(); q.size = Vector2(0.4, 0.4)
+	var qm := StandardMaterial3D.new()
+	qm.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	qm.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	qm.vertex_color_use_as_albedo = true
+	qm.billboard_mode = BaseMaterial3D.BILLBOARD_PARTICLES
+	q.material = qm
+	p.draw_pass_1 = q
+	add_child(p); p.global_position = pos; p.emitting = true
+	get_tree().create_timer(0.9).timeout.connect(p.queue_free)
 
 # Toca uma animação em loop (com fallback p/ Walk se o clip não existir na lib).
 func _play_loop(f: Dictionary, anim_name: String) -> void:
@@ -963,6 +1007,11 @@ func _resolve(e: Dictionary) -> void:
 			tgt["last_hit_crit"] = big
 			var bpos := _hit_pos(tgt, str(e.get("hitZone", "")))
 			_blood_spray(bpos, bdir, dmg, big, elem)
+			# [JUICE] faíscas + flash no impacto (cor pelo elemento); crit pisca a luz-chave
+			var icol := _impact_color(elem)
+			_sparks(bpos, icol, big)
+			_flash_at(bpos, icol)
+			if big: _light_flicker()
 			if big: _blood_mist(bpos)
 			if big or randf() < 0.45:
 				_blood_pool((tgt["node"] as Node3D).global_position + bdir.normalized() * randf_range(0.2, 0.6), big)
@@ -1014,6 +1063,7 @@ func _finish() -> void:
 	if not winner.is_empty() and victory_label:
 		victory_label.text = "%s venceu!" % winner["name"]
 		winner["busy"] = false
+		_victory_flourish(winner)            # [JUICE] luz dourada subindo + brilho do vencedor
 		if not loser.is_empty() and not winner["ranged"]:
 			_stand_over(winner, loser)          # MELEE vem pra frente do corpo
 		else:
@@ -1089,6 +1139,8 @@ func _kill(f: Dictionary) -> void:
 	dir = dir.normalized()
 	var brutal: bool = f.get("last_hit_crit", false)
 	_kill_cam()   # [JUICE] slow-mo + zoom: o ragdoll/gore a seguir voa em câmera lenta
+	_env_pulse()  # [JUICE] glow floresce no kill (sangue + emissivos)
+	if f.has("rim"): (f["rim"] as OmniLight3D).queue_free()   # apaga a rim do morto (o corpo escurece)
 	# [GORE] golpe fatal: jato de sangue (pra cima + na direção) + névoa + gotejamento + poça grande
 	_blood_spray(_chest(f), Vector3.UP * 1.6 + dir * 0.8, 40 if brutal else 30, true)
 	_blood_mist(_chest(f))
@@ -1359,14 +1411,20 @@ func _popup(pos: Vector3, text: String, color: Color, big: bool) -> void:
 	lbl.billboard = BaseMaterial3D.BILLBOARD_ENABLED
 	lbl.no_depth_test = true
 	lbl.modulate = color
-	lbl.pixel_size = 0.008 if big else 0.006
-	lbl.font_size = 80 if big else 64
+	lbl.outline_modulate = Color(0, 0, 0, 0.9)
+	lbl.outline_size = 10 if big else 6
+	lbl.pixel_size = 0.009 if big else 0.006
+	lbl.font_size = 84 if big else 64
 	add_child(lbl)
 	lbl.global_position = pos
+	# [JUICE] "slam": estoura a escala (overshoot) + arco pra cima + fade; crit ainda mais
+	var pop := 1.9 if big else 1.4
+	lbl.scale = Vector3(pop, pop, pop)
 	var tw := create_tween().set_parallel(true)
-	tw.tween_property(lbl, "global_position", pos + Vector3(0, 0.8, 0), 0.8)
-	tw.tween_property(lbl, "modulate:a", 0.0, 0.8)
-	get_tree().create_timer(0.9).timeout.connect(lbl.queue_free)
+	tw.tween_property(lbl, "scale", Vector3.ONE, 0.22).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+	tw.tween_property(lbl, "global_position", pos + Vector3(0, 0.85, 0), 0.8).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+	tw.tween_property(lbl, "modulate:a", 0.0, 0.8).set_delay(0.25)
+	get_tree().create_timer(0.95).timeout.connect(lbl.queue_free)
 
 # "scene" do backend → mapa do BattleReplay (casa o cenário com o reino da luta).
 const SCENE_TO_MAP := {
@@ -1405,6 +1463,17 @@ func _setup_map() -> void:
 	else:
 		var sc := Scenery.new()
 		sc.build(self, scn, srng, FIELD_EDGE + 1.5, grimdark)   # centro livre p/ os lutadores
+	_cache_env_and_light()   # [JUICE] guarda Environment + luz-chave p/ reagir a crit/kill
+
+# Acha o WorldEnvironment + a 1ª DirectionalLight (montados pelo Scenery) p/ o reactivity [JUICE].
+func _cache_env_and_light() -> void:
+	for c in get_children():
+		if c is WorldEnvironment and _env == null:
+			_env = (c as WorldEnvironment).environment
+		elif c is DirectionalLight3D and _key_light == null:
+			_key_light = c
+	if _env:
+		_env_base_glow = _env.glow_intensity if _env.glow_enabled else 0.0
 
 # Céu procedural quente + névoa + tonemap/glow → mood de fim de tarde no coliseu.
 func _setup_environment() -> void:
@@ -1548,11 +1617,11 @@ func _apply_camera() -> void:
 func _exit_tree() -> void:
 	Engine.time_scale = 1.0   # segurança: nunca deixar o jogo travado em câmera lenta
 
-# Golpe NÃO-fatal: tremor + micro-freeze + punch de FOV (escala no crit).
+# Golpe NÃO-fatal: tremor + micro-freeze + punch de FOV (forte no crit, bem sutil no normal).
 func _on_impact(big: bool) -> void:
 	cam_shake = maxf(cam_shake, 0.55 if big else 0.34)
 	_hit_stop(0.10 if big else 0.05)
-	_fov_punch(_cam_base_fov - (8.0 if big else 4.0))
+	_fov_punch(_cam_base_fov - (8.0 if big else 1.5))
 
 # Congela o tempo por `dur` REAIS (ignore_time_scale no timer); só o último restaura (geração).
 func _hit_stop(dur: float, scale := 0.04) -> void:
@@ -1584,6 +1653,122 @@ func _kill_cam() -> void:
 		Engine.time_scale = 1.0
 		var tw2 := create_tween().set_ignore_time_scale(true)
 		tw2.tween_property(cam, "fov", _cam_base_fov, 0.45).set_trans(Tween.TRANS_SINE)
+
+# Cor do impacto pelo elemento: SUPER=dourado, RESIST=azul, normal=branco-quente.
+func _impact_color(elem: String) -> Color:
+	if elem == "SUPER": return Color(1.0, 0.82, 0.30)
+	if elem == "RESIST": return Color(0.50, 0.70, 1.0)
+	return Color(1.0, 0.86, 0.62)
+
+# [JUICE] FAÍSCAS no ponto do golpe (one-shot, emissivo → pega o bloom; maior no crit).
+func _sparks(pos: Vector3, color: Color, big: bool) -> void:
+	var p := GPUParticles3D.new()
+	p.one_shot = true
+	p.lifetime = 0.5
+	p.explosiveness = 1.0
+	p.amount = 26 if big else 14
+	var m := ParticleProcessMaterial.new()
+	m.direction = Vector3.UP
+	m.spread = 75.0
+	m.initial_velocity_min = 3.0
+	m.initial_velocity_max = 8.0 if big else 6.0
+	m.gravity = Vector3(0, -9.0, 0)
+	m.scale_min = 0.4; m.scale_max = 1.0
+	p.process_material = m
+	var q := QuadMesh.new(); q.size = Vector2(0.05, 0.05)
+	var qm := StandardMaterial3D.new()
+	qm.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	qm.billboard_mode = BaseMaterial3D.BILLBOARD_PARTICLES
+	qm.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	qm.albedo_color = color
+	qm.emission_enabled = true
+	qm.emission = color
+	qm.emission_energy_multiplier = 4.0
+	q.material = qm
+	p.draw_pass_1 = q
+	add_child(p)
+	p.global_position = pos
+	p.emitting = true
+	get_tree().create_timer(0.8).timeout.connect(p.queue_free)
+
+# [JUICE] FLASH curto no ponto do golpe (quad emissivo que estoura e some).
+func _flash_at(pos: Vector3, color: Color) -> void:
+	var mi := MeshInstance3D.new()
+	var q := QuadMesh.new(); q.size = Vector2(0.55, 0.55)
+	mi.mesh = q
+	var m := StandardMaterial3D.new()
+	m.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	m.billboard_mode = BaseMaterial3D.BILLBOARD_ENABLED
+	m.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	m.emission_enabled = true
+	m.emission = color
+	m.emission_energy_multiplier = 3.0
+	m.albedo_color = Color(color.r, color.g, color.b, 0.9)
+	mi.material_override = m
+	add_child(mi)
+	mi.global_position = pos
+	var tw := create_tween().set_parallel(true)
+	tw.tween_property(mi, "scale", Vector3(2.2, 2.2, 2.2), 0.13)
+	tw.tween_property(m, "albedo_color:a", 0.0, 0.13)
+	tw.chain().tween_callback(mi.queue_free)
+
+# [JUICE] reactivity: glow pulsa (emissivos+sangue florescem) no KILL.
+func _env_pulse() -> void:
+	if _env == null or not _env.glow_enabled: return
+	var tw := create_tween().set_ignore_time_scale(true)
+	tw.tween_property(_env, "glow_intensity", _env_base_glow * 1.8 + 0.3, 0.12)
+	tw.tween_property(_env, "glow_intensity", _env_base_glow, 0.6)
+
+# [JUICE] reactivity: luz-chave pisca no CRIT (relâmpago de impacto).
+func _light_flicker() -> void:
+	if _key_light == null: return
+	var base := _key_light.light_energy
+	var tw := create_tween().set_ignore_time_scale(true)
+	tw.tween_property(_key_light, "light_energy", base * 1.6, 0.05)
+	tw.tween_property(_key_light, "light_energy", base, 0.18)
+
+# [JUICE] flourish de vitória: luz dourada subindo + rim do vencedor vira quente + coluna de brasas.
+func _victory_flourish(winner: Dictionary) -> void:
+	if not is_instance_valid(winner.get("node")): return
+	var wn: Node3D = winner["node"]
+	var glow := OmniLight3D.new()
+	glow.light_color = Color(1.0, 0.78, 0.40)
+	glow.light_energy = 0.0
+	glow.omni_range = 5.5
+	glow.shadow_enabled = false
+	add_child(glow)
+	glow.global_position = wn.global_position + Vector3(0, 0.3, 0)
+	var tw := create_tween().set_ignore_time_scale(true).set_parallel(true)
+	tw.tween_property(glow, "light_energy", 3.0, 0.6)
+	tw.tween_property(glow, "global_position", wn.global_position + Vector3(0, 2.3, 0), 1.4)
+	if winner.has("rim"):
+		var rim := winner["rim"] as OmniLight3D
+		rim.light_color = Color(1.0, 0.85, 0.55)
+		create_tween().set_ignore_time_scale(true).tween_property(rim, "light_energy", 3.2, 0.5)
+	# coluna de brasas subindo ao redor do vencedor
+	var p := GPUParticles3D.new()
+	p.amount = 24; p.lifetime = 2.2; p.preprocess = 0.2
+	var m := ParticleProcessMaterial.new()
+	m.emission_shape = ParticleProcessMaterial.EMISSION_SHAPE_SPHERE
+	m.emission_sphere_radius = 0.5
+	m.direction = Vector3.UP; m.spread = 12.0
+	m.initial_velocity_min = 0.6; m.initial_velocity_max = 1.4
+	m.gravity = Vector3(0, 0.5, 0)
+	m.scale_min = 0.4; m.scale_max = 1.0
+	var g := Gradient.new()
+	g.set_color(0, Color(1.0, 0.8, 0.4, 0.0)); g.add_point(0.3, Color(1.0, 0.8, 0.4, 0.7)); g.set_color(2, Color(1.0, 0.5, 0.2, 0.0))
+	var gt := GradientTexture1D.new(); gt.gradient = g; m.color_ramp = gt
+	p.process_material = m
+	var q := QuadMesh.new(); q.size = Vector2(0.08, 0.08)
+	var qm := StandardMaterial3D.new()
+	qm.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	qm.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	qm.vertex_color_use_as_albedo = true
+	qm.billboard_mode = BaseMaterial3D.BILLBOARD_PARTICLES
+	qm.emission_enabled = true; qm.emission = Color(1.0, 0.7, 0.3); qm.emission_energy_multiplier = 2.0
+	q.material = qm
+	p.draw_pass_1 = q
+	add_child(p); p.global_position = wn.global_position + Vector3(0, 0.2, 0); p.emitting = true
 
 func _make_ui() -> void:
 	var layer := CanvasLayer.new()
