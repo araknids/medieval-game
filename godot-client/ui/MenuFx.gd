@@ -32,14 +32,24 @@ func bg_3d(control: Control, scenario := "dungeon") -> void:
 	sv.add_child(world)
 	var cam := Camera3D.new()
 	world.add_child(cam)
-	cam.position = Vector3(0, 4.0, 13.0)                     # FORA do lado aberto (+Z), olhando pra dentro do salão
-	cam.look_at(Vector3(0, 2.4, -2.0), Vector3.UP)
+	# câmera por cenário: FORA do lado aberto (+Z) olhando pra dentro. Castle/arena são maiores/altos.
+	var cpos := Vector3(0, 4.0, 13.0)
+	var clook := Vector3(0, 2.4, -2.0)
+	match scenario:
+		"castle":
+			cpos = Vector3(0, 6.5, 18.0); clook = Vector3(0, 3.2, -3.0)   # vê muralhas + torres
+		"arena":
+			cpos = Vector3(0, 7.0, 17.0); clook = Vector3(0, 1.8, 0.0)
+		"city":
+			cpos = Vector3(0, 5.5, 16.0); clook = Vector3(0, 2.5, -2.0)
+	cam.position = cpos
+	cam.look_at(clook, Vector3.UP)
 	var rng := RandomNumberGenerator.new()
 	rng.seed = 1337
 	Scenery.new().build(world, scenario, rng, 6.0, false)   # grimdark off (screen-shader não vale em SubViewport)
 	var tw := cam.create_tween().set_loops()                # drift lento (parallax) só no X (não cruza paredes)
-	tw.tween_property(cam, "position", Vector3(2.6, 4.2, 13.0), 14.0).set_trans(Tween.TRANS_SINE)
-	tw.tween_property(cam, "position", Vector3(-2.6, 3.8, 13.0), 14.0).set_trans(Tween.TRANS_SINE)
+	tw.tween_property(cam, "position", cpos + Vector3(2.6, 0.3, 0), 14.0).set_trans(Tween.TRANS_SINE)
+	tw.tween_property(cam, "position", cpos + Vector3(-2.6, -0.2, 0), 14.0).set_trans(Tween.TRANS_SINE)
 	# vinheta escura por cima do 3D (abaixo da UI)
 	var vig := ColorRect.new()
 	vig.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)

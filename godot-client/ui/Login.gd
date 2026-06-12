@@ -15,7 +15,7 @@ var btn: Button
 func _ready() -> void:
 	set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	var fx := MenuFx.new()
-	fx.bg_3d(self, "dungeon")
+	fx.bg_3d(self, "castle")
 	var center := CenterContainer.new()
 	center.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	add_child(center)
