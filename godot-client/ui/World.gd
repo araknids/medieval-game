@@ -210,7 +210,11 @@ func _build_detail(box: VBoxContainer, kingdom: String) -> void:
 				row.add_child(lbl)
 				var qid := int(q.get("id", 0))
 				if bool(q.get("readyToCollect", false)):
-					row.add_child(_act("Coletar", _collect_quest.bind(kingdom, qid)))
+					if bool(q.get("interactive", false)) and q.get("dialog") is Dictionary:
+						var dlg: Dictionary = q["dialog"]   # interativa: re-abre a escolha
+						row.add_child(_act("Escolher", func() -> void: _show_quest_dialog(kingdom, qid, dlg)))
+					else:
+						row.add_child(_act("Coletar", _collect_quest.bind(kingdom, qid)))
 				else:
 					var rem := Label.new(); rem.text = "%dm" % int(q.get("secondsRemaining", 0) / 60); rem.modulate = Color(1, 1, 1, 0.5)
 					row.add_child(rem)

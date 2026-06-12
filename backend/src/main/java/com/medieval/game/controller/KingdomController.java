@@ -238,17 +238,30 @@ public class KingdomController {
     }
 
     private Map<String, Object> questToMap(KingdomActiveQuest q) {
-        return Map.of(
-            "id",              q.getId(),
-            "kingdom",         q.getKingdom().name(),
-            "questType",       q.getQuestType().name(),
-            "displayName",     messages.getOr("quest." + q.getQuestType().name() + ".name", q.getQuestType().displayName), // [I18N]
-            "status",          q.getStatus().name(),
-            "bronzeReward",    q.getBronzeReward(),
-            "expReward",       q.getExpReward(),
-            "secondsRemaining",q.secondsRemaining(),
-            "readyToCollect",  q.isReadyToCollect()
-        );
+        var m = new java.util.HashMap<String, Object>();
+        m.put("id",               q.getId());
+        m.put("kingdom",          q.getKingdom().name());
+        m.put("questType",        q.getQuestType().name());
+        m.put("displayName",      messages.getOr("quest." + q.getQuestType().name() + ".name", q.getQuestType().displayName)); // [I18N]
+        m.put("status",           q.getStatus().name());
+        m.put("bronzeReward",     q.getBronzeReward());
+        m.put("expReward",        q.getExpReward());
+        m.put("secondsRemaining", q.secondsRemaining());
+        m.put("readyToCollect",   q.isReadyToCollect());
+        // [MIGRACAO_GODOT] diálogo da quest INTERATIVA já ativa → o cliente Godot re-mostra a escolha p/ coletar
+        KingdomQuestType qt = q.getQuestType();
+        InteractiveQuests.dialogFor(qt).ifPresent(d -> {
+            m.put("interactive", true);
+            String base = "questdlg." + qt.name(); // [I18N]
+            m.put("dialog", Map.of(
+                "intro", messages.getOr(base + ".intro", d.intro()),
+                "options", d.options().stream().map(o -> Map.of(
+                    "id", o.id(),
+                    "label", messages.getOr(base + ".opt." + o.id() + ".label", o.label()),
+                    "hint",  messages.getOr(base + ".opt." + o.id() + ".hint",  o.hint()))).toList()
+            ));
+        });
+        return m;
     }
 
     private Map<String, Object> trainingToMap(TrainingSession s) {
