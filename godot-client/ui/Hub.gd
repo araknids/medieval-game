@@ -22,7 +22,7 @@ const MENU := [
 func _ready() -> void:
 	set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	var fx := MenuFx.new()
-	fx.bg_3d(self, "mining")   # acampamento noturno com braseiros (vibe Diablo)
+	fx.bg_3d(self, "dungeon")   # salão de pedra torchlit, aberto pra câmera (vibe Diablo, sem árvores na frente)
 	# UI por cima
 	var scroll := ScrollContainer.new()
 	scroll.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)

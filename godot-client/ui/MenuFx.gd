@@ -16,7 +16,9 @@ void fragment() {
 """
 
 # Fundo 3D (cenário noturno) atrás de `control`, com drift lento de câmera + vinheta por cima.
-func bg_3d(control: Control, scenario := "mining") -> void:
+# Use cenários FECHADOS/voltados pra câmera (dungeon/castle/arena/city) — os abertos (mining/beach)
+# cercam o centro com árvores que passam na frente da câmera fixa.
+func bg_3d(control: Control, scenario := "dungeon") -> void:
 	var svc := SubViewportContainer.new()
 	svc.stretch = true
 	svc.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
@@ -30,14 +32,14 @@ func bg_3d(control: Control, scenario := "mining") -> void:
 	sv.add_child(world)
 	var cam := Camera3D.new()
 	world.add_child(cam)
-	cam.position = Vector3(0, 5.5, 16.0)
-	cam.look_at(Vector3(0, 2.2, 0), Vector3.UP)
+	cam.position = Vector3(0, 4.0, 13.0)                     # FORA do lado aberto (+Z), olhando pra dentro do salão
+	cam.look_at(Vector3(0, 2.4, -2.0), Vector3.UP)
 	var rng := RandomNumberGenerator.new()
 	rng.seed = 1337
 	Scenery.new().build(world, scenario, rng, 6.0, false)   # grimdark off (screen-shader não vale em SubViewport)
-	var tw := cam.create_tween().set_loops()                # drift lento (parallax)
-	tw.tween_property(cam, "position", Vector3(3.5, 6.0, 16.0), 14.0).set_trans(Tween.TRANS_SINE)
-	tw.tween_property(cam, "position", Vector3(-3.5, 5.2, 16.0), 14.0).set_trans(Tween.TRANS_SINE)
+	var tw := cam.create_tween().set_loops()                # drift lento (parallax) só no X (não cruza paredes)
+	tw.tween_property(cam, "position", Vector3(2.6, 4.2, 13.0), 14.0).set_trans(Tween.TRANS_SINE)
+	tw.tween_property(cam, "position", Vector3(-2.6, 3.8, 13.0), 14.0).set_trans(Tween.TRANS_SINE)
 	# vinheta escura por cima do 3D (abaixo da UI)
 	var vig := ColorRect.new()
 	vig.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
