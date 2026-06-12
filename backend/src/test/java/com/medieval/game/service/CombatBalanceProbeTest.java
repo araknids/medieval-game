@@ -1,12 +1,11 @@
 package com.medieval.game.service;
 
 import com.medieval.game.enums.WarriorClass;
+import com.medieval.game.enums.WeaponType;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.DisplayName;
 
 import java.util.List;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -23,7 +22,6 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 class CombatBalanceProbeTest {
 
     private static final BattleSimulator SIM = new BattleSimulator();
-    private static final Pattern DMG = Pattern.compile("\\[-(\\d+) HP");
     private static final int N = 4000;
 
     // ── Construção de build ─────────────────────────────────────────────────────
@@ -33,19 +31,28 @@ class CombatBalanceProbeTest {
         return c == WarriorClass.ARCHER ? dex : str;
     }
 
-    /** [atk, def, hp, dex, agi, luk] a partir de classe + atributos. */
-    private static int[] stats(WarriorClass c, int str, int dex, int con, int agi, int luk) {
-        return new int[]{ c.baseAttack + dmgAttr(c, str, dex), c.baseDefense, c.baseHealth + con * 8, dex, agi, luk };
+    /** [REBALANCE v2] ATK da ARMA equipada — usa o ENUM REAL (greatsword RARA do nível) em vez de proxy:
+     *  o jogo sempre tem arma (WeaponType.stats), que dá ATK independente de STR. Mede o jogo de verdade. */
+    private static int weaponAtk(int level) { return WeaponType.GREATSWORD.stats(level, 3)[0]; }
+
+    /** [SOFT_CAP_CON] espelha Warrior.getTotalBaseHealth: 8/pt até 40, 4/pt até 80, 2/pt acima. */
+    private static int conHp(int con) {
+        return Math.min(con, 40) * 8 + Math.min(Math.max(con - 40, 0), 40) * 4 + Math.max(con - 80, 0) * 2;
     }
 
-    private record Build(String label, WarriorClass cls, int str, int dex, int con, int agi, int luk) {
-        int[] arr() { return stats(cls, str, dex, con, agi, luk); }
-        int atk()   { return cls.baseAttack + dmgAttr(cls, str, dex); }
-        int hp()    { return cls.baseHealth + con * 8; }
+    /** [atk, def, hp, dex(=acerto), agi, luk] a partir de classe + atributos (+ arma real + soft cap CON). */
+    private static int[] stats(WarriorClass c, int str, int dex, int con, int agi, int luk, int level) {
+        return new int[]{ c.baseAttack + weaponAtk(level) + dmgAttr(c, str, dex), c.baseDefense, c.baseHealth + conHp(con), dex, agi, luk };
+    }
+
+    private record Build(String label, WarriorClass cls, int str, int dex, int con, int agi, int luk, int level) {
+        int[] arr() { return stats(cls, str, dex, con, agi, luk, level); }
+        int atk()   { return cls.baseAttack + weaponAtk(level) + dmgAttr(cls, str, dex); }
+        int hp()    { return cls.baseHealth + conHp(con); }
         String line() {
-            return String.format("%-22s STR%-3d DEX%-3d AGI%-3d CON%-3d LUK%-3d | ATK %-3d HP %-4d acc+%d dodge-%d crit@%d",
-                    label, str, dex, agi, con, luk, atk(), hp(), dex / 5, agi / 8,
-                    BattleSimulator.critThreshold(luk));
+            return String.format("%-22s STR%-3d DEX%-3d AGI%-3d CON%-3d LUK%-3d | ATK %-3d HP %-4d hit~%d%% crit%d%%",
+                    label, str, dex, agi, con, luk, atk(), hp(),
+                    BattleSimulator.hitChance(dex, 0), BattleSimulator.critChance(luk));
         }
     }
 
@@ -59,7 +66,7 @@ class CombatBalanceProbeTest {
         int[] v = new int[5];
         for (int s : order) { int put = Math.min(caps[s], p); v[s] = put; p -= put; }
         int con = p; // sobra → CON
-        return new Build(label, c, v[0], v[1], con, v[2], v[3]); // v[4] = INT, jogado fora
+        return new Build(label, c, v[0], v[1], con, v[2], v[3], level); // v[4] = INT, jogado fora
     }
 
     // ── Runner ──────────────────────────────────────────────────────────────────
@@ -84,10 +91,9 @@ class CombatBalanceProbeTest {
             int winHp  = o.firstWon() ? fHp : sHp;
             int winMax = o.firstWon() ? f[2] : s[2];
             hpSum += 100.0 * winHp / winMax;
-            for (String ln : o.log()) {
-                Matcher m = DMG.matcher(ln);
-                while (m.find()) maxHit = Math.max(maxHit, Integer.parseInt(m.group(1)));
-            }
+            // [REBALANCE v2] dano máx lido do EVENTO (imune a i18n) — antes parseava o log e quebrava
+            // quando o teste rodava isolado (sem Spring → placeholder {N} cru). Ver Messages.tr.
+            for (var ev : o.events()) maxHit = Math.max(maxHit, ev.damage());
         }
         return new Match(100.0 * aWins / n, hpSum / n, 100.0 * timeouts / n, maxHit);
     }
@@ -111,11 +117,12 @@ class CombatBalanceProbeTest {
         for (int lvl : levels) {
             WarriorClass W = WarriorClass.WARRIOR;
             Build dmg   = alloc("MaxSTR (dano)",   W, lvl, 0, 1);    // STR cap, DEX cap, resto CON
+            Build strcon= alloc("MaxSTR+CON",      W, lvl, 0);       // STR cap, resto CON (variante REAL de STR)
             Build brui  = alloc("Bruiser",         W, lvl, 0, 2, 1); // STR, AGI, DEX, resto CON
             Build agi   = alloc("AgileCrit",       W, lvl, 2, 3, 1); // AGI, LUK, DEX, resto CON
             Build noob  = alloc("Noob (so CON)",   W, lvl);          // tudo CON, 0 ofensiva
             Build waste = alloc("Pior (dump INT)", W, lvl, 4);       // INT cap, resto CON
-            List<Build> builds = List.of(dmg, brui, agi, noob, waste);
+            List<Build> builds = List.of(dmg, strcon, brui, agi, noob, waste);
 
             out.append("\n  -- Nivel ").append(lvl).append("  (").append((lvl - 1) * 2).append(" pontos) --\n");
             for (Build b : builds) out.append("    ").append(b.line()).append("\n");
@@ -139,15 +146,15 @@ class CombatBalanceProbeTest {
         }
 
         // ── 2) ACERTO (DEX) vs ESQUIVA (AGI) — sem mais "parede" ──────────────────
-        out.append("\n# 2) ACERTO x ESQUIVA - atacante L50 MaxSTR (ATK 95) vs alvo so com AGI+CON\n");
-        out.append("     acerto = d20 + DEX/5 - AGI_def/8 >= 11. Crit (LUK) sempre fura a esquiva.\n");
+        out.append("\n# 2) ACERTO x ESQUIVA - atacante L50 MaxSTR vs alvo so com AGI+CON\n");
+        out.append("     [REBALANCE v2] acerto = hitChance(DEX,AGI) continuo, clamp 20-95%. Crit (LUK) sempre fura a esquiva.\n");
         WarriorClass W = WarriorClass.WARRIOR;
         Build attacker = alloc("L50 MaxSTR+DEX", W, 50, 0, 1); // STR80, DEX30 (acc +6)
         for (int agi : new int[]{0, 10, 20, 25}) {
-            Build def = new Build("AGI " + agi, W, 0, 0, 40, agi, 0);
+            Build def = new Build("AGI " + agi, W, 0, 0, 40, agi, 0, 50);
             Match m = run(attacker, def, N);
-            out.append(String.format("    alvo AGI %-3d (dodge -%d) -> atacante vence %.0f%%, timeout %.0f%%%n",
-                    agi, agi / 8, m.aWinPct(), m.timeoutPct()));
+            out.append(String.format("    alvo AGI %-3d (atacante acerta ~%d%%) -> vence %.0f%%, timeout %.0f%%%n",
+                    agi, BattleSimulator.hitChance(attacker.dex(), agi), m.aWinPct(), m.timeoutPct()));
         }
 
         // ── 3) CROSS-CLASS no nível 50 (melhor build de cada) — triângulo ─────────
@@ -173,7 +180,7 @@ class CombatBalanceProbeTest {
         // ── 4) DANO MÁXIMO por golpe (crit ×1.5) ───────────────────────────────────
         out.append("\n# 4) DANO MAXIMO POR GOLPE (crit x1.5; +25% se vantagem elemental)\n");
         Build maxAtk = alloc("L50 MaxSTR", W, 50, 0, 1);
-        Build soft   = new Build("alvo DEF base", W, 0, 0, 40, 0, 0);
+        Build soft   = new Build("alvo DEF base", W, 0, 0, 40, 0, 0, 50);
         Match dmgM = run(maxAtk, soft, N);
         int mit = BattleSimulator.mitigatedDamage(maxAtk.atk(), WarriorClass.WARRIOR.baseDefense);
         int crit = (int) Math.round(mit * 1.5);
@@ -189,13 +196,35 @@ class CombatBalanceProbeTest {
         assertTrue(dmgM.maxHit() > 0, "deve haver dano registrado");
     }
 
-    /** "Melhor" build por classe: stat forte + acerto/esquiva, resto CON. */
+    /** [REBALANCE v2] "Melhor" build por classe: VARRE candidatos e escolhe o de maior win% médio num
+     *  round-robin interno (N=1000). Nunca fica obsoleto quando o motor muda (era um chute hard-coded). */
     private static Build best(WarriorClass c, int level) {
-        return switch (c) {
-            case ARCHER   -> alloc("Archer Opt",   c, level, 1, 2, 3);    // DEX (dano+acerto), AGI, LUK
-            case MERCHANT -> alloc("Merchant Opt", c, level, 0, 1, 3, 2); // STR, DEX, LUK, AGI
-            default       -> alloc("Warrior Opt",  c, level, 0, 1, 2);    // STR, DEX, AGI (depois resto CON)
+        List<Build> cands = switch (c) {
+            case ARCHER   -> List.of(
+                    alloc("Archer DEX+CON", c, level, 1),         // DEX cap, resto CON
+                    alloc("Archer DEX+LUK", c, level, 1, 3),      // DEX, LUK, resto CON
+                    alloc("Archer spread",  c, level, 1, 2, 3));  // DEX, AGI, LUK, resto CON
+            case MERCHANT -> List.of(
+                    alloc("Merch STR+CON",  c, level, 0),
+                    alloc("Merch STR+LUK",  c, level, 0, 3),
+                    alloc("Merch spread",   c, level, 0, 1, 3, 2));
+            default       -> List.of(                              // WARRIOR
+                    alloc("War STR+CON",    c, level, 0),
+                    alloc("War STR+DEX",    c, level, 0, 1),
+                    alloc("War spread",     c, level, 2, 3, 1));   // AgileCrit-like
         };
+        Build winner = cands.get(0);
+        double bestAvg = -1;
+        for (Build cand : cands) {
+            double sum = 0; int n = 0;
+            for (Build opp : cands) {
+                if (opp == cand) continue;
+                sum += run(cand, opp, 1000).aWinPct(); n++;
+            }
+            double avg = n > 0 ? sum / n : 0;
+            if (avg > bestAvg) { bestAvg = avg; winner = cand; }
+        }
+        return winner;
     }
 
     private static String shortName(String label) {

@@ -49,7 +49,8 @@ public class Messages {
 
     /** Versão ESTÁTICA do {@link #getOr} (p/ contextos estáticos, ex.: títulos de achievement no ranking). [I18N] */
     public static String tr(String key, String defaultEn, Object... args) {
-        if (MS == null) return defaultEn; // ainda não inicializado (ex.: startup) → EN
+        if (MS == null) // sem Spring (startup/testes/sonda) → formata o default EN com os args (senão sai "{0}" cru)
+            return (args == null || args.length == 0) ? defaultEn : java.text.MessageFormat.format(defaultEn, args);
         return MS.getMessage(key, args, defaultEn, locale());
     }
 }

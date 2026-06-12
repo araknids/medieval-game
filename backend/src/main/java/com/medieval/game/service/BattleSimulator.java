@@ -13,9 +13,10 @@ import java.util.Random;
 /**
  * D20-based combat simulator. [REBALANCE]
  *
- * Acerto por golpe: {@code d20 + DEX_atacante/5 − AGI_defensor/8 ≥ HIT_DC(11)}. Não há mais AC.
+ * Acerto por golpe [REBALANCE v2]: chance CONTÍNUA {@code hitChance(DEX_atk, AGI_def)} — cada ponto
+ * de DEX/AGI conta (sem os degraus /5 e /8 que deixavam pontos "mortos"). Não há mais AC.
  * DEX = acerto, AGI = esquiva (defensor) + golpes extra (atacante), LUK = crit, STR = só dano (ATK).
- * Crit (roll ≥ critThreshold(LUK)) fura a esquiva e dá ×1.5. Natural 1 = fumble. Fortune Save (LUK).
+ * Crit = chance CONTÍNUA {@code critChance(LUK)} — fura a esquiva e dá ×1.5. Natural 1 = fumble. Fortune Save (LUK).
  * AGI ofensivo: chance de golpe extra = {@code clamp(0,90,(AGI_atk−AGI_def)×1.5)} por round.
  * Elementos (roda RPS) aplicam ±25% por golpe. [ELEMENTOS]
  *
@@ -26,8 +27,10 @@ import java.util.Random;
 @Component
 public class BattleSimulator {
 
-    /** [REBALANCE] Alvo do teste de acerto (d20 + DEX/5 − AGI_def/8 ≥ este valor). */
-    private static final int HIT_DC = 11;
+    /** [REBALANCE v2] Acerto-base com DEX=AGI=0 (cada ponto de DEX/AGI ajusta a partir daqui). Clamp 20–95%. */
+    private static final int HIT_BASE = 50;
+    private static final int HIT_MIN  = 20;
+    private static final int HIT_MAX  = 95;
     /** [REBALANCE] Cada ponto de AGI a mais que o inimigo = +1% de chance de um golpe extra (cap 75%). */
     private static final double EXTRA_PER_AGI = 1.0;
     private static final int    EXTRA_CAP     = 75;
@@ -327,18 +330,19 @@ public class BattleSimulator {
             return;
         }
 
-        // [REBALANCE] Acerto: d20 + DEX_atacante/5 − AGI_defensor/8 ≥ HIT_DC. Sem AC. Crit fura a esquiva.
-        int acc = roll + atk.dex / 5 - def.agi / 8;
-        boolean isCrit = roll >= atk.critThreshold;
+        // [REBALANCE v2] Acerto CONTÍNUO: cada ponto de DEX (acerto) e AGI (esquiva) conta — sem os
+        // degraus /5 e /8 que matavam pontos. Crit (LUK) = chance contínua e SEMPRE fura a esquiva.
+        int hitPct = hitChance(atk.dex, def.agi);
+        boolean isCrit = rng.nextInt(100) < atk.critChance;
         if (isCrit && !precise && def.fortuneSave > 0 && rng.nextInt(100) < def.fortuneSave) {
             isCrit = false;
             log.add(Messages.tr("combat.fortunesave", "  ✨ {0} gets a Fortune Save — critical negated!", def.name)); // [I18N]
         }
 
-        boolean hit = precise || acc >= HIT_DC || isCrit;
+        boolean hit = precise || isCrit || rng.nextInt(100) < hitPct;
         if (!hit) {
-            log.add(Messages.tr("combat.missline", "  {0} {1} [d20 {2} +DEX {3} −AGI {4} = {5} vs {6}]", // [I18N]
-                    atk.name, pick(MISS_TEXTS, "combat.miss.", rng), roll, atk.dex / 5, def.agi / 8, acc, HIT_DC));
+            log.add(Messages.tr("combat.missline", "  {0} {1} [hit {2}% — DEX {3} vs AGI {4}]", // [I18N]
+                    atk.name, pick(MISS_TEXTS, "combat.miss.", rng), hitPct, atk.dex, def.agi));
             events.add(new BattleEvent(round, "miss", atk.name, def.name, 0, def.hp, def.maxHp, null, null)); // [BATALHA_ANIMADA]
             return;
         }
@@ -416,7 +420,7 @@ public class BattleSimulator {
     /** Estado mutável de um lado no combate. */
     private static final class Side {
         final String name;
-        final int atk, def, dex, agi, luk, critThreshold, fortuneSave, maxHp;
+        final int atk, def, dex, agi, luk, critChance, fortuneSave, maxHp;
         final boolean ranged;     // [KITING] Arqueiro (arco)
         final Element weapon, armor;
         final Map<AbilityEffect, ActiveAbility> abilities = new EnumMap<>(AbilityEffect.class);
@@ -432,7 +436,7 @@ public class BattleSimulator {
             this.name = name; this.atk = atk; this.def = def; this.dex = dex;
             this.agi = agi; this.luk = luk; this.weapon = weapon; this.armor = armor;
             this.maxHp = hp; this.hp = hp; this.ranged = ranged;
-            this.critThreshold = critThreshold(luk);
+            this.critChance = critChance(luk);
             this.fortuneSave = luk / 10;
             if (kit != null) for (ActiveAbility a : kit) {
                 abilities.put(a.effect(), a);
@@ -452,9 +456,22 @@ public class BattleSimulator {
         }
     }
 
-    /** d20 roll >= this threshold = critical hit. LUK expands window down from 20. */
-    public static int critThreshold(int luk) {
-        return Math.max(17, 20 - (luk / 15)); // 0 luk=20, 15=19, 30=18, 45+=17 (cap 20%)
+    /**
+     * [REBALANCE v2] Chance de crítico (%) — CONTÍNUA por ponto de LUK (sem o degrau do d20 antigo, que
+     * desperdiçava LUK acima de 45). {@code 5 + LUK/2}, cap 35%. Ex.: 0→5, 30→20, 50→30, 100→35.
+     * Faz da build de crit um eixo real (antes LUK era dump-stat). Crit fura a esquiva e dá ×{@value #CRIT_MULT}.
+     */
+    public static int critChance(int luk) {
+        return Math.max(5, Math.min(35, 5 + luk / 2));
+    }
+
+    /**
+     * [REBALANCE v2] Chance de acerto (%) — CONTÍNUA: cada ponto de DEX (acerto) e AGI do defensor
+     * (esquiva) conta, sem os degraus /5 e /8 antigos (pontos "mortos"). {@code 50 + DEX − AGI×0.6},
+     * clamp 20–95%. Crit ignora isto (sempre acerta).
+     */
+    public static int hitChance(int dexAtk, int agiDef) {
+        return Math.max(HIT_MIN, Math.min(HIT_MAX, HIT_BASE + dexAtk - (agiDef * 3) / 5));
     }
 
     /**

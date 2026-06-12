@@ -153,7 +153,7 @@ public class WarriorStatsService {
             atk,                                                       // [0] ATK (STR + afixo = só dano) × postura
             def,                                                       // [1] DEF × postura (mitigação)
             hp,                                                        // [2] HP (base+gear+buff) × pet
-            warrior.getDexterity()        + g.dex(),                   // [3] dex → ACERTO (d20 + DEX/5) [REBALANCE]
+            warrior.getDexterity()        + g.dex(),                   // [3] dex → ACERTO (hitChance) [REBALANCE]
             warrior.getAgility()          + buff[3] + petAgi,          // [4] agi → golpes extra + ESQUIVA (evasão do buff + AGI do pet) [REBALANCE]
             warrior.getLuck()             + g.luk()                    // [5] luk → crit window + Fortune Save
         };

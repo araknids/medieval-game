@@ -95,15 +95,14 @@ class D20CombatTest {
         assertThat(winner).startsWith("WINNER:");
     }
 
-    // TC-200: critThreshold formula — LUK 0 = 20, LUK 15 = 19, LUK 30 = 18, LUK 45 = 17
+    // TC-200: [REBALANCE v2] critChance é CONTÍNUO por LUK — 5 + LUK/2, cap 35% (era o degrau do d20)
     @Test
-    @DisplayName("TC-200 | critThreshold formula expands crit window with LUK")
-    void tc200_critThresholdFormula() {
-        assertThat(BattleSimulator.critThreshold(0)).isEqualTo(20);
-        assertThat(BattleSimulator.critThreshold(15)).isEqualTo(19);
-        assertThat(BattleSimulator.critThreshold(30)).isEqualTo(18);
-        assertThat(BattleSimulator.critThreshold(45)).isEqualTo(17);
-        assertThat(BattleSimulator.critThreshold(100)).isEqualTo(17); // cap at 17
+    @DisplayName("TC-200 | critChance grows continuously with LUK (5 + LUK/2, cap 35%)")
+    void tc200_critChanceFormula() {
+        assertThat(BattleSimulator.critChance(0)).isEqualTo(5);
+        assertThat(BattleSimulator.critChance(30)).isEqualTo(20);
+        assertThat(BattleSimulator.critChance(50)).isEqualTo(30);
+        assertThat(BattleSimulator.critChance(100)).isEqualTo(35); // cap at 35
     }
 
     // TC-201: Warrior XP formula — level 1 → level 2 costs 100 XP

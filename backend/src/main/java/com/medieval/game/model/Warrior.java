@@ -257,14 +257,27 @@ public class Warrior {
      * por classe foi removida). O chamador passa {@code rangedWeapon} (arma equipada é RANGED?).
      */
     public int getTotalBaseAttack(boolean rangedWeapon) {
+        // [REBALANCE v2] O nível NÃO dá ATK grátis (bounded accuracy, à la D&D 5e): o canal de escala
+        // pra quem não maximiza o atributo de dano é a ARMA (WeaponType.stats, independente de STR).
+        // Tentamos +ATK/nível antes, mas QUALQUER valor fazia CON-puro dominar (CON é sink infinito).
         return attack + (rangedWeapon ? dexterity : strength);
     }
 
     /** DEF base (from equipment via inventory, no per-level or attribute growth). */
     public int getTotalBaseDefense() { return defense; }
 
-    /** HP base + Constituição × 8 HP por ponto (CON is the infinite-growth attribute). */
-    public int getTotalBaseHealth()  { return health + constitution * 8; }
+    /**
+     * HP base + Constituição com RETORNO DECRESCENTE em camadas [SOFT_CAP_CON] (modelo Dark Souls 3 Vigor):
+     * 8/pt até CON 40, 4/pt de 41–80, 2/pt acima. CON continua sink INFINITO (bom p/ idle), mas perde o
+     * valor marginal que fazia o tank de CON-puro dominar a atrição (linear×sem-teto = solução de canto).
+     * HP é guardado como % → mexer no máximo não exige migração. Espelhado em CombatBalanceProbeTest.
+     */
+    public int getTotalBaseHealth() {
+        int tier1 = Math.min(constitution, 40);
+        int tier2 = Math.min(Math.max(constitution - 40, 0), 40);
+        int tier3 = Math.max(constitution - 80, 0);
+        return health + tier1 * 8 + tier2 * 4 + tier3 * 2;
+    }
 
     /** AC (Armor Class) = 10 + DEX. Attacker's d20+bonus must meet or beat this to hit. */
     public int getArmorClass()       { return 10 + dexterity; }

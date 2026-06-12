@@ -14,8 +14,8 @@ public enum WarriorClass {
     //        displayName,  atk, def,  hp, strCap, dexCap,           conCap, agiCap, lukCap, intCap
     RECRUIT  ("Recruit",     12,  10, 100,     40,     40, Integer.MAX_VALUE,     40,     40,     30),
     WARRIOR  ("Warrior",     15,  14, 130,     80,     30, Integer.MAX_VALUE,     25,     30,     20),
-    ARCHER   ("Archer",      12,   9,  95,     45,     45, Integer.MAX_VALUE,     40,     70,     20), // [REBALANCE] DEX escala o dano → base ATK menor
-    MERCHANT ("Merchant",    15,  11, 115,     55,     40, Integer.MAX_VALUE,     35,     60,     20); // classe de economia (machado/marreta) [MERCADOR]
+    ARCHER   ("Archer",      12,   9,  95,     45,     45, Integer.MAX_VALUE,     40,     50,     20), // [REBALANCE v2] lukCap 70→50 (acima disso só desperdiçava — crit virou chance contínua)
+    MERCHANT ("Merchant",    15,  11, 115,     55,     40, Integer.MAX_VALUE,     35,     50,     20); // [REBALANCE v2] lukCap 60→50 — classe de economia (machado/marreta) [MERCADOR]
 
     public final String displayName;
     public final int baseAttack;
