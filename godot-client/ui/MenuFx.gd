@@ -5,6 +5,7 @@ extends RefCounted
 # [MIGRACAO_GODOT] Reaproveita Scenery.gd. Robusto: se o 3D falhar, o menu ainda funciona.
 
 const Scenery := preload("res://Scenery.gd")
+const StoneStyle := preload("res://ui/StoneStyle.gd")
 
 const VIGNETTE := """
 shader_type canvas_item;
@@ -71,17 +72,11 @@ func title(text: String, size := 56) -> Label:
 	l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	return l
 
-# Botão com moldura de pedra/bronze (hover aceso).
+# Botão de PEDRA esculpida (textura procedural via StoneStyle; hover aceso/torch, pressed afunda).
 func button(text: String) -> Button:
 	var b := Button.new()
 	b.text = text
-	b.add_theme_color_override("font_color", Color(0.82, 0.70, 0.45))
-	b.add_theme_color_override("font_hover_color", Color(1.0, 0.88, 0.55))
-	b.add_theme_color_override("font_pressed_color", Color(1.0, 0.9, 0.6))
-	b.add_theme_stylebox_override("normal", _box(Color(0.12, 0.10, 0.09), Color(0.42, 0.33, 0.20)))
-	b.add_theme_stylebox_override("hover", _box(Color(0.20, 0.15, 0.11), Color(0.85, 0.65, 0.32)))
-	b.add_theme_stylebox_override("pressed", _box(Color(0.08, 0.06, 0.05), Color(0.6, 0.46, 0.26)))
-	b.add_theme_stylebox_override("focus", _box(Color(0.20, 0.15, 0.11), Color(0.85, 0.65, 0.32)))
+	StoneStyle.apply(b)
 	return b
 
 # Painel escuro de pedra (caixa de login etc.).
