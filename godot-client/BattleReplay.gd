@@ -222,23 +222,23 @@ func _ready() -> void:
 # Sempre tenta logar p/ ler o EQUIP+ARMA reais do herói (o herói é sempre dinâmico).
 # force_mock só troca os EVENTOS por um duelo fixo e força o Bandido a ser espadachim.
 func _load_events() -> void:
-	var cf := ConfigFile.new()
-	if cf.load("res://login.cfg") == OK:
-		username = str(cf.get_value("login", "user", username))
-		password = str(cf.get_value("login", "pass", password))
-
-	var client := BackendClient.new()
+	# [MIGRACAO_GODOT] reusa o Api (autoload): se já logado (veio do app), NÃO re-loga.
+	# Standalone (F6) → loga via login.cfg. Plano: docs/PLANO_MIGRACAO_GODOT.md
+	var client := Api
 	if base_url_override != "":
 		client.base_url = base_url_override
-	add_child(client)
-	_status("Conectando %s…" % client.base_url)
-
-	var lr = await client.login(username, password)
-	if not lr.get("ok"):
-		_status("Login falhou (%s) — usando luta MOCK." % lr.get("status"))
-		print(">>> LOGIN FALHOU: %s | %s — caindo no mock." % [lr.get("status"), lr.get("error", "")])
-		events = _mock_events()
-		return
+	if client.token == "":
+		var cf := ConfigFile.new()
+		if cf.load("res://login.cfg") == OK:
+			username = str(cf.get_value("login", "user", username))
+			password = str(cf.get_value("login", "pass", password))
+		_status("Conectando %s…" % client.base_url)
+		var lr = await client.login(username, password)
+		if not lr.get("ok"):
+			_status("Login falhou (%s) — usando luta MOCK." % lr.get("status"))
+			print(">>> LOGIN FALHOU: %s | %s — caindo no mock." % [lr.get("status"), lr.get("error", "")])
+			events = _mock_events()
+			return
 
 	# inventário → armadura equipada (paper-doll) + ARMA equipada (visual dinâmico do herói)
 	var inv = await client.get_inventory()
@@ -1800,6 +1800,13 @@ func _make_ui() -> void:
 	cam_hint.position = Vector2(14, 10)
 	cam_hint.text = "📷 Cam 1  [1/2/3]"
 	layer.add_child(cam_hint)
+	# [MIGRACAO_GODOT] voltar ao menu (Personagem) — só faz sentido quando veio do App
+	var back := Button.new()
+	back.text = "← Menu"
+	back.set_anchors_and_offsets_preset(Control.PRESET_TOP_RIGHT)
+	back.offset_left = -110; back.offset_right = -14; back.offset_top = 10; back.offset_bottom = 42
+	back.pressed.connect(func() -> void: Engine.time_scale = 1.0; get_tree().change_scene_to_file("res://App.tscn"))
+	layer.add_child(back)
 
 func _status(msg: String) -> void:
 	if status_label: status_label.text = msg

@@ -26,6 +26,10 @@ func login(username: String, password: String) -> Dictionary:
 func get_warrior() -> Dictionary:
 	return await _request(HTTPClient.METHOD_GET, "/api/warrior", null, true)
 
+## POST /api/warrior/attributes/{ATTR} — gasta 1 ponto. Devolve o WarriorResponse atualizado. [MIGRACAO_GODOT]
+func spend_attribute(attr: String) -> Dictionary:
+	return await _request(HTTPClient.METHOD_POST, "/api/warrior/attributes/%s" % attr, {}, true)
+
 ## GET /api/inventory (autenticado). json = Array de itens (cada um com type, equipped, name, rarity...). [GODOT_PAPERDOLL]
 func get_inventory() -> Dictionary:
 	return await _request(HTTPClient.METHOD_GET, "/api/inventory", null, true)
