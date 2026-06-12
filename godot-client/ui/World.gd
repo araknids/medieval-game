@@ -378,8 +378,9 @@ func _collect_quest(kingdom: String, quest_id: int, option_id := "") -> void:
 	if bool(j.get("lunaPending", false)):   # a Luna interrompeu → ajudar ou terminar
 		_show_luna_dialog(kingdom, quest_id)
 		return
-	status.text = _quest_result_text(j)
-	await _open(kingdom)
+	var text := _quest_result_text(j)
+	await _open(kingdom)   # refresca a lista; status some aqui → resultado vai no modal
+	_show_result(text)
 
 # Diálogo de quest interativa: intro + um botão por opção (coleta com o optionId escolhido).
 func _show_quest_dialog(kingdom: String, quest_id: int, dialog: Dictionary) -> void:
@@ -398,11 +399,14 @@ func _show_luna_dialog(kingdom: String, quest_id: int) -> void:
 			busy = true
 			var r = await Api.quest_luna(kingdom, quest_id, str(action))
 			busy = false
+			var text := ""
 			if r.get("ok") and r.get("json") is Dictionary:
-				status.text = _quest_result_text(r["json"])
+				text = _quest_result_text(r["json"])
 			else:
 				_show_error(r)
-			await _open(kingdom))
+			await _open(kingdom)
+			if text != "":
+				_show_result(text))
 
 # Overlay genérico de escolha: título + botões. cb.call(valor) ao escolher. [MIGRACAO_GODOT]
 func _choice_dialog(title_text: String, options: Array, cb: Callable) -> void:
@@ -440,6 +444,42 @@ func _choice_dialog(title_text: String, options: Array, cb: Callable) -> void:
 			cb.call(val))
 		vb.add_child(b)
 
+# Modal de RESULTADO: texto + botão OK. Persiste (o status some no _open). Substitui o showCollectModal do web.
+func _show_result(text: String) -> void:
+	if text.strip_edges() == "":
+		return
+	var overlay := ColorRect.new()
+	overlay.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	overlay.color = Color(0, 0, 0, 0.72)
+	overlay.mouse_filter = Control.MOUSE_FILTER_STOP
+	add_child(overlay)
+	var center := CenterContainer.new()
+	center.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	overlay.add_child(center)
+	var panel := PanelContainer.new()
+	var sb := StyleBoxFlat.new()
+	sb.bg_color = Color(0.12, 0.10, 0.10)
+	sb.set_border_width_all(2); sb.border_color = Color(0.5, 0.4, 0.22)
+	sb.set_corner_radius_all(4); sb.set_content_margin_all(16)
+	panel.add_theme_stylebox_override("panel", sb)
+	center.add_child(panel)
+	var vb := VBoxContainer.new()
+	vb.custom_minimum_size = Vector2(460, 0)
+	vb.add_theme_constant_override("separation", 12)
+	panel.add_child(vb)
+	var lbl := Label.new()
+	lbl.text = text
+	lbl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	lbl.custom_minimum_size = Vector2(460, 0)
+	vb.add_child(lbl)
+	var ok := Button.new()
+	ok.text = "OK"
+	ok.custom_minimum_size = Vector2(0, 40)
+	ok.pressed.connect(func() -> void: overlay.queue_free())
+	vb.add_child(ok)
+	ok.call_deferred("grab_focus")
+
 func _abandon_quest(kingdom: String, quest_id: int) -> void:
 	if busy: return
 	busy = true
@@ -466,12 +506,15 @@ func _collect_training(session_id: int) -> void:
 	if busy: return
 	busy = true
 	var r = await Api.training_collect(session_id)
+	var msg := ""
 	if r.get("ok") and r.get("json") is Dictionary:
-		status.text = "🏋 Treino completo! +%d XP" % int(r["json"].get("xpEarned", 0))
+		msg = "🏋 Treino completo! +%d XP" % int(r["json"].get("xpEarned", 0))
 	else:
 		_show_error(r)
 	busy = false
 	await _open("COMBAT")
+	if msg != "":
+		_show_result(msg)
 
 func _cancel_training(session_id: int) -> void:
 	if busy: return
@@ -501,18 +544,21 @@ func _collect_zone(activity_id: int) -> void:
 	if busy: return
 	busy = true
 	var r = await Api.zone_collect(activity_id)
+	var msg := ""
 	if r.get("ok") and r.get("json") is Dictionary:
 		var j: Dictionary = r["json"]
 		if bool(j.get("bossPending", false)):
 			# [ZONA_CHEFE] chefe errante: não dá pra escolher fugir/encarar aqui — informa.
-			status.text = "💀 %s (Lv %d) apareceu! Resolva o chefe na versão web." % [str(j.get("bossName", "Chefe")), int(j.get("bossLevel", 0))]
+			msg = "💀 %s (Lv %d) apareceu! Resolva o chefe na versão web." % [str(j.get("bossName", "Chefe")), int(j.get("bossLevel", 0))]
 		else:
-			status.text = _zone_result_text(j)
+			msg = _zone_result_text(j)
 	else:
 		_show_error(r)
 	busy = false
 	if open_kingdom != "":
 		await _open(open_kingdom)
+	if msg != "":
+		_show_result(msg)
 
 func _cancel_zone(activity_id: int) -> void:
 	if busy: return
