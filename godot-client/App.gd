@@ -12,6 +12,12 @@ var current: Control
 func _ready() -> void:
 	_route()
 
+# Esc / B do controle = voltar pro Hub (só de uma tela; tela tem go_back, Hub/Login não). [Fable]
+func _unhandled_input(event: InputEvent) -> void:
+	if event.is_action_pressed("ui_cancel") and current and current.has_signal("go_back"):
+		_show(HUB)
+		get_viewport().set_input_as_handled()
+
 func _route() -> void:
 	if Api.token == "":
 		_show(LOGIN)
