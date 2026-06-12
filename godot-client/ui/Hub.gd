@@ -1,10 +1,13 @@
 extends Control
-# ── HUB / Menu principal ──────────────────────────────────────────────────────────
-# Grade de botões → abre cada tela por nome (open_screen). + Lutar (go_battle) e Sair. [MIGRACAO_GODOT]
+# ── HUB / Menu principal (estilo grimdark/Diablo) ────────────────────────────────
+# Fundo 3D noturno (cenário com tochas) + vinheta + botões góticos. Abre telas por
+# nome (open_screen) + Lutar (go_battle) + Sair. [MIGRACAO_GODOT]
 
 signal open_screen(screen)
 signal go_battle
 signal logout
+
+const MenuFx := preload("res://ui/MenuFx.gd")
 
 # [nome_da_tela (= res://ui/<nome>.tscn), rótulo no botão]
 const MENU := [
@@ -18,51 +21,46 @@ const MENU := [
 
 func _ready() -> void:
 	set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	var bg := ColorRect.new()
-	bg.color = Color(0.08, 0.07, 0.10)
-	bg.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	add_child(bg)
+	var fx := MenuFx.new()
+	fx.bg_3d(self, "mining")   # acampamento noturno com braseiros (vibe Diablo)
+	# UI por cima
 	var scroll := ScrollContainer.new()
 	scroll.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	add_child(scroll)
 	var margin := MarginContainer.new()
 	margin.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	for side in ["left", "right", "top", "bottom"]:
-		margin.add_theme_constant_override("margin_" + side, 22)
+		margin.add_theme_constant_override("margin_" + side, 26)
 	scroll.add_child(margin)
 	var box := VBoxContainer.new()
 	box.add_theme_constant_override("separation", 12)
 	box.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	margin.add_child(box)
-	var ttl := Label.new()
-	ttl.text = "⚔ Medieval"
-	ttl.add_theme_font_size_override("font_size", 34)
-	box.add_child(ttl)
+	box.add_child(fx.title("MEDIEVAL", 60))
+	box.add_child(_spacer(6))
 	# botão grande de Lutar
-	var fight := Button.new()
-	fight.text = "⚔  LUTAR"
-	fight.custom_minimum_size = Vector2(0, 52)
+	var fight := fx.button("⚔   LUTAR")
+	fight.custom_minimum_size = Vector2(0, 56)
+	fight.add_theme_font_size_override("font_size", 22)
 	fight.pressed.connect(func() -> void: go_battle.emit())
 	box.add_child(fight)
+	box.add_child(_spacer(4))
 	# grade de telas
 	var grid := GridContainer.new()
 	grid.columns = 3
-	grid.add_theme_constant_override("h_separation", 8)
-	grid.add_theme_constant_override("v_separation", 8)
+	grid.add_theme_constant_override("h_separation", 10)
+	grid.add_theme_constant_override("v_separation", 10)
 	grid.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	box.add_child(grid)
 	for entry in MENU:
-		var b := Button.new()
-		b.text = str(entry[1])
-		b.custom_minimum_size = Vector2(150, 44)
+		var b := fx.button(str(entry[1]))
+		b.custom_minimum_size = Vector2(150, 46)
 		b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		var target: String = str(entry[0])
 		b.pressed.connect(func() -> void: open_screen.emit(target))
 		grid.add_child(b)
-	# sair
-	box.add_child(_spacer(8))
-	var out := Button.new()
-	out.text = "Sair"
+	box.add_child(_spacer(10))
+	var out := fx.button("Sair")
 	out.pressed.connect(func() -> void: logout.emit())
 	box.add_child(out)
 
