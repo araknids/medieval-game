@@ -92,6 +92,9 @@ const ENEMY_TINTS := [Color(0.55, 0.18, 0.18), Color(0.20, 0.28, 0.55), Color(0.
 	Color(0.36, 0.30, 0.20), Color(0.25, 0.25, 0.28), Color(0.48, 0.40, 0.16), Color(0.40, 0.22, 0.42)]
 const ENEMY_MELEE := ["sword", "greatsword", "axe", "spear", "mace"]
 const ENEMY_BOWS := ["shortbow", "longbow", "crossbow"]
+# Nomes humanos p/ o force_mock SORTEAR (cada nome → cara própria diferente). Sem isso, "Bandido" fixo = sempre igual.
+const MOCK_FOES := ["Renegade Knight", "Corrupt Mercenary", "Road Brigand", "Fallen Captain", "Orc Reaver",
+	"Iron Marauder", "Grim Outlaw", "Bandit Lord", "Cutthroat", "Deserter of the King", "Pale Cutpurse", "War Ogre"]
 # Bestas (nomes estilo backend) p/ o modo "monster" sortear — todos casam um monstro em Monsters.pick_for.
 const SHOWCASE_FOES := ["Young Dragon", "Lesser Demon", "Stone Golem", "Sea Serpent", "Mountain Troll",
 	"Rock Spider", "Mine Wraith", "Giant Boar", "Dark Lich", "Colossal Crab", "Crystal Aberration", "Cursed Drowned"]
@@ -123,7 +126,7 @@ const GORE_COLORS := [Color(0.5, 0.08, 0.08), Color(0.42, 0.05, 0.05), Color(0.6
 ## garimpa/dungeon/arena/city/castle) p/ travar, ou "coliseum" p/ o coliseu procedural antigo.
 @export var scenario := ""
 ## TESTE: pula o backend e usa um duelo MOCK (espada vs espada) — bom p/ ver o combate sem login.
-@export var force_mock := false
+@export var force_mock := true
 ## TESTE: no mock, faz o Bandido (espada) VENCER — p/ ver como fica quando o melee ganha o arqueiro.
 @export var mock_enemy_wins := false
 ## Troca o INIMIGO (direita) por um monstro ESPECÍFICO do bundle (override manual de teste).
@@ -234,9 +237,13 @@ func _load_events() -> void:
 		print(">>> herói: equip=%s arma=%s" % [str(player_equip), player_weapon])
 
 	if force_mock:
+		var foe: String = MOCK_FOES[randi() % MOCK_FOES.size()]   # sorteia → cara própria varia a cada run
 		events = _mock_events()
-		_status("Modo TESTE — sua arma real vs Bandido (espada)")
-		print("=== force_mock: eventos MOCK, herói real, Bandido = espada ===")
+		for e in events:                                          # renomeia "Bandido" → o sorteado
+			if e.get("actor") == "Bandido": e["actor"] = foe
+			if e.get("target") == "Bandido": e["target"] = foe
+		_status("Modo TESTE — sua arma real vs %s" % foe)
+		print("=== force_mock: herói real vs %s (cara própria) ===" % foe)
 		return
 
 	if fight_source == "monster":   # luta MOCK local contra um MONSTRO (herói real vs bicho)
@@ -390,9 +397,10 @@ func _build_fighters() -> void:
 		rlook = _enemy_look(rname, _is_ranged(rname))
 		rweapon = str(rlook["weapon"])
 	var lrarity := force_rarity if force_rarity > 0 else player_weapon_rarity   # [RARIDADE] herói
+	var requip: Array = rlook.get("equip", DEFAULT_OUTFIT)   # peças do inimigo variam (rlook); monstro ignora
 	order = [
 		_make_fighter(lname, -1, int(spawns[0].get("targetMaxHp", 100)), lweapon, lequip, {}, lrarity),
-		_make_fighter(rname,  1, int(spawns[1].get("targetMaxHp", 100)), rweapon, DEFAULT_OUTFIT, emeta, 1, rlook),
+		_make_fighter(rname,  1, int(spawns[1].get("targetMaxHp", 100)), rweapon, requip, emeta, 1, rlook),
 	]
 	fighters[lname] = order[0]
 	fighters[rname] = order[1]
@@ -449,14 +457,28 @@ func _collect_meshes(node: Node, out: Array) -> void:
 	for c in node.get_children():
 		_collect_meshes(c, out)
 
-# [INIMIGO] "cara própria" determinística pelo NOME (mesmo oponente = mesmo visual): {weapon, tint, scale}.
+# [INIMIGO] "cara própria" determinística pelo NOME (mesmo oponente = mesmo visual): {weapon, tint, scale, equip}.
 func _enemy_look(nm: String, ranged: bool) -> Dictionary:
 	var h := absi(hash(nm))
 	var weapon: String = ENEMY_BOWS[(h / 7) % ENEMY_BOWS.size()] if ranged else ENEMY_MELEE[(h / 7) % ENEMY_MELEE.size()]
+	# peças variam: às vezes sem capacete / sem parte de cima / pelado (resto = completo)
+	var style := (h / 101) % 10
+	var equip: Array
+	if style == 0:                              # ~10% PELADO
+		equip = []
+	elif style <= 2:                            # ~20% sem capacete
+		equip = ["ARMOR", "PANTS", "BOOTS", "GLOVES", "SHOULDER"]
+	elif style == 3:                            # ~10% sem parte de cima (peito nu)
+		equip = ["PANTS", "BOOTS", "GLOVES"]
+	elif style == 4:                            # ~10% só calça/botas
+		equip = ["PANTS", "BOOTS"]
+	else:                                       # ~50% completo
+		equip = DEFAULT_OUTFIT.duplicate()
 	return {
 		"weapon": weapon,
 		"tint": ENEMY_TINTS[h % ENEMY_TINTS.size()],
 		"scale": 0.86 + float((h / 13) % 16) * 0.01,   # 0.86 .. 1.01
+		"equip": equip,
 	}
 
 # Lavagem de cor (faction) por cima da roupa — overlay translúcido, preserva a textura.
