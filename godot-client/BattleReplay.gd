@@ -132,7 +132,7 @@ const GORE_COLORS := [Color(0.5, 0.08, 0.08), Color(0.42, 0.05, 0.05), Color(0.6
 @export var force_shield := false
 ## Escudo (off-hand): posição calibrável (orientação é automática, virada pra frente). [Fable] Roll-safe.
 @export var shield_slide := 0.13   # desliza ao longo do antebraço (cotovelo→pulso). + = rumo ao pulso
-@export var shield_push := 0.20    # empurra pra FORA (frente) — afasta do braço/torso (cobre a mão)
+@export var shield_push := 0.18    # empurra pra FORA (frente) — afasta do braço/torso (cobre a mão)
 @export var shield_side := 0.0     # nudge lateral (no frame alinhado do escudo)
 @export var shield_up := 0.02      # nudge vertical (no frame alinhado do escudo)
 ## Vira a face do escudo (use se o umbo ficar virado pro CORPO em vez do inimigo).
