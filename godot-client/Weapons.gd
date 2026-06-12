@@ -72,8 +72,8 @@ func _attach_bow(ba: Node3D, kind: String, glow_col := Color.WHITE, ge := 0.0) -
 	var wood := Color(0.45, 0.30, 0.16)
 	var cord := glow_col if ge > 0.0 else Color(0.85, 0.82, 0.70)
 	if kind == "crossbow":
-		_box(ba, Vector3(0.035, 0.05, 0.40), Vector3(0.10, 0.06, 0.10), wood, 0.1)                  # coronha
-		_box(ba, Vector3(0.40, 0.03, 0.03),  Vector3(0.10, 0.08, 0.26), Color(0.30, 0.25, 0.18), 0.2)  # braço
+		_box(ba, Vector3(0.035, 0.05, 0.40), Vector3(0.10, 0.06, 0.10), wood, 0.1)                  # coronha (madeira)
+		_box(ba, Vector3(0.40, 0.03, 0.03),  Vector3(0.10, 0.08, 0.26), glow_col, 0.6, glow_col, ge)  # braço metálico (brilha)
 		_box(ba, Vector3(0.35, 0.006, 0.006),Vector3(0.10, 0.08, 0.25), cord, 0.0, glow_col, ge)    # corda
 		return
 	var h := 0.95 if kind == "longbow" else 0.55
