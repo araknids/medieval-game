@@ -109,10 +109,15 @@ func attach_shield(node: Node3D, opts := {}) -> void:
 	var s_side := float(opts.get("side", 0.0))
 	var s_up := float(opts.get("up", 0.02))
 	var flip := bool(opts.get("flip", false))
+	var fixed_fwd = opts.get("forward", null)   # Vector3 fixo (viewer) OU null = calcula rumo ao centro (batalha)
 	skel.skeleton_updated.connect(func() -> void:
 		if not is_instance_valid(holder) or not is_instance_valid(node): return
-		var fwd := Vector3(-signf(node.global_position.x), 0.0, 0.0)
-		if fwd.length() < 0.01: fwd = Vector3.LEFT
+		var fwd: Vector3
+		if fixed_fwd != null:
+			fwd = fixed_fwd
+		else:
+			fwd = Vector3(-signf(node.global_position.x), 0.0, 0.0)   # rumo ao centro/inimigo
+			if fwd.length() < 0.01: fwd = Vector3.LEFT
 		if flip: fwd = -fwd
 		var rx := Vector3.UP.cross(fwd).normalized()
 		var ry := fwd.cross(rx)

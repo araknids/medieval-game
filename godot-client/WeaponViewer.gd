@@ -10,6 +10,8 @@ const Weapons := preload("res://Weapons.gd")
 @export var start_type := 0
 ## Giro dos personagens (graus) p/ mostrar a arma. Ajuste se a arma ficar escondida.
 @export var hero_yaw := 195.0
+## Mostra também o ESCUDO (só com arma melee) — pra ver o brilho de raridade do escudo junto.
+@export var show_shield := true
 
 var wp := Weapons.new()
 var kind_idx := 0
@@ -96,8 +98,11 @@ func _spawn() -> void:
 			if idle: idle.loop_mode = Animation.LOOP_LINEAR
 			ap.play("UAL1_Standard/Sword_Idle")
 		wp.attach_weapon(ch, kind, r, 0.10)
+		if show_shield and not wp.is_bow_kind(kind):   # escudo na mesma raridade (face = câmera, +Z)
+			wp.attach_shield(ch, {"rarity": r, "forward": Vector3(0, 0, 1)})
 		heroes.append(ch)
-	info.text = "Arma: %s  [%d/%d]" % [kind, kind_idx + 1, Weapons.KINDS.size()]
+	var with_sh := "  + escudo" if (show_shield and not wp.is_bow_kind(kind)) else ""
+	info.text = "Arma: %s%s  [%d/%d]" % [kind, with_sh, kind_idx + 1, Weapons.KINDS.size()]
 	print(">>> arma=%s (raridade 1→5)" % kind)
 
 func _process(_dt: float) -> void:
