@@ -158,6 +158,7 @@ var order: Array = []       # [left, right] na ordem de spawn
 var player_equip: Array = []  # tipos de armadura EQUIPADOS pelo jogador (p/ vestir o lutador da esquerda)
 var player_weapon := ""       # tipo visual fino: sword|greatsword|axe|spear|mace|shortbow|longbow|crossbow
 var player_weapon_rarity := 1 # raridade (1-5) da arma equipada → cor/brilho do metal [RARIDADE]
+var player_shield_rarity := 1 # raridade (1-5) do escudo equipado → cor/brilho da borda/umbo [RARIDADE]
 var cam: Camera3D
 var mons := Monsters.new()  # helper de monstros (instancia + auto-fit + roster/mapa)
 var wp := Weapons.new()     # helper de armas/escudo procedurais (+ raridade)
@@ -447,8 +448,10 @@ func _read_player_gear(items: Array) -> void:
 		var ty := str(it.get("type", ""))
 		if PIECES.has(ty) and not (ty in player_equip):
 			player_equip.append(ty)
-		elif ty == "SHIELD" and not ("SHIELD" in player_equip):
-			player_equip.append("SHIELD")   # marca p/ desenhar o escudo na off-hand (_make_fighter)
+		elif ty == "SHIELD":
+			if not ("SHIELD" in player_equip):
+				player_equip.append("SHIELD")   # marca p/ desenhar o escudo na off-hand (_make_fighter)
+			player_shield_rarity = int(it.get("rarity", 1))
 		elif ty == "WEAPON":
 			player_weapon = wp.weapon_kind(str(it.get("name", "")), str(it.get("weaponCategory", "")))
 			player_weapon_rarity = int(it.get("rarity", 1))
@@ -501,7 +504,8 @@ func _make_fighter(fname: String, side: int, maxhp: int, weapon_kind: String, eq
 		wp.attach_weapon(node, weapon_kind, rarity, weapon_grip)
 		# escudo na off-hand — só com arma MELEE (arco usa as duas mãos)
 		if ("SHIELD" in equipped_types) and not wp.is_bow_kind(weapon_kind):
-			wp.attach_shield(node, {"slide": shield_slide, "push": shield_push, "side": shield_side, "up": shield_up, "flip": shield_flip})
+			var sh_r := force_rarity if force_rarity > 0 else player_shield_rarity   # [RARIDADE] escudo
+			wp.attach_shield(node, {"slide": shield_slide, "push": shield_push, "side": shield_side, "up": shield_up, "flip": shield_flip, "rarity": sh_r})
 	# barra de vida + nome
 	var bar := Node3D.new()
 	add_child(bar)

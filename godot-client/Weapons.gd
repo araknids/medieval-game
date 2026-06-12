@@ -93,14 +93,17 @@ func attach_shield(node: Node3D, opts := {}) -> void:
 	var holder := Node3D.new()
 	holder.top_level = true
 	ba.add_child(holder)
+	# [RARIDADE] borda/umbo (metal) tingem+brilham pela raridade; corpo fica madeira.
+	var r := clampi(int(opts.get("rarity", 1)), 1, 5)
+	var rim := RARITY_TINT[r - 1] as Color   # r=1 → aço normal
+	var ge := RARITY_GLOW[r - 1] as float
 	var wood := Color(0.40, 0.26, 0.14)
-	var rim := Color(0.58, 0.60, 0.64)
-	_box(holder, Vector3(0.34, 0.42, 0.04),  Vector3(0, 0, 0), wood, 0.1)        # corpo
-	_box(holder, Vector3(0.36, 0.045, 0.05), Vector3(0, 0.21, 0), rim, 0.6)      # borda topo
-	_box(holder, Vector3(0.36, 0.045, 0.05), Vector3(0, -0.21, 0), rim, 0.6)     # borda base
-	_box(holder, Vector3(0.045, 0.42, 0.05), Vector3(0.17, 0, 0), rim, 0.6)      # borda direita
-	_box(holder, Vector3(0.045, 0.42, 0.05), Vector3(-0.17, 0, 0), rim, 0.6)     # borda esquerda
-	_sphere(holder, 0.055, Vector3(0, 0, 0.04), rim, 0.6)                        # umbo (frente)
+	_box(holder, Vector3(0.34, 0.42, 0.04),  Vector3(0, 0, 0), wood, 0.1)                # corpo (madeira)
+	_box(holder, Vector3(0.36, 0.045, 0.05), Vector3(0, 0.21, 0), rim, 0.6, rim, ge)     # borda topo
+	_box(holder, Vector3(0.36, 0.045, 0.05), Vector3(0, -0.21, 0), rim, 0.6, rim, ge)    # borda base
+	_box(holder, Vector3(0.045, 0.42, 0.05), Vector3(0.17, 0, 0), rim, 0.6, rim, ge)     # borda direita
+	_box(holder, Vector3(0.045, 0.42, 0.05), Vector3(-0.17, 0, 0), rim, 0.6, rim, ge)    # borda esquerda
+	_sphere(holder, 0.055, Vector3(0, 0, 0.04), rim, 0.6, rim, ge)                       # umbo (frente, brilha)
 	var s_slide := float(opts.get("slide", 0.13))
 	var s_push := float(opts.get("push", 0.18))
 	var s_side := float(opts.get("side", 0.0))
