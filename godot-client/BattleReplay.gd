@@ -129,7 +129,7 @@ const GORE_COLORS := [Color(0.5, 0.08, 0.08), Color(0.42, 0.05, 0.05), Color(0.6
 ## Valores: sword | greatsword | axe | spear | mace | shortbow | longbow | crossbow
 @export var force_weapon := ""
 ## Posição do CABO da arma melee ao longo da mão (RightHand). MENOR = cabo mais pra dentro/baixo (na mão).
-@export var weapon_grip := 0.20
+@export var weapon_grip := 0.10
 ## TESTE: força um ESCUDO na off-hand do herói (some com arco). Vazio/false = só se equipado de verdade.
 @export var force_shield := false
 ## Escudo (off-hand): posição calibrável (orientação é automática, virada pra frente). [Fable] Roll-safe.
