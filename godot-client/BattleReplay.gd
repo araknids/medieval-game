@@ -11,6 +11,7 @@ extends Node3D
 const CHAR := preload("res://addons/quaternius_ik_rigged/Models_with_rigging/Male_rigged.tscn")
 const Scenery := preload("res://Scenery.gd")
 const Monsters := preload("res://Monsters.gd")
+const Weapons := preload("res://Weapons.gd")
 const LIB := "UAL1_Standard/"
 const A_IDLE := LIB + "Sword_Idle"
 const A_ATTACK := LIB + "Sword_Attack"
@@ -99,9 +100,7 @@ const MAX_POOLS := 26
 # [GORE] desmembramento: pedaços/membros voando (RigidBody) — cores de carne/sangue + cap
 const MAX_GIBS := 40
 const GORE_COLORS := [Color(0.5, 0.08, 0.08), Color(0.42, 0.05, 0.05), Color(0.62, 0.22, 0.18), Color(0.45, 0.12, 0.1)]
-# [RARIDADE] cor + brilho do metal da arma pela raridade do item (1 comum → 5 lendário).
-const RARITY_TINT := [Color(0.82, 0.84, 0.88), Color(0.45, 0.85, 0.45), Color(0.35, 0.60, 1.0), Color(0.72, 0.40, 0.95), Color(1.0, 0.78, 0.28)]
-const RARITY_GLOW := [0.0, 0.5, 1.0, 1.7, 2.6]   # energia de emissão por raridade
+# [RARIDADE] cores/brilho por raridade ficam em Weapons.gd (Weapons.RARITY_TINT/RARITY_GLOW)
 
 ## Credenciais (sobrepostas por login.cfg se existir). adm/adm123 só vale no DEV local.
 @export var username := "adm"
@@ -161,6 +160,7 @@ var player_weapon := ""       # tipo visual fino: sword|greatsword|axe|spear|mac
 var player_weapon_rarity := 1 # raridade (1-5) da arma equipada → cor/brilho do metal [RARIDADE]
 var cam: Camera3D
 var mons := Monsters.new()  # helper de monstros (instancia + auto-fit + roster/mapa)
+var wp := Weapons.new()     # helper de armas/escudo procedurais (+ raridade)
 var cam_view := 1            # preset de câmera ATIVO (1/2/3) — ver CAM_PRESETS
 var cam_hint: Label          # dica no canto: "📷 Cam N  [1/2/3]"
 
@@ -450,27 +450,10 @@ func _read_player_gear(items: Array) -> void:
 		elif ty == "SHIELD" and not ("SHIELD" in player_equip):
 			player_equip.append("SHIELD")   # marca p/ desenhar o escudo na off-hand (_make_fighter)
 		elif ty == "WEAPON":
-			player_weapon = _weapon_kind(str(it.get("name", "")), str(it.get("weaponCategory", "")))
+			player_weapon = wp.weapon_kind(str(it.get("name", "")), str(it.get("weaponCategory", "")))
 			player_weapon_rarity = int(it.get("rarity", 1))
 
-# Infere o tipo visual da arma pelo nome + categoria (backend só dá MELEE/RANGED).
-# Tipo visual FINO da arma pelo NOME (espelha backend WeaponType.fromName — a API não manda o tipo).
-# Ordem importa: ranged finos antes do "bow" genérico; greatsword antes de sword.
-func _weapon_kind(item_name: String, category: String) -> String:
-	var n := item_name.to_lower()
-	if "crossbow" in n or "besta" in n: return "crossbow"
-	if "long bow" in n or "longbow" in n or "arco longo" in n: return "longbow"
-	if "short bow" in n or "shortbow" in n or "arco curto" in n or "bow" in n or "arco" in n: return "shortbow"
-	if category == "RANGED": return "shortbow"   # rede de segurança (nome ranged sem palavra de arco)
-	if "greatsword" in n or "great sword" in n or "two-handed" in n or "montante" in n or "espada longa" in n or "espada de duas" in n: return "greatsword"
-	if "axe" in n or "machado" in n or "hatchet" in n: return "axe"
-	if "mace" in n or "marreta" in n or "maul" in n or "hammer" in n or "martelo" in n or "club" in n or "clava" in n: return "mace"
-	if "spear" in n or "lança" in n or "lanca" in n or "lance" in n or "pike" in n or "halberd" in n: return "spear"
-	return "sword"
-
-# Arma de longa distância (arco/besta)? — controla kiting + flecha + slot de mão (LeftHand). "bow" = legado.
-func _is_bow_kind(kind: String) -> bool:
-	return kind in ["shortbow", "longbow", "crossbow", "bow"]
+# (tipo visual da arma + is_bow_kind foram p/ Weapons.gd — use wp.weapon_kind / wp.is_bow_kind)
 
 func _is_ranged(who: String) -> bool:
 	for e in events:
@@ -496,7 +479,7 @@ func _make_fighter(fname: String, side: int, maxhp: int, weapon_kind: String, eq
 	else:
 		node.scale = Vector3(0.92, 0.92, 0.92)
 	# monstro é sempre melee (sem arco/kite); herói/humano segue a arma equipada
-	var ranged := _is_bow_kind(weapon_kind) and not is_monster
+	var ranged := wp.is_bow_kind(weapon_kind) and not is_monster
 	var ap: AnimationPlayer = node.find_child("AnimationPlayer", true, false)
 	# liga a lib UAL2 (variações de espada) — só no humano; monstro usa as próprias anims
 	if ap and not is_monster and not ap.has_animation_library("UAL2_Standard"):
@@ -515,10 +498,10 @@ func _make_fighter(fname: String, side: int, maxhp: int, weapon_kind: String, eq
 	_face(f, -side)   # seta o alvo de rotação (encara o oponente)
 	if not is_monster:
 		_dress(node, skel, equipped_types)   # [GODOT_PAPERDOLL] veste antes da arma
-		_attach_weapon(node, weapon_kind, rarity)
-		# escudo na off-hand (LeftHand) — só com arma MELEE (arco usa as duas mãos)
-		if ("SHIELD" in equipped_types) and not _is_bow_kind(weapon_kind):
-			_attach_shield(node)
+		wp.attach_weapon(node, weapon_kind, rarity, weapon_grip)
+		# escudo na off-hand — só com arma MELEE (arco usa as duas mãos)
+		if ("SHIELD" in equipped_types) and not wp.is_bow_kind(weapon_kind):
+			wp.attach_shield(node, {"slide": shield_slide, "push": shield_push, "side": shield_side, "up": shield_up, "flip": shield_flip})
 	# barra de vida + nome
 	var bar := Node3D.new()
 	add_child(bar)
@@ -981,134 +964,6 @@ func _face(f: Dictionary, dir: float) -> void:
 	if dir == 0.0: dir = 1.0
 	# + yaw_offset corrige o monstro que nasce de lado/de costas (humano = 0)
 	f["face_target"] = deg_to_rad(90.0 if dir > 0 else -90.0) + f.get("yaw_offset", 0.0)   # o _process gira suave até aqui
-
-# Desenha a arma pelo TIPO fino. Arco/besta vão na LeftHand; melee na RightHand num holder
-# (rot -90; +Y local = direção da arma) com peças simples. 8 tipos do WeaponType.
-func _attach_weapon(node: Node3D, kind: String, rarity := 1) -> void:
-	var skel: Skeleton3D = node.find_child("GeneralSkeleton", true, false)
-	if skel == null: return
-	# [RARIDADE] metal vira a cor da raridade + emissão (comum = aço sem brilho; lendário = dourado brilhante)
-	var r := clampi(rarity, 1, 5)
-	var steel := RARITY_TINT[r - 1] as Color   # r=1 → aço normal
-	var ge := RARITY_GLOW[r - 1] as float       # energia de emissão (0 no comum)
-	var ba := BoneAttachment3D.new()
-	if _is_bow_kind(kind):
-		ba.bone_name = "LeftHand"
-		skel.add_child(ba)
-		_attach_bow(ba, kind, steel, ge)
-		return
-	ba.bone_name = "RightHand"
-	skel.add_child(ba)
-	var holder := Node3D.new()
-	holder.position = Vector3(weapon_grip, 0.05, 0.04)   # weapon_grip = ao longo da mão; MENOR = cabo mais pra dentro/baixo
-	holder.rotation_degrees = Vector3(0, 0, -90)
-	ba.add_child(holder)
-	var wood := Color(0.35, 0.22, 0.12)
-	match kind:
-		"greatsword":   # espada de 2 mãos: lâmina mais longa/larga + guarda larga + cabo comprido
-			_box(holder, Vector3(0.028, 0.82, 0.10), Vector3(0, 0.54, 0), steel, 0.7, steel, ge)      # lâmina longa (brilha)
-			_box(holder, Vector3(0.07, 0.04, 0.28),  Vector3(0, 0.10, 0), Color(0.28, 0.22, 0.14), 0.3)  # guarda larga
-			_box(holder, Vector3(0.032, 0.22, 0.032),Vector3(0, -0.04, 0), wood, 0.1)              # cabo longo (2 mãos)
-			_box(holder, Vector3(0.06, 0.06, 0.06),  Vector3(0, -0.18, 0), Color(0.70, 0.60, 0.20), 0.5)  # pomo
-		"axe":
-			_box(holder, Vector3(0.028, 0.62, 0.028), Vector3(0, 0.20, 0), wood, 0.1)        # cabo longo
-			_box(holder, Vector3(0.02, 0.16, 0.17),   Vector3(0, 0.46, 0.07), steel, 0.7, steel, ge)  # lâmina (brilha)
-		"spear":
-			_box(holder, Vector3(0.024, 0.95, 0.024), Vector3(0, 0.30, 0), wood, 0.1)         # haste
-			_box(holder, Vector3(0.04, 0.16, 0.04),   Vector3(0, 0.82, 0), steel, 0.7, steel, ge)  # ponta (brilha)
-		"mace":
-			_box(holder, Vector3(0.03, 0.42, 0.03),   Vector3(0, 0.12, 0), wood, 0.1)         # cabo
-			_sphere(holder, 0.075, Vector3(0, 0.38, 0), steel, 0.6, steel, ge)                # cabeça (brilha)
-		_:  # sword (default)
-			_box(holder, Vector3(0.022, 0.5, 0.075),  Vector3(0,  0.34, 0), steel, 0.7, steel, ge)    # lâmina (brilha)
-			_box(holder, Vector3(0.05, 0.035, 0.20),  Vector3(0,  0.07, 0), Color(0.28, 0.22, 0.14), 0.3)  # guarda
-			_box(holder, Vector3(0.028, 0.13, 0.028), Vector3(0, -0.02, 0), wood, 0.1)             # cabo
-			_box(holder, Vector3(0.05, 0.05, 0.05),   Vector3(0, -0.10, 0), Color(0.70, 0.60, 0.20), 0.5)  # pomo
-
-# Arco/besta na LeftHand. shortbow/longbow = arco vertical (stave + corda); crossbow = horizontal (coronha + braço).
-# A corda recebe a cor/brilho da raridade (glow_col/ge) p/ o arco também "ler" o poder.
-func _attach_bow(ba: Node3D, kind: String, glow_col := Color.WHITE, ge := 0.0) -> void:
-	var wood := Color(0.45, 0.30, 0.16)
-	var cord := glow_col if ge > 0.0 else Color(0.85, 0.82, 0.70)   # corda comum = creme; rara+ = cor da raridade
-	if kind == "crossbow":
-		_box(ba, Vector3(0.035, 0.05, 0.40), Vector3(0.10, 0.06, 0.10), wood, 0.1)                  # coronha (pra frente)
-		_box(ba, Vector3(0.40, 0.03, 0.03),  Vector3(0.10, 0.08, 0.26), Color(0.30, 0.25, 0.18), 0.2)  # braço transversal
-		_box(ba, Vector3(0.35, 0.006, 0.006),Vector3(0.10, 0.08, 0.25), cord, 0.0, glow_col, ge)    # corda (brilha)
-		return
-	var h := 0.95 if kind == "longbow" else 0.55                                                      # longbow alto, shortbow baixo
-	_box(ba, Vector3(0.03, h, 0.03),        Vector3(0.10, 0.07, 0.04), wood, 0.1, glow_col, ge * 0.4)  # corpo (brilho sutil)
-	_box(ba, Vector3(0.006, h * 0.95, 0.006), Vector3(0.10, 0.07, -0.02), cord, 0.0, glow_col, ge)   # corda (brilha)
-
-# Escudo (heater) na off-hand. [Fable] A rotação local de um osso é ANIMADA → euler fixo nunca encaixa.
-# Solução: holder com top_level=true (ignora a rotação do osso) e realinhado todo frame via
-# skeleton_updated — POSIÇÃO segue o antebraço; FACE (+Z, umbo) = pra frente (longe do centro), UP = mundo.
-func _attach_shield(node: Node3D) -> void:
-	var skel: Skeleton3D = node.find_child("GeneralSkeleton", true, false)
-	if skel == null: return
-	var bone := "LeftLowerArm" if skel.find_bone("LeftLowerArm") != -1 else "LeftHand"
-	var ba := BoneAttachment3D.new()
-	ba.bone_name = bone
-	skel.add_child(ba)
-	var holder := Node3D.new()
-	holder.top_level = true               # destaca da rotação do osso; dirigimos o transform GLOBAL
-	ba.add_child(holder)
-	var wood := Color(0.40, 0.26, 0.14)
-	var rim := Color(0.58, 0.60, 0.64)
-	_box(holder, Vector3(0.34, 0.42, 0.04),  Vector3(0, 0, 0), wood, 0.1)        # corpo (mais alto que largo)
-	_box(holder, Vector3(0.36, 0.045, 0.05), Vector3(0, 0.21, 0), rim, 0.6)      # borda topo
-	_box(holder, Vector3(0.36, 0.045, 0.05), Vector3(0, -0.21, 0), rim, 0.6)     # borda base
-	_box(holder, Vector3(0.045, 0.42, 0.05), Vector3(0.17, 0, 0), rim, 0.6)      # borda direita
-	_box(holder, Vector3(0.045, 0.42, 0.05), Vector3(-0.17, 0, 0), rim, 0.6)     # borda esquerda
-	_sphere(holder, 0.055, Vector3(0, 0, 0.04), rim, 0.6)                        # umbo (frente, +Z)
-	var s_slide := shield_slide
-	var s_push := shield_push
-	var s_side := shield_side
-	var s_up := shield_up
-	var flip := shield_flip
-	skel.skeleton_updated.connect(func() -> void:
-		if not is_instance_valid(holder) or not is_instance_valid(node): return
-		var fwd := Vector3(-signf(node.global_position.x), 0.0, 0.0)   # pra frente = rumo ao centro/inimigo
-		if fwd.length() < 0.01: fwd = Vector3.LEFT
-		if flip: fwd = -fwd
-		var rx := Vector3.UP.cross(fwd).normalized()
-		var ry := fwd.cross(rx)
-		# ancora no ORIGIN do osso (roll-independente) + desliza pelo eixo Y do osso (cotovelo→pulso) + empurra pra frente
-		var along := ba.global_transform.basis.y.normalized()
-		var origin := ba.global_position + along * s_slide + fwd * s_push + rx * s_side + ry * s_up
-		holder.global_transform = Transform3D(Basis(rx, ry, fwd), origin))   # 2º ) fecha o connect(
-
-func _box(parent: Node, size: Vector3, pos: Vector3, col: Color, metallic: float, emit := Color.BLACK, emit_e := 0.0) -> void:
-	var mi := MeshInstance3D.new()
-	var bm := BoxMesh.new()
-	bm.size = size
-	mi.mesh = bm
-	mi.position = pos
-	var m := StandardMaterial3D.new()
-	m.albedo_color = col
-	m.metallic = metallic
-	if emit_e > 0.0:   # [RARIDADE] brilho
-		m.emission_enabled = true
-		m.emission = emit
-		m.emission_energy_multiplier = emit_e
-	mi.material_override = m
-	parent.add_child(mi)
-
-func _sphere(parent: Node, radius: float, pos: Vector3, col: Color, metallic: float, emit := Color.BLACK, emit_e := 0.0) -> void:
-	var mi := MeshInstance3D.new()
-	var sm := SphereMesh.new()
-	sm.radius = radius
-	sm.height = radius * 2.0
-	mi.mesh = sm
-	mi.position = pos
-	var m := StandardMaterial3D.new()
-	m.albedo_color = col
-	m.metallic = metallic
-	if emit_e > 0.0:   # [RARIDADE] brilho
-		m.emission_enabled = true
-		m.emission = emit
-		m.emission_energy_multiplier = emit_e
-	mi.material_override = m
-	parent.add_child(mi)
 
 func _shoot_arrow(a: Dictionary, b: Dictionary) -> void:
 	var arrow := MeshInstance3D.new()
