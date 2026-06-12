@@ -172,6 +172,13 @@ var mons := Monsters.new()  # helper de monstros (instancia + auto-fit + roster/
 var wp := Weapons.new()     # helper de armas/escudo procedurais (+ raridade)
 var cam_view := 1            # preset de câmera ATIVO (1/2/3) — ver CAM_PRESETS
 var cam_hint: Label          # dica no canto: "📷 Cam N  [1/2/3]"
+# [JUICE] game-feel: camera shake (trauma²) + hit-stop + kill-cam slow-mo [Fable]
+var cam_shake := 0.0          # trauma 0..1 (decai); aplica offset de tela
+var _shake_noise := FastNoiseLite.new()
+var _shake_time := 0.0
+var _hs_gen := 0              # geração do hit-stop/slow-mo (só o último restaura o time_scale)
+var _cam_base_fov := 75.0
+const SHAKE_DECAY := 3.2
 
 # kiting: ativo quando EXATAMENTE um lado é ranged (arco) e o outro melee
 var kiting := false
@@ -665,6 +672,16 @@ func _process(dt: float) -> void:
 	if Input.is_key_pressed(KEY_1) and cam_view != 1: cam_view = 1; _apply_camera()
 	elif Input.is_key_pressed(KEY_2) and cam_view != 2: cam_view = 2; _apply_camera()
 	elif Input.is_key_pressed(KEY_3) and cam_view != 3: cam_view = 3; _apply_camera()
+	# [JUICE] camera shake (trauma² = golpes grandes tremem MUITO mais)
+	if cam:
+		_shake_time += dt
+		if cam_shake > 0.001:
+			cam_shake = maxf(0.0, cam_shake - dt * SHAKE_DECAY)
+			var a := cam_shake * cam_shake * 0.28
+			cam.h_offset = _shake_noise.get_noise_1d(_shake_time * 55.0) * a
+			cam.v_offset = _shake_noise.get_noise_1d(_shake_time * 55.0 + 99.0) * a
+		elif cam.h_offset != 0.0 or cam.v_offset != 0.0:
+			cam.h_offset = 0.0; cam.v_offset = 0.0
 	for f in order:
 		if not is_instance_valid(f["node"]): continue
 		var n := f["node"] as Node3D
@@ -952,6 +969,7 @@ func _resolve(e: Dictionary) -> void:
 		tgt["hp"] = int(e.get("targetHp", tgt["hp"]))
 		_update_hp(tgt)
 		if tgt["hp"] <= 0: _kill(tgt)
+		elif dmg > 0: _on_impact(ty == "crit")   # [JUICE] golpe não-fatal: shake + hit-stop + fov
 	elif ty == "miss" and tgt:
 		_popup(_head(tgt), "MISS", Color(0.62, 0.81, 1), false)
 	elif ty == "dodge":
@@ -1070,6 +1088,7 @@ func _kill(f: Dictionary) -> void:
 	if dir.length() < 0.01: dir = Vector3.RIGHT
 	dir = dir.normalized()
 	var brutal: bool = f.get("last_hit_crit", false)
+	_kill_cam()   # [JUICE] slow-mo + zoom: o ragdoll/gore a seguir voa em câmera lenta
 	# [GORE] golpe fatal: jato de sangue (pra cima + na direção) + névoa + gotejamento + poça grande
 	_blood_spray(_chest(f), Vector3.UP * 1.6 + dir * 0.8, 40 if brutal else 30, true)
 	_blood_mist(_chest(f))
@@ -1361,6 +1380,8 @@ func _setup_camera() -> void:
 	cam.position = Vector3(0.0, 3.0, 5.5)   # default de 1v1; _frame_camera() reenquadra após o spawn
 	cam.look_at_from_position(cam.position, Vector3(0, 1.0, 0), Vector3.UP)
 	add_child(cam)
+	_cam_base_fov = cam.fov
+	_shake_noise.frequency = 2.0   # [JUICE] ruído do tremor
 
 # Monta o MAPA. Prioridade: scenario fixo (@export) > scene do backend (reino da luta) > sorteio.
 func _setup_map() -> void:
@@ -1522,6 +1543,47 @@ func _apply_camera() -> void:
 	cam.look_at(Vector3(0.0, p["look_y"], 0.0), Vector3.UP)
 	if cam_hint:
 		cam_hint.text = "📷 Cam %d  [1/2/3]" % cam_view
+
+# ── [JUICE] game-feel: impacto (shake+hit-stop+fov), kill-cam slow-mo [Fable] ─────
+func _exit_tree() -> void:
+	Engine.time_scale = 1.0   # segurança: nunca deixar o jogo travado em câmera lenta
+
+# Golpe NÃO-fatal: tremor + micro-freeze + punch de FOV (escala no crit).
+func _on_impact(big: bool) -> void:
+	cam_shake = maxf(cam_shake, 0.55 if big else 0.34)
+	_hit_stop(0.10 if big else 0.05)
+	_fov_punch(_cam_base_fov - (8.0 if big else 4.0))
+
+# Congela o tempo por `dur` REAIS (ignore_time_scale no timer); só o último restaura (geração).
+func _hit_stop(dur: float, scale := 0.04) -> void:
+	_hs_gen += 1
+	var my := _hs_gen
+	Engine.time_scale = scale
+	await get_tree().create_timer(dur, true, false, true).timeout
+	if my == _hs_gen:
+		Engine.time_scale = 1.0
+
+# Zoom rápido pra dentro e volta (tween em tempo REAL p/ não arrastar no slow-mo).
+func _fov_punch(target: float) -> void:
+	if cam == null: return
+	var tw := create_tween().set_ignore_time_scale(true)
+	tw.tween_property(cam, "fov", target, 0.07).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
+	tw.tween_property(cam, "fov", _cam_base_fov, 0.30).set_trans(Tween.TRANS_SINE)
+
+# KILL-CAM: slow-mo + zoom forte + tremor; o ragdoll/gore voa em câmera lenta. Restaura depois.
+func _kill_cam() -> void:
+	if cam == null: return
+	_hs_gen += 1
+	var my := _hs_gen
+	Engine.time_scale = 0.16
+	cam_shake = 1.0
+	var tw := create_tween().set_ignore_time_scale(true)
+	tw.tween_property(cam, "fov", _cam_base_fov - 16.0, 0.22).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
+	await get_tree().create_timer(1.0, true, false, true).timeout
+	if my == _hs_gen:
+		Engine.time_scale = 1.0
+		var tw2 := create_tween().set_ignore_time_scale(true)
+		tw2.tween_property(cam, "fov", _cam_base_fov, 0.45).set_trans(Tween.TRANS_SINE)
 
 func _make_ui() -> void:
 	var layer := CanvasLayer.new()
