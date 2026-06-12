@@ -352,35 +352,89 @@ func _start_quest(kingdom: String, quest_type: String) -> void:
 	if busy: return
 	busy = true
 	var r = await Api.quest_start(kingdom, quest_type)
-	if r.get("ok") and r.get("json") is Dictionary:
-		var j: Dictionary = r["json"]
-		# Quest interativa precisa de escolha (modal de diálogo no web) — não suportado aqui ainda.
-		if bool(j.get("interactive", false)):
-			status.text = "Quest interativa — use a versão web para escolher o caminho."
-		else:
-			# não-interativa: resolve direto (start→collect), como o web
-			busy = false
-			await _collect_quest(kingdom, int(j.get("id", 0)))
-			return
-	else:
-		_show_error(r)
 	busy = false
-	await _open(kingdom)
+	if not (r.get("ok") and r.get("json") is Dictionary):
+		_show_error(r); await _open(kingdom); return
+	var j: Dictionary = r["json"]
+	var qid := int(j.get("id", 0))
+	# interativa: mostra o diálogo (intro + opções) → coleta com optionId. Senão resolve direto.
+	if bool(j.get("interactive", false)) and j.get("dialog") is Dictionary:
+		_show_quest_dialog(kingdom, qid, j["dialog"])
+	else:
+		await _collect_quest(kingdom, qid)
 
-func _collect_quest(kingdom: String, quest_id: int) -> void:
+func _collect_quest(kingdom: String, quest_id: int, option_id := "") -> void:
 	if busy: return
 	busy = true
-	var r = await Api.quest_collect(kingdom, quest_id)
-	if r.get("ok") and r.get("json") is Dictionary:
-		var j: Dictionary = r["json"]
-		if bool(j.get("lunaPending", false)):
-			status.text = "🐶 A Luna interrompeu a missão — resolva na versão web."
-		else:
-			status.text = _quest_result_text(j)
-	else:
-		_show_error(r)
+	var r = await Api.quest_collect(kingdom, quest_id, option_id)
 	busy = false
+	if not (r.get("ok") and r.get("json") is Dictionary):
+		_show_error(r); await _open(kingdom); return
+	var j: Dictionary = r["json"]
+	if bool(j.get("lunaPending", false)):   # a Luna interrompeu → ajudar ou terminar
+		_show_luna_dialog(kingdom, quest_id)
+		return
+	status.text = _quest_result_text(j)
 	await _open(kingdom)
+
+# Diálogo de quest interativa: intro + um botão por opção (coleta com o optionId escolhido).
+func _show_quest_dialog(kingdom: String, quest_id: int, dialog: Dictionary) -> void:
+	var opts: Array = []
+	for o in dialog.get("options", []):
+		if o is Dictionary:
+			opts.append([str(o.get("label", "?")), str(o.get("id", ""))])
+	_choice_dialog(str(dialog.get("intro", "")), opts, func(opt_id) -> void:
+		await _collect_quest(kingdom, quest_id, str(opt_id)))
+
+# A Luna apareceu: ajudar (abre mão da recompensa) ou terminar a missão.
+func _show_luna_dialog(kingdom: String, quest_id: int) -> void:
+	_choice_dialog("🐶 Uma cãozinha (Luna) apareceu e interrompeu a missão! O que fazer?",
+		[["Ajudar a Luna", "help"], ["Terminar a missão", "ignore"]],
+		func(action) -> void:
+			busy = true
+			var r = await Api.quest_luna(kingdom, quest_id, str(action))
+			busy = false
+			if r.get("ok") and r.get("json") is Dictionary:
+				status.text = _quest_result_text(r["json"])
+			else:
+				_show_error(r)
+			await _open(kingdom))
+
+# Overlay genérico de escolha: título + botões. cb.call(valor) ao escolher. [MIGRACAO_GODOT]
+func _choice_dialog(title_text: String, options: Array, cb: Callable) -> void:
+	var overlay := ColorRect.new()
+	overlay.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	overlay.color = Color(0, 0, 0, 0.72)
+	overlay.mouse_filter = Control.MOUSE_FILTER_STOP
+	add_child(overlay)
+	var center := CenterContainer.new()
+	center.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	overlay.add_child(center)
+	var panel := PanelContainer.new()
+	var sb := StyleBoxFlat.new()
+	sb.bg_color = Color(0.12, 0.10, 0.10)
+	sb.set_border_width_all(2); sb.border_color = Color(0.5, 0.4, 0.22)
+	sb.set_corner_radius_all(4); sb.set_content_margin_all(16)
+	panel.add_theme_stylebox_override("panel", sb)
+	center.add_child(panel)
+	var vb := VBoxContainer.new()
+	vb.custom_minimum_size = Vector2(460, 0)
+	vb.add_theme_constant_override("separation", 10)
+	panel.add_child(vb)
+	var lbl := Label.new()
+	lbl.text = title_text
+	lbl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	lbl.custom_minimum_size = Vector2(460, 0)
+	vb.add_child(lbl)
+	for opt in options:
+		var b := Button.new()
+		b.text = str(opt[0])
+		b.custom_minimum_size = Vector2(0, 40)
+		var val = opt[1]
+		b.pressed.connect(func() -> void:
+			overlay.queue_free()
+			cb.call(val))
+		vb.add_child(b)
 
 func _abandon_quest(kingdom: String, quest_id: int) -> void:
 	if busy: return

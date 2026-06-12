@@ -69,9 +69,10 @@ func quest_list(kingdom: String) -> Dictionary:
 func quest_start(kingdom: String, quest_type: String) -> Dictionary:
 	return await _request(HTTPClient.METHOD_POST, "/api/world/%s/quests/start" % kingdom, {"questType": quest_type}, true)
 
-## POST /api/world/{kingdom}/quests/{id}/collect — resolve. json.battleEvents se monsterEncountered. {} = não-interativa.
-func quest_collect(kingdom: String, id: int) -> Dictionary:
-	return await _request(HTTPClient.METHOD_POST, "/api/world/%s/quests/%d/collect" % [kingdom, id], {}, true)
+## POST /api/world/{kingdom}/quests/{id}/collect — resolve. optionId só p/ quest interativa. json.battleEvents se monstro.
+func quest_collect(kingdom: String, id: int, option_id := "") -> Dictionary:
+	var body := {} if option_id == "" else {"optionId": option_id}
+	return await _request(HTTPClient.METHOD_POST, "/api/world/%s/quests/%d/collect" % [kingdom, id], body, true)
 
 ## POST /api/world/{kingdom}/quests/{id}/luna/{action} — resolve a interrupção da Luna (ignore = retoma a missão).
 func quest_luna(kingdom: String, id: int, action: String) -> Dictionary:
