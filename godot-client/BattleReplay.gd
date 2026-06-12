@@ -128,6 +128,8 @@ const GORE_COLORS := [Color(0.5, 0.08, 0.08), Color(0.42, 0.05, 0.05), Color(0.6
 ## TESTE: força o tipo VISUAL da arma do herói (sem equipar no jogo). Vazio = arma real do inventário.
 ## Valores: sword | greatsword | axe | spear | mace | shortbow | longbow | crossbow
 @export var force_weapon := ""
+## Posição do CABO da arma melee ao longo da mão (RightHand). MENOR = cabo mais pra dentro/baixo (na mão).
+@export var weapon_grip := 0.20
 ## TESTE: força um ESCUDO na off-hand do herói (some com arco). Vazio/false = só se equipado de verdade.
 @export var force_shield := false
 ## Escudo (off-hand): posição calibrável (orientação é automática, virada pra frente). [Fable] Roll-safe.
@@ -986,7 +988,7 @@ func _attach_weapon(node: Node3D, kind: String) -> void:
 	ba.bone_name = "RightHand"
 	skel.add_child(ba)
 	var holder := Node3D.new()
-	holder.position = Vector3(0.27, 0.05, 0.04)
+	holder.position = Vector3(weapon_grip, 0.05, 0.04)   # weapon_grip = ao longo da mão; MENOR = cabo mais pra dentro/baixo
 	holder.rotation_degrees = Vector3(0, 0, -90)
 	ba.add_child(holder)
 	var steel := Color(0.82, 0.84, 0.88)
