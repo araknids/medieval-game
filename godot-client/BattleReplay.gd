@@ -99,6 +99,9 @@ const MAX_POOLS := 26
 # [GORE] desmembramento: pedaços/membros voando (RigidBody) — cores de carne/sangue + cap
 const MAX_GIBS := 40
 const GORE_COLORS := [Color(0.5, 0.08, 0.08), Color(0.42, 0.05, 0.05), Color(0.62, 0.22, 0.18), Color(0.45, 0.12, 0.1)]
+# [RARIDADE] cor + brilho do metal da arma pela raridade do item (1 comum → 5 lendário).
+const RARITY_TINT := [Color(0.82, 0.84, 0.88), Color(0.45, 0.85, 0.45), Color(0.35, 0.60, 1.0), Color(0.72, 0.40, 0.95), Color(1.0, 0.78, 0.28)]
+const RARITY_GLOW := [0.0, 0.5, 1.0, 1.7, 2.6]   # energia de emissão por raridade
 
 ## Credenciais (sobrepostas por login.cfg se existir). adm/adm123 só vale no DEV local.
 @export var username := "adm"
@@ -130,6 +133,8 @@ const GORE_COLORS := [Color(0.5, 0.08, 0.08), Color(0.42, 0.05, 0.05), Color(0.6
 @export var force_weapon := ""
 ## Posição do CABO da arma melee ao longo da mão (RightHand). MENOR = cabo mais pra dentro/baixo (na mão).
 @export var weapon_grip := 0.10
+## TESTE: força a RARIDADE visual da arma do herói (1 comum…5 lendário). 0 = raridade real do inventário.
+@export_range(0, 5) var force_rarity := 0
 ## TESTE: força um ESCUDO na off-hand do herói (some com arco). Vazio/false = só se equipado de verdade.
 @export var force_shield := false
 ## Escudo (off-hand): posição calibrável (orientação é automática, virada pra frente). [Fable] Roll-safe.
@@ -153,6 +158,7 @@ var fighters := {}          # name -> dict do lutador
 var order: Array = []       # [left, right] na ordem de spawn
 var player_equip: Array = []  # tipos de armadura EQUIPADOS pelo jogador (p/ vestir o lutador da esquerda)
 var player_weapon := ""       # tipo visual fino: sword|greatsword|axe|spear|mace|shortbow|longbow|crossbow
+var player_weapon_rarity := 1 # raridade (1-5) da arma equipada → cor/brilho do metal [RARIDADE]
 var cam: Camera3D
 var mons := Monsters.new()  # helper de monstros (instancia + auto-fit + roster/mapa)
 var cam_view := 1            # preset de câmera ATIVO (1/2/3) — ver CAM_PRESETS
@@ -373,8 +379,9 @@ func _build_fighters() -> void:
 		if pick.get("kind") == "monster":
 			emeta = pick
 			print(">>> inimigo '%s' → monstro %s (h=%.1f)" % [enemy_name, emeta["file"], emeta["target_h"]])
+	var lrarity := force_rarity if force_rarity > 0 else player_weapon_rarity   # [RARIDADE] herói
 	order = [
-		_make_fighter(lname, -1, int(spawns[0].get("targetMaxHp", 100)), lweapon, lequip, {}),
+		_make_fighter(lname, -1, int(spawns[0].get("targetMaxHp", 100)), lweapon, lequip, {}, lrarity),
 		_make_fighter(rname,  1, int(spawns[1].get("targetMaxHp", 100)), rweapon, DEFAULT_OUTFIT, emeta),
 	]
 	fighters[lname] = order[0]
@@ -444,6 +451,7 @@ func _read_player_gear(items: Array) -> void:
 			player_equip.append("SHIELD")   # marca p/ desenhar o escudo na off-hand (_make_fighter)
 		elif ty == "WEAPON":
 			player_weapon = _weapon_kind(str(it.get("name", "")), str(it.get("weaponCategory", "")))
+			player_weapon_rarity = int(it.get("rarity", 1))
 
 # Infere o tipo visual da arma pelo nome + categoria (backend só dá MELEE/RANGED).
 # Tipo visual FINO da arma pelo NOME (espelha backend WeaponType.fromName — a API não manda o tipo).
@@ -470,7 +478,7 @@ func _is_ranged(who: String) -> bool:
 			return true
 	return false
 
-func _make_fighter(fname: String, side: int, maxhp: int, weapon_kind: String, equipped_types: Array, monster_meta := {}) -> Dictionary:
+func _make_fighter(fname: String, side: int, maxhp: int, weapon_kind: String, equipped_types: Array, monster_meta := {}, rarity := 1) -> Dictionary:
 	var is_monster := not monster_meta.is_empty()
 	var node: Node3D = mons.instance(str(monster_meta.get("file", ""))) if is_monster else CHAR.instantiate()
 	if node == null:   # monstro não carregou → cai no humano p/ não travar a cena
@@ -507,7 +515,7 @@ func _make_fighter(fname: String, side: int, maxhp: int, weapon_kind: String, eq
 	_face(f, -side)   # seta o alvo de rotação (encara o oponente)
 	if not is_monster:
 		_dress(node, skel, equipped_types)   # [GODOT_PAPERDOLL] veste antes da arma
-		_attach_weapon(node, weapon_kind)
+		_attach_weapon(node, weapon_kind, rarity)
 		# escudo na off-hand (LeftHand) — só com arma MELEE (arco usa as duas mãos)
 		if ("SHIELD" in equipped_types) and not _is_bow_kind(weapon_kind):
 			_attach_shield(node)
@@ -976,14 +984,18 @@ func _face(f: Dictionary, dir: float) -> void:
 
 # Desenha a arma pelo TIPO fino. Arco/besta vão na LeftHand; melee na RightHand num holder
 # (rot -90; +Y local = direção da arma) com peças simples. 8 tipos do WeaponType.
-func _attach_weapon(node: Node3D, kind: String) -> void:
+func _attach_weapon(node: Node3D, kind: String, rarity := 1) -> void:
 	var skel: Skeleton3D = node.find_child("GeneralSkeleton", true, false)
 	if skel == null: return
+	# [RARIDADE] metal vira a cor da raridade + emissão (comum = aço sem brilho; lendário = dourado brilhante)
+	var r := clampi(rarity, 1, 5)
+	var steel := RARITY_TINT[r - 1] as Color   # r=1 → aço normal
+	var ge := RARITY_GLOW[r - 1] as float       # energia de emissão (0 no comum)
 	var ba := BoneAttachment3D.new()
 	if _is_bow_kind(kind):
 		ba.bone_name = "LeftHand"
 		skel.add_child(ba)
-		_attach_bow(ba, kind)
+		_attach_bow(ba, kind, steel, ge)
 		return
 	ba.bone_name = "RightHand"
 	skel.add_child(ba)
@@ -991,40 +1003,41 @@ func _attach_weapon(node: Node3D, kind: String) -> void:
 	holder.position = Vector3(weapon_grip, 0.05, 0.04)   # weapon_grip = ao longo da mão; MENOR = cabo mais pra dentro/baixo
 	holder.rotation_degrees = Vector3(0, 0, -90)
 	ba.add_child(holder)
-	var steel := Color(0.82, 0.84, 0.88)
 	var wood := Color(0.35, 0.22, 0.12)
 	match kind:
 		"greatsword":   # espada de 2 mãos: lâmina mais longa/larga + guarda larga + cabo comprido
-			_box(holder, Vector3(0.028, 0.82, 0.10), Vector3(0, 0.54, 0), steel, 0.7)              # lâmina longa
+			_box(holder, Vector3(0.028, 0.82, 0.10), Vector3(0, 0.54, 0), steel, 0.7, steel, ge)      # lâmina longa (brilha)
 			_box(holder, Vector3(0.07, 0.04, 0.28),  Vector3(0, 0.10, 0), Color(0.28, 0.22, 0.14), 0.3)  # guarda larga
 			_box(holder, Vector3(0.032, 0.22, 0.032),Vector3(0, -0.04, 0), wood, 0.1)              # cabo longo (2 mãos)
 			_box(holder, Vector3(0.06, 0.06, 0.06),  Vector3(0, -0.18, 0), Color(0.70, 0.60, 0.20), 0.5)  # pomo
 		"axe":
 			_box(holder, Vector3(0.028, 0.62, 0.028), Vector3(0, 0.20, 0), wood, 0.1)        # cabo longo
-			_box(holder, Vector3(0.02, 0.16, 0.17),   Vector3(0, 0.46, 0.07), steel, 0.7)    # lâmina do machado
+			_box(holder, Vector3(0.02, 0.16, 0.17),   Vector3(0, 0.46, 0.07), steel, 0.7, steel, ge)  # lâmina (brilha)
 		"spear":
 			_box(holder, Vector3(0.024, 0.95, 0.024), Vector3(0, 0.30, 0), wood, 0.1)         # haste
-			_box(holder, Vector3(0.04, 0.16, 0.04),   Vector3(0, 0.82, 0), steel, 0.7)        # ponta
+			_box(holder, Vector3(0.04, 0.16, 0.04),   Vector3(0, 0.82, 0), steel, 0.7, steel, ge)  # ponta (brilha)
 		"mace":
 			_box(holder, Vector3(0.03, 0.42, 0.03),   Vector3(0, 0.12, 0), wood, 0.1)         # cabo
-			_sphere(holder, 0.075, Vector3(0, 0.38, 0), Color(0.55, 0.56, 0.6), 0.6)          # cabeça
+			_sphere(holder, 0.075, Vector3(0, 0.38, 0), steel, 0.6, steel, ge)                # cabeça (brilha)
 		_:  # sword (default)
-			_box(holder, Vector3(0.022, 0.5, 0.075),  Vector3(0,  0.34, 0), steel, 0.7)           # lâmina
+			_box(holder, Vector3(0.022, 0.5, 0.075),  Vector3(0,  0.34, 0), steel, 0.7, steel, ge)    # lâmina (brilha)
 			_box(holder, Vector3(0.05, 0.035, 0.20),  Vector3(0,  0.07, 0), Color(0.28, 0.22, 0.14), 0.3)  # guarda
 			_box(holder, Vector3(0.028, 0.13, 0.028), Vector3(0, -0.02, 0), wood, 0.1)             # cabo
 			_box(holder, Vector3(0.05, 0.05, 0.05),   Vector3(0, -0.10, 0), Color(0.70, 0.60, 0.20), 0.5)  # pomo
 
 # Arco/besta na LeftHand. shortbow/longbow = arco vertical (stave + corda); crossbow = horizontal (coronha + braço).
-func _attach_bow(ba: Node3D, kind: String) -> void:
+# A corda recebe a cor/brilho da raridade (glow_col/ge) p/ o arco também "ler" o poder.
+func _attach_bow(ba: Node3D, kind: String, glow_col := Color.WHITE, ge := 0.0) -> void:
 	var wood := Color(0.45, 0.30, 0.16)
+	var cord := glow_col if ge > 0.0 else Color(0.85, 0.82, 0.70)   # corda comum = creme; rara+ = cor da raridade
 	if kind == "crossbow":
 		_box(ba, Vector3(0.035, 0.05, 0.40), Vector3(0.10, 0.06, 0.10), wood, 0.1)                  # coronha (pra frente)
 		_box(ba, Vector3(0.40, 0.03, 0.03),  Vector3(0.10, 0.08, 0.26), Color(0.30, 0.25, 0.18), 0.2)  # braço transversal
-		_box(ba, Vector3(0.35, 0.006, 0.006),Vector3(0.10, 0.08, 0.25), Color(0.85, 0.82, 0.70), 0.0)  # corda
+		_box(ba, Vector3(0.35, 0.006, 0.006),Vector3(0.10, 0.08, 0.25), cord, 0.0, glow_col, ge)    # corda (brilha)
 		return
 	var h := 0.95 if kind == "longbow" else 0.55                                                      # longbow alto, shortbow baixo
-	_box(ba, Vector3(0.03, h, 0.03),        Vector3(0.10, 0.07, 0.04), wood, 0.1)                     # corpo do arco
-	_box(ba, Vector3(0.006, h * 0.95, 0.006), Vector3(0.10, 0.07, -0.02), Color(0.85, 0.82, 0.70), 0.0)  # corda
+	_box(ba, Vector3(0.03, h, 0.03),        Vector3(0.10, 0.07, 0.04), wood, 0.1, glow_col, ge * 0.4)  # corpo (brilho sutil)
+	_box(ba, Vector3(0.006, h * 0.95, 0.006), Vector3(0.10, 0.07, -0.02), cord, 0.0, glow_col, ge)   # corda (brilha)
 
 # Escudo (heater) na off-hand. [Fable] A rotação local de um osso é ANIMADA → euler fixo nunca encaixa.
 # Solução: holder com top_level=true (ignora a rotação do osso) e realinhado todo frame via
@@ -1064,7 +1077,7 @@ func _attach_shield(node: Node3D) -> void:
 		var origin := ba.global_position + along * s_slide + fwd * s_push + rx * s_side + ry * s_up
 		holder.global_transform = Transform3D(Basis(rx, ry, fwd), origin))   # 2º ) fecha o connect(
 
-func _box(parent: Node, size: Vector3, pos: Vector3, col: Color, metallic: float) -> void:
+func _box(parent: Node, size: Vector3, pos: Vector3, col: Color, metallic: float, emit := Color.BLACK, emit_e := 0.0) -> void:
 	var mi := MeshInstance3D.new()
 	var bm := BoxMesh.new()
 	bm.size = size
@@ -1073,10 +1086,14 @@ func _box(parent: Node, size: Vector3, pos: Vector3, col: Color, metallic: float
 	var m := StandardMaterial3D.new()
 	m.albedo_color = col
 	m.metallic = metallic
+	if emit_e > 0.0:   # [RARIDADE] brilho
+		m.emission_enabled = true
+		m.emission = emit
+		m.emission_energy_multiplier = emit_e
 	mi.material_override = m
 	parent.add_child(mi)
 
-func _sphere(parent: Node, radius: float, pos: Vector3, col: Color, metallic: float) -> void:
+func _sphere(parent: Node, radius: float, pos: Vector3, col: Color, metallic: float, emit := Color.BLACK, emit_e := 0.0) -> void:
 	var mi := MeshInstance3D.new()
 	var sm := SphereMesh.new()
 	sm.radius = radius
@@ -1086,6 +1103,10 @@ func _sphere(parent: Node, radius: float, pos: Vector3, col: Color, metallic: fl
 	var m := StandardMaterial3D.new()
 	m.albedo_color = col
 	m.metallic = metallic
+	if emit_e > 0.0:   # [RARIDADE] brilho
+		m.emission_enabled = true
+		m.emission = emit
+		m.emission_energy_multiplier = emit_e
 	mi.material_override = m
 	parent.add_child(mi)
 
