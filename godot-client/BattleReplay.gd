@@ -130,9 +130,11 @@ const GORE_COLORS := [Color(0.5, 0.08, 0.08), Color(0.42, 0.05, 0.05), Color(0.6
 @export var force_weapon := ""
 ## TESTE: força um ESCUDO na off-hand do herói (some com arco). Vazio/false = só se equipado de verdade.
 @export var force_shield := false
-## Escudo (off-hand): offset em ESPAÇO DO OSSO p/ POSICIONAR (a orientação é automática, virada pra frente).
-## Ajuste no Inspector + re-F6 se precisar assentar melhor no antebraço. Y desliza p/ o pulso; X/Z = pra fora.
-@export var shield_grip := Vector3(-0.05, 0.18, 0.0)
+## Escudo (off-hand): posição calibrável (orientação é automática, virada pra frente). [Fable] Roll-safe.
+@export var shield_slide := 0.13   # desliza ao longo do antebraço (cotovelo→pulso). + = rumo ao pulso
+@export var shield_push := 0.12    # empurra pra FORA (frente) — afasta do braço/torso
+@export var shield_side := 0.0     # nudge lateral (no frame alinhado do escudo)
+@export var shield_up := 0.02      # nudge vertical (no frame alinhado do escudo)
 ## Vira a face do escudo (use se o umbo ficar virado pro CORPO em vez do inimigo).
 @export var shield_flip := false
 ## (Legado) escala manual do monstro — hoje o tamanho vem do roster (Monsters.size_for) + auto-fit.
@@ -1043,7 +1045,10 @@ func _attach_shield(node: Node3D) -> void:
 	_box(holder, Vector3(0.045, 0.42, 0.05), Vector3(0.17, 0, 0), rim, 0.6)      # borda direita
 	_box(holder, Vector3(0.045, 0.42, 0.05), Vector3(-0.17, 0, 0), rim, 0.6)     # borda esquerda
 	_sphere(holder, 0.055, Vector3(0, 0, 0.04), rim, 0.6)                        # umbo (frente, +Z)
-	var grip := shield_grip
+	var s_slide := shield_slide
+	var s_push := shield_push
+	var s_side := shield_side
+	var s_up := shield_up
 	var flip := shield_flip
 	skel.skeleton_updated.connect(func() -> void:
 		if not is_instance_valid(holder) or not is_instance_valid(node): return
@@ -1052,7 +1057,10 @@ func _attach_shield(node: Node3D) -> void:
 		if flip: fwd = -fwd
 		var rx := Vector3.UP.cross(fwd).normalized()
 		var ry := fwd.cross(rx)
-		holder.global_transform = Transform3D(Basis(rx, ry, fwd), ba.global_transform * grip))   # 2º ) fecha o connect(
+		# ancora no ORIGIN do osso (roll-independente) + desliza pelo eixo Y do osso (cotovelo→pulso) + empurra pra frente
+		var along := ba.global_transform.basis.y.normalized()
+		var origin := ba.global_position + along * s_slide + fwd * s_push + rx * s_side + ry * s_up
+		holder.global_transform = Transform3D(Basis(rx, ry, fwd), origin))   # 2º ) fecha o connect(
 
 func _box(parent: Node, size: Vector3, pos: Vector3, col: Color, metallic: float) -> void:
 	var mi := MeshInstance3D.new()
