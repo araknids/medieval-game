@@ -46,6 +46,9 @@ func _refresh() -> void:
 		status.text = "Erro ao carregar (%s)" % str(r.get("status", "?"))
 		return
 	w = r["json"]
+	print(">>> Character: warrior ok · keys=%d · STR=%s CON=%s DEX=%s AGI=%s LUK=%s INT=%s pts=%s" % [
+		w.size(), w.get("strength"), w.get("constitution"), w.get("dexterity"),
+		w.get("agility"), w.get("luck"), w.get("intellect"), w.get("availablePoints")])
 	_render()
 
 func _render() -> void:
@@ -77,24 +80,24 @@ func _render() -> void:
 	if stam < 100:
 		stam_txt += "  (cheia em %d min)" % int(w.get("minutesToFullStamina", 0))
 	content.add_child(_bar("Estamina", stam, 100, Color(0.4, 0.8, 0.5), stam_txt))
-	# ── Moeda ──
-	content.add_child(_section("Moeda"))
-	content.add_child(_kv("Ouro/Prata/Bronze", "%d 🥇  %d 🥈  %d 🥉" % [int(w.get("gold", 0)), int(w.get("silver", 0)), int(w.get("bronze", 0))]))
-	content.add_child(_kv("SoulStones", "%d 💎" % int(w.get("soulStones", 0))))
-	# ── Combate ──
-	content.add_child(_section("Combate"))
-	content.add_child(_kv("Ataque", str(w.get("combatAttack", w.get("totalAttack", 0)))))
-	content.add_child(_kv("Defesa", str(w.get("combatDefense", w.get("totalDefense", 0)))))
-	content.add_child(_kv("Vida máx", str(w.get("combatHealth", w.get("totalHealth", 0)))))
-	content.add_child(_kv("Rank (arena)", str(w.get("rankPoints", 0))))
-	# ── Atributos (com + se houver pontos) ──
+	# ── Atributos (logo após as barras, com + se houver pontos) ──
 	var pts := int(w.get("availablePoints", 0))
 	var attr_title := "Atributos"
 	if pts > 0:
 		attr_title += "   (%d %s livre%s)" % [pts, "ponto" if pts == 1 else "pontos", "" if pts == 1 else "s"]
 	content.add_child(_section(attr_title))
 	for a in ATTRS:
-		content.add_child(_attr_row(a[2], a[1], a[0], pts > 0))
+		content.add_child(_attr_row(str(a[2]), str(a[1]), str(a[0]), pts > 0))
+	# ── Moeda ──
+	content.add_child(_section("Moeda"))
+	content.add_child(_kv("Ouro/Prata/Bronze", "%d / %d / %d" % [int(w.get("gold", 0)), int(w.get("silver", 0)), int(w.get("bronze", 0))]))
+	content.add_child(_kv("SoulStones", str(int(w.get("soulStones", 0)))))
+	# ── Combate ──
+	content.add_child(_section("Combate"))
+	content.add_child(_kv("Ataque", str(w.get("combatAttack", w.get("totalAttack", 0)))))
+	content.add_child(_kv("Defesa", str(w.get("combatDefense", w.get("totalDefense", 0)))))
+	content.add_child(_kv("Vida máx", str(w.get("combatHealth", w.get("totalHealth", 0)))))
+	content.add_child(_kv("Rank (arena)", str(w.get("rankPoints", 0))))
 	# ── Ações ──
 	content.add_child(_spacer(10))
 	var actions := HBoxContainer.new()
