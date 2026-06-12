@@ -223,8 +223,12 @@ func _ready() -> void:
 # force_mock só troca os EVENTOS por um duelo fixo e força o Bandido a ser espadachim.
 func _load_events() -> void:
 	# [MIGRACAO_GODOT] reusa o Api (autoload): se já logado (veio do app), NÃO re-loga.
+	# Acessa por /root/Api (robusto a parse de autoload); sem autoload → instância própria.
 	# Standalone (F6) → loga via login.cfg. Plano: docs/PLANO_MIGRACAO_GODOT.md
-	var client := Api
+	var client = get_node_or_null("/root/Api")
+	if client == null:
+		client = BackendClient.new()
+		add_child(client)
 	if base_url_override != "":
 		client.base_url = base_url_override
 	if client.token == "":
