@@ -628,11 +628,14 @@ func _zone_result_text(r: Dictionary) -> String:
 	return "   ".join(parts)
 
 func _show_error(r) -> void:
+	var msg := ""
 	if r is Dictionary and r.get("json") is Dictionary:
 		var j: Dictionary = r["json"]
-		status.text = str(j.get("message", j.get("error", "Falhou")))
+		msg = str(j.get("message", j.get("error", "Falhou")))
 	else:
-		status.text = "Falhou (%s)" % str(r.get("status", "?") if r is Dictionary else "?")
+		msg = "Falhou (%s)" % str(r.get("status", "?") if r is Dictionary else "?")
+	status.text = msg
+	_show_result("⚠ " + msg)   # erro vai no modal também (o status fica no topo, fora de vista)
 
 # ── helpers de UI ────────────────────────────────────────────────────────────────
 func _act(text: String, cb: Callable) -> Button:
