@@ -87,6 +87,11 @@ const HIT_TYPES := ["attack", "crit", "volley", "extra"]       # carregam dano/H
 const SWING_TYPES := ["attack", "crit", "volley", "extra", "miss", "dodge"]  # atacante balança a arma
 const RANGED_MARKERS := ["volley", "pinned", "pointblank", "backpedal"]  # delatam um lutador ranged
 const SCENARIOS := ["mining", "beach", "garimpa", "dungeon", "arena", "city", "castle"]  # mapas p/ sorteio
+# [INIMIGO] cara própria do inimigo HUMANO, derivada do NOME (determinístico): cor de roupa + arma + porte.
+const ENEMY_TINTS := [Color(0.55, 0.18, 0.18), Color(0.20, 0.28, 0.55), Color(0.22, 0.42, 0.24),
+	Color(0.36, 0.30, 0.20), Color(0.25, 0.25, 0.28), Color(0.48, 0.40, 0.16), Color(0.40, 0.22, 0.42)]
+const ENEMY_MELEE := ["sword", "greatsword", "axe", "spear", "mace"]
+const ENEMY_BOWS := ["shortbow", "longbow", "crossbow"]
 # Bestas (nomes estilo backend) p/ o modo "monster" sortear — todos casam um monstro em Monsters.pick_for.
 const SHOWCASE_FOES := ["Young Dragon", "Lesser Demon", "Stone Golem", "Sea Serpent", "Mountain Troll",
 	"Rock Spider", "Mine Wraith", "Giant Boar", "Dark Lich", "Colossal Crab", "Crystal Aberration", "Cursed Drowned"]
@@ -367,8 +372,6 @@ func _build_fighters() -> void:
 	var lequip: Array = (player_equip if player_equip.size() > 0 else DEFAULT_OUTFIT).duplicate()
 	if force_shield and not ("SHIELD" in lequip):
 		lequip.append("SHIELD")   # TESTE: força o escudo
-	# INIMIGO (direita): no force_mock vira espadachim; na arena real segue o estilo dos eventos.
-	var rweapon := "sword" if force_mock else ("bow" if _is_ranged(rname) else "sword")
 	# Representação do inimigo: monstro do bundle (besta) ou humano (cavaleiro/bandido/PvP).
 	#   enemy_monster (override manual) > nome do backend (rname) via Monsters.pick_for.
 	var emeta: Dictionary = {}
@@ -380,10 +383,16 @@ func _build_fighters() -> void:
 		if pick.get("kind") == "monster":
 			emeta = pick
 			print(">>> inimigo '%s' → monstro %s (h=%.1f)" % [enemy_name, emeta["file"], emeta["target_h"]])
+	# INIMIGO HUMANO (real OU mock): cara própria pelo NOME (cor de roupa + arma + porte).
+	var rweapon := "sword"
+	var rlook: Dictionary = {}
+	if emeta.is_empty():
+		rlook = _enemy_look(rname, _is_ranged(rname))
+		rweapon = str(rlook["weapon"])
 	var lrarity := force_rarity if force_rarity > 0 else player_weapon_rarity   # [RARIDADE] herói
 	order = [
 		_make_fighter(lname, -1, int(spawns[0].get("targetMaxHp", 100)), lweapon, lequip, {}, lrarity),
-		_make_fighter(rname,  1, int(spawns[1].get("targetMaxHp", 100)), rweapon, DEFAULT_OUTFIT, emeta),
+		_make_fighter(rname,  1, int(spawns[1].get("targetMaxHp", 100)), rweapon, DEFAULT_OUTFIT, emeta, 1, rlook),
 	]
 	fighters[lname] = order[0]
 	fighters[rname] = order[1]
@@ -440,6 +449,27 @@ func _collect_meshes(node: Node, out: Array) -> void:
 	for c in node.get_children():
 		_collect_meshes(c, out)
 
+# [INIMIGO] "cara própria" determinística pelo NOME (mesmo oponente = mesmo visual): {weapon, tint, scale}.
+func _enemy_look(nm: String, ranged: bool) -> Dictionary:
+	var h := absi(hash(nm))
+	var weapon: String = ENEMY_BOWS[(h / 7) % ENEMY_BOWS.size()] if ranged else ENEMY_MELEE[(h / 7) % ENEMY_MELEE.size()]
+	return {
+		"weapon": weapon,
+		"tint": ENEMY_TINTS[h % ENEMY_TINTS.size()],
+		"scale": 0.86 + float((h / 13) % 16) * 0.01,   # 0.86 .. 1.01
+	}
+
+# Lavagem de cor (faction) por cima da roupa — overlay translúcido, preserva a textura.
+func _tint_body(node: Node3D, color: Color) -> void:
+	var meshes: Array = []
+	_collect_meshes(node, meshes)
+	var ov := StandardMaterial3D.new()
+	ov.albedo_color = Color(color.r, color.g, color.b, 0.32)   # wash sutil
+	ov.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	for mi: MeshInstance3D in meshes:
+		if mi.visible:                       # só as peças vestidas (a base nua está oculta)
+			mi.material_overlay = ov
+
 # Lê o inventário: armadura equipada → player_equip; arma equipada → player_weapon (tipo visual).
 func _read_player_gear(items: Array) -> void:
 	for it in items:
@@ -464,7 +494,7 @@ func _is_ranged(who: String) -> bool:
 			return true
 	return false
 
-func _make_fighter(fname: String, side: int, maxhp: int, weapon_kind: String, equipped_types: Array, monster_meta := {}, rarity := 1) -> Dictionary:
+func _make_fighter(fname: String, side: int, maxhp: int, weapon_kind: String, equipped_types: Array, monster_meta := {}, rarity := 1, look := {}) -> Dictionary:
 	var is_monster := not monster_meta.is_empty()
 	var node: Node3D = mons.instance(str(monster_meta.get("file", ""))) if is_monster else CHAR.instantiate()
 	if node == null:   # monstro não carregou → cai no humano p/ não travar a cena
@@ -480,7 +510,8 @@ func _make_fighter(fname: String, side: int, maxhp: int, weapon_kind: String, eq
 		base_y = node.position.y                        # fit já setou y = ground_y + hover
 		bar_off = th - float(fit["ground_y"]) + 0.4     # acima da cabeça (independe do hover)
 	else:
-		node.scale = Vector3(0.92, 0.92, 0.92)
+		var hs := float(look.get("scale", 0.92))   # [INIMIGO] porte (humano = 0.92; inimigo varia pelo nome)
+		node.scale = Vector3(hs, hs, hs)
 	# monstro é sempre melee (sem arco/kite); herói/humano segue a arma equipada
 	var ranged := wp.is_bow_kind(weapon_kind) and not is_monster
 	var ap: AnimationPlayer = node.find_child("AnimationPlayer", true, false)
@@ -501,6 +532,8 @@ func _make_fighter(fname: String, side: int, maxhp: int, weapon_kind: String, eq
 	_face(f, -side)   # seta o alvo de rotação (encara o oponente)
 	if not is_monster:
 		_dress(node, skel, equipped_types)   # [GODOT_PAPERDOLL] veste antes da arma
+		if look.has("tint"):                 # [INIMIGO] lavagem de cor (faction) do inimigo
+			_tint_body(node, look["tint"])
 		wp.attach_weapon(node, weapon_kind, rarity, weapon_grip)
 		# escudo na off-hand — só com arma MELEE (arco usa as duas mãos)
 		if ("SHIELD" in equipped_types) and not wp.is_bow_kind(weapon_kind):
