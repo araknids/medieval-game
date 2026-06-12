@@ -5,6 +5,7 @@ extends Control
 
 const LOGIN := preload("res://ui/Login.tscn")
 const CHARACTER := preload("res://ui/Character.tscn")
+const INVENTORY := preload("res://ui/Inventory.tscn")
 
 var current: Control
 
@@ -28,3 +29,7 @@ func _show(scene: PackedScene) -> void:
 		current.logout.connect(func() -> void: Api.token = ""; _route())
 	if current.has_signal("go_battle"):
 		current.go_battle.connect(func() -> void: get_tree().change_scene_to_file("res://BattleReplay.tscn"))
+	if current.has_signal("go_inventory"):
+		current.go_inventory.connect(func() -> void: _show(INVENTORY))
+	if current.has_signal("go_back"):
+		current.go_back.connect(func() -> void: _show(CHARACTER))

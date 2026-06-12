@@ -4,6 +4,7 @@ extends Control
 # (POST /api/warrior/attributes/{ATTR}). Botões: Lutar (→ batalha) e Sair. [MIGRACAO_GODOT]
 
 signal go_battle
+signal go_inventory
 signal logout
 
 # atributo: chave no JSON, sigla, ícone
@@ -109,6 +110,11 @@ func _render() -> void:
 	fight.disabled = bool(w.get("isKnockedOut", false))
 	fight.pressed.connect(func() -> void: go_battle.emit())
 	actions.add_child(fight)
+	var inv := Button.new()
+	inv.text = "🎒 Inventário"
+	inv.custom_minimum_size = Vector2(140, 44)
+	inv.pressed.connect(func() -> void: go_inventory.emit())
+	actions.add_child(inv)
 	var refresh := Button.new()
 	refresh.text = "↻ Atualizar"
 	refresh.pressed.connect(func() -> void: await _refresh())

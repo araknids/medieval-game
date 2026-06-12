@@ -34,6 +34,18 @@ func spend_attribute(attr: String) -> Dictionary:
 func get_inventory() -> Dictionary:
 	return await _request(HTTPClient.METHOD_GET, "/api/inventory", null, true)
 
+## POST /api/inventory/{id}/equip — equipa (auto-desequipa o slot). Devolve o item. [MIGRACAO_GODOT]
+func equip_item(id: int) -> Dictionary:
+	return await _request(HTTPClient.METHOD_POST, "/api/inventory/%d/equip" % id, {}, true)
+
+## POST /api/inventory/{id}/unequip — desequipa. Devolve o item.
+func unequip_item(id: int) -> Dictionary:
+	return await _request(HTTPClient.METHOD_POST, "/api/inventory/%d/unequip" % id, {}, true)
+
+## POST /api/inventory/{id}/sell — vende. Devolve {message, goldEarned, gold}. Não vende equipado.
+func sell_item(id: int) -> Dictionary:
+	return await _request(HTTPClient.METHOD_POST, "/api/inventory/%d/sell" % id, {}, true)
+
 ## POST /api/arena/fight (autenticado) — resolve um duelo de arena e devolve o resultado completo.
 ## json.battleEvents = Array de eventos (spawn/attack/crit/miss/dodge/extra/volley/heal/.../victory),
 ## os MESMOS que o battleArena.js 2D toca. Usado pelo replay 3D (Fase 3). [BATALHA_ANIMADA]
