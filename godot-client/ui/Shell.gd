@@ -10,6 +10,15 @@ signal logout
 
 const Icons := preload("res://ui/Icons.gd")   # BustView é global (class_name), não precisa preload
 
+# Tooltips (hover) dos itens da topbar — explicam o que é cada coisa.
+const COIN_TIPS := {
+	"gold": "Ouro — moeda de maior valor (1 ouro = 100 prata = 10.000 bronze)",
+	"silver": "Prata — 1 prata = 100 bronze",
+	"bronze": "Bronze — moeda básica (recompensas, vendas)",
+	"soulstone": "SoulStone — moeda premium (VIP, cura instantânea)",
+}
+const ELEM_ICONS := {"FIRE": "🔥", "WATER": "💧", "EARTH": "🪨", "AIR": "💨"}
+
 # Nav em árvore: [seção, [[tela, rótulo], ...]] — o ícone vem de "<tela em minúsculo>.png".
 const SECTIONS := [
 	["Aventura",   [["World", "Mundo"], ["Work", "Trabalho"], ["Temple", "Templo"]]],
@@ -35,6 +44,7 @@ var _hp_bar: ProgressBar
 var _stam_bar: ProgressBar
 var _stam_lbl: Label
 var _coins: Dictionary = {}     # key -> Label
+var _buffs_box: HBoxContainer    # badges dos buffs ativos (templo/vip/refeição/encanto/novato/taverna)
 var _nav_buttons: Dictionary = {}   # nome da tela -> Button (destaque do ativo)
 
 func _ready() -> void:
@@ -110,6 +120,7 @@ func _build_topbar() -> Control:
 	_sub_lbl.add_theme_color_override("font_color", UiKit.TEXT_DIM)
 	idv.add_child(_sub_lbl)
 	_xp_bar = _mini_bar(Color(0.42, 0.50, 0.85), 150)
+	_xp_bar.tooltip_text = "Experiência — enche e sobe de nível"
 	idv.add_child(_xp_bar)
 	# espaçador
 	var spacer := Control.new(); spacer.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -118,8 +129,10 @@ func _build_topbar() -> Control:
 	var vit := VBoxContainer.new(); vit.add_theme_constant_override("separation", 4)
 	vit.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	_hp_bar = _mini_bar(Color(0.70, 0.22, 0.20), 170)
+	_hp_bar.tooltip_text = "Vida (HP), em % — regenera com o tempo; cure na hora no Templo"
 	vit.add_child(_labeled_bar("HP", _hp_bar))
 	_stam_bar = _mini_bar(Color(0.36, 0.65, 0.38), 170)
+	_stam_bar.tooltip_text = "Estamina — gasta nas ações; enche 100% em 1h (15min com buff de novato)"
 	var sl := _labeled_bar("Estamina", _stam_bar)
 	_stam_lbl = sl.get_meta("vlabel") as Label
 	vit.add_child(sl)
@@ -134,14 +147,22 @@ func _build_topbar() -> Control:
 	c2.add_child(_coin("soulstone"))
 	coinbox.add_child(c2)
 	row.add_child(coinbox)
+	# buffs ativos (badges com tooltip) — populados em update_topbar
+	_buffs_box = HBoxContainer.new()
+	_buffs_box.add_theme_constant_override("separation", 5)
+	_buffs_box.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	row.add_child(_buffs_box)
 	return pc
 
 func _coin(key: String) -> HBoxContainer:
 	var h := HBoxContainer.new(); h.add_theme_constant_override("separation", 5)
+	h.tooltip_text = str(COIN_TIPS.get(key, ""))   # hover explica a moeda
+	h.mouse_filter = Control.MOUSE_FILTER_STOP      # recebe o hover (o rect/label são IGNORE)
 	h.add_child(Icons.rect(key, 20))
 	var l := Label.new(); l.text = "0"; l.add_theme_font_size_override("font_size", 13)
 	l.add_theme_color_override("font_color", UiKit.TEXT)
 	l.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	l.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	h.add_child(l)
 	_coins[key] = l
 	return h
@@ -360,6 +381,65 @@ func update_topbar(w: Dictionary) -> void:
 	for key in _coins:
 		var field: String = "soulStones" if key == "soulstone" else str(key)
 		_coins[key].text = str(int(w.get(field, 0)))
+	_refresh_buffs(w)
+
+# Badges dos buffs ATIVOS na topbar (com tooltip de nome + tempo). Reconstrói a cada update.
+func _refresh_buffs(w: Dictionary) -> void:
+	if _buffs_box == null:
+		return
+	for c in _buffs_box.get_children():
+		c.queue_free()
+	var ab := str(w.get("activeBuff", ""))
+	if ab != "":
+		_buffs_box.add_child(_buff_badge(ab, "Bênção do Templo: %s — %s" % [ab, _fmt_left(int(w.get("buffSecondsLeft", 0)))]))
+	var ab2 := str(w.get("activeBuff2", ""))
+	if ab2 != "":
+		_buffs_box.add_child(_buff_badge(ab2, "Bênção VIP (2º slot): %s — %s" % [ab2, _fmt_left(int(w.get("buff2SecondsLeft", 0)))]))
+	var meal := str(w.get("mealBuff", ""))
+	if meal != "":
+		_buffs_box.add_child(_buff_badge(meal, "Bem Alimentado: %s — %s" % [meal, _fmt_left(int(w.get("mealBuffSecondsLeft", 0)))]))
+	var we := str(w.get("weaponElement", ""))
+	if we != "":
+		_buffs_box.add_child(_buff_badge("%s⚔" % _elem_icon(we), "Arma encantada (%s): ±25%% por elemento — %s" % [we, _fmt_left(int(w.get("weaponElementSecondsLeft", 0)))]))
+	var ae := str(w.get("armorElement", ""))
+	if ae != "":
+		_buffs_box.add_child(_buff_badge("%s🛡" % _elem_icon(ae), "Armadura encantada (%s): ±25%% por elemento — %s" % [ae, _fmt_left(int(w.get("armorElementSecondsLeft", 0)))]))
+	if bool(w.get("newbieBuffActive", false)):
+		_buffs_box.add_child(_buff_badge("🐣", "Buff de Novato: estamina e HP regeneram 4× mais rápido — %dh restantes" % int(w.get("newbieBuffHoursLeft", 0))))
+	var tav := float(w.get("tavernBuffPct", 0.0))
+	if tav > 0.0:
+		_buffs_box.add_child(_buff_badge("🍺+%.2f%%" % tav, "Buff da Taverna: +%.2f%% em TODOS os stats — %s" % [tav, _fmt_left(int(w.get("tavernBuffSecondsLeft", 0)))]))
+
+func _buff_badge(text: String, tip: String) -> Control:
+	var pc := PanelContainer.new()
+	pc.tooltip_text = tip
+	pc.mouse_filter = Control.MOUSE_FILTER_STOP
+	var sb := StyleBoxFlat.new()
+	sb.bg_color = Color(0.12, 0.11, 0.08, 0.95)
+	sb.border_color = UiKit.GOLD_SOFT; sb.set_border_width_all(1)
+	sb.set_corner_radius_all(3); sb.set_content_margin_all(4)
+	pc.add_theme_stylebox_override("panel", sb)
+	var l := Label.new()
+	l.text = text
+	l.add_theme_font_size_override("font_size", 12)
+	l.add_theme_color_override("font_color", UiKit.GOLD)
+	l.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	pc.add_child(l)
+	return pc
+
+func _elem_icon(e: String) -> String:
+	return str(ELEM_ICONS.get(e, "✨"))
+
+func _fmt_left(secs: int) -> String:
+	if secs <= 0:
+		return "expirando"
+	var h := secs / 3600
+	var m := (secs % 3600) / 60
+	if h > 0:
+		return "%dh %dmin" % [h, m]
+	if m > 0:
+		return "%d min" % m
+	return "%d s" % secs
 
 # ── helpers ──────────────────────────────────────────────────────────────────────────
 func _stone_btn(text: String, h: int) -> Button:
