@@ -95,8 +95,14 @@ func _job_card(job: Dictionary) -> PanelContainer:
 	box.add_child(UiKit.bar("XP da profissão", px, pn, Color(0.78, 0.6, 0.3)))
 	# descrição
 	box.add_child(UiKit.dim(str(job.get("description", ""))))
-	# stats: ouro/h + xp/h
-	box.add_child(UiKit.kv("Rendimento", "🪙 %d/h    ⭐ %d xp/h" % [int(job.get("goldPerHourWithBonus", 0)), int(job.get("xpPerHour", 0))]))
+	# stats: rendimento/h + xp/h — [MOEDA] moeda em ícone pixel-art
+	var rend := HBoxContainer.new(); rend.add_theme_constant_override("separation", 4)
+	rend.add_child(UiKit.coin_box(int(job.get("goldPerHourWithBonus", 0)), 16))
+	var rend_x := Label.new(); rend_x.text = "/h    ⭐ %d xp/h" % int(job.get("xpPerHour", 0))
+	rend_x.add_theme_font_size_override("font_size", 14); rend_x.add_theme_color_override("font_color", UiKit.TEXT)
+	rend_x.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	rend.add_child(rend_x)
+	box.add_child(UiKit.kv_node("Rendimento", rend))
 	if locked:
 		var req := Label.new()
 		req.text = "🔒 Requer nível %d" % int(job.get("minWorkLevel", 1))
@@ -134,10 +140,15 @@ func _render_progress() -> void:
 	nm.add_theme_color_override("font_color", UiKit.GOLD)
 	box.add_child(nm)
 	box.add_child(UiKit.dim(str(session.get("description", ""))))
-	var rew := Label.new()
-	rew.text = "🪙 %d    ⭐ %d xp    ⏳ %dh" % [int(session.get("goldReward", 0)), int(session.get("xpReward", 0)), int(session.get("hours", 0))]
-	rew.add_theme_font_size_override("font_size", 14)
-	rew.add_theme_color_override("font_color", UiKit.GOLD_SOFT)
+	# [MOEDA] recompensa com moeda em ícone pixel-art
+	var rew := HBoxContainer.new(); rew.add_theme_constant_override("separation", 4)
+	rew.add_child(UiKit.coin_box(int(session.get("goldReward", 0)), 16))
+	var rew_x := Label.new()
+	rew_x.text = "⭐ %d xp    ⏳ %dh" % [int(session.get("xpReward", 0)), int(session.get("hours", 0))]
+	rew_x.add_theme_font_size_override("font_size", 14)
+	rew_x.add_theme_color_override("font_color", UiKit.GOLD_SOFT)
+	rew_x.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	rew.add_child(rew_x)
 	box.add_child(rew)
 	if not done:
 		var hint := Label.new()

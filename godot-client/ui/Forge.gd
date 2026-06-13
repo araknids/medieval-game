@@ -156,7 +156,18 @@ func _refine_card(r: Dictionary) -> PanelContainer:
 	var res := UiKit.card(UiKit.BRONZE, can)
 	var pc: PanelContainer = res[0]
 	var vb: VBoxContainer = res[1]
-	vb.add_child(UiKit.body("%s ×%d + %d🥉 → %s" % [str(r.get("oreName", ore)), ore_qty, int(r.get("bronzeCost", 0)), str(r.get("barName", ""))]))
+	# [MOEDA] custo de bronze em ícone pixel-art no meio da receita
+	var rcp := HBoxContainer.new(); rcp.add_theme_constant_override("separation", 4)
+	var rcp_a := Label.new(); rcp_a.text = "%s ×%d +" % [str(r.get("oreName", ore)), ore_qty]
+	rcp_a.add_theme_font_size_override("font_size", 14); rcp_a.add_theme_color_override("font_color", UiKit.TEXT)
+	rcp_a.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	rcp.add_child(rcp_a)
+	rcp.add_child(UiKit.coin_box(int(r.get("bronzeCost", 0)), 16))
+	var rcp_b := Label.new(); rcp_b.text = "→ %s" % str(r.get("barName", ""))
+	rcp_b.add_theme_font_size_override("font_size", 14); rcp_b.add_theme_color_override("font_color", UiKit.TEXT)
+	rcp_b.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	rcp.add_child(rcp_b)
+	vb.add_child(rcp)
 	# tem/precisa colorido + requisito de nível (labels SEM autowrap → não quebram vertical no grid)
 	var info := HBoxContainer.new(); info.add_theme_constant_override("separation", 12)
 	var hv := Label.new()
@@ -220,10 +231,13 @@ func _craft_card(r: Dictionary) -> PanelContainer:
 	if can:
 		var pct := int(r.get("successPct", 0))
 		var pct_col := UiKit.OK if pct >= 80 else (UiKit.WARN if pct >= 50 else UiKit.ERR)
-		var info := Label.new()
-		info.text = "🎲 Sucesso: %d%% · Taxa: %d🥉" % [pct, int(r.get("bronzeCost", 0))]
-		info.add_theme_font_size_override("font_size", 12)
-		info.add_theme_color_override("font_color", pct_col)
+		# [MOEDA] taxa de refino em ícone pixel-art
+		var info := HBoxContainer.new(); info.add_theme_constant_override("separation", 4)
+		var info_a := Label.new(); info_a.text = "🎲 Sucesso: %d%% · Taxa:" % pct
+		info_a.add_theme_font_size_override("font_size", 12); info_a.add_theme_color_override("font_color", pct_col)
+		info_a.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+		info.add_child(info_a)
+		info.add_child(UiKit.coin_box(int(r.get("bronzeCost", 0)), 14))
 		vb.add_child(info)
 		vb.add_child(UiKit.small_btn("Craftar", _craft.bind(str(r.get("id", "")))))
 	return pc

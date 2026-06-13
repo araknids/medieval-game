@@ -247,9 +247,14 @@ func _quest_card(kingdom: String, q: Dictionary) -> PanelContainer:
 	nm.add_theme_color_override("font_color", UiKit.TEXT)
 	nm.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	top.add_child(nm)
-	var info := Label.new()
-	info.text = "🥉%d  ⭐%d  ⚡%d" % [int(q.get("bronzeReward", 0)), int(q.get("expReward", 0)), int(q.get("staminaCost", 0))]
-	info.add_theme_color_override("font_color", UiKit.TEXT_DIM); info.add_theme_font_size_override("font_size", 12)
+	# [MOEDA] recompensa de bronze em ícone pixel-art + exp/estamina
+	var info := HBoxContainer.new(); info.add_theme_constant_override("separation", 4)
+	info.add_child(UiKit.coin_box(int(q.get("bronzeReward", 0)), 14))
+	var info_x := Label.new()
+	info_x.text = "⭐%d  ⚡%d" % [int(q.get("expReward", 0)), int(q.get("staminaCost", 0))]
+	info_x.add_theme_color_override("font_color", UiKit.TEXT_DIM); info_x.add_theme_font_size_override("font_size", 12)
+	info_x.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	info.add_child(info_x)
 	top.add_child(info)
 	vb.add_child(top)
 	var flavor := str(q.get("flavor", ""))

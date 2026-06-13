@@ -167,7 +167,13 @@ func _buff_card(b: Dictionary) -> PanelContainer:
 	nm.add_theme_font_size_override("font_size", 16)
 	nm.add_theme_color_override("font_color", UiKit.TEXT)
 	left.add_child(nm)
-	left.add_child(UiKit.dim("%s · %d🥉" % [str(b.get("effect", "")), int(b.get("bronzeCost", 0))]))
+	# [MOEDA] custo do buff em ícone pixel-art
+	var bcost := HBoxContainer.new(); bcost.add_theme_constant_override("separation", 4)
+	var bcost_a := UiKit.dim("%s ·" % str(b.get("effect", "")))
+	bcost_a.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	bcost.add_child(bcost_a)
+	bcost.add_child(UiKit.coin_box(int(b.get("bronzeCost", 0)), 14))
+	left.add_child(bcost)
 	row.add_child(left)
 	var rcol := VBoxContainer.new()
 	rcol.size_flags_vertical = Control.SIZE_SHRINK_CENTER
@@ -177,7 +183,16 @@ func _buff_card(b: Dictionary) -> PanelContainer:
 
 # ── Proteção de itens ──────────────────────────────────────────────────────────
 func _render_protection() -> void:
-	content.add_child(UiKit.dim("Itens protegidos não são perdidos em PvP. Custo: 50🥉/item."))
+	# [MOEDA] custo fixo (50 bronze) em ícone pixel-art
+	var prot := HBoxContainer.new(); prot.add_theme_constant_override("separation", 4)
+	var prot_a := UiKit.dim("Itens protegidos não são perdidos em PvP. Custo:")
+	prot_a.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	prot.add_child(prot_a)
+	prot.add_child(UiKit.coin_box(50, 14))
+	var prot_b := UiKit.dim("/item.")
+	prot_b.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	prot.add_child(prot_b)
+	content.add_child(prot)
 	if equipped.is_empty():
 		content.add_child(UiKit.empty("Nenhum item equipado", "Equipe itens no 🎒 Inventário para protegê-los"))
 		return
