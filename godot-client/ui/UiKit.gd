@@ -39,8 +39,10 @@ void fragment() {
 	vec3 col = tint * clamp(g, 0.45, 1.0);
 	col += (hash(floor(uv * vec2(900.0, 500.0))) - 0.5) * 0.025;
 	float d = length(uv - vec2(0.5, 0.46)) * 1.5;
-	col *= 1.0 - smoothstep(0.42, 1.1, d) * 0.75;
-	COLOR = vec4(col, 1.0);
+	float vig = smoothstep(0.40, 1.05, d);          // 0 centro → 1 borda
+	col *= 1.0 - vig * 0.55;                          // escurece a cor nas bordas
+	float a = mix(0.50, 0.88, vig);                  // SCRIM: centro translúcido (o castelo 3D do App aparece atrás), borda opaca
+	COLOR = vec4(col, a);
 }
 """
 static var _bg_shader: Shader

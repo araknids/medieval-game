@@ -6,16 +6,19 @@ extends Control
 
 const HUB := preload("res://ui/Hub.tscn")
 const LOGIN := preload("res://ui/Login.tscn")
+const MenuFx := preload("res://ui/MenuFx.gd")   # fundo 3D do castelo (persistente, atrás de tudo)
 # BattleReplay é carregado SOB DEMANDA (load) em _play_battle — NUNCA preload: um erro de parse no
 # replay (arquivo grande) não pode derrubar o app/login. Mesmo princípio do _open() das telas.
 
 var current: Control
 var _battle: Node = null            # replay em andamento (overlay sobre a tela)
 var _battle_screen: Control = null  # tela que pediu a batalha (volta pra ela no fim)
+var _castle_bg: SubViewportContainer = null   # castelo + duelo 3D ÚNICO, atrás de toda tela
 
 func _ready() -> void:
 	get_window().min_size = Vector2i(1024, 576)   # trava o tamanho mínimo da janela (UI não quebra abaixo disso)
 	_setup_emoji_font()
+	_castle_bg = MenuFx.new().bg_3d(self, "castle")   # 1 fundo 3D p/ TODAS as telas (montado 1x; persiste)
 	_route()
 
 # Registra a Noto Emoji (mono, OFL) como fallback da fonte padrão → os ícones (emoji) passam a
@@ -91,6 +94,8 @@ func _play_battle(data: Dictionary, screen: Control) -> void:
 		return
 	if is_instance_valid(screen):
 		screen.visible = false
+	if _castle_bg:
+		_castle_bg.visible = false   # esconde o castelo: o replay tem o 3D próprio dele
 	var br = scene.instantiate()
 	br.set("external_battle", data)
 	br.set("force_mock", false)
@@ -104,6 +109,8 @@ func _end_battle() -> void:
 	if _battle != null and is_instance_valid(_battle):
 		_battle.queue_free()
 	_battle = null
+	if _castle_bg:
+		_castle_bg.visible = true    # restaura o castelo atrás da tela
 	var s := _battle_screen
 	_battle_screen = null
 	if is_instance_valid(s):

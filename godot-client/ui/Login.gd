@@ -23,8 +23,7 @@ var auto_check: CheckBox
 
 func _ready() -> void:
 	set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	fx = MenuFx.new()
-	fx.bg_3d(self, "castle")
+	fx = MenuFx.new()   # o castelo 3D vem do App (persistente atrás de tudo) — não monta o próprio aqui
 	var center := CenterContainer.new()
 	center.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	add_child(center)

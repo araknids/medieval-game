@@ -20,7 +20,7 @@ void fragment() {
 # Fundo 3D (cenário noturno) atrás de `control`, com drift lento de câmera + vinheta por cima.
 # Use cenários FECHADOS/voltados pra câmera (dungeon/castle/arena/city) — os abertos (mining/beach)
 # cercam o centro com árvores que passam na frente da câmera fixa.
-func bg_3d(control: Control, scenario := "dungeon") -> void:
+func bg_3d(control: Control, scenario := "dungeon") -> SubViewportContainer:
 	var svc := SubViewportContainer.new()
 	svc.stretch = true
 	svc.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
@@ -63,6 +63,7 @@ func bg_3d(control: Control, scenario := "dungeon") -> void:
 	vig.material = mat
 	control.add_child(vig)
 	control.move_child(vig, 1)
+	return svc   # o chamador (App) pode esconder/mostrar o fundo (ex.: durante a batalha)
 
 # Título dourado com contorno escuro (gótico aproximado).
 func title(text: String, size := 56) -> Label:
