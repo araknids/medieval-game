@@ -78,10 +78,8 @@ func _letter_row(m: Dictionary) -> PanelContainer:
 	for flag in _flags(m):
 		top.add_child(flag)
 	left.add_child(top)
-	var msg := str(m.get("message", ""))
-	if msg.length() > 60:
-		msg = msg.substr(0, 60) + "…"
-	left.add_child(UiKit.dim(msg))
+	# mensagem INTEIRA (autowrap quebra as linhas) — mais intuitivo que o "Thi…" cortado
+	left.add_child(UiKit.dim(str(m.get("message", ""))))
 	hb.add_child(left)
 	# direita: data + botão abrir
 	var right := VBoxContainer.new(); right.add_theme_constant_override("separation", 6)
