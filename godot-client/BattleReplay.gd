@@ -160,6 +160,8 @@ const GORE_COLORS := [Color(0.5, 0.08, 0.08), Color(0.42, 0.05, 0.05), Color(0.6
 ## Pós-processo grimdark (vinheta + grade + bloom/SSAO) nos mapas do Scenery. [GODOT_GRIMDARK]
 @export var grimdark := true
 
+signal finished             # [MIGRACAO_GODOT] embutido no app (overlay): o App fecha o replay no fim
+var external_battle := {}    # {events, scene, won} vindo da TELA (pula o fetch); vazio = busca sozinho (F6)
 var events: Array = []
 var fighters := {}          # name -> dict do lutador
 var order: Array = []       # [left, right] na ordem de spawn
@@ -249,6 +251,14 @@ func _load_events() -> void:
 	if inv.get("ok") and inv.get("json") is Array:
 		_read_player_gear(inv["json"])
 		print(">>> herói: equip=%s arma=%s" % [str(player_equip), player_weapon])
+
+	# Overlay (veio do app): usa os eventos JÁ resolvidos pela tela — NÃO refaz a luta.
+	if external_battle.get("events") is Array and (external_battle["events"] as Array).size() >= 2:
+		events = external_battle["events"]
+		fight_scene = str(external_battle.get("scene", ""))
+		var foe := str(external_battle.get("enemy", ""))
+		_status("Duelo…" if foe == "" else ("⚔ vs %s" % foe))   # SEM spoiler — o vencedor só no fim
+		return
 
 	if force_mock:
 		var foe: String = MOCK_FOES[randi() % MOCK_FOES.size()]   # sorteia → cara própria varia a cada run
@@ -1809,7 +1819,12 @@ func _make_ui() -> void:
 	back.text = "← Menu"
 	back.set_anchors_and_offsets_preset(Control.PRESET_TOP_RIGHT)
 	back.offset_left = -110; back.offset_right = -14; back.offset_top = 10; back.offset_bottom = 42
-	back.pressed.connect(func() -> void: Engine.time_scale = 1.0; get_tree().change_scene_to_file("res://App.tscn"))
+	back.pressed.connect(func() -> void:
+		Engine.time_scale = 1.0
+		if not external_battle.is_empty():
+			finished.emit()                                  # overlay: o App fecha + volta pra tela
+		else:
+			get_tree().change_scene_to_file("res://App.tscn"))   # standalone (F6)
 	layer.add_child(back)
 
 func _status(msg: String) -> void:

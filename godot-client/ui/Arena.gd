@@ -6,6 +6,7 @@ extends Control
 # Padrão visual: UiKit [PADRAO_UI_GODOT]. [MIGRACAO_GODOT]
 
 signal go_back
+signal request_battle(data)   # pede ao App o replay 3D (overlay) [MIGRACAO_GODOT]
 
 const STAMINA_COST := 25
 
@@ -146,7 +147,15 @@ func _start_fight() -> void:
 			UiKit.flash(status, str(j.get("error")), 2)
 			return
 		last_result = j
-		# atualiza estamina/rank após a luta
-		await _refresh()
+		var be = j.get("battleEvents")
+		if be is Array and be.size() >= 2:
+			# vs humano → replay 3D por cima; _on_battle_over volta e mostra a recompensa
+			request_battle.emit({"events": be, "scene": str(j.get("scene", "arena")), "won": bool(j.get("won", false)), "enemy": str(j.get("opponent", ""))})
+		else:
+			await _refresh()   # sem eventos → resultado em texto
 	else:
 		UiKit.show_error(status, r)
+
+# o App chama isto quando o replay 3D termina (volta pra Arena)
+func _on_battle_over() -> void:
+	await _refresh()   # estamina/rank + mostra o _result_box(last_result) no _render

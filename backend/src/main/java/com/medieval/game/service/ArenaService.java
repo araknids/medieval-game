@@ -104,6 +104,12 @@ public class ArenaService {
             oStats = npcStats();
         }
 
+        // Nome de guerreiro NÃO é único: dois jogadores podem se chamar igual. O replay 3D indexa
+        // os lutadores por NOME → nomes iguais colidem (luta "contra si mesmo"). Garante distinção.
+        if (opponentName != null && opponentName.equals(cWarrior.getName())) {
+            opponentName = opponentName + " (rival)";
+        }
+
         boolean cRanged = statsService.isRangedWeaponEquipped(challenger); // [KITING] arma ranged (arco), qualquer classe
         BattleSimulator.BattleOutcome outcome = battleSimulator.simulate(
                 BattleSimulator.Combatant.of(cWarrior.getName(), cStats, cWeapon, cArmor, abilityService.activeLoadout(cWarrior), cRanged),

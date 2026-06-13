@@ -6,8 +6,11 @@ extends Control
 
 const HUB := preload("res://ui/Hub.tscn")
 const LOGIN := preload("res://ui/Login.tscn")
+const BR := preload("res://BattleReplay.tscn")   # replay 3D de batalha (overlay) [MIGRACAO_GODOT]
 
 var current: Control
+var _battle: Node = null            # replay em andamento (overlay sobre a tela)
+var _battle_screen: Control = null  # tela que pediu a batalha (volta pra ela no fim)
 
 func _ready() -> void:
 	_setup_emoji_font()
@@ -21,9 +24,15 @@ func _setup_emoji_font() -> void:
 	if emoji is Font:
 		ThemeDB.fallback_font.fallbacks = [emoji]
 
-# Esc / B do controle = voltar pro Hub (só de uma tela; tela tem go_back, Hub/Login não). [Fable]
+# Esc / B do controle: durante a batalha encerra o replay; senão volta pro Hub (de uma tela). [Fable]
 func _unhandled_input(event: InputEvent) -> void:
-	if event.is_action_pressed("ui_cancel") and current and current.has_signal("go_back"):
+	if not event.is_action_pressed("ui_cancel"):
+		return
+	if _battle != null and is_instance_valid(_battle):
+		Engine.time_scale = 1.0
+		_end_battle()
+		get_viewport().set_input_as_handled()
+	elif current and current.has_signal("go_back"):
 		_show(HUB)
 		get_viewport().set_input_as_handled()
 
@@ -61,3 +70,33 @@ func _wire(c: Control) -> void:
 		c.go_inventory.connect(func() -> void: _open("Inventory"))
 	if c.has_signal("open_screen"):
 		c.open_screen.connect(_open)
+	if c.has_signal("request_battle"):                       # tela pediu replay 3D (arena/zona/torre)
+		c.request_battle.connect(_play_battle.bind(c))
+
+# Abre o replay 3D POR CIMA da tela (overlay): esconde a tela, mostra o 3D; no fim restaura. [MIGRACAO_GODOT]
+# data = {events, scene, won, enemy} — a luta JÁ foi resolvida pela tela; o replay só anima.
+func _play_battle(data: Dictionary, screen: Control) -> void:
+	if _battle != null and is_instance_valid(_battle):
+		return                                                # já tem uma rolando
+	_battle_screen = screen
+	if is_instance_valid(screen):
+		screen.visible = false
+	var br := BR.instantiate()
+	br.set("external_battle", data)
+	br.set("force_mock", false)
+	add_child(br)
+	_battle = br
+	if br.has_signal("finished"):
+		br.connect("finished", _end_battle)
+
+# Fecha o replay, restaura a tela e deixa ela tratar o resultado (recompensa + refresh).
+func _end_battle() -> void:
+	if _battle != null and is_instance_valid(_battle):
+		_battle.queue_free()
+	_battle = null
+	var s := _battle_screen
+	_battle_screen = null
+	if is_instance_valid(s):
+		s.visible = true
+		if s.has_method("_on_battle_over"):
+			s._on_battle_over()

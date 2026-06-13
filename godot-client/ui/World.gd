@@ -6,6 +6,7 @@ extends Control
 # renderWorldOverview / renderKingdomDetail do app.js. Padrão visual: UiKit [PADRAO_UI_GODOT]. [MIGRACAO_GODOT]
 
 signal go_back
+signal request_battle(data)   # pede ao App o replay 3D (overlay) [MIGRACAO_GODOT]
 
 # Reinos de coleta/caça → as 3 zonas (tier SAFE/PVP/HIGH_RISK) que o web mostra em renderKingdomDetail.
 # [name, tier, skillType("" p/ COMBAT), minLevel, role]
@@ -36,6 +37,7 @@ var wallet: Label
 var busy := false
 var kingdoms: Array = []          # GET /api/world
 var open_kingdom := ""            # reino expandido (só um por vez)
+var _pending_after := {}          # desfecho da quest guardado durante o replay 3D (kingdom, text)
 var warrior: Dictionary = {}      # /api/warrior (carteira + gate de nível)
 var warrior_level := 1
 var selected_element := "FIRE"    # picker de área de elemento
@@ -364,8 +366,23 @@ func _collect_quest(kingdom: String, quest_id: int, option_id := "") -> void:
 		_show_luna_dialog(kingdom, quest_id)
 		return
 	var text := _quest_result_text(j)
-	await _open(kingdom)   # refresca a lista; status some aqui → resultado vai no modal
-	_show_result(text)
+	var be = j.get("battleEvents")
+	if be is Array and be.size() >= 2:
+		# encontrou monstro → replay 3D por cima; guarda o desfecho p/ depois do replay
+		_pending_after = {"kingdom": kingdom, "text": text}
+		request_battle.emit({"events": be, "scene": str(j.get("scene", "")), "won": bool(j.get("monsterDefeated", false)), "enemy": str(j.get("monsterName", ""))})
+	else:
+		await _open(kingdom)   # refresca a lista; status some aqui → resultado vai no modal
+		_show_result(text)
+
+# o App chama isto quando o replay 3D termina (volta pro Mundo + mostra o desfecho da quest)
+func _on_battle_over() -> void:
+	var kingdom := str(_pending_after.get("kingdom", open_kingdom))
+	var text := str(_pending_after.get("text", ""))
+	_pending_after = {}
+	await _open(kingdom)
+	if text != "":
+		_show_result(text)
 
 # Diálogo de quest interativa: intro + um botão por opção (coleta com o optionId escolhido).
 func _show_quest_dialog(kingdom: String, quest_id: int, dialog: Dictionary) -> void:

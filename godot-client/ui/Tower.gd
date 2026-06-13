@@ -7,6 +7,7 @@ extends Control
 # Padrão visual: UiKit [PADRAO_UI_GODOT]. Espelha loadTower/showTowerLobby/showTowerFloor. [MIGRACAO_GODOT]
 
 signal go_back
+signal request_battle(data)   # pede ao App o replay 3D (overlay) [MIGRACAO_GODOT]
 
 const STAMINA_COST := 25
 
@@ -242,13 +243,26 @@ func _do_fight() -> void:
 	busy = true
 	UiKit.flash(status, "Lutando…", 0)
 	var r = await Api.tower_fight()
+	busy = false
 	if not (r.get("ok") and r.get("json") is Dictionary):
-		UiKit.show_error(status, r); busy = false; return
+		UiKit.show_error(status, r); return
 	var data: Dictionary = r["json"]
 	last_result = data
 	log_open = false
 	arka_pending = bool(data.get("arkaChoicePending", false))
-	# re-sincroniza estamina/HP + próximo andar (ou lobby se perdeu) — em PARALELO
+	var be = data.get("battleEvents")
+	if be is Array and be.size() >= 2:
+		# Torre = misto (humano/monstro pelo nome do andar) → replay 3D por cima
+		request_battle.emit({"events": be, "scene": str(data.get("scene", "tower")), "won": bool(data.get("won", false)), "enemy": str(data.get("bossName", ""))})
+	else:
+		await _resync()
+
+# o App chama isto quando o replay termina
+func _on_battle_over() -> void:
+	await _resync()
+
+# re-sincroniza estamina/HP + próximo andar (ou lobby) + ranking — em PARALELO
+func _resync() -> void:
 	var rs = await Api.batch_get(["/api/warrior", "/api/tower/current", "/api/tower/ranking"])
 	var rw = rs[0]
 	if rw.get("ok") and rw.get("json") is Dictionary:
@@ -258,7 +272,6 @@ func _do_fight() -> void:
 		state = rc["json"]
 	var rr = rs[2]
 	ranking = rr["json"] if (rr.get("ok") and rr.get("json") is Array) else ranking
-	busy = false
 	_render()
 
 func _arka(spare: bool) -> void:
