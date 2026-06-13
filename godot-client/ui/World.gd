@@ -319,6 +319,11 @@ func _zone_card(kingdom: String, z: Array) -> PanelContainer:
 		var b := UiKit.action("Colete a tarefa ativa", Callable())
 		b.disabled = true
 		vb.add_child(b)
+	elif kingdom == "COMBAT" and int(warrior.get("hpPercent", 100)) <= 0:
+		# KO: a caçada é combate real (o backend recusa com 400 "unconscious"). Guarda no clique. [HP_GUARD]
+		var b := UiKit.action("❤ Inconsciente — cure no Templo", Callable())
+		b.disabled = true
+		vb.add_child(b)
 	else:
 		var verb: String
 		if kingdom == "COMBAT":

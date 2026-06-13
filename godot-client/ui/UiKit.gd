@@ -256,9 +256,15 @@ static func flash(status: Label, text: String, kind := 0) -> void:
 # Texto de erro a partir de uma resposta do BackendClient ({ok,status,json,raw,error}).
 static func err_text(r) -> String:
 	if r is Dictionary:
-		if r.get("json") is Dictionary and r["json"].has("message"):
-			return str(r["json"]["message"])
-		if r.has("error") and str(r.get("error", "")) != "":
+		# Erros do backend vêm como {"error": "..."} (GlobalExceptionHandler + controllers);
+		# alguns endpoints usam {"message": "..."}. Lê os dois ANTES de cair no genérico "Erro (status)".
+		if r.get("json") is Dictionary:
+			var j: Dictionary = r["json"]
+			if str(j.get("error", "")) != "":
+				return str(j["error"])
+			if str(j.get("message", "")) != "":
+				return str(j["message"])
+		if r.has("error") and str(r.get("error", "")) != "":   # falha de conexão (sem json)
 			return str(r["error"])
 		if r.has("status"):
 			return "Erro (%s)" % str(r["status"])
