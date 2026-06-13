@@ -2,6 +2,10 @@ class_name UiKit
 extends RefCounted
 
 const Icons := preload("res://ui/Icons.gd")
+
+# Quando uma tela embedded chama set_wallet com wallet=null, manda o warrior pro topbar do Shell.
+# O Shell registra (UiKit.topbar_sink = update_topbar) sem criar ciclo de class_name. [PLANO_UI_SHELL_GODOT]
+static var topbar_sink := Callable()
 # ── Kit de UI "Stone & Ember" — padrão único das telas internas [PADRAO_UI_GODOT] ──
 # Direção de arte: modelo Fable. Faz toda tela parecer parte do Hub. Tudo estático (igual
 # StoneStyle), com caches. Uso típico no _ready() de uma tela:
@@ -65,8 +69,10 @@ static func bg(screen: Control, tint := TINT_DEFAULT) -> void:
 
 # ── Scaffold: header padrão + status + scroll/content ──────────────────────────────
 static func scaffold(screen: Control, title_text: String, on_back: Callable, on_refresh: Callable, tint := TINT_DEFAULT) -> Dictionary:
+	var embedded := screen.has_meta("embedded") and bool(screen.get_meta("embedded"))   # dentro do Shell? [PLANO_UI_SHELL_GODOT]
 	screen.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	bg(screen, tint)
+	if not embedded:
+		bg(screen, tint)   # no shell o fundo já vem do Shell
 	var root := VBoxContainer.new()
 	root.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	screen.add_child(root)
@@ -81,9 +87,11 @@ static func scaffold(screen: Control, title_text: String, on_back: Callable, on_
 	hm.add_child(header)
 	root.add_child(hm)
 
-	var back := icon_btn("←", on_back)
-	back.custom_minimum_size = Vector2(48, 40)
-	header.add_child(back)
+	var back = null   # no shell a nav substitui o "←"
+	if not embedded:
+		back = icon_btn("←", on_back)
+		back.custom_minimum_size = Vector2(48, 40)
+		header.add_child(back)
 
 	# ícone da tela no header: derivado do .tscn (ui/Character.tscn → "character.png"). Sem editar tela por tela.
 	var icon_key := ""
@@ -108,11 +116,13 @@ static func scaffold(screen: Control, title_text: String, on_back: Callable, on_
 	ttl.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	header.add_child(ttl)
 
-	var wallet := Label.new()
-	wallet.add_theme_font_size_override("font_size", 13)
-	wallet.add_theme_color_override("font_color", TEXT_DIM)
-	wallet.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	header.add_child(wallet)
+	var wallet = null   # no shell a carteira mora no topbar (UiKit.set_wallet → topbar_sink)
+	if not embedded:
+		wallet = Label.new()
+		wallet.add_theme_font_size_override("font_size", 13)
+		wallet.add_theme_color_override("font_color", TEXT_DIM)
+		wallet.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+		header.add_child(wallet)
 
 	var refresh := icon_btn("🔄", on_refresh)
 	refresh.custom_minimum_size = Vector2(44, 40)
@@ -170,8 +180,12 @@ static func scaffold(screen: Control, title_text: String, on_back: Callable, on_
 
 # ── Carteira do header ─────────────────────────────────────────────────────────────
 # w = WarriorResponse (json do /api/warrior). Mostra HP, estamina e as 3 moedas.
-static func set_wallet(wallet: Label, w: Dictionary) -> void:
-	if wallet == null or w.is_empty():
+static func set_wallet(wallet, w: Dictionary) -> void:
+	if w.is_empty():
+		return
+	if wallet == null:   # tela embedded → atualiza o topbar do Shell (sem ciclo de class_name)
+		if topbar_sink.is_valid():
+			topbar_sink.call(w)
 		return
 	var hp := int(w.get("hpPercent", w.get("currentHp", 100)))
 	var stam := int(w.get("stamina", 0))

@@ -4,7 +4,6 @@ extends Control
 # (load sob demanda → tela com erro de parse não derruba o app). [MIGRACAO_GODOT]
 # Telas emitem: go_back (→ Hub), open_screen(name), go_battle, go_inventory, logout, logged_in.
 
-const HUB := preload("res://ui/Hub.tscn")
 const LOGIN := preload("res://ui/Login.tscn")
 const MenuFx := preload("res://ui/MenuFx.gd")   # fundo 3D do castelo (persistente, atrás de tudo)
 # BattleReplay é carregado SOB DEMANDA (load) em _play_battle — NUNCA preload: um erro de parse no
@@ -37,20 +36,20 @@ func _unhandled_input(event: InputEvent) -> void:
 		Engine.time_scale = 1.0
 		_end_battle()
 		get_viewport().set_input_as_handled()
-	elif current and current.has_signal("go_back"):
-		_show(HUB)
-		get_viewport().set_input_as_handled()
 
 func _route() -> void:
 	if Api.token == "":
 		_show(LOGIN)
 	else:
-		_show(HUB)
+		_show_node(Shell.new())   # logado → shell persistente (topbar + nav + conteúdo) [PLANO_UI_SHELL_GODOT]
 
 func _show(scene: PackedScene) -> void:
+	_show_node(scene.instantiate())
+
+func _show_node(node: Control) -> void:
 	if current and is_instance_valid(current):
 		current.queue_free()
-	current = scene.instantiate()
+	current = node
 	add_child(current)
 	_wire(current)
 
@@ -70,15 +69,7 @@ func _wire(c: Control) -> void:
 			Api.token = ""
 			ConfigFile.new().save("user://session.cfg")   # limpa o auto-login salvo (senão re-logaria)
 			_route())
-	if c.has_signal("go_battle"):
-		c.go_battle.connect(func() -> void: get_tree().change_scene_to_file("res://BattleReplay.tscn"))
-	if c.has_signal("go_back"):
-		c.go_back.connect(func() -> void: _show(HUB))
-	if c.has_signal("go_inventory"):
-		c.go_inventory.connect(func() -> void: _open("Inventory"))
-	if c.has_signal("open_screen"):
-		c.open_screen.connect(_open)
-	if c.has_signal("request_battle"):                       # tela pediu replay 3D (arena/zona/torre)
+	if c.has_signal("request_battle"):                       # Shell repassa o pedido de replay 3D (arena/zona/torre)
 		c.request_battle.connect(_play_battle.bind(c))
 
 # Abre o replay 3D POR CIMA da tela (overlay): esconde a tela, mostra o 3D; no fim restaura. [MIGRACAO_GODOT]
