@@ -28,7 +28,8 @@ func bg_3d(control: Control, scenario := "dungeon") -> SubViewportContainer:
 	control.add_child(svc)
 	control.move_child(svc, 0)   # atrás de tudo
 	var sv := SubViewport.new()
-	sv.msaa_3d = Viewport.MSAA_2X
+	sv.own_world_3d = true   # MUNDO 3D ISOLADO: senão o castelo+duelo do menu vazam pro World3D principal
+	sv.msaa_3d = Viewport.MSAA_2X            # e a câmera do BattleReplay (Node3D no mundo principal) os enxerga
 	svc.add_child(sv)
 	var world := Node3D.new()
 	sv.add_child(world)
