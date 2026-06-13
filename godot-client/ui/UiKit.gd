@@ -85,6 +85,18 @@ static func scaffold(screen: Control, title_text: String, on_back: Callable, on_
 	back.custom_minimum_size = Vector2(48, 40)
 	header.add_child(back)
 
+	# ícone da tela no header: derivado do .tscn (ui/Character.tscn → "character.png"). Sem editar tela por tela.
+	var icon_key := ""
+	if screen != null and screen.scene_file_path != "":
+		icon_key = screen.scene_file_path.get_file().get_basename().to_lower()
+	if Icons.tex(icon_key) != null:
+		var ti := Icons.rect(icon_key, 30)
+		ti.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+		header.add_child(ti)
+		var sp := title_text.find(" ")   # tira o emoji do título (fica só "Personagem")
+		if sp >= 0:
+			title_text = title_text.substr(sp + 1).strip_edges()
+
 	var ttl := Label.new()
 	ttl.text = title_text
 	ttl.add_theme_font_size_override("font_size", 24)
