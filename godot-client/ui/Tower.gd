@@ -128,9 +128,15 @@ func _render_floor() -> void:
 		int(state.get("bossDef", 0)), int(state.get("bossAc", 0))]
 	stats.add_theme_color_override("font_color", UiKit.TEXT); stats.add_theme_font_size_override("font_size", 13)
 	vb.add_child(stats)
-	var rew := Label.new()
-	rew.text = "Recompensa: 🥉 %d bronze · ⭐ %d exp" % [cur * 40, cur * 20]
-	rew.add_theme_color_override("font_color", UiKit.GOLD_SOFT); rew.add_theme_font_size_override("font_size", 12)
+	# [MOEDA] recompensa com ícone pixel-art (bronze) em vez de emoji
+	var rew := HBoxContainer.new(); rew.add_theme_constant_override("separation", 6)
+	var rew_lbl := Label.new(); rew_lbl.text = "Recompensa:"
+	rew_lbl.add_theme_color_override("font_color", UiKit.GOLD_SOFT); rew_lbl.add_theme_font_size_override("font_size", 12)
+	rew.add_child(rew_lbl)
+	rew.add_child(UiKit.coin_box(cur * 40, 16))
+	var rew_xp := Label.new(); rew_xp.text = "· ⭐ %d exp" % (cur * 20)
+	rew_xp.add_theme_color_override("font_color", UiKit.GOLD_SOFT); rew_xp.add_theme_font_size_override("font_size", 12)
+	rew.add_child(rew_xp)
 	vb.add_child(rew)
 	vb.add_child(UiKit.action_big("⚔ Lutar", _fight))
 	content.add_child(res[0])
@@ -163,7 +169,7 @@ func _render_result() -> void:
 	h.add_theme_font_size_override("font_size", 18); h.add_theme_color_override("font_color", border)
 	vb.add_child(h)
 	if won:
-		vb.add_child(UiKit.kv("🥉 Bronze", "+%d" % int(last_result.get("bronzeEarned", 0))))
+		vb.add_child(UiKit.kv_node("Recompensa", UiKit.coin_box(int(last_result.get("bronzeEarned", 0)), 18)))   # [MOEDA] ícones pixel-art
 		vb.add_child(UiKit.kv("⭐ Experiência", "+%d XP" % int(last_result.get("expEarned", 0))))
 	else:
 		var d := Label.new(); d.text = "☠ Derrotado — cure-se no Templo"

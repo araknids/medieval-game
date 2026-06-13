@@ -450,6 +450,20 @@ static func body(text: String) -> Label:
 	l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	return l
 
+# kv com um Control no valor (ex.: coin_box pixel-art) em vez de string. [MOEDA]
+static func kv_node(key: String, value_node: Control) -> HBoxContainer:
+	var h := HBoxContainer.new()
+	h.add_theme_constant_override("separation", 8)
+	var k := Label.new()
+	k.text = key
+	k.custom_minimum_size = Vector2(170, 0)
+	k.add_theme_font_size_override("font_size", 14)
+	k.add_theme_color_override("font_color", TEXT_DIM)
+	h.add_child(k)
+	value_node.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	h.add_child(value_node)
+	return h
+
 static func dim(text: String) -> Label:
 	var l := Label.new()
 	l.text = text

@@ -102,7 +102,7 @@ func _result_box(d: Dictionary) -> PanelContainer:
 	box.add_child(ttl)
 	var rc := int(d.get("rankChange", 0))
 	box.add_child(UiKit.kv("🏅 Rank", "%s%d pts" % ["+" if rc > 0 else "", rc]))
-	box.add_child(UiKit.kv("🥉 Bronze", "+%d" % int(d.get("goldEarned", 0))))
+	box.add_child(UiKit.kv_node("Recompensa", UiKit.coin_box(int(d.get("goldEarned", 0)), 18)))   # [MOEDA] ícones pixel-art
 	# log de batalha (linha a linha, descartando a tag WINNER:)
 	var log: Array = d.get("log", []) if d.get("log") is Array else []
 	if not log.is_empty():

@@ -97,10 +97,9 @@ func _day_card(d: Dictionary, claim_day: int, can_claim: bool) -> PanelContainer
 	box.add_child(nm)
 	var bronze := int(d.get("bronze", 0))
 	if bronze > 0:
-		var bl := Label.new(); bl.text = "+%d 🥉" % bronze
-		bl.add_theme_font_size_override("font_size", 11)
-		bl.add_theme_color_override("font_color", UiKit.GOLD_SOFT)
-		bl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		var bl := UiKit.coin_box(bronze, 14)   # [MOEDA] ícone pixel-art (era "+N 🥉")
+		bl.alignment = BoxContainer.ALIGNMENT_CENTER
+		bl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		box.add_child(bl)
 	if is_today:
 		var tag := Label.new()
