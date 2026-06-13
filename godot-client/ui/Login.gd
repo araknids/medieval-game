@@ -2,7 +2,8 @@ extends Control
 # ── Tela de LOGIN + REGISTRO + entrar automaticamente ────────────────────────────
 # Fundo 3D + título dourado + caixa de pedra. Login ({username,password}) OU Registro
 # ({username,warriorName,email,password} — o backend já loga). "Entrar automaticamente"
-# salva as credenciais em user://session.cfg e loga sozinho na próxima abertura. [MIGRACAO_GODOT]
+# salva o TOKEN (JWT, ~7 dias, revogável — NÃO a senha) em user://session.cfg e valida no boot
+# (get_warrior); se ainda vale, entra direto; se expirou, cai no login. [MIGRACAO_GODOT]
 
 signal logged_in
 
@@ -110,36 +111,47 @@ func _submit() -> void:
 		r = await Api.login(user_edit.text, pass_edit.text)
 	_busy = false
 	if r.get("ok") and Api.token != "":
-		_save_session(user_edit.text, pass_edit.text)
+		_save_session(user_edit.text)
 		logged_in.emit()
 	else:
 		UiKit.flash(status, UiKit.err_text(r), 2)
 
-# Auto-login: se há sessão salva (checkbox marcado antes), loga sozinho.
+# Auto-login: valida o TOKEN salvo (não a senha). Se ainda vale, entra direto; se expirou
+# (ou foi revogado), mostra o login com o usuário já preenchido.
 func _try_auto_login() -> void:
 	var cf := ConfigFile.new()
-	if cf.load(SESSION) != OK or not bool(cf.get_value("auth", "auto", false)):
+	if cf.load(SESSION) != OK:
 		return
 	var u := str(cf.get_value("auth", "user", ""))
-	var p := str(cf.get_value("auth", "pass", ""))
-	if u == "" or p == "":
+	if u != "" and user_edit:
+		user_edit.text = u            # prefill do usuário (NÃO é segredo)
+	var tok := str(cf.get_value("auth", "token", ""))
+	if tok == "":
 		return
-	if user_edit: user_edit.text = u
-	if pass_edit: pass_edit.text = p
+	Api.token = tok                   # tenta com o token salvo
 	UiKit.flash(status, "Entrando…", 0)
 	_busy = true
-	var r = await Api.login(u, p)
+	var r = await Api.get_warrior()   # request autenticado leve = valida o token
 	_busy = false
-	if r.get("ok") and Api.token != "":
+	if r.get("ok"):
 		logged_in.emit()
 	else:
-		UiKit.flash(status, "Auto-login falhou — entre manualmente.", 2)
+		Api.token = ""                # expirou/inválido → limpa e cai no login
+		_clear_token()
+		UiKit.flash(status, "Sessão expirada — entre de novo.", 0)
 
-# Salva (ou limpa) a sessão p/ auto-login conforme o checkbox.
-func _save_session(user: String, pass: String) -> void:
+# Salva a sessão: guarda o TOKEN (expira em ~7 dias, revogável) — NUNCA a senha. username só p/ prefill.
+func _save_session(username: String) -> void:
 	var cf := ConfigFile.new()
-	if auto_check and auto_check.button_pressed:
-		cf.set_value("auth", "user", user)
-		cf.set_value("auth", "pass", pass)
+	cf.set_value("auth", "user", username)
+	if auto_check and auto_check.button_pressed and Api.token != "":
+		cf.set_value("auth", "token", Api.token)
 		cf.set_value("auth", "auto", true)
-	cf.save(SESSION)   # desmarcado → salva vazio (limpa a sessão anterior)
+	cf.save(SESSION)   # desmarcado → sem token (limpa o auto-login anterior)
+
+# Zera só o token salvo (mantém o usuário p/ prefill).
+func _clear_token() -> void:
+	var cf := ConfigFile.new()
+	cf.load(SESSION)
+	cf.set_value("auth", "token", "")
+	cf.save(SESSION)
