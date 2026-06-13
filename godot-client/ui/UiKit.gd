@@ -285,8 +285,18 @@ static func _btn(text: String, cb: Callable, size: Vector2, font := 15) -> Butto
 	b.add_theme_font_size_override("font_size", font)
 	b.custom_minimum_size = size
 	if cb.is_valid():
+		b.pressed.connect(_debounce.bind(b))   # [SEGURANCA] desabilita 0.4s ao clicar (anti clique-duplo + feedback)
 		b.pressed.connect(cb)
 	return b
+
+# Feedback imediato + trava de clique-duplo: desabilita o botão por 0.4s (some no busy da tela também).
+# Se a tela re-renderizar e liberar o botão, o is_instance_valid no timer evita tocar num nó morto.
+static func _debounce(b: Button) -> void:
+	b.disabled = true
+	if b.is_inside_tree():
+		b.get_tree().create_timer(0.4).timeout.connect(func() -> void:
+			if is_instance_valid(b):
+				b.disabled = false)
 
 static func action(text: String, cb: Callable) -> Button:
 	return _btn(text, cb, Vector2(130, 40), 15)

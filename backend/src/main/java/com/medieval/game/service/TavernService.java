@@ -50,17 +50,18 @@ public class TavernService {
         playerService.spendBronze(player, DRINK_COST_BRONZE); // 1 bronze SEMPRE (comprou a bebida)
         Warrior w = warriorRepository.findByPlayer(player)
                 .orElseThrow(() -> new IllegalStateException("Warrior not found"));
-        if (success) {
-            int stacks = w.tavernBuffActive() ? Math.min(Warrior.TAVERN_BUFF_CAP, w.getTavernBuffStacks() + 1) : 1;
-            w.setTavernBuffStacks(stacks);
-            w.setTavernBuffExpiresAt(LocalDateTime.now().plusMinutes(BUFF_MINUTES)); // renova tudo
-            warriorRepository.save(w);
-            int bottles = player.getBottlesDrunk() + 1;
-            player.setBottlesDrunk(bottles);
-            playerRepository.save(player);
-            announceBottleMilestone(w, bottles);
-            log.info("[TavernService] player={} drink OK stacks={} bottles={}", player.getId(), stacks, bottles);
-        }
+        // [SEGURANCA] O servidor SEMPRE concede o stack — NÃO confia no `success` do cliente (que
+        // poderia ser forjado p/ buff grátis). O minigame de timing do front vira só "juice"; o gate
+        // real continua o bronze. (param `success` mantido p/ compat. do controller, mas ignorado.)
+        int stacks = w.tavernBuffActive() ? Math.min(Warrior.TAVERN_BUFF_CAP, w.getTavernBuffStacks() + 1) : 1;
+        w.setTavernBuffStacks(stacks);
+        w.setTavernBuffExpiresAt(LocalDateTime.now().plusMinutes(BUFF_MINUTES)); // renova tudo
+        warriorRepository.save(w);
+        int bottles = player.getBottlesDrunk() + 1;
+        player.setBottlesDrunk(bottles);
+        playerRepository.save(player);
+        announceBottleMilestone(w, bottles);
+        log.info("[TavernService] player={} drink OK stacks={} bottles={}", player.getId(), stacks, bottles);
         return status(player);
     }
 

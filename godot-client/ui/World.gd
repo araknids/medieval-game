@@ -402,6 +402,7 @@ func _show_luna_dialog(kingdom: String, quest_id: int) -> void:
 	_choice_dialog("🐶 Uma cãozinha (Luna) apareceu e interrompeu a missão! O que fazer?",
 		[["Ajudar a Luna", "help"], ["Terminar a missão", "ignore"]],
 		func(action) -> void:
+			if busy: return
 			busy = true
 			var r = await Api.quest_luna(kingdom, quest_id, str(action))
 			busy = false
