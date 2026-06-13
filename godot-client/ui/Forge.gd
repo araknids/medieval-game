@@ -18,6 +18,9 @@ var resources: Array = []         # GET /api/gathering/resources
 var inventory: Array = []         # GET /api/inventory
 var warrior: Dictionary = {}      # /api/warrior (carteira do header)
 var refine_qty: Dictionary = {}   # ore name → quantidade escolhida (SpinBox)
+var craft_filter := 0             # filtro de raridade da seção Craftar (0=todas, 1-5)
+
+const RARITY_NAMES := ["Comum", "Incomum", "Raro", "Épico", "Lendário"]
 
 func _ready() -> void:
 	var ui := UiKit.scaffold(self, "🔨 Forja", func() -> void: go_back.emit(), func() -> void: await _refresh(), UiKit.TINT_COMMERCE)
@@ -55,37 +58,92 @@ func _render() -> void:
 		content.add_child(UiKit.dim("— sem materiais (minere/colete pra forjar) —"))
 	else:
 		content.add_child(UiKit.body(mats))
-	# ── Refinar ──
+	# ── Refinar ── (cards em grid p/ encurtar a tela)
 	content.add_child(UiKit.section("Refinar Minérios → Barras"))
 	var refine: Array = recipes.get("refine", [])
 	if refine.is_empty():
 		content.add_child(UiKit.dim("— sem receitas —"))
-	for r in refine:
-		if r is Dictionary:
-			content.add_child(_refine_card(r))
-	# ── Craftar equipamento ──
+	else:
+		_grid_section(refine, _refine_card)
+	# ── Craftar equipamento (com filtro de raridade) ──
 	content.add_child(UiKit.section("Craftar Equipamento"))
 	var craft: Array = recipes.get("craft", [])
 	if craft.is_empty():
 		content.add_child(UiKit.dim("— sem receitas —"))
-	for r in craft:
-		if r is Dictionary:
-			content.add_child(_craft_card(r))
-	# ── Joias ──
+	else:
+		content.add_child(_rarity_filter_row())
+		var filtered: Array = craft
+		if craft_filter > 0:
+			filtered = []
+			for r in craft:
+				if r is Dictionary and int(r.get("rarity", 1)) == craft_filter:
+					filtered.append(r)
+		if filtered.is_empty():
+			content.add_child(UiKit.dim("— nenhuma receita de %s —" % _rarity_name(craft_filter)))
+		else:
+			_grid_section(filtered, _craft_card)
+	# ── Joias ── (cards compactos → mais colunas)
 	content.add_child(UiKit.section("Criar Joias"))
 	var gems: Array = recipes.get("gems", [])
 	if gems.is_empty():
 		content.add_child(UiKit.dim("— sem fragmentos —"))
-	for r in gems:
-		if r is Dictionary:
-			content.add_child(_gem_card(r))
+	else:
+		_grid_section(gems, _gem_card, true)
 	# ── Manutenção ──
 	content.add_child(UiKit.section("🔧 Manutenção (Reparar / Reforjar)"))
 	if inventory.is_empty():
 		content.add_child(UiKit.empty("Sem itens", "Equipamentos da mochila aparecem aqui p/ reparo/reforja"))
-	for it in inventory:
+	else:
+		_grid_section(inventory, _maint_card)
+
+# Monta um GridContainer com os cards (encurta a tela). builder = func(Dictionary) -> Control.
+func _grid_section(items: Array, builder: Callable, compact := false) -> void:
+	var g := GridContainer.new()
+	g.columns = _cols(compact)
+	g.add_theme_constant_override("h_separation", 8)
+	g.add_theme_constant_override("v_separation", 8)
+	g.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	for it in items:
 		if it is Dictionary:
-			content.add_child(_maint_card(it))
+			var card: Control = builder.call(it)
+			card.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+			g.add_child(card)
+	content.add_child(g)
+
+# Nº de colunas conforme a largura da janela (cards compactos cabem em 3).
+func _cols(compact: bool) -> int:
+	var w := get_viewport().get_visible_rect().size.x
+	if compact:
+		return 3 if w >= 820 else (2 if w >= 540 else 1)
+	return 2 if w >= 640 else 1
+
+# ── Filtro de raridade (seção Craftar) ──────────────────────────────────────────────
+# Linha de chips (HFlow → quebra em telas estreitas): Todas + as 5 raridades. O ativo fica
+# aceso, os outros apagados. Clicar re-renderiza com os dados em cache (sem chamada de rede).
+func _rarity_filter_row() -> Control:
+	var row := HFlowContainer.new()
+	row.add_theme_constant_override("h_separation", 6)
+	row.add_theme_constant_override("v_separation", 6)
+	row.add_child(_rarity_chip("Todas", 0))
+	for rar in range(1, 6):
+		row.add_child(_rarity_chip(_rarity_name(rar), rar))
+	return row
+
+func _rarity_chip(label: String, rar: int) -> Button:
+	var b := UiKit.small_btn(label, _set_filter.bind(rar))
+	b.custom_minimum_size = Vector2(0, 32)
+	b.add_theme_font_size_override("font_size", 12)
+	b.add_theme_color_override("font_color", UiKit.GOLD if rar == 0 else UiKit.rarity_color(rar))
+	if craft_filter != rar:
+		b.modulate = Color(1, 1, 1, 0.5)   # inativo = apagado
+	return b
+
+func _rarity_name(rar: int) -> String:
+	return RARITY_NAMES[clampi(rar - 1, 0, 4)]
+
+func _set_filter(rar: int) -> void:
+	craft_filter = rar
+	_render()
 
 # ── Cards ─────────────────────────────────────────────────────────────────────────
 func _refine_card(r: Dictionary) -> PanelContainer:
@@ -99,14 +157,18 @@ func _refine_card(r: Dictionary) -> PanelContainer:
 	var pc: PanelContainer = res[0]
 	var vb: VBoxContainer = res[1]
 	vb.add_child(UiKit.body("%s ×%d + %d🥉 → %s" % [str(r.get("oreName", ore)), ore_qty, int(r.get("bronzeCost", 0)), str(r.get("barName", ""))]))
-	# tem/precisa colorido + requisito de nível
-	var info := HBoxContainer.new(); info.add_theme_constant_override("separation", 10)
+	# tem/precisa colorido + requisito de nível (labels SEM autowrap → não quebram vertical no grid)
+	var info := HBoxContainer.new(); info.add_theme_constant_override("separation", 12)
 	var hv := Label.new()
 	hv.text = "Você tem: %d" % have
 	hv.add_theme_font_size_override("font_size", 12)
 	hv.add_theme_color_override("font_color", UiKit.OK if enough else UiKit.ERR)
 	info.add_child(hv)
-	info.add_child(UiKit.dim("Forja Lv.%d %s" % [int(r.get("levelRequired", 1)), "" if level_ok else "🔒"]))
+	var lv := Label.new()
+	lv.text = "Forja Lv.%d %s" % [int(r.get("levelRequired", 1)), "" if level_ok else "🔒"]
+	lv.add_theme_font_size_override("font_size", 12)
+	lv.add_theme_color_override("font_color", UiKit.TEXT_DIM)
+	info.add_child(lv)
 	vb.add_child(info)
 	if can:
 		var row := HBoxContainer.new(); row.add_theme_constant_override("separation", 8)

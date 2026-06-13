@@ -17,6 +17,7 @@ var mine: Array = []       # minhas listagens ativas
 var bag: Array = []        # itens da mochila p/ listar (não-equipados)
 var warrior: Dictionary = {}  # /api/warrior (carteira do header)
 var price_inputs := {}     # itemId(int) → LineEdit (preço digitado na seção de listagem)
+var rarity_filter := 0     # filtro de raridade da seção Comprar (0=Todas, 1-5)
 
 func _ready() -> void:
 	var ui := UiKit.scaffold(self, "💰 Leilão", func() -> void: go_back.emit(), func() -> void: await _refresh(), UiKit.TINT_COMMERCE)
@@ -56,25 +57,36 @@ func _render() -> void:
 	content.add_child(UiKit.dim("Mercado de preço fixo. Taxa: 5% adiantada (queima) + 15% na venda → você recebe 80%. Duram 2 dias, máx 10."))
 	# ── 🛒 Browse ──
 	content.add_child(UiKit.section("🛒 Comprar (%d)" % listings.size()))
+	content.add_child(UiKit.rarity_filter(rarity_filter, _set_rarity))
 	if listings.is_empty():
 		content.add_child(UiKit.empty("Nenhum item à venda agora", "Volte mais tarde ou liste algo abaixo"))
-	for a in listings:
-		if a is Dictionary:
-			content.add_child(_listing_row(a, false))
+	else:
+		var shown: Array = listings
+		if rarity_filter > 0:
+			shown = []
+			for a in listings:
+				if a is Dictionary and int(a.get("rarity", 1)) == rarity_filter:
+					shown.append(a)
+		if shown.is_empty():
+			content.add_child(UiKit.dim("— nada nessa raridade —"))
+		else:
+			content.add_child(UiKit.grid(self, shown, func(a): return _listing_row(a, false) if a is Dictionary else null))
 	# ── 📋 Minhas listagens ──
 	content.add_child(UiKit.section("📋 Minhas listagens (%d/10)" % mine.size()))
 	if mine.is_empty():
 		content.add_child(UiKit.dim("— nenhuma listagem ativa —"))
-	for a in mine:
-		if a is Dictionary:
-			content.add_child(_listing_row(a, true))
+	else:
+		content.add_child(UiKit.grid(self, mine, func(a): return _listing_row(a, true) if a is Dictionary else null))
 	# ── ➕ Listar item ──
 	content.add_child(UiKit.section("➕ Listar um item (%d)" % bag.size()))
 	if bag.is_empty():
 		content.add_child(UiKit.dim("— nada na mochila p/ listar —"))
-	for it in bag:
-		if it is Dictionary:
-			content.add_child(_picker_row(it))
+	else:
+		content.add_child(UiKit.grid(self, bag, func(it): return _picker_row(it) if it is Dictionary else null))
+
+func _set_rarity(r: int) -> void:
+	rarity_filter = r
+	_render()
 
 # Card de uma listagem (browse ou minha). is_mine_section → botão Cancelar; senão Comprar.
 func _listing_row(a: Dictionary, is_mine_section: bool) -> PanelContainer:

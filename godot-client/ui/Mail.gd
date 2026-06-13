@@ -46,11 +46,14 @@ func _render() -> void:
 	if letters.is_empty():
 		content.add_child(UiKit.empty("Caixa vazia", "Recompensas, itens e recados chegam aqui"))
 		return
-	for letter in letters:
-		if letter is Dictionary:
-			content.add_child(_letter_row(letter))
-			if int(letter.get("id", -1)) == opened_id:
+	# cartas em grid (2 col) p/ encurtar a lista; a carta aberta abre num painel
+	# FULL-WIDTH abaixo da grade (preserva o comportamento de abrir inline).
+	content.add_child(UiKit.grid(self, letters, func(letter): return _letter_row(letter) if letter is Dictionary else null))
+	if opened_id != -1:
+		for letter in letters:
+			if letter is Dictionary and int(letter.get("id", -1)) == opened_id:
 				content.add_child(_open_panel())
+				break
 
 # ── linha da carta na lista (clicável p/ abrir) ──
 func _letter_row(m: Dictionary) -> PanelContainer:

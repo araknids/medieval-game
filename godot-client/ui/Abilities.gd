@@ -55,9 +55,8 @@ func _render() -> void:
 		pl.add_theme_font_size_override("font_size", 14)
 		pl.add_theme_color_override("font_color", UiKit.GOLD)
 		content.add_child(pl)
-	for a in abilities:
-		if a is Dictionary:
-			content.add_child(_ability_card(a, pts))
+	# cards em grid (2 col) p/ encurtar a tela longa
+	content.add_child(UiKit.grid(self, abilities, func(a): return _ability_card(a, pts) if a is Dictionary else null))
 	# Respec (pago, reseta os pontos) → confirma antes
 	content.add_child(UiKit.spacer(6))
 	content.add_child(UiKit.action_danger("🔄 Resetar habilidades (%s)" % _fmt_bronze(int(data.get("respecCost", 0))), _respec))

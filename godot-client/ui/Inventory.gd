@@ -11,6 +11,7 @@ var wallet: Label
 var busy := false
 var items: Array = []      # cache local → ações atualizam em memória (sem re-baixar a lista)
 var warrior: Dictionary = {}   # /api/warrior (carteira do header)
+var rarity_filter := 0     # filtro de raridade da mochila (0=Todas, 1-5)
 
 func _ready() -> void:
 	var ui := UiKit.scaffold(self, "🎒 Inventário", func() -> void: go_back.emit(), func() -> void: await _refresh(), UiKit.TINT_DEFAULT)
@@ -44,13 +45,27 @@ func _render() -> void:
 	content.add_child(UiKit.section("Equipado (%d)" % equipped.size()))
 	if equipped.is_empty():
 		content.add_child(UiKit.dim("— nada equipado —"))
-	for it in equipped:
-		content.add_child(_item_row(it))
+	else:
+		content.add_child(UiKit.grid(self, equipped, _item_row))
 	content.add_child(UiKit.section("Mochila (%d)" % bag.size()))
+	content.add_child(UiKit.rarity_filter(rarity_filter, _set_rarity))
 	if bag.is_empty():
 		content.add_child(UiKit.empty("Mochila vazia", "Vença missões no 🌍 Mundo para conseguir itens"))
-	for it in bag:
-		content.add_child(_item_row(it))
+	else:
+		var shown: Array = bag
+		if rarity_filter > 0:
+			shown = []
+			for it in bag:
+				if it is Dictionary and int(it.get("rarity", 1)) == rarity_filter:
+					shown.append(it)
+		if shown.is_empty():
+			content.add_child(UiKit.dim("— nada nessa raridade —"))
+		else:
+			content.add_child(UiKit.grid(self, shown, _item_row))
+
+func _set_rarity(r: int) -> void:
+	rarity_filter = r
+	_render()
 
 func _item_row(it: Dictionary) -> PanelContainer:
 	var id := int(it.get("id", 0))

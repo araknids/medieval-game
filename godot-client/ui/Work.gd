@@ -65,9 +65,8 @@ func _render_jobs() -> void:
 	if jobs.is_empty():
 		content.add_child(UiKit.empty("Nenhum emprego disponível", "Suba de nível para destravar novos trabalhos."))
 		return
-	for j in jobs:
-		if j is Dictionary:
-			content.add_child(_job_card(j))
+	# empregos em grid (2 col) p/ encurtar a lista; o painel de progresso fica fora disso
+	content.add_child(UiKit.grid(self, jobs, func(j): return _job_card(j) if j is Dictionary else null))
 
 func _job_card(job: Dictionary) -> PanelContainer:
 	var locked := not bool(job.get("meetsLevelReq", true))

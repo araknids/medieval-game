@@ -13,6 +13,7 @@ var busy := false
 var data: Dictionary = {}        # cache do GET /api/shop (items + mercador + timer)
 var warrior: Dictionary = {}     # /api/warrior (carteira + bronze p/ affordability)
 var secs := 0                    # segundos até a próxima rotação (decai por _process)
+var rarity_filter := 0           # filtro de raridade dos itens à venda (0=Todas, 1-5)
 
 func _ready() -> void:
 	var ui := UiKit.scaffold(self, "🛒 Loja", func() -> void: go_back.emit(), func() -> void: await _refresh(), UiKit.TINT_COMMERCE)
@@ -83,10 +84,24 @@ func _render() -> void:
 		if it is Dictionary and bool(it.get("purchased", false)):
 			sorted_items.append(it)
 	content.add_child(UiKit.section("Itens (%d)" % items.size()))
+	content.add_child(UiKit.rarity_filter(rarity_filter, _set_rarity))
 	if items.is_empty():
 		content.add_child(UiKit.empty("Sem itens nesta rotação", "Volte após a próxima rotação do mercador"))
-	for it in sorted_items:
-		content.add_child(_item_row(it))
+	else:
+		var shown: Array = sorted_items
+		if rarity_filter > 0:
+			shown = []
+			for it in sorted_items:
+				if it is Dictionary and int(it.get("rarity", 1)) == rarity_filter:
+					shown.append(it)
+		if shown.is_empty():
+			content.add_child(UiKit.dim("— nada nessa raridade —"))
+		else:
+			content.add_child(UiKit.grid(self, shown, _item_row))
+
+func _set_rarity(r: int) -> void:
+	rarity_filter = r
+	_render()
 
 func _item_row(it: Dictionary) -> PanelContainer:
 	var purchased := bool(it.get("purchased", false))

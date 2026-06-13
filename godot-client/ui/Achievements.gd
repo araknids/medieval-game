@@ -12,6 +12,7 @@ var content: VBoxContainer
 var status: Label
 var wallet: Label
 var busy := false
+var status_filter := "all"       # filtro do catálogo: all / unlocked / locked
 
 func _ready() -> void:
 	var ui := UiKit.scaffold(self, "🏆 Conquistas", func() -> void: go_back.emit(), func() -> void: await _refresh(), UiKit.TINT_DEFAULT)
@@ -62,20 +63,42 @@ func _render() -> void:
 			var t := str(a.get("title", ""))
 			content.add_child(_title_card("👑 %s" % t, str(a.get("id", "")), t == active))
 
-	# ── Catálogo por categoria ──
+	# ── Catálogo por categoria (com filtro de status no topo) ──
+	content.add_child(UiKit.section("Catálogo"))
+	content.add_child(UiKit.filter_row([
+		{"label": "Todas", "value": "all", "color": UiKit.GOLD},
+		{"label": "Desbloqueadas", "value": "unlocked", "color": UiKit.OK},
+		{"label": "Bloqueadas", "value": "locked", "color": UiKit.TEXT_DIM},
+	], status_filter, _set_filter))
 	var cats: Array = []                  # mantém ordem de aparição
 	var by_cat: Dictionary = {}
 	for a in all:
 		if not (a is Dictionary): continue
+		if not _passes_filter(a): continue
 		var cat := str(a.get("category", "—"))
 		if not by_cat.has(cat):
 			by_cat[cat] = []
 			cats.append(cat)
 		by_cat[cat].append(a)
+	if cats.is_empty():
+		content.add_child(UiKit.dim("— nenhuma conquista neste filtro —"))
 	for cat in cats:
 		content.add_child(UiKit.section(cat))
-		for a in by_cat[cat]:
-			content.add_child(_ach_card(a))
+		# cards compactos em grid (2–3 col) p/ encurtar a tela longa
+		var cards: Array = by_cat[cat]
+		content.add_child(UiKit.grid(self, cards, _ach_card, true))
+
+# Filtro de status do catálogo (não afeta o picker de título).
+func _passes_filter(a: Dictionary) -> bool:
+	if status_filter == "unlocked":
+		return bool(a.get("unlocked", false))
+	if status_filter == "locked":
+		return not bool(a.get("unlocked", false))
+	return true
+
+func _set_filter(v) -> void:
+	status_filter = str(v)
+	_render()
 
 # ── linha de conquista ──────────────────────────────────────────────────────────
 func _ach_card(a: Dictionary) -> PanelContainer:

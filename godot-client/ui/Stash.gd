@@ -17,6 +17,7 @@ var stash: Dictionary = {}      # GET /api/stash
 var warrior: Dictionary = {}    # /api/warrior (carteira do header)
 var bag_items: Array = []       # itens da mochila (não equipados)
 var bag_res: Array = []         # recursos da mochila (quantity > 0)
+var rarity_filter := 0          # filtro de raridade (só ITENS; recursos não têm raridade)
 
 func _ready() -> void:
 	var ui := UiKit.scaffold(self, "📦 Baú", func() -> void: go_back.emit(), func() -> void: await _refresh(), UiKit.TINT_COMMERCE)
@@ -61,16 +62,21 @@ func _render() -> void:
 	fee_lbl.add_theme_font_size_override("font_size", 12)
 	fee_lbl.add_theme_color_override("font_color", UiKit.WARN)
 	content.add_child(fee_lbl)
+	# filtro de raridade — aplica só aos ITENS (mochila + baú); recursos nunca filtram.
+	content.add_child(UiKit.rarity_filter(rarity_filter, _set_rarity))
 	# ── Mochila (bag) ──  used/max vem de bagUsed/bagMax
 	var bag_used := int(stash.get("bagUsed", 0))
 	var bag_max := int(stash.get("bagMax", 0))
 	content.add_child(UiKit.section("Mochila (%d/%d)" % [bag_used, bag_max]))
 	if bag_items.is_empty() and bag_res.is_empty():
 		content.add_child(UiKit.empty("Mochila vazia", "Colete recursos e equipamentos para guardar aqui"))
-	for it in bag_items:
-		content.add_child(_item_row(it, true))
-	for r in bag_res:
-		content.add_child(_res_row(r, true))
+	var bag_items_shown := _filter_rarity(bag_items)
+	if not bag_items_shown.is_empty():
+		content.add_child(UiKit.grid(self, bag_items_shown, func(it): return _item_row(it, true) if it is Dictionary else null))
+	elif not bag_items.is_empty():
+		content.add_child(UiKit.dim("— nenhum item nessa raridade —"))
+	if not bag_res.is_empty():
+		content.add_child(UiKit.grid(self, bag_res, func(r): return _res_row(r, true) if r is Dictionary else null, true))
 	# ── Baú (stash) ──  used/max(-1=∞)
 	var st_items: Array = stash.get("items", []) if stash.get("items") is Array else []
 	var st_res: Array = stash.get("resources", []) if stash.get("resources") is Array else []
@@ -80,10 +86,27 @@ func _render() -> void:
 	content.add_child(UiKit.section("Baú (%d/%s)" % [used, cap]))
 	if st_items.is_empty() and st_res.is_empty():
 		content.add_child(UiKit.empty("Baú vazio", "Deposite itens da mochila para protegê-los"))
-	for it in st_items:
-		content.add_child(_item_row(it, false))
-	for r in st_res:
-		content.add_child(_res_row(r, false))
+	var st_items_shown := _filter_rarity(st_items)
+	if not st_items_shown.is_empty():
+		content.add_child(UiKit.grid(self, st_items_shown, func(it): return _item_row(it, false) if it is Dictionary else null))
+	elif not st_items.is_empty():
+		content.add_child(UiKit.dim("— nenhum item nessa raridade —"))
+	if not st_res.is_empty():
+		content.add_child(UiKit.grid(self, st_res, func(r): return _res_row(r, false) if r is Dictionary else null, true))
+
+func _set_rarity(r: int) -> void:
+	rarity_filter = r
+	_render()
+
+# Filtra itens pela raridade ativa (0=Todas → devolve a lista intacta).
+func _filter_rarity(arr: Array) -> Array:
+	if rarity_filter <= 0:
+		return arr
+	var out: Array = []
+	for it in arr:
+		if it is Dictionary and int(it.get("rarity", 1)) == rarity_filter:
+			out.append(it)
+	return out
 
 # in_bag=true → botão "→ Baú" (depositar); false → "→ Mochila" (sacar)
 func _item_row(it: Dictionary, in_bag: bool) -> PanelContainer:

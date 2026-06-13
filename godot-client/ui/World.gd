@@ -193,7 +193,11 @@ func _build_detail(box: VBoxContainer, kingdom: String) -> void:
 					else:
 						row.add_child(UiKit.small_btn("Coletar", _collect_quest.bind(kingdom, qid)))
 				else:
-					row.add_child(UiKit.dim("%dm" % int(q.get("secondsRemaining", 0) / 60)))
+					var tl := Label.new()
+					tl.text = "%dm" % int(q.get("secondsRemaining", 0) / 60)
+					tl.add_theme_font_size_override("font_size", 12)
+					tl.add_theme_color_override("font_color", UiKit.TEXT_DIM)
+					row.add_child(tl)
 				row.add_child(UiKit.small_btn("✖", _abandon_quest.bind(kingdom, qid), true))
 				box.add_child(row)
 	# Training Hall (só COMBAT)

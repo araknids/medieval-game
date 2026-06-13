@@ -469,6 +469,58 @@ static func empty(text: String, hint := "") -> Control:
 		v.add_child(h)
 	return res[0]
 
+# ── Grid responsivo + linha de filtros ─────────────────────────────────────────────
+const RARITY_NAMES := ["Comum", "Incomum", "Raro", "Épico", "Lendário"]
+
+# Põe os cards num GridContainer responsivo (encurta telas longas). builder = func(item) -> Control.
+# host = a tela (p/ ler a largura do viewport). compact=true → cards pequenos cabem em 3 colunas.
+static func grid(host: Control, items: Array, builder: Callable, compact := false) -> GridContainer:
+	var w := 900.0
+	if host != null and host.is_inside_tree():
+		w = host.get_viewport().get_visible_rect().size.x
+	var cols := 1
+	if compact:
+		cols = 3 if w >= 820.0 else (2 if w >= 540.0 else 1)
+	else:
+		cols = 2 if w >= 640.0 else 1
+	var g := GridContainer.new()
+	g.columns = cols
+	g.add_theme_constant_override("h_separation", 8)
+	g.add_theme_constant_override("v_separation", 8)
+	g.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	for it in items:
+		var card: Control = builder.call(it)
+		if card != null:
+			card.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+			g.add_child(card)
+	return g
+
+# Linha de chips de filtro (HFlow → quebra em telas estreitas). options = Array de
+# {label, value, color?}. active = valor selecionado. on_pick = func(value) -> void (re-renderiza).
+static func filter_row(options: Array, active, on_pick: Callable) -> Control:
+	var row := HFlowContainer.new()
+	row.add_theme_constant_override("h_separation", 6)
+	row.add_theme_constant_override("v_separation", 6)
+	for o in options:
+		if not (o is Dictionary):
+			continue
+		var b := small_btn(str(o.get("label", "?")), on_pick.bind(o.get("value")))
+		b.custom_minimum_size = Vector2(0, 32)
+		b.add_theme_font_size_override("font_size", 12)
+		var col: Color = o.get("color", GOLD)
+		b.add_theme_color_override("font_color", col)
+		if active != o.get("value"):
+			b.modulate = Color(1, 1, 1, 0.5)        # inativo = apagado
+		row.add_child(b)
+	return row
+
+# Atalho: filtro de raridade padrão (0=Todas, 1-5). on_pick recebe o int da raridade.
+static func rarity_filter(active: int, on_pick: Callable) -> Control:
+	var opts := [{"label": "Todas", "value": 0, "color": GOLD}]
+	for r in range(1, 6):
+		opts.append({"label": RARITY_NAMES[r - 1], "value": r, "color": rarity_color(r)})
+	return filter_row(opts, active, on_pick)
+
 static func spacer(h := 8) -> Control:
 	var s := Control.new()
 	s.custom_minimum_size = Vector2(0, h)
