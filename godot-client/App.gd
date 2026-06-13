@@ -14,6 +14,7 @@ var _battle: Node = null            # replay em andamento (overlay sobre a tela)
 var _battle_screen: Control = null  # tela que pediu a batalha (volta pra ela no fim)
 
 func _ready() -> void:
+	get_window().min_size = Vector2i(1024, 576)   # trava o tamanho mínimo da janela (UI não quebra abaixo disso)
 	_setup_emoji_font()
 	_route()
 
