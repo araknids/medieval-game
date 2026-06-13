@@ -90,12 +90,13 @@ func _letter_row(m: Dictionary) -> PanelContainer:
 	hb.add_child(right)
 	return pc
 
-# selos de anexo na linha (💰 ouro / 📦 item / 🐟 recurso / ⏰ expirado)
+# selos de anexo na linha (🪙 moeda / 📦 item / 🐟 recurso / ⏰ expirado)
 func _flags(m: Dictionary) -> Array:
 	var out: Array = []
 	var expired := bool(m.get("isExpired", false))
+	# [MOEDA] goldAmount é em BRONZE (base) — mostra em ouro/prata/bronze, não com cara de ouro
 	if int(m.get("goldAmount", 0)) > 0 and not bool(m.get("isCollected", false)):
-		out.append(_tag("💰 %d" % int(m.get("goldAmount", 0)), UiKit.GOLD))
+		out.append(_tag(UiKit.coin_str(int(m.get("goldAmount", 0))), UiKit.GOLD))
 	if bool(m.get("hasItem", false)) and not bool(m.get("itemCollected", false)) and not expired:
 		out.append(_tag("📦 ITEM", Color(0.65, 0.55, 0.98)))
 	if bool(m.get("hasResource", false)) and not expired:
@@ -122,11 +123,11 @@ func _open_panel() -> PanelContainer:
 	vb.add_child(UiKit.dim(str(r.get("sentAt", "")).substr(0, 16).replace("T", " ")))
 	# corpo da mensagem
 	vb.add_child(UiKit.body(str(r.get("message", ""))))
-	# anexo: OURO
+	# anexo: MOEDA — [MOEDA] goldAmount é em BRONZE (base)
 	if bool(r.get("hasGold", false)):
-		vb.add_child(UiKit.action("💰 Coletar %d ouro" % int(r.get("goldAmount", 0)), _collect_gold.bind(opened_id)))
+		vb.add_child(UiKit.action("🪙 Coletar %s" % UiKit.coin_str(int(r.get("goldAmount", 0))), _collect_gold.bind(opened_id)))
 	elif int(r.get("goldAmount", 0)) > 0:
-		vb.add_child(UiKit.dim("💰 %d ouro (já coletado)" % int(r.get("goldAmount", 0))))
+		vb.add_child(UiKit.dim("🪙 %s (já coletado)" % UiKit.coin_str(int(r.get("goldAmount", 0)))))
 	# anexo: ITEM
 	if bool(r.get("hasItem", false)):
 		if bool(r.get("isExpired", false)):

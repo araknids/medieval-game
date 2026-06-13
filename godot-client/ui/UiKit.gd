@@ -34,6 +34,19 @@ const TINT_SOCIAL    := Color(0.08, 0.09, 0.11)
 static func rarity_color(r: int) -> Color:
 	return RARITY[clampi(r - 1, 0, 4)]
 
+# Formata um valor em BRONZE (unidade-base) em ouro/prata/bronze com ícones. Ex.: 2500 → "25🥈".
+# 100 bronze = 1 prata · 100 prata = 1 ouro. TODO preço/custo/recompensa do jogo é em bronze —
+# use isto p/ não mostrar um valor de bronze com cara de ouro. [MOEDA]
+static func coin_str(bronze: int) -> String:
+	var g := bronze / 10000
+	var s := (bronze % 10000) / 100
+	var b := bronze % 100
+	var parts: Array = []
+	if g > 0: parts.append("%d🥇" % g)
+	if s > 0: parts.append("%d🥈" % s)
+	if b > 0 or parts.is_empty(): parts.append("%d🥉" % b)
+	return " ".join(parts)
+
 # ── Fundo (ColorRect + shader cacheado, sem 3D) ────────────────────────────────────
 const _BG_SHADER := """
 shader_type canvas_item;

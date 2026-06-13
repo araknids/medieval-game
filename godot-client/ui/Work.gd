@@ -158,7 +158,7 @@ func _render_progress() -> void:
 	box.add_child(clock)
 	# botão coletar
 	var sid := int(session.get("id", 0))
-	var collect := UiKit.action_big("💰 Coletar dinheiro" if done else "Em andamento…", _collect.bind(sid))
+	var collect := UiKit.action_big("🪙 Coletar dinheiro" if done else "Em andamento…", _collect.bind(sid))
 	collect.name = "Collect"
 	collect.custom_minimum_size = Vector2(0, 44)
 	collect.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -187,7 +187,7 @@ func _on_tick() -> void:
 		var btn := content.find_child("Collect", true, false) as Button
 		if btn != null:
 			btn.disabled = false
-			btn.text = "💰 Coletar dinheiro"
+			btn.text = "🪙 Coletar dinheiro"
 	else:
 		clock.text = _fmt_time(_timer_left)
 
@@ -218,8 +218,9 @@ func _collect(session_id: int) -> void:
 		var j: Dictionary = r["json"]
 		busy = false
 		await _refresh()   # volta pra lista (guerreiro livre)
-		UiKit.flash(status, "⚒ Trabalho concluído! +🪙%d   +⭐%d XP (%s)" % [
-			int(j.get("goldEarned", 0)), int(j.get("xpEarned", 0)), str(j.get("jobName", ""))], 1)
+		# [MOEDA] goldEarned é em BRONZE (base)
+		UiKit.flash(status, "⚒ Trabalho concluído! +%s   +⭐%d XP (%s)" % [
+			UiKit.coin_str(int(j.get("goldEarned", 0))), int(j.get("xpEarned", 0)), str(j.get("jobName", ""))], 1)
 		return
 	else:
 		UiKit.show_error(status, r)
@@ -242,7 +243,7 @@ func _cancel(session_id: int) -> void:
 		busy = false
 		await _refresh()
 		if earned > 0:
-			UiKit.flash(status, "Trabalho cancelado — parcial: +🪙%d   +⭐%d XP" % [earned, int(j.get("xpEarned", 0))], 1)
+			UiKit.flash(status, "Trabalho cancelado — parcial: +%s   +⭐%d XP" % [UiKit.coin_str(earned), int(j.get("xpEarned", 0))], 1)
 		else:
 			UiKit.flash(status, "Trabalho cancelado — nenhuma hora completa.", 0)
 		return

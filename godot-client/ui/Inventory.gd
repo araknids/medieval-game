@@ -77,8 +77,8 @@ func _item_row(it: Dictionary) -> PanelContainer:
 		actions.append(["Desequipar", _unequip.bind(id)])
 	else:
 		actions.append(["Equipar", _equip.bind(id)])
-		# bug fix: venda paga BRONZE, não ouro → ícone 🥉 (era 🥇)
-		actions.append(["Vender (%d🥉)" % int(it.get("sellPrice", 0)), _ask_sell.bind(id, name_text, int(it.get("rarity", 1)))])
+		# [MOEDA] venda paga BRONZE (base) → formata em ouro/prata/bronze
+		actions.append(["Vender (%s)" % UiKit.coin_str(int(it.get("sellPrice", 0))), _ask_sell.bind(id, name_text, int(it.get("rarity", 1)))])
 	return UiKit.item_row(it, name_text, sub_text, stats_text, actions)
 
 # Itens raros (raridade ≥ 3) pedem confirmação antes de vender; o resto é 1-clique.

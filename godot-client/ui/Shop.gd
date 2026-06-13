@@ -127,11 +127,12 @@ func _item_row(it: Dictionary) -> PanelContainer:
 		var sl := Label.new(); sl.text = stats; sl.add_theme_font_size_override("font_size", 12)
 		sl.add_theme_color_override("font_color", Color(0.62, 0.75, 0.58))
 		left.add_child(sl)
-	# preço — P0: vermelho se não dá pra pagar.
+	# preço — P0: vermelho se não dá pra pagar. [MOEDA] preço é em BRONZE (base);
+	# affordability compara o TOTAL (ouro*10000 + prata*100 + bronze), não o resto 0-99.
 	var price := int(it.get("price", 0))
-	var bronze := int(warrior.get("bronze", -1))
-	var afford := bronze < 0 or bronze >= price
-	var price_lbl := Label.new(); price_lbl.text = "💰 %d" % price
+	var total_bronze := int(warrior.get("gold", 0)) * 10000 + int(warrior.get("silver", 0)) * 100 + int(warrior.get("bronze", 0))
+	var afford := warrior.is_empty() or total_bronze >= price
+	var price_lbl := Label.new(); price_lbl.text = UiKit.coin_str(price)
 	price_lbl.add_theme_font_size_override("font_size", 13)
 	price_lbl.add_theme_color_override("font_color", UiKit.GOLD if (afford or purchased) else UiKit.ERR)
 	left.add_child(price_lbl)

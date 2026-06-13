@@ -126,13 +126,13 @@ func _listing_row(a: Dictionary, is_mine_section: bool) -> PanelContainer:
 		left.add_child(al)
 	var seller_txt := "Vendedor: %s" % str(a.get("sellerName", "?"))
 	if is_mine_section:
-		seller_txt += " · você recebe %d na venda" % int(a.get("sellerPayout", 0))
+		seller_txt += " · você recebe %s na venda" % UiKit.coin_str(int(a.get("sellerPayout", 0)))
 	left.add_child(UiKit.dim(seller_txt))
 	hb.add_child(left)
-	# direita: preço + ação
+	# direita: preço + ação — [MOEDA] preço é em BRONZE (base)
 	var right := VBoxContainer.new(); right.add_theme_constant_override("separation", 6)
 	right.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	var price := Label.new(); price.text = "💰 %d" % int(a.get("price", 0))
+	var price := Label.new(); price.text = UiKit.coin_str(int(a.get("price", 0)))
 	price.add_theme_color_override("font_color", UiKit.GOLD)
 	price.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 	right.add_child(price)
@@ -176,7 +176,7 @@ func _picker_row(it: Dictionary) -> PanelContainer:
 	var right := VBoxContainer.new(); right.add_theme_constant_override("separation", 6)
 	right.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	var itid := int(it.get("id", 0))
-	var price := UiKit.input("💰 preço")
+	var price := UiKit.input("preço em bronze 🥉")
 	price.custom_minimum_size = Vector2(120, 0)
 	price_inputs[itid] = price
 	right.add_child(price)
