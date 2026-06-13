@@ -48,13 +48,22 @@ func _render() -> void:
 	var stamina := int(w.get("stamina", 100))
 	var ko := bool(w.get("isKnockedOut", false))
 	var no_stamina := stamina < STAMINA_COST
+	var fights := int(w.get("arenaFightsToday", 0))
+	var limit := int(w.get("arenaFightLimit", 5))
+	var at_limit := fights >= limit
 	content.add_child(UiKit.section("Entrar em batalha"))
 	content.add_child(UiKit.dim("Custo: ⚡ %d estamina  ·  Sua estamina: %d/100" % [STAMINA_COST, stamina]))
+	content.add_child(UiKit.kv("Lutas hoje", "%d/%d" % [fights, limit], UiKit.WARN if at_limit else UiKit.TEXT))
 	content.add_child(UiKit.dim("Duelo instantâneo. Vitória: +25 rank, ~200 bronze."))
 	if ko:
 		var b := UiKit.action_big("💀 Nocauteado", Callable())
 		b.disabled = true
 		content.add_child(b)
+	elif at_limit:
+		var b := UiKit.action_big("Limite diário (%d/%d)" % [fights, limit], Callable())
+		b.disabled = true
+		content.add_child(b)
+		content.add_child(UiKit.dim("Reseta à meia-noite UTC. VIP tem mais lutas por dia."))
 	elif no_stamina:
 		var b := UiKit.action_big("⚡ Sem estamina", Callable())
 		b.disabled = true
