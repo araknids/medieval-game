@@ -132,10 +132,9 @@ func _item_row(it: Dictionary) -> PanelContainer:
 	var price := int(it.get("price", 0))
 	var total_bronze := int(warrior.get("gold", 0)) * 10000 + int(warrior.get("silver", 0)) * 100 + int(warrior.get("bronze", 0))
 	var afford := warrior.is_empty() or total_bronze >= price
-	var price_lbl := Label.new(); price_lbl.text = UiKit.coin_str(price)
-	price_lbl.add_theme_font_size_override("font_size", 13)
-	price_lbl.add_theme_color_override("font_color", UiKit.GOLD if (afford or purchased) else UiKit.ERR)
-	left.add_child(price_lbl)
+	# [MOEDA] ícones pixel-art (não emoji); o número fica vermelho quando não dá pra pagar
+	var price_box := UiKit.coin_box(price, 18, UiKit.TEXT if (afford or purchased) else UiKit.ERR)
+	left.add_child(price_box)
 	hb.add_child(left)
 	# direita: ação comprar / comprado
 	var right := VBoxContainer.new(); right.add_theme_constant_override("separation", 4)

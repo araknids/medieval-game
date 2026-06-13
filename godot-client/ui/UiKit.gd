@@ -47,6 +47,31 @@ static func coin_str(bronze: int) -> String:
 	if b > 0 or parts.is_empty(): parts.append("%d🥉" % b)
 	return " ".join(parts)
 
+# [MOEDA] Mesma quebra do coin_str, mas renderiza com os ÍCONES pixel-art (Icons.gd, os
+# mesmos da topbar) em vez de emoji — emoji mono fica tingido de dourado e some a distinção.
+# Retorna um HBox [🥇 N] [🥈 N] [🥉 N]. num_color tinge só o número (ex.: Loja usa ERR quando
+# não dá pra pagar). px = tamanho do ícone.
+static func coin_box(bronze: int, px := 18, num_color := TEXT) -> HBoxContainer:
+	var h := HBoxContainer.new()
+	h.add_theme_constant_override("separation", 3)
+	var g := bronze / 10000
+	var s := (bronze % 10000) / 100
+	var b := bronze % 100
+	var segs: Array = []
+	if g > 0: segs.append(["gold", g])
+	if s > 0: segs.append(["silver", s])
+	if b > 0 or segs.is_empty(): segs.append(["bronze", b])
+	for seg in segs:
+		h.add_child(Icons.rect(str(seg[0]), px))
+		var l := Label.new()
+		l.text = str(int(seg[1]))
+		l.add_theme_font_size_override("font_size", maxi(11, px - 4))
+		l.add_theme_color_override("font_color", num_color)
+		l.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+		l.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		h.add_child(l)
+	return h
+
 # ── Fundo (ColorRect + shader cacheado, sem 3D) ────────────────────────────────────
 const _BG_SHADER := """
 shader_type canvas_item;
@@ -580,8 +605,19 @@ static func filter_row(options: Array, active, on_pick: Callable) -> Control:
 		b.add_theme_font_size_override("font_size", 12)
 		var col: Color = o.get("color", GOLD)
 		b.add_theme_color_override("font_color", col)
-		if active != o.get("value"):
-			b.modulate = Color(1, 1, 1, 0.5)        # inativo = apagado
+		if active == o.get("value"):
+			# chip ATIVO: fundo preenchido + borda na cor da opção (destaque claro, não só opacidade)
+			var sb := StyleBoxFlat.new()
+			sb.bg_color = Color(col.r, col.g, col.b, 0.22)
+			sb.set_border_width_all(2); sb.border_color = col; sb.set_corner_radius_all(6)
+			sb.content_margin_left = 10; sb.content_margin_right = 10
+			sb.content_margin_top = 4; sb.content_margin_bottom = 4
+			b.add_theme_stylebox_override("normal", sb)
+			b.add_theme_stylebox_override("hover", sb)
+			b.add_theme_stylebox_override("pressed", sb)
+			b.add_theme_stylebox_override("focus", sb)
+		else:
+			b.modulate = Color(1, 1, 1, 0.45)        # inativo = apagado
 		row.add_child(b)
 	return row
 

@@ -55,38 +55,51 @@ func _render() -> void:
 	price_inputs.clear()
 	# nota da taxa
 	content.add_child(UiKit.dim("Mercado de preço fixo. Taxa: 5% adiantada (queima) + 15% na venda → você recebe 80%. Duram 2 dias, máx 10."))
-	# ── 🛒 Browse ──
-	content.add_child(UiKit.section("🛒 Comprar (%d)" % listings.size()))
+	# ── filtro de raridade — [FILTRO] vale pra TELA TODA (compra + minhas + mochila),
+	# senão as seções de baixo ficam mostrando outras raridades e parece que "filtra errado".
+	content.add_child(UiKit.dim("Filtrar por raridade (vale p/ todas as seções):"))
 	content.add_child(UiKit.rarity_filter(rarity_filter, _set_rarity))
+	# ── 🛒 Browse ──
+	var browse := _by_rarity(listings)
+	content.add_child(UiKit.section("🛒 Comprar (%d)" % browse.size()))
 	if listings.is_empty():
 		content.add_child(UiKit.empty("Nenhum item à venda agora", "Volte mais tarde ou liste algo abaixo"))
+	elif browse.is_empty():
+		content.add_child(UiKit.dim("— nada à venda nessa raridade —"))
 	else:
-		var shown: Array = listings
-		if rarity_filter > 0:
-			shown = []
-			for a in listings:
-				if a is Dictionary and int(a.get("rarity", 1)) == rarity_filter:
-					shown.append(a)
-		if shown.is_empty():
-			content.add_child(UiKit.dim("— nada nessa raridade —"))
-		else:
-			content.add_child(UiKit.grid(self, shown, func(a): return _listing_row(a, false) if a is Dictionary else null))
+		content.add_child(UiKit.grid(self, browse, func(a): return _listing_row(a, false) if a is Dictionary else null))
 	# ── 📋 Minhas listagens ──
+	var mine_f := _by_rarity(mine)
 	content.add_child(UiKit.section("📋 Minhas listagens (%d/10)" % mine.size()))
 	if mine.is_empty():
 		content.add_child(UiKit.dim("— nenhuma listagem ativa —"))
+	elif mine_f.is_empty():
+		content.add_child(UiKit.dim("— nenhuma listagem nessa raridade —"))
 	else:
-		content.add_child(UiKit.grid(self, mine, func(a): return _listing_row(a, true) if a is Dictionary else null))
+		content.add_child(UiKit.grid(self, mine_f, func(a): return _listing_row(a, true) if a is Dictionary else null))
 	# ── ➕ Listar item ──
+	var bag_f := _by_rarity(bag)
 	content.add_child(UiKit.section("➕ Listar um item (%d)" % bag.size()))
 	if bag.is_empty():
 		content.add_child(UiKit.dim("— nada na mochila p/ listar —"))
+	elif bag_f.is_empty():
+		content.add_child(UiKit.dim("— nada na mochila nessa raridade —"))
 	else:
-		content.add_child(UiKit.grid(self, bag, func(it): return _picker_row(it) if it is Dictionary else null))
+		content.add_child(UiKit.grid(self, bag_f, func(it): return _picker_row(it) if it is Dictionary else null))
 
 func _set_rarity(r: int) -> void:
 	rarity_filter = r
 	_render()
+
+# [FILTRO] aplica o filtro de raridade da tela (0=Todas) a qualquer lista de itens/listagens.
+func _by_rarity(arr: Array) -> Array:
+	if rarity_filter <= 0:
+		return arr
+	var out: Array = []
+	for x in arr:
+		if x is Dictionary and int(x.get("rarity", 1)) == rarity_filter:
+			out.append(x)
+	return out
 
 # Card de uma listagem (browse ou minha). is_mine_section → botão Cancelar; senão Comprar.
 func _listing_row(a: Dictionary, is_mine_section: bool) -> PanelContainer:
@@ -132,9 +145,8 @@ func _listing_row(a: Dictionary, is_mine_section: bool) -> PanelContainer:
 	# direita: preço + ação — [MOEDA] preço é em BRONZE (base)
 	var right := VBoxContainer.new(); right.add_theme_constant_override("separation", 6)
 	right.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	var price := Label.new(); price.text = UiKit.coin_str(int(a.get("price", 0)))
-	price.add_theme_color_override("font_color", UiKit.GOLD)
-	price.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	var price := UiKit.coin_box(int(a.get("price", 0)), 18)   # [MOEDA] ícones pixel-art (não emoji)
+	price.alignment = BoxContainer.ALIGNMENT_END
 	right.add_child(price)
 	var lid := int(a.get("listingId", 0))
 	if is_mine_section:
