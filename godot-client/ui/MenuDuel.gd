@@ -11,8 +11,10 @@ const UAL2_PATH := "res://addons/quaternius_ik_rigged/UAL2_Standard.glb"
 const LIB := "UAL1_Standard/"
 const LIB2 := "UAL2_Standard/"
 const IDLE := LIB + "Sword_Idle"
-const HURT := LIB + "Hit_Chest"
-const ATTACKS := [LIB2 + "Sword_Regular_A", LIB2 + "Sword_Regular_B"]
+const HURTS := [LIB + "Hit_Chest", LIB + "Hit_Head"]   # reação variada (peito/cabeça)
+const ROLL := LIB + "Roll"                              # esquiva ocasional (in-place, sem sangue)
+# golpes variados: 3 da UAL2 (A/B/combo) + o Sword_Attack da UAL1
+const ATTACKS := [LIB2 + "Sword_Regular_A", LIB2 + "Sword_Regular_B", LIB2 + "Sword_Regular_Combo", LIB + "Sword_Attack"]
 const BLEND := 0.12
 
 # Peças Ranger por slot (mesmo set do PaperDollLive) + a cabeça-base (rosto).
@@ -127,7 +129,7 @@ func _swing(attacker: int, defender: int) -> void:
 	var nd: Node3D = _fighters[defender]["node"]
 	if not (is_instance_valid(na) and is_instance_valid(nd)):
 		return
-	# atacante: anim de golpe
+	# atacante: golpe ALEATÓRIO (A/B/combo/attack)
 	if ap_a:
 		var clip: String = ATTACKS[_rng.randi() % ATTACKS.size()]
 		var an := ap_a.get_animation(clip)
@@ -141,17 +143,20 @@ func _swing(attacker: int, defender: int) -> void:
 	tw.tween_property(na, "position", home + Vector3(dirx * 0.38, 0, 0), 0.16).set_trans(Tween.TRANS_SINE)
 	tw.tween_interval(0.10)
 	tw.tween_property(na, "position", home, 0.30).set_trans(Tween.TRANS_SINE)
-	# defensor: reage + jato de sangue no impacto, um tiquinho depois
+	# defensor: ~25% ESQUIVA (rola, sem sangue); senão LEVA o golpe (hurt variado + sangue)
+	var dodge := _rng.randf() < 0.25
+	var react: String = ROLL if dodge else HURTS[_rng.randi() % HURTS.size()]
 	var hitdir := Vector3(nd.position.x - na.position.x, 0, 0)
 	get_tree().create_timer(0.26).timeout.connect(func() -> void:
 		if not is_instance_valid(nd):
 			return
 		if ap_d:
-			var h := ap_d.get_animation(HURT)
+			var h := ap_d.get_animation(react)
 			if h:
 				h.loop_mode = Animation.LOOP_NONE
-			ap_d.play(HURT, BLEND)
-		_blood(nd.global_position + Vector3(0, 1.15, 0), hitdir))
+			ap_d.play(react, BLEND)
+		if not dodge:
+			_blood(nd.global_position + Vector3(0, 1.15, 0), hitdir))
 
 # Jato de sangue por partículas (versão enxuta do GORE do BattleReplay). Some sozinho.
 func _blood(pos: Vector3, dir: Vector3) -> void:
