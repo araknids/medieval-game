@@ -67,9 +67,10 @@ func _refresh() -> void:
 		UiKit.show_error(status, r)
 		return
 	kingdoms = r["json"]
-	# abre o 1º reino por padrão (sem cair numa parede de cards fechados), como o web
-	if open_kingdom == "" and not kingdoms.is_empty() and kingdoms[0] is Dictionary:
-		await _open(str(kingdoms[0].get("kingdom", "")))
+	# NÃO auto-abre nenhum reino — o usuário escolhe qual expandir (todos começam fechados).
+	# Se já havia um aberto (refresh após uma ação), reabre ele pra atualizar os dados.
+	if open_kingdom != "":
+		await _open(open_kingdom)
 	else:
 		_render()
 
