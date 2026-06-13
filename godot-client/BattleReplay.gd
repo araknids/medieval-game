@@ -199,6 +199,7 @@ var _gibs: Array = []       # [GORE] pedaços/membros (RigidBody) ativos (cap)
 
 # director dirigido por simulação: movimento contínuo + cursor de evento com gatilho por posição
 var phase := "loading"      # loading → fight → done
+var _left := false          # guard p/ não sair duas vezes (botão Continuar + timer 5s)
 var idx := 0                # cursor do evento atual
 var act_state := "approach" # approach (espera posição) → windup (arma) → recover (respira)
 var act_timer := 0.0
@@ -1085,6 +1086,37 @@ func _finish() -> void:
 			if not loser.is_empty():
 				_face(winner, signf((loser["node"] as Node3D).position.x - (winner["node"] as Node3D).position.x))
 			if winner["anim"]: winner["anim"].play(_clip(winner, "idle"), BLEND)
+	_show_continue()
+
+# Sai do replay UMA vez só: embutido → emite finished (App fecha + volta pra tela); standalone (F6) → troca de cena.
+func _leave() -> void:
+	if _left:
+		return
+	_left = true
+	Engine.time_scale = 1.0
+	if not external_battle.is_empty():
+		finished.emit()
+	else:
+		get_tree().change_scene_to_file("res://App.tscn")
+
+# Fim da batalha: botão "Continuar" GRANDE no centro + AUTO-FECHA em 5s (ambos chamam _leave).
+func _show_continue() -> void:
+	if victory_label == null:
+		return
+	var layer := victory_label.get_parent()
+	if layer == null:
+		return
+	var btn := Button.new()
+	btn.text = "Continuar  ▶"
+	StoneStyle.apply(btn)
+	btn.add_theme_font_size_override("font_size", 30)
+	btn.set_anchors_and_offsets_preset(Control.PRESET_CENTER)
+	btn.offset_left = -160; btn.offset_right = 160
+	btn.offset_top = 30; btn.offset_bottom = 100   # um pouco abaixo do centro (não tampa os lutadores)
+	btn.pressed.connect(_leave)
+	layer.add_child(btn)
+	btn.grab_focus()
+	get_tree().create_timer(5.0).timeout.connect(_leave)   # auto-fecha em 5s
 
 # O vencedor caminha até ficar À FRENTE do corpo que acabou de matar e fica em guarda.
 func _stand_over(winner: Dictionary, loser: Dictionary) -> void:
@@ -1819,12 +1851,7 @@ func _make_ui() -> void:
 	back.text = "← Menu"
 	back.set_anchors_and_offsets_preset(Control.PRESET_TOP_RIGHT)
 	back.offset_left = -110; back.offset_right = -14; back.offset_top = 10; back.offset_bottom = 42
-	back.pressed.connect(func() -> void:
-		Engine.time_scale = 1.0
-		if not external_battle.is_empty():
-			finished.emit()                                  # overlay: o App fecha + volta pra tela
-		else:
-			get_tree().change_scene_to_file("res://App.tscn"))   # standalone (F6)
+	back.pressed.connect(_leave)
 	layer.add_child(back)
 
 func _status(msg: String) -> void:
