@@ -285,7 +285,7 @@ static func _btn(text: String, cb: Callable, size: Vector2, font := 15) -> Butto
 	b.add_theme_font_size_override("font_size", font)
 	b.custom_minimum_size = size
 	if cb.is_valid():
-		b.pressed.connect(_debounce.bind(b))   # [SEGURANCA] desabilita 0.4s ao clicar (anti clique-duplo + feedback)
+		b.pressed.connect(UiKit._debounce.bind(b))   # [SEGURANCA] desabilita 0.4s ao clicar (anti clique-duplo + feedback)
 		b.pressed.connect(cb)
 	return b
 
