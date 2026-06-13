@@ -9,6 +9,7 @@ signal go_battle
 signal logout
 
 const MenuFx := preload("res://ui/MenuFx.gd")
+const Icons := preload("res://ui/Icons.gd")
 
 # [seção, [[nome_da_tela, rótulo], ...]]
 const SECTIONS := [
@@ -49,6 +50,8 @@ func _ready() -> void:
 	box.add_child(_fx.title("MEDIEVAL", 56))
 	# ── ações primárias: LUTAR grande + Personagem/Inventário ──
 	var fight := _fx.button("⚔   LUTAR")
+	if Icons.set_icon(fight, "arena"):   # espadas cruzadas no lugar do emoji
+		fight.text = "LUTAR"
 	fight.custom_minimum_size = Vector2(0, 56)
 	fight.add_theme_font_size_override("font_size", 22)
 	fight.pressed.connect(func() -> void: go_battle.emit())
@@ -77,7 +80,8 @@ func _ready() -> void:
 	fight.call_deferred("grab_focus")   # foco inicial = ação principal (menu vivo no controle)
 
 func _screen_button(entry: Array, h: int) -> Button:
-	var b := _fx.button(str(entry[1]))
+	var b := _fx.button("")
+	Icons.label_button(b, str(entry[0]).to_lower(), str(entry[1]))  # ícone + texto (fallback no emoji)
 	b.custom_minimum_size = Vector2(150, h)
 	b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	var target: String = str(entry[0])

@@ -8,6 +8,8 @@ signal go_battle
 signal go_inventory
 signal logout
 
+const Icons := preload("res://ui/Icons.gd")
+
 # atributo: chave no JSON, sigla, ícone
 const ATTRS := [
 	["strength", "STR", "⚔"], ["constitution", "CON", "❤"], ["dexterity", "DEX", "🎯"],
@@ -77,6 +79,9 @@ func _render() -> void:
 	if stam < 100:
 		stam_txt += "  (cheia em %d min)" % int(w.get("minutesToFullStamina", 0))
 	content.add_child(UiKit.bar("Estamina", stam, 100, Color(0.36, 0.65, 0.38), stam_txt))
+	# ── Tesouro (moedas com ícone) ──
+	content.add_child(UiKit.section("Tesouro"))
+	content.add_child(_currency_row())
 	# ── Atributos ──
 	var pts := int(w.get("availablePoints", 0))
 	var attr_title := "Atributos"
@@ -91,7 +96,6 @@ func _render() -> void:
 	content.add_child(UiKit.kv("Defesa", str(w.get("combatDefense", w.get("totalDefense", 0)))))
 	content.add_child(UiKit.kv("Vida máx", str(w.get("combatHealth", w.get("totalHealth", 0)))))
 	content.add_child(UiKit.kv("Rank (arena)", str(w.get("rankPoints", 0))))
-	content.add_child(UiKit.kv("SoulStones", str(int(w.get("soulStones", 0)))))
 	# ── Ações ──
 	content.add_child(UiKit.spacer(8))
 	var actions := HBoxContainer.new()
@@ -105,17 +109,48 @@ func _render() -> void:
 	if not fight.disabled:
 		fight.call_deferred("grab_focus")
 
+# linha de moedas com ícone (ouro/prata/bronze/soulstone)
+func _currency_row() -> HBoxContainer:
+	var row := HBoxContainer.new()
+	row.add_theme_constant_override("separation", 20)
+	row.add_child(_coin("gold", int(w.get("gold", 0))))
+	row.add_child(_coin("silver", int(w.get("silver", 0))))
+	row.add_child(_coin("bronze", int(w.get("bronze", 0))))
+	row.add_child(_coin("soulstone", int(w.get("soulStones", 0))))
+	return row
+
+func _coin(key: String, amount: int) -> HBoxContainer:
+	var h := HBoxContainer.new()
+	h.add_theme_constant_override("separation", 6)
+	h.add_child(Icons.rect(key, 26))
+	var l := Label.new()
+	l.text = str(amount)
+	l.add_theme_font_size_override("font_size", 15)
+	l.add_theme_color_override("font_color", UiKit.GOLD)
+	l.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	h.add_child(l)
+	return h
+
 # linha de atributo: ícone+sigla · valor · efeito · botão + (se há ponto livre)
 func _attr_row(a: Array, can_add: bool) -> HBoxContainer:
 	var key := str(a[0])
 	var row := HBoxContainer.new()
 	row.add_theme_constant_override("separation", 10)
-	var nm := Label.new()
-	nm.text = "%s %s" % [str(a[2]), str(a[1])]
-	nm.custom_minimum_size = Vector2(90, 0)
-	nm.add_theme_font_size_override("font_size", 15)
-	nm.add_theme_color_override("font_color", UiKit.TEXT)
-	row.add_child(nm)
+	if Icons.tex("attr_" + key):   # ícone PixelLab + sigla
+		row.add_child(Icons.rect("attr_" + key, 26))
+		var sig := Label.new()
+		sig.text = str(a[1])
+		sig.custom_minimum_size = Vector2(56, 0)
+		sig.add_theme_font_size_override("font_size", 15)
+		sig.add_theme_color_override("font_color", UiKit.TEXT)
+		row.add_child(sig)
+	else:                          # fallback: emoji + sigla
+		var nm := Label.new()
+		nm.text = "%s %s" % [str(a[2]), str(a[1])]
+		nm.custom_minimum_size = Vector2(90, 0)
+		nm.add_theme_font_size_override("font_size", 15)
+		nm.add_theme_color_override("font_color", UiKit.TEXT)
+		row.add_child(nm)
 	var val := Label.new()
 	val.text = str(w.get(key, 0))
 	val.custom_minimum_size = Vector2(40, 0)

@@ -8,6 +8,8 @@ extends Control
 signal go_back
 signal request_battle(data)   # pede ao App o replay 3D (overlay) [MIGRACAO_GODOT]
 
+const Icons := preload("res://ui/Icons.gd")
+
 # Reinos de coleta/caça → as 3 zonas (tier SAFE/PVP/HIGH_RISK) que o web mostra em renderKingdomDetail.
 # [name, tier, skillType("" p/ COMBAT), minLevel, role]
 const ZONES := {
@@ -274,7 +276,8 @@ func _quest_card(kingdom: String, q: Dictionary) -> PanelContainer:
 func _element_picker() -> HBoxContainer:
 	var row := HBoxContainer.new(); row.add_theme_constant_override("separation", 6)
 	for e in ELEMENTS:
-		var b := Button.new(); b.text = str(e[1])
+		var b := Button.new()
+		Icons.label_button(b, "elem_" + str(e[0]).to_lower(), str(e[1]))  # ícone + nome (fallback no emoji)
 		StoneStyle.apply(b)
 		b.add_theme_font_size_override("font_size", 13)
 		b.custom_minimum_size = Vector2(96, 36)
