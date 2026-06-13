@@ -540,21 +540,57 @@ func _collect_zone(activity_id: int) -> void:
 	if busy: return
 	busy = true
 	var r = await Api.zone_collect(activity_id)
-	var msg := ""
-	if r.get("ok") and r.get("json") is Dictionary:
-		var j: Dictionary = r["json"]
-		if bool(j.get("bossPending", false)):
-			# [ZONA_CHEFE] chefe errante: não dá pra escolher fugir/encarar aqui — informa.
-			msg = "💀 %s (Lv %d) apareceu! Resolva o chefe na versão web." % [str(j.get("bossName", "Chefe")), int(j.get("bossLevel", 0))]
-		else:
-			msg = _zone_result_text(j)
-	else:
-		_show_error(r)
 	busy = false
+	if not (r.get("ok") and r.get("json") is Dictionary):
+		_show_error(r)
+		if open_kingdom != "":
+			await _open(open_kingdom)
+		return
+	await _handle_zone_result(activity_id, r["json"])
+
+# [BATALHA_ANIMADA] Trata a resposta de collect/boss da zona: se veio encontro de combate
+# (battleEvents), dispara o replay 3D igual à quest — o desfecho em texto aparece DEPOIS
+# (via _on_battle_over). Sem combate → mostra o texto direto. Espelha o _collect_quest.
+func _handle_zone_result(activity_id: int, j: Dictionary) -> void:
+	if bool(j.get("bossPending", false)):
+		_show_boss_dialog(activity_id, j)   # [ZONA_CHEFE] chefe errante: encarar ou fugir
+		return
+	var msg := _zone_result_text(j)
+	var be = j.get("battleEvents")
+	if be is Array and be.size() >= 2:
+		# encontrou monstro na expedição → replay 3D por cima; guarda o desfecho p/ depois
+		_pending_after = {"kingdom": open_kingdom, "text": msg}
+		request_battle.emit({"events": be, "scene": str(j.get("scene", "")), "won": bool(j.get("survived", false)), "enemy": str(j.get("attackerName", ""))})
+		return
 	if open_kingdom != "":
 		await _open(open_kingdom)
 	if msg != "":
 		_show_result(msg)
+
+# [ZONA_CHEFE] Chefe errante apareceu na expedição: encarar (combate 3D) ou tentar fugir.
+func _show_boss_dialog(activity_id: int, j: Dictionary) -> void:
+	var bname := str(j.get("bossName", "Chefe"))
+	var lvl := int(j.get("bossLevel", 0))
+	var flee := int(j.get("fleeChance", 0))
+	var intro := "💀 %s (Lv %d) escapou da Torre e bloqueou sua expedição!\n\n⚔ Encarar = combate.   🏃 Fugir = %d%% (se falhar, cai na luta)." % [bname, lvl, flee]
+	_choice_dialog(intro, [["⚔ Encarar", "fight"], ["🏃 Fugir", "flee"]], func(choice) -> void:
+		await _resolve_boss(activity_id, str(choice)))
+
+func _resolve_boss(activity_id: int, choice: String) -> void:
+	if busy: return
+	busy = true
+	var r
+	if choice == "fight":
+		r = await Api.zone_boss_fight(activity_id)
+	else:
+		r = await Api.zone_boss_flee(activity_id)
+	busy = false
+	if not (r.get("ok") and r.get("json") is Dictionary):
+		_show_error(r)
+		if open_kingdom != "":
+			await _open(open_kingdom)
+		return
+	await _handle_zone_result(activity_id, r["json"])
 
 func _cancel_zone(activity_id: int) -> void:
 	if busy: return

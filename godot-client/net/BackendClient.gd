@@ -129,6 +129,11 @@ func zone_collect(id: int) -> Dictionary:
 	return await _request(HTTPClient.METHOD_POST, "/api/zones/%d/collect" % id, {}, true)
 func zone_cancel(id: int) -> Dictionary:
 	return await _request(HTTPClient.METHOD_POST, "/api/zones/%d/cancel" % id, {}, true)
+## [ZONA_CHEFE] chefe errante: encarar (combate → battleEvents) / fugir (teste de stat). Mesma resposta do collect.
+func zone_boss_fight(id: int) -> Dictionary:
+	return await _request(HTTPClient.METHOD_POST, "/api/zones/%d/boss/fight" % id, {}, true)
+func zone_boss_flee(id: int) -> Dictionary:
+	return await _request(HTTPClient.METHOD_POST, "/api/zones/%d/boss/flee" % id, {}, true)
 func tower_current() -> Dictionary:
 	return await _request(HTTPClient.METHOD_GET, "/api/tower/current", null, true)
 func tower_ranking() -> Dictionary:
