@@ -37,6 +37,21 @@ static func label_button(b: Button, key: String, label_with_emoji: String) -> Bu
 		b.text = label_with_emoji
 	return b
 
+# ItemType (backend) → arquivo de ícone do slot. ARMOR=peito, PANTS=perna, SHOULDER reusa o peito.
+const ITEM_TYPE_ICON := {
+	"WEAPON": "slot_weapon", "SHIELD": "slot_shield", "HELMET": "slot_helmet",
+	"ARMOR": "slot_chest", "PANTS": "slot_legs", "BOOTS": "slot_boots",
+	"GLOVES": "slot_gloves", "SHOULDER": "slot_chest", "RING": "slot_ring",
+	"NECKLACE": "slot_necklace",
+}
+
+# Textura do ícone de um ITEM pelo seu type (ex.: "WEAPON" → slot_weapon.png). null se não mapeado.
+static func item_tex(item_type: String) -> Texture2D:
+	var key: String = ITEM_TYPE_ICON.get(item_type.to_upper(), "")
+	if key == "":
+		return null
+	return tex(key)
+
 # TextureRect pronto pra HUD (recurso/atributo). size em px; null-safe (volta um TextureRect vazio).
 static func rect(key: String, px := 24) -> TextureRect:
 	var tr := TextureRect.new()

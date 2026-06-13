@@ -1,5 +1,7 @@
 class_name UiKit
 extends RefCounted
+
+const Icons := preload("res://ui/Icons.gd")
 # ── Kit de UI "Stone & Ember" — padrão único das telas internas [PADRAO_UI_GODOT] ──
 # Direção de arte: modelo Fable. Faz toda tela parecer parte do Hub. Tudo estático (igual
 # StoneStyle), com caches. Uso típico no _ready() de uma tela:
@@ -413,6 +415,21 @@ static func bar(label: String, value: int, maxv: int, fill: Color, suffix := "")
 
 # ── Linha de item (mochila/loja/leilão/baú) ────────────────────────────────────────
 # it = item (name, rarity, itemLevel, type, statsLine?…); actions = [[label, cb, danger?], …].
+# Ícone do TIPO de item (slot_*) como TextureRect pronto, ou null se o tipo não tem ícone.
+# Usado pelo item_row e pelos cards próprios (Leilão) → ícone de item consistente em todo o projeto.
+static func item_icon(item_type: String, px := 48) -> TextureRect:
+	var t := Icons.item_tex(item_type)
+	if t == null:
+		return null
+	var tr := TextureRect.new()
+	tr.texture = t
+	tr.custom_minimum_size = Vector2(px, px)
+	tr.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	tr.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	tr.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	tr.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	return tr
+
 static func item_row(it: Dictionary, name_text: String, sub_text: String, stats_text: String, actions: Array) -> PanelContainer:
 	var rar := int(it.get("rarity", 1))
 	var res := card(rarity_color(rar))
@@ -424,6 +441,9 @@ static func item_row(it: Dictionary, name_text: String, sub_text: String, stats_
 	var row := HBoxContainer.new()
 	row.add_theme_constant_override("separation", 12)
 	box.add_child(row)
+	var ic := item_icon(str(it.get("type", "")))   # ícone do tipo (slot_*), consistente em todo o projeto
+	if ic:
+		row.add_child(ic)
 	var left := VBoxContainer.new()
 	left.add_theme_constant_override("separation", 2)
 	left.size_flags_horizontal = Control.SIZE_EXPAND_FILL
