@@ -50,8 +50,9 @@ func bg_3d(control: Control, scenario := "dungeon") -> SubViewportContainer:
 	var rng := RandomNumberGenerator.new()
 	rng.seed = 1337
 	Scenery.new().build(world, scenario, rng, 6.0, false)   # grimdark off (screen-shader não vale em SubViewport)
-	if scenario == "castle":                                # 2 guerreiros duelando no pátio (decoração)
-		world.add_child(MenuDuel.new())
+	var duel := MenuDuel.new()                              # 2 guerreiros duelando em QUALQUER cenário (decoração)
+	world.add_child(duel)
+	svc.set_meta("menu_duel", duel)                         # o App pega esse ref p/ remontar os lutadores no login
 	var tw := cam.create_tween().set_loops()                # drift lento (parallax) só no X (não cruza paredes)
 	tw.tween_property(cam, "position", cpos + Vector3(2.6, 0.3, 0), 14.0).set_trans(Tween.TRANS_SINE)
 	tw.tween_property(cam, "position", cpos + Vector3(-2.6, -0.2, 0), 14.0).set_trans(Tween.TRANS_SINE)

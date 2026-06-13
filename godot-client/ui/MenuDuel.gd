@@ -16,6 +16,8 @@ const ROLL := LIB + "Roll"                              # esquiva ocasional (in-
 # golpes variados: 3 da UAL2 (A/B/combo) + o Sword_Attack da UAL1
 const ATTACKS := [LIB2 + "Sword_Regular_A", LIB2 + "Sword_Regular_B", LIB2 + "Sword_Regular_Combo", LIB + "Sword_Attack"]
 const BLEND := 0.12
+# Arma aleatória dos lutadores — só MELEE (as anims do duelo são de espada). [MENU_DUEL]
+const MELEE_KINDS := ["sword", "greatsword", "axe", "spear", "mace"]
 
 # Peças Ranger por slot (mesmo set do PaperDollLive) + a cabeça-base (rosto).
 const BASE_HEAD := "res://assets/base/Base_Male_Head.gltf"
@@ -37,20 +39,62 @@ var _fighters: Array = []   # [{node, anim}]
 var _atk := 0
 var _timer := 1.0
 var _rng := RandomNumberGenerator.new()
+var _gen := 0   # geração do setup() — aborta um setup antigo se um novo começar (relogin rápido)
 
 func _ready() -> void:
-	_rng.seed = 770413
-	# luz quente de preenchimento (o castelo noturno é escuro) — destaca o duelo
+	_rng.randomize()   # cada abertura = coreografia + armas aleatórias diferentes [MENU_DUEL]
+	# luz quente de preenchimento (destaca o duelo em qualquer cenário, mesmo os noturnos)
 	var key := OmniLight3D.new()
 	key.light_color = Color(1.0, 0.86, 0.62)
 	key.light_energy = 2.6
 	key.omni_range = 13.0
 	key.position = Vector3(0, 4.0, 7.5)
 	add_child(key)
-	_spawn(POS_L, 90.0, 1)     # esquerda → encara a direita (espada comum)
-	_spawn(POS_R, -90.0, 3)    # direita  → encara a esquerda (espada azul)
+	# os lutadores são montados por setup() — o App chama no boot e a cada login/logout.
 
-func _spawn(pos: Vector3, yaw_deg: float, weapon_rarity: int) -> void:
+# (Re)monta os 2 lutadores conforme o login. LOGADO: esquerda = você (sua arma equipada real);
+# senão aleatório. DIREITA: sempre um oponente aleatório. Idempotente (limpa antes de remontar).
+func setup() -> void:
+	_gen += 1
+	var my := _gen
+	_clear_fighters()
+	var left := {}
+	if Api.token != "":
+		left = await _player_loadout()   # única coisa que varia com 1 set de roupa: a ARMA
+		if my != _gen:                   # um setup mais novo começou → aborta este
+			return
+		if left.is_empty():
+			left = {"kind": "sword", "rarity": 1}   # logado mas desarmado → espada padrão (ainda é "você")
+	if left.is_empty():
+		_spawn(POS_L, 90.0, _rand_kind(), _rng.randi_range(1, 5))    # deslogado → aleatório
+	else:
+		_spawn(POS_L, 90.0, str(left.get("kind", "sword")), int(left.get("rarity", 1)))
+	_spawn(POS_R, -90.0, _rand_kind(), _rng.randi_range(1, 5))       # oponente sempre aleatório
+
+# Lê /api/inventory e devolve {kind, rarity} da arma equipada (ou {} se falhar/desarmado).
+func _player_loadout() -> Dictionary:
+	var r = await Api.get_inventory()
+	if not (r.get("ok") and r.get("json") is Array):
+		return {}
+	for it in r["json"]:
+		if it is Dictionary and it.get("equipped") == true and str(it.get("type", "")) == "WEAPON":
+			var kind := Weapons.new().weapon_kind(str(it.get("name", "")), str(it.get("weaponCategory", "")))
+			return {"kind": kind, "rarity": int(it.get("rarity", 1))}
+	return {}
+
+func _rand_kind() -> String:
+	return MELEE_KINDS[_rng.randi() % MELEE_KINDS.size()]
+
+func _clear_fighters() -> void:
+	for f in _fighters:
+		var n = f.get("node")
+		if is_instance_valid(n):
+			n.queue_free()
+	_fighters.clear()
+	_atk = 0
+	_timer = 1.0
+
+func _spawn(pos: Vector3, yaw_deg: float, weapon_kind: String, weapon_rarity: int) -> void:
 	var node := CHAR.instantiate()
 	if node == null:
 		return
@@ -65,10 +109,10 @@ func _spawn(pos: Vector3, yaw_deg: float, weapon_rarity: int) -> void:
 		var lib2 = load(UAL2_PATH)
 		if lib2 is AnimationLibrary:
 			ap.add_animation_library("UAL2_Standard", lib2)
-	# veste de Ranger (esconde o corpo base) + espada na mão
+	# veste de Ranger (esconde o corpo base) + arma na mão (tipo + raridade)
 	if skel:
 		_dress(node, skel)
-		Weapons.new().attach_weapon(node, "sword", weapon_rarity)
+		Weapons.new().attach_weapon(node, weapon_kind, weapon_rarity)
 	# idle em loop; one-shot (ataque/hurt) volta pro idle ao terminar
 	if ap:
 		var il := ap.get_animation(IDLE)

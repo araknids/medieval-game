@@ -5,19 +5,23 @@ extends Control
 # Telas emitem: go_back (→ Hub), open_screen(name), go_battle, go_inventory, logout, logged_in.
 
 const LOGIN := preload("res://ui/Login.tscn")
-const MenuFx := preload("res://ui/MenuFx.gd")   # fundo 3D do castelo (persistente, atrás de tudo)
+const MenuFx := preload("res://ui/MenuFx.gd")   # fundo 3D do menu (persistente, atrás de tudo)
+# Mapas de fundo do menu: só os FECHADOS (câmera olha pra dentro → enquadra bem o duelo). [MENU_FUNDO]
+const MENU_MAPS := ["castle", "arena", "city", "dungeon"]
 # BattleReplay é carregado SOB DEMANDA (load) em _play_battle — NUNCA preload: um erro de parse no
 # replay (arquivo grande) não pode derrubar o app/login. Mesmo princípio do _open() das telas.
 
 var current: Control
 var _battle: Node = null            # replay em andamento (overlay sobre a tela)
 var _battle_screen: Control = null  # tela que pediu a batalha (volta pra ela no fim)
-var _castle_bg: SubViewportContainer = null   # castelo + duelo 3D ÚNICO, atrás de toda tela
+var _menu_bg: SubViewportContainer = null   # fundo 3D ÚNICO (cenário + duelo), atrás de toda tela
 
 func _ready() -> void:
 	get_window().min_size = Vector2i(1024, 576)   # trava o tamanho mínimo da janela (UI não quebra abaixo disso)
 	_setup_emoji_font()
-	_castle_bg = MenuFx.new().bg_3d(self, "castle")   # 1 fundo 3D p/ TODAS as telas (montado 1x; persiste)
+	randomize()   # mapa de fundo + lutadores diferentes a cada abertura do jogo [MENU_FUNDO]
+	var scenario: String = MENU_MAPS[randi() % MENU_MAPS.size()]
+	_menu_bg = MenuFx.new().bg_3d(self, scenario)   # 1 fundo 3D p/ TODAS as telas (montado 1x; persiste)
 	_route()
 
 # Registra a Noto Emoji (mono, OFL) como fallback da fonte padrão → os ícones (emoji) passam a
@@ -38,10 +42,20 @@ func _unhandled_input(event: InputEvent) -> void:
 		get_viewport().set_input_as_handled()
 
 func _route() -> void:
+	_refresh_duel()   # atualiza os lutadores do fundo conforme o login (você vs aleatório) [MENU_FUNDO]
 	if Api.token == "":
 		_show(LOGIN)
 	else:
 		_show_node(Shell.new())   # logado → shell persistente (topbar + nav + conteúdo) [PLANO_UI_SHELL_GODOT]
+
+# Pede ao duelo do fundo p/ remontar os lutadores (async, fire-and-forget). Logado → seu personagem
+# de um lado; deslogado → dois aleatórios. Chamado no boot e a cada login/logout. [MENU_FUNDO]
+func _refresh_duel() -> void:
+	if _menu_bg == null or not _menu_bg.has_meta("menu_duel"):
+		return
+	var duel = _menu_bg.get_meta("menu_duel")
+	if is_instance_valid(duel) and duel.has_method("setup"):
+		duel.setup()
 
 func _show(scene: PackedScene) -> void:
 	_show_node(scene.instantiate())
@@ -85,8 +99,8 @@ func _play_battle(data: Dictionary, screen: Control) -> void:
 		return
 	if is_instance_valid(screen):
 		screen.visible = false
-	if _castle_bg:
-		_castle_bg.visible = false   # esconde o castelo: o replay tem o 3D próprio dele
+	if _menu_bg:
+		_menu_bg.visible = false   # esconde o fundo do menu: o replay tem o 3D próprio dele
 	var br = scene.instantiate()
 	br.set("external_battle", data)
 	br.set("force_mock", false)
@@ -100,8 +114,8 @@ func _end_battle() -> void:
 	if _battle != null and is_instance_valid(_battle):
 		_battle.queue_free()
 	_battle = null
-	if _castle_bg:
-		_castle_bg.visible = true    # restaura o castelo atrás da tela
+	if _menu_bg:
+		_menu_bg.visible = true    # restaura o fundo do menu atrás da tela
 	var s := _battle_screen
 	_battle_screen = null
 	if is_instance_valid(s):
