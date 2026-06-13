@@ -129,12 +129,13 @@ func _build_topbar() -> Control:
 	var vit := VBoxContainer.new(); vit.add_theme_constant_override("separation", 4)
 	vit.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	_hp_bar = _mini_bar(Color(0.70, 0.22, 0.20), 170)
-	_hp_bar.tooltip_text = "Vida (HP), em % — regenera com o tempo; cure na hora no Templo"
-	vit.add_child(_labeled_bar("HP", _hp_bar))
+	var hp_row := _labeled_bar("HP", _hp_bar)
+	_tip_row(hp_row, "Vida (HP), em % — regenera com o tempo; cure na hora no Templo")
+	vit.add_child(hp_row)
 	_stam_bar = _mini_bar(Color(0.36, 0.65, 0.38), 170)
-	_stam_bar.tooltip_text = "Estamina — gasta nas ações; enche 100% em 1h (15min com buff de novato)"
 	var sl := _labeled_bar("Estamina", _stam_bar)
 	_stam_lbl = sl.get_meta("vlabel") as Label
+	_tip_row(sl, "Estamina — gasta nas ações; enche 100% em 1h (15min com buff de novato)")
 	vit.add_child(sl)
 	row.add_child(vit)
 	# moedas
@@ -191,6 +192,14 @@ func _labeled_bar(label: String, pb: ProgressBar) -> HBoxContainer:
 	h.add_child(v)
 	h.set_meta("vlabel", v)
 	return h
+
+# Tooltip (hover) na LINHA inteira: o container recebe o hover e os filhos viram IGNORE.
+func _tip_row(row: Control, tip: String) -> void:
+	row.tooltip_text = tip
+	row.mouse_filter = Control.MOUSE_FILTER_STOP
+	for c in row.get_children():
+		if c is Control:
+			(c as Control).mouse_filter = Control.MOUSE_FILTER_IGNORE
 
 # ── Nav lateral (árvore recolhível) ─────────────────────────────────────────────────
 func _build_nav() -> Control:
