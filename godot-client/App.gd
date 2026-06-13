@@ -6,7 +6,8 @@ extends Control
 
 const HUB := preload("res://ui/Hub.tscn")
 const LOGIN := preload("res://ui/Login.tscn")
-const BR := preload("res://BattleReplay.tscn")   # replay 3D de batalha (overlay) [MIGRACAO_GODOT]
+# BattleReplay é carregado SOB DEMANDA (load) em _play_battle — NUNCA preload: um erro de parse no
+# replay (arquivo grande) não pode derrubar o app/login. Mesmo princípio do _open() das telas.
 
 var current: Control
 var _battle: Node = null            # replay em andamento (overlay sobre a tela)
@@ -79,9 +80,14 @@ func _play_battle(data: Dictionary, screen: Control) -> void:
 	if _battle != null and is_instance_valid(_battle):
 		return                                                # já tem uma rolando
 	_battle_screen = screen
+	var scene = load("res://BattleReplay.tscn")   # sob demanda: erro no replay não derruba o login
+	if scene == null:
+		push_warning("BattleReplay.tscn não carregou — pulando o replay")
+		_battle_screen = null
+		return
 	if is_instance_valid(screen):
 		screen.visible = false
-	var br := BR.instantiate()
+	var br = scene.instantiate()
 	br.set("external_battle", data)
 	br.set("force_mock", false)
 	add_child(br)
