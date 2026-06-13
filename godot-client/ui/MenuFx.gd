@@ -6,6 +6,7 @@ extends RefCounted
 
 const Scenery := preload("res://Scenery.gd")
 const StoneStyle := preload("res://ui/StoneStyle.gd")
+const MenuDuel := preload("res://ui/MenuDuel.gd")   # 2 guerreiros duelando (só no castelo)
 
 const VIGNETTE := """
 shader_type canvas_item;
@@ -48,6 +49,8 @@ func bg_3d(control: Control, scenario := "dungeon") -> void:
 	var rng := RandomNumberGenerator.new()
 	rng.seed = 1337
 	Scenery.new().build(world, scenario, rng, 6.0, false)   # grimdark off (screen-shader não vale em SubViewport)
+	if scenario == "castle":                                # 2 guerreiros duelando no pátio (decoração)
+		world.add_child(MenuDuel.new())
 	var tw := cam.create_tween().set_loops()                # drift lento (parallax) só no X (não cruza paredes)
 	tw.tween_property(cam, "position", cpos + Vector3(2.6, 0.3, 0), 14.0).set_trans(Tween.TRANS_SINE)
 	tw.tween_property(cam, "position", cpos + Vector3(-2.6, -0.2, 0), 14.0).set_trans(Tween.TRANS_SINE)
