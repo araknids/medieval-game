@@ -37,6 +37,15 @@ func login(username: String, password: String) -> Dictionary:
 		token = str(r["json"]["token"])
 	return r
 
+## POST /api/auth/register → cria conta E já loga (guarda o token). Campos: username (3-20),
+## warriorName (≤30), email (válido), password (≥8). Erros de validação voltam como 400 c/ message.
+func register(username: String, warrior_name: String, email: String, password: String) -> Dictionary:
+	var r := await _request(HTTPClient.METHOD_POST, "/api/auth/register",
+			{"username": username, "warriorName": warrior_name, "email": email, "password": password}, false)
+	if r.get("ok") and r.get("json") is Dictionary and r["json"].has("token"):
+		token = str(r["json"]["token"])
+	return r
+
 ## GET /api/warrior (autenticado). Retorna {ok, status, json, raw, error}.
 func get_warrior() -> Dictionary:
 	return await _request(HTTPClient.METHOD_GET, "/api/warrior", null, true)

@@ -63,7 +63,10 @@ func _wire(c: Control) -> void:
 	if c.has_signal("logged_in"):
 		c.logged_in.connect(_route)
 	if c.has_signal("logout"):
-		c.logout.connect(func() -> void: Api.token = ""; _route())
+		c.logout.connect(func() -> void:
+			Api.token = ""
+			ConfigFile.new().save("user://session.cfg")   # limpa o auto-login salvo (senão re-logaria)
+			_route())
 	if c.has_signal("go_battle"):
 		c.go_battle.connect(func() -> void: get_tree().change_scene_to_file("res://BattleReplay.tscn"))
 	if c.has_signal("go_back"):

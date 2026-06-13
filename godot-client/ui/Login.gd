@@ -1,20 +1,28 @@
 extends Control
-# ── Tela de LOGIN (tela-título, estilo grimdark/Diablo) ──────────────────────────
-# Fundo 3D noturno + título dourado + caixa de login em painel de pedra. Loga via Api;
-# ao logar emite `logged_in`. Pré-preenche do login.cfg (dev). [MIGRACAO_GODOT]
+# ── Tela de LOGIN + REGISTRO + entrar automaticamente ────────────────────────────
+# Fundo 3D + título dourado + caixa de pedra. Login ({username,password}) OU Registro
+# ({username,warriorName,email,password} — o backend já loga). "Entrar automaticamente"
+# salva as credenciais em user://session.cfg e loga sozinho na próxima abertura. [MIGRACAO_GODOT]
 
 signal logged_in
 
 const MenuFx := preload("res://ui/MenuFx.gd")
+const SESSION := "user://session.cfg"   # creds locais p/ auto-login (por usuário, fora do git)
 
-var user_edit: LineEdit
-var pass_edit: LineEdit
+var fx: MenuFx
+var box: VBoxContainer        # caixa do formulário (reconstruída ao trocar de modo)
 var status: Label
-var btn: Button
+var mode := "login"           # "login" | "register"
+var _busy := false
+var user_edit: LineEdit
+var wname_edit: LineEdit
+var email_edit: LineEdit
+var pass_edit: LineEdit
+var auto_check: CheckBox
 
 func _ready() -> void:
 	set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	var fx := MenuFx.new()
+	fx = MenuFx.new()
 	fx.bg_3d(self, "castle")
 	var center := CenterContainer.new()
 	center.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
@@ -23,39 +31,115 @@ func _ready() -> void:
 	outer.add_theme_constant_override("separation", 14)
 	center.add_child(outer)
 	outer.add_child(fx.title("⚔ MEDIEVAL", 64))
-	# painel de pedra com a caixa de login
 	var panel := PanelContainer.new()
 	panel.add_theme_stylebox_override("panel", fx.panel())
 	outer.add_child(panel)
-	var box := VBoxContainer.new()
-	box.custom_minimum_size = Vector2(340, 0)
+	box = VBoxContainer.new()
+	box.custom_minimum_size = Vector2(360, 0)
 	box.add_theme_constant_override("separation", 10)
 	panel.add_child(box)
+	_build_form()
+	await _try_auto_login()
+
+# (Re)constrói o formulário conforme o modo (login/registro).
+func _build_form() -> void:
+	for c in box.get_children():
+		c.queue_free()
+	wname_edit = null
+	email_edit = null
+	var is_reg := mode == "register"
+	var head := Label.new()
+	head.text = "Criar conta" if is_reg else "Entrar"
+	head.add_theme_font_size_override("font_size", 20)
+	head.add_theme_color_override("font_color", UiKit.GOLD)
+	head.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	box.add_child(head)
 	user_edit = UiKit.input("usuário")
 	box.add_child(user_edit)
-	pass_edit = UiKit.input("senha"); pass_edit.secret = true
+	if is_reg:
+		wname_edit = UiKit.input("nome do guerreiro")
+		box.add_child(wname_edit)
+		email_edit = UiKit.input("email")
+		box.add_child(email_edit)
+	pass_edit = UiKit.input("senha (mín. 8)" if is_reg else "senha")
+	pass_edit.secret = true
 	box.add_child(pass_edit)
-	btn = fx.button("Entrar")
+	pass_edit.text_submitted.connect(func(_t: String) -> void: await _submit())
+	auto_check = CheckBox.new()
+	auto_check.text = "Entrar automaticamente"
+	auto_check.button_pressed = true
+	auto_check.add_theme_color_override("font_color", UiKit.TEXT)
+	box.add_child(auto_check)
+	var btn := fx.button("Criar conta" if is_reg else "Entrar")
 	btn.custom_minimum_size = Vector2(0, 42)
+	btn.pressed.connect(_submit)
 	box.add_child(btn)
+	var toggle := Button.new()
+	toggle.flat = true
+	toggle.text = "Já tenho conta — entrar" if is_reg else "Não tem conta? Criar uma"
+	toggle.add_theme_color_override("font_color", UiKit.GOLD_SOFT)
+	toggle.pressed.connect(func() -> void:
+		mode = "login" if is_reg else "register"
+		_build_form())
+	box.add_child(toggle)
 	status = Label.new()
 	status.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	box.add_child(status)
-	btn.pressed.connect(_do_login)
-	pass_edit.text_submitted.connect(func(_t: String) -> void: _do_login())
+	_prefill_dev()
+
+# Pré-preenche do login.cfg (dev) se existir — conveniência local.
+func _prefill_dev() -> void:
 	var cf := ConfigFile.new()
 	if cf.load("res://login.cfg") == OK:
-		user_edit.text = str(cf.get_value("login", "user", ""))
-		pass_edit.text = str(cf.get_value("login", "pass", ""))
+		if user_edit and user_edit.text == "":
+			user_edit.text = str(cf.get_value("login", "user", ""))
+		if pass_edit and pass_edit.text == "":
+			pass_edit.text = str(cf.get_value("login", "pass", ""))
 
-func _do_login() -> void:
-	if Api.token != "":
-		logged_in.emit(); return
-	btn.disabled = true
+func _submit() -> void:
+	if _busy: return
+	if user_edit.text.strip_edges() == "" or pass_edit.text == "":
+		UiKit.flash(status, "Preencha usuário e senha.", 2)
+		return
+	_busy = true
 	UiKit.flash(status, "Conectando…", 0)
-	var r = await Api.login(user_edit.text, pass_edit.text)
-	btn.disabled = false
+	var r: Dictionary
+	if mode == "register":
+		r = await Api.register(user_edit.text, wname_edit.text, email_edit.text, pass_edit.text)
+	else:
+		r = await Api.login(user_edit.text, pass_edit.text)
+	_busy = false
+	if r.get("ok") and Api.token != "":
+		_save_session(user_edit.text, pass_edit.text)
+		logged_in.emit()
+	else:
+		UiKit.flash(status, UiKit.err_text(r), 2)
+
+# Auto-login: se há sessão salva (checkbox marcado antes), loga sozinho.
+func _try_auto_login() -> void:
+	var cf := ConfigFile.new()
+	if cf.load(SESSION) != OK or not bool(cf.get_value("auth", "auto", false)):
+		return
+	var u := str(cf.get_value("auth", "user", ""))
+	var p := str(cf.get_value("auth", "pass", ""))
+	if u == "" or p == "":
+		return
+	if user_edit: user_edit.text = u
+	if pass_edit: pass_edit.text = p
+	UiKit.flash(status, "Entrando…", 0)
+	_busy = true
+	var r = await Api.login(u, p)
+	_busy = false
 	if r.get("ok") and Api.token != "":
 		logged_in.emit()
 	else:
-		UiKit.flash(status, "Login falhou (%s)" % str(r.get("status", "?")), 2)
+		UiKit.flash(status, "Auto-login falhou — entre manualmente.", 2)
+
+# Salva (ou limpa) a sessão p/ auto-login conforme o checkbox.
+func _save_session(user: String, pass: String) -> void:
+	var cf := ConfigFile.new()
+	if auto_check and auto_check.button_pressed:
+		cf.set_value("auth", "user", user)
+		cf.set_value("auth", "pass", pass)
+		cf.set_value("auth", "auto", true)
+	cf.save(SESSION)   # desmarcado → salva vazio (limpa a sessão anterior)
