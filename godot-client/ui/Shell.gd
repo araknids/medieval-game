@@ -358,7 +358,7 @@ func update_topbar(w: Dictionary) -> void:
 	if _stam_lbl != null:
 		_stam_lbl.text = "%d%%" % stam
 	for key in _coins:
-		var field := "soulStones" if key == "soulstone" else key
+		var field: String = "soulStones" if key == "soulstone" else str(key)
 		_coins[key].text = str(int(w.get(field, 0)))
 
 # ── helpers ──────────────────────────────────────────────────────────────────────────
