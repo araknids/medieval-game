@@ -31,16 +31,15 @@ func _ready() -> void:
 	box.custom_minimum_size = Vector2(340, 0)
 	box.add_theme_constant_override("separation", 10)
 	panel.add_child(box)
-	user_edit = LineEdit.new(); user_edit.placeholder_text = "usuário"
+	user_edit = UiKit.input("usuário")
 	box.add_child(user_edit)
-	pass_edit = LineEdit.new(); pass_edit.placeholder_text = "senha"; pass_edit.secret = true
+	pass_edit = UiKit.input("senha"); pass_edit.secret = true
 	box.add_child(pass_edit)
 	btn = fx.button("Entrar")
 	btn.custom_minimum_size = Vector2(0, 42)
 	box.add_child(btn)
 	status = Label.new()
 	status.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	status.modulate = Color(1, 0.7, 0.6)
 	box.add_child(status)
 	btn.pressed.connect(_do_login)
 	pass_edit.text_submitted.connect(func(_t: String) -> void: _do_login())
@@ -53,12 +52,10 @@ func _do_login() -> void:
 	if Api.token != "":
 		logged_in.emit(); return
 	btn.disabled = true
-	status.modulate = Color(1, 1, 1, 0.7)
-	status.text = "Conectando…"
+	UiKit.flash(status, "Conectando…", 0)
 	var r = await Api.login(user_edit.text, pass_edit.text)
 	btn.disabled = false
 	if r.get("ok") and Api.token != "":
 		logged_in.emit()
 	else:
-		status.modulate = Color(1, 0.6, 0.55)
-		status.text = "Login falhou (%s)" % str(r.get("status", "?"))
+		UiKit.flash(status, "Login falhou (%s)" % str(r.get("status", "?")), 2)

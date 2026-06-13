@@ -14,6 +14,21 @@ var base_url := "https://medieval-game-production.up.railway.app"
 ## JWT obtido no login. Enviado como `Authorization: Bearer <token>` nas chamadas autenticadas.
 var token := ""
 
+# ── Pool de conexões keep-alive ────────────────────────────────────────────────
+# Em vez de abrir uma conexão TCP+TLS nova por request (handshake caro a cada chamada),
+# mantemos um POOL de HTTPClient que ficam CONECTADOS e são reusados — igual ao pool
+# keep-alive do navegador. Várias conexões = chamadas paralelas (uma por conexão livre).
+const POOL_MAX := 4          # máx. de conexões simultâneas pro mesmo host
+var _pool: Array = []        # Array[_Conn]
+var _host := ""              # destino parseado de base_url (preenchido sob demanda)
+var _port := 443
+var _use_tls := true
+
+# Uma conexão do pool: um HTTPClient persistente + flag de uso.
+class _Conn:
+	var http := HTTPClient.new()
+	var busy := false
+
 ## POST /api/auth/login → guarda o token. Retorna {ok, status, json, raw, error}.
 func login(username: String, password: String) -> Dictionary:
 	var r := await _request(HTTPClient.METHOD_POST, "/api/auth/login",
@@ -229,26 +244,197 @@ func guild_donate(amount: int) -> Dictionary:
 	return await _request(HTTPClient.METHOD_POST, "/api/guild/donate", {"amount": amount}, true)
 
 ## Chamada genérica. method = HTTPClient.METHOD_*; body = Dictionary ou null; authed = manda o Bearer.
+## Reusa uma conexão keep-alive do pool; conexões diferentes rodam em paralelo. Mesmo contrato
+## de retorno de antes: {ok, status, json, raw} ou {ok:false, status, error}.
 func _request(method: int, path: String, body: Variant = null, authed := false) -> Dictionary:
-	var http := HTTPRequest.new()
-	add_child(http)
-	var headers := PackedStringArray(["Content-Type: application/json", "Accept: application/json"])
-	if authed and token != "":
-		headers.append("Authorization: Bearer " + token)
+	var headers := _headers(authed)
 	var payload := ""
 	if body != null:
 		payload = JSON.stringify(body)
-	var err := http.request(base_url + path, headers, method, payload)
-	if err != OK:
-		http.queue_free()
-		return {"ok": false, "status": 0, "error": "request() falhou: %d" % err}
-	var res: Array = await http.request_completed   # [result, code, headers, body]
-	http.queue_free()
-	var result: int = res[0]                         # HTTPRequest.Result (rede)
-	var code: int = res[1]                           # HTTP status
-	var text: String = (res[3] as PackedByteArray).get_string_from_utf8()
+
+	var c: _Conn = await _acquire()
+	var out := {}
+	# 2 tentativas: a conexão keep-alive pode ter sido fechada pelo servidor enquanto ociosa;
+	# nesse caso reconectamos do zero e refazemos o request uma vez.
+	for attempt in 2:
+		if attempt == 1:
+			c.http.close()                    # força conexão nova
+		if not await _ensure_connected(c):
+			out = {"ok": false, "status": 0, "error": "falha ao conectar em %s" % _host}
+			continue
+		out = await _do(c, method, path, headers, payload)
+		if out.has("_retry"):                 # socket keep-alive estava morto
+			out = {"ok": false, "status": 0, "error": "conexão caiu"}
+			continue
+		break
+	c.busy = false
+	return out
+
+# Headers padrão (+ Bearer se autenticado).
+func _headers(authed: bool) -> PackedStringArray:
+	var h := PackedStringArray(["Content-Type: application/json", "Accept: application/json"])
+	if authed and token != "":
+		h.append("Authorization: Bearer " + token)
+	return h
+
+## Roda VÁRIOS requests em PARALELO de verdade, multiplexando N conexões do pool numa ÚNICA
+## coroutine (avança todas as HTTPClient a cada frame). NÃO dispara sub-coroutines, então não
+## cai no erro "call async without await" do Godot 4. Cada spec = [method, path, body, authed].
+## Retorna Array de {ok,status,json,raw} na MESMA ordem. Conexão keep-alive morta → retry seq.
+func batch(specs: Array) -> Array:
+	var n := specs.size()
+	var results := []
+	results.resize(n)
+	if n == 0:
+		return results
+	_ensure_target()
+	var conns := []
+	conns.resize(n)
+	var ph := []          # fase por conexão: 0=conectar 1=requisitando 2=lendo corpo 3=pronto
+	ph.resize(n)
+	var bufs := []
+	bufs.resize(n)
+	var codes := []
+	codes.resize(n)
+	for i in n:
+		conns[i] = await _acquire()
+		bufs[i] = PackedByteArray()
+		codes[i] = 0
+		ph[i] = 0
+
+	var pending := n
+	while pending > 0:
+		for i in n:
+			if ph[i] == 3:
+				continue
+			var c: _Conn = conns[i]
+			c.http.poll()
+			var st := c.http.get_status()
+			if ph[i] == 0:                                   # conectando / disparar request
+				if st == HTTPClient.STATUS_CONNECTED:
+					var spec: Array = specs[i]
+					var body = spec[2] if spec.size() > 2 else null
+					var authed: bool = bool(spec[3]) if spec.size() > 3 else false
+					var payload := JSON.stringify(body) if body != null else ""
+					if c.http.request(spec[0], spec[1], _headers(authed), payload) == OK:
+						ph[i] = 1
+					else:
+						results[i] = {"_retry": true}; ph[i] = 3; pending -= 1
+				elif st == HTTPClient.STATUS_DISCONNECTED:
+					var tls = TLSOptions.client() if _use_tls else null
+					if c.http.connect_to_host(_host, _port, tls) != OK:
+						results[i] = {"_retry": true}; ph[i] = 3; pending -= 1
+				elif st != HTTPClient.STATUS_RESOLVING and st != HTTPClient.STATUS_CONNECTING:
+					results[i] = {"_retry": true}; ph[i] = 3; pending -= 1
+			elif ph[i] == 1:                                 # esperando headers da resposta
+				if st == HTTPClient.STATUS_BODY or st == HTTPClient.STATUS_CONNECTED:
+					codes[i] = c.http.get_response_code()
+					ph[i] = 2
+				elif st != HTTPClient.STATUS_REQUESTING:
+					results[i] = {"_retry": true}; ph[i] = 3; pending -= 1
+			elif ph[i] == 2:                                 # lendo o corpo
+				if st == HTTPClient.STATUS_BODY:
+					var chunk := c.http.read_response_body_chunk()
+					if chunk.size() > 0:
+						bufs[i].append_array(chunk)
+				else:
+					var text: String = bufs[i].get_string_from_utf8()
+					var code: int = codes[i]
+					results[i] = {"ok": code >= 200 and code < 300, "status": code, "json": JSON.parse_string(text), "raw": text}
+					ph[i] = 3; pending -= 1
+		await get_tree().process_frame
+
+	for c in conns:
+		c.busy = false
+	# conexões keep-alive que morreram (raro) → refaz sequencial com reconexão (via _request)
+	for i in n:
+		if results[i] is Dictionary and results[i].has("_retry"):
+			var spec: Array = specs[i]
+			var body = spec[2] if spec.size() > 2 else null
+			var authed: bool = bool(spec[3]) if spec.size() > 3 else false
+			results[i] = await _request(spec[0], spec[1], body, authed)
+	return results
+
+## Açúcar p/ o caso comum: vários GET autenticados em paralelo. paths = Array de String.
+func batch_get(paths: Array) -> Array:
+	var specs := []
+	for p in paths:
+		specs.append([HTTPClient.METHOD_GET, p, null, true])
+	return await batch(specs)
+
+# Pega uma conexão livre do pool (ou cria até POOL_MAX). Espera um frame se todas ocupadas.
+func _acquire() -> _Conn:
+	while true:
+		for c in _pool:
+			if not c.busy:
+				c.busy = true
+				return c
+		if _pool.size() < POOL_MAX:
+			var c := _Conn.new()
+			c.busy = true
+			_pool.append(c)
+			return c
+		await get_tree().process_frame
+	return null   # inalcançável (while true) — só p/ o analisador do GDScript
+
+# Parseia base_url → host/porta/tls uma vez.
+func _ensure_target() -> void:
+	if _host != "":
+		return
+	var u := base_url
+	if u.begins_with("https://"):
+		_use_tls = true; _port = 443; u = u.substr(8)
+	elif u.begins_with("http://"):
+		_use_tls = false; _port = 80; u = u.substr(7)
+	var slash := u.find("/")
+	if slash != -1:
+		u = u.substr(0, slash)               # tira qualquer path
+	var colon := u.find(":")
+	if colon != -1:
+		_port = int(u.substr(colon + 1))     # host:porta explícita
+		u = u.substr(0, colon)
+	_host = u
+
+# Garante que a conexão está CONECTADA (reusa se já estiver). Retorna false se não conectou.
+func _ensure_connected(c: _Conn) -> bool:
+	if c.http.get_status() == HTTPClient.STATUS_CONNECTED:
+		return true
+	_ensure_target()
+	var tls = TLSOptions.client() if _use_tls else null
+	if c.http.connect_to_host(_host, _port, tls) != OK:
+		return false
+	while true:
+		c.http.poll()
+		var st := c.http.get_status()
+		if st == HTTPClient.STATUS_RESOLVING or st == HTTPClient.STATUS_CONNECTING:
+			await get_tree().process_frame
+			continue
+		break
+	return c.http.get_status() == HTTPClient.STATUS_CONNECTED
+
+# Faz UM request numa conexão já conectada e lê a resposta inteira. {_retry:true} = socket morreu.
+func _do(c: _Conn, method: int, path: String, headers: PackedStringArray, payload: String) -> Dictionary:
+	if c.http.request(method, path, headers, payload) != OK:
+		return {"_retry": true}
+	while true:                               # espera os headers da resposta
+		c.http.poll()
+		var st := c.http.get_status()
+		if st == HTTPClient.STATUS_REQUESTING:
+			await get_tree().process_frame
+			continue
+		if st == HTTPClient.STATUS_BODY or st == HTTPClient.STATUS_CONNECTED:
+			break
+		return {"_retry": true}               # DISCONNECTED / CONNECTION_ERROR / TLS error
+	var code := c.http.get_response_code()
+	var buf := PackedByteArray()
+	while c.http.get_status() == HTTPClient.STATUS_BODY:
+		c.http.poll()
+		var chunk := c.http.read_response_body_chunk()
+		if chunk.size() > 0:
+			buf.append_array(chunk)
+		else:
+			await get_tree().process_frame
+	var text := buf.get_string_from_utf8()
 	var json: Variant = JSON.parse_string(text)
-	if result != HTTPRequest.RESULT_SUCCESS:
-		return {"ok": false, "status": code, "error": "falha de rede (result %d)" % result, "raw": text}
 	var ok := code >= 200 and code < 300
 	return {"ok": ok, "status": code, "json": json, "raw": text}

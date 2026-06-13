@@ -1,8 +1,9 @@
 extends Control
 # ── Tela PERSONAGEM (home) ───────────────────────────────────────────────────────
-# Lê GET /api/warrior e mostra stats/HP/estamina/moeda/atributos. Gasta ponto de atributo
-# (POST /api/warrior/attributes/{ATTR}). Botões: Lutar (→ batalha) e Sair. [MIGRACAO_GODOT]
+# Lê GET /api/warrior e mostra stats/HP/estamina/atributos. Gasta ponto de atributo
+# (POST /api/warrior/attributes/{ATTR}). Padrão visual: UiKit [PADRAO_UI_GODOT].
 
+signal go_back
 signal go_battle
 signal go_inventory
 signal logout
@@ -12,156 +13,124 @@ const ATTRS := [
 	["strength", "STR", "⚔"], ["constitution", "CON", "❤"], ["dexterity", "DEX", "🎯"],
 	["agility", "AGI", "💨"], ["luck", "LUK", "🍀"], ["intellect", "INT", "📚"],
 ]
+# efeito de cada atributo (mostrado p/ contexto — [REBALANCE])
+const ATTR_EFFECT := {
+	"STR": "dano corpo-a-corpo", "CON": "+8 HP por ponto", "DEX": "acerto · dano de arco",
+	"AGI": "golpe extra · esquiva", "LUK": "crítico", "INT": "reservado (Mago)",
+}
 
 var w: Dictionary = {}
 var content: VBoxContainer
 var status: Label
+var wallet: Label
 var busy := false
 
 func _ready() -> void:
-	set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	var bg := ColorRect.new()
-	bg.color = Color(0.09, 0.08, 0.11)
-	bg.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	add_child(bg)
-	var scroll := ScrollContainer.new()
-	scroll.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	add_child(scroll)
-	var margin := MarginContainer.new()
-	margin.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	for side in ["left", "right", "top", "bottom"]:
-		margin.add_theme_constant_override("margin_" + side, 22)
-	scroll.add_child(margin)
-	content = VBoxContainer.new()
-	content.add_theme_constant_override("separation", 8)
-	content.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	margin.add_child(content)
-	status = Label.new()
-	content.add_child(status)
+	var ui := UiKit.scaffold(self, "👤 Personagem", func() -> void: go_back.emit(), func() -> void: await _refresh(), UiKit.TINT_DEFAULT)
+	content = ui.content
+	status = ui.status
+	wallet = ui.wallet
 	await _refresh()
 
 func _refresh() -> void:
-	status.text = "Carregando…"
+	UiKit.flash(status, "Carregando…", 0)
 	var r = await Api.get_warrior()
 	if not (r.get("ok") and r.get("json") is Dictionary):
-		status.text = "Erro ao carregar (%s)" % str(r.get("status", "?"))
+		UiKit.show_error(status, r)
 		return
 	w = r["json"]
-	print(">>> Character: warrior ok · keys=%d · STR=%s CON=%s DEX=%s AGI=%s LUK=%s INT=%s pts=%s" % [
-		w.size(), w.get("strength"), w.get("constitution"), w.get("dexterity"),
-		w.get("agility"), w.get("luck"), w.get("intellect"), w.get("availablePoints")])
 	_render()
 
 func _render() -> void:
 	for c in content.get_children():
-		if c != status:
-			c.queue_free()
-	status.text = ""
-	# ── Cabeçalho: título + nome + classe + nível ──
+		c.queue_free()
+	UiKit.flash(status, "", 0)
+	UiKit.set_wallet(wallet, w)
+	# ── Identidade ──
+	var idr := UiKit.card(UiKit.GOLD_SOFT)
+	var idbox: VBoxContainer = idr[1]
 	var title := str(w.get("title", ""))
-	var nm := str(w.get("name", "?"))
 	var head := Label.new()
-	head.text = (title + "  " if title != "" else "") + nm
-	head.add_theme_font_size_override("font_size", 32)
-	content.add_child(head)
+	head.text = (title + "  " if title != "" else "") + str(w.get("name", "?"))
+	head.add_theme_font_size_override("font_size", 28)
+	head.add_theme_color_override("font_color", UiKit.GOLD)
+	idbox.add_child(head)
 	var sub := Label.new()
 	sub.text = "%s · Nível %d" % [str(w.get("warriorClass", "Recruta")), int(w.get("level", 1))]
-	sub.modulate = Color(1, 0.9, 0.6)
-	content.add_child(sub)
+	sub.add_theme_font_size_override("font_size", 14)
+	sub.add_theme_color_override("font_color", UiKit.TEXT_DIM)
+	idbox.add_child(sub)
 	if bool(w.get("isKnockedOut", false)):
-		var ko := Label.new(); ko.text = "💀 NOCAUTEADO (em recuperação)"; ko.modulate = Color(1, 0.5, 0.5)
-		content.add_child(ko)
+		var ko := Label.new()
+		ko.text = "💀 NOCAUTEADO (em recuperação)"
+		ko.add_theme_color_override("font_color", UiKit.ERR)
+		idbox.add_child(ko)
+	content.add_child(idr[0])
 	# ── Barras: XP, HP, Estamina ──
 	var xp := int(w.get("experience", 0))
 	var xp_need := int(w.get("expNeeded", 0))
-	content.add_child(_bar("XP", xp, xp + max(1, xp_need), Color(0.5, 0.6, 1.0), "%d  (faltam %d)" % [xp, xp_need]))
-	content.add_child(_bar("HP", int(w.get("hpPercent", 100)), 100, Color(0.85, 0.3, 0.3), "%d%%" % int(w.get("hpPercent", 100))))
+	content.add_child(UiKit.bar("XP", xp, xp + maxi(1, xp_need), Color(0.42, 0.50, 0.85), "%d  (faltam %d)" % [xp, xp_need]))
+	var hp := int(w.get("hpPercent", 100))
+	content.add_child(UiKit.bar("HP", hp, 100, Color(0.70, 0.22, 0.20), "%d%%" % hp))
 	var stam := int(w.get("stamina", 0))
 	var stam_txt := "%d%%" % stam
 	if stam < 100:
 		stam_txt += "  (cheia em %d min)" % int(w.get("minutesToFullStamina", 0))
-	content.add_child(_bar("Estamina", stam, 100, Color(0.4, 0.8, 0.5), stam_txt))
-	# ── Atributos (logo após as barras, com + se houver pontos) ──
+	content.add_child(UiKit.bar("Estamina", stam, 100, Color(0.36, 0.65, 0.38), stam_txt))
+	# ── Atributos ──
 	var pts := int(w.get("availablePoints", 0))
 	var attr_title := "Atributos"
 	if pts > 0:
-		attr_title += "   (%d %s livre%s)" % [pts, "ponto" if pts == 1 else "pontos", "" if pts == 1 else "s"]
-	content.add_child(_section(attr_title))
+		attr_title += "  (%d livre%s)" % [pts, "" if pts == 1 else "s"]
+	content.add_child(UiKit.section(attr_title))
 	for a in ATTRS:
-		content.add_child(_attr_row(str(a[2]), str(a[1]), str(a[0]), pts > 0))
-	# ── Moeda ──
-	content.add_child(_section("Moeda"))
-	content.add_child(_kv("Ouro/Prata/Bronze", "%d / %d / %d" % [int(w.get("gold", 0)), int(w.get("silver", 0)), int(w.get("bronze", 0))]))
-	content.add_child(_kv("SoulStones", str(int(w.get("soulStones", 0)))))
+		content.add_child(_attr_row(a, pts > 0))
 	# ── Combate ──
-	content.add_child(_section("Combate"))
-	content.add_child(_kv("Ataque", str(w.get("combatAttack", w.get("totalAttack", 0)))))
-	content.add_child(_kv("Defesa", str(w.get("combatDefense", w.get("totalDefense", 0)))))
-	content.add_child(_kv("Vida máx", str(w.get("combatHealth", w.get("totalHealth", 0)))))
-	content.add_child(_kv("Rank (arena)", str(w.get("rankPoints", 0))))
+	content.add_child(UiKit.section("Combate"))
+	content.add_child(UiKit.kv("Ataque", str(w.get("combatAttack", w.get("totalAttack", 0)))))
+	content.add_child(UiKit.kv("Defesa", str(w.get("combatDefense", w.get("totalDefense", 0)))))
+	content.add_child(UiKit.kv("Vida máx", str(w.get("combatHealth", w.get("totalHealth", 0)))))
+	content.add_child(UiKit.kv("Rank (arena)", str(w.get("rankPoints", 0))))
+	content.add_child(UiKit.kv("SoulStones", str(int(w.get("soulStones", 0)))))
 	# ── Ações ──
-	content.add_child(_spacer(10))
+	content.add_child(UiKit.spacer(8))
 	var actions := HBoxContainer.new()
 	actions.add_theme_constant_override("separation", 10)
 	content.add_child(actions)
-	var fight := Button.new()
-	fight.text = "⚔ Lutar"
-	fight.custom_minimum_size = Vector2(140, 44)
+	var fight := UiKit.action_big("⚔ Lutar", func() -> void: go_battle.emit())
 	fight.disabled = bool(w.get("isKnockedOut", false))
-	fight.pressed.connect(func() -> void: go_battle.emit())
 	actions.add_child(fight)
-	var inv := Button.new()
-	inv.text = "🎒 Inventário"
-	inv.custom_minimum_size = Vector2(140, 44)
-	inv.pressed.connect(func() -> void: go_inventory.emit())
-	actions.add_child(inv)
-	var refresh := Button.new()
-	refresh.text = "↻ Atualizar"
-	refresh.pressed.connect(func() -> void: await _refresh())
-	actions.add_child(refresh)
-	var out := Button.new()
-	out.text = "Sair"
-	out.pressed.connect(func() -> void: logout.emit())
-	actions.add_child(out)
+	actions.add_child(UiKit.action("🎒 Inventário", func() -> void: go_inventory.emit()))
+	actions.add_child(UiKit.action_danger("Sair", func() -> void: logout.emit()))
+	if not fight.disabled:
+		fight.call_deferred("grab_focus")
 
-# ── helpers de UI ────────────────────────────────────────────────────────────────
-func _section(t: String) -> Label:
-	var l := Label.new()
-	l.text = t
-	l.add_theme_font_size_override("font_size", 20)
-	l.modulate = Color(0.8, 0.85, 1.0)
-	return l
-
-func _kv(k: String, v: String) -> HBoxContainer:
+# linha de atributo: ícone+sigla · valor · efeito · botão + (se há ponto livre)
+func _attr_row(a: Array, can_add: bool) -> HBoxContainer:
+	var key := str(a[0])
 	var row := HBoxContainer.new()
-	var lk := Label.new(); lk.text = k; lk.custom_minimum_size = Vector2(170, 0); lk.modulate = Color(1, 1, 1, 0.7)
-	var lv := Label.new(); lv.text = v
-	row.add_child(lk); row.add_child(lv)
-	return row
-
-func _bar(bname: String, value: int, maxv: int, col: Color, txt: String) -> VBoxContainer:
-	var box := VBoxContainer.new()
-	var lbl := Label.new(); lbl.text = "%s   %s" % [bname, txt]; box.add_child(lbl)
-	var pb := ProgressBar.new()
-	pb.min_value = 0; pb.max_value = max(1, maxv); pb.value = clampi(value, 0, maxv)
-	pb.show_percentage = false
-	pb.custom_minimum_size = Vector2(0, 14)
-	var sb := StyleBoxFlat.new(); sb.bg_color = col; sb.set_corner_radius_all(3)
-	pb.add_theme_stylebox_override("fill", sb)
-	box.add_child(pb)
-	return box
-
-func _attr_row(icon: String, sigla: String, key: String, can_add: bool) -> HBoxContainer:
-	var row := HBoxContainer.new()
-	var l := Label.new()
-	l.text = "%s %s" % [icon, sigla]
-	l.custom_minimum_size = Vector2(110, 0)
-	row.add_child(l)
-	var v := Label.new(); v.text = str(w.get(key, 0)); v.custom_minimum_size = Vector2(40, 0)
-	row.add_child(v)
+	row.add_theme_constant_override("separation", 10)
+	var nm := Label.new()
+	nm.text = "%s %s" % [str(a[2]), str(a[1])]
+	nm.custom_minimum_size = Vector2(90, 0)
+	nm.add_theme_font_size_override("font_size", 15)
+	nm.add_theme_color_override("font_color", UiKit.TEXT)
+	row.add_child(nm)
+	var val := Label.new()
+	val.text = str(w.get(key, 0))
+	val.custom_minimum_size = Vector2(40, 0)
+	val.add_theme_font_size_override("font_size", 15)
+	val.add_theme_color_override("font_color", UiKit.GOLD)
+	row.add_child(val)
+	var eff := Label.new()
+	eff.text = str(ATTR_EFFECT.get(str(a[1]), ""))
+	eff.add_theme_font_size_override("font_size", 12)
+	eff.add_theme_color_override("font_color", UiKit.TEXT_DIM)
+	eff.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	row.add_child(eff)
 	if can_add:
-		var plus := Button.new(); plus.text = "+"; plus.custom_minimum_size = Vector2(34, 0)
-		plus.pressed.connect(func() -> void: await _spend(key))
+		var plus := UiKit.icon_btn("+", func() -> void: await _spend(key))
+		plus.custom_minimum_size = Vector2(36, 36)
 		row.add_child(plus)
 	return row
 
@@ -173,7 +142,6 @@ func _spend(key: String) -> void:
 	if r.get("ok") and r.get("json") is Dictionary:
 		w = r["json"]
 		_render()
-
-func _spacer(h: int) -> Control:
-	var s := Control.new(); s.custom_minimum_size = Vector2(0, h)
-	return s
+		UiKit.flash(status, "Ponto aplicado", 1)
+	else:
+		UiKit.show_error(status, r)

@@ -2,124 +2,92 @@ extends Control
 # ── Tela HABILIDADES DE CLASSE ────────────────────────────────────────────────────
 # Lê GET /api/abilities: árvore da classe (passivas + ativas), pontos de habilidade
 # (1/level), custo de respec. Aprende um nível (POST /api/abilities/learn/{id}) e
-# reseta tudo (POST /api/abilities/respec). Volta pro Personagem (sinal go_back). [HABILIDADES]
+# reseta tudo (POST /api/abilities/respec). Volta pro Personagem (sinal go_back).
+# Padrão visual: UiKit [PADRAO_UI_GODOT]. [HABILIDADES]
 
 signal go_back
 
 var content: VBoxContainer
 var status: Label
+var wallet: Label
 var data: Dictionary = {}
+var warrior: Dictionary = {}     # /api/warrior (carteira do header)
 var busy := false
 
 func _ready() -> void:
-	set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	var bg := ColorRect.new()
-	bg.color = Color(0.09, 0.08, 0.11)
-	bg.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	add_child(bg)
-	var root := VBoxContainer.new()
-	root.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	for side in ["left", "right", "top", "bottom"]:
-		root.add_theme_constant_override("margin_" + side, 0)
-	add_child(root)
-	# header: ← voltar + título + re-sincronizar
-	var header := HBoxContainer.new()
-	header.add_theme_constant_override("separation", 10)
-	var back := Button.new(); back.text = "←"; back.custom_minimum_size = Vector2(44, 36)
-	back.pressed.connect(func() -> void: go_back.emit())
-	header.add_child(back)
-	var ttl := Label.new(); ttl.text = "Habilidades"; ttl.add_theme_font_size_override("font_size", 26)
-	ttl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	header.add_child(ttl)
-	var sync := Button.new(); sync.text = "↻"; sync.custom_minimum_size = Vector2(40, 36)
-	sync.pressed.connect(func() -> void: await _refresh())
-	header.add_child(sync)
-	var m := MarginContainer.new()
-	for side in ["left", "right", "top"]:
-		m.add_theme_constant_override("margin_" + side, 16)
-	m.add_child(header)
-	root.add_child(m)
-	status = Label.new(); status.add_theme_constant_override("margin_left", 16)
-	root.add_child(status)
-	# lista rolável
-	var scroll := ScrollContainer.new()
-	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	scroll.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	root.add_child(scroll)
-	var inner := MarginContainer.new()
-	inner.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	for side in ["left", "right", "bottom"]:
-		inner.add_theme_constant_override("margin_" + side, 16)
-	scroll.add_child(inner)
-	content = VBoxContainer.new()
-	content.add_theme_constant_override("separation", 6)
-	content.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	inner.add_child(content)
+	var ui := UiKit.scaffold(self, "✨ Habilidades", func() -> void: go_back.emit(), func() -> void: await _refresh(), UiKit.TINT_DEFAULT)
+	content = ui.content
+	status = ui.status
+	wallet = ui.wallet
 	await _refresh()
 
 func _refresh() -> void:
-	status.text = "Carregando…"
-	var r = await Api.get_abilities()
+	UiKit.flash(status, "Carregando…", 0)
+	var rs = await Api.batch_get(["/api/abilities", "/api/warrior"])
+	var r = rs[0]
 	if not (r.get("ok") and r.get("json") is Dictionary):
-		status.text = "Erro ao carregar (%s)" % str(r.get("status", "?"))
+		UiKit.show_error(status, r)
 		return
 	data = r["json"]
-	status.text = ""
+	var wr = rs[1]
+	warrior = wr["json"] if (wr.get("ok") and wr.get("json") is Dictionary) else {}
 	_render()
 
 func _render() -> void:
 	for c in content.get_children():
 		c.queue_free()
+	UiKit.flash(status, "", 0)
+	UiKit.set_wallet(wallet, warrior)
 	var pts := int(data.get("abilityPoints", 0))
 	var abilities: Array = data.get("abilities", []) if data.get("abilities") is Array else []
 	# Sem classe ainda (Recruta): só mostra os pontos guardados e o aviso.
 	if abilities.is_empty():
-		content.add_child(_section("✨ Habilidades"))
-		content.add_child(_dim("Escolha uma classe (Path Trial no Nv.10) para destravar as habilidades dela."))
-		content.add_child(_dim("Você tem %d ponto%s de habilidade guardado%s." % [pts, "" if pts == 1 else "s", "" if pts == 1 else "s"]))
+		content.add_child(UiKit.section("Habilidades"))
+		content.add_child(UiKit.empty(
+			"Você tem %d ponto%s de habilidade guardado%s." % [pts, "" if pts == 1 else "s", "" if pts == 1 else "s"],
+			"Escolha uma classe (Path Trial no Nv.10) para destravar as habilidades dela."))
 		return
 	# Cabeçalho da classe + pontos disponíveis
-	var head := "✨ Habilidades — %s" % str(data.get("class", "?"))
-	content.add_child(_section(head))
+	content.add_child(UiKit.section("Habilidades — %s" % str(data.get("class", "?"))))
 	if pts > 0:
 		var pl := Label.new()
 		pl.text = "⬆ %d ponto%s para gastar" % [pts, "" if pts == 1 else "s"]
-		pl.modulate = Color(1.0, 0.8, 0.35)
+		pl.add_theme_font_size_override("font_size", 14)
+		pl.add_theme_color_override("font_color", UiKit.GOLD)
 		content.add_child(pl)
-	content.add_child(_spacer(4))
 	for a in abilities:
 		if a is Dictionary:
-			content.add_child(_ability_row(a, pts))
-	# Respec
-	content.add_child(_spacer(10))
-	var respec := Button.new()
-	respec.text = "↺ Resetar habilidades (%s)" % _fmt_bronze(int(data.get("respecCost", 0)))
-	respec.pressed.connect(_respec)
-	content.add_child(respec)
+			content.add_child(_ability_card(a, pts))
+	# Respec (pago, reseta os pontos) → confirma antes
+	content.add_child(UiKit.spacer(6))
+	content.add_child(UiKit.action_danger("🔄 Resetar habilidades (%s)" % _fmt_bronze(int(data.get("respecCost", 0))), _respec))
 
-func _ability_row(a: Dictionary, pts: int) -> PanelContainer:
+func _ability_card(a: Dictionary, pts: int) -> PanelContainer:
 	var active := bool(a.get("active", false))
 	var level := int(a.get("level", 0))
 	var max_level := int(a.get("maxLevel", 0))
 	var maxed := level >= max_level
 	var col: Color = Color(0.48, 0.69, 1.0) if active else Color(0.6, 0.8, 0.6)
-	var panel := PanelContainer.new()
-	var sb := StyleBoxFlat.new()
-	sb.bg_color = Color(0.13, 0.12, 0.15)
-	sb.set_border_width_all(1); sb.border_color = Color(col, 0.55)
-	sb.set_corner_radius_all(5)
-	sb.set_content_margin_all(8)
-	panel.add_theme_stylebox_override("panel", sb)
-	var hb := HBoxContainer.new(); hb.add_theme_constant_override("separation", 10)
-	panel.add_child(hb)
+	var res := UiKit.card(col)
+	var pc: PanelContainer = res[0]
+	var box: VBoxContainer = res[1]
+	var hb := HBoxContainer.new()
+	hb.add_theme_constant_override("separation", 10)
+	box.add_child(hb)
 	# ícone
-	var icon := Label.new(); icon.text = str(a.get("icon", "•")); icon.custom_minimum_size = Vector2(28, 0)
+	var icon := Label.new()
+	icon.text = str(a.get("icon", "•"))
+	icon.custom_minimum_size = Vector2(28, 0)
 	icon.add_theme_font_size_override("font_size", 18)
 	hb.add_child(icon)
 	# esquerda: nome + tipo + descrição
-	var left := VBoxContainer.new(); left.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	var nm := Label.new(); nm.text = str(a.get("displayName", "?")); nm.modulate = col
+	var left := VBoxContainer.new()
+	left.add_theme_constant_override("separation", 2)
+	left.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	var nm := Label.new()
+	nm.text = str(a.get("displayName", "?"))
 	nm.add_theme_font_size_override("font_size", 16)
+	nm.add_theme_color_override("font_color", col)
 	left.add_child(nm)
 	var kind_txt := ""
 	if active:
@@ -129,57 +97,55 @@ func _ability_row(a: Dictionary, pts: int) -> PanelContainer:
 			kind_txt += " · CD %d rounds" % cd
 	else:
 		kind_txt = "🪨 Passiva"
-	var kl := Label.new(); kl.text = kind_txt; kl.modulate = Color(1, 1, 1, 0.6); kl.add_theme_font_size_override("font_size", 12)
-	left.add_child(kl)
+	left.add_child(UiKit.dim(kind_txt))
 	var desc := str(a.get("description", ""))
 	if desc != "":
-		var dl := Label.new(); dl.text = desc; dl.modulate = Color(1, 1, 1, 0.55); dl.add_theme_font_size_override("font_size", 12)
-		dl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-		left.add_child(dl)
+		left.add_child(UiKit.dim(desc))
 	hb.add_child(left)
 	# direita: nível + botão de aprender
-	var right := VBoxContainer.new(); right.add_theme_constant_override("separation", 4)
+	var right := VBoxContainer.new()
+	right.add_theme_constant_override("separation", 4)
 	right.alignment = BoxContainer.ALIGNMENT_CENTER
-	var lvl := Label.new(); lvl.text = "%d/%d" % [level, max_level]
-	lvl.modulate = Color(1.0, 0.84, 0.0) if maxed else Color(0.93, 0.93, 0.93)
+	right.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	var lvl := Label.new()
+	lvl.text = "%d/%d" % [level, max_level]
+	lvl.add_theme_font_size_override("font_size", 14)
+	lvl.add_theme_color_override("font_color", UiKit.GOLD if maxed else UiKit.TEXT)
 	lvl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	right.add_child(lvl)
-	var btn := Button.new(); btn.text = "+"; btn.custom_minimum_size = Vector2(48, 0)
-	btn.disabled = pts <= 0 or maxed
-	btn.pressed.connect(_learn.bind(str(a.get("id", ""))))
-	right.add_child(btn)
+	var learn := UiKit.small_btn("✖ No máx" if maxed else "+ Aprender", _learn.bind(str(a.get("id", ""))))
+	learn.disabled = pts <= 0 or maxed
+	right.add_child(learn)
 	hb.add_child(right)
-	return panel
+	return pc
 
 # ── Ações (1 chamada → re-sincroniza a árvore) ────────────────────────────────────
 func _learn(id: String) -> void:
 	if busy or id == "": return
 	busy = true
-	var r = await Api.ability_learn(id)
+	await _do(await Api.ability_learn(id), "Aprimorado!")
 	busy = false
-	if r.get("ok") and r.get("json") is Dictionary:
-		status.text = str(r["json"].get("message", "Aprimorado!"))
-		await _refresh()
-	else:
-		_show_error(r)
 
 func _respec() -> void:
+	UiKit.confirm(self,
+		"Resetar todas as habilidades por %s? Os pontos voltam para você." % _fmt_bronze(int(data.get("respecCost", 0))),
+		"Resetar",
+		func() -> void: await _do_respec())
+
+func _do_respec() -> void:
 	if busy: return
 	busy = true
-	var r = await Api.ability_respec()
+	await _do(await Api.ability_respec(), "Habilidades resetadas.")
 	busy = false
-	if r.get("ok") and r.get("json") is Dictionary:
-		status.text = str(r["json"].get("message", "Habilidades resetadas."))
-		await _refresh()
-	else:
-		_show_error(r)
 
-func _show_error(r) -> void:
-	if r is Dictionary and r.get("json") is Dictionary:
-		var j: Dictionary = r["json"]
-		status.text = str(j.get("message", j.get("error", "Falhou")))
+# r = resultado JÁ resolvido; re-sincroniza e mostra o feedback.
+func _do(r: Variant, default_msg: String) -> void:
+	if r is Dictionary and r.get("ok") and r.get("json") is Dictionary:
+		var msg := str(r["json"].get("message", default_msg))
+		await _refresh()
+		UiKit.flash(status, msg, 1)
 	else:
-		status.text = "Falhou (%s)" % str(r.get("status", "?") if r is Dictionary else "?")
+		UiKit.show_error(status, r)
 
 # ── helpers de UI ─────────────────────────────────────────────────────────────────
 func _fmt_bronze(n: int) -> String:
@@ -189,16 +155,3 @@ func _fmt_bronze(n: int) -> String:
 	if n >= 100:
 		return "%d🥈" % (n / 100)
 	return "%d🥉" % n
-
-func _section(t: String) -> Label:
-	var l := Label.new(); l.text = t; l.add_theme_font_size_override("font_size", 20); l.modulate = Color(0.8, 0.85, 1.0)
-	return l
-
-func _dim(t: String) -> Label:
-	var l := Label.new(); l.text = t; l.modulate = Color(1, 1, 1, 0.5)
-	l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	return l
-
-func _spacer(h: int) -> Control:
-	var s := Control.new(); s.custom_minimum_size = Vector2(0, h)
-	return s

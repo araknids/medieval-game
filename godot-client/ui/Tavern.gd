@@ -1,18 +1,22 @@
 extends Control
 # ── Tela TAVERNA ──────────────────────────────────────────────────────────────────
 # [TAVERNA] Beber (1 bronze + minigame de timing → manda success) p/ buff stackável;
-# chat (feed + enviar). Espelha loadTavern/renderTavernFeed do app.js. [MIGRACAO_GODOT]
+# chat (feed + enviar). Espelha loadTavern/renderTavernFeed do app.js. Padrão visual:
+# UiKit [PADRAO_UI_GODOT]. [MIGRACAO_GODOT]
 # Endpoints: GET /api/tavern/status · POST /api/tavern/drink {success} ·
 #            GET /api/tavern/feed?since=N · POST /api/tavern/chat {text}
+# P1: Timer de 4s re-puxa o feed enquanto a tela está aberta (espelha o polling do web).
 
 signal go_back
 
 var content: VBoxContainer
 var status: Label
+var wallet: Label
 var busy := false
 
-# estado do buff (último status conhecido)
+# estado do buff (último status conhecido) + carteira do header
 var st: Dictionary = {}
+var warrior: Dictionary = {}
 
 # chat
 var feed_box: VBoxContainer            # onde as linhas do chat aparecem
@@ -20,6 +24,8 @@ var chat_scroll: ScrollContainer
 var chat_input: LineEdit
 var last_id := 0                       # maior id já exibido (p/ ?since=)
 var msg_label: Label                   # mensagem efêmera (hit/miss/erro)
+var buff_box: VBoxContainer            # card do buff (atualizado sem re-render do chat)
+var poll_timer: Timer                  # polling do feed (~4s)
 
 # minigame de timing (mesma ideia do app.js: marker viaja, acerta a zona = success)
 var mini_active := false
@@ -28,7 +34,6 @@ var mini_zone_width := 22.0
 var mini_pos := 0.0
 var mini_dir := 1.0
 var drink_btn: Button
-var mini_panel: PanelContainer
 var mini_marker: ColorRect
 var mini_zone_rect: ColorRect
 
@@ -36,47 +41,16 @@ const MINI_W := 320.0                  # largura visual da pista (px)
 const MINI_H := 22.0
 
 func _ready() -> void:
-	set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	var bg := ColorRect.new()
-	bg.color = Color(0.09, 0.08, 0.11)
-	bg.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	add_child(bg)
-	var root := VBoxContainer.new()
-	root.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	add_child(root)
-	# header: ← voltar + título + ↻
-	var header := HBoxContainer.new()
-	header.add_theme_constant_override("separation", 10)
-	var back := Button.new(); back.text = "←"; back.custom_minimum_size = Vector2(44, 36)
-	back.pressed.connect(func() -> void: go_back.emit())
-	header.add_child(back)
-	var ttl := Label.new(); ttl.text = "🍺 Taverna"; ttl.add_theme_font_size_override("font_size", 26)
-	ttl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	header.add_child(ttl)
-	var sync := Button.new(); sync.text = "↻"; sync.custom_minimum_size = Vector2(40, 36)
-	sync.pressed.connect(func() -> void: await _refresh())
-	header.add_child(sync)
-	var hm := MarginContainer.new()
-	for side in ["left", "right", "top"]:
-		hm.add_theme_constant_override("margin_" + side, 16)
-	hm.add_child(header)
-	root.add_child(hm)
-	status = Label.new(); status.add_theme_constant_override("margin_left", 16)
-	root.add_child(status)
-	# corpo rolável
-	var scroll := ScrollContainer.new()
-	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	scroll.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	root.add_child(scroll)
-	var inner := MarginContainer.new()
-	inner.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	for side in ["left", "right", "bottom"]:
-		inner.add_theme_constant_override("margin_" + side, 16)
-	scroll.add_child(inner)
-	content = VBoxContainer.new()
-	content.add_theme_constant_override("separation", 8)
-	content.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	inner.add_child(content)
+	var ui := UiKit.scaffold(self, "🍺 Taverna", func() -> void: go_back.emit(), func() -> void: await _refresh(), UiKit.TINT_COMMERCE)
+	content = ui.content
+	status = ui.status
+	wallet = ui.wallet
+	# Timer de polling do feed (~4s) — morre junto com a tela.
+	poll_timer = Timer.new()
+	poll_timer.wait_time = 4.0
+	poll_timer.autostart = true
+	poll_timer.timeout.connect(func() -> void: await _poll_feed())
+	add_child(poll_timer)
 	await _refresh()
 
 func _process(delta: float) -> void:
@@ -92,13 +66,15 @@ func _process(delta: float) -> void:
 		mini_marker.position.x = (mini_pos / 100.0) * (MINI_W - 6.0)
 
 func _refresh() -> void:
-	status.text = "Carregando…"
-	var r = await Api.tavern_status()
+	UiKit.flash(status, "Carregando…", 0)
+	var rs = await Api.batch_get(["/api/tavern/status", "/api/warrior"])
+	var r = rs[0]
 	if not (r.get("ok") and r.get("json") is Dictionary):
-		status.text = "Erro ao carregar (%s)" % str(r.get("status", "?"))
+		UiKit.show_error(status, r)
 		return
 	st = r["json"]
-	status.text = ""
+	var wr = rs[1]
+	warrior = wr["json"] if (wr.get("ok") and wr.get("json") is Dictionary) else {}
 	_render()
 	await _load_feed(true)
 
@@ -107,78 +83,74 @@ func _render() -> void:
 		c.queue_free()
 	mini_marker = null
 	mini_zone_rect = null
-	# ── Buff atual ──
-	content.add_child(_buff_label())
-	# ── Minigame (pista) + botão beber ──
-	mini_panel = _mini_track()
-	content.add_child(mini_panel)
-	drink_btn = Button.new()
-	drink_btn.text = "🍺 Beber (1 🥉)"
-	drink_btn.custom_minimum_size = Vector2(220, 40)
-	drink_btn.pressed.connect(func() -> void: await _drink_pressed())
+	UiKit.flash(status, "", 0)
+	UiKit.set_wallet(wallet, warrior)
+	# ── Buff atual (card leve, no espírito do banner do Templo) ──
+	var bres := UiKit.card(UiKit.GOLD_SOFT)
+	buff_box = bres[1]
+	_fill_buff(buff_box)
+	content.add_child(bres[0])
+	# ── Beber (minigame + botão) ──
+	content.add_child(UiKit.section("Beber"))
+	content.add_child(UiKit.dim("Acerte o tempo no gole para ganhar +1 stack de buff. Cobra 1🥉 sempre."))
+	mini_panel_holder()
+	drink_btn = UiKit.action_big("🍺 Beber (1 🥉)", func() -> void: await _drink_pressed())
 	content.add_child(drink_btn)
 	msg_label = Label.new()
 	msg_label.custom_minimum_size = Vector2(0, 20)
+	msg_label.add_theme_font_size_override("font_size", 13)
 	content.add_child(msg_label)
-	content.add_child(_spacer(6))
 	# ── Chat ──
-	content.add_child(_section("💬 Chat"))
-	var chat_panel := PanelContainer.new()
-	var csb := StyleBoxFlat.new()
-	csb.bg_color = Color(0.12, 0.11, 0.14)
-	csb.set_corner_radius_all(5)
-	csb.set_content_margin_all(8)
-	chat_panel.add_theme_stylebox_override("panel", csb)
-	chat_panel.custom_minimum_size = Vector2(0, 240)
-	content.add_child(chat_panel)
+	content.add_child(UiKit.section("💬 Chat"))
+	var cres := UiKit.card()
+	var cbox: VBoxContainer = cres[1]
+	cres[0].custom_minimum_size = Vector2(0, 240)
 	chat_scroll = ScrollContainer.new()
 	chat_scroll.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	chat_panel.add_child(chat_scroll)
+	chat_scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	cbox.add_child(chat_scroll)
 	feed_box = VBoxContainer.new()
 	feed_box.add_theme_constant_override("separation", 3)
 	feed_box.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	chat_scroll.add_child(feed_box)
+	content.add_child(cres[0])
 	# barra de envio
 	var bar := HBoxContainer.new()
 	bar.add_theme_constant_override("separation", 6)
-	chat_input = LineEdit.new()
-	chat_input.placeholder_text = "Diga algo…"
+	chat_input = UiKit.input("Diga algo…")
 	chat_input.max_length = 200
 	chat_input.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	chat_input.text_submitted.connect(func(_t: String) -> void: await _send_pressed())
 	bar.add_child(chat_input)
-	var send := Button.new(); send.text = "Enviar"; send.custom_minimum_size = Vector2(90, 0)
-	send.pressed.connect(func() -> void: await _send_pressed())
-	bar.add_child(send)
+	bar.add_child(UiKit.action("Enviar", func() -> void: await _send_pressed()))
 	content.add_child(bar)
 
 # ── Buff ─────────────────────────────────────────────────────────────────────────
-func _buff_label() -> Label:
-	var l := Label.new()
+func _fill_buff(box: VBoxContainer) -> void:
+	for c in box.get_children():
+		c.queue_free()
 	var stacks := int(st.get("stacks", 0))
+	var l := Label.new()
+	l.add_theme_font_size_override("font_size", 16)
 	if stacks > 0:
 		var secs := int(st.get("buffSecondsLeft", 0))
 		var pct := float(st.get("buffPct", 0.0))
 		l.text = "🍺 +%.2f%% em todos os stats · %d stacks · %d:%02d" % [pct, stacks, secs / 60, secs % 60]
-		l.modulate = Color(0.5, 0.82, 0.72)
+		l.add_theme_color_override("font_color", UiKit.GOLD)
 	else:
 		l.text = "Sem buff de bebida ativo."
-		l.modulate = Color(1, 1, 1, 0.55)
-	l.add_theme_font_size_override("font_size", 16)
-	return l
+		l.add_theme_color_override("font_color", UiKit.TEXT_DIM)
+	box.add_child(l)
 
 # ── Minigame (pista visual; clicar Beber para no marker e decide success) ─────────
-func _mini_track() -> PanelContainer:
-	var panel := PanelContainer.new()
-	var sb := StyleBoxFlat.new()
-	sb.bg_color = Color(0.16, 0.15, 0.18)
-	sb.set_corner_radius_all(4)
-	sb.set_content_margin_all(4)
-	panel.add_theme_stylebox_override("panel", sb)
-	panel.custom_minimum_size = Vector2(MINI_W + 8.0, MINI_H + 8.0)
+func mini_panel_holder() -> void:
+	var res := UiKit.card()
+	var holder: VBoxContainer = res[1]
+	res[0].custom_minimum_size = Vector2(MINI_W + 24.0, MINI_H + 24.0)
+	res[0].size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	var track := Control.new()
 	track.custom_minimum_size = Vector2(MINI_W, MINI_H)
-	panel.add_child(track)
+	holder.add_child(track)
 	# zona-alvo (verde)
 	mini_zone_rect = ColorRect.new()
 	mini_zone_rect.color = Color(0.3, 0.7, 0.4, 0.55)
@@ -193,7 +165,7 @@ func _mini_track() -> PanelContainer:
 	mini_marker.position = Vector2((mini_pos / 100.0) * (MINI_W - 6.0), 0)
 	mini_marker.visible = mini_active
 	track.add_child(mini_marker)
-	return panel
+	content.add_child(res[0])
 
 func _start_minigame() -> void:
 	mini_zone_width = 22.0
@@ -225,18 +197,21 @@ func _drink_pressed() -> void:
 	var r = await Api.tavern_drink(success)
 	busy = false
 	if not (r.get("ok") and r.get("json") is Dictionary):
-		_flash(_err_text(r), true)
+		_flash(UiKit.err_text(r), true)
 		return
 	st = r["json"]
 	_flash("🍺 Acertou! +1 stack" if success else "Errou o gole… só o bronze foi.", not success)
-	# atualiza só o label do buff (sem re-render do chat p/ não rolar/limpar)
-	if content.get_child_count() > 0 and content.get_child(0) is Label:
-		(content.get_child(0) as Label).queue_free()
-		var nl := _buff_label()
-		content.add_child(nl)
-		content.move_child(nl, 0)
+	# atualiza só o card do buff (sem re-render do chat p/ não rolar/limpar)
+	if buff_box != null:
+		_fill_buff(buff_box)
 
 # ── Chat ─────────────────────────────────────────────────────────────────────────
+# Polling: re-puxa o feed incremental enquanto a tela está aberta (não durante outra ação).
+func _poll_feed() -> void:
+	if busy or feed_box == null:
+		return
+	await _load_feed(false)
+
 func _load_feed(replace: bool) -> void:
 	var since := 0 if replace else last_id
 	var r = await Api.tavern_feed(since)
@@ -249,6 +224,7 @@ func _load_feed(replace: bool) -> void:
 		for c in feed_box.get_children():
 			c.queue_free()
 		last_id = 0
+	var added := false
 	for m in msgs:
 		if not (m is Dictionary):
 			continue
@@ -257,11 +233,13 @@ func _load_feed(replace: bool) -> void:
 			last_id = mid
 		if feed_box != null:
 			feed_box.add_child(_feed_line(m))
-	# rola pro fim
-	if chat_scroll != null:
+			added = true
+	# rola pro fim só quando há novidade (não interrompe o scroll do usuário à toa)
+	if chat_scroll != null and (replace or added):
 		await get_tree().process_frame
 		chat_scroll.scroll_vertical = int(chat_scroll.get_v_scroll_bar().max_value)
 
+# Renderiza como Label de texto puro (sem BBCode/RichText) → sem injeção de markup.
 func _feed_line(m: Dictionary) -> Label:
 	var l := Label.new()
 	l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
@@ -269,10 +247,10 @@ func _feed_line(m: Dictionary) -> Label:
 	l.add_theme_font_size_override("font_size", 13)
 	if bool(m.get("system", false)):
 		l.text = "📢 %s" % str(m.get("text", ""))
-		l.modulate = Color(1.0, 0.82, 0.4)
+		l.add_theme_color_override("font_color", UiKit.GOLD)
 	else:
 		l.text = "%s: %s" % [str(m.get("sender", "?")), str(m.get("text", ""))]
-		l.modulate = Color(0.88, 0.88, 0.9)
+		l.add_theme_color_override("font_color", UiKit.TEXT)
 	return l
 
 func _send_pressed() -> void:
@@ -286,29 +264,13 @@ func _send_pressed() -> void:
 	var r = await Api.tavern_chat(text)
 	busy = false
 	if not (r.get("ok") and r.get("json") is Dictionary):
-		_flash(_err_text(r), true)
+		_flash(UiKit.err_text(r), true)
 		return
 	await _load_feed(false)
 
-# ── helpers ───────────────────────────────────────────────────────────────────────
+# ── helper local (mensagem efêmera do hit/miss, abaixo do botão) ───────────────────
 func _flash(text: String, is_error: bool) -> void:
 	if msg_label == null:
 		return
 	msg_label.text = text
-	msg_label.modulate = Color(0.93, 0.32, 0.31) if is_error else Color(0.5, 0.82, 0.72)
-
-func _err_text(r) -> String:
-	if r is Dictionary and r.get("json") is Dictionary:
-		var j: Dictionary = r["json"]
-		return str(j.get("message", j.get("error", "Falhou")))
-	return "Falhou (%s)" % str(r.get("status", "?") if r is Dictionary else "?")
-
-func _section(t: String) -> Label:
-	var l := Label.new(); l.text = t
-	l.add_theme_font_size_override("font_size", 19)
-	l.modulate = Color(0.8, 0.85, 1.0)
-	return l
-
-func _spacer(h: int) -> Control:
-	var s := Control.new(); s.custom_minimum_size = Vector2(0, h)
-	return s
+	msg_label.add_theme_color_override("font_color", UiKit.ERR if is_error else UiKit.OK)

@@ -10,7 +10,16 @@ const LOGIN := preload("res://ui/Login.tscn")
 var current: Control
 
 func _ready() -> void:
+	_setup_emoji_font()
 	_route()
+
+# Registra a Noto Emoji (mono, OFL) como fallback da fonte padrão → os ícones (emoji) passam a
+# renderizar em TODO o app (Open Sans não tem emoji). Mono = herda a cor do label (combina com o
+# tema). [PADRAO_UI_GODOT] Direção: Fable.
+func _setup_emoji_font() -> void:
+	var emoji = load("res://assets/fonts/NotoEmoji-VariableFont_wght.ttf")
+	if emoji is Font:
+		ThemeDB.fallback_font.fallbacks = [emoji]
 
 # Esc / B do controle = voltar pro Hub (só de uma tela; tela tem go_back, Hub/Login não). [Fable]
 func _unhandled_input(event: InputEvent) -> void:

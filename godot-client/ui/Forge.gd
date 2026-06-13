@@ -2,128 +2,87 @@ extends Control
 # ── Tela FORJA (Smithing) ─────────────────────────────────────────────────────────
 # Espelha renderSmithing() do app.js: nível de Forja, resumo de materiais,
 # refino (minério→barra), craft de equipamento (com % de sucesso), criar joias
-# (3 fragmentos→1 joia) e manutenção (reparar/reforjar itens). Volta com go_back.
+# (3 fragmentos→1 joia) e manutenção (reparar/reforjar itens). Padrão visual: UiKit [PADRAO_UI_GODOT].
 # Endpoints: GET /api/smithing/recipes, GET /api/gathering/resources, GET /api/inventory,
-# POST /api/smithing/{refine|craft|gem|repair/{id}|reforge/{id}}. [MIGRACAO_GODOT]
+# GET /api/warrior, POST /api/smithing/{refine|craft|gem|repair/{id}|reforge/{id}}. [MIGRACAO_GODOT]
 
 signal go_back
 
-# raridade 1-5 → cor
-const RARITY_COL := [Color(0.72, 0.72, 0.75), Color(0.45, 0.85, 0.45), Color(0.4, 0.6, 1.0), Color(0.78, 0.45, 0.95), Color(1.0, 0.8, 0.35)]
-
 var content: VBoxContainer
 var status: Label
+var wallet: Label
 var busy := false
 
 var recipes: Dictionary = {}      # {refine:[], craft:[], gems:[]}
 var resources: Array = []         # GET /api/gathering/resources
 var inventory: Array = []         # GET /api/inventory
+var warrior: Dictionary = {}      # /api/warrior (carteira do header)
 var refine_qty: Dictionary = {}   # ore name → quantidade escolhida (SpinBox)
 
 func _ready() -> void:
-	set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	var bg := ColorRect.new()
-	bg.color = Color(0.09, 0.08, 0.11)
-	bg.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	add_child(bg)
-	var root := VBoxContainer.new()
-	root.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	for side in ["left", "right", "top", "bottom"]:
-		root.add_theme_constant_override("margin_" + side, 0)
-	add_child(root)
-	# header: ← voltar + título + ↻
-	var header := HBoxContainer.new()
-	header.add_theme_constant_override("separation", 10)
-	var back := Button.new(); back.text = "←"; back.custom_minimum_size = Vector2(44, 36)
-	back.pressed.connect(func() -> void: go_back.emit())
-	header.add_child(back)
-	var ttl := Label.new(); ttl.text = "🔨 Forja"; ttl.add_theme_font_size_override("font_size", 26)
-	ttl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	header.add_child(ttl)
-	var sync := Button.new(); sync.text = "↻"; sync.custom_minimum_size = Vector2(40, 36)
-	sync.pressed.connect(func() -> void: await _refresh())
-	header.add_child(sync)
-	var m := MarginContainer.new()
-	for side in ["left", "right", "top"]:
-		m.add_theme_constant_override("margin_" + side, 16)
-	m.add_child(header)
-	root.add_child(m)
-	status = Label.new(); status.add_theme_constant_override("margin_left", 16)
-	root.add_child(status)
-	# conteúdo rolável
-	var scroll := ScrollContainer.new()
-	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	scroll.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	root.add_child(scroll)
-	var inner := MarginContainer.new()
-	inner.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	for side in ["left", "right", "bottom"]:
-		inner.add_theme_constant_override("margin_" + side, 16)
-	scroll.add_child(inner)
-	content = VBoxContainer.new()
-	content.add_theme_constant_override("separation", 6)
-	content.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	inner.add_child(content)
+	var ui := UiKit.scaffold(self, "🔨 Forja", func() -> void: go_back.emit(), func() -> void: await _refresh(), UiKit.TINT_COMMERCE)
+	content = ui.content
+	status = ui.status
+	wallet = ui.wallet
 	await _refresh()
 
 func _refresh() -> void:
-	status.text = "Carregando…"
-	var rr = await Api.smithing_recipes()
+	UiKit.flash(status, "Carregando…", 0)
+	# recipes + resources + inventory + warrior em PARALELO (independentes)
+	var rs = await Api.batch_get(["/api/smithing/recipes", "/api/gathering/resources", "/api/inventory", "/api/warrior"])
+	var rr = rs[0]
 	if not (rr.get("ok") and rr.get("json") is Dictionary):
-		status.text = "Erro ao carregar (%s)" % str(rr.get("status", "?"))
+		UiKit.show_error(status, rr)
 		return
 	recipes = rr["json"]
-	var res = await Api.get_resources()
+	var res = rs[1]
 	resources = res["json"] if (res.get("ok") and res.get("json") is Array) else []
-	var inv = await Api.get_inventory()
+	var inv = rs[2]
 	inventory = inv["json"] if (inv.get("ok") and inv.get("json") is Array) else []
-	status.text = ""
+	var wr = rs[3]
+	warrior = wr["json"] if (wr.get("ok") and wr.get("json") is Dictionary) else {}
 	_render()
 
 func _render() -> void:
 	for c in content.get_children():
 		c.queue_free()
+	UiKit.flash(status, "", 0)
+	UiKit.set_wallet(wallet, warrior)
 	# ── Seus materiais ──
-	content.add_child(_section("📦 Seus materiais"))
+	content.add_child(UiKit.section("📦 Seus materiais"))
 	var mats := _materials_text()
 	if mats == "":
-		content.add_child(_dim("— sem materiais (minere/colete pra forjar) —"))
+		content.add_child(UiKit.dim("— sem materiais (minere/colete pra forjar) —"))
 	else:
-		var ml := Label.new(); ml.text = mats; ml.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-		ml.modulate = Color(0.88, 0.82, 0.68); ml.add_theme_font_size_override("font_size", 12)
-		content.add_child(ml)
+		content.add_child(UiKit.body(mats))
 	# ── Refinar ──
-	content.add_child(_spacer(6))
-	content.add_child(_section("Refinar Minérios → Barras"))
+	content.add_child(UiKit.section("Refinar Minérios → Barras"))
 	var refine: Array = recipes.get("refine", [])
 	if refine.is_empty():
-		content.add_child(_dim("— sem receitas —"))
+		content.add_child(UiKit.dim("— sem receitas —"))
 	for r in refine:
 		if r is Dictionary:
 			content.add_child(_refine_card(r))
 	# ── Craftar equipamento ──
-	content.add_child(_spacer(6))
-	content.add_child(_section("Craftar Equipamento"))
+	content.add_child(UiKit.section("Craftar Equipamento"))
 	var craft: Array = recipes.get("craft", [])
 	if craft.is_empty():
-		content.add_child(_dim("— sem receitas —"))
+		content.add_child(UiKit.dim("— sem receitas —"))
 	for r in craft:
 		if r is Dictionary:
 			content.add_child(_craft_card(r))
 	# ── Joias ──
-	content.add_child(_spacer(6))
-	content.add_child(_section("Criar Joias"))
+	content.add_child(UiKit.section("Criar Joias"))
 	var gems: Array = recipes.get("gems", [])
 	if gems.is_empty():
-		content.add_child(_dim("— sem fragmentos —"))
+		content.add_child(UiKit.dim("— sem fragmentos —"))
 	for r in gems:
 		if r is Dictionary:
 			content.add_child(_gem_card(r))
 	# ── Manutenção ──
-	content.add_child(_spacer(6))
-	content.add_child(_section("🔧 Manutenção (Reparar / Reforjar)"))
+	content.add_child(UiKit.section("🔧 Manutenção (Reparar / Reforjar)"))
 	if inventory.is_empty():
-		content.add_child(_dim("— sem itens —"))
+		content.add_child(UiKit.empty("Sem itens", "Equipamentos da mochila aparecem aqui p/ reparo/reforja"))
 	for it in inventory:
 		if it is Dictionary:
 			content.add_child(_maint_card(it))
@@ -131,108 +90,121 @@ func _render() -> void:
 # ── Cards ─────────────────────────────────────────────────────────────────────────
 func _refine_card(r: Dictionary) -> PanelContainer:
 	var ore := str(r.get("ore", ""))
-	var can := bool(r.get("canCraft", false))
-	var panel := _card_panel(can)
-	var vb := VBoxContainer.new(); vb.add_theme_constant_override("separation", 4)
-	panel.add_child(vb)
-	var t := Label.new()
-	t.text = "%s ×%d + %d🥉 → %s" % [str(r.get("oreName", ore)), int(r.get("oreQty", 1)), int(r.get("bronzeCost", 0)), str(r.get("barName", ""))]
-	t.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	vb.add_child(t)
-	var lvl := Label.new()
-	lvl.text = "Forja Lv.%d %s" % [int(r.get("levelRequired", 1)), "" if can else "🔒"]
-	lvl.modulate = Color(1, 1, 1, 0.5); lvl.add_theme_font_size_override("font_size", 12)
-	vb.add_child(lvl)
+	var ore_qty := maxi(1, int(r.get("oreQty", 1)))
+	var have := _resource_qty(ore)                       # quanto minério o jogador tem
+	var level_ok := bool(r.get("canCraft", false))       # canCraft = só o nível da Forja
+	var enough := have >= ore_qty
+	var can := level_ok and enough
+	var res := UiKit.card(UiKit.BRONZE, can)
+	var pc: PanelContainer = res[0]
+	var vb: VBoxContainer = res[1]
+	vb.add_child(UiKit.body("%s ×%d + %d🥉 → %s" % [str(r.get("oreName", ore)), ore_qty, int(r.get("bronzeCost", 0)), str(r.get("barName", ""))]))
+	# tem/precisa colorido + requisito de nível
+	var info := HBoxContainer.new(); info.add_theme_constant_override("separation", 10)
+	var hv := Label.new()
+	hv.text = "Você tem: %d" % have
+	hv.add_theme_font_size_override("font_size", 12)
+	hv.add_theme_color_override("font_color", UiKit.OK if enough else UiKit.ERR)
+	info.add_child(hv)
+	info.add_child(UiKit.dim("Forja Lv.%d %s" % [int(r.get("levelRequired", 1)), "" if level_ok else "🔒"]))
+	vb.add_child(info)
 	if can:
 		var row := HBoxContainer.new(); row.add_theme_constant_override("separation", 8)
-		var qty := SpinBox.new(); qty.min_value = 1; qty.max_value = 100000; qty.value = int(refine_qty.get(ore, 1))
+		var max_ref := maxi(1, have / ore_qty)           # não deixa pedir mais do que dá
+		var qty := SpinBox.new(); qty.min_value = 1; qty.max_value = max_ref
+		qty.value = clampi(int(refine_qty.get(ore, 1)), 1, max_ref)
 		qty.custom_minimum_size = Vector2(80, 0)
 		qty.value_changed.connect(func(v): refine_qty[ore] = int(v))
 		row.add_child(qty)
-		var bar_name := str(r.get("bar", ""))
-		row.add_child(_act("Refinar", _refine.bind(ore)))
+		row.add_child(UiKit.small_btn("Refinar", _refine.bind(ore)))
 		vb.add_child(row)
-	return panel
+	elif not enough and level_ok:
+		var nob := UiKit.small_btn("Sem minério", Callable())
+		nob.disabled = true
+		vb.add_child(nob)
+	return pc
 
 func _craft_card(r: Dictionary) -> PanelContainer:
 	var rarity := int(r.get("rarity", 1))
-	var col: Color = RARITY_COL[clampi(rarity - 1, 0, 4)]
+	var col := UiKit.rarity_color(rarity)
 	var can := bool(r.get("canCraft", false))
-	var panel := _card_panel(can, col)
-	var vb := VBoxContainer.new(); vb.add_theme_constant_override("separation", 3)
-	panel.add_child(vb)
-	var nm := Label.new()
+	var res := UiKit.card(col, can)
+	var pc: PanelContainer = res[0]
+	var vb: VBoxContainer = res[1]
 	var sockets := int(r.get("sockets", 0))
+	var nm := Label.new()
 	nm.text = "%s (%d socket%s)" % [str(r.get("name", "?")), sockets, "" if sockets == 1 else "s"]
-	nm.modulate = col; nm.add_theme_font_size_override("font_size", 15)
+	nm.add_theme_font_size_override("font_size", 15)
+	nm.add_theme_color_override("font_color", col)
 	nm.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	vb.add_child(nm)
-	# ingredientes
-	var ing_parts: Array = []
+	# ingredientes — P1: cor verde se tem o bastante, vermelho se falta.
 	for i in r.get("ingredients", []):
 		if i is Dictionary:
-			ing_parts.append("%s ×%d" % [str(i.get("name", "?")), int(i.get("qty", 1))])
-	var ing := Label.new(); ing.text = " + ".join(ing_parts)
-	ing.modulate = Color(1, 1, 1, 0.6); ing.add_theme_font_size_override("font_size", 12)
-	ing.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	vb.add_child(ing)
+			var need := int(i.get("qty", 1))
+			var have := _resource_qty(str(i.get("type", "")))
+			var ing := Label.new()
+			ing.text = "%s  %d/%d" % [str(i.get("name", "?")), have, need]
+			ing.add_theme_font_size_override("font_size", 12)
+			ing.add_theme_color_override("font_color", UiKit.OK if have >= need else UiKit.ERR)
+			vb.add_child(ing)
 	# stats
 	var st := _craft_stats(r)
 	if st != "":
-		var sl := Label.new(); sl.text = st; sl.add_theme_font_size_override("font_size", 12); sl.modulate = Color(0.8, 0.9, 0.8)
+		var sl := Label.new(); sl.text = st; sl.add_theme_font_size_override("font_size", 12)
+		sl.add_theme_color_override("font_color", Color(0.62, 0.75, 0.58))
 		vb.add_child(sl)
-	var lvl := Label.new()
-	lvl.text = "Forja Lv.%d %s" % [int(r.get("levelRequired", 1)), "" if can else "🔒"]
-	lvl.modulate = Color(1, 1, 1, 0.5); lvl.add_theme_font_size_override("font_size", 12)
-	vb.add_child(lvl)
+	vb.add_child(UiKit.dim("Forja Lv.%d %s" % [int(r.get("levelRequired", 1)), "" if can else "🔒"]))
 	if can:
+		var pct := int(r.get("successPct", 0))
+		var pct_col := UiKit.OK if pct >= 80 else (UiKit.WARN if pct >= 50 else UiKit.ERR)
 		var info := Label.new()
-		info.text = "🎲 Sucesso: %d%% · Taxa: %d🥉" % [int(r.get("successPct", 0)), int(r.get("bronzeCost", 0))]
-		info.modulate = Color(0.55, 0.76, 0.29); info.add_theme_font_size_override("font_size", 12)
+		info.text = "🎲 Sucesso: %d%% · Taxa: %d🥉" % [pct, int(r.get("bronzeCost", 0))]
+		info.add_theme_font_size_override("font_size", 12)
+		info.add_theme_color_override("font_color", pct_col)
 		vb.add_child(info)
-		vb.add_child(_act("Craftar", _craft.bind(str(r.get("id", "")))))
-	return panel
+		vb.add_child(UiKit.small_btn("Craftar", _craft.bind(str(r.get("id", "")))))
+	return pc
 
 func _gem_card(r: Dictionary) -> PanelContainer:
 	var frag := str(r.get("fragment", ""))
 	var have := _resource_qty(frag)
 	var can := have >= 3
-	var panel := _card_panel(can)
-	var vb := VBoxContainer.new(); vb.add_theme_constant_override("separation", 4)
-	panel.add_child(vb)
-	var t := Label.new()
-	t.text = "%s ×3 → %s" % [str(r.get("fragmentName", frag)), str(r.get("gemName", ""))]
-	t.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	vb.add_child(t)
+	var res := UiKit.card(UiKit.BRONZE, can)
+	var pc: PanelContainer = res[0]
+	var vb: VBoxContainer = res[1]
+	vb.add_child(UiKit.body("%s ×3 → %s" % [str(r.get("fragmentName", frag)), str(r.get("gemName", ""))]))
 	var hv := Label.new(); hv.text = "Você tem: %d fragmentos" % have
-	hv.modulate = Color(1, 1, 1, 0.5); hv.add_theme_font_size_override("font_size", 12)
+	hv.add_theme_font_size_override("font_size", 12)
+	hv.add_theme_color_override("font_color", UiKit.OK if can else UiKit.ERR)
 	vb.add_child(hv)
 	if can:
-		vb.add_child(_act("Criar Joia", _craft_gem.bind(frag)))
-	return panel
+		vb.add_child(UiKit.small_btn("Criar Joia", _craft_gem.bind(frag)))
+	return pc
 
 func _maint_card(it: Dictionary) -> PanelContainer:
-	var rarity := int(it.get("rarity", 1))
-	var col: Color = RARITY_COL[clampi(rarity - 1, 0, 4)]
-	var panel := _card_panel(true, col)
-	var vb := VBoxContainer.new(); vb.add_theme_constant_override("separation", 3)
-	panel.add_child(vb)
+	var col := UiKit.rarity_color(int(it.get("rarity", 1)))
+	var res := UiKit.card(col)
+	var pc: PanelContainer = res[0]
+	var vb: VBoxContainer = res[1]
 	var nm := Label.new()
 	nm.text = str(it.get("name", "?")) + (" · ⚔ equipado" if it.get("equipped", false) else "")
-	nm.modulate = col; nm.add_theme_font_size_override("font_size", 15)
+	nm.add_theme_font_size_override("font_size", 15)
+	nm.add_theme_color_override("font_color", col)
 	nm.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	vb.add_child(nm)
 	var dur := int(it.get("durability", 100))
 	var db := Label.new(); db.text = "Durabilidade: %d%%" % dur
-	db.modulate = (Color(0.9, 0.5, 0.3) if dur < 100 else Color(1, 1, 1, 0.5)); db.add_theme_font_size_override("font_size", 12)
+	db.add_theme_font_size_override("font_size", 12)
+	db.add_theme_color_override("font_color", UiKit.WARN if dur < 100 else UiKit.TEXT_DIM)
 	vb.add_child(db)
 	var id := int(it.get("id", 0))
 	var row := HBoxContainer.new(); row.add_theme_constant_override("separation", 6)
 	if dur < 100:
-		row.add_child(_act("🔧 Reparar", _repair.bind(id)))
-	row.add_child(_act("♻ Reforjar", _reforge.bind(id)))
+		row.add_child(UiKit.small_btn("🔧 Reparar", _repair.bind(id)))
+	row.add_child(UiKit.small_btn("♻ Reforjar", _confirm_reforge.bind(id, str(it.get("name", "este item"))), true))
 	vb.add_child(row)
-	return panel
+	return pc
 
 # ── Ações async ───────────────────────────────────────────────────────────────────
 func _refine(ore: String) -> void:
@@ -240,7 +212,7 @@ func _refine(ore: String) -> void:
 	busy = true
 	var qty := int(refine_qty.get(ore, 1))
 	var r = await Api.smithing_refine(ore, qty)
-	_after_action(r, "Refinado!")
+	await _after_action(r, "Refinado!")
 
 func _craft(recipe_id: String) -> void:
 	if busy: return
@@ -250,45 +222,42 @@ func _craft(recipe_id: String) -> void:
 	if r.get("ok") and r.get("json") is Dictionary:
 		var j: Dictionary = r["json"]
 		var ok := bool(j.get("success", false))
-		status.text = ("✅ " if ok else "❌ ") + str(j.get("message", ""))
 		busy = false
 		await _refresh()
+		UiKit.flash(status, str(j.get("message", "")), 1 if ok else 2)
 	else:
-		_show_error(r); busy = false
+		UiKit.show_error(status, r); busy = false
 
 func _craft_gem(frag: String) -> void:
 	if busy: return
 	busy = true
 	var r = await Api.smithing_gem(frag)
-	_after_action(r, "Joia criada!")
+	await _after_action(r, "Joia criada!")
 
 func _repair(id: int) -> void:
 	if busy: return
 	busy = true
 	var r = await Api.smithing_repair(id)
-	_after_action(r, "Reparado!")
+	await _after_action(r, "Reparado!")
+
+# P0: reforja é irreversível → confirma antes.
+func _confirm_reforge(id: int, item_name: String) -> void:
+	UiKit.confirm(self, "Reforjar \"%s\"? Os stats serão re-rolados — isso é irreversível." % item_name, "Reforjar", func() -> void: await _reforge(id), true)
 
 func _reforge(id: int) -> void:
 	if busy: return
 	busy = true
 	var r = await Api.smithing_reforge(id)
-	_after_action(r, "Reforjado!")
+	await _after_action(r, "Reforjado!")
 
 # Resultado padrão (sucesso = mensagem + re-refresh; falha = erro).
 func _after_action(r, fallback: String) -> void:
 	if r.get("ok") and r.get("json") is Dictionary:
-		status.text = str(r["json"].get("message", fallback))
 		busy = false
 		await _refresh()
+		UiKit.flash(status, str(r["json"].get("message", fallback)), 1)
 	else:
-		_show_error(r); busy = false
-
-func _show_error(r) -> void:
-	if r is Dictionary and r.get("json") is Dictionary:
-		var j: Dictionary = r["json"]
-		status.text = str(j.get("message", j.get("error", "Falhou")))
-	else:
-		status.text = "Falhou (%s)" % str(r.get("status", "?") if r is Dictionary else "?")
+		UiKit.show_error(status, r); busy = false
 
 # ── helpers de dados ──────────────────────────────────────────────────────────────
 func _resource_qty(type_name: String) -> int:
@@ -313,33 +282,3 @@ func _craft_stats(r: Dictionary) -> String:
 		if v > 0:
 			parts.append("+%d %s" % [v, pair[1]])
 	return "   ".join(parts)
-
-# ── helpers de UI ─────────────────────────────────────────────────────────────────
-func _card_panel(enabled: bool, border := Color(0.4, 0.4, 0.5)) -> PanelContainer:
-	var panel := PanelContainer.new()
-	var sb := StyleBoxFlat.new()
-	sb.bg_color = Color(0.13, 0.12, 0.15)
-	sb.set_border_width_all(1)
-	sb.border_color = Color(border, 0.6) if enabled else Color(0.3, 0.3, 0.3, 0.5)
-	sb.set_corner_radius_all(5)
-	sb.set_content_margin_all(8)
-	panel.add_theme_stylebox_override("panel", sb)
-	panel.modulate = Color(1, 1, 1, 1.0 if enabled else 0.6)
-	return panel
-
-func _act(text: String, cb: Callable) -> Button:
-	var b := Button.new(); b.text = text; b.custom_minimum_size = Vector2(120, 0)
-	b.pressed.connect(cb)
-	return b
-
-func _section(t: String) -> Label:
-	var l := Label.new(); l.text = t; l.add_theme_font_size_override("font_size", 19); l.modulate = Color(0.8, 0.85, 1.0)
-	return l
-
-func _dim(t: String) -> Label:
-	var l := Label.new(); l.text = t; l.modulate = Color(1, 1, 1, 0.4)
-	return l
-
-func _spacer(h: int) -> Control:
-	var s := Control.new(); s.custom_minimum_size = Vector2(0, h)
-	return s

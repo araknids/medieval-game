@@ -35,6 +35,13 @@ func _ready() -> void:
 	for side in ["left", "right", "top", "bottom"]:
 		margin.add_theme_constant_override("margin_" + side, 26)
 	scroll.add_child(margin)
+	# coluna máx 920px centrada (mesma regra do UiKit.scaffold → mesma "geração" das telas)
+	var cap := func() -> void:
+		var extra: int = maxi(0, int((size.x - 920) / 2.0))
+		margin.add_theme_constant_override("margin_left", 26 + extra)
+		margin.add_theme_constant_override("margin_right", 26 + extra)
+	resized.connect(cap)
+	cap.call()
 	var box := VBoxContainer.new()
 	box.add_theme_constant_override("separation", 10)
 	box.size_flags_horizontal = Control.SIZE_EXPAND_FILL
