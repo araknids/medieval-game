@@ -17,7 +17,7 @@ const SECTIONS := [
 	["Comércio",   [["Shop", "🛒 Loja"], ["Forge", "🔨 Forja"], ["Auction", "💰 Leilão"],
 					["Stash", "📦 Baú"], ["Tavern", "🍺 Taverna"], ["Vip", "💎 VIP"]]],
 	["Personagem", [["Abilities", "✨ Habilidades"], ["Achievements", "🏆 Conquistas"]]],
-	["Social",     [["Guild", "🛡 Guilda"], ["Mail", "✉ Correio"], ["Daily", "🎁 Diário"]]],
+	["Social",     [["Guild", "🛡 Guilda"], ["Territory", "🗺 Território"], ["Mail", "✉ Correio"], ["Daily", "🎁 Diário"]]],
 ]
 
 var _fx: MenuFx

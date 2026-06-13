@@ -16,6 +16,9 @@ var busy := false
 var data: Dictionary = {}      # detalhe da guilda (quando inGuild)
 var warrior: Dictionary = {}   # /api/warrior (carteira do header)
 var guild_list: Array = []     # lista de guildas (quando sem guilda)
+var war: Dictionary = {}       # /api/guild/war (status da guerra; atWar:false se sem guilda) [GUERRA_GUILDA]
+var targets: Array = []        # guildas rivais elegíveis (carregadas ao escolher declarar)
+var picking := false           # estado de UI: escolhendo alvo de guerra
 # campos de input (criar guilda / doar) — guardados p/ ler no submit
 var name_edit: LineEdit
 var desc_edit: LineEdit
@@ -40,6 +43,11 @@ func _refresh() -> void:
 	data = r["json"]
 	var wr = rs[1]
 	warrior = wr["json"] if (wr.get("ok") and wr.get("json") is Dictionary) else {}
+	# status da guerra (seguro mesmo sem guilda → atWar:false) [GUERRA_GUILDA]
+	picking = false
+	targets = []
+	var wsr = await Api.guild_war_status()
+	war = wsr["json"] if (wsr.get("ok") and wsr.get("json") is Dictionary) else {}
 	if bool(data.get("inGuild", false)):
 		guild_list = []
 		_render_panel()
@@ -136,8 +144,11 @@ func _render_panel() -> void:
 				content.add_child(row)
 			i += 1
 
+	# ── Guerra de Guilda [GUERRA_GUILDA] ──
+	_render_war()
+
 	# nota sobre sub-telas futuras
-	content.add_child(UiKit.dim("⚔ Guerra de guilda, formação 3×5 e territórios virão em telas próprias."))
+	content.add_child(UiKit.dim("⚔ Formação 3×5 e territórios virão em telas próprias."))
 
 func _member_row(mm: Dictionary, is_leader: bool) -> PanelContainer:
 	var me := bool(mm.get("isMe", false))
@@ -167,6 +178,112 @@ func _member_row(mm: Dictionary, is_leader: bool) -> PanelContainer:
 			hb.add_child(UiKit.small_btn("Expulsar", _confirm_kick.bind(pid, who), true))
 		hb.add_child(UiKit.small_btn("Transferir", _confirm_transfer.bind(pid, who)))
 	return res[0]
+
+# ── Guerra de Guilda [GUERRA_GUILDA] ────────────────────────────────────────────────
+# Renderiza a seção de guerra a partir do cache `war` (carregado no _refresh).
+func _render_war() -> void:
+	content.add_child(UiKit.section("⚔ Guerra de Guilda"))
+	content.add_child(UiKit.dim("Guerra de 7 dias contra uma guilda rival. Quem fizer mais kills leva 25% do ouro. Ambas precisam ter controlado um território."))
+	if bool(war.get("atWar", false)):
+		_render_war_active()
+	else:
+		_render_war_idle()
+
+func _render_war_active() -> void:
+	var my_kills := int(war.get("myKills", 0))
+	var enemy_kills := int(war.get("enemyKills", 0))
+	# placar
+	var res := UiKit.card(UiKit.ERR)
+	var pc: PanelContainer = res[0]
+	var box: VBoxContainer = res[1]
+	var sb: StyleBoxFlat = pc.get_theme_stylebox("panel")
+	sb.set_border_width_all(2)
+	var head := Label.new()
+	head.text = "Em guerra com %s" % str(war.get("enemyGuildName", "?"))
+	head.add_theme_font_size_override("font_size", 18)
+	head.add_theme_color_override("font_color", UiKit.ERR)
+	box.add_child(head)
+	box.add_child(UiKit.kv("Placar", "%d × %d (você × inimigo)" % [my_kills, enemy_kills]))
+	box.add_child(UiKit.kv("Termina em", _fmt_time(int(war.get("secondsLeft", 0)))))
+	content.add_child(pc)
+	# inimigos
+	var enemies: Array = war.get("enemies", []) if war.get("enemies") is Array else []
+	content.add_child(UiKit.section("Inimigos"))
+	if enemies.is_empty():
+		content.add_child(UiKit.dim("— nenhum inimigo disponível para atacar agora —"))
+	else:
+		content.add_child(UiKit.grid(self, enemies, _enemy_card))
+
+func _enemy_card(e: Variant) -> Control:
+	var en: Dictionary = e if e is Dictionary else {}
+	var res := UiKit.card()
+	var pc: PanelContainer = res[0]
+	var box: VBoxContainer = res[1]
+	var row := HBoxContainer.new()
+	row.add_theme_constant_override("separation", 10)
+	box.add_child(row)
+	var left := VBoxContainer.new()
+	left.add_theme_constant_override("separation", 2)
+	left.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	row.add_child(left)
+	var ko := bool(en.get("knockedOut", false))
+	var shielded := bool(en.get("shielded", false))
+	var title := str(en.get("title", ""))
+	var nm := Label.new()
+	nm.text = (title + " " if title != "" else "") + str(en.get("warriorName", "?"))
+	nm.add_theme_font_size_override("font_size", 16)
+	nm.add_theme_color_override("font_color", UiKit.TEXT)
+	left.add_child(nm)
+	var hp := int(en.get("hpPercent", 100))
+	var hl := Label.new()
+	hl.text = "Nv %d · ❤ %d%%" % [int(en.get("level", 1)), hp]
+	hl.add_theme_font_size_override("font_size", 12)
+	hl.add_theme_color_override("font_color", UiKit.ERR if ko else UiKit.TEXT_DIM)
+	left.add_child(hl)
+	var rcol := VBoxContainer.new()
+	rcol.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	row.add_child(rcol)
+	var pid := int(en.get("playerId", 0))
+	if ko:
+		rcol.add_child(UiKit.small_btn("💀 KO", Callable()))
+	elif shielded:
+		rcol.add_child(UiKit.small_btn("🛡 Protegido", Callable()))
+	else:
+		rcol.add_child(UiKit.small_btn("⚔ Atacar", _attack.bind(pid), true))
+	return pc
+
+func _render_war_idle() -> void:
+	if not bool(data.get("isLeader", false)):
+		content.add_child(UiKit.dim("Só o líder pode declarar guerra."))
+		return
+	if picking:
+		content.add_child(UiKit.section("Escolha uma guilda rival"))
+		if targets.is_empty():
+			content.add_child(UiKit.empty("Nenhuma guilda elegível.", "Rivais precisam ter controlado um território."))
+		else:
+			for t in targets:
+				if t is Dictionary:
+					content.add_child(_target_row(t))
+		content.add_child(UiKit.action("Cancelar", _cancel_picking))
+	else:
+		content.add_child(UiKit.action("⚔ Declarar Guerra", _open_targets))
+
+func _target_row(t: Dictionary) -> PanelContainer:
+	var res := UiKit.card()
+	var pc: PanelContainer = res[0]
+	var box: VBoxContainer = res[1]
+	var row := HBoxContainer.new()
+	row.add_theme_constant_override("separation", 10)
+	box.add_child(row)
+	var nm := Label.new()
+	nm.text = "%s   Nv.%d" % [str(t.get("name", "?")), int(t.get("level", 1))]
+	nm.add_theme_font_size_override("font_size", 16)
+	nm.add_theme_color_override("font_color", UiKit.TEXT)
+	nm.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	row.add_child(nm)
+	var gid := int(t.get("id", 0))
+	row.add_child(UiKit.small_btn("⚔ Declarar", _confirm_declare.bind(gid), true))
+	return pc
 
 # ── Painel SEM guilda ──────────────────────────────────────────────────────────────
 func _render_no_guild() -> void:
@@ -236,6 +353,9 @@ func _confirm_kick(pid: int, who: String) -> void:
 
 func _confirm_transfer(pid: int, who: String) -> void:
 	UiKit.confirm(self, "Transferir a liderança para %s? Você deixa de ser líder." % who, "Transferir", func() -> void: await _transfer(pid), false)
+
+func _confirm_declare(guild_id: int) -> void:
+	UiKit.confirm(self, "Declarar guerra de 7 dias?", "Declarar", func() -> void: await _do_declare(guild_id))
 
 # ── Ações (async, 1 chamada → re-refresh) ──────────────────────────────────────────
 func _create() -> void:
@@ -329,7 +449,70 @@ func _donate() -> void:
 	else:
 		UiKit.show_error(status, r)
 
+# ── Ações de Guerra de Guilda [GUERRA_GUILDA] ───────────────────────────────────────
+# Carrega as guildas rivais e entra no modo de escolha de alvo (re-render puro de UI).
+func _open_targets() -> void:
+	if busy: return
+	busy = true
+	var r = await Api.guild_war_targets()
+	busy = false
+	if r.get("ok") and r.get("json") is Array:
+		targets = r["json"]
+		picking = true
+		_render_panel()
+	else:
+		UiKit.show_error(status, r)
+
+func _cancel_picking() -> void:
+	picking = false
+	targets = []
+	_render_panel()
+
+func _do_declare(guild_id: int) -> void:
+	if busy: return
+	busy = true
+	var r = await Api.guild_war_declare(guild_id)
+	busy = false
+	if r.get("ok"):
+		var msg := "Guerra declarada!"
+		if r.get("json") is Dictionary:
+			msg = str(r["json"].get("message", msg))
+		await _refresh()
+		UiKit.flash(status, msg, 1)
+	else:
+		UiKit.show_error(status, r)
+
+func _attack(player_id: int) -> void:
+	if busy: return
+	busy = true
+	var r = await Api.guild_war_attack(player_id)
+	busy = false
+	if r.get("ok") and r.get("json") is Dictionary:
+		var j: Dictionary = r["json"]
+		var won := bool(j.get("won", false))
+		var opp := str(j.get("opponentName", "?"))
+		var head := "🏆 Venceu" if won else "💀 Perdeu"
+		var loot := str(j.get("loot", ""))
+		var loot_txt := " · %s" % loot if loot != "" else ""
+		await _refresh()
+		UiKit.flash(status, "%s contra %s%s · placar %d×%d" % [head, opp, loot_txt, int(j.get("myKills", 0)), int(j.get("enemyKills", 0))], 1)
+	else:
+		UiKit.show_error(status, r)
+
 # ── helpers locais (formatação + SpinBox de doação) ─────────────────────────────────
+func _fmt_time(secs: int) -> String:
+	var s := maxi(0, secs)
+	var days := s / 86400
+	var hours := (s % 86400) / 3600
+	var mins := (s % 3600) / 60
+	if days > 0:
+		return "%dd %02dh" % [days, hours]
+	if hours > 0:
+		return "%dh %02dmin" % [hours, mins]
+	if mins > 0:
+		return "%d min" % mins
+	return "%d s" % s
+
 func _fmt_bronze(total: int) -> String:
 	var gold := total / 10000
 	var silver := (total % 10000) / 100

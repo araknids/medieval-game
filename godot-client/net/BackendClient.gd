@@ -243,6 +243,37 @@ func guild_transfer(id: int) -> Dictionary:
 func guild_donate(amount: int) -> Dictionary:
 	return await _request(HTTPClient.METHOD_POST, "/api/guild/donate", {"amount": amount}, true)
 
+# ── Guerra de Guilda (guild-vs-guild) [GUERRA_GUILDA] ──────────────────────────────
+## GET /api/guild/war → {atWar, warId, enemyGuildName, myKills, enemyKills, secondsLeft, enemies:[{playerId,warriorName,title,level,hpPercent,knockedOut,shielded}]}
+func guild_war_status() -> Dictionary:
+	return await _request(HTTPClient.METHOD_GET, "/api/guild/war", null, true)
+## GET /api/guild/war/targets → [{id, name, level}] (guildas elegíveis)
+func guild_war_targets() -> Dictionary:
+	return await _request(HTTPClient.METHOD_GET, "/api/guild/war/targets", null, true)
+## POST /api/guild/war/declare/{guildId} (líder) → {message, warId}
+func guild_war_declare(guild_id: int) -> Dictionary:
+	return await _request(HTTPClient.METHOD_POST, "/api/guild/war/declare/%d" % guild_id, {}, true)
+## POST /api/guild/war/attack/{playerId} → {won, opponentName, loot, myKills, enemyKills, battleLog}
+func guild_war_attack(player_id: int) -> Dictionary:
+	return await _request(HTTPClient.METHOD_POST, "/api/guild/war/attack/%d" % player_id, {}, true)
+
+# ── Guerra de Território [GUERRA_FORMACAO] ─────────────────────────────────────────
+## GET /api/territory → [{territory, displayName, lore, controllingGuild, defenseStreak, debuffPercent, isNeutral, isMine, secsUntilBattle, exclusiveBonus, declaringGuilds:[], myGuildDeclared}]
+func territory_list() -> Dictionary:
+	return await _request(HTTPClient.METHOD_GET, "/api/territory", null, true)
+## GET /api/territory/my → {hasTerritory, territory, displayName, defenseStreak, debuffPercent, xpBonus, bronzeBonus, ...}
+func territory_my() -> Dictionary:
+	return await _request(HTTPClient.METHOD_GET, "/api/territory/my", null, true)
+## POST /api/territory/{territory}/declare (líder) → {message, territory, cycleId}
+func territory_declare(territory: String) -> Dictionary:
+	return await _request(HTTPClient.METHOD_POST, "/api/territory/%s/declare" % territory, {}, true)
+## POST /api/territory/cancel → {message}
+func territory_cancel() -> Dictionary:
+	return await _request(HTTPClient.METHOD_POST, "/api/territory/cancel", {}, true)
+## GET /api/territory/{territory}/history → [{attacker, defender, winner, resolvedAt, log}]
+func territory_history(territory: String) -> Dictionary:
+	return await _request(HTTPClient.METHOD_GET, "/api/territory/%s/history" % territory, null, true)
+
 ## Chamada genérica. method = HTTPClient.METHOD_*; body = Dictionary ou null; authed = manda o Bearer.
 ## Reusa uma conexão keep-alive do pool; conexões diferentes rodam em paralelo. Mesmo contrato
 ## de retorno de antes: {ok, status, json, raw} ou {ok:false, status, error}.
