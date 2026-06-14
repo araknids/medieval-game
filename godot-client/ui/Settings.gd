@@ -32,12 +32,12 @@ func _render() -> void:
 
 func _lang_btn(label: String, code: String) -> Button:
 	var active := Lang.current() == code
-	var b := UiKit.action_big(("✓ " + label) if active else label, func() -> void: _set(code))
+	var b := UiKit.action_big(("✓ " + label) if active else label, func() -> void: _pick_lang(code))
 	b.auto_translate_mode = Control.AUTO_TRANSLATE_MODE_DISABLED   # nomes de idioma ficam nativos sempre
 	b.disabled = active
 	return b
 
-func _set(code: String) -> void:
+func _pick_lang(code: String) -> void:
 	if Lang.current() == code:
 		return
 	Lang.set_lang(code)
