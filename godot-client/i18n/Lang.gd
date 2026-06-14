@@ -267,6 +267,10 @@ const EN := {
 	"livre": "free", "livres": "free",
 	"🛡 equip": "🛡 gear", "🍺 taverna": "🍺 tavern", "🥋 postura": "🥋 stance",
 	"⭐ skill/afins": "⭐ skill/etc", "base": "base",
+	# — Tipos de item (display PT do backend) + venda —
+	"Arma": "Weapon", "Elmo": "Helmet", "Armadura": "Armor", "Calça": "Pants", "Botas": "Boots",
+	"Luvas": "Gloves", "Escudo": "Shield", "Anel": "Ring", "Colar": "Necklace", "Ombreira": "Shoulder",
+	"Vender": "Sell", "Vender %s?": "Sell %s?", "Vendido!": "Sold!", "Comprado!": "Bought!",
 }
 
 # Literais que JÁ estão em inglês no código (nomes de zona etc.) → tradução PT p/ o locale "pt".

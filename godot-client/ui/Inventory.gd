@@ -43,12 +43,12 @@ func _render() -> void:
 	for it in items:
 		if it is Dictionary:
 			(equipped if it.get("equipped", false) else bag).append(it)
-	content.add_child(UiKit.section("Equipado (%d)" % equipped.size()))
+	content.add_child(UiKit.section(Lang.t("Equipado (%d)") % equipped.size()))
 	if equipped.is_empty():
 		content.add_child(UiKit.dim("— nada equipado —"))
 	else:
 		content.add_child(UiKit.grid(self, equipped, _item_row))
-	content.add_child(UiKit.section("Mochila (%d)" % bag.size()))
+	content.add_child(UiKit.section(Lang.t("Mochila (%d)") % bag.size()))
 	content.add_child(UiKit.rarity_filter(rarity_filter, _set_rarity))
 	if bag.is_empty():
 		content.add_child(UiKit.empty("Mochila vazia", "Vença missões no 🌍 Mundo para conseguir itens"))
@@ -71,7 +71,7 @@ func _set_rarity(r: int) -> void:
 func _item_row(it: Dictionary) -> PanelContainer:
 	var id := int(it.get("id", 0))
 	var name_text := str(it.get("name", "?"))
-	var sub_text := "%s · Nv %d · %s" % [str(it.get("typeDisplay", it.get("type", ""))), int(it.get("itemLevel", 1)), str(it.get("rarityName", ""))]
+	var sub_text := Lang.t("%s · Nv %d · %s") % [Lang.t(str(it.get("typeDisplay", it.get("type", "")))), int(it.get("itemLevel", 1)), Lang.t(str(it.get("rarityName", "")))]
 	var stats_text := _stats_line(it)
 	var actions: Array = []
 	if it.get("equipped", false):
@@ -79,16 +79,16 @@ func _item_row(it: Dictionary) -> PanelContainer:
 	else:
 		actions.append(["Equipar", _equip.bind(id)])
 		if bool(it.get("pvpLocked", false)):   # travado no PvP → não dá pra vender enquanto exposto (backend recusa)
-			actions.append(["🔒 PvP", func() -> void: UiKit.flash(status, "Item travado no PvP — não dá pra vender enquanto exposto.", 2)])
+			actions.append(["🔒 PvP", func() -> void: UiKit.flash(status, Lang.t("Item travado no PvP — não dá pra vender enquanto exposto."), 2)])
 		else:
 			# [MOEDA] venda paga BRONZE (base) → formata em ouro/prata/bronze
-			actions.append(["Vender (%s)" % UiKit.coin_str(int(it.get("sellPrice", 0))), _ask_sell.bind(id, name_text, int(it.get("rarity", 1)))])
+			actions.append([Lang.t("Vender (%s)") % UiKit.coin_str(int(it.get("sellPrice", 0))), _ask_sell.bind(id, name_text, int(it.get("rarity", 1)))])
 	return UiKit.item_row(it, name_text, sub_text, stats_text, actions)
 
 # Itens raros (raridade ≥ 3) pedem confirmação antes de vender; o resto é 1-clique.
 func _ask_sell(id: int, name_text: String, rarity: int) -> void:
 	if rarity >= 3:
-		UiKit.confirm(self, "Vender %s?" % name_text, "Vender", func() -> void: await _sell(id))
+		UiKit.confirm(self, Lang.t("Vender %s?") % name_text, Lang.t("Vender"), func() -> void: await _sell(id))
 	else:
 		await _sell(id)
 
@@ -134,7 +134,7 @@ func _sell(id: int) -> void:
 	if r.get("ok") and r.get("json") is Dictionary:
 		items = items.filter(func(it): return not (it is Dictionary) or int(it.get("id", -1)) != id)   # some da lista
 		_render()
-		UiKit.flash(status, str(r["json"].get("message", "Vendido!")), 1)
+		UiKit.flash(status, str(r["json"].get("message", Lang.t("Vendido!"))), 1)
 	else:
 		UiKit.show_error(status, r)
 		await _refresh()   # resync: se o item virou listado/sumiu no servidor, a lista se corrige (e o item some)
