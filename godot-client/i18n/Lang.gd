@@ -132,7 +132,7 @@ const EN := {
 	"Esquiva — chance de evitar o golpe (DEX/AGI + buffs)": "Dodge — chance to avoid the hit (DEX/AGI + buffs)",
 	# — Combate / batalha —
 	"Inimigos": "Enemies", "Chefe": "Boss", "Placar": "Score", "Próxima batalha": "Next battle",
-	"Em andamento…": "In progress…", "Declarar": "Declare", "🏃 Fugir": "🏃 Flee", "⚔ Encarar": "⚔ Face it",
+	"Em andamento…": "In progress…", "🏃 Fugir": "🏃 Flee", "⚔ Encarar": "⚔ Face it",
 	"☠ Derrotado — cure-se no Templo": "☠ Defeated — heal at the Temple",
 	"✅ Quest concluída!": "✅ Quest complete!", "✅ Expedição concluída!": "✅ Expedition complete!",
 	"⚔ Sobreviveu à expedição!": "⚔ Survived the expedition!", "💀 Derrotado na expedição!": "💀 Defeated in the expedition!",
@@ -176,10 +176,9 @@ const EN := {
 	"Bênçãos": "Blessings", "🙏 Bênçãos": "🙏 Blessings", "🙏 ABENÇOADO": "🙏 BLESSED",
 	"Curar (grátis)": "Heal (free)", "💎 Cura instantânea (1 SoulStone)": "💎 Instant heal (1 SoulStone)",
 	"Proteção de Itens": "Item Protection", "Desprotegido": "Unprotected", "🛡 Protegido": "🛡 Protected",
-	"Nenhuma bênção disponível agora.": "No blessing available right now.",
 	# — VIP —
 	"💎 VIP": "💎 VIP", "👑 Ativar VIP": "👑 Activate VIP", "👑 Renovar VIP (+30 dias)": "👑 Renew VIP (+30 days)",
-	"👑 VIP ativado!": "👑 VIP activated!", "👑 Confirmar": "👑 Confirm", "❤ Cura grátis": "❤ Free heal",
+	"👑 VIP ativado!": "👑 VIP activated!", "👑 Confirmar": "👑 Confirm",
 	"👑 VIP Heal (grátis)": "👑 VIP Heal (free)", "Você não tem VIP ativo.": "You have no active VIP.",
 	"10 lutas/dia (em vez de 5)": "10 fights/day (instead of 5)", "50 slots (em vez de 30)": "50 slots (instead of 30)",
 	"2 simultâneas": "2 at once", "com cooldown (10 min)": "with cooldown (10 min)", "a qualquer momento": "anytime",
@@ -234,7 +233,7 @@ const EN := {
 	"%dh %02dmin restantes": "%dh %02dmin left", "%dh %dmin": "%dh %dmin",
 	"Expira em %s": "Expires in %s", "Termina em %s": "Ends in %s", "Em %s": "In %s",
 	"(por %s)": "(by %s)", "De: %s": "From: %s",
-	"Empregos (%d)": "Jobs (%d)", "Membros (%d)": "Members (%d)", "Itens (%d)": "Items (%d)",
+	"Membros (%d)": "Members (%d)", "Itens (%d)": "Items (%d)",
 	"Equipado (%d)": "Equipped (%d)", "Mochila (%d)": "Bag (%d)", "Mochila (%d/%d)": "Bag (%d/%d)",
 	"Baú (%d/%s)": "Stash (%d/%s)", "Proteção de Itens (%d/%d)": "Item Protection (%d/%d)",
 	"Limite diário (%d/%d)": "Daily limit (%d/%d)", "Lutas hoje: %d/%d": "Fights today: %d/%d",
@@ -270,7 +269,7 @@ const EN := {
 	# — Tipos de item (display PT do backend) + venda —
 	"Arma": "Weapon", "Elmo": "Helmet", "Armadura": "Armor", "Calça": "Pants", "Botas": "Boots",
 	"Luvas": "Gloves", "Escudo": "Shield", "Anel": "Ring", "Colar": "Necklace", "Ombreira": "Shoulder",
-	"Vender": "Sell", "Vender %s?": "Sell %s?", "Vendido!": "Sold!", "Comprado!": "Bought!",
+	"Vender %s?": "Sell %s?", "Vendido!": "Sold!", "Comprado!": "Bought!",
 	"✔ Comprado": "✔ Bought",
 	"🛒 Próxima rotação em %dh %02dm %02ds": "🛒 Next rotation in %dh %02dm %02ds",
 	# — World / zonas / quests / resultados —
@@ -281,11 +280,9 @@ const EN := {
 	"🎉 Novo companheiro: %s!": "🎉 New companion: %s!",
 	"💀 Derrotado por %s — sem recompensa.": "💀 Defeated by %s — no reward.",
 	"⚔ %s derrotado!": "⚔ %s defeated!",
-	"(por %s)": "(by %s)", "item roubado: %s": "item stolen: %s",
+	"item roubado: %s": "item stolen: %s",
 	"💀 %s (Lv %d) escapou da Torre e bloqueou sua expedição!\n\n⚔ Encarar = combate.   🏃 Fugir = %d%% (se falhar, cai na luta).": "💀 %s (Lv %d) escaped the Tower and blocked your expedition!\n\n⚔ Face it = combat.   🏃 Flee = %d%% (fail and you fall into the fight).",
-	"📜 Começar": "📜 Begin",
 	# — Temple —
-	"✔ HP cheio": "✔ Full HP",
 	# — Tavern —
 	"🍺 +%.2f%% em todos os stats · %d stacks · %d:%02d": "🍺 +%.2f%% to all stats · %d stacks · %d:%02d",
 	# — Daily —
@@ -304,10 +301,9 @@ const EN := {
 	"🏆 Andar %d vencido!": "🏆 Floor %d beaten!", "💀 Derrotado no andar %d": "💀 Defeated on floor %d",
 	"🏆 Título desbloqueado: %s": "🏆 Title unlocked: %s",
 	# — Arena —
-	"Lutas hoje": "Fights today", "⚔ Lutar · ⚡%d": "⚔ Fight · ⚡%d",
+	"⚔ Lutar · ⚡%d": "⚔ Fight · ⚡%d",
 	"🏆 Vitória vs %s!": "🏆 Victory vs %s!", "💀 Derrota para %s": "💀 Defeat to %s",
 	# — Guild —
-	"👥 Membros": "👥 Members",
 	"⭐ Nível máximo (Lv.%d) — total contribuído: %s": "⭐ Max level (Lv.%d) — total contributed: %s",
 	"Expulsar %s da guilda?": "Kick %s from the guild?",
 	"Transferir a liderança para %s? Você deixa de ser líder.": "Transfer leadership to %s? You stop being the leader.",
@@ -338,9 +334,8 @@ const EN := {
 	"🏰 Sua guilda controla: %s": "🏰 Your guild controls: %s",
 	"⚔ Declarando:": "⚔ Declaring:", "🎒 Mochila": "🎒 Bag", "Lutando…": "Fighting…",
 	"Entrando…": "Entering…", "● NOVA": "● NEW", "⏰ EXPIRADO": "⏰ EXPIRED",
-	"🥇 Ouro": "🥇 Gold", "🥈 Prata": "🥈 Silver", " (você)": " (you)", "Termina em": "Ends in",
+	"🥇 Ouro": "🥇 Gold", "🥈 Prata": "🥈 Silver", " (você)": " (you)",
 	"🎉 A doação subiu a guilda para o nível %d!": "🎉 The donation raised the guild to level %d!",
-	"🏆 Venceu": "🏆 Won", "💀 Perdeu": "💀 Lost",
 	"%d ponto": "%d point", "%d pontos": "%d points", "Aprimorado!": "Upgraded!",
 	"expirando…": "expiring…", "Custo:": "Cost:", "OK": "OK",
 	"Guerreiro": "Warrior", "Arqueiro": "Archer", "Aprendiz": "Apprentice",
