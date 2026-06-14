@@ -46,7 +46,7 @@ func _render() -> void:
 			unlocked.append(a)
 
 	# ── Cabeçalho: contagem + dica ──
-	content.add_child(UiKit.section("Conquistas & Títulos   (%d/%d)" % [unlocked.size(), all.size()]))
+	content.add_child(UiKit.section(Lang.t("Conquistas & Títulos   (%d/%d)") % [unlocked.size(), all.size()]))
 	var hint := Label.new()
 	hint.text = "👑 Título ativo — escolha um para exibir antes do seu nome (todos veem):"
 	hint.add_theme_color_override("font_color", UiKit.GOLD_SOFT)
@@ -180,7 +180,7 @@ func _select_title(id: String) -> void:
 	busy = false
 	if r.get("ok") and r.get("json") is Dictionary:
 		data["activeTitle"] = str(r["json"].get("activeTitle", ""))
-		UiKit.flash(status, "Título atualizado.", 1)
+		UiKit.flash(status, Lang.t("Título atualizado."), 1)
 		_render()
 	else:
 		UiKit.show_error(status, r)

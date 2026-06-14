@@ -338,6 +338,8 @@ const EN := {
 	"🏰 Sua guilda controla: %s": "🏰 Your guild controls: %s",
 	"⚔ Declarando:": "⚔ Declaring:", "🎒 Mochila": "🎒 Bag", "Lutando…": "Fighting…",
 	"Entrando…": "Entering…", "● NOVA": "● NEW", "⏰ EXPIRADO": "⏰ EXPIRED",
+	"%d ponto": "%d point", "%d pontos": "%d points", "Aprimorado!": "Upgraded!",
+	"Guerreiro": "Warrior", "Arqueiro": "Archer", "Aprendiz": "Apprentice",
 	"Você tem %d ponto%s de habilidade guardado%s.": "You have %d ability point%s saved%s.",
 }
 

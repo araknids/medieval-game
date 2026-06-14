@@ -43,15 +43,16 @@ func _render() -> void:
 	# Sem classe ainda (Recruta): só mostra os pontos guardados e o aviso.
 	if abilities.is_empty():
 		content.add_child(UiKit.section("Habilidades"))
+		var pts_txt0 := (Lang.t("%d ponto") if pts == 1 else Lang.t("%d pontos")) % pts
 		content.add_child(UiKit.empty(
-			"Você tem %d ponto%s de habilidade guardado%s." % [pts, "" if pts == 1 else "s", "" if pts == 1 else "s"],
+			Lang.t("Você tem %s de habilidade guardado.") % pts_txt0,
 			"Escolha uma classe (Path Trial no Nv.10) para destravar as habilidades dela."))
 		return
 	# Cabeçalho da classe + pontos disponíveis
-	content.add_child(UiKit.section("Habilidades — %s" % str(data.get("class", "?"))))
+	content.add_child(UiKit.section(Lang.t("Habilidades — %s") % Lang.t(str(data.get("class", "?")))))
 	if pts > 0:
 		var pl := Label.new()
-		pl.text = "⬆ %d ponto%s para gastar" % [pts, "" if pts == 1 else "s"]
+		pl.text = Lang.t("⬆ %s para gastar") % ((Lang.t("%d ponto") if pts == 1 else Lang.t("%d pontos")) % pts)
 		pl.add_theme_font_size_override("font_size", 14)
 		pl.add_theme_color_override("font_color", UiKit.GOLD)
 		content.add_child(pl)
@@ -59,7 +60,7 @@ func _render() -> void:
 	content.add_child(UiKit.grid(self, abilities, func(a): return _ability_card(a, pts) if a is Dictionary else null))
 	# Respec (pago, reseta os pontos) → confirma antes
 	content.add_child(UiKit.spacer(6))
-	content.add_child(UiKit.action_danger("🔄 Resetar habilidades (%s)" % _fmt_bronze(int(data.get("respecCost", 0))), _respec))
+	content.add_child(UiKit.action_danger(Lang.t("🔄 Resetar habilidades (%s)") % _fmt_bronze(int(data.get("respecCost", 0))), _respec))
 
 func _ability_card(a: Dictionary, pts: int) -> PanelContainer:
 	var active := bool(a.get("active", false))
@@ -122,12 +123,12 @@ func _ability_card(a: Dictionary, pts: int) -> PanelContainer:
 func _learn(id: String) -> void:
 	if busy or id == "": return
 	busy = true
-	await _do(await Api.ability_learn(id), "Aprimorado!")
+	await _do(await Api.ability_learn(id), Lang.t("Aprimorado!"))
 	busy = false
 
 func _respec() -> void:
 	UiKit.confirm(self,
-		"Resetar todas as habilidades por %s? Os pontos voltam para você." % _fmt_bronze(int(data.get("respecCost", 0))),
+		Lang.t("Resetar todas as habilidades por %s? Os pontos voltam para você.") % _fmt_bronze(int(data.get("respecCost", 0))),
 		"Resetar",
 		func() -> void: await _do_respec())
 
