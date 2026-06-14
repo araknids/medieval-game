@@ -94,7 +94,7 @@ func _ability_card(a: Dictionary, pts: int) -> PanelContainer:
 		kind_txt = "⚡ Ativa"
 		var cd := int(a.get("cooldown", 0))
 		if cd > 0:
-			kind_txt += " · CD %d rounds" % cd
+			kind_txt += Lang.t(" · CD %d rounds") % cd
 	else:
 		kind_txt = "🪨 Passiva"
 	left.add_child(UiKit.dim(kind_txt))

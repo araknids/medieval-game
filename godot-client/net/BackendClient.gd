@@ -309,11 +309,11 @@ func _request(method: int, path: String, body: Variant = null, authed := false) 
 		if attempt == 1:
 			c.http.close()                    # força conexão nova
 		if not await _ensure_connected(c):
-			out = {"ok": false, "status": 0, "error": "falha ao conectar em %s" % _host}
+			out = {"ok": false, "status": 0, "error": Lang.t("falha ao conectar em %s") % _host}
 			continue
 		out = await _do(c, method, path, headers, payload)
 		if out.has("_retry"):                 # socket keep-alive estava morto
-			out = {"ok": false, "status": 0, "error": "conexão caiu"}
+			out = {"ok": false, "status": 0, "error": Lang.t("conexão caiu")}
 			continue
 		break
 	if method != HTTPClient.METHOD_GET and out.get("ok", false):

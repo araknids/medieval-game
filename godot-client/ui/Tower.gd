@@ -113,7 +113,7 @@ func _render_floor() -> void:
 		var names: Array = []
 		for mob in monsters:
 			names.append(str(mob))
-		var gl := Label.new(); gl.text = "⚔ Gauntlet — %s" % " · ".join(names)
+		var gl := Label.new(); gl.text = Lang.t("⚔ Gauntlet — %s") % " · ".join(names)
 		gl.add_theme_color_override("font_color", Color(0.8, 0.4, 0.6)); gl.add_theme_font_size_override("font_size", 12)
 		gl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		vb.add_child(gl)

@@ -105,7 +105,7 @@ func _territory_card(t) -> Control:
 	# debuff de defesa / streak (informativo)
 	var streak := int(t.get("defenseStreak", 0))
 	if streak > 0:
-		box.add_child(UiKit.kv("Defesas seguidas", "%d (-%d%% debuff)" % [streak, int(t.get("debuffPercent", 0))], UiKit.WARN))
+		box.add_child(UiKit.kv("Defesas seguidas", Lang.t("%d (-%d%% debuff)") % [streak, int(t.get("debuffPercent", 0))], UiKit.WARN))
 	# guildas declarando ataque
 	var declaring = t.get("declaringGuilds", [])
 	if declaring is Array and not declaring.is_empty():
@@ -136,10 +136,10 @@ func _fmt_time(secs: int) -> String:
 	var hh := secs / 3600
 	var mm := (secs % 3600) / 60
 	if hh > 0:
-		return "%dh %dmin" % [hh, mm]
+		return Lang.t("%dh %dmin") % [hh, mm]
 	if mm > 0:
-		return "%dmin" % mm
-	return "%ds" % secs
+		return Lang.t("%dmin") % mm
+	return Lang.t("%ds") % secs
 
 # ── Ações (await DIRETO na API; em sucesso flash + refresh; em falha mostra o erro) ─
 func _declare(territory: String) -> void:

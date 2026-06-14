@@ -159,7 +159,7 @@ func _member_row(mm: Dictionary, is_leader: bool) -> PanelContainer:
 	box.add_child(hb)
 	var title := str(mm.get("title", ""))
 	var nm := Label.new()
-	nm.text = (title + " " if title != "" else "") + str(mm.get("warriorName", "?")) + (" 👑" if ml else "") + (" (você)" if me else "")
+	nm.text = (title + " " if title != "" else "") + str(mm.get("warriorName", "?")) + (" 👑" if ml else "") + (Lang.t(" (você)") if me else "")
 	nm.add_theme_font_size_override("font_size", 15)
 	nm.add_theme_color_override("font_color", UiKit.GOLD if me else UiKit.TEXT)
 	nm.size_flags_horizontal = Control.SIZE_EXPAND_FILL

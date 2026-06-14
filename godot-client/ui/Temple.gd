@@ -126,7 +126,7 @@ func _render_state() -> void:
 	# VIP heal (CD 10min)
 	if bool(data.get("isVip", false)):
 		var cd := maxi(0, int(data.get("vipHealCooldownSecs", 0)))
-		var vlbl := "✔ HP cheio" if full else ("⏳ VIP CD %dm%02ds" % [cd / 60, cd % 60] if cd > 0 else "👑 VIP Heal (grátis)")
+		var vlbl := "✔ HP cheio" if full else (Lang.t("⏳ VIP CD %dm%02ds") % [cd / 60, cd % 60] if cd > 0 else "👑 VIP Heal (grátis)")
 		var vb := UiKit.action(vlbl, _vip_heal)
 		vb.disabled = full or cd > 0
 		content.add_child(vb)
@@ -134,11 +134,11 @@ func _render_state() -> void:
 	var ss := int(data.get("soulStones", 0))
 	if ss > 0:
 		var cd2 := maxi(0, int(data.get("ssHealCooldownSecs", 0)))
-		var slbl := "✔ HP cheio" if full else ("⏳ Cooldown %dm%02ds" % [cd2 / 60, cd2 % 60] if cd2 > 0 else "💎 Cura instantânea (1 SoulStone)")
+		var slbl := "✔ HP cheio" if full else (Lang.t("⏳ Cooldown %dm%02ds") % [cd2 / 60, cd2 % 60] if cd2 > 0 else "💎 Cura instantânea (1 SoulStone)")
 		var sb := UiKit.action(slbl, _soulstone_heal)
 		sb.disabled = full or cd2 > 0
 		content.add_child(sb)
-		content.add_child(UiKit.dim("💎 %d SoulStone(s) · CD 30 min" % ss))
+		content.add_child(UiKit.dim(Lang.t("💎 %d SoulStone(s) · CD 30 min") % ss))
 
 # ── Bênçãos disponíveis ────────────────────────────────────────────────────────
 func _render_buff_options() -> void:

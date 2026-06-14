@@ -78,7 +78,7 @@ func _stage() -> void:
 	hint.add_theme_font_size_override("font_size", 14)
 	hint.set_anchors_and_offsets_preset(Control.PRESET_BOTTOM_LEFT)
 	hint.offset_top = -34; hint.offset_left = 16
-	hint.text = "←/→ trocar tipo de arma   ·   raridade 1→5 (comum→lendário), esquerda→direita"
+	hint.text = Lang.t("←/→ trocar tipo de arma   ·   raridade 1→5 (comum→lendário), esquerda→direita")
 	layer.add_child(hint)
 
 func _spawn() -> void:
@@ -101,8 +101,8 @@ func _spawn() -> void:
 		if show_shield and not wp.is_bow_kind(kind):   # escudo na mesma raridade (face = câmera, +Z)
 			wp.attach_shield(ch, {"rarity": r, "forward": Vector3(0, 0, 1)})
 		heroes.append(ch)
-	var with_sh := "  + escudo" if (show_shield and not wp.is_bow_kind(kind)) else ""
-	info.text = "Arma: %s%s  [%d/%d]" % [kind, with_sh, kind_idx + 1, Weapons.KINDS.size()]
+	var with_sh := Lang.t("  + escudo") if (show_shield and not wp.is_bow_kind(kind)) else ""
+	info.text = Lang.t("Arma: %s%s  [%d/%d]") % [kind, with_sh, kind_idx + 1, Weapons.KINDS.size()]
 	print(">>> arma=%s (raridade 1→5)" % kind)
 
 func _process(_dt: float) -> void:

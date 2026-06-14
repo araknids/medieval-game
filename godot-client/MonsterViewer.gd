@@ -79,7 +79,7 @@ func _stage() -> void:
 	hint.add_theme_font_size_override("font_size", 14)
 	hint.set_anchors_and_offsets_preset(Control.PRESET_BOTTOM_LEFT)
 	hint.offset_top = -34; hint.offset_left = 16
-	hint.text = "←/→ trocar monstro   ·   ↑/↓ altura (hover)   ·   ESPAÇO girar (turntable)"
+	hint.text = Lang.t("←/→ trocar monstro   ·   ↑/↓ altura (hover)   ·   ESPAÇO girar (turntable)")
 	layer.add_child(hint)
 
 func _show(i: int) -> void:
@@ -88,7 +88,7 @@ func _show(i: int) -> void:
 	cur_name = Monsters.NAMES[i]
 	current = mon.instance(cur_name)
 	if current == null:
-		info.text = "[%d/%d] %s — FALHOU ao carregar" % [i + 1, Monsters.NAMES.size(), cur_name]
+		info.text = Lang.t("[%d/%d] %s — FALHOU ao carregar") % [i + 1, Monsters.NAMES.size(), cur_name]
 		return
 	add_child(current)
 	current.rotation_degrees.y = Monsters.FACE_OFFSET_DEG
@@ -102,8 +102,8 @@ func _show(i: int) -> void:
 	print(">>> %s · escala=%.3f · voador=%s · hover=%.2f" % [cur_name, cur_scale, cur_flyer, hover])
 
 func _refresh_info() -> void:
-	var tag := "   🕊 VOADOR" if cur_flyer else ""
-	info.text = "[%d/%d]  %s%s   ·   escala %.2f   ·   hover %.2fm" % \
+	var tag := Lang.t("   🕊 VOADOR") if cur_flyer else ""
+	info.text = Lang.t("[%d/%d]  %s%s   ·   escala %.2f   ·   hover %.2fm") % \
 			[idx + 1, Monsters.NAMES.size(), cur_name, tag, cur_scale, hover]
 
 func _apply_hover() -> void:

@@ -88,7 +88,7 @@ func _make_fighter(fname: String, pos: Vector3, rot_y: float, maxhp: int, sc: fl
 	var fill := _quad(BARW, 0.09, Color(0.25, 0.85, 0.35, 1.0), 1)
 	bar.add_child(fill)
 	var name_lbl := Label3D.new()
-	name_lbl.text = fname + ("  (arqueiro)" if ranged else "")
+	name_lbl.text = fname + (Lang.t("  (arqueiro)") if ranged else "")
 	name_lbl.billboard = BaseMaterial3D.BILLBOARD_ENABLED
 	name_lbl.no_depth_test = true
 	name_lbl.pixel_size = 0.004
@@ -215,7 +215,7 @@ func _archer_cross(target_x: float) -> void:
 	hop_cd = HOP_CD + 0.3
 	var hn: Node3D = hero["node"]
 	if hero["anim"]: hero["anim"].play(A_ROLL)
-	_popup(_head(hero), "↩ CRUZA!", Color(0.8, 0.9, 1.0))
+	_popup(_head(hero), Lang.t("↩ CRUZA!"), Color(0.8, 0.9, 1.0))
 	var tw := create_tween()
 	tw.tween_property(hn, "position", Vector3(target_x, hn.position.y, hn.position.z), 0.55)
 	tw.tween_callback(func():
@@ -256,7 +256,7 @@ func _kill(f: Dictionary) -> void:
 		print("Ragdoll: rig sem PhysicalBone3D — use 'Create Physical Skeleton' no editor p/ fisica real.")
 	if victory_label:
 		var w: Dictionary = hero if f["name"] == foe["name"] else foe
-		victory_label.text = w["name"] + " venceu!"
+		victory_label.text = Lang.t("%s venceu!") % w["name"]
 
 func _has_physical_bones(skel: Skeleton3D) -> bool:
 	for c in skel.get_children():

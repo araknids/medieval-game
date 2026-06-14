@@ -449,6 +449,30 @@ const EN := {
 	"Eventos sem 2 spawns — nada a encenar.": "Events without 2 spawns — nothing to stage.",
 	"%s venceu!": "%s won!",
 	"Você": "You",
+	# --- recheck final da auditoria i18n: dinâmicos + estáticos faltantes [I18N] ---
+	"  (arqueiro)": "  (archer)",
+	"↩ CRUZA!": "↩ CROSS!",
+	" · CD %d rounds": " · CD %d rounds",
+	"⏳ VIP CD %dm%02ds": "⏳ VIP CD %dm%02ds",
+	"⏳ Cooldown %dm%02ds": "⏳ Cooldown %dm%02ds",
+	"💎 %d SoulStone(s) · CD 30 min": "💎 %d SoulStone(s) · CD 30 min",
+	"%d (-%d%% debuff)": "%d (-%d%% debuff)",
+	"%dmin": "%dmin", "%ds": "%ds",
+	"⚔ Gauntlet — %s": "⚔ Gauntlet — %s",
+	"esta listagem": "this listing",
+	"falha ao conectar em %s": "failed to connect to %s", "conexão caiu": "connection dropped",
+	"✔ em uso": "✔ in use",
+	"✉ Correio": "✉ Mail", "⚙ Configurações": "⚙ Settings", "🛒 Loja": "🛒 Shop",
+	"⚔ Arena": "⚔ Arena", "💎 SoulStone": "💎 SoulStone",
+	"✖ Cancelar expedição": "✖ Cancel expedition",
+	# — dev viewers (MonsterViewer / WeaponViewer) —
+	"←/→ trocar monstro   ·   ↑/↓ altura (hover)   ·   ESPAÇO girar (turntable)": "←/→ change monster   ·   ↑/↓ height (hover)   ·   SPACE rotate (turntable)",
+	"[%d/%d] %s — FALHOU ao carregar": "[%d/%d] %s — FAILED to load",
+	"   🕊 VOADOR": "   🕊 FLYER",
+	"[%d/%d]  %s%s   ·   escala %.2f   ·   hover %.2fm": "[%d/%d]  %s%s   ·   scale %.2f   ·   hover %.2fm",
+	"←/→ trocar tipo de arma   ·   raridade 1→5 (comum→lendário), esquerda→direita": "←/→ change weapon type   ·   rarity 1→5 (common→legendary), left→right",
+	"  + escudo": "  + shield",
+	"Arma: %s%s  [%d/%d]": "Weapon: %s%s  [%d/%d]",
 }
 
 # Literais que JÁ estão em inglês no código (nomes de zona etc.) → tradução PT p/ o locale "pt".

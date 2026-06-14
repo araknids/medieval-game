@@ -158,7 +158,7 @@ func _listing_row(a: Dictionary, is_mine_section: bool) -> PanelContainer:
 	right.add_child(price)
 	var lid := int(a.get("listingId", 0))
 	if is_mine_section:
-		right.add_child(UiKit.small_btn("Cancelar", _confirm_cancel.bind(lid, str(a.get("name", "esta listagem"))), true))
+		right.add_child(UiKit.small_btn("Cancelar", _confirm_cancel.bind(lid, str(a.get("name", Lang.t("esta listagem")))), true))
 	else:
 		if bool(a.get("isMine", false)):
 			var mine_btn := UiKit.small_btn("(sua)", Callable())
