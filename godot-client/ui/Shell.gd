@@ -40,7 +40,9 @@ var _name_lbl: Label
 var _title_lbl: Label
 var _sub_lbl: Label
 var _xp_bar: ProgressBar
+var _xp_lbl: Label
 var _hp_bar: ProgressBar
+var _hp_lbl: Label
 var _stam_bar: ProgressBar
 var _stam_lbl: Label
 var _coins: Dictionary = {}     # key -> Label
@@ -122,6 +124,10 @@ func _build_topbar() -> Control:
 	_xp_bar = _mini_bar(Color(0.42, 0.50, 0.85), 150)
 	_xp_bar.tooltip_text = "Experiência — enche e sobe de nível"
 	idv.add_child(_xp_bar)
+	_xp_lbl = Label.new()   # exp atual / limiar do nível + quanto falta pro próximo
+	_xp_lbl.add_theme_font_size_override("font_size", 11)
+	_xp_lbl.add_theme_color_override("font_color", UiKit.TEXT_DIM)
+	idv.add_child(_xp_lbl)
 	# espaçador
 	var spacer := Control.new(); spacer.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	row.add_child(spacer)
@@ -130,7 +136,8 @@ func _build_topbar() -> Control:
 	vit.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	_hp_bar = _mini_bar(Color(0.70, 0.22, 0.20), 170)
 	var hp_row := _labeled_bar("HP", _hp_bar)
-	_tip_row(hp_row, "Vida (HP), em % — regenera com o tempo; cure na hora no Templo")
+	_hp_lbl = hp_row.get_meta("vlabel") as Label   # mostra o valor atual/máximo de vida
+	_tip_row(hp_row, "Vida (HP) — atual/máximo; regenera com o tempo; cure na hora no Templo")
 	vit.add_child(hp_row)
 	_stam_bar = _mini_bar(Color(0.36, 0.65, 0.38), 170)
 	var sl := _labeled_bar("Estamina", _stam_bar)
@@ -378,11 +385,19 @@ func update_topbar(w: Dictionary) -> void:
 	_title_lbl.text = ("⟨%s⟩" % t) if t != "" else ""
 	_sub_lbl.text = "%s · Nível %d" % [str(w.get("warriorClass", "Recruta")), int(w.get("level", 1))]
 	var xp := int(w.get("experience", 0))
-	var need := int(w.get("expNeeded", 0))
-	_xp_bar.max_value = maxi(1, xp + need)
-	_xp_bar.value = clampi(xp, 0, int(_xp_bar.max_value))
+	var need := int(w.get("expNeeded", 0))   # LIMIAR do nível (100×nv^1.8), não o restante
+	_xp_bar.max_value = maxi(1, need)
+	_xp_bar.value = clampi(xp, 0, need)
+	if _xp_lbl != null:
+		_xp_lbl.text = "⭐ %d / %d  ·  faltam %d" % [xp, need, maxi(0, need - xp)]
 	var hp := int(w.get("hpPercent", w.get("currentHp", 100)))
 	_hp_bar.value = clampi(hp, 0, 100)
+	if _hp_lbl != null:
+		var maxhp := int(w.get("totalHealth", 0))   # HP máximo (base+bônus); atual = max × %/100
+		if maxhp > 0:
+			_hp_lbl.text = "%d/%d" % [int(round(maxhp * hp / 100.0)), maxhp]
+		else:
+			_hp_lbl.text = "%d%%" % hp
 	var stam := int(w.get("stamina", 0))
 	_stam_bar.value = clampi(stam, 0, 100)
 	if _stam_lbl != null:
