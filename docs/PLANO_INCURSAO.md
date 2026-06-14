@@ -276,6 +276,22 @@ Todas fechadas com o dono — Fase 1 liberada.
 6. **Perk VIP (default, rehome do "1 daily a mais"):** VIP entra com **+1 nó de TESOURO garantido** na
    run (mais loot por incursão) + **−20% estamina de entrada**. Placeholder.
 
+## 13.5 Integração ZONAS → Incursão (2026-06-14, decisão do dono)
+As **zonas** (🟢/🟡/🔴) de cada reino **passam a SER Incursões**: clicar numa zona lança uma Incursão
+ZONE no tier 1/2/3 (cor = **dificuldade + loot**). A **aba/launcher "Delve" sai** da nav. Quests
+diárias **ficam como estão** (não viram Incursão). PvP **mantido** (🟢 seguro; 🟡/🔴 flag + saque).
+- ✅ **Backend loot:** a fonte ZONE agora dá **gear** (baú/elite/chefe) **+ recursos + XP de profissão**
+  (`getOrCreateSkill`+`addSkillXp`) escalando por tier. Flag PvP no extract das 🟡/🔴 (já existia).
+- ✅ **Web (app.js):** os cards de zona (coleta + caça) chamam `startZoneDelve(tier,skill,kingdom,elem)`
+  → `/api/expedition/start` ZONE → tela da run. Aba removida da nav (painel segue como tela da run);
+  sem run ativa → dica "entre numa zona"; extract/abandon → volta ao Mundo; banner "Continuar Incursão"
+  no World quando há run pendurada. (Funções do launcher antigo ficaram inertes.)
+- ⏳ **Godot:** repetir no `World.gd` (zonas lançam Incursão) + tirar "Incursão" da nav do Shell.
+- ⏳ **PvP raid (saque por outro player):** hoje a 🟡/🔴 te FLAGGA (exposto), mas o **gatilho de raid**
+  (você cruzar e saquear outro flagged) ainda mora no `ZoneService` legado. Portar p/ a Incursão é o
+  próximo passo — está entrelaçado com o WIP não-commitado do dono no `ZoneService`/`BattleSimulator`
+  (HP_SPAWN/`withCurrentHp`), então fica num passo isolado p/ não arrastar o WIP nem duplicar combate à toa.
+
 ## 13. Fora de escopo (futuro)
 - Mapa com mais tipos de nó (loja dentro da run, fonte de cura paga, mini-boss intermediário).
 - Modificadores de run ("afixos de masmorra": +elite, −cura, +loot).

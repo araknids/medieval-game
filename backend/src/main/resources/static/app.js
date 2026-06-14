@@ -3826,11 +3826,18 @@ async function loadWorld() {
   el.innerHTML = '<p>Loading...</p>';
   kingdomCache = {}; worldOpenKingdom = null; // [PILOTO_UI] dados frescos ao (re)entrar no World
   try {
-    const [kingdoms, territories] = await Promise.all([
+    const [kingdoms, territories, delve] = await Promise.all([
       api('GET', '/api/world'),
-      api('GET', '/api/territory')
+      api('GET', '/api/territory'),
+      api('GET', '/api/expedition/current')
     ]);
     renderWorldOverview(kingdoms, territories);
+    // [INCURSAO] run ativa pendurada → banner pra retomar (a aba saiu; o acesso é por aqui/zonas)
+    if (delve && delve.active) {
+      const wrap = document.createElement('div');
+      wrap.innerHTML = `<button onclick="goTo('expedition')" style="width:100%;margin-bottom:10px;padding:11px;background:#2e7d52;color:#cffadf;border:none;border-radius:8px;font-weight:bold;cursor:pointer">⚔ Continuar Incursão em andamento</button>`;
+      el.prepend(wrap.firstElementChild);
+    }
   } catch(e) {
     el.innerHTML = '<p style="color:red">Error loading world.</p>';
   }
@@ -4057,7 +4064,7 @@ function renderKingdomDetail(kingdom, quests, activeQuests, training, zoneSessio
               : `<div style="display:flex;gap:5px;flex-wrap:wrap">
                 ${(() => {
                   const d = 20; const stamCost = Math.max(5, Math.floor(d/2)); // instantâneo (~10⚡), igual à coleta
-                  return `<button onclick="enterCombatZone('${z.tier}',${d},'${selectedZoneElement}')" style="font-size:12px;padding:4px 14px">⚔ Hunt · ⚡${stamCost}</button>`;
+                  return `<button onclick="startZoneDelve('${z.tier}','','COMBAT','${selectedZoneElement}')" style="font-size:12px;padding:4px 14px">⚔ Incursão</button>`;
                 })()}
               </div>`}
           </div>`;
@@ -4132,7 +4139,7 @@ function renderKingdomDetail(kingdom, quests, activeQuests, training, zoneSessio
                 const stamCost = Math.max(5, Math.floor(d/2));
                 const verb = isFishing ? '🎣 Pescar' : skillType === 'MINING' ? '⛏ Minerar' : '🔎 Garimpar';
                 // [UNIFICAÇÃO_ZONA] coleta pelo sistema de zona (tem PvP) + drops do reino
-                return `<button onclick="enterKingdomZone('${z.tier}','${skillType}',${d},'${kingdom}','${selectedZoneElement}')" style="font-size:12px;padding:4px 14px">${verb} · ⚡${stamCost}</button>`;
+                return `<button onclick="startZoneDelve('${z.tier}','${skillType}','${kingdom}','${selectedZoneElement}')" style="font-size:12px;padding:4px 14px">${verb} (Incursão)</button>`;
               })()}
             </div>`}
         </div>`;
@@ -4830,10 +4837,29 @@ const DELVE_KINGDOMS = [
 const DELVE_SKILLS = [['FISHING', '🎣 Fishing'], ['MINING', '⛏ Mining'], ['GARIMPO', '🔎 Prospecting']];
 const DELVE_ELEMENTS = [['', '∅'], ['FIRE', '🔥'], ['WATER', '💧'], ['EARTH', '🪨'], ['AIR', '💨']];
 
+// [INCURSAO] Lança uma Incursão a partir de uma ZONA do reino (verde/amarela/vermelha = tier 1/2/3).
+// Cor = dificuldade + loot. Substitui o antigo enter→collect de zona. A aba Delve saiu: entra-se por aqui.
+async function startZoneDelve(zoneTier, skill, kingdom, element) {
+  const tierNum = zoneTier === 'HIGH_RISK' ? 3 : zoneTier === 'PVP' ? 2 : 1;
+  const body = { source: 'ZONE', kingdom: kingdom, zone: zoneTier, tier: tierNum };
+  if (skill) body.skillType = skill;
+  if (element) body.element = element;
+  const r = await api('POST', '/api/expedition/start', body);
+  if (r.error) { showMessage(r.error, true); return; }
+  await loadWarrior();
+  goTo('expedition');   // loadExpedition() busca /current (a run nova) e renderiza o mapa
+}
+
 async function loadExpedition() {
   const r = await api('GET', '/api/expedition/current');
-  if (r && r.active) renderExpeditionMap(r);
-  else renderExpeditionLauncher();
+  if (r && r.active) { renderExpeditionMap(r); return; }
+  // sem run ativa: a aba saiu, então oriente a entrar por uma zona no Mundo
+  document.getElementById('expedition-content').innerHTML =
+    `<div style="max-width:520px;color:#bbb">
+       <p>Você não está em nenhuma Incursão.</p>
+       <p style="font-size:13px;color:#888;line-height:1.5">Entre numa <strong>zona</strong> (🟢/🟡/🔴) de um reino no <strong>Mundo</strong> para começar uma Incursão — a cor define a <strong>dificuldade</strong> e o <strong>loot</strong>.</p>
+       <button onclick="goTo('world')" style="padding:10px 16px;background:#c9a84c;color:#1a1a2e;font-weight:bold;border:none;border-radius:8px;cursor:pointer;font-size:14px">🌍 Ir ao Mundo</button>
+     </div>`;
 }
 
 function renderExpeditionLauncher() {
@@ -5010,7 +5036,7 @@ async function extractExpedition() {
   const r = await api('POST', `/api/expedition/${run}/extract`);
   if (r.error) { showMessage(r.error, true); return; }
   await loadWarrior();
-  loadExpedition(); // volta pro launcher
+  goTo('world'); // run encerrada → volta pro Mundo (a aba Delve saiu)
   const rows = [];
   if (r.bronzeBanked > 0) rows.push({ icon: '🟤', label: 'Bronze', value: fmtBronze(r.bronzeBanked), color: '#c9a84c' });
   if (r.xpBanked > 0)     rows.push({ icon: '✨', label: 'XP', value: '+' + r.xpBanked, color: '#7fb3ff' });
@@ -5027,7 +5053,7 @@ async function abandonExpedition() {
   const r = await api('POST', `/api/expedition/${run}/abandon`);
   if (r.error) { showMessage(r.error, true); return; }
   showMessage(r.narrative || 'You left the Delve.');
-  loadExpedition();
+  goTo('world');
 }
 
 // Resolve o id da run ativa (o map/launcher nem sempre tem em escopo após um modal).

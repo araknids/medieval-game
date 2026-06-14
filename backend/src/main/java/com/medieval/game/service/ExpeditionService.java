@@ -359,11 +359,17 @@ public class ExpeditionService {
                               int level, double bronzeMult, double xpMult, int dropChance, boolean boss) {
         res.bronze += Math.round(level * 8 * bronzeMult);
         res.xp     += Math.round(level * 7 * xpMult);
+        // [INCURSAO] gear nas DUAS fontes: KINGDOM = foco; ZONE também solta equipamento (baú/elite/chefe).
+        InventoryItem gear = rollGear(run, player, warrior, dropChance, level, boss);
+        if (gear != null) { res.lootName = gear.getName(); res.lootId = gear.getId(); }
         if (run.getSource() == ExpeditionSource.ZONE) {
             res.resources = rollZoneResources(run, level, boss);
-        } else {
-            InventoryItem gear = rollGear(run, player, warrior, dropChance, level, boss);
-            if (gear != null) { res.lootName = gear.getName(); res.lootId = gear.getId(); }
+            // coleta na zona sobe a PROFISSÃO (não regride o leveling de skill). XP de skill é aplicado
+            // já (não fica "em risco" na bolsa) — progressão de profissão é segura.
+            if (run.getSkillType() != null && res.xp > 0) {
+                var skill = gatheringService.getOrCreateSkill(player, run.getSkillType());
+                gatheringService.addSkillXp(skill, (int) res.xp);
+            }
         }
     }
 
