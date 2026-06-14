@@ -78,8 +78,11 @@ func _item_row(it: Dictionary) -> PanelContainer:
 		actions.append(["Desequipar", _unequip.bind(id)])
 	else:
 		actions.append(["Equipar", _equip.bind(id)])
-		# [MOEDA] venda paga BRONZE (base) → formata em ouro/prata/bronze
-		actions.append(["Vender (%s)" % UiKit.coin_str(int(it.get("sellPrice", 0))), _ask_sell.bind(id, name_text, int(it.get("rarity", 1)))])
+		if bool(it.get("pvpLocked", false)):   # travado no PvP → não dá pra vender enquanto exposto (backend recusa)
+			actions.append(["🔒 PvP", func() -> void: UiKit.flash(status, "Item travado no PvP — não dá pra vender enquanto exposto.", 2)])
+		else:
+			# [MOEDA] venda paga BRONZE (base) → formata em ouro/prata/bronze
+			actions.append(["Vender (%s)" % UiKit.coin_str(int(it.get("sellPrice", 0))), _ask_sell.bind(id, name_text, int(it.get("rarity", 1)))])
 	return UiKit.item_row(it, name_text, sub_text, stats_text, actions)
 
 # Itens raros (raridade ≥ 3) pedem confirmação antes de vender; o resto é 1-clique.
@@ -95,6 +98,7 @@ func _equip(id: int) -> void:
 	if busy: return
 	busy = true
 	var r = await Api.equip_item(id)
+	busy = false
 	if r.get("ok") and r.get("json") is Dictionary:
 		var updated: Dictionary = r["json"]
 		for it in items:   # auto-desequipa o item antigo do MESMO slot (tipo)
@@ -104,30 +108,32 @@ func _equip(id: int) -> void:
 		_render()
 	else:
 		UiKit.show_error(status, r)
-	busy = false
+		await _refresh()   # resync: cache local pode estar velho (item mudou no servidor)
 
 func _unequip(id: int) -> void:
 	if busy: return
 	busy = true
 	var r = await Api.unequip_item(id)
+	busy = false
 	if r.get("ok") and r.get("json") is Dictionary:
 		_replace_item(r["json"])   # equipped=false agora
 		_render()
 	else:
 		UiKit.show_error(status, r)
-	busy = false
+		await _refresh()
 
 func _sell(id: int) -> void:
 	if busy: return
 	busy = true
 	var r = await Api.sell_item(id)
+	busy = false
 	if r.get("ok") and r.get("json") is Dictionary:
 		items = items.filter(func(it): return not (it is Dictionary) or int(it.get("id", -1)) != id)   # some da lista
 		_render()
 		UiKit.flash(status, str(r["json"].get("message", "Vendido!")), 1)
 	else:
 		UiKit.show_error(status, r)
-	busy = false
+		await _refresh()   # resync: se o item virou listado/sumiu no servidor, a lista se corrige (e o item some)
 
 func _replace_item(updated: Dictionary) -> void:
 	var uid := int(updated.get("id", -1))
