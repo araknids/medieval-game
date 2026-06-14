@@ -58,7 +58,7 @@ func _render() -> void:
 	head.add_theme_color_override("font_color", UiKit.GOLD)
 	idbox.add_child(head)
 	var sub := Label.new()
-	sub.text = "%s · Nível %d" % [str(w.get("warriorClass", "Recruta")), int(w.get("level", 1))]
+	sub.text = Lang.t("%s · Nível %d") % [Lang.t(str(w.get("warriorClass", "Recruta"))), int(w.get("level", 1))]
 	sub.add_theme_font_size_override("font_size", 14)
 	sub.add_theme_color_override("font_color", UiKit.TEXT_DIM)
 	idbox.add_child(sub)
@@ -71,22 +71,22 @@ func _render() -> void:
 	# ── Barras: XP, HP, Estamina ──
 	var xp := int(w.get("experience", 0))
 	var xp_need := int(w.get("expNeeded", 0))
-	content.add_child(UiKit.bar("XP", xp, xp + maxi(1, xp_need), Color(0.42, 0.50, 0.85), "%d  (faltam %d)" % [xp, xp_need]))
+	content.add_child(UiKit.bar("XP", xp, xp + maxi(1, xp_need), Color(0.42, 0.50, 0.85), Lang.t("%d  (faltam %d)") % [xp, xp_need]))
 	var hp := int(w.get("hpPercent", 100))
 	content.add_child(UiKit.bar("HP", hp, 100, Color(0.70, 0.22, 0.20), "%d%%" % hp))
 	var stam := int(w.get("stamina", 0))
 	var stam_txt := "%d%%" % stam
 	if stam < 100:
-		stam_txt += "  (cheia em %d min)" % int(w.get("minutesToFullStamina", 0))
-	content.add_child(UiKit.bar("Estamina", stam, 100, Color(0.36, 0.65, 0.38), stam_txt))
+		stam_txt += "  " + (Lang.t("(cheia em %d min)") % int(w.get("minutesToFullStamina", 0)))
+	content.add_child(UiKit.bar(Lang.t("Estamina"), stam, 100, Color(0.36, 0.65, 0.38), stam_txt))
 	# ── Tesouro (moedas com ícone) ──
 	content.add_child(UiKit.section("Tesouro"))
 	content.add_child(_currency_row())
 	# ── Atributos ──
 	var pts := int(w.get("availablePoints", 0))
-	var attr_title := "Atributos"
+	var attr_title := Lang.t("Atributos")
 	if pts > 0:
-		attr_title += "  (%d livre%s)" % [pts, "" if pts == 1 else "s"]
+		attr_title += "  (%d %s)" % [pts, Lang.t("livre") if pts == 1 else Lang.t("livres")]
 	content.add_child(UiKit.section(attr_title))
 	for a in ATTRS:
 		content.add_child(_attr_row(a, pts > 0))
@@ -156,18 +156,18 @@ func _combat_stat(label: String, src, base_f: int, item_f: int, buff_f: int, eff
 	vb.add_child(top)
 	var parts: Array = []
 	if src is Dictionary:   # detalhamento por fonte (backend novo) [FICHA_BONUS]
-		parts.append("base %d" % int(src.get("base", 0)))
-		_src_part(parts, "🛡 equip", int(src.get("gear", 0)))
-		_src_part(parts, "✨ buff", int(src.get("buff", 0)))
-		_src_part(parts, "⭐ skill", int(src.get("skill", 0)))
-		_src_part(parts, "🐾 pet", int(src.get("pet", 0)))
-		_src_part(parts, "🍺 taverna", int(src.get("tavern", 0)))
-		_src_part(parts, "🥋 postura", int(src.get("posture", 0)))
+		parts.append("%s %d" % [Lang.t("base"), int(src.get("base", 0))])
+		_src_part(parts, Lang.t("🛡 equip"), int(src.get("gear", 0)))
+		_src_part(parts, Lang.t("✨ buff"), int(src.get("buff", 0)))
+		_src_part(parts, Lang.t("⭐ skill"), int(src.get("skill", 0)))
+		_src_part(parts, Lang.t("🐾 pet"), int(src.get("pet", 0)))
+		_src_part(parts, Lang.t("🍺 taverna"), int(src.get("tavern", 0)))
+		_src_part(parts, Lang.t("🥋 postura"), int(src.get("posture", 0)))
 	else:                   # fallback: backend sem detalhamento
-		parts.append("base %d" % base_f)
-		_src_part(parts, "🛡 equip", item_f)
-		_src_part(parts, "✨ buff", buff_f)
-		_src_part(parts, "⭐ skill/afins", effective - (base_f + item_f + buff_f))
+		parts.append("%s %d" % [Lang.t("base"), base_f])
+		_src_part(parts, Lang.t("🛡 equip"), item_f)
+		_src_part(parts, Lang.t("✨ buff"), buff_f)
+		_src_part(parts, Lang.t("⭐ skill/afins"), effective - (base_f + item_f + buff_f))
 	var sub := Label.new()
 	sub.text = "      " + "   ·   ".join(parts)
 	sub.add_theme_font_size_override("font_size", 11)

@@ -38,7 +38,7 @@ const EN := {
 	"Fechar": "Close", "Abrir": "Open", "Enviar": "Send", "Remover": "Remove", "Resetar": "Reset",
 	"Proteger": "Protect", "Refinar": "Refine", "Reforjar": "Reforge", "♻ Reforjar": "♻ Reforge",
 	"Craftar": "Craft", "Beber": "Drink", "Escolher": "Choose", "Transferir": "Transfer", "Expulsar": "Kick",
-	"Deletar": "Delete", "🗑 Deletar": "🗑 Delete", "Declarar": "Declare", "Entrar": "Join", "Sair": "Leave",
+	"Deletar": "Delete", "🗑 Deletar": "🗑 Delete", "Declarar": "Declare", "Entrar": "Join", "Sair": "Exit",
 	"🚪 Sair": "🚪 Leave", "Usar título": "Use title", "+ Aprender": "+ Learn", "Iniciar Quest": "Start Quest",
 	"📜 Começar": "📜 Begin", "📜 Ver log": "📜 View log", "📜 Ocultar log": "📜 Hide log",
 	"🪙 Coletar dinheiro": "🪙 Collect money", "⭐ Coletar XP": "⭐ Collect XP", "🎁 Reivindicar": "🎁 Claim",
@@ -263,6 +263,10 @@ const EN := {
 	"%dh · 🪙%d": "%dh · 🪙%d", "/h    ⭐ %d xp/h": "/h    ⭐ %d xp/h",
 	"+%d XP — coletar": "+%d XP — collect", "+%d XP · +%d bronze": "+%d XP · +%d bronze",
 	"De: %s   ·   %s": "From: %s   ·   %s",
+	# — palavras soltas p/ montar plural/fontes nos call sites —
+	"livre": "free", "livres": "free",
+	"🛡 equip": "🛡 gear", "🍺 taverna": "🍺 tavern", "🥋 postura": "🥋 stance",
+	"⭐ skill/afins": "⭐ skill/etc", "base": "base",
 }
 
 # Literais que JÁ estão em inglês no código (nomes de zona etc.) → tradução PT p/ o locale "pt".
