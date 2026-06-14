@@ -36,9 +36,9 @@ func _ready() -> void:
 	add_child(sv)
 	_world = Node3D.new()
 	sv.add_child(_world)
-	var cam := Camera3D.new()               # enquadra do peito pra cabeça
-	cam.position = Vector3(0.0, 1.42, 1.15)
-	cam.rotation_degrees = Vector3(-6, 0, 0)
+	var cam := Camera3D.new()               # enquadra OMBROS→CABEÇA (retrato): sobe o quadro p/ tirar a cintura
+	cam.position = Vector3(0.0, 1.55, 1.15)   # +y sobe o enquadramento (antes 1.42 = pegava a cintura)
+	cam.rotation_degrees = Vector3(-4, 0, 0)  # tilt menor → não volta a mirar no peito
 	cam.fov = 30.0
 	_world.add_child(cam)
 	var key := DirectionalLight3D.new()
