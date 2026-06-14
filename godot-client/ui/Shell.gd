@@ -45,7 +45,7 @@ const NAV_TIPS := {
 
 # Nav em árvore: [seção, [[tela, rótulo], ...]] — o ícone vem de "<tela em minúsculo>.png".
 const SECTIONS := [
-	["Aventura",   [["World", "Mundo"], ["Delve", "Incursão"], ["Work", "Trabalho"], ["Temple", "Templo"]]],
+	["Aventura",   [["World", "Mundo"], ["Work", "Trabalho"], ["Temple", "Templo"]]],
 	["Batalha",    [["Tower", "Torre"], ["Arena", "Arena"], ["Territory", "Território"]]],
 	["Comércio",   [["Shop", "Loja"], ["Forge", "Forja"], ["Auction", "Leilão"], ["Stash", "Baú"], ["Tavern", "Taverna"], ["Vip", "VIP"]]],
 	["Personagem", [["Character", "Personagem"], ["Inventory", "Inventário"], ["Abilities", "Habilidades"], ["Achievements", "Conquistas"]]],

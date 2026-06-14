@@ -7,6 +7,7 @@ extends Control
 
 signal go_back
 signal request_battle(data)   # pede ao App o replay 3D (overlay), como World/Tower [MIGRACAO_GODOT]
+signal open_screen(name)      # [INCURSAO] sem run → botão "Ir ao Mundo" (a aba saiu)
 
 # tipo de nó → [ícone, rótulo, cor]
 const NODE := {
@@ -62,41 +63,13 @@ func _render() -> void:
 	else:
 		_render_launcher()
 
-# ── Launcher: dificuldade + elemento + Quest/Gather ─────────────────────────────────
+# ── Sem run ativa: a aba saiu da nav; oriente a entrar por uma ZONA do reino no Mundo ──────────────
 func _render_launcher() -> void:
-	content.add_child(UiKit.section("Dificuldade"))
-	var trow := HBoxContainer.new(); trow.add_theme_constant_override("separation", 8)
-	for t in TIERS:
-		var b := Button.new()
-		b.text = str(t[1])
-		StoneStyle.apply(b)
-		b.toggle_mode = true; b.button_pressed = (int(t[0]) == sel_tier)
-		b.custom_minimum_size = Vector2(110, 36)
-		b.pressed.connect(_set_tier.bind(int(t[0])))
-		trow.add_child(b)
-	content.add_child(trow)
-
-	content.add_child(UiKit.section("Elemento (opcional)"))
-	var erow := HBoxContainer.new(); erow.add_theme_constant_override("separation", 6)
-	for e in ELEMENTS:
-		var b := Button.new()
-		b.text = str(e[1])
-		StoneStyle.apply(b)
-		b.toggle_mode = true; b.button_pressed = (str(e[0]) == sel_element)
-		b.custom_minimum_size = Vector2(54, 36)
-		b.pressed.connect(_set_element.bind(str(e[0])))
-		erow.add_child(b)
-	content.add_child(erow)
-
-	content.add_child(UiKit.section("⚔ Quest Delve — gear, bronze, XP"))
-	for k in KINGDOMS:
-		content.add_child(UiKit.action(str(k[1]), _start_kingdom.bind(str(k[0]))))
-
-	content.add_child(UiKit.section("🎣 Gather Delve — recursos (PvP no Normal/Difícil)"))
-	for s in SKILLS:
-		content.add_child(UiKit.action(str(s[1]), _start_zone.bind(str(s[0]))))
-
-	content.add_child(UiKit.dim("Custa estamina pra entrar. O HP carrega entre as batalhas — um KO encerra a run e perde o loot não-sacado. Nós de Descanso 🔥 e a extração garantem o que você já pegou."))
+	content.add_child(UiKit.dim("Você não está em nenhuma Incursão."))
+	content.add_child(UiKit.dim("Entre numa zona (🟢/🟡/🔴) de um reino no Mundo para começar — a cor define a dificuldade e o loot."))
+	var b := UiKit.action("🌍 Ir ao Mundo", func() -> void: open_screen.emit("World"))
+	b.custom_minimum_size = Vector2(200, 40)
+	content.add_child(b)
 
 func _set_tier(t: int) -> void:
 	sel_tier = t

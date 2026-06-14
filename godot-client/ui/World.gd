@@ -7,6 +7,7 @@ extends Control
 
 signal go_back
 signal request_battle(data)   # pede ao App o replay 3D (overlay) [MIGRACAO_GODOT]
+signal open_screen(name)      # [INCURSAO] entrar numa zona abre a tela da run (Delve)
 
 const Icons := preload("res://ui/Icons.gd")
 
@@ -474,9 +475,22 @@ func _zone_card(kingdom: String, z: Array) -> PanelContainer:
 			verb = Lang.t("🔎 Garimpar · ⚡%d") % stam
 		else:
 			verb = Lang.t("🎣 Pescar · ⚡%d") % stam
-		var role := "COMBAT" if kingdom == "COMBAT" else "GATHERING"
-		vb.add_child(UiKit.action(verb, _enter_zone.bind(kingdom, tier, role, skill)))
+		# [INCURSAO] a zona agora LANÇA uma Incursão (tier por cor). O enter→collect antigo saiu da UI.
+		vb.add_child(UiKit.action(verb, _start_zone_delve.bind(kingdom, tier, skill)))
 	return panel
+
+# [INCURSAO] Inicia uma Incursão ZONE a partir da zona do reino (🟢/🟡/🔴 → tier 1/2/3) e abre a tela da run.
+func _start_zone_delve(kingdom: String, tier: String, skill: String) -> void:
+	if busy: return
+	busy = true
+	var tier_num := 3 if tier == "HIGH_RISK" else (2 if tier == "PVP" else 1)
+	var skill_arg: Variant = skill if skill != "" else null
+	var r = await Api.expedition_start("ZONE", kingdom, tier, skill_arg, selected_element, tier_num)
+	busy = false
+	if r.get("ok") and r.get("json") is Dictionary:
+		open_screen.emit("Delve")   # o Shell abre a Delve; o _refresh dela pega a run nova (/current)
+	else:
+		_show_error(r)
 
 # ── Ações (1 chamada cada; em sucesso re-abre o reino p/ refrescar; em falha mostra o erro) ───────
 func _toggle(kingdom: String) -> void:
