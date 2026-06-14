@@ -49,15 +49,15 @@ class TavernServiceTest extends BaseIntegrationTest {
     }
 
     @Test
-    @DisplayName("Beber e errar: -1 bronze, sem stack nem garrafa")
+    @DisplayName("Beber 'errando' o minigame ainda concede stack — servidor ignora o success do cliente [SEGURANCA]")
     void drink_fail() throws Exception {
         Player p = fresh("tavfail");
         long bronzeBefore = p.totalBronze();
-        tavernService.drink(p, false);
+        tavernService.drink(p, false);   // success=false é IGNORADO: o gate é o bronze, não o minigame
         Player after = reload(p);
         assertThat(after.totalBronze()).isEqualTo(bronzeBefore - 1);
-        assertThat(warrior(p).activeTavernStacks()).isZero();
-        assertThat(after.getBottlesDrunk()).isZero();
+        assertThat(warrior(p).activeTavernStacks()).isEqualTo(1); // stack concedido mesmo "errando"
+        assertThat(after.getBottlesDrunk()).isEqualTo(1);
     }
 
     @Test
