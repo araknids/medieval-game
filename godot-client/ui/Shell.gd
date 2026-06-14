@@ -328,7 +328,8 @@ func _build_nav() -> Control:
 		head.add_theme_color_override("font_color", UiKit.GOLD_SOFT)
 		head.pressed.connect(func() -> void:
 			items.visible = not items.visible
-			head.text = ("▾  " if items.visible else "▸  ") + Lang.t(str(section[0])).to_upper())
+			head.text = ("▾  " if items.visible else "▸  ") + Lang.t(str(section[0])).to_upper()
+		)
 		nav.add_child(head)
 		nav.add_child(items)
 		for entry in section[1]:
