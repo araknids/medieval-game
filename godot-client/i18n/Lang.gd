@@ -284,6 +284,58 @@ const EN := {
 	"(por %s)": "(by %s)", "item roubado: %s": "item stolen: %s",
 	"💀 %s (Lv %d) escapou da Torre e bloqueou sua expedição!\n\n⚔ Encarar = combate.   🏃 Fugir = %d%% (se falhar, cai na luta).": "💀 %s (Lv %d) escaped the Tower and blocked your expedition!\n\n⚔ Face it = combat.   🏃 Flee = %d%% (fail and you fall into the fight).",
 	"📜 Começar": "📜 Begin",
+	# — Temple —
+	"✔ HP cheio": "✔ Full HP",
+	# — Tavern —
+	"🍺 +%.2f%% em todos os stats · %d stacks · %d:%02d": "🍺 +%.2f%% to all stats · %d stacks · %d:%02d",
+	# — Daily —
+	"🔥 Sequência: %d": "🔥 Streak: %d",
+	"📬 %d por correio (mochila cheia)": "📬 %d by mail (bag full)",
+	"🎁 Recebido! 🔥 %d   —   %s": "🎁 Received! 🔥 %d   —   %s",
+	# — Vip —
+	"⚔ Lutas de arena: %d/%d": "⚔ Arena fights: %d/%d",
+	"VIP — 30 dias  (%d 💎)": "VIP — 30 days  (%d 💎)",
+	"VIP ATIVO": "VIP ACTIVE", "dia restante": "day left", "dias restantes": "days left",
+	# — Tower —
+	"⚔ Entrar e lutar · ⚡%d": "⚔ Enter and fight · ⚡%d",
+	"🏰 Andar %d%s": "🏰 Floor %d%s",
+	"✔ Andar mais alto vencido: %d": "✔ Highest floor beaten: %d",
+	"🚩 Nível recomendado %d+": "🚩 Recommended level %d+",
+	"🏆 Andar %d vencido!": "🏆 Floor %d beaten!", "💀 Derrotado no andar %d": "💀 Defeated on floor %d",
+	"🏆 Título desbloqueado: %s": "🏆 Title unlocked: %s",
+	# — Arena —
+	"Lutas hoje": "Fights today", "⚔ Lutar · ⚡%d": "⚔ Fight · ⚡%d",
+	"🏆 Vitória vs %s!": "🏆 Victory vs %s!", "💀 Derrota para %s": "💀 Defeat to %s",
+	# — Guild —
+	"👥 Membros": "👥 Members",
+	"⭐ Nível máximo (Lv.%d) — total contribuído: %s": "⭐ Max level (Lv.%d) — total contributed: %s",
+	"Expulsar %s da guilda?": "Kick %s from the guild?",
+	"Transferir a liderança para %s? Você deixa de ser líder.": "Transfer leadership to %s? You stop being the leader.",
+	# — Mail —
+	"📥 Caixa de entrada%s": "📥 Inbox%s", "  (%d não-lidas)": "  (%d unread)",
+	"🪙 Coletar %s": "🪙 Collect %s", "🪙 %s (já coletado)": "🪙 %s (already collected)",
+	"📦 %s (já reivindicado)": "📦 %s (already claimed)",
+	"Deletar a carta de \"%s\"? Anexos não coletados serão perdidos.": "Delete the mail from \"%s\"? Uncollected attachments will be lost.",
+	# — Stash —
+	"Taxa: %d bronze por movimento (depositar/sacar)": "Fee: %d bronze per move (deposit/withdraw)",
+	# — Auction —
+	"🛒 Comprar (%d)": "🛒 Buy (%d)", "📋 Minhas listagens (%d/10)": "📋 My listings (%d/10)",
+	"➕ Listar um item (%d)": "➕ List an item (%d)",
+	"%s · 🔧%d%% · ⏳ %s": "%s · 🔧%d%% · ⏳ %s",
+	"Vendedor: %s · você recebe": "Seller: %s · you receive", "Vendedor: %s": "Seller: %s",
+	"Cancelar a listagem de \"%s\"? O item volta pra mochila (a taxa de 5% não é devolvida).": "Cancel the listing of \"%s\"? The item returns to your bag (the 5% fee is not refunded).",
+	# — Work —
+	"🔒 Requer nível %d": "🔒 Requires level %d",
+	"⚒ Trabalho concluído! +%s   +⭐%d XP (%s)": "⚒ Work complete! +%s   +⭐%d XP (%s)",
+	"Trabalho cancelado — parcial: +%s   +⭐%d XP": "Work cancelled — partial: +%s   +⭐%d XP",
+	# — Abilities —
+	"⭐ %d ponto": "⭐ %d point", "⭐ %d pontos": "⭐ %d points",
+	"⬆ %s para gastar": "⬆ %s to spend",
+	"Você tem %s de habilidade guardado.": "You have %s of abilities saved.",
+	"🔄 Resetar habilidades (%s)": "🔄 Reset abilities (%s)",
+	"Resetar todas as habilidades por %s? Os pontos voltam para você.": "Reset all abilities for %s? The points return to you.",
+	# — Achievements / Territory —
+	"🏰 Sua guilda controla: %s": "🏰 Your guild controls: %s",
 }
 
 # Literais que JÁ estão em inglês no código (nomes de zona etc.) → tradução PT p/ o locale "pt".
