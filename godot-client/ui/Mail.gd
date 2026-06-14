@@ -42,7 +42,7 @@ func _render() -> void:
 		c.queue_free()
 	UiKit.flash(status, "", 0)
 	UiKit.set_wallet(wallet, warrior)
-	content.add_child(UiKit.section("📥 Caixa de entrada%s" % ("  (%d não-lidas)" % unread if unread > 0 else "")))
+	content.add_child(UiKit.section(Lang.t("📥 Caixa de entrada%s") % (Lang.t("  (%d não-lidas)") % unread if unread > 0 else "")))
 	if letters.is_empty():
 		content.add_child(UiKit.empty("Caixa vazia", "Recompensas, itens e recados chegam aqui"))
 		return
@@ -114,7 +114,7 @@ func _open_panel() -> PanelContainer:
 	var r := opened
 	# topo: remetente + deletar
 	var top := HBoxContainer.new(); top.add_theme_constant_override("separation", 8)
-	var from := Label.new(); from.text = "De: %s" % str(r.get("from", "?"))
+	var from := Label.new(); from.text = Lang.t("De: %s") % str(r.get("from", "?"))
 	from.add_theme_font_size_override("font_size", 16); from.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	from.add_theme_color_override("font_color", UiKit.TEXT)
 	top.add_child(from)
@@ -125,15 +125,15 @@ func _open_panel() -> PanelContainer:
 	vb.add_child(UiKit.body(str(r.get("message", ""))))
 	# anexo: MOEDA — [MOEDA] goldAmount é em BRONZE (base)
 	if bool(r.get("hasGold", false)):
-		vb.add_child(UiKit.action("🪙 Coletar %s" % UiKit.coin_str(int(r.get("goldAmount", 0))), _collect_gold.bind(opened_id)))
+		vb.add_child(UiKit.action(Lang.t("🪙 Coletar %s") % UiKit.coin_str(int(r.get("goldAmount", 0))), _collect_gold.bind(opened_id)))
 	elif int(r.get("goldAmount", 0)) > 0:
-		vb.add_child(UiKit.dim("🪙 %s (já coletado)" % UiKit.coin_str(int(r.get("goldAmount", 0)))))
+		vb.add_child(UiKit.dim(Lang.t("🪙 %s (já coletado)") % UiKit.coin_str(int(r.get("goldAmount", 0)))))
 	# anexo: ITEM
 	if bool(r.get("hasItem", false)):
 		if bool(r.get("isExpired", false)):
 			vb.add_child(UiKit.dim("⏰ Este item expirou e foi perdido."))
 		elif bool(r.get("itemCollected", false)):
-			vb.add_child(UiKit.dim("📦 %s (já reivindicado)" % str(r.get("itemName", ""))))
+			vb.add_child(UiKit.dim(Lang.t("📦 %s (já reivindicado)") % str(r.get("itemName", ""))))
 		else:
 			var lbl := Label.new(); lbl.text = "📦 %s" % str(r.get("itemName", ""))
 			lbl.add_theme_color_override("font_color", Color(0.65, 0.55, 0.98))
@@ -174,7 +174,7 @@ func _collect_gold(id: int) -> void:
 	var r = await Api.mail_collect_gold(id)
 	busy = false
 	if r.get("ok"):
-		var msg := str(r["json"].get("message", "Ouro coletado!")) if r.get("json") is Dictionary else "Ouro coletado!"
+		var msg := str(r["json"].get("message", Lang.t("Ouro coletado!"))) if r.get("json") is Dictionary else Lang.t("Ouro coletado!")
 		await _refresh()
 		UiKit.flash(status, msg, 1)
 	else:
@@ -186,7 +186,7 @@ func _claim_item(id: int) -> void:
 	var r = await Api.mail_claim_item(id)
 	busy = false
 	if r.get("ok"):
-		var msg := str(r["json"].get("message", "Item adicionado!")) if r.get("json") is Dictionary else "Item adicionado!"
+		var msg := str(r["json"].get("message", Lang.t("Item adicionado!"))) if r.get("json") is Dictionary else Lang.t("Item adicionado!")
 		await _refresh()
 		UiKit.flash(status, msg, 1)
 	else:
@@ -198,7 +198,7 @@ func _claim_resource(id: int) -> void:
 	var r = await Api.mail_claim_resource(id)
 	busy = false
 	if r.get("ok"):
-		var msg := str(r["json"].get("message", "Recurso adicionado!")) if r.get("json") is Dictionary else "Recurso adicionado!"
+		var msg := str(r["json"].get("message", Lang.t("Recurso adicionado!"))) if r.get("json") is Dictionary else Lang.t("Recurso adicionado!")
 		await _refresh()
 		UiKit.flash(status, msg, 1)
 	else:
@@ -206,7 +206,7 @@ func _claim_resource(id: int) -> void:
 
 # Deletar = irreversível → confirma antes.
 func _confirm_delete(id: int, sender: String) -> void:
-	UiKit.confirm(self, "Deletar a carta de \"%s\"? Anexos não coletados serão perdidos." % sender, "Deletar", func() -> void: await _delete(id), true)
+	UiKit.confirm(self, Lang.t("Deletar a carta de \"%s\"? Anexos não coletados serão perdidos.") % sender, "Deletar", func() -> void: await _delete(id), true)
 
 func _delete(id: int) -> void:
 	if busy: return
@@ -216,7 +216,7 @@ func _delete(id: int) -> void:
 	if r.get("ok"):
 		opened_id = -1; opened = {}
 		letters = letters.filter(func(it): return not (it is Dictionary) or int(it.get("id", -1)) != id)
-		var msg := str(r["json"].get("message", "Carta deletada.")) if r.get("json") is Dictionary else "Carta deletada."
+		var msg := str(r["json"].get("message", Lang.t("Carta deletada."))) if r.get("json") is Dictionary else Lang.t("Carta deletada.")
 		await _refresh()
 		UiKit.flash(status, msg, 1)
 	else:

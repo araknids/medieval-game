@@ -337,6 +337,7 @@ const EN := {
 	# — Achievements / Territory —
 	"🏰 Sua guilda controla: %s": "🏰 Your guild controls: %s",
 	"⚔ Declarando:": "⚔ Declaring:", "🎒 Mochila": "🎒 Bag", "Lutando…": "Fighting…",
+	"Entrando…": "Entering…", "● NOVA": "● NEW", "⏰ EXPIRADO": "⏰ EXPIRED",
 	"Você tem %d ponto%s de habilidade guardado%s.": "You have %d ability point%s saved%s.",
 }
 

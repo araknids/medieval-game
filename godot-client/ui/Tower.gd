@@ -71,7 +71,7 @@ func _render_lobby() -> void:
 	var h := Label.new(); h.text = "⚔ Entrar na Torre"; h.add_theme_font_size_override("font_size", 19)
 	h.add_theme_color_override("font_color", UiKit.GOLD)
 	vb.add_child(h)
-	vb.add_child(UiKit.dim("Custo: ⚡ %d estamina   ·   Sua estamina: %d/100" % [STAMINA_COST, stamina]))
+	vb.add_child(UiKit.dim(Lang.t("Custo: ⚡ %d estamina   ·   Sua estamina: %d/100") % [STAMINA_COST, stamina]))
 	vb.add_child(UiKit.dim("Lute andar por andar. Se perder, é expulso. Vá o mais longe que conseguir!"))
 	# P0: "Entrar" já dispara a primeira luta — deixa explícito no rótulo (+ custo).
 	if no_stamina:
@@ -79,7 +79,7 @@ func _render_lobby() -> void:
 		b.disabled = true
 		vb.add_child(b)
 	else:
-		vb.add_child(UiKit.action_big("⚔ Entrar e lutar · ⚡%d" % STAMINA_COST, _enter))
+		vb.add_child(UiKit.action_big(Lang.t("⚔ Entrar e lutar · ⚡%d") % STAMINA_COST, _enter))
 	content.add_child(res[0])
 
 # ── ANDAR (run ativa) ────────────────────────────────────────────────────────────
@@ -91,12 +91,12 @@ func _render_floor() -> void:
 	var cur := int(state.get("currentFloor", 1))
 	var maxf := int(state.get("maxFloor", 0))
 	var num := Label.new()
-	num.text = "🏰 Andar %d%s" % [cur, ("  /  %d" % maxf) if maxf > 0 else ""]
+	num.text = Lang.t("🏰 Andar %d%s") % [cur, ("  /  %d" % maxf) if maxf > 0 else ""]
 	num.add_theme_font_size_override("font_size", 21); num.add_theme_color_override("font_color", UiKit.GOLD)
 	vb.add_child(num)
 	var highest := int(state.get("highestFloor", 0))
 	if highest > 0:
-		var hc := Label.new(); hc.text = "✔ Andar mais alto vencido: %d" % highest
+		var hc := Label.new(); hc.text = Lang.t("✔ Andar mais alto vencido: %d") % highest
 		hc.add_theme_color_override("font_color", UiKit.OK); hc.add_theme_font_size_override("font_size", 12)
 		vb.add_child(hc)
 	var atmo := str(state.get("atmosphere", ""))
@@ -119,7 +119,7 @@ func _render_floor() -> void:
 		vb.add_child(gl)
 	var rec := int(state.get("recommendedLevel", 0))
 	if rec > 0:
-		var rl := Label.new(); rl.text = "🚩 Nível recomendado %d+" % rec
+		var rl := Label.new(); rl.text = Lang.t("🚩 Nível recomendado %d+") % rec
 		rl.add_theme_color_override("font_color", UiKit.WARN); rl.add_theme_font_size_override("font_size", 12)
 		vb.add_child(rl)
 	var stats := Label.new()
@@ -165,7 +165,7 @@ func _render_result() -> void:
 	var sb: StyleBoxFlat = res[0].get_theme_stylebox("panel")
 	sb.set_border_width_all(2)
 	var h := Label.new()
-	h.text = ("🏆 Andar %d vencido!" % floor_num) if won else ("💀 Derrotado no andar %d" % floor_num)
+	h.text = (Lang.t("🏆 Andar %d vencido!") % floor_num) if won else (Lang.t("💀 Derrotado no andar %d") % floor_num)
 	h.add_theme_font_size_override("font_size", 18); h.add_theme_color_override("font_color", border)
 	vb.add_child(h)
 	if won:
@@ -232,7 +232,7 @@ func _render_ranking() -> void:
 func _enter() -> void:
 	if busy: return
 	busy = true
-	UiKit.flash(status, "Entrando…", 0)
+	UiKit.flash(status, Lang.t("Entrando…"), 0)
 	var r = await Api.tower_enter()
 	if not (r.get("ok") and r.get("json") is Dictionary):
 		UiKit.show_error(status, r); busy = false; return
@@ -297,6 +297,6 @@ func _arka(spare: bool) -> void:
 		"expEarned": 0,
 		"runOver": true,
 		"atmosphere": str(r["json"].get("message", "")),
-		"log": [("🏆 Título desbloqueado: %s" % ("O Misericordioso" if spare else "Regicida"))],
+		"log": [(Lang.t("🏆 Título desbloqueado: %s") % (Lang.t("O Misericordioso") if spare else Lang.t("Regicida")))],
 	}
 	_render()
