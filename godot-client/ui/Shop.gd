@@ -52,7 +52,7 @@ func _update_timer_label() -> void:
 	var h := secs / 3600
 	var mm := (secs % 3600) / 60
 	var ss := secs % 60
-	_timer_label.text = "🛒 Próxima rotação em %dh %02dm %02ds" % [h, mm, ss]
+	_timer_label.text = Lang.t("🛒 Próxima rotação em %dh %02dm %02ds") % [h, mm, ss]
 	# P2: faltando menos de 10 min → cor de alerta.
 	_timer_label.add_theme_color_override("font_color", UiKit.WARN if secs < 600 else UiKit.TEXT_DIM)
 
@@ -83,7 +83,7 @@ func _render() -> void:
 	for it in items:
 		if it is Dictionary and bool(it.get("purchased", false)):
 			sorted_items.append(it)
-	content.add_child(UiKit.section("Itens (%d)" % items.size()))
+	content.add_child(UiKit.section(Lang.t("Itens (%d)") % items.size()))
 	content.add_child(UiKit.rarity_filter(rarity_filter, _set_rarity))
 	if items.is_empty():
 		content.add_child(UiKit.empty("Sem itens nesta rotação", "Volte após a próxima rotação do mercador"))
@@ -121,7 +121,7 @@ func _item_row(it: Dictionary) -> PanelContainer:
 	nm.add_theme_font_size_override("font_size", 16)
 	nm.add_theme_color_override("font_color", UiKit.rarity_color(rar))
 	left.add_child(nm)
-	left.add_child(UiKit.dim("%s · Nv %d · %s" % [str(it.get("typeDisplay", it.get("type", ""))), int(it.get("itemLevel", 1)), str(it.get("rarityName", ""))]))
+	left.add_child(UiKit.dim(Lang.t("%s · Nv %d · %s") % [Lang.t(str(it.get("typeDisplay", it.get("type", "")))), int(it.get("itemLevel", 1)), Lang.t(str(it.get("rarityName", "")))]))
 	var stats := _stats_line(it)
 	if stats != "":
 		var sl := Label.new(); sl.text = stats; sl.add_theme_font_size_override("font_size", 12)
@@ -162,7 +162,7 @@ func _buy(id: int) -> void:
 				it["purchased"] = true
 		# re-sincroniza a carteira p/ refletir o gasto na affordability/preços.
 		await _refresh()
-		UiKit.flash(status, str(r["json"].get("message", "Comprado!")), 1)
+		UiKit.flash(status, str(r["json"].get("message", Lang.t("Comprado!"))), 1)
 	else:
 		UiKit.show_error(status, r)
 	busy = false

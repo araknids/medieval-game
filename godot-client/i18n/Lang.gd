@@ -271,6 +271,8 @@ const EN := {
 	"Arma": "Weapon", "Elmo": "Helmet", "Armadura": "Armor", "Calça": "Pants", "Botas": "Boots",
 	"Luvas": "Gloves", "Escudo": "Shield", "Anel": "Ring", "Colar": "Necklace", "Ombreira": "Shoulder",
 	"Vender": "Sell", "Vender %s?": "Sell %s?", "Vendido!": "Sold!", "Comprado!": "Bought!",
+	"✔ Comprado": "✔ Bought",
+	"🛒 Próxima rotação em %dh %02dm %02ds": "🛒 Next rotation in %dh %02dm %02ds",
 }
 
 # Literais que JÁ estão em inglês no código (nomes de zona etc.) → tradução PT p/ o locale "pt".
