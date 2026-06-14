@@ -48,14 +48,14 @@ func _render() -> void:
 		_render_active_banner(days)
 		var exp := str(data.get("vipExpiresAt", ""))
 		if exp.length() >= 10:
-			content.add_child(UiKit.dim("Expira em %s" % exp.substr(0, 10)))
+			content.add_child(UiKit.dim(Lang.t("Expira em %s") % exp.substr(0, 10)))
 		var lim := int(data.get("arenaFightLimit", 0))
 		var rem := int(data.get("arenaFightsRemaining", 0))
-		content.add_child(UiKit.dim("⚔ Lutas de arena: %d/%d" % [lim - rem, lim]))
+		content.add_child(UiKit.dim(Lang.t("⚔ Lutas de arena: %d/%d") % [lim - rem, lim]))
 	else:
 		content.add_child(UiKit.empty("Você não tem VIP ativo.", "Ative o VIP abaixo para destravar os benefícios"))
 	# ── Benefícios + compra ──
-	content.add_child(UiKit.section("VIP — 30 dias  (%d 💎)" % VIP_COST))
+	content.add_child(UiKit.section(Lang.t("VIP — 30 dias  (%d 💎)") % VIP_COST))
 	var res := UiKit.card(UiKit.GOLD)
 	var box: VBoxContainer = res[1]
 	box.add_child(UiKit.kv("🎒 Mochila", "50 slots (em vez de 30)"))
@@ -68,7 +68,7 @@ func _render() -> void:
 	buy.disabled = busy or not can_buy
 	content.add_child(buy)
 	if not can_buy:
-		content.add_child(UiKit.dim("Precisa de %d 💎 (você tem %d)" % [VIP_COST, ss]))
+		content.add_child(UiKit.dim(Lang.t("Precisa de %d 💎 (você tem %d)") % [VIP_COST, ss]))
 	# ── Saldo ──
 	content.add_child(UiKit.section("Saldo"))
 	content.add_child(UiKit.kv("💎 SoulStone", "%d" % ss, UiKit.GOLD))
@@ -83,7 +83,7 @@ func _render_active_banner(days: int) -> void:
 	sb.shadow_color = Color(1.0, 0.8, 0.35, 0.28)
 	sb.shadow_size = 8
 	var head := Label.new()
-	head.text = "👑 VIP ATIVO — %d dia%s restante%s" % [days, "" if days == 1 else "s", "" if days == 1 else "s"]
+	head.text = "👑 %s — %d %s" % [Lang.t("VIP ATIVO"), days, Lang.t("dia restante") if days == 1 else Lang.t("dias restantes")]
 	head.add_theme_font_size_override("font_size", 20)
 	head.add_theme_color_override("font_color", UiKit.GOLD)
 	box.add_child(head)
@@ -92,7 +92,7 @@ func _render_active_banner(days: int) -> void:
 # ── Ação: comprar/renovar VIP (premium → confirma) ──────────────────────────────
 func _confirm_buy() -> void:
 	if busy: return
-	UiKit.confirm(self, "Gastar %d 💎 SoulStones para %s VIP por 30 dias?" % [VIP_COST, "renovar o" if bool(data.get("isVip", false)) else "ativar o"],
+	UiKit.confirm(self, Lang.t("Gastar %d 💎 SoulStones para %s VIP por 30 dias?") % [VIP_COST, Lang.t("renovar o") if bool(data.get("isVip", false)) else Lang.t("ativar o")],
 		"👑 Confirmar", func() -> void: await _buy_vip())
 
 func _buy_vip() -> void:
@@ -107,7 +107,7 @@ func _buy_vip() -> void:
 		data["soulStones"] = int(j.get("soulStones", data.get("soulStones", 0)))
 		busy = false
 		_render()
-		UiKit.flash(status, str(j.get("message", "👑 VIP ativado!")), 1)
+		UiKit.flash(status, str(j.get("message", Lang.t("👑 VIP ativado!"))), 1)
 	else:
 		busy = false
 		UiKit.show_error(status, r)

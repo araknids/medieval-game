@@ -44,7 +44,7 @@ func _render() -> void:
 	# streak
 	content.add_child(UiKit.section("Recompensa Diária"))
 	var streak_lbl := Label.new()
-	streak_lbl.text = "🔥 Sequência: %d" % streak
+	streak_lbl.text = Lang.t("🔥 Sequência: %d") % streak
 	streak_lbl.add_theme_font_size_override("font_size", 18)
 	streak_lbl.add_theme_color_override("font_color", UiKit.GOLD)
 	content.add_child(streak_lbl)
@@ -79,7 +79,7 @@ func _day_card(d: Dictionary, claim_day: int, can_claim: bool) -> PanelContainer
 	if is_today:
 		var sb: StyleBoxFlat = pc.get_theme_stylebox("panel")
 		sb.set_border_width_all(2)
-	var dlbl := Label.new(); dlbl.text = "Dia %d" % day
+	var dlbl := Label.new(); dlbl.text = Lang.t("Dia %d") % day
 	dlbl.add_theme_font_size_override("font_size", 12)
 	dlbl.add_theme_color_override("font_color", UiKit.TEXT_DIM)
 	dlbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
@@ -129,8 +129,8 @@ func _claim() -> void:
 		if int(j.get("bronze", 0)) > 0:
 			parts.append("🥉 %d Bronze" % int(j.get("bronze", 0)))
 		if int(j.get("mailed", 0)) > 0:
-			parts.append("📬 %d por correio (mochila cheia)" % int(j.get("mailed", 0)))
+			parts.append(Lang.t("📬 %d por correio (mochila cheia)") % int(j.get("mailed", 0)))
 		await _refresh()
-		UiKit.flash(status, "🎁 Recebido! 🔥 %d   —   %s" % [int(j.get("streak", 0)), "   ".join(parts)], 1)
+		UiKit.flash(status, Lang.t("🎁 Recebido! 🔥 %d   —   %s") % [int(j.get("streak", 0)), "   ".join(parts)], 1)
 	else:
 		UiKit.show_error(status, r)

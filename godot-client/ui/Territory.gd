@@ -64,7 +64,7 @@ func _my_territory_banner() -> PanelContainer:
 	sb.shadow_color = Color(1.0, 0.8, 0.35, 0.28)            # glow dourado
 	sb.shadow_size = 8
 	var head := Label.new()
-	head.text = "🏰 Sua guilda controla: %s" % str(my_territory.get("displayName", "?"))
+	head.text = Lang.t("🏰 Sua guilda controla: %s") % str(my_territory.get("displayName", "?"))
 	head.add_theme_font_size_override("font_size", 18)
 	head.add_theme_color_override("font_color", UiKit.GOLD)
 	box.add_child(head)
@@ -112,7 +112,7 @@ func _territory_card(t) -> Control:
 		var names: Array = []
 		for g in declaring:
 			names.append(str(g))
-		box.add_child(UiKit.dim("⚔ Declarando: " + ", ".join(names)))
+		box.add_child(UiKit.dim(Lang.t("⚔ Declarando:") + " " + ", ".join(names)))
 	# ── Ação: só o líder da guilda declara/cancela ──
 	box.add_child(UiKit.spacer(4))
 	var in_guild := bool(guild.get("inGuild", false))
@@ -148,7 +148,7 @@ func _declare(territory: String) -> void:
 	var r = await Api.territory_declare(territory)
 	busy = false
 	if r is Dictionary and r.get("ok") and r.get("json") is Dictionary:
-		var msg := str(r["json"].get("message", "Ataque declarado!"))
+		var msg := str(r["json"].get("message", Lang.t("Ataque declarado!")))
 		await _refresh()
 		UiKit.flash(status, msg, 1)
 	else:
@@ -163,7 +163,7 @@ func _do_cancel() -> void:
 	var r = await Api.territory_cancel()
 	busy = false
 	if r is Dictionary and r.get("ok") and r.get("json") is Dictionary:
-		var msg := str(r["json"].get("message", "Ataque cancelado."))
+		var msg := str(r["json"].get("message", Lang.t("Ataque cancelado.")))
 		await _refresh()
 		UiKit.flash(status, msg, 1)
 	else:
