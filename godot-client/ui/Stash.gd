@@ -58,7 +58,7 @@ func _render() -> void:
 	UiKit.set_wallet(wallet, warrior)
 	var fee := int(stash.get("fee", 0))
 	var fee_lbl := Label.new()
-	fee_lbl.text = "Taxa: %d bronze por movimento (depositar/sacar)" % fee
+	fee_lbl.text = Lang.t("Taxa: %d bronze por movimento (depositar/sacar)") % fee
 	fee_lbl.add_theme_font_size_override("font_size", 12)
 	fee_lbl.add_theme_color_override("font_color", UiKit.WARN)
 	content.add_child(fee_lbl)
@@ -67,7 +67,7 @@ func _render() -> void:
 	# ── Mochila (bag) ──  used/max vem de bagUsed/bagMax
 	var bag_used := int(stash.get("bagUsed", 0))
 	var bag_max := int(stash.get("bagMax", 0))
-	content.add_child(UiKit.section("Mochila (%d/%d)" % [bag_used, bag_max]))
+	content.add_child(UiKit.section(Lang.t("Mochila (%d/%d)") % [bag_used, bag_max]))
 	if bag_items.is_empty() and bag_res.is_empty():
 		content.add_child(UiKit.empty("Mochila vazia", "Colete recursos e equipamentos para guardar aqui"))
 	var bag_items_shown := _filter_rarity(bag_items)
@@ -83,7 +83,7 @@ func _render() -> void:
 	var used := int(stash.get("used", 0))
 	var smax := int(stash.get("max", -1))
 	var cap := "∞" if smax < 0 else str(smax)
-	content.add_child(UiKit.section("Baú (%d/%s)" % [used, cap]))
+	content.add_child(UiKit.section(Lang.t("Baú (%d/%s)") % [used, cap]))
 	if st_items.is_empty() and st_res.is_empty():
 		content.add_child(UiKit.empty("Baú vazio", "Deposite itens da mochila para protegê-los"))
 	var st_items_shown := _filter_rarity(st_items)
@@ -111,7 +111,7 @@ func _filter_rarity(arr: Array) -> Array:
 # in_bag=true → botão "→ Baú" (depositar); false → "→ Mochila" (sacar)
 func _item_row(it: Dictionary, in_bag: bool) -> PanelContainer:
 	var name_text := str(it.get("name", "?"))
-	var sub := "Nv %d" % int(it.get("itemLevel", 1))
+	var sub := Lang.t("Nv %d") % int(it.get("itemLevel", 1))
 	var stats := _stats_line(it)
 	var id := int(it.get("id", 0))
 	var action: Array

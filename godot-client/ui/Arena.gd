@@ -52,7 +52,7 @@ func _render() -> void:
 	var limit := int(w.get("arenaFightLimit", 5))
 	var at_limit := fights >= limit
 	content.add_child(UiKit.section("Entrar em batalha"))
-	content.add_child(UiKit.dim("Custo: ⚡ %d estamina  ·  Sua estamina: %d/100" % [STAMINA_COST, stamina]))
+	content.add_child(UiKit.dim(Lang.t("Custo: ⚡ %d estamina  ·  Sua estamina: %d/100") % [STAMINA_COST, stamina]))
 	content.add_child(UiKit.kv("Lutas hoje", "%d/%d" % [fights, limit], UiKit.WARN if at_limit else UiKit.TEXT))
 	content.add_child(UiKit.dim("Duelo instantâneo. Vitória: +25 rank, ~200 bronze."))
 	if ko:
@@ -60,7 +60,7 @@ func _render() -> void:
 		b.disabled = true
 		content.add_child(b)
 	elif at_limit:
-		var b := UiKit.action_big("Limite diário (%d/%d)" % [fights, limit], Callable())
+		var b := UiKit.action_big(Lang.t("Limite diário (%d/%d)") % [fights, limit], Callable())
 		b.disabled = true
 		content.add_child(b)
 		content.add_child(UiKit.dim("Reseta à meia-noite UTC. VIP tem mais lutas por dia."))
@@ -69,7 +69,7 @@ func _render() -> void:
 		b.disabled = true
 		content.add_child(b)
 	else:
-		content.add_child(UiKit.action_big("⚔ Lutar · ⚡%d" % STAMINA_COST, _start_fight))
+		content.add_child(UiKit.action_big(Lang.t("⚔ Lutar · ⚡%d") % STAMINA_COST, _start_fight))
 	# ── Resultado do último duelo (texto, no lugar do canvas/replay) ──
 	if not last_result.is_empty():
 		content.add_child(UiKit.spacer(8))
@@ -97,7 +97,7 @@ func _result_box(d: Dictionary) -> PanelContainer:
 	sb.set_border_width_all(2)
 	var ttl := Label.new()
 	var opp := str(d.get("opponent", "?"))
-	ttl.text = ("🏆 Vitória vs %s!" % opp) if won else ("💀 Derrota para %s" % opp)
+	ttl.text = (Lang.t("🏆 Vitória vs %s!") % opp) if won else (Lang.t("💀 Derrota para %s") % opp)
 	ttl.add_theme_color_override("font_color", col); ttl.add_theme_font_size_override("font_size", 18)
 	box.add_child(ttl)
 	var rc := int(d.get("rankChange", 0))

@@ -336,7 +336,7 @@ const EN := {
 	"Resetar todas as habilidades por %s? Os pontos voltam para você.": "Reset all abilities for %s? The points return to you.",
 	# — Achievements / Territory —
 	"🏰 Sua guilda controla: %s": "🏰 Your guild controls: %s",
-	"⚔ Declarando:": "⚔ Declaring:", "🎒 Mochila": "🎒 Bag",
+	"⚔ Declarando:": "⚔ Declaring:", "🎒 Mochila": "🎒 Bag", "Lutando…": "Fighting…",
 	"Você tem %d ponto%s de habilidade guardado%s.": "You have %d ability point%s saved%s.",
 }
 
