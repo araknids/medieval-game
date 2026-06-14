@@ -1,8 +1,8 @@
 # PLANO — Incursão: run roguelike de nós (quest + coleta) [INCURSAO]
 
-> Status: **IMPLEMENTADO (backend + web)** em 2026-06-14 — Fases 1+2 (motor + fonte KINGDOM **e**
-> ZONE) + UI no cliente web (app.js). Falta: Godot (Fase 3) e tuning/migração do daily (Fase 4).
-> Design alinhado com o dono em 2026-06-14. 638 testes verdes (9 novos).
+> Status: **IMPLEMENTADO (backend + web + Godot)** em 2026-06-14 — Fases 1+2+3 (motor + fonte
+> KINGDOM **e** ZONE + UI no cliente web app.js **e** no cliente Godot `ui/Delve.gd`). Falta só
+> tuning/migração do daily (Fase 4). Design alinhado com o dono em 2026-06-14. 638 testes verdes (9 novos).
 >
 > **Nome interno:** "Incursão" (tag `[INCURSAO]`). Nome voltado ao jogador (EN) = TBD
 > ("Delve" / "Expedition" / "Foray"). ⚠️ "Expedição" já é usado p/ `ZoneActivity` no código —
@@ -237,8 +237,10 @@ balance.
   ainda é o do ZoneService legado (não foi dobrado num nó — fica p/ depois).
 - **Frontend web** — ✅ aba 📜 Delve (app.js): launcher (tier/elemento + Quest/Gather), mapa clicável,
   HUD carregado/garantido, modais reusados (combate+loot+evento), extract/abandon. i18n EN/PT.
-- **Fase 3** — ⏳ UI Godot + riqueza de nós (baú armadilhado já existe; falta loja/eventos do catálogo
-  mais ricos, mais theming).
+- **Fase 3** — ✅ UI Godot: tela `ui/Delve.gd`+`.tscn` (launcher tier/elemento + Quest/Gather, mapa
+  de nós clicável, HUD carregado/garantido, replay de batalha 3D via `request_battle`, modais de
+  evento/resultado reusando UiKit). Registrada na nav do Shell (Aventura) + métodos no `BackendClient`
+  (`expedition_*`). ⏳ Falta só riqueza extra de nós (loja na run, eventos do catálogo mais ricos).
 - **Fase 4** — ⏳ Tuning/balance; remoção limpa do daily-lock (hoje a Incursão é aditiva, não removeu o
   fluxo de quest/zona antigo); rehome do perk VIP (hoje só −20% estamina no start); i18n PT dos
   textos de narrativa do backend (hoje EN inline).

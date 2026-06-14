@@ -138,6 +138,31 @@ func zone_boss_fight(id: int) -> Dictionary:
 	return await _request(HTTPClient.METHOD_POST, "/api/zones/%d/boss/fight" % id, {}, true)
 func zone_boss_flee(id: int) -> Dictionary:
 	return await _request(HTTPClient.METHOD_POST, "/api/zones/%d/boss/flee" % id, {}, true)
+
+# ── Incursão / Delve (run roguelike de nós) [INCURSAO] ─────────────────────────────
+## POST /api/expedition/start — inicia uma run. source=KINGDOM/ZONE; kingdom/zone/skillType/element opcionais.
+func expedition_start(source: String, kingdom, zone, skill_type, element, tier: int) -> Dictionary:
+	var body := {"source": source, "tier": tier}
+	if kingdom != null and str(kingdom) != "": body["kingdom"] = kingdom
+	if zone != null and str(zone) != "": body["zone"] = zone
+	if skill_type != null and str(skill_type) != "": body["skillType"] = skill_type
+	if element != null and str(element) != "": body["element"] = element
+	return await _request(HTTPClient.METHOD_POST, "/api/expedition/start", body, true)
+## GET /api/expedition/current — run ativa (runState) ou {active:false}.
+func expedition_current() -> Dictionary:
+	return await _request(HTTPClient.METHOD_GET, "/api/expedition/current", null, true)
+## POST /api/expedition/{id}/choose {nodeId} — escolhe um nó alcançável da camada atual.
+func expedition_choose(id: int, node_id: String) -> Dictionary:
+	return await _request(HTTPClient.METHOD_POST, "/api/expedition/%d/choose" % id, {"nodeId": node_id}, true)
+## POST /api/expedition/{id}/node {optionId} — resolve o nó de EVENTO pendente.
+func expedition_node(id: int, option_id: String) -> Dictionary:
+	return await _request(HTTPClient.METHOD_POST, "/api/expedition/%d/node" % id, {"optionId": option_id}, true)
+## POST /api/expedition/{id}/extract — saca a bolsa (banca tudo) e encerra a run.
+func expedition_extract(id: int) -> Dictionary:
+	return await _request(HTTPClient.METHOD_POST, "/api/expedition/%d/extract" % id, {}, true)
+## POST /api/expedition/{id}/abandon — desiste numa parada segura (perde a bolsa não-travada, sem KO).
+func expedition_abandon(id: int) -> Dictionary:
+	return await _request(HTTPClient.METHOD_POST, "/api/expedition/%d/abandon" % id, {}, true)
 func tower_current() -> Dictionary:
 	return await _request(HTTPClient.METHOD_GET, "/api/tower/current", null, true)
 func tower_ranking() -> Dictionary:

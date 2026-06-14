@@ -22,6 +22,7 @@ const ELEM_ICONS := {"FIRE": "🔥", "WATER": "💧", "EARTH": "🪨", "AIR": "�
 # Tooltips (hover) de CADA item do menu lateral — explicam o que cada tela faz. [MENUBAR_HOVER]
 const NAV_TIPS := {
 	"World": "Mundo — missões, coleta, caça e zonas dos reinos",
+	"Delve": "Incursão — run roguelike: mapa de batalhas, baús e push-your-luck",
 	"Work": "Trabalho — atividade idle por profissão (XP + bronze)",
 	"Temple": "Templo — cura HP, bênçãos e proteção de itens",
 	"Tower": "Torre — andares com chefes escalonados",
@@ -44,7 +45,7 @@ const NAV_TIPS := {
 
 # Nav em árvore: [seção, [[tela, rótulo], ...]] — o ícone vem de "<tela em minúsculo>.png".
 const SECTIONS := [
-	["Aventura",   [["World", "Mundo"], ["Work", "Trabalho"], ["Temple", "Templo"]]],
+	["Aventura",   [["World", "Mundo"], ["Delve", "Incursão"], ["Work", "Trabalho"], ["Temple", "Templo"]]],
 	["Batalha",    [["Tower", "Torre"], ["Arena", "Arena"], ["Territory", "Território"]]],
 	["Comércio",   [["Shop", "Loja"], ["Forge", "Forja"], ["Auction", "Leilão"], ["Stash", "Baú"], ["Tavern", "Taverna"], ["Vip", "VIP"]]],
 	["Personagem", [["Character", "Personagem"], ["Inventory", "Inventário"], ["Abilities", "Habilidades"], ["Achievements", "Conquistas"]]],
