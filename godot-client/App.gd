@@ -15,6 +15,8 @@ var current: Control
 var _battle: Node = null            # replay em andamento (overlay sobre a tela)
 var _battle_screen: Control = null  # tela que pediu a batalha (volta pra ela no fim)
 var _menu_bg: SubViewportContainer = null   # fundo 3D ÚNICO (cenário + duelo), atrás de toda tela
+var _gear_layer: CanvasLayer = null         # engrenagem ⚙ flutuante (abre Settings de qualquer tela) [I18N]
+var _settings_layer: CanvasLayer = null     # overlay de Settings aberto
 
 func _ready() -> void:
 	Lang.apply_saved()   # registra PT/EN + aplica o idioma salvo ANTES de montar qualquer tela [I18N]
@@ -24,6 +26,47 @@ func _ready() -> void:
 	var scenario: String = MENU_MAPS[randi() % MENU_MAPS.size()]
 	_menu_bg = MenuFx.new().bg_3d(self, scenario)   # 1 fundo 3D p/ TODAS as telas (montado 1x; persiste)
 	_route()
+	_add_settings_gear()   # ⚙ sempre acessível (até a nav do Shell ganhar o item Configurações) [I18N]
+
+# Engrenagem flutuante no canto: abre Settings (idioma PT/EN) de qualquer tela, sem depender da nav.
+func _add_settings_gear() -> void:
+	var tex = load("res://assets/ui/icons/settings.png")
+	if tex == null:
+		return
+	_gear_layer = CanvasLayer.new()
+	_gear_layer.layer = 100
+	add_child(_gear_layer)
+	var btn := TextureButton.new()
+	btn.texture_normal = tex
+	btn.ignore_texture_size = true
+	btn.stretch_mode = TextureButton.STRETCH_KEEP_ASPECT_CENTERED
+	btn.set_anchors_and_offsets_preset(Control.PRESET_BOTTOM_RIGHT)
+	btn.offset_left = -54; btn.offset_top = -54; btn.offset_right = -12; btn.offset_bottom = -12
+	btn.modulate = Color(1, 1, 1, 0.72)
+	btn.tooltip_text = "Configurações / Settings"
+	btn.mouse_entered.connect(func() -> void: btn.modulate = Color(1, 1, 1, 1))
+	btn.mouse_exited.connect(func() -> void: btn.modulate = Color(1, 1, 1, 0.72))
+	btn.pressed.connect(_open_settings)
+	_gear_layer.add_child(btn)
+
+func _open_settings() -> void:
+	if _settings_layer != null and is_instance_valid(_settings_layer):
+		return
+	var scene = load("res://ui/Settings.tscn")
+	if scene == null:
+		return
+	_settings_layer = CanvasLayer.new()
+	_settings_layer.layer = 110
+	add_child(_settings_layer)
+	var scr = scene.instantiate()
+	if scr.has_signal("go_back"):
+		scr.go_back.connect(_close_settings)
+	_settings_layer.add_child(scr)
+
+func _close_settings() -> void:
+	if _settings_layer != null and is_instance_valid(_settings_layer):
+		_settings_layer.queue_free()
+	_settings_layer = null
 
 # Registra a Noto Emoji (mono, OFL) como fallback da fonte padrão → os ícones (emoji) passam a
 # renderizar em TODO o app (Open Sans não tem emoji). Mono = herda a cor do label (combina com o
@@ -36,6 +79,10 @@ func _setup_emoji_font() -> void:
 # Esc / B do controle: durante a batalha encerra o replay; senão volta pro Hub (de uma tela). [Fable]
 func _unhandled_input(event: InputEvent) -> void:
 	if not event.is_action_pressed("ui_cancel"):
+		return
+	if _settings_layer != null and is_instance_valid(_settings_layer):   # Esc fecha o Settings primeiro
+		_close_settings()
+		get_viewport().set_input_as_handled()
 		return
 	if _battle != null and is_instance_valid(_battle):
 		Engine.time_scale = 1.0
@@ -102,6 +149,8 @@ func _play_battle(data: Dictionary, screen: Control) -> void:
 		screen.visible = false
 	if _menu_bg:
 		_menu_bg.visible = false   # esconde o fundo do menu: o replay tem o 3D próprio dele
+	if _gear_layer:
+		_gear_layer.visible = false
 	var br = scene.instantiate()
 	br.set("external_battle", data)
 	br.set("force_mock", false)
@@ -117,6 +166,8 @@ func _end_battle() -> void:
 	_battle = null
 	if _menu_bg:
 		_menu_bg.visible = true    # restaura o fundo do menu atrás da tela
+	if _gear_layer:
+		_gear_layer.visible = true
 	var s := _battle_screen
 	_battle_screen = null
 	if is_instance_valid(s):
