@@ -389,7 +389,8 @@ func update_topbar(w: Dictionary) -> void:
 	_xp_bar.max_value = maxi(1, need)
 	_xp_bar.value = clampi(xp, 0, need)
 	if _xp_lbl != null:
-		_xp_lbl.text = "⭐ %d / %d  ·  faltam %d" % [xp, need, maxi(0, need - xp)]
+		_xp_lbl.text = "Faltam %d de exp pro próximo nível" % maxi(0, need - xp)
+	_xp_bar.tooltip_text = "Experiência: %d / %d (faltam %d pro próximo nível)" % [xp, need, maxi(0, need - xp)]
 	var hp := int(w.get("hpPercent", w.get("currentHp", 100)))
 	_hp_bar.value = clampi(hp, 0, 100)
 	if _hp_lbl != null:
