@@ -61,7 +61,7 @@ func _render() -> void:
 	content.add_child(UiKit.rarity_filter(rarity_filter, _set_rarity))
 	# ── 🛒 Browse ──
 	var browse := _by_rarity(listings)
-	content.add_child(UiKit.section("🛒 Comprar (%d)" % browse.size()))
+	content.add_child(UiKit.section(Lang.t("🛒 Comprar (%d)") % browse.size()))
 	if listings.is_empty():
 		content.add_child(UiKit.empty("Nenhum item à venda agora", "Volte mais tarde ou liste algo abaixo"))
 	elif browse.is_empty():
@@ -70,7 +70,7 @@ func _render() -> void:
 		content.add_child(UiKit.grid(self, browse, func(a): return _listing_row(a, false) if a is Dictionary else null))
 	# ── 📋 Minhas listagens ──
 	var mine_f := _by_rarity(mine)
-	content.add_child(UiKit.section("📋 Minhas listagens (%d/10)" % mine.size()))
+	content.add_child(UiKit.section(Lang.t("📋 Minhas listagens (%d/10)") % mine.size()))
 	if mine.is_empty():
 		content.add_child(UiKit.dim("— nenhuma listagem ativa —"))
 	elif mine_f.is_empty():
@@ -79,7 +79,7 @@ func _render() -> void:
 		content.add_child(UiKit.grid(self, mine_f, func(a): return _listing_row(a, true) if a is Dictionary else null))
 	# ── ➕ Listar item ──
 	var bag_f := _by_rarity(bag)
-	content.add_child(UiKit.section("➕ Listar um item (%d)" % bag.size()))
+	content.add_child(UiKit.section(Lang.t("➕ Listar um item (%d)") % bag.size()))
 	if bag.is_empty():
 		content.add_child(UiKit.dim("— nada na mochila p/ listar —"))
 	elif bag_f.is_empty():
@@ -126,7 +126,7 @@ func _listing_row(a: Dictionary, is_mine_section: bool) -> PanelContainer:
 	nm.text = name_txt; nm.add_theme_font_size_override("font_size", 16)
 	nm.add_theme_color_override("font_color", col)
 	left.add_child(nm)
-	left.add_child(UiKit.dim("%s · 🔧%d%% · ⏳ %s" % [str(a.get("typeDisplay", a.get("type", ""))), int(a.get("durability", 100)), _time_left(int(a.get("secondsLeft", 0)))]))
+	left.add_child(UiKit.dim(Lang.t("%s · 🔧%d%% · ⏳ %s") % [Lang.t(str(a.get("typeDisplay", a.get("type", "")))), int(a.get("durability", 100)), _time_left(int(a.get("secondsLeft", 0)))]))
 	var stats := _stats_line(a)
 	if stats != "":
 		var sl := Label.new(); sl.text = stats; sl.add_theme_font_size_override("font_size", 12)
@@ -143,12 +143,12 @@ func _listing_row(a: Dictionary, is_mine_section: bool) -> PanelContainer:
 	if is_mine_section:
 		# [MOEDA] "você recebe" com ícones pixel-art (coin_box), igual ao preço — não emoji
 		var srow := HBoxContainer.new(); srow.add_theme_constant_override("separation", 4)
-		srow.add_child(UiKit.dim("Vendedor: %s · você recebe" % str(a.get("sellerName", "?"))))
+		srow.add_child(UiKit.dim(Lang.t("Vendedor: %s · você recebe") % str(a.get("sellerName", "?"))))
 		srow.add_child(UiKit.coin_box(int(a.get("sellerPayout", 0)), 13))
 		srow.add_child(UiKit.dim("na venda"))
 		left.add_child(srow)
 	else:
-		left.add_child(UiKit.dim("Vendedor: %s" % str(a.get("sellerName", "?"))))
+		left.add_child(UiKit.dim(Lang.t("Vendedor: %s") % str(a.get("sellerName", "?"))))
 	hb.add_child(left)
 	# direita: preço + ação — [MOEDA] preço é em BRONZE (base)
 	var right := VBoxContainer.new(); right.add_theme_constant_override("separation", 6)
@@ -186,7 +186,7 @@ func _picker_row(it: Dictionary) -> PanelContainer:
 	nm.add_theme_font_size_override("font_size", 16)
 	nm.add_theme_color_override("font_color", col)
 	left.add_child(nm)
-	left.add_child(UiKit.dim("%s · Nv %d · %s" % [str(it.get("typeDisplay", it.get("type", ""))), int(it.get("itemLevel", 1)), str(it.get("rarityName", ""))]))
+	left.add_child(UiKit.dim(Lang.t("%s · Nv %d · %s") % [Lang.t(str(it.get("typeDisplay", it.get("type", "")))), int(it.get("itemLevel", 1)), Lang.t(str(it.get("rarityName", "")))]))
 	var stats := _stats_line(it)
 	if stats != "":
 		var sl := Label.new(); sl.text = stats; sl.add_theme_font_size_override("font_size", 12)
@@ -215,13 +215,13 @@ func _buy(listing_id: int) -> void:
 	busy = false
 	if r.get("ok") and r.get("json") is Dictionary:
 		await _refresh()
-		UiKit.flash(status, str(r["json"].get("message", "Comprado!")), 1)
+		UiKit.flash(status, str(r["json"].get("message", Lang.t("Comprado!"))), 1)
 	else:
 		UiKit.show_error(status, r)
 
 # Cancelar = irreversível (queima a taxa de 5%) → confirma antes.
 func _confirm_cancel(listing_id: int, item_name: String) -> void:
-	UiKit.confirm(self, "Cancelar a listagem de \"%s\"? O item volta pra mochila (a taxa de 5% não é devolvida)." % item_name, "Cancelar listagem", func() -> void: await _cancel(listing_id), true)
+	UiKit.confirm(self, Lang.t("Cancelar a listagem de \"%s\"? O item volta pra mochila (a taxa de 5% não é devolvida).") % item_name, "Cancelar listagem", func() -> void: await _cancel(listing_id), true)
 
 func _cancel(listing_id: int) -> void:
 	if busy: return
@@ -230,7 +230,7 @@ func _cancel(listing_id: int) -> void:
 	busy = false
 	if r.get("ok"):
 		await _refresh()
-		UiKit.flash(status, "Listagem cancelada — item de volta na mochila.", 1)
+		UiKit.flash(status, Lang.t("Listagem cancelada — item de volta na mochila."), 1)
 	else:
 		UiKit.show_error(status, r)
 
@@ -239,14 +239,14 @@ func _list(item_id: int) -> void:
 	var le: LineEdit = price_inputs.get(item_id)
 	var price := int(le.text) if le != null else 0
 	if price < 1:
-		UiKit.flash(status, "Informe um preço válido.", 2)
+		UiKit.flash(status, Lang.t("Informe um preço válido."), 2)
 		return
 	busy = true
 	var r = await Api.auction_list(item_id, price)
 	busy = false
 	if r.get("ok") and r.get("json") is Dictionary:
 		await _refresh()
-		UiKit.flash(status, "Listado! (taxa de 5% cobrada)", 1)
+		UiKit.flash(status, Lang.t("Listado! (taxa de 5% cobrada)"), 1)
 	else:
 		UiKit.show_error(status, r)
 
