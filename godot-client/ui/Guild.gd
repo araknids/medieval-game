@@ -74,7 +74,7 @@ func _render_panel() -> void:
 	var head_res := UiKit.card(UiKit.GOLD)
 	var head_box: VBoxContainer = head_res[1]
 	var head := Label.new()
-	head.text = "%s   Lv.%d" % [str(g.get("name", "?")), int(g.get("level", 1))]
+	head.text = Lang.t("%s   Lv.%d") % [str(g.get("name", "?")), int(g.get("level", 1))]
 	head.add_theme_font_size_override("font_size", 22)
 	head.add_theme_color_override("font_color", UiKit.GOLD)
 	head_box.add_child(head)
@@ -82,12 +82,12 @@ func _render_panel() -> void:
 	head_box.add_child(UiKit.dim(dtxt if dtxt != "" else "Sem descrição."))
 	var members: Array = g.get("members", []) if g.get("members") is Array else []
 	head_box.add_child(UiKit.kv("🏦 Tesouro", _fmt_bronze(int(g.get("treasuryBronze", 0)))))
-	head_box.add_child(UiKit.kv("👥 Membros", "%d/%d" % [members.size(), int(g.get("maxMembers", 0))]))
+	head_box.add_child(UiKit.kv("👥 Membros", "%d/%d" % [members.size(), int(g.get("maxMembers", 0))]))   # nº não traduz
 	# bônus
 	var xpb := int(g.get("xpBonus", 0)); var dropb := int(g.get("dropBonus", 0)); var brb := int(g.get("bronzeBonus", 0))
 	if xpb != 0 or dropb != 0 or brb != 0:
 		var bl := Label.new()
-		bl.text = "Bônus: +%d%% XP · +%d%% drop · +%d%% bronze" % [xpb, dropb, brb]
+		bl.text = Lang.t("Bônus: +%d%% XP · +%d%% drop · +%d%% bronze") % [xpb, dropb, brb]
 		bl.add_theme_color_override("font_color", UiKit.OK)
 		bl.add_theme_font_size_override("font_size", 12)
 		head_box.add_child(bl)
@@ -95,17 +95,17 @@ func _render_panel() -> void:
 	var maxed := int(g.get("level", 1)) >= int(g.get("maxLevel", 10))
 	if maxed:
 		var ml := Label.new()
-		ml.text = "⭐ Nível máximo (Lv.%d) — total contribuído: %s" % [int(g.get("maxLevel", 10)), _fmt_bronze(int(g.get("lifetimeGold", 0)))]
+		ml.text = Lang.t("⭐ Nível máximo (Lv.%d) — total contribuído: %s") % [int(g.get("maxLevel", 10)), _fmt_bronze(int(g.get("lifetimeGold", 0)))]
 		ml.add_theme_color_override("font_color", UiKit.GOLD)
 		ml.add_theme_font_size_override("font_size", 12)
 		head_box.add_child(ml)
 	else:
-		head_box.add_child(UiKit.bar("Nível", int(g.get("levelProgressPct", 0)), 100, UiKit.GOLD,
-			"Lv.%d → Lv.%d  (faltam %s)" % [int(g.get("level", 1)), int(g.get("level", 1)) + 1, _fmt_bronze(int(g.get("goldToNextLevel", 0)))]))
+		head_box.add_child(UiKit.bar(Lang.t("Nível"), int(g.get("levelProgressPct", 0)), 100, UiKit.GOLD,
+			Lang.t("Lv.%d → Lv.%d  (faltam %s)") % [int(g.get("level", 1)), int(g.get("level", 1)) + 1, _fmt_bronze(int(g.get("goldToNextLevel", 0)))]))
 	content.add_child(head_res[0])
 
 	# ── Membros ──
-	content.add_child(UiKit.section("Membros (%d)" % members.size()))
+	content.add_child(UiKit.section(Lang.t("Membros (%d)") % members.size()))
 	for mm in members:
 		if mm is Dictionary:
 			content.add_child(_member_row(mm, is_leader))
@@ -140,7 +140,7 @@ func _render_panel() -> void:
 			if d is Dictionary:
 				var medal := "🥇" if i == 0 else ("🥈" if i == 1 else ("🥉" if i == 2 else "%d." % (i + 1)))
 				var me := bool(d.get("isMe", false))
-				var row := UiKit.kv("%s %s%s" % [medal, str(d.get("warriorName", "?")), " (você)" if me else ""], _fmt_bronze(int(d.get("donatedBronze", 0))), UiKit.GOLD if me else UiKit.TEXT)
+				var row := UiKit.kv("%s %s%s" % [medal, str(d.get("warriorName", "?")), (Lang.t(" (você)") if me else "")], _fmt_bronze(int(d.get("donatedBronze", 0))), UiKit.GOLD if me else UiKit.TEXT)
 				content.add_child(row)
 			i += 1
 
@@ -199,11 +199,11 @@ func _render_war_active() -> void:
 	var sb: StyleBoxFlat = pc.get_theme_stylebox("panel")
 	sb.set_border_width_all(2)
 	var head := Label.new()
-	head.text = "Em guerra com %s" % str(war.get("enemyGuildName", "?"))
+	head.text = Lang.t("Em guerra com %s") % str(war.get("enemyGuildName", "?"))
 	head.add_theme_font_size_override("font_size", 18)
 	head.add_theme_color_override("font_color", UiKit.ERR)
 	box.add_child(head)
-	box.add_child(UiKit.kv("Placar", "%d × %d (você × inimigo)" % [my_kills, enemy_kills]))
+	box.add_child(UiKit.kv("Placar", Lang.t("%d × %d (você × inimigo)") % [my_kills, enemy_kills]))
 	box.add_child(UiKit.kv("Termina em", _fmt_time(int(war.get("secondsLeft", 0)))))
 	content.add_child(pc)
 	# inimigos
@@ -236,7 +236,7 @@ func _enemy_card(e: Variant) -> Control:
 	left.add_child(nm)
 	var hp := int(en.get("hpPercent", 100))
 	var hl := Label.new()
-	hl.text = "Nv %d · ❤ %d%%" % [int(en.get("level", 1)), hp]
+	hl.text = Lang.t("Nv %d · ❤ %d%%") % [int(en.get("level", 1)), hp]
 	hl.add_theme_font_size_override("font_size", 12)
 	hl.add_theme_color_override("font_color", UiKit.ERR if ko else UiKit.TEXT_DIM)
 	left.add_child(hl)
@@ -276,7 +276,7 @@ func _target_row(t: Dictionary) -> PanelContainer:
 	row.add_theme_constant_override("separation", 10)
 	box.add_child(row)
 	var nm := Label.new()
-	nm.text = "%s   Nv.%d" % [str(t.get("name", "?")), int(t.get("level", 1))]
+	nm.text = Lang.t("%s   Nv.%d") % [str(t.get("name", "?")), int(t.get("level", 1))]
 	nm.add_theme_font_size_override("font_size", 16)
 	nm.add_theme_color_override("font_color", UiKit.TEXT)
 	nm.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -319,7 +319,7 @@ func _guild_list_row(g: Dictionary) -> PanelContainer:
 	var left := VBoxContainer.new()
 	left.add_theme_constant_override("separation", 2)
 	left.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	var nm := Label.new(); nm.text = "%s   Nv.%d" % [str(g.get("name", "?")), int(g.get("level", 1))]
+	var nm := Label.new(); nm.text = Lang.t("%s   Nv.%d") % [str(g.get("name", "?")), int(g.get("level", 1))]
 	nm.add_theme_font_size_override("font_size", 16)
 	nm.add_theme_color_override("font_color", UiKit.TEXT)
 	left.add_child(nm)
@@ -368,7 +368,7 @@ func _create() -> void:
 	busy = false
 	if r.get("ok"):
 		await _refresh()
-		UiKit.flash(status, "Guilda criada!", 1)
+		UiKit.flash(status, Lang.t("Guilda criada!"), 1)
 	else:
 		UiKit.show_error(status, r)
 
@@ -379,7 +379,7 @@ func _join(id: int) -> void:
 	busy = false
 	if r.get("ok"):
 		await _refresh()
-		UiKit.flash(status, "Você entrou na guilda!", 1)
+		UiKit.flash(status, Lang.t("Você entrou na guilda!"), 1)
 	else:
 		UiKit.show_error(status, r)
 
@@ -390,7 +390,7 @@ func _leave() -> void:
 	busy = false
 	if r.get("ok"):
 		await _refresh()
-		UiKit.flash(status, "Você saiu da guilda.", 1)
+		UiKit.flash(status, Lang.t("Você saiu da guilda."), 1)
 	else:
 		UiKit.show_error(status, r)
 
@@ -401,7 +401,7 @@ func _disband() -> void:
 	busy = false
 	if r.get("ok"):
 		await _refresh()
-		UiKit.flash(status, "Guilda dissolvida.", 1)
+		UiKit.flash(status, Lang.t("Guilda dissolvida."), 1)
 	else:
 		UiKit.show_error(status, r)
 
@@ -412,7 +412,7 @@ func _kick(pid: int) -> void:
 	busy = false
 	if r.get("ok"):
 		await _refresh()
-		UiKit.flash(status, "Membro expulso.", 1)
+		UiKit.flash(status, Lang.t("Membro expulso."), 1)
 	else:
 		UiKit.show_error(status, r)
 
@@ -423,7 +423,7 @@ func _transfer(pid: int) -> void:
 	busy = false
 	if r.get("ok"):
 		await _refresh()
-		UiKit.flash(status, "Liderança transferida.", 1)
+		UiKit.flash(status, Lang.t("Liderança transferida."), 1)
 	else:
 		UiKit.show_error(status, r)
 
@@ -432,7 +432,7 @@ func _donate() -> void:
 	if donate_gold == null: return
 	var amount := int(donate_gold.value) * 10000 + int(donate_silver.value) * 100 + int(donate_bronze.value)
 	if amount <= 0:
-		UiKit.flash(status, "Informe um valor válido.", 2)
+		UiKit.flash(status, Lang.t("Informe um valor válido."), 2)
 		return
 	busy = true
 	var r = await Api.guild_donate(amount)
@@ -441,9 +441,9 @@ func _donate() -> void:
 		var j: Dictionary = r["json"]
 		var msg := ""
 		if bool(j.get("leveledUp", false)):
-			msg = "🎉 A doação subiu a guilda para o nível %d!" % int(j.get("level", 0))
+			msg = Lang.t("🎉 A doação subiu a guilda para o nível %d!") % int(j.get("level", 0))
 		else:
-			msg = "Doado! Tesouro: %s" % _fmt_bronze(int(j.get("guildGold", 0)))
+			msg = Lang.t("Doado! Tesouro: %s") % _fmt_bronze(int(j.get("guildGold", 0)))
 		await _refresh()
 		UiKit.flash(status, msg, 1)
 	else:
@@ -474,7 +474,7 @@ func _do_declare(guild_id: int) -> void:
 	var r = await Api.guild_war_declare(guild_id)
 	busy = false
 	if r.get("ok"):
-		var msg := "Guerra declarada!"
+		var msg := Lang.t("Guerra declarada!")
 		if r.get("json") is Dictionary:
 			msg = str(r["json"].get("message", msg))
 		await _refresh()
@@ -491,11 +491,11 @@ func _attack(player_id: int) -> void:
 		var j: Dictionary = r["json"]
 		var won := bool(j.get("won", false))
 		var opp := str(j.get("opponentName", "?"))
-		var head := "🏆 Venceu" if won else "💀 Perdeu"
+		var head := Lang.t("🏆 Venceu") if won else Lang.t("💀 Perdeu")
 		var loot := str(j.get("loot", ""))
 		var loot_txt := " · %s" % loot if loot != "" else ""
 		await _refresh()
-		UiKit.flash(status, "%s contra %s%s · placar %d×%d" % [head, opp, loot_txt, int(j.get("myKills", 0)), int(j.get("enemyKills", 0))], 1)
+		UiKit.flash(status, Lang.t("%s contra %s%s · placar %d×%d") % [head, opp, loot_txt, int(j.get("myKills", 0)), int(j.get("enemyKills", 0))], 1)
 	else:
 		UiKit.show_error(status, r)
 
