@@ -79,7 +79,7 @@ func _render() -> void:
 				if r is Dictionary and int(r.get("rarity", 1)) == craft_filter:
 					filtered.append(r)
 		if filtered.is_empty():
-			content.add_child(UiKit.dim("— nenhuma receita de %s —" % _rarity_name(craft_filter)))
+			content.add_child(UiKit.dim(Lang.t("— nenhuma receita de %s —") % Lang.t(_rarity_name(craft_filter))))
 		else:
 			_grid_section(filtered, _craft_card)
 	# ── Joias ── (cards compactos → mais colunas)
@@ -96,26 +96,14 @@ func _render() -> void:
 	else:
 		_grid_section(inventory, _maint_card)
 
-# Monta um GridContainer com os cards (encurta a tela). builder = func(Dictionary) -> Control.
+# Monta o grid de cards via UiKit.grid (responsivo — colunas pela largura real, não da janela).
+# builder = func(Dictionary) -> Control; filtra não-dicionários antes (o builder assume Dictionary).
 func _grid_section(items: Array, builder: Callable, compact := false) -> void:
-	var g := GridContainer.new()
-	g.columns = _cols(compact)
-	g.add_theme_constant_override("h_separation", 8)
-	g.add_theme_constant_override("v_separation", 8)
-	g.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	var rows: Array = []
 	for it in items:
 		if it is Dictionary:
-			var card: Control = builder.call(it)
-			card.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-			g.add_child(card)
-	content.add_child(g)
-
-# Nº de colunas conforme a largura da janela (cards compactos cabem em 3).
-func _cols(compact: bool) -> int:
-	var w := get_viewport().get_visible_rect().size.x
-	if compact:
-		return 3 if w >= 820 else (2 if w >= 540 else 1)
-	return 2 if w >= 640 else 1
+			rows.append(it)
+	content.add_child(UiKit.grid(self, rows, builder, compact))
 
 # ── Filtro de raridade (seção Craftar) ──────────────────────────────────────────────
 # Linha de chips (HFlow → quebra em telas estreitas): Todas + as 5 raridades. O ativo fica
@@ -171,12 +159,12 @@ func _refine_card(r: Dictionary) -> PanelContainer:
 	# tem/precisa colorido + requisito de nível (labels SEM autowrap → não quebram vertical no grid)
 	var info := HBoxContainer.new(); info.add_theme_constant_override("separation", 12)
 	var hv := Label.new()
-	hv.text = "Você tem: %d" % have
+	hv.text = Lang.t("Você tem: %d") % have
 	hv.add_theme_font_size_override("font_size", 12)
 	hv.add_theme_color_override("font_color", UiKit.OK if enough else UiKit.ERR)
 	info.add_child(hv)
 	var lv := Label.new()
-	lv.text = "Forja Lv.%d %s" % [int(r.get("levelRequired", 1)), "" if level_ok else "🔒"]
+	lv.text = Lang.t("Forja Lv.%d %s") % [int(r.get("levelRequired", 1)), "" if level_ok else "🔒"]
 	lv.add_theme_font_size_override("font_size", 12)
 	lv.add_theme_color_override("font_color", UiKit.TEXT_DIM)
 	info.add_child(lv)
@@ -227,13 +215,13 @@ func _craft_card(r: Dictionary) -> PanelContainer:
 		var sl := Label.new(); sl.text = st; sl.add_theme_font_size_override("font_size", 12)
 		sl.add_theme_color_override("font_color", Color(0.62, 0.75, 0.58))
 		vb.add_child(sl)
-	vb.add_child(UiKit.dim("Forja Lv.%d %s" % [int(r.get("levelRequired", 1)), "" if can else "🔒"]))
+	vb.add_child(UiKit.dim(Lang.t("Forja Lv.%d %s") % [int(r.get("levelRequired", 1)), "" if can else "🔒"]))
 	if can:
 		var pct := int(r.get("successPct", 0))
 		var pct_col := UiKit.OK if pct >= 80 else (UiKit.WARN if pct >= 50 else UiKit.ERR)
 		# [MOEDA] taxa de refino em ícone pixel-art
 		var info := HBoxContainer.new(); info.add_theme_constant_override("separation", 4)
-		var info_a := Label.new(); info_a.text = "🎲 Sucesso: %d%% · Taxa:" % pct
+		var info_a := Label.new(); info_a.text = Lang.t("🎲 Sucesso: %d%% · Taxa:") % pct
 		info_a.add_theme_font_size_override("font_size", 12); info_a.add_theme_color_override("font_color", pct_col)
 		info_a.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 		info.add_child(info_a)
@@ -250,7 +238,7 @@ func _gem_card(r: Dictionary) -> PanelContainer:
 	var pc: PanelContainer = res[0]
 	var vb: VBoxContainer = res[1]
 	vb.add_child(UiKit.body("%s ×3 → %s" % [str(r.get("fragmentName", frag)), str(r.get("gemName", ""))]))
-	var hv := Label.new(); hv.text = "Você tem: %d fragmentos" % have
+	var hv := Label.new(); hv.text = Lang.t("Você tem: %d fragmentos") % have
 	hv.add_theme_font_size_override("font_size", 12)
 	hv.add_theme_color_override("font_color", UiKit.OK if can else UiKit.ERR)
 	vb.add_child(hv)
@@ -264,13 +252,13 @@ func _maint_card(it: Dictionary) -> PanelContainer:
 	var pc: PanelContainer = res[0]
 	var vb: VBoxContainer = res[1]
 	var nm := Label.new()
-	nm.text = str(it.get("name", "?")) + (" · ⚔ equipado" if it.get("equipped", false) else "")
+	nm.text = str(it.get("name", "?")) + (Lang.t(" · ⚔ equipado") if it.get("equipped", false) else "")
 	nm.add_theme_font_size_override("font_size", 15)
 	nm.add_theme_color_override("font_color", col)
 	nm.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	vb.add_child(nm)
 	var dur := int(it.get("durability", 100))
-	var db := Label.new(); db.text = "Durabilidade: %d%%" % dur
+	var db := Label.new(); db.text = Lang.t("Durabilidade: %d%%") % dur
 	db.add_theme_font_size_override("font_size", 12)
 	db.add_theme_color_override("font_color", UiKit.WARN if dur < 100 else UiKit.TEXT_DIM)
 	vb.add_child(db)
@@ -288,7 +276,7 @@ func _refine(ore: String) -> void:
 	busy = true
 	var qty := int(refine_qty.get(ore, 1))
 	var r = await Api.smithing_refine(ore, qty)
-	await _after_action(r, "Refinado!")
+	await _after_action(r, Lang.t("Refinado!"))
 
 func _craft(recipe_id: String) -> void:
 	if busy: return
@@ -308,23 +296,23 @@ func _craft_gem(frag: String) -> void:
 	if busy: return
 	busy = true
 	var r = await Api.smithing_gem(frag)
-	await _after_action(r, "Joia criada!")
+	await _after_action(r, Lang.t("Joia criada!"))
 
 func _repair(id: int) -> void:
 	if busy: return
 	busy = true
 	var r = await Api.smithing_repair(id)
-	await _after_action(r, "Reparado!")
+	await _after_action(r, Lang.t("Reparado!"))
 
 # P0: reforja é irreversível → confirma antes.
 func _confirm_reforge(id: int, item_name: String) -> void:
-	UiKit.confirm(self, "Reforjar \"%s\"? Os stats serão re-rolados — isso é irreversível." % item_name, "Reforjar", func() -> void: await _reforge(id), true)
+	UiKit.confirm(self, Lang.t("Reforjar \"%s\"? Os stats serão re-rolados — isso é irreversível.") % item_name, "Reforjar", func() -> void: await _reforge(id), true)
 
 func _reforge(id: int) -> void:
 	if busy: return
 	busy = true
 	var r = await Api.smithing_reforge(id)
-	await _after_action(r, "Reforjado!")
+	await _after_action(r, Lang.t("Reforjado!"))
 
 # Resultado padrão (sucesso = mensagem + re-refresh; falha = erro).
 func _after_action(r, fallback: String) -> void:

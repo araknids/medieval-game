@@ -47,9 +47,9 @@ static func coin_str(bronze: int) -> String:
 	# Em TEXTO os emojis 🥇🥈🥉 ficam todos dourados (fonte mono) → indistinguíveis. Usa PALAVRAS.
 	# Onde dá pra usar nó (cards/linhas), prefira coin_box (ícones pixel-art). [MOEDA]
 	var parts: Array = []
-	if g > 0: parts.append("%d ouro" % g)
-	if s > 0: parts.append("%d prata" % s)
-	if b > 0 or parts.is_empty(): parts.append("%d bronze" % b)
+	if g > 0: parts.append(Lang.t("%d ouro") % g)
+	if s > 0: parts.append(Lang.t("%d prata") % s)
+	if b > 0 or parts.is_empty(): parts.append(Lang.t("%d bronze") % b)
 	return " ".join(parts)
 
 # [MOEDA] Mesma quebra do coin_str, mas renderiza com os ÍCONES pixel-art (Icons.gd, os
@@ -197,6 +197,7 @@ static func scaffold(screen: Control, title_text: String, on_back: Callable, on_
 	var scroll := ScrollContainer.new()
 	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	scroll.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED   # conteúdo nunca rola na horizontal (sem estouro/corte)
 	scroll.follow_focus = true
 	root.add_child(scroll)
 	var pad := MarginContainer.new()
@@ -272,8 +273,8 @@ static func err_text(r) -> String:
 		if r.has("error") and str(r.get("error", "")) != "":   # falha de conexão (sem json)
 			return str(r["error"])
 		if r.has("status"):
-			return "Erro (%s)" % str(r["status"])
-	return "Erro desconhecido"
+			return Lang.t("Erro (%s)") % str(r["status"])
+	return Lang.t("Erro desconhecido")
 
 # Atalho: mostra o erro de uma resposta no status.
 static func show_error(status: Label, r) -> void:
@@ -649,19 +650,14 @@ static func empty(text: String, hint := "") -> Control:
 # ── Grid responsivo + linha de filtros ─────────────────────────────────────────────
 const RARITY_NAMES := ["Comum", "Incomum", "Raro", "Épico", "Lendário"]
 
-# Põe os cards num GridContainer responsivo (encurta telas longas). builder = func(item) -> Control.
-# host = a tela (p/ ler a largura do viewport). compact=true → cards pequenos cabem em 3 colunas.
+# Põe os cards num GridContainer RESPONSIVO. builder = func(item) -> Control. compact=true → cards
+# menores (até 3 col); normal = até 2 col. As colunas vêm da largura REAL do grid (NÃO da janela —
+# embutido no Shell, com nav + cap de 920, a janela é bem mais larga que a área de conteúdo, então
+# medir o viewport superestimava e espremia/estourava os cards) e recalculam quando o tamanho muda.
+# `host` mantido por compatibilidade da assinatura (os callers passam `self`).
 static func grid(host: Control, items: Array, builder: Callable, compact := false) -> GridContainer:
-	var w := 900.0
-	if host != null and host.is_inside_tree():
-		w = host.get_viewport().get_visible_rect().size.x
-	var cols := 1
-	if compact:
-		cols = 3 if w >= 820.0 else (2 if w >= 540.0 else 1)
-	else:
-		cols = 2 if w >= 640.0 else 1
 	var g := GridContainer.new()
-	g.columns = cols
+	g.columns = 1
 	g.add_theme_constant_override("h_separation", 8)
 	g.add_theme_constant_override("v_separation", 8)
 	g.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -670,6 +666,18 @@ static func grid(host: Control, items: Array, builder: Callable, compact := fals
 		if card != null:
 			card.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 			g.add_child(card)
+	# colunas pela largura PRÓPRIA do grid; recalcula no resize (responsivo de verdade).
+	var min_cell := 360.0 if compact else 430.0   # largura-alvo por card
+	var max_cols := 3 if compact else 2
+	var relayout := func() -> void:
+		var w := g.size.x
+		if w <= 0.0:
+			return
+		var cols := clampi(int((w + 8.0) / (min_cell + 8.0)), 1, max_cols)
+		if g.columns != cols:
+			g.columns = cols
+	g.resized.connect(relayout)
+	relayout.call()
 	return g
 
 # Linha de chips de filtro (HFlow → quebra em telas estreitas). options = Array de

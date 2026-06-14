@@ -423,6 +423,32 @@ const EN := {
 	"Duelo…": "Duel…",
 	"Lutar!": "Fight!",
 	"Continuar  ▶": "Continue  ▶",
+	# --- auditoria final: Forge/UiKit/BattleReplay [I18N] ---
+	"— nenhuma receita de %s —": "— no %s recipe —",
+	"Você tem: %d": "You have: %d",
+	"🎲 Sucesso: %d%% · Taxa:": "🎲 Success: %d%% · Fee:",
+	"Você tem: %d fragmentos": "You have: %d fragments",
+	" · ⚔ equipado": " · ⚔ equipped",
+	"Reforjar \"%s\"? Os stats serão re-rolados — isso é irreversível.": "Reforge \"%s\"? Stats will be re-rolled — this is irreversible.",
+	"Refinado!": "Refined!",
+	"Reparado!": "Repaired!",
+	"Reforjado!": "Reforged!",
+	"Conectando %s…": "Connecting %s…",
+	"Login falhou (%s) — usando luta MOCK.": "Login failed (%s) — using MOCK fight.",
+	"⚔ vs %s": "⚔ vs %s",
+	"Modo TESTE — sua arma real vs %s": "TEST mode — your real weapon vs %s",
+	"Monstro: %s (mock local)": "Monster: %s (local mock)",
+	"Arena indisponível — luta MOCK.": "Arena unavailable — MOCK fight.",
+	"PvE indisponível — mock de monstro (%s).": "PvE unavailable — monster mock (%s).",
+	"%s vs %s — você %s!": "%s vs %s — you %s!",
+	"venceu": "won",
+	"perdeu": "lost",
+	"Lutando na arena…": "Fighting in the arena…",
+	"Subindo a Torre…": "Climbing the Tower…",
+	"Quest %s (%s)…": "Quest %s (%s)…",
+	"Eventos sem 2 spawns — nada a encenar.": "Events without 2 spawns — nothing to stage.",
+	"%s venceu!": "%s won!",
+	"Você": "You",
 }
 
 # Literais que JÁ estão em inglês no código (nomes de zona etc.) → tradução PT p/ o locale "pt".
@@ -483,4 +509,5 @@ static func _load() -> String:
 # Tradução explícita (p/ strings dinâmicas: Lang.t("Nível %d") % n). Usa o locale atual.
 static func t(key: String) -> String:
 	return TranslationServer.translate(key)
+
 

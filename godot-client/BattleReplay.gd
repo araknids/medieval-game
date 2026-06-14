@@ -239,10 +239,10 @@ func _load_events() -> void:
 		if cf.load("res://login.cfg") == OK:
 			username = str(cf.get_value("login", "user", username))
 			password = str(cf.get_value("login", "pass", password))
-		_status("Conectando %s…" % client.base_url)
+		_status(Lang.t("Conectando %s…") % client.base_url)
 		var lr = await client.login(username, password)
 		if not lr.get("ok"):
-			_status("Login falhou (%s) — usando luta MOCK." % lr.get("status"))
+			_status(Lang.t("Login falhou (%s) — usando luta MOCK.") % lr.get("status"))
 			print(">>> LOGIN FALHOU: %s | %s — caindo no mock." % [lr.get("status"), lr.get("error", "")])
 			events = _mock_events()
 			return
@@ -258,7 +258,7 @@ func _load_events() -> void:
 		events = external_battle["events"]
 		fight_scene = str(external_battle.get("scene", ""))
 		var foe := str(external_battle.get("enemy", ""))
-		_status("Duelo…" if foe == "" else ("⚔ vs %s" % foe))   # SEM spoiler — o vencedor só no fim
+		_status(Lang.t("Duelo…") if foe == "" else (Lang.t("⚔ vs %s") % foe))   # SEM spoiler — o vencedor só no fim
 		return
 
 	if force_mock:
@@ -267,14 +267,14 @@ func _load_events() -> void:
 		for e in events:                                          # renomeia "Bandido" → o sorteado
 			if e.get("actor") == "Bandido": e["actor"] = foe
 			if e.get("target") == "Bandido": e["target"] = foe
-		_status("Modo TESTE — sua arma real vs %s" % foe)
+		_status(Lang.t("Modo TESTE — sua arma real vs %s") % foe)
 		print("=== force_mock: herói real vs %s (cara própria) ===" % foe)
 		return
 
 	if fight_source == "monster":   # luta MOCK local contra um MONSTRO (herói real vs bicho)
 		var foe: String = enemy_monster if enemy_monster != "" else SHOWCASE_FOES[randi() % SHOWCASE_FOES.size()]
 		events = _mock_monster_events(foe)
-		_status("Monstro: %s (mock local)" % foe)
+		_status(Lang.t("Monstro: %s (mock local)") % foe)
 		print("=== fight_source=monster: herói real vs %s ===" % foe)
 		return
 
@@ -289,11 +289,11 @@ func _load_events() -> void:
 	# falhou → fallback: arena cai no duelo MOCK; PvE cai num MOCK de monstro (ainda mostra bicho)
 	if fight_source == "arena":
 		events = _mock_events()
-		_status("Arena indisponível — luta MOCK.")
+		_status(Lang.t("Arena indisponível — luta MOCK."))
 	else:
 		var foe: String = SHOWCASE_FOES[randi() % SHOWCASE_FOES.size()]
 		events = _mock_monster_events(foe)
-		_status("PvE indisponível — mock de monstro (%s)." % foe)
+		_status(Lang.t("PvE indisponível — mock de monstro (%s).") % foe)
 
 # Extrai json.battleEvents (qualquer fonte) → events + status. true se veio luta válida (>=2 spawns).
 # label_keys = chaves do NOME do oponente (opponent/bossName/monsterName); win_key = chave de vitória.
@@ -307,13 +307,13 @@ func _apply_fight_json(j: Dictionary, label_keys: Array, win_key: String) -> boo
 	for k in label_keys:
 		if j.has(k) and str(j[k]) != "":
 			foe = str(j[k]); break
-	var who := "venceu" if j.get(win_key, false) else "perdeu"
-	_status("%s vs %s — você %s!" % [username, foe, who])
+	var who := Lang.t("venceu") if j.get(win_key, false) else Lang.t("perdeu")
+	_status(Lang.t("%s vs %s — você %s!") % [username, foe, who])
 	print(">>> luta OK (%s): vs %s, %d eventos, scene=%s" % [fight_source, foe, be.size(), str(j.get("scene", ""))])
 	return true
 
 func _load_arena(client) -> bool:
-	_status("Lutando na arena…")
+	_status(Lang.t("Lutando na arena…"))
 	var fr = await client.arena_fight()
 	if fr.get("ok") and fr.get("json") is Dictionary:
 		return _apply_fight_json(fr["json"], ["opponent"], "won")
@@ -321,7 +321,7 @@ func _load_arena(client) -> bool:
 	return false
 
 func _load_tower(client) -> bool:
-	_status("Subindo a Torre…")
+	_status(Lang.t("Subindo a Torre…"))
 	var fr = await client.tower_fight()
 	# tower_fight exige run ativa; se não houver, entra e tenta de novo
 	if not (fr.get("ok") and fr.get("json") is Dictionary and fr["json"].get("battleEvents") is Array):
@@ -364,7 +364,7 @@ func _load_quest(client) -> bool:
 			print(">>> quest[%s]: nenhuma começável não-interativa (%d feitas hoje, %d começáveis)" % [kingdom, n_done, n_start])
 			continue
 		var qtype := str(pick.get("id", ""))
-		_status("Quest %s (%s)…" % [str(pick.get("displayName", qtype)), kingdom])
+		_status(Lang.t("Quest %s (%s)…") % [str(pick.get("displayName", qtype)), kingdom])
 		var sr = await client.quest_start(kingdom, qtype)
 		if not (sr.get("ok") and sr.get("json") is Dictionary):
 			print(">>> quest[%s]: start '%s' falhou (status %s, raw %s)" % [kingdom, qtype, sr.get("status"), sr.get("raw", "")])
@@ -394,7 +394,7 @@ func _load_quest(client) -> bool:
 func _build_fighters() -> void:
 	var spawns: Array = events.filter(func(e): return str(e.get("type", "")) == "spawn")
 	if spawns.size() < 2:
-		_status("Eventos sem 2 spawns — nada a encenar.")
+		_status(Lang.t("Eventos sem 2 spawns — nada a encenar."))
 		return
 	var lname := str(spawns[0].get("actor", "Hero"))
 	var rname := str(spawns[1].get("actor", "Foe"))
@@ -427,6 +427,12 @@ func _build_fighters() -> void:
 		_make_fighter(lname, -1, int(spawns[0].get("targetMaxHp", 100)), lweapon, lequip, {}, lrarity),
 		_make_fighter(rname,  1, int(spawns[1].get("targetMaxHp", 100)), rweapon, requip, emeta, 1, rlook),
 	]
+	# [HP_SPAWN] HP inicial = ATUAL (targetHp), não o máximo → a barra reflete entrar machucado.
+	for i in 2:
+		var sp: Dictionary = spawns[i]
+		var cur := clampi(int(sp.get("targetHp", order[i]["maxhp"])), 1, int(order[i]["maxhp"]))
+		order[i]["hp"] = cur
+		order[i]["shown_hp"] = float(cur)
 	fighters[lname] = order[0]
 	fighters[rname] = order[1]
 	# kiting ativo quando só um lado é ranged: ele recua/atira, o outro avança.
@@ -1062,8 +1068,9 @@ func _handle_spawn(e: Dictionary) -> void:
 	var who := str(e.get("actor", ""))
 	var f = fighters.get(who)
 	if f:   # re-init de HP no meio do stream (gauntlet/Torre)
-		f["hp"] = int(e.get("targetMaxHp", f["maxhp"]))
-		f["maxhp"] = max(f["maxhp"], f["hp"])
+		f["maxhp"] = max(1, int(e.get("targetMaxHp", f["maxhp"])))
+		f["hp"] = clampi(int(e.get("targetHp", f["maxhp"])), 0, int(f["maxhp"]))   # [HP_SPAWN] atual, não máximo
+		f["shown_hp"] = float(f["hp"])   # barra começa no atual (sem drenar do cheio)
 		f["dead"] = false
 		_update_hp(f)
 		if f["anim"]: f["anim"].play(_clip(f, "idle"))
@@ -1089,7 +1096,7 @@ func _finish() -> void:
 			f["shown_hp"] = 0.0
 			_apply_hp_bar(f)
 	if not winner.is_empty() and victory_label:
-		victory_label.text = "%s venceu!" % winner["name"]
+		victory_label.text = Lang.t("%s venceu!") % winner["name"]
 		winner["busy"] = false
 		_victory_flourish(winner)            # [JUICE] luz dourada subindo + brilho do vencedor
 		if not loser.is_empty() and not winner["ranged"]:
