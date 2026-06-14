@@ -323,16 +323,18 @@ func _build_nav() -> Control:
 		var head := Button.new()
 		head.flat = true
 		head.alignment = HORIZONTAL_ALIGNMENT_LEFT
-		head.text = "▾  " + str(section[0]).to_upper()
+		head.text = "▾  " + Lang.t(str(section[0])).to_upper()
 		head.add_theme_font_size_override("font_size", 13)
 		head.add_theme_color_override("font_color", UiKit.GOLD_SOFT)
 		head.pressed.connect(func() -> void:
 			items.visible = not items.visible
-			head.text = ("▾  " if items.visible else "▸  ") + str(section[0]).to_upper())
+			head.text = ("▾  " if items.visible else "▸  ") + Lang.t(str(section[0])).to_upper())
 		nav.add_child(head)
 		nav.add_child(items)
 		for entry in section[1]:
 			items.add_child(_nav_item(str(entry[0]), str(entry[1])))
+	nav.add_child(_spacer(6))
+	nav.add_child(_nav_item("Settings", "Configurações"))   # ⚙ idioma PT/EN + opções [I18N]
 	nav.add_child(_spacer(10))
 	var out := _stone_btn("Sair", 36)
 	out.tooltip_text = "Sair — desconecta da conta"   # [MENUBAR_HOVER]
@@ -453,7 +455,7 @@ func _build_dashboard() -> Control:
 	box.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	pad.add_child(box)
 	var hi := Label.new()
-	hi.text = "Bem-vindo, %s" % str(warrior.get("name", "guerreiro"))
+	hi.text = Lang.t("Bem-vindo, %s") % str(warrior.get("name", "guerreiro"))
 	hi.add_theme_font_size_override("font_size", 26)
 	hi.add_theme_color_override("font_color", UiKit.GOLD)
 	box.add_child(hi)
@@ -517,14 +519,14 @@ func update_topbar(w: Dictionary) -> void:
 	_name_lbl.text = str(w.get("name", "?"))
 	var t := str(w.get("title", ""))
 	_title_lbl.text = ("⟨%s⟩" % t) if t != "" else ""
-	_sub_lbl.text = "%s · Nível %d" % [str(w.get("warriorClass", "Recruta")), int(w.get("level", 1))]
+	_sub_lbl.text = Lang.t("%s · Nível %d") % [Lang.t(str(w.get("warriorClass", "Recruta"))), int(w.get("level", 1))]
 	var xp := int(w.get("experience", 0))
 	var need := int(w.get("expNeeded", 0))   # LIMIAR do nível (100×nv^1.8), não o restante
 	_xp_bar.max_value = maxi(1, need)
 	_xp_bar.value = clampi(xp, 0, need)
 	if _xp_lbl != null:
-		_xp_lbl.text = "Faltam %d de exp pro próximo nível" % maxi(0, need - xp)
-	_xp_bar.tooltip_text = "Experiência: %d / %d (faltam %d pro próximo nível)" % [xp, need, maxi(0, need - xp)]
+		_xp_lbl.text = Lang.t("Faltam %d de exp pro próximo nível") % maxi(0, need - xp)
+	_xp_bar.tooltip_text = Lang.t("Experiência: %d / %d (faltam %d pro próximo nível)") % [xp, need, maxi(0, need - xp)]
 	var hp := int(w.get("hpPercent", w.get("currentHp", 100)))
 	_hp_bar.value = clampi(hp, 0, 100)
 	if _hp_lbl != null:
@@ -558,24 +560,24 @@ func _refresh_buffs(w: Dictionary) -> void:
 		c.queue_free()
 	var ab := str(w.get("activeBuff", ""))
 	if ab != "":
-		_buffs_box.add_child(_buff_badge(ab, "Bênção do Templo: %s — %s" % [ab, _fmt_left(int(w.get("buffSecondsLeft", 0)))]))
+		_buffs_box.add_child(_buff_badge(ab, Lang.t("Bênção do Templo: %s — %s") % [ab, _fmt_left(int(w.get("buffSecondsLeft", 0)))]))
 	var ab2 := str(w.get("activeBuff2", ""))
 	if ab2 != "":
-		_buffs_box.add_child(_buff_badge(ab2, "Bênção VIP (2º slot): %s — %s" % [ab2, _fmt_left(int(w.get("buff2SecondsLeft", 0)))]))
+		_buffs_box.add_child(_buff_badge(ab2, Lang.t("Bênção VIP (2º slot): %s — %s") % [ab2, _fmt_left(int(w.get("buff2SecondsLeft", 0)))]))
 	var meal := str(w.get("mealBuff", ""))
 	if meal != "":
-		_buffs_box.add_child(_buff_badge(meal, "Bem Alimentado: %s — %s" % [meal, _fmt_left(int(w.get("mealBuffSecondsLeft", 0)))]))
+		_buffs_box.add_child(_buff_badge(meal, Lang.t("Bem Alimentado: %s — %s") % [meal, _fmt_left(int(w.get("mealBuffSecondsLeft", 0)))]))
 	var we := str(w.get("weaponElement", ""))
 	if we != "":
-		_buffs_box.add_child(_buff_badge_icon("elem_" + we.to_lower(), "⚔", "Arma encantada (%s): ±25%% por elemento — %s" % [we, _fmt_left(int(w.get("weaponElementSecondsLeft", 0)))]))
+		_buffs_box.add_child(_buff_badge_icon("elem_" + we.to_lower(), "⚔", Lang.t("Arma encantada (%s): ±25%% por elemento — %s") % [we, _fmt_left(int(w.get("weaponElementSecondsLeft", 0)))]))
 	var ae := str(w.get("armorElement", ""))
 	if ae != "":
-		_buffs_box.add_child(_buff_badge_icon("elem_" + ae.to_lower(), "🛡", "Armadura encantada (%s): ±25%% por elemento — %s" % [ae, _fmt_left(int(w.get("armorElementSecondsLeft", 0)))]))
+		_buffs_box.add_child(_buff_badge_icon("elem_" + ae.to_lower(), "🛡", Lang.t("Armadura encantada (%s): ±25%% por elemento — %s") % [ae, _fmt_left(int(w.get("armorElementSecondsLeft", 0)))]))
 	if bool(w.get("newbieBuffActive", false)):
-		_buffs_box.add_child(_buff_badge("🐣", "Buff de Novato: estamina e HP regeneram 4× mais rápido — %dh restantes" % int(w.get("newbieBuffHoursLeft", 0))))
+		_buffs_box.add_child(_buff_badge("🐣", Lang.t("Buff de Novato: estamina e HP regeneram 4× mais rápido — %dh restantes") % int(w.get("newbieBuffHoursLeft", 0))))
 	var tav := float(w.get("tavernBuffPct", 0.0))
 	if tav > 0.0:
-		_buffs_box.add_child(_buff_badge_icon("tavern", "+%.2f%%" % tav, "Buff da Taverna: +%.2f%% em TODOS os stats — %s" % [tav, _fmt_left(int(w.get("tavernBuffSecondsLeft", 0)))]))
+		_buffs_box.add_child(_buff_badge_icon("tavern", "+%.2f%%" % tav, Lang.t("Buff da Taverna: +%.2f%% em TODOS os stats — %s") % [tav, _fmt_left(int(w.get("tavernBuffSecondsLeft", 0)))]))
 
 func _buff_badge(text: String, tip: String) -> Control:
 	var pc := PanelContainer.new()
