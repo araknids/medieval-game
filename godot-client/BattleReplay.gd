@@ -600,6 +600,18 @@ func _make_fighter(fname: String, side: int, maxhp: int, weapon_kind: String, eq
 	bar.add_child(_quad(BARW, 0.09, Color(0, 0, 0, 0.55), 0))
 	var fill := _quad(BARW, 0.09, Color(0.25, 0.85, 0.35, 1.0), 1)
 	bar.add_child(fill)
+	# valor de vida (atual/máx) DENTRO da barra verde [BATALHA]
+	var hp_lbl := Label3D.new()
+	hp_lbl.text = "%d/%d" % [int(f["maxhp"]), int(f["maxhp"])]
+	hp_lbl.billboard = BaseMaterial3D.BILLBOARD_ENABLED
+	hp_lbl.no_depth_test = true
+	hp_lbl.render_priority = 3          # acima do preenchimento (prio 1) → não some atrás da barra
+	hp_lbl.outline_render_priority = 2
+	hp_lbl.pixel_size = 0.0022
+	hp_lbl.font_size = 40
+	hp_lbl.outline_size = 14
+	hp_lbl.outline_modulate = Color(0, 0, 0, 0.9)
+	bar.add_child(hp_lbl)
 	var name_lbl := Label3D.new()
 	name_lbl.text = fname + ("  🏹" if ranged else "")
 	name_lbl.billboard = BaseMaterial3D.BILLBOARD_ENABLED
@@ -610,6 +622,7 @@ func _make_fighter(fname: String, side: int, maxhp: int, weapon_kind: String, eq
 	bar.add_child(name_lbl)
 	f["bar"] = bar
 	f["fill"] = fill
+	f["hp_lbl"] = hp_lbl
 	if ap:
 		var il := ap.get_animation(_clip(f, "idle"))
 		if il: il.loop_mode = Animation.LOOP_LINEAR
@@ -1268,6 +1281,8 @@ func _apply_hp_bar(f: Dictionary) -> void:
 	fill.position = Vector3(-BARW * 0.5 * (1.0 - ratio), 0.0, 0.0)
 	(fill.material_override as StandardMaterial3D).albedo_color = \
 		Color(0.85, 0.25, 0.25).lerp(Color(0.25, 0.85, 0.35), ratio)
+	if f.has("hp_lbl") and is_instance_valid(f["hp_lbl"]):
+		(f["hp_lbl"] as Label3D).text = "%d/%d" % [int(round(f["shown_hp"])), int(f["maxhp"])]
 
 func _head(f: Dictionary) -> Vector3:
 	return (f["node"] as Node3D).global_position + Vector3(0, 1.7, 0)
