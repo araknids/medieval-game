@@ -17,6 +17,7 @@ var _battle_screen: Control = null  # tela que pediu a batalha (volta pra ela no
 var _menu_bg: SubViewportContainer = null   # fundo 3D ÚNICO (cenário + duelo), atrás de toda tela
 
 func _ready() -> void:
+	Lang.apply_saved()   # registra PT/EN + aplica o idioma salvo ANTES de montar qualquer tela [I18N]
 	get_window().min_size = Vector2i(1024, 576)   # trava o tamanho mínimo da janela (UI não quebra abaixo disso)
 	_setup_emoji_font()
 	randomize()   # mapa de fundo + lutadores diferentes a cada abertura do jogo [MENU_FUNDO]
