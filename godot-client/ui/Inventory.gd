@@ -106,6 +106,8 @@ func _equip(id: int) -> void:
 				it["equipped"] = false
 		_replace_item(updated)
 		_render()
+		if UiKit.equip_changed_sink.is_valid():
+			UiKit.equip_changed_sink.call(items)   # re-veste o busto 3D (usa o inventário local, sem fetch)
 	else:
 		UiKit.show_error(status, r)
 		await _refresh()   # resync: cache local pode estar velho (item mudou no servidor)
@@ -118,6 +120,8 @@ func _unequip(id: int) -> void:
 	if r.get("ok") and r.get("json") is Dictionary:
 		_replace_item(r["json"])   # equipped=false agora
 		_render()
+		if UiKit.equip_changed_sink.is_valid():
+			UiKit.equip_changed_sink.call(items)   # re-veste o busto 3D (sem fetch)
 	else:
 		UiKit.show_error(status, r)
 		await _refresh()

@@ -48,10 +48,14 @@ var _stam_lbl: Label
 var _coins: Dictionary = {}     # key -> Label
 var _buffs_box: HBoxContainer    # badges dos buffs ativos (templo/vip/refeição/encanto/novato/taverna)
 var _nav_buttons: Dictionary = {}   # nome da tela -> Button (destaque do ativo)
+var _cache := {}        # nome da tela → node (MANTIDA em memória; alterna visibilidade, não recria)
+var _cache_ver := {}    # nome → mutation_count na última atualização (revisita só refaz request se algo mudou)
+var _dash: Control = null   # dashboard/home (também cacheado)
 
 func _ready() -> void:
 	current = self
-	UiKit.topbar_sink = update_topbar   # telas embedded mandam o warrior pro topbar via set_wallet
+	UiKit.topbar_sink = update_topbar          # telas embedded mandam o warrior pro topbar via set_wallet
+	UiKit.equip_changed_sink = _on_equip_changed   # Inventory avisa quando equipa → re-veste o busto (sem fetch à toa)
 	set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	UiKit.bg(self, UiKit.TINT_DEFAULT)
 	var root := VBoxContainer.new()
@@ -68,7 +72,7 @@ func _ready() -> void:
 	content_host.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	content_host.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	body.add_child(content_host)
-	await refresh_warrior()
+	await _initial_load()   # 1x no boot: warrior (topbar) + inventário (índice de comparação + busto)
 	_show_dashboard()
 
 func _exit_tree() -> void:
@@ -76,6 +80,8 @@ func _exit_tree() -> void:
 		current = null
 	if UiKit.topbar_sink.is_valid() and UiKit.topbar_sink.get_object() == self:
 		UiKit.topbar_sink = Callable()
+	if UiKit.equip_changed_sink.is_valid() and UiKit.equip_changed_sink.get_object() == self:
+		UiKit.equip_changed_sink = Callable()
 
 # ── TopBar ─────────────────────────────────────────────────────────────────────────
 func _build_topbar() -> Control:
@@ -285,18 +291,46 @@ func _set_active(nm: String) -> void:
 func _open(scr: String) -> void:
 	if scr == "":
 		return
+	var mc := _mutation_count()
+	# já carregada → mostra na hora (0 request); revalida só se algo mudou no servidor desde a última visita
+	if _cache.has(scr) and is_instance_valid(_cache[scr]):
+		var cached: Control = _cache[scr]
+		_show_only(cached)
+		active_screen = cached
+		_set_active(scr)
+		if int(_cache_ver.get(scr, -1)) != mc and cached.has_method("_refresh"):
+			_cache_ver[scr] = mc
+			await cached._refresh()
+		return
+	# 1ª vez: instancia, cacheia (embedded). O _ready da tela já faz o _refresh inicial.
 	var scene = load("res://ui/%s.tscn" % scr)
 	if scene == null:
 		push_warning("tela não encontrada: %s" % scr)
 		return
-	await refresh_warrior()   # ANTES de montar: topbar + índice de equipados prontos → comparação correta no 1º render
-	_clear_content()
 	var node = scene.instantiate()
 	node.set_meta("embedded", true)   # UiKit.scaffold roda em modo embutido (sem fundo/←/carteira)
-	active_screen = node
+	_cache[scr] = node
+	_cache_ver[scr] = mc
 	content_host.add_child(node)
 	_wire_screen(node)
+	_show_only(node)
+	active_screen = node
 	_set_active(scr)
+
+func _mutation_count() -> int:
+	var api = get_node_or_null("/root/Api")
+	return int(api.mutation_count) if api != null else 0
+
+# Mostra só `node` no content_host; os escondidos são CONGELADOS (process disabled) → 0 polling/CPU.
+func _show_only(node: Control) -> void:
+	if _dash != null and is_instance_valid(_dash):
+		_dash.visible = (_dash == node)
+		_dash.process_mode = Node.PROCESS_MODE_INHERIT if _dash == node else Node.PROCESS_MODE_DISABLED
+	for k in _cache:
+		var n = _cache[k]
+		if is_instance_valid(n):
+			n.visible = (n == node)
+			n.process_mode = Node.PROCESS_MODE_INHERIT if n == node else Node.PROCESS_MODE_DISABLED
 
 func _wire_screen(c: Control) -> void:
 	if c.has_signal("go_back"):
@@ -312,26 +346,27 @@ func _wire_screen(c: Control) -> void:
 	if c.has_signal("logout"):
 		c.logout.connect(func() -> void: logout.emit())
 
-func _clear_content() -> void:
-	if active_screen != null and is_instance_valid(active_screen):
-		active_screen.queue_free()
-	active_screen = null
-	for ch in content_host.get_children():
-		ch.queue_free()
-
-# Chamado pelo App quando o replay de batalha termina → repassa pra tela ativa.
+# Chamado pelo App quando o replay de batalha termina → atualiza topbar/busto + a tela ativa.
 func _on_battle_over() -> void:
-	if active_screen != null and is_instance_valid(active_screen) and active_screen.has_method("_on_battle_over"):
-		active_screen._on_battle_over()
-	await refresh_warrior()
+	await _initial_load()   # batalha pode ter dado XP/loot/HP → topbar + busto + índice frescos
+	if active_screen != null and is_instance_valid(active_screen):
+		if active_screen.has_method("_on_battle_over"):
+			active_screen._on_battle_over()
+		elif active_screen.has_method("_refresh"):
+			await active_screen._refresh()
 
 # ── Dashboard / home ────────────────────────────────────────────────────────────────
 func _show_dashboard() -> void:
-	_clear_content()
+	if _dash == null or not is_instance_valid(_dash):
+		_dash = _build_dashboard()
+		content_host.add_child(_dash)
+	_show_only(_dash)
+	active_screen = null
 	_set_active("__home__")
+
+func _build_dashboard() -> Control:
 	var scroll := ScrollContainer.new()
 	scroll.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	content_host.add_child(scroll)
 	var pad := MarginContainer.new()
 	pad.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	for s in ["left", "right", "top", "bottom"]:
@@ -363,9 +398,11 @@ func _show_dashboard() -> void:
 		b.pressed.connect(func() -> void: _open(target))
 		grid.add_child(b)
 	box.add_child(grid)
+	return scroll
 
 # ── Atualização do warrior / topbar ─────────────────────────────────────────────────
-func refresh_warrior() -> void:
+# Carga inicial (1x no boot / após batalha): warrior (topbar) + inventário (índice + busto).
+func _initial_load() -> void:
 	var api = get_node_or_null("/root/Api")
 	if api == null:
 		return
@@ -373,7 +410,23 @@ func refresh_warrior() -> void:
 	if r.get("ok") and r.get("json") is Dictionary:
 		warrior = r["json"]
 		update_topbar(warrior)
-	# 1 fetch de inventário → índice de equipados (p/ comparação) + veste o busto
+	var inv = await api.get_inventory()
+	if inv.get("ok") and inv.get("json") is Array:
+		UiKit.set_equipped(inv["json"])
+		if _bust != null and is_instance_valid(_bust):
+			_bust.apply(inv["json"])
+
+# Equip mudou (Inventory avisa) → reindexa comparação + re-veste o busto. Usa o inventário que o
+# Inventory já tem (SEM fetch); só busca se vier vazio. [PLANO_UI_SHELL_GODOT]
+func _on_equip_changed(inv_arr := []) -> void:
+	if inv_arr is Array and not inv_arr.is_empty():
+		UiKit.set_equipped(inv_arr)
+		if _bust != null and is_instance_valid(_bust):
+			_bust.apply(inv_arr)
+		return
+	var api = get_node_or_null("/root/Api")
+	if api == null:
+		return
 	var inv = await api.get_inventory()
 	if inv.get("ok") and inv.get("json") is Array:
 		UiKit.set_equipped(inv["json"])

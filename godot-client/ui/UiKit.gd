@@ -6,6 +6,9 @@ const Icons := preload("res://ui/Icons.gd")
 # Quando uma tela embedded chama set_wallet com wallet=null, manda o warrior pro topbar do Shell.
 # O Shell registra (UiKit.topbar_sink = update_topbar) sem criar ciclo de class_name. [PLANO_UI_SHELL_GODOT]
 static var topbar_sink := Callable()
+# Inventory chama após equipar/desequipar → Shell re-busca inventário (índice de comparação + busto 3D),
+# SÓ quando o equip muda (não a cada navegação). Evita request à toa. [PLANO_UI_SHELL_GODOT]
+static var equip_changed_sink := Callable()
 # ── Kit de UI "Stone & Ember" — padrão único das telas internas [PADRAO_UI_GODOT] ──
 # Direção de arte: modelo Fable. Faz toda tela parecer parte do Hub. Tudo estático (igual
 # StoneStyle), com caches. Uso típico no _ready() de uma tela:

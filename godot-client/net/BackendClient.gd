@@ -14,6 +14,10 @@ var base_url := "https://medieval-game-production.up.railway.app"
 ## JWT obtido no login. Enviado como `Authorization: Bearer <token>` nas chamadas autenticadas.
 var token := ""
 
+## Nº de MUTAÇÕES feitas (POST/DELETE bem-sucedidos). O Shell usa pra revalidar telas cacheadas:
+## se nada mudou desde a última visita, revisitar a tela NÃO refaz request. [PLANO_UI_SHELL_GODOT]
+var mutation_count := 0
+
 # ── Pool de conexões keep-alive ────────────────────────────────────────────────
 # Em vez de abrir uma conexão TCP+TLS nova por request (handshake caro a cada chamada),
 # mantemos um POOL de HTTPClient que ficam CONECTADOS e são reusados — igual ao pool
@@ -312,6 +316,8 @@ func _request(method: int, path: String, body: Variant = null, authed := false) 
 			out = {"ok": false, "status": 0, "error": "conexão caiu"}
 			continue
 		break
+	if method != HTTPClient.METHOD_GET and out.get("ok", false):
+		mutation_count += 1   # mutação OK → invalida o cache das telas (revalidam na próxima visita)
 	c.busy = false
 	return out
 
