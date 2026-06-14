@@ -366,15 +366,20 @@ static func show_battle_report(host: Control, won: bool, title: String, reward_r
 			clean.append(s)
 	if not clean.is_empty():
 		var log_box := VBoxContainer.new()
-		log_box.visible = false
-		var toggle := small_btn("📜 Ver log", Callable())
-		toggle.pressed.connect(func() -> void:
-			log_box.visible = not log_box.visible
-			toggle.text = "📜 Ocultar log" if log_box.visible else "📜 Ver log")
-		vb.add_child(toggle)
 		for s in clean:
 			log_box.add_child(dim(str(s)))
-		vb.add_child(log_box)
+		# scroll: cresce até caber log curto; trava em ~300px e rola quando é grande
+		var log_scroll := ScrollContainer.new()
+		log_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+		log_scroll.custom_minimum_size = Vector2(440, mini(clean.size() * 22 + 8, 300))
+		log_scroll.visible = false
+		log_scroll.add_child(log_box)
+		var toggle := small_btn("📜 Ver log", Callable())
+		toggle.pressed.connect(func() -> void:
+			log_scroll.visible = not log_scroll.visible
+			toggle.text = "📜 Ocultar log" if log_scroll.visible else "📜 Ver log")
+		vb.add_child(toggle)
+		vb.add_child(log_scroll)
 	vb.add_child(spacer(4))
 	var ok := action("OK", func() -> void: overlay.queue_free())
 	ok.custom_minimum_size = Vector2(440, 40)
