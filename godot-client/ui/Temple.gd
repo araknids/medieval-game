@@ -121,7 +121,7 @@ func _render_state() -> void:
 		content.add_child(done)
 	else:
 		var cost := int(data.get("healCost", 100))
-		var lbl := "Curar (grátis)" if bool(data.get("healFree", false)) else "Curar (%d🥉)" % cost
+		var lbl := "Curar (grátis)" if bool(data.get("healFree", false)) else "Curar (%s)" % UiKit.coin_str(cost)
 		content.add_child(UiKit.action(lbl, _heal))
 	# VIP heal (CD 10min)
 	if bool(data.get("isVip", false)):
@@ -148,81 +148,93 @@ func _render_buff_options() -> void:
 	if not (buffs is Array) or buffs.is_empty():
 		content.add_child(UiKit.dim("Nenhuma bênção disponível agora."))
 		return
+	var cells: Array = []
 	for b in buffs:
 		if b is Dictionary:
-			content.add_child(_buff_card(b))
+			cells.append(b)
+	content.add_child(UiKit.grid(self, cells, _buff_cell, true))   # grid compacto 2-3 col
 
-func _buff_card(b: Dictionary) -> PanelContainer:
+# Bênção compacta: o botão É a bênção (clica = aplica) + 1 linha de explicação (efeito · custo).
+func _buff_cell(b: Dictionary) -> Control:
 	var res := UiKit.card()
 	var pc: PanelContainer = res[0]
 	var box: VBoxContainer = res[1]
-	var row := HBoxContainer.new()
-	row.add_theme_constant_override("separation", 10)
-	box.add_child(row)
-	var left := VBoxContainer.new()
-	left.add_theme_constant_override("separation", 2)
-	left.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	var nm := Label.new()
-	nm.text = "%s %s" % [str(b.get("icon", "✨")), str(b.get("displayName", b.get("id", "?")))]
-	nm.add_theme_font_size_override("font_size", 16)
-	nm.add_theme_color_override("font_color", UiKit.TEXT)
-	left.add_child(nm)
-	# [MOEDA] custo do buff em ícone pixel-art
-	var bcost := HBoxContainer.new(); bcost.add_theme_constant_override("separation", 4)
-	var bcost_a := UiKit.dim("%s ·" % str(b.get("effect", "")))
-	bcost_a.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	bcost.add_child(bcost_a)
-	bcost.add_child(UiKit.coin_box(int(b.get("bronzeCost", 0)), 14))
-	left.add_child(bcost)
-	row.add_child(left)
-	var rcol := VBoxContainer.new()
-	rcol.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	rcol.add_child(UiKit.small_btn("Abençoar", _apply_buff.bind(str(b.get("id", "")))))
-	row.add_child(rcol)
+	box.add_theme_constant_override("separation", 6)
+	var bname := "%s %s" % [str(b.get("icon", "✨")), str(b.get("displayName", b.get("id", "?")))]
+	var btn := UiKit.action(bname, _apply_buff.bind(str(b.get("id", ""))))
+	btn.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	box.add_child(btn)
+	# explicação numa linha só: efeito · custo (moeda pixel-art [MOEDA])
+	var line := HBoxContainer.new()
+	line.add_theme_constant_override("separation", 5)
+	var eff_txt := str(b.get("effect", ""))
+	if eff_txt != "":
+		var eff := Label.new()
+		eff.text = "%s ·" % eff_txt
+		eff.add_theme_font_size_override("font_size", 12)
+		eff.add_theme_color_override("font_color", UiKit.TEXT_DIM)
+		eff.clip_text = true                                       # nunca quebra/expande o card
+		eff.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		eff.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+		line.add_child(eff)
+	var coin := UiKit.coin_box(int(b.get("bronzeCost", 0)), 14)
+	coin.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	line.add_child(coin)
+	box.add_child(line)
 	return pc
 
 # ── Proteção de itens ──────────────────────────────────────────────────────────
 func _render_protection() -> void:
-	# [MOEDA] custo fixo (50 bronze) em ícone pixel-art
+	# A frase fica num label SOLTO no content (largura cheia → quebra por palavra, normal).
+	# Antes ela morava num HBox e o autowrap do dim() a espremia pra ~1 caractere (quebrava letra-a-letra).
+	content.add_child(UiKit.dim("Itens protegidos não são perdidos em PvP."))
+	# [MOEDA] linha de custo compacta: autowrap OFF nos textos p/ não repetir o bug dentro do HBox.
 	var prot := HBoxContainer.new(); prot.add_theme_constant_override("separation", 4)
-	var prot_a := UiKit.dim("Itens protegidos não são perdidos em PvP. Custo:")
+	var prot_a := UiKit.dim("Custo:")
+	prot_a.autowrap_mode = TextServer.AUTOWRAP_OFF
 	prot_a.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	prot.add_child(prot_a)
-	prot.add_child(UiKit.coin_box(50, 14))
-	var prot_b := UiKit.dim("/item.")
+	var coin := UiKit.coin_box(50, 14)
+	coin.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	prot.add_child(coin)
+	var prot_b := UiKit.dim("/ item")
+	prot_b.autowrap_mode = TextServer.AUTOWRAP_OFF
 	prot_b.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	prot.add_child(prot_b)
 	content.add_child(prot)
 	if equipped.is_empty():
 		content.add_child(UiKit.empty("Nenhum item equipado", "Equipe itens no 🎒 Inventário para protegê-los"))
 		return
-	for it in equipped:
-		content.add_child(_protect_row(it))
+	content.add_child(UiKit.grid(self, equipped, _protect_cell, true))   # grid compacto 2-3 col
 
-func _protect_row(it: Dictionary) -> PanelContainer:
+# Item compacto p/ proteção: nome + status (1 linha) + botão de largura cheia.
+func _protect_cell(it: Dictionary) -> Control:
 	var col := UiKit.rarity_color(int(it.get("rarity", 1)))
 	var res := UiKit.card(col)
 	var pc: PanelContainer = res[0]
 	var box: VBoxContainer = res[1]
-	var row := HBoxContainer.new()
-	row.add_theme_constant_override("separation", 10)
-	box.add_child(row)
+	box.add_theme_constant_override("separation", 6)
 	var nm := Label.new()
 	nm.text = str(it.get("name", "?"))
-	nm.add_theme_font_size_override("font_size", 15)
+	nm.add_theme_font_size_override("font_size", 14)
 	nm.add_theme_color_override("font_color", col)
-	nm.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	row.add_child(nm)
+	nm.clip_text = true                                            # nome longo não estoura o card
+	box.add_child(nm)
 	var id := int(it.get("id", 0))
-	if it.get("guarded", false):
-		var g := Label.new()
-		g.text = "🛡 protegido"
-		g.add_theme_font_size_override("font_size", 13)
-		g.add_theme_color_override("font_color", UiKit.OK)
-		row.add_child(g)
-		row.add_child(UiKit.small_btn("Remover", _unprotect.bind(id), true))
+	var guarded := bool(it.get("guarded", false))
+	var st := Label.new()
+	st.text = "🛡 Protegido" if guarded else "Desprotegido"
+	st.add_theme_font_size_override("font_size", 12)
+	st.add_theme_color_override("font_color", UiKit.OK if guarded else UiKit.TEXT_DIM)
+	box.add_child(st)
+	if guarded:
+		var btn := UiKit.small_btn("Remover", _unprotect.bind(id), true)
+		btn.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		box.add_child(btn)
 	else:
-		row.add_child(UiKit.small_btn("Proteger", _protect.bind(id)))
+		var btn := UiKit.small_btn("Proteger", _protect.bind(id))
+		btn.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		box.add_child(btn)
 	return pc
 
 # ── Ações: await DIRETO na API; trata o resultado e re-sincroniza ───────────────

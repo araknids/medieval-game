@@ -148,9 +148,4 @@ func _do(r: Variant, default_msg: String) -> void:
 
 # ── helpers de UI ─────────────────────────────────────────────────────────────────
 func _fmt_bronze(n: int) -> String:
-	# 100 bronze = 1 prata, 100 prata = 1 ouro. Mostra a moeda mais alta cabível.
-	if n >= 10000:
-		return "%d🥇" % (n / 10000)
-	if n >= 100:
-		return "%d🥈" % (n / 100)
-	return "%d🥉" % n
+	return UiKit.coin_str(n)   # [MOEDA] ouro/prata/bronze por extenso (distinguível em texto)

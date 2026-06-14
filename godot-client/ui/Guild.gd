@@ -514,14 +514,7 @@ func _fmt_time(secs: int) -> String:
 	return "%d s" % s
 
 func _fmt_bronze(total: int) -> String:
-	var gold := total / 10000
-	var silver := (total % 10000) / 100
-	var bronze := total % 100
-	var parts: Array = []
-	if gold > 0: parts.append("%d🥇" % gold)
-	if silver > 0: parts.append("%d🥈" % silver)
-	if bronze > 0 or parts.is_empty(): parts.append("%d🥉" % bronze)
-	return " ".join(parts)
+	return UiKit.coin_str(total)   # [MOEDA] ouro/prata/bronze por extenso (distinguível em texto)
 
 func _spin() -> SpinBox:
 	var s := SpinBox.new()
