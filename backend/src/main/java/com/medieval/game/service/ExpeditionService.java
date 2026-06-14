@@ -64,6 +64,7 @@ public class ExpeditionService {
     private final KingdomQuestNarrator    narrator;
     private final WorkSessionRepository   workSessionRepository;
     private final ObjectMapper            objectMapper;
+    private final Messages                messages;       // [I18N] narrativas da run por idioma
 
     @Value("${app.dev.instant-complete:false}")
     private boolean instantComplete;
@@ -122,7 +123,8 @@ public class ExpeditionService {
         ExpeditionRun saved = expeditionRepo.save(run); // precisa do id p/ seed determinístico
 
         saved.setSeed(saved.getId());
-        ExpeditionMapGenerator.Map map = ExpeditionMapGenerator.generate(saved.getId(), depth, tier);
+        // [VIP] perk: +1 nó de TESOURO garantido na run (rehome do antigo "+1 daily"). + −20% estamina no staminaCost.
+        ExpeditionMapGenerator.Map map = ExpeditionMapGenerator.generate(saved.getId(), depth, tier, player.isVip() ? 1 : 0);
         saved.setMapJson(writeMap(map));
         saved = expeditionRepo.save(saved);
         log.info("[ExpeditionService] player={} START source={} tier={} depth={} runId={}",
@@ -183,7 +185,7 @@ public class ExpeditionService {
                 expeditionRepo.save(run);
                 return new ChooseResult(run, ExpeditionNodeType.EVENT, true, questName,
                         List.of(), null, null, 0, 0, false, List.of(), List.of(),
-                        "You come upon something that demands a choice.", null, false);
+                        messages.getOr("delve.node.event", "You come upon something that demands a choice."), null, false);
             }
             // sem quest interativa p/ o reino → cai como tesouro
         }
@@ -197,7 +199,7 @@ public class ExpeditionService {
             expeditionRepo.save(run);
             return new ChooseResult(run, ExpeditionNodeType.CAMP, false, null, banked.bankedResources(),
                     null, null, 0, 0, false, List.of(), List.of(),
-                    "You make camp. Your wounds close and your haul is secured.", null, canExtract(run));
+                    messages.getOr("delve.node.camp", "You make camp. Your wounds close and your haul is secured."), null, canExtract(run));
         }
 
         NodeResolution res = resolveNonEventNode(run, player, warrior, node);
@@ -256,9 +258,9 @@ public class ExpeditionService {
                 if (trapEnabled && rng.nextInt(100) < 25) {
                     yield resolveBattleNode(run, player, warrior, node);
                 }
-                yield resolveLootOnly(run, player, warrior, node, 90, "You crack open the chest.");
+                yield resolveLootOnly(run, player, warrior, node, 90, messages.getOr("delve.node.treasure", "You crack open the chest."));
             }
-            default -> resolveLootOnly(run, player, warrior, node, 30, "You press on.");
+            default -> resolveLootOnly(run, player, warrior, node, 30, messages.getOr("delve.node.advance", "You press on."));
         };
     }
 
@@ -300,14 +302,16 @@ public class ExpeditionService {
         res.log = lg; res.events = out.events(); res.monsterName = monsterName;
         if (!out.firstWon() || warrior.isKnockedOut()) {
             res.ko = true;
-            res.narrative = boss ? "The boss overwhelms you. The Delve ends here." : "You fall in battle.";
+            res.narrative = boss ? messages.getOr("delve.node.boss_ko", "The boss overwhelms you. The Delve ends here.")
+                                 : messages.getOr("delve.node.ko", "You fall in battle.");
             return res;
         }
         // vitória → recompensa (escala com o nível do monstro + tier; boss = bônus + item garantido)
         double mult = tierMult(run.getTier()) * (boss ? 3.0 : node.type() == ExpeditionNodeType.ELITE ? 1.6 : 1.0);
         grantRewards(run, player, warrior, res, monsterLevel, mult, mult,
                 boss ? 100 : node.type() == ExpeditionNodeType.ELITE ? 45 : 25, boss);
-        res.narrative = boss ? "The boss falls. The deepest chamber is yours." : "Victory! You loot the fallen.";
+        res.narrative = boss ? messages.getOr("delve.node.boss_win", "The boss falls. The deepest chamber is yours.")
+                             : messages.getOr("delve.node.victory", "Victory! You loot the fallen.");
         return res;
     }
 
@@ -523,7 +527,7 @@ public class ExpeditionService {
         log.info("[ExpeditionService] player={} EXTRACT runId={} bronze={} xp={} kept={} mailed={}",
                 player.getId(), runId, banked.bronzeBanked(), banked.xpBanked(), banked.keptItems(), banked.mailedItems());
         return new ExtractResult(run, banked.bronzeBanked(), banked.xpBanked(), banked.bankedResources(),
-                banked.keptItems(), banked.mailedItems(), "You extract from the Delve, loot in hand.");
+                banked.keptItems(), banked.mailedItems(), messages.getOr("delve.extract", "You extract from the Delve, loot in hand."));
     }
 
     @Transactional
@@ -540,7 +544,7 @@ public class ExpeditionService {
         run.setResolvedAt(LocalDateTime.now());
         expeditionRepo.save(run);
         log.info("[ExpeditionService] player={} ABANDON runId={}", player.getId(), runId);
-        return new ExtractResult(run, 0, 0, List.of(), 0, 0, "You leave the Delve empty-handed.");
+        return new ExtractResult(run, 0, 0, List.of(), 0, 0, messages.getOr("delve.abandon", "You leave the Delve empty-handed."));
     }
 
     /** KO no meio da run: perde a bolsa não-travada + KO (HP já zerado na batalha). */

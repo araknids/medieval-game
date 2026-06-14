@@ -31,12 +31,20 @@ public final class ExpeditionMapGenerator {
      * última = BOSS; 2-3 nós por camada intermediária; pesos por camada/tier.
      */
     public static Map generate(long seed, int depth, int tier) {
+        return generate(seed, depth, tier, 0);
+    }
+
+    /**
+     * Como {@link #generate(long, int, int)} mas injeta {@code bonusTreasure} nós de TESOURO extras numa
+     * camada intermediária (perk VIP: +1 baú garantido por run). [VIP][INCURSAO]
+     */
+    public static Map generate(long seed, int depth, int tier, int bonusTreasure) {
         int d = Math.max(2, depth);
         int t = Math.max(1, tier);
         Random rng = new Random(seed);
         int mid = d / 2;
 
-        List<Layer> layers = new ArrayList<>(d);
+        List<List<Node>> raw = new ArrayList<>(d);
         for (int layer = 0; layer < d; layer++) {
             List<Node> nodes = new ArrayList<>();
             if (layer == d - 1) {
@@ -54,7 +62,22 @@ public final class ExpeditionMapGenerator {
                     nodes.add(new Node(nodeId(layer, i), type, bumpFor(type, layer, t)));
                 }
             }
-            layers.add(new Layer(layer, List.copyOf(nodes)));
+            raw.add(nodes);
+        }
+
+        // [VIP] baú(s) extra(s): camada intermediária (1..d-2), sem lotar (máx 4 nós/camada).
+        for (int b = 0; b < bonusTreasure && d > 2; b++) {
+            int layer = 1 + rng.nextInt(d - 2);
+            List<Node> nodes = raw.get(layer);
+            if (nodes.size() < 4) {
+                nodes.add(new Node(nodeId(layer, nodes.size()), ExpeditionNodeType.TREASURE,
+                        bumpFor(ExpeditionNodeType.TREASURE, layer, t)));
+            }
+        }
+
+        List<Layer> layers = new ArrayList<>(d);
+        for (int layer = 0; layer < d; layer++) {
+            layers.add(new Layer(layer, List.copyOf(raw.get(layer))));
         }
         return new Map(d, t, List.copyOf(layers));
     }

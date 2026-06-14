@@ -241,9 +241,16 @@ balance.
   de nós clicável, HUD carregado/garantido, replay de batalha 3D via `request_battle`, modais de
   evento/resultado reusando UiKit). Registrada na nav do Shell (Aventura) + métodos no `BackendClient`
   (`expedition_*`). ⏳ Falta só riqueza extra de nós (loja na run, eventos do catálogo mais ricos).
-- **Fase 4** — ⏳ Tuning/balance; remoção limpa do daily-lock (hoje a Incursão é aditiva, não removeu o
-  fluxo de quest/zona antigo); rehome do perk VIP (hoje só −20% estamina no start); i18n PT dos
-  textos de narrativa do backend (hoje EN inline).
+- **Fase 4** — parcial (2026-06-14):
+  - ✅ **i18n PT** das narrativas + erros da Incursão (`delve.*` + `error.expedition_*`/`error.knocked_out`
+    em `messages_pt.properties`; EN inline via `messages.getOr`/`LocalizedException`).
+  - ✅ **Perk VIP**: +1 nó de TESOURO garantido por run (`ExpeditionMapGenerator.generate(...,bonusTreasure)`,
+    `player.isVip()?1:0`) + −20% estamina no start. Rehome do antigo "+1 daily".
+  - ✅ **Guard tests** de balance (boss é o nó mais forte; VIP = +1 baú). Números seguem placeholders p/ playtest.
+  - ⏸ **HOLD — remoção do daily-lock / quest→Incursão:** muda a economia viva (quest viraria farm repetível),
+    reescreve testes deliberados (`dailyQuest_lockedAfterSuccessInSameWindow`, "VIP 2× daily") e **conflita com
+    a retenção** [DAILY_QUESTS]/PLANO_RETENCAO_NOVATO. §12.2 aprovou em tese, mas por mexer no loop vivo +
+    churn de teste, segurei p/ confirmação explícita (faço em seguida se o dono topar).
 
 > **Nota de escopo (aditivo):** a Incursão foi adicionada como **nova aba**, sem remover os fluxos
 > antigos de quest (`/api/world/.../quests`) nem de zona (`/api/zones`). A migração "quest/zona viram

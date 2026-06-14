@@ -60,4 +60,28 @@ class ExpeditionMapGeneratorTest {
                 .anyMatch(n -> n.type() == ExpeditionNodeType.CAMP);
         assertTrue(hasCamp, "run longa deve ter ao menos 1 CAMP (checkpoint)");
     }
+
+    @Test
+    void vipBonusTreasureAddsExactlyOneChest() {
+        // [VIP] +1 baú garantido: o perk acrescenta exatamente 1 nó de TESOURO (mesmo seed/depth/tier).
+        long seed = 55L;
+        int base = countType(ExpeditionMapGenerator.generate(seed, 4, 2, 0), ExpeditionNodeType.TREASURE);
+        int vip  = countType(ExpeditionMapGenerator.generate(seed, 4, 2, 1), ExpeditionNodeType.TREASURE);
+        assertEquals(base + 1, vip, "VIP deve ganhar +1 baú");
+    }
+
+    @Test
+    void bossIsTheStrongestNode() {
+        // Invariante de balance: o CHEFE escala mais que qualquer nó normal (mais fundo = mais forte = pico no boss).
+        Map m = ExpeditionMapGenerator.generate(12L, 5, 3);
+        Node boss = m.layers().get(m.layers().size() - 1).nodes().get(0);
+        int maxNormal = m.layers().stream().flatMap(l -> l.nodes().stream())
+                .filter(n -> n.type() != ExpeditionNodeType.BOSS)
+                .mapToInt(Node::monsterLevelBump).max().orElse(0);
+        assertTrue(boss.monsterLevelBump() > maxNormal, "o chefe deve ser o nó mais forte da run");
+    }
+
+    private static int countType(Map m, ExpeditionNodeType t) {
+        return (int) m.layers().stream().flatMap(l -> l.nodes().stream()).filter(n -> n.type() == t).count();
+    }
 }
