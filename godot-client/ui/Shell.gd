@@ -46,6 +46,7 @@ var _hp_lbl: Label
 var _stam_bar: ProgressBar
 var _stam_lbl: Label
 var _coins: Dictionary = {}     # key -> Label
+var _stat_lbls: Dictionary = {}  # store_key -> Label do valor (ATK/DEF/HP/EVA no topbar) [TOPBAR]
 var _buffs_box: HBoxContainer    # badges dos buffs ativos (templo/vip/refeição/encanto/novato/taverna)
 var _nav_buttons: Dictionary = {}   # nome da tela -> Button (destaque do ativo)
 var _cache := {}        # nome da tela → node (MANTIDA em memória; alterna visibilidade, não recria)
@@ -134,7 +135,9 @@ func _build_topbar() -> Control:
 	_xp_lbl.add_theme_font_size_override("font_size", 11)
 	_xp_lbl.add_theme_color_override("font_color", UiKit.TEXT_DIM)
 	idv.add_child(_xp_lbl)
-	# espaçador
+	# stats de combate preenchendo o espaço vazio entre identidade e vitais [TOPBAR]
+	row.add_child(_build_statbox())
+	# espaçador (mantém vitais/moedas/buffs à direita)
 	var spacer := Control.new(); spacer.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	row.add_child(spacer)
 	# HP + estamina
@@ -179,6 +182,43 @@ func _coin(key: String) -> HBoxContainer:
 	l.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	h.add_child(l)
 	_coins[key] = l
+	return h
+
+# [TOPBAR] Bloco de stats de combate (preenche o vazio do topbar): ATK/DEF/HP efetivos + esquiva.
+func _build_statbox() -> VBoxContainer:
+	var box := VBoxContainer.new()
+	box.add_theme_constant_override("separation", 2)
+	box.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	var r1 := HBoxContainer.new(); r1.add_theme_constant_override("separation", 14)
+	r1.add_child(_stat_chip("slot_weapon", "ATK", "atk", "Ataque efetivo de combate (base + gear + buffs + skills + postura + pet + taverna)"))
+	r1.add_child(_stat_chip("slot_shield", "DEF", "def", "Defesa efetiva — mitiga o dano recebido"))
+	box.add_child(r1)
+	var r2 := HBoxContainer.new(); r2.add_theme_constant_override("separation", 14)
+	r2.add_child(_stat_chip("hp", "HP", "hp", "Vida máxima efetiva de combate (com buffs/pet)"))
+	r2.add_child(_stat_chip("attr_agility", "EVA", "eva", "Esquiva — chance de evitar o golpe (DEX/AGI + buffs)"))
+	box.add_child(r2)
+	return box
+
+# Chip "[ícone] RÓTULO valor" — guarda o Label de valor em _stat_lbls[store_key] (atualizado em update_topbar).
+func _stat_chip(icon_key: String, label: String, store_key: String, tip: String) -> HBoxContainer:
+	var h := HBoxContainer.new(); h.add_theme_constant_override("separation", 4)
+	h.tooltip_text = tip
+	h.mouse_filter = Control.MOUSE_FILTER_STOP
+	if Icons.tex(icon_key) != null:
+		var ic := Icons.rect(icon_key, 18)
+		h.add_child(ic)
+	var lk := Label.new(); lk.text = label
+	lk.add_theme_font_size_override("font_size", 11)
+	lk.add_theme_color_override("font_color", UiKit.TEXT_DIM)
+	lk.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	h.add_child(lk)
+	var lv := Label.new(); lv.text = "0"
+	lv.add_theme_font_size_override("font_size", 13)
+	lv.add_theme_color_override("font_color", UiKit.TEXT)
+	lv.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	lv.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	h.add_child(lv)
+	_stat_lbls[store_key] = lv
 	return h
 
 func _mini_bar(fill: Color, w: int) -> ProgressBar:
@@ -463,6 +503,11 @@ func update_topbar(w: Dictionary) -> void:
 	for key in _coins:
 		var field: String = "soulStones" if key == "soulstone" else str(key)
 		_coins[key].text = str(int(w.get(field, 0)))
+	# [TOPBAR] stats de combate (efetivos)
+	if _stat_lbls.has("atk"): _stat_lbls["atk"].text = str(int(w.get("combatAttack", w.get("totalAttack", 0))))
+	if _stat_lbls.has("def"): _stat_lbls["def"].text = str(int(w.get("combatDefense", w.get("totalDefense", 0))))
+	if _stat_lbls.has("hp"): _stat_lbls["hp"].text = str(int(w.get("combatHealth", w.get("totalHealth", 0))))
+	if _stat_lbls.has("eva"): _stat_lbls["eva"].text = "%d%%" % int(w.get("evasionChance", 0))
 	_refresh_buffs(w)
 
 # Badges dos buffs ATIVOS na topbar (com tooltip de nome + tempo). Reconstrói a cada update.
@@ -482,15 +527,15 @@ func _refresh_buffs(w: Dictionary) -> void:
 		_buffs_box.add_child(_buff_badge(meal, "Bem Alimentado: %s — %s" % [meal, _fmt_left(int(w.get("mealBuffSecondsLeft", 0)))]))
 	var we := str(w.get("weaponElement", ""))
 	if we != "":
-		_buffs_box.add_child(_buff_badge("%s⚔" % _elem_icon(we), "Arma encantada (%s): ±25%% por elemento — %s" % [we, _fmt_left(int(w.get("weaponElementSecondsLeft", 0)))]))
+		_buffs_box.add_child(_buff_badge_icon("elem_" + we.to_lower(), "⚔", "Arma encantada (%s): ±25%% por elemento — %s" % [we, _fmt_left(int(w.get("weaponElementSecondsLeft", 0)))]))
 	var ae := str(w.get("armorElement", ""))
 	if ae != "":
-		_buffs_box.add_child(_buff_badge("%s🛡" % _elem_icon(ae), "Armadura encantada (%s): ±25%% por elemento — %s" % [ae, _fmt_left(int(w.get("armorElementSecondsLeft", 0)))]))
+		_buffs_box.add_child(_buff_badge_icon("elem_" + ae.to_lower(), "🛡", "Armadura encantada (%s): ±25%% por elemento — %s" % [ae, _fmt_left(int(w.get("armorElementSecondsLeft", 0)))]))
 	if bool(w.get("newbieBuffActive", false)):
 		_buffs_box.add_child(_buff_badge("🐣", "Buff de Novato: estamina e HP regeneram 4× mais rápido — %dh restantes" % int(w.get("newbieBuffHoursLeft", 0))))
 	var tav := float(w.get("tavernBuffPct", 0.0))
 	if tav > 0.0:
-		_buffs_box.add_child(_buff_badge("🍺+%.2f%%" % tav, "Buff da Taverna: +%.2f%% em TODOS os stats — %s" % [tav, _fmt_left(int(w.get("tavernBuffSecondsLeft", 0)))]))
+		_buffs_box.add_child(_buff_badge_icon("tavern", "+%.2f%%" % tav, "Buff da Taverna: +%.2f%% em TODOS os stats — %s" % [tav, _fmt_left(int(w.get("tavernBuffSecondsLeft", 0)))]))
 
 func _buff_badge(text: String, tip: String) -> Control:
 	var pc := PanelContainer.new()
@@ -507,6 +552,29 @@ func _buff_badge(text: String, tip: String) -> Control:
 	l.add_theme_color_override("font_color", UiKit.GOLD)
 	l.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	pc.add_child(l)
+	return pc
+
+# [TOPBAR] Badge de buff com ÍCONE pixel-art + texto. Cai no texto-só se o ícone não existir (fallback limpo).
+func _buff_badge_icon(key: String, text: String, tip: String) -> Control:
+	var pc := PanelContainer.new()
+	pc.tooltip_text = tip
+	pc.mouse_filter = Control.MOUSE_FILTER_STOP
+	var sb := StyleBoxFlat.new()
+	sb.bg_color = Color(0.12, 0.11, 0.08, 0.95)
+	sb.border_color = UiKit.GOLD_SOFT; sb.set_border_width_all(1)
+	sb.set_corner_radius_all(3); sb.set_content_margin_all(4)
+	pc.add_theme_stylebox_override("panel", sb)
+	var h := HBoxContainer.new(); h.add_theme_constant_override("separation", 3)
+	h.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	if Icons.tex(key) != null:
+		h.add_child(Icons.rect(key, 16))
+	if text != "":
+		var l := Label.new(); l.text = text
+		l.add_theme_font_size_override("font_size", 12)
+		l.add_theme_color_override("font_color", UiKit.GOLD)
+		l.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		h.add_child(l)
+	pc.add_child(h)
 	return pc
 
 func _elem_icon(e: String) -> String:
