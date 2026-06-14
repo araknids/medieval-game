@@ -349,10 +349,10 @@ func _confirm_disband() -> void:
 	UiKit.confirm(self, "Dissolver a guilda PERMANENTEMENTE? Todos os membros são expulsos.", "💀 Dissolver", func() -> void: await _disband())
 
 func _confirm_kick(pid: int, who: String) -> void:
-	UiKit.confirm(self, "Expulsar %s da guilda?" % who, "Expulsar", func() -> void: await _kick(pid))
+	UiKit.confirm(self, Lang.t("Expulsar %s da guilda?") % who, "Expulsar", func() -> void: await _kick(pid))
 
 func _confirm_transfer(pid: int, who: String) -> void:
-	UiKit.confirm(self, "Transferir a liderança para %s? Você deixa de ser líder." % who, "Transferir", func() -> void: await _transfer(pid), false)
+	UiKit.confirm(self, Lang.t("Transferir a liderança para %s? Você deixa de ser líder.") % who, "Transferir", func() -> void: await _transfer(pid), false)
 
 func _confirm_declare(guild_id: int) -> void:
 	UiKit.confirm(self, "Declarar guerra de 7 dias?", "Declarar", func() -> void: await _do_declare(guild_id))
