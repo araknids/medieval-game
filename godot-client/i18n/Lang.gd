@@ -499,6 +499,10 @@ static func _register() -> void:
 	pt.locale = "pt"
 	for k in PT_OVERRIDE:
 		_add(pt, k, PT_OVERRIDE[k])
+	# [I18N FIX] No locale "pt" cada chave (o literal PT do código) traduz pra ELA MESMA. Sem isso o
+	# Godot cai no fallback "en" pras chaves sem tradução "pt" → mostra INGLÊS mesmo com idioma=Português.
+	for k in EN:
+		_add(pt, k, k)
 	TranslationServer.add_translation(pt)
 
 # Adiciona a mensagem + a variante MAIÚSCULA (UiKit.section/scaffold fazem to_upper no texto exibido).
