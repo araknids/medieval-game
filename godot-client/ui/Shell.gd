@@ -19,6 +19,29 @@ const COIN_TIPS := {
 }
 const ELEM_ICONS := {"FIRE": "🔥", "WATER": "💧", "EARTH": "🪨", "AIR": "💨"}
 
+# Tooltips (hover) de CADA item do menu lateral — explicam o que cada tela faz. [MENUBAR_HOVER]
+const NAV_TIPS := {
+	"World": "Mundo — missões, coleta, caça e zonas dos reinos",
+	"Work": "Trabalho — atividade idle por profissão (XP + bronze)",
+	"Temple": "Templo — cura HP, bênçãos e proteção de itens",
+	"Tower": "Torre — andares com chefes escalonados",
+	"Arena": "Arena — duelos PvP por ranking",
+	"Territory": "Território — guerra de guilda por território",
+	"Shop": "Loja — itens em rotação, por raridade",
+	"Forge": "Forja — refino, craft, joias e encantamento",
+	"Auction": "Leilão — mercado entre jogadores (preço fixo)",
+	"Stash": "Baú — guarda itens e recursos fora da mochila",
+	"Tavern": "Taverna — beba por buff + chat global",
+	"Vip": "VIP — vantagens premium (SoulStone)",
+	"Character": "Personagem — stats, atributos e ficha",
+	"Inventory": "Inventário — equipar, vender, sockets",
+	"Abilities": "Habilidades — árvore de talentos da classe",
+	"Achievements": "Conquistas — marcos e títulos",
+	"Guild": "Guilda — membros, tesouro e guerra",
+	"Mail": "Correio — mensagens, itens e recompensas",
+	"Daily": "Diário — recompensa de login (ciclo de 7 dias)",
+}
+
 # Nav em árvore: [seção, [[tela, rótulo], ...]] — o ícone vem de "<tela em minúsculo>.png".
 const SECTIONS := [
 	["Aventura",   [["World", "Mundo"], ["Work", "Trabalho"], ["Temple", "Templo"]]],
@@ -197,6 +220,15 @@ func _build_statbox() -> VBoxContainer:
 	r2.add_child(_stat_chip("hp", "HP", "hp", "Vida máxima efetiva de combate (com buffs/pet)"))
 	r2.add_child(_stat_chip("attr_agility", "EVA", "eva", "Esquiva — chance de evitar o golpe (DEX/AGI + buffs)"))
 	box.add_child(r2)
+	# linha 3: ATRIBUTOS (só ícone + valor; nome no hover) [TOPBAR]
+	var r3 := HBoxContainer.new(); r3.add_theme_constant_override("separation", 10)
+	r3.add_child(_stat_chip("attr_strength", "", "str", "Força (STR) — dano corpo-a-corpo"))
+	r3.add_child(_stat_chip("attr_dexterity", "", "dex", "Destreza (DEX) — acerto + dano de arco"))
+	r3.add_child(_stat_chip("attr_constitution", "", "con", "Constituição (CON) — +8 HP por ponto"))
+	r3.add_child(_stat_chip("attr_agility", "", "agi", "Agilidade (AGI) — golpe extra + esquiva"))
+	r3.add_child(_stat_chip("attr_luck", "", "luk", "Sorte (LUK) — crítico"))
+	r3.add_child(_stat_chip("attr_intellect", "", "int", "Intelecto (INT) — reservado (Mago)"))
+	box.add_child(r3)
 	return box
 
 # Chip "[ícone] RÓTULO valor" — guarda o Label de valor em _stat_lbls[store_key] (atualizado em update_topbar).
@@ -207,11 +239,12 @@ func _stat_chip(icon_key: String, label: String, store_key: String, tip: String)
 	if Icons.tex(icon_key) != null:
 		var ic := Icons.rect(icon_key, 18)
 		h.add_child(ic)
-	var lk := Label.new(); lk.text = label
-	lk.add_theme_font_size_override("font_size", 11)
-	lk.add_theme_color_override("font_color", UiKit.TEXT_DIM)
-	lk.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	h.add_child(lk)
+	if label != "":   # atributos só com ícone (nome no hover) ficam mais compactos
+		var lk := Label.new(); lk.text = label
+		lk.add_theme_font_size_override("font_size", 11)
+		lk.add_theme_color_override("font_color", UiKit.TEXT_DIM)
+		lk.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		h.add_child(lk)
 	var lv := Label.new(); lv.text = "0"
 	lv.add_theme_font_size_override("font_size", 13)
 	lv.add_theme_color_override("font_color", UiKit.TEXT)
@@ -274,11 +307,13 @@ func _build_nav() -> Control:
 	# LUTAR (ação destacada)
 	var fight := _stone_btn("LUTAR", 44)
 	Icons.set_icon(fight, "arena")
+	fight.tooltip_text = "Lutar — entra na batalha 3D"   # [MENUBAR_HOVER]
 	fight.add_theme_font_size_override("font_size", 18)
 	fight.pressed.connect(func() -> void: get_tree().change_scene_to_file("res://BattleReplay.tscn"))
 	nav.add_child(fight)
 	# Início (dashboard)
 	var home := _stone_btn("🏠  Início", 38)
+	home.tooltip_text = "Início — painel inicial com atalhos"   # [MENUBAR_HOVER]
 	home.pressed.connect(_show_dashboard)
 	_nav_buttons["__home__"] = home
 	nav.add_child(home)
@@ -300,6 +335,7 @@ func _build_nav() -> Control:
 			items.add_child(_nav_item(str(entry[0]), str(entry[1])))
 	nav.add_child(_spacer(10))
 	var out := _stone_btn("Sair", 36)
+	out.tooltip_text = "Sair — desconecta da conta"   # [MENUBAR_HOVER]
 	out.pressed.connect(func() -> void: logout.emit())
 	nav.add_child(out)
 	return pc
@@ -311,6 +347,7 @@ func _nav_item(scr: String, label: String) -> Button:
 	b.custom_minimum_size = Vector2(0, 34)
 	b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	Icons.label_button(b, scr.to_lower(), label)
+	b.tooltip_text = str(NAV_TIPS.get(scr, label))   # [MENUBAR_HOVER] hover explica a tela
 	b.add_theme_font_size_override("font_size", 14)
 	b.pressed.connect(func() -> void: _open(scr))
 	_nav_buttons[scr] = b
@@ -508,6 +545,9 @@ func update_topbar(w: Dictionary) -> void:
 	if _stat_lbls.has("def"): _stat_lbls["def"].text = str(int(w.get("combatDefense", w.get("totalDefense", 0))))
 	if _stat_lbls.has("hp"): _stat_lbls["hp"].text = str(int(w.get("combatHealth", w.get("totalHealth", 0))))
 	if _stat_lbls.has("eva"): _stat_lbls["eva"].text = "%d%%" % int(w.get("evasionChance", 0))
+	# atributos (valores crus alocados)
+	for pair in [["str", "strength"], ["dex", "dexterity"], ["con", "constitution"], ["agi", "agility"], ["luk", "luck"], ["int", "intellect"]]:
+		if _stat_lbls.has(pair[0]): _stat_lbls[pair[0]].text = str(int(w.get(pair[1], 0)))
 	_refresh_buffs(w)
 
 # Badges dos buffs ATIVOS na topbar (com tooltip de nome + tempo). Reconstrói a cada update.
