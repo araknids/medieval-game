@@ -273,6 +273,17 @@ const EN := {
 	"Vender": "Sell", "Vender %s?": "Sell %s?", "Vendido!": "Sold!", "Comprado!": "Bought!",
 	"✔ Comprado": "✔ Bought",
 	"🛒 Próxima rotação em %dh %02dm %02ds": "🛒 Next rotation in %dh %02dm %02ds",
+	# — World / zonas / quests / resultados —
+	"⚔ Expedição em andamento (%s)": "⚔ Expedition in progress (%s)",
+	"⚔ Caçar · ⚡%d": "⚔ Hunt · ⚡%d", "⛏ Minerar · ⚡%d": "⛏ Mine · ⚡%d",
+	"🔎 Garimpar · ⚡%d": "🔎 Pan · ⚡%d", "🎣 Pescar · ⚡%d": "🎣 Fish · ⚡%d",
+	"🏋 Treino completo! +%d XP": "🏋 Training complete! +%d XP",
+	"🎉 Novo companheiro: %s!": "🎉 New companion: %s!",
+	"💀 Derrotado por %s — sem recompensa.": "💀 Defeated by %s — no reward.",
+	"⚔ %s derrotado!": "⚔ %s defeated!",
+	"(por %s)": "(by %s)", "item roubado: %s": "item stolen: %s",
+	"💀 %s (Lv %d) escapou da Torre e bloqueou sua expedição!\n\n⚔ Encarar = combate.   🏃 Fugir = %d%% (se falhar, cai na luta).": "💀 %s (Lv %d) escaped the Tower and blocked your expedition!\n\n⚔ Face it = combat.   🏃 Flee = %d%% (fail and you fall into the fight).",
+	"📜 Começar": "📜 Begin",
 }
 
 # Literais que JÁ estão em inglês no código (nomes de zona etc.) → tradução PT p/ o locale "pt".

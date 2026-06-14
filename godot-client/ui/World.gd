@@ -117,7 +117,7 @@ func _open(kingdom: String) -> void:
 	if kingdom == "":
 		return
 	open_kingdom = kingdom
-	UiKit.flash(status, "Abrindo %s…" % kingdom, 0)
+	UiKit.flash(status, Lang.t("Abrindo %s…") % kingdom, 0)
 	# dispara tudo em PARALELO (independentes); training só no COMBAT — máx. 4 = cabe no pool
 	var has_training := kingdom == "COMBAT"
 	var paths := ["/api/world/%s/quests" % kingdom, "/api/world/%s/quests/active" % kingdom, "/api/zones/current"]
@@ -297,7 +297,7 @@ func _render_detail(kingdom: String) -> void:
 	var cg := str(k.get("controllingGuild", ""))
 	content.add_child(UiKit.dim(("🛡 " + cg) if cg != "" else "Neutro"))
 	if bool(k.get("isMine", false)):
-		content.add_child(UiKit.dim("Sua guilda: +%d%% XP · +%d%% bronze · +%d%% bônus" % [int(k.get("xpBonus", 0)), int(k.get("bronzeBonus", 0)), int(k.get("exclusiveBonus", 0))]))
+		content.add_child(UiKit.dim(Lang.t("Sua guilda: +%d%% XP · +%d%% bronze · +%d%% bônus") % [int(k.get("xpBonus", 0)), int(k.get("bronzeBonus", 0)), int(k.get("exclusiveBonus", 0))]))
 	var lore_text := str(k.get("lore", ""))
 	if lore_text != "":
 		content.add_child(UiKit.dim(lore_text))
@@ -316,7 +316,7 @@ func _build_detail(box: VBoxContainer, kingdom: String) -> void:
 	if zone_session.get("active", false):
 		var zname := str(zone_session.get("zoneName", zone_session.get("zone", "")))
 		var ready := bool(zone_session.get("readyToCollect", false))
-		box.add_child(UiKit.dim("⚔ Expedição em andamento (%s)" % zname))
+		box.add_child(UiKit.dim(Lang.t("⚔ Expedição em andamento (%s)") % Lang.t(zname)))
 		if ready:
 			box.add_child(UiKit.action("Coletar loot", _collect_zone.bind(int(zone_session.get("id", 0)))))
 		else:
@@ -365,7 +365,7 @@ func _build_detail(box: VBoxContainer, kingdom: String) -> void:
 func _build_training(box: VBoxContainer) -> void:
 	box.add_child(UiKit.section("🏋 Training Hall"))
 	if training.get("active", false):
-		box.add_child(UiKit.dim("+%d XP — coletar" % int(training.get("xpReward", 0))))
+		box.add_child(UiKit.dim(Lang.t("+%d XP — coletar") % int(training.get("xpReward", 0))))
 		if bool(training.get("readyToCollect", false)):
 			box.add_child(UiKit.action("⭐ Coletar XP", _collect_training.bind(int(training.get("id", 0)))))
 		box.add_child(UiKit.action_danger("✖ Cancelar", _cancel_training.bind(int(training.get("id", 0)))))
@@ -452,7 +452,7 @@ func _zone_card(kingdom: String, z: Array) -> PanelContainer:
 	var stam := maxi(5, ZONE_DURATION / 2)
 	if locked:
 		# P0: gate visível na própria ação (botão desabilitado diz POR QUE)
-		var b := UiKit.action("Requer Nv %d" % min_lv, Callable())
+		var b := UiKit.action(Lang.t("Requer Nv %d") % min_lv, Callable())
 		b.disabled = true
 		vb.add_child(b)
 	elif _has_active_task():
@@ -467,13 +467,13 @@ func _zone_card(kingdom: String, z: Array) -> PanelContainer:
 	else:
 		var verb: String
 		if kingdom == "COMBAT":
-			verb = "⚔ Caçar · ⚡%d" % stam
+			verb = Lang.t("⚔ Caçar · ⚡%d") % stam
 		elif skill == "MINING":
-			verb = "⛏ Minerar · ⚡%d" % stam
+			verb = Lang.t("⛏ Minerar · ⚡%d") % stam
 		elif skill == "GARIMPO":
-			verb = "🔎 Garimpar · ⚡%d" % stam
+			verb = Lang.t("🔎 Garimpar · ⚡%d") % stam
 		else:
-			verb = "🎣 Pescar · ⚡%d" % stam
+			verb = Lang.t("🎣 Pescar · ⚡%d") % stam
 		var role := "COMBAT" if kingdom == "COMBAT" else "GATHERING"
 		vb.add_child(UiKit.action(verb, _enter_zone.bind(kingdom, tier, role, skill)))
 	return panel
@@ -649,7 +649,7 @@ func _collect_training(session_id: int) -> void:
 	var r = await Api.training_collect(session_id)
 	var msg := ""
 	if r.get("ok") and r.get("json") is Dictionary:
-		msg = "🏋 Treino completo! +%d XP" % int(r["json"].get("xpEarned", 0))
+		msg = Lang.t("🏋 Treino completo! +%d XP") % int(r["json"].get("xpEarned", 0))
 	else:
 		_show_error(r)
 	busy = false
@@ -717,7 +717,7 @@ func _show_boss_dialog(activity_id: int, j: Dictionary) -> void:
 	var bname := str(j.get("bossName", "Chefe"))
 	var lvl := int(j.get("bossLevel", 0))
 	var flee := int(j.get("fleeChance", 0))
-	var intro := "💀 %s (Lv %d) escapou da Torre e bloqueou sua expedição!\n\n⚔ Encarar = combate.   🏃 Fugir = %d%% (se falhar, cai na luta)." % [bname, lvl, flee]
+	var intro := Lang.t("💀 %s (Lv %d) escapou da Torre e bloqueou sua expedição!\n\n⚔ Encarar = combate.   🏃 Fugir = %d%% (se falhar, cai na luta).") % [bname, lvl, flee]
 	_choice_dialog(intro, [["⚔ Encarar", "fight"], ["🏃 Fugir", "flee"]], func(choice) -> void:
 		await _resolve_boss(activity_id, str(choice)))
 
@@ -751,36 +751,36 @@ func _quest_result_text(r: Dictionary) -> String:
 	if bool(r.get("acquiredPet", false)) or str(r.get("acquiredPet", "")) != "":
 		var pet := str(r.get("acquiredPet", ""))
 		if pet != "" and pet != "false":
-			return "🎉 Novo companheiro: %s!" % pet
+			return Lang.t("🎉 Novo companheiro: %s!") % pet
 	var lost := bool(r.get("monsterEncountered", false)) and not bool(r.get("monsterDefeated", false))
 	if lost:
-		return "💀 Derrotado por %s — sem recompensa." % str(r.get("monsterName", "monstro"))
+		return Lang.t("💀 Derrotado por %s — sem recompensa.") % str(r.get("monsterName", "monstro"))
 	var parts: Array = []
 	if bool(r.get("monsterEncountered", false)):
-		parts.append("⚔ %s derrotado!" % str(r.get("monsterName", "inimigo")))
+		parts.append(Lang.t("⚔ %s derrotado!") % str(r.get("monsterName", "inimigo")))
 	else:
-		parts.append("✅ Quest concluída!")
-	parts.append("+%d XP · +%d bronze" % [int(r.get("xpEarned", 0)), int(r.get("bronzeEarned", 0))])
+		parts.append(Lang.t("✅ Quest concluída!"))
+	parts.append(Lang.t("+%d XP · +%d bronze") % [int(r.get("xpEarned", 0)), int(r.get("bronzeEarned", 0))])
 	if r.get("droppedItem") is Dictionary:
 		parts.append("🎁 " + str(r["droppedItem"].get("name", "item")))
 	return "   ".join(parts)
 
 func _zone_result_text(r: Dictionary) -> String:
 	if bool(r.get("wasAttacked", false)) and not bool(r.get("survived", false)):
-		var s := "💀 Derrotado na expedição!"
+		var s := Lang.t("💀 Derrotado na expedição!")
 		if str(r.get("attackerName", "")) != "":
-			s += " (por %s)" % str(r.get("attackerName"))
+			s += " " + (Lang.t("(por %s)") % str(r.get("attackerName")))
 		if str(r.get("lostItemName", "")) != "":
-			s += " · item roubado: %s" % str(r.get("lostItemName"))
+			s += " · " + (Lang.t("item roubado: %s") % str(r.get("lostItemName")))
 		return s
 	var parts: Array = []
 	var slew_boss := bool(r.get("wasAttacked", false)) and bool(r.get("survived", false)) and str(r.get("lootItemName", "")) != ""
 	if slew_boss:
-		parts.append("🏆 Chefe errante abatido!")
+		parts.append(Lang.t("🏆 Chefe errante abatido!"))
 	elif bool(r.get("wasAttacked", false)):
-		parts.append("⚔ Sobreviveu à expedição!")
+		parts.append(Lang.t("⚔ Sobreviveu à expedição!"))
 	else:
-		parts.append("✅ Expedição concluída!")
+		parts.append(Lang.t("✅ Expedição concluída!"))
 	if str(r.get("lootItemName", "")) != "":
 		parts.append("🎁 " + str(r.get("lootItemName")))
 	if r.get("drops") is Array:
