@@ -48,7 +48,7 @@ func _render() -> void:
 	_render_state()
 	content.add_child(UiKit.section("Bênçãos"))
 	_render_buff_options()
-	content.add_child(UiKit.section("Proteção de Itens (%d/%d)" % [int(data.get("protectedCount", 0)), int(data.get("maxProtected", 3))]))
+	content.add_child(UiKit.section(Lang.t("Proteção de Itens (%d/%d)") % [int(data.get("protectedCount", 0)), int(data.get("maxProtected", 3))]))
 	_render_protection()
 
 # ── Banner ABENÇOADO ───────────────────────────────────────────────────────────
@@ -95,20 +95,20 @@ func _blessing_line(icon: String, name: String, secs: int) -> HBoxContainer:
 
 func _fmt_left(secs: int) -> String:
 	if secs <= 0:
-		return "expirando…"
+		return Lang.t("expirando…")
 	var hh := secs / 3600
 	var mm := (secs % 3600) / 60
 	if hh > 0:
-		return "%dh %02dmin restantes" % [hh, mm]
+		return Lang.t("%dh %02dmin restantes") % [hh, mm]
 	if mm > 0:
-		return "%d min restantes" % mm
-	return "%d s restantes" % secs
+		return Lang.t("%d min restantes") % mm
+	return Lang.t("%d s restantes") % secs
 
 # ── Estado do guerreiro + curas ────────────────────────────────────────────────
 func _render_state() -> void:
 	var hp := int(data.get("hpPercent", 100))
 	var ko := bool(data.get("isKnockedOut", false))
-	content.add_child(UiKit.bar("HP", hp, 100, Color(0.70, 0.22, 0.20), "💀 Inconsciente" if ko else "%d%%" % hp))
+	content.add_child(UiKit.bar("HP", hp, 100, Color(0.70, 0.22, 0.20), Lang.t("💀 Inconsciente") if ko else "%d%%" % hp))
 	var full := hp >= 100
 	if ko:
 		content.add_child(UiKit.dim("Seu guerreiro está nocauteado. Cure para voltar ao combate."))
@@ -121,7 +121,7 @@ func _render_state() -> void:
 		content.add_child(done)
 	else:
 		var cost := int(data.get("healCost", 100))
-		var lbl := "Curar (grátis)" if bool(data.get("healFree", false)) else "Curar (%s)" % UiKit.coin_str(cost)
+		var lbl := Lang.t("Curar (grátis)") if bool(data.get("healFree", false)) else (Lang.t("Curar (%s)") % UiKit.coin_str(cost))
 		content.add_child(UiKit.action(lbl, _heal))
 	# VIP heal (CD 10min)
 	if bool(data.get("isVip", false)):

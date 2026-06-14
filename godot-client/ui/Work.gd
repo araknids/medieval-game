@@ -61,7 +61,7 @@ func _render_jobs() -> void:
 	_clear()
 	UiKit.flash(status, "", 0)
 	UiKit.set_wallet(wallet, warrior)
-	content.add_child(UiKit.section("Empregos (%d)" % jobs.size()))
+	content.add_child(UiKit.section(Lang.t("Empregos (%d)") % jobs.size()))
 	if jobs.is_empty():
 		content.add_child(UiKit.empty("Nenhum emprego disponível", "Suba de nível para destravar novos trabalhos."))
 		return
@@ -98,14 +98,14 @@ func _job_card(job: Dictionary) -> PanelContainer:
 	# stats: rendimento/h + xp/h — [MOEDA] moeda em ícone pixel-art
 	var rend := HBoxContainer.new(); rend.add_theme_constant_override("separation", 4)
 	rend.add_child(UiKit.coin_box(int(job.get("goldPerHourWithBonus", 0)), 16))
-	var rend_x := Label.new(); rend_x.text = "/h    ⭐ %d xp/h" % int(job.get("xpPerHour", 0))
+	var rend_x := Label.new(); rend_x.text = Lang.t("/h    ⭐ %d xp/h") % int(job.get("xpPerHour", 0))
 	rend_x.add_theme_font_size_override("font_size", 14); rend_x.add_theme_color_override("font_color", UiKit.TEXT)
 	rend_x.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	rend.add_child(rend_x)
 	box.add_child(UiKit.kv_node("Rendimento", rend))
 	if locked:
 		var req := Label.new()
-		req.text = "🔒 Requer nível %d" % int(job.get("minWorkLevel", 1))
+		req.text = Lang.t("🔒 Requer nível %d") % int(job.get("minWorkLevel", 1))
 		req.add_theme_font_size_override("font_size", 12)
 		req.add_theme_color_override("font_color", UiKit.ERR)
 		box.add_child(req)
@@ -116,7 +116,7 @@ func _job_card(job: Dictionary) -> PanelContainer:
 		var gph := int(job.get("goldPerHourWithBonus", 0))
 		var wid := str(job.get("id", ""))
 		for h in HOURS:
-			var b := UiKit.action("%dh · 🪙%d" % [h, gph * h], _start.bind(wid, h))
+			var b := UiKit.action(Lang.t("%dh · 🪙%d") % [h, gph * h], _start.bind(wid, h))
 			b.custom_minimum_size = Vector2(0, 44)
 			b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 			hrs.add_child(b)
@@ -230,7 +230,7 @@ func _collect(session_id: int) -> void:
 		busy = false
 		await _refresh()   # volta pra lista (guerreiro livre)
 		# [MOEDA] goldEarned é em BRONZE (base)
-		UiKit.flash(status, "⚒ Trabalho concluído! +%s   +⭐%d XP (%s)" % [
+		UiKit.flash(status, Lang.t("⚒ Trabalho concluído! +%s   +⭐%d XP (%s)") % [
 			UiKit.coin_str(int(j.get("goldEarned", 0))), int(j.get("xpEarned", 0)), str(j.get("jobName", ""))], 1)
 		return
 	else:
@@ -254,7 +254,7 @@ func _cancel(session_id: int) -> void:
 		busy = false
 		await _refresh()
 		if earned > 0:
-			UiKit.flash(status, "Trabalho cancelado — parcial: +%s   +⭐%d XP" % [UiKit.coin_str(earned), int(j.get("xpEarned", 0))], 1)
+			UiKit.flash(status, Lang.t("Trabalho cancelado — parcial: +%s   +⭐%d XP") % [UiKit.coin_str(earned), int(j.get("xpEarned", 0))], 1)
 		else:
 			UiKit.flash(status, "Trabalho cancelado — nenhuma hora completa.", 0)
 		return

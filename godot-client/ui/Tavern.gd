@@ -135,7 +135,7 @@ func _fill_buff(box: VBoxContainer) -> void:
 	if stacks > 0:
 		var secs := int(st.get("buffSecondsLeft", 0))
 		var pct := float(st.get("buffPct", 0.0))
-		l.text = "🍺 +%.2f%% em todos os stats · %d stacks · %d:%02d" % [pct, stacks, secs / 60, secs % 60]
+		l.text = Lang.t("🍺 +%.2f%% em todos os stats · %d stacks · %d:%02d") % [pct, stacks, secs / 60, secs % 60]
 		l.add_theme_color_override("font_color", UiKit.GOLD)
 	else:
 		l.text = "Sem buff de bebida ativo."

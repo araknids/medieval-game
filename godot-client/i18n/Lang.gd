@@ -339,6 +339,7 @@ const EN := {
 	"⚔ Declarando:": "⚔ Declaring:", "🎒 Mochila": "🎒 Bag", "Lutando…": "Fighting…",
 	"Entrando…": "Entering…", "● NOVA": "● NEW", "⏰ EXPIRADO": "⏰ EXPIRED",
 	"%d ponto": "%d point", "%d pontos": "%d points", "Aprimorado!": "Upgraded!",
+	"expirando…": "expiring…", "Custo:": "Cost:", "OK": "OK",
 	"Guerreiro": "Warrior", "Arqueiro": "Archer", "Aprendiz": "Apprentice",
 	"Você tem %d ponto%s de habilidade guardado%s.": "You have %d ability point%s saved%s.",
 }
