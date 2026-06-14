@@ -327,6 +327,60 @@ static func confirm(host: Control, text: String, confirm_label: String, on_yes: 
 			close.call())
 	yes.call_deferred("grab_focus")
 
+# Relatório de batalha (modal) — estilo da Torre: borda win/loss + título + recompensas + log
+# colapsável + OK. Reusado p/ TODAS as batalhas (quest/zona) terem o mesmo desfecho. [BATTLE_REPORT]
+# reward_rows = Array de Control (kv/kv_node/dim já montados pelo chamador). log = Array de String.
+static func show_battle_report(host: Control, won: bool, title: String, reward_rows: Array, log: Array) -> void:
+	var overlay := ColorRect.new()
+	overlay.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	overlay.color = Color(0, 0, 0, 0.72)
+	overlay.mouse_filter = Control.MOUSE_FILTER_STOP
+	host.add_child(overlay)
+	var center := CenterContainer.new()
+	center.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	overlay.add_child(center)
+	var border: Color = OK if won else ERR
+	var res := card(border)
+	var panel: PanelContainer = res[0]
+	var vb: VBoxContainer = res[1]
+	var sb: StyleBoxFlat = panel.get_theme_stylebox("panel")
+	sb.set_border_width_all(2)
+	vb.add_theme_constant_override("separation", 10)
+	center.add_child(panel)
+	var h := Label.new()
+	h.text = title
+	h.add_theme_font_size_override("font_size", 18)
+	h.add_theme_color_override("font_color", border)
+	h.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	vb.add_child(h)
+	for row in reward_rows:
+		if row is Control:
+			vb.add_child(row)
+	# log da batalha (colapsável — pode ter muitas linhas; descarta a tag interna WINNER:)
+	var clean: Array = []
+	if log is Array:
+		for line in log:
+			var s := str(line)
+			if s.begins_with("WINNER:"):
+				continue
+			clean.append(s)
+	if not clean.is_empty():
+		var log_box := VBoxContainer.new()
+		log_box.visible = false
+		var toggle := small_btn("📜 Ver log", Callable())
+		toggle.pressed.connect(func() -> void:
+			log_box.visible = not log_box.visible
+			toggle.text = "📜 Ocultar log" if log_box.visible else "📜 Ver log")
+		vb.add_child(toggle)
+		for s in clean:
+			log_box.add_child(dim(str(s)))
+		vb.add_child(log_box)
+	vb.add_child(spacer(4))
+	var ok := action("OK", func() -> void: overlay.queue_free())
+	ok.custom_minimum_size = Vector2(440, 40)
+	vb.add_child(ok)
+	ok.call_deferred("grab_focus")
+
 # ── Botões (tudo pedra) ────────────────────────────────────────────────────────────
 static func _btn(text: String, cb: Callable, size: Vector2, font := 15) -> Button:
 	var b := Button.new()

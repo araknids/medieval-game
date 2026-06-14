@@ -64,7 +64,7 @@ var pins: Array = []              # [MAPA_MUNDO] [{node, kingdom}] dos reinos so
 var scroll: Control = null        # [MAPA_MUNDO] ScrollContainer da scaffold (p/ medir a área visível)
 var kingdoms: Array = []          # GET /api/world
 var open_kingdom := ""            # reino expandido (só um por vez)
-var _pending_after := {}          # desfecho da quest guardado durante o replay 3D (kingdom, text)
+var _pending_after := {}          # resultado guardado durante o replay 3D (kingdom, kind, result) p/ o relatório
 var warrior: Dictionary = {}      # /api/warrior (carteira + gate de nível)
 var warrior_level := 1
 var selected_element := "FIRE"    # picker de área de elemento
@@ -519,24 +519,26 @@ func _collect_quest(kingdom: String, quest_id: int, option_id := "") -> void:
 	if bool(j.get("lunaPending", false)):   # a Luna interrompeu → ajudar ou terminar
 		_show_luna_dialog(kingdom, quest_id)
 		return
-	var text := _quest_result_text(j)
 	var be = j.get("battleEvents")
 	if be is Array and be.size() >= 2:
-		# encontrou monstro → replay 3D por cima; guarda o desfecho p/ depois do replay
-		_pending_after = {"kingdom": kingdom, "text": text}
+		# encontrou monstro → replay 3D por cima; guarda o RESULTADO p/ o relatório pós-replay [BATTLE_REPORT]
+		_pending_after = {"kingdom": kingdom, "kind": "quest", "result": j}
 		request_battle.emit({"events": be, "scene": str(j.get("scene", "")), "won": bool(j.get("monsterDefeated", false)), "enemy": str(j.get("monsterName", ""))})
 	else:
-		await _open(kingdom)   # refresca a lista; status some aqui → resultado vai no modal
-		_show_result(text)
+		await _open(kingdom)   # refresca a lista; status some aqui → desfecho vai no relatório
+		_show_quest_report(j)
 
 # o App chama isto quando o replay 3D termina (volta pro Mundo + mostra o desfecho da quest)
 func _on_battle_over() -> void:
 	var kingdom := str(_pending_after.get("kingdom", open_kingdom))
-	var text := str(_pending_after.get("text", ""))
+	var kind := str(_pending_after.get("kind", ""))
+	var result: Dictionary = _pending_after["result"] if _pending_after.get("result") is Dictionary else {}
 	_pending_after = {}
 	await _open(kingdom)
-	if text != "":
-		_show_result(text)
+	if kind == "quest":
+		_show_quest_report(result)
+	elif kind == "zone":
+		_show_zone_report(result)
 
 # Diálogo de quest interativa: intro + um botão por opção (coleta com o optionId escolhido).
 func _show_quest_dialog(kingdom: String, quest_id: int, dialog: Dictionary) -> void:
@@ -556,14 +558,12 @@ func _show_luna_dialog(kingdom: String, quest_id: int) -> void:
 			busy = true
 			var r = await Api.quest_luna(kingdom, quest_id, str(action))
 			busy = false
-			var text := ""
-			if r.get("ok") and r.get("json") is Dictionary:
-				text = _quest_result_text(r["json"])
-			else:
+			var jr: Dictionary = r["json"] if (r.get("ok") and r.get("json") is Dictionary) else {}
+			if jr.is_empty():
 				_show_error(r)
 			await _open(kingdom)
-			if text != "":
-				_show_result(text))
+			if not jr.is_empty():
+				_show_quest_report(jr))
 
 # Overlay genérico de escolha: título + botões. cb.call(valor) ao escolher. [MIGRACAO_GODOT]
 func _choice_dialog(title_text: String, options: Array, cb: Callable) -> void:
@@ -700,17 +700,15 @@ func _handle_zone_result(activity_id: int, j: Dictionary) -> void:
 	if bool(j.get("bossPending", false)):
 		_show_boss_dialog(activity_id, j)   # [ZONA_CHEFE] chefe errante: encarar ou fugir
 		return
-	var msg := _zone_result_text(j)
 	var be = j.get("battleEvents")
 	if be is Array and be.size() >= 2:
-		# encontrou monstro na expedição → replay 3D por cima; guarda o desfecho p/ depois
-		_pending_after = {"kingdom": open_kingdom, "text": msg}
+		# encontrou monstro na expedição → replay 3D por cima; guarda o RESULTADO p/ o relatório [BATTLE_REPORT]
+		_pending_after = {"kingdom": open_kingdom, "kind": "zone", "result": j}
 		request_battle.emit({"events": be, "scene": str(j.get("scene", "")), "won": bool(j.get("survived", false)), "enemy": str(j.get("attackerName", ""))})
 		return
 	if open_kingdom != "":
 		await _open(open_kingdom)
-	if msg != "":
-		_show_result(msg)
+	_show_zone_report(j)
 
 # [ZONA_CHEFE] Chefe errante apareceu na expedição: encarar (combate 3D) ou tentar fugir.
 func _show_boss_dialog(activity_id: int, j: Dictionary) -> void:
@@ -792,6 +790,57 @@ func _zone_result_text(r: Dictionary) -> String:
 	if int(r.get("xpGained", 0)) > 0:
 		parts.append("⭐ +%d XP" % int(r.get("xpGained", 0)))
 	return "   ".join(parts)
+
+# ── Relatório de batalha (estilo da Torre): card win/loss + recompensas + log colapsável. [BATTLE_REPORT]
+# Combate → relatório completo; sem combate (coleta pura/pet) → modal de texto simples.
+func _show_quest_report(j: Dictionary) -> void:
+	if not bool(j.get("monsterEncountered", false)):
+		_show_result(_quest_result_text(j))
+		return
+	var won := bool(j.get("monsterDefeated", false))
+	var mob := str(j.get("monsterName", "inimigo"))
+	var title := (Lang.t("⚔ %s derrotado!") % mob) if won else (Lang.t("💀 Derrotado por %s — sem recompensa.") % mob)
+	var rows: Array = []
+	if won:
+		rows.append(UiKit.kv_node("Recompensa", UiKit.coin_box(int(j.get("bronzeEarned", 0)), 18)))
+		rows.append(UiKit.kv("⭐ Experiência", "+%d XP" % int(j.get("xpEarned", 0))))
+		if j.get("droppedItem") is Dictionary:
+			rows.append(UiKit.dim("🎁 " + str(j["droppedItem"].get("name", "item"))))
+	else:
+		rows.append(UiKit.dim(Lang.t("☠ Derrotado — cure-se no Templo")))
+	var log: Array = j.get("battleLog", []) if j.get("battleLog") is Array else []
+	UiKit.show_battle_report(self, won, title, rows, log)
+
+func _show_zone_report(j: Dictionary) -> void:
+	if not bool(j.get("wasAttacked", false)):
+		_show_result(_zone_result_text(j))   # expedição sem combate → coleta normal
+		return
+	var survived := bool(j.get("survived", false))
+	var title: String
+	if not survived:
+		title = Lang.t("💀 Derrotado na expedição!")
+	elif str(j.get("lootItemName", "")) != "":
+		title = Lang.t("🏆 Chefe errante abatido!")
+	else:
+		title = Lang.t("⚔ Sobreviveu à expedição!")
+	var rows: Array = []
+	if survived:
+		if str(j.get("lootItemName", "")) != "":
+			rows.append(UiKit.dim("🎁 " + str(j.get("lootItemName"))))
+		if j.get("drops") is Array:
+			for d in j["drops"]:
+				if d is Dictionary:
+					rows.append(UiKit.dim("📦 %s x%d" % [str(d.get("displayName", "?")), int(d.get("quantity", 0))]))
+		if int(j.get("bronzeGained", 0)) > 0:
+			rows.append(UiKit.kv_node("Recompensa", UiKit.coin_box(int(j.get("bronzeGained", 0)), 18)))
+		if int(j.get("xpGained", 0)) > 0:
+			rows.append(UiKit.kv("⭐ Experiência", "+%d XP" % int(j.get("xpGained", 0))))
+	else:
+		rows.append(UiKit.dim(Lang.t("☠ Derrotado — cure-se no Templo")))
+		if str(j.get("lostItemName", "")) != "":
+			rows.append(UiKit.dim(Lang.t("item roubado: %s") % str(j.get("lostItemName"))))
+	var log: Array = j.get("battleLog", []) if j.get("battleLog") is Array else []
+	UiKit.show_battle_report(self, survived, title, rows, log)
 
 func _show_error(r) -> void:
 	UiKit.show_error(status, r)
