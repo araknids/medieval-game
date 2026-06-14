@@ -271,13 +271,17 @@ public class ExpeditionService {
         int[] stats = statsService.combatStats(player, warrior);
         int maxHp = stats[2];
         int curHp = Math.max(1, warrior.getCalculatedHpPercent() * maxHp / 100);
+        // entra com o HP ATUAL (carrega entre os nós da run); o % final usa o maxHp original guardado acima.
+        // Seta o HP no array de stats (API estável) em vez de withCurrentHp (que é WIP do [HP_SPAWN]).
+        int[] mine = stats.clone();
+        mine[2] = curHp;
         int[] mob = npcStats(monsterLevel, rng);
         if (boss) { mob[0] = (int) (mob[0] * 1.5); mob[1] = (int) (mob[1] * 1.5); mob[2] = mob[2] * 2; }
 
         String monsterName = monsterName(run, node, rng);
-        var me = BattleSimulator.Combatant.of(warrior.getName(), stats,
+        var me = BattleSimulator.Combatant.of(warrior.getName(), mine,
                 warrior.getActiveWeaponElement(), warrior.getActiveArmorElement(),
-                abilityService.activeLoadout(warrior), statsService.isRangedWeaponEquipped(player)).withCurrentHp(curHp);
+                abilityService.activeLoadout(warrior), statsService.isRangedWeaponEquipped(player));
         var foe = BattleSimulator.Combatant.of(monsterName, mob, run.getElement(), run.getElement(), List.of(), false);
         BattleSimulator.BattleOutcome out = battleSimulator.simulate(me, foe, true); // PvE: timeout = derrota
 
