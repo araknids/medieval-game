@@ -15,6 +15,7 @@ const HURTS := [LIB + "Hit_Chest", LIB + "Hit_Head"]   # reação variada (peito
 const ROLL := LIB + "Roll"                              # esquiva ocasional (in-place, sem sangue)
 # golpes variados: 3 da UAL2 (A/B/combo) + o Sword_Attack da UAL1
 const ATTACKS := [LIB2 + "Sword_Regular_A", LIB2 + "Sword_Regular_B", LIB2 + "Sword_Regular_Combo", LIB + "Sword_Attack"]
+const SHOOT := LIB + "Spell_Simple_Shoot"   # arco/ranged: anim de TIRO (não golpe de espada) [MENU_DUEL]
 const BLEND := 0.12
 # Arma aleatória dos lutadores — só MELEE (as anims do duelo são de espada). [MENU_DUEL]
 const MELEE_KINDS := ["sword", "greatsword", "axe", "spear", "mace"]
@@ -122,7 +123,8 @@ func _spawn(pos: Vector3, yaw_deg: float, weapon_kind: String, weapon_rarity: in
 			if is_instance_valid(node):
 				ap.play(IDLE, BLEND))
 		ap.play(IDLE)
-	_fighters.append({"node": node, "anim": ap})
+	# guarda se a arma é de longo alcance → atira em vez de golpear melee [MENU_DUEL]
+	_fighters.append({"node": node, "anim": ap, "ranged": Weapons.new().is_bow_kind(weapon_kind)})
 
 func _dress(node: Node3D, skel: Skeleton3D) -> void:
 	# esconde todas as malhas base (Superhero) ANTES de vestir
@@ -173,20 +175,24 @@ func _swing(attacker: int, defender: int) -> void:
 	var nd: Node3D = _fighters[defender]["node"]
 	if not (is_instance_valid(na) and is_instance_valid(nd)):
 		return
-	# atacante: golpe ALEATÓRIO (A/B/combo/attack)
+	var ranged: bool = _fighters[attacker].get("ranged", false)
+	# atacante: ARCO → tiro (Spell_Simple_Shoot); MELEE → golpe aleatório de espada (A/B/combo/attack)
 	if ap_a:
-		var clip: String = ATTACKS[_rng.randi() % ATTACKS.size()]
+		var clip: String = SHOOT if ranged else ATTACKS[_rng.randi() % ATTACKS.size()]
 		var an := ap_a.get_animation(clip)
 		if an:
 			an.loop_mode = Animation.LOOP_NONE
 		ap_a.play(clip, BLEND)
-	# investida: avança um passo pro oponente e recua (dá movimento)
-	var dirx := signf(nd.position.x - na.position.x)
-	var home := na.position
-	var tw := na.create_tween()
-	tw.tween_property(na, "position", home + Vector3(dirx * 0.38, 0, 0), 0.16).set_trans(Tween.TRANS_SINE)
-	tw.tween_interval(0.10)
-	tw.tween_property(na, "position", home, 0.30).set_trans(Tween.TRANS_SINE)
+	if ranged:
+		_arrow(na, nd)   # arqueiro atira PARADO (sem investida) — a flecha voa até o alvo
+	else:
+		# investida melee: avança um passo pro oponente e recua (dá movimento)
+		var dirx := signf(nd.position.x - na.position.x)
+		var home := na.position
+		var tw := na.create_tween()
+		tw.tween_property(na, "position", home + Vector3(dirx * 0.38, 0, 0), 0.16).set_trans(Tween.TRANS_SINE)
+		tw.tween_interval(0.10)
+		tw.tween_property(na, "position", home, 0.30).set_trans(Tween.TRANS_SINE)
 	# defensor: ~25% ESQUIVA (rola, sem sangue); senão LEVA o golpe (hurt variado + sangue)
 	var dodge := _rng.randf() < 0.25
 	var react: String = ROLL if dodge else HURTS[_rng.randi() % HURTS.size()]
@@ -201,6 +207,27 @@ func _swing(attacker: int, defender: int) -> void:
 			ap_d.play(react, BLEND)
 		if not dodge:
 			_blood(nd.global_position + Vector3(0, 1.15, 0), hitdir))
+
+# Flecha do arqueiro: vara fina que voa do atacante até o alvo e some. Decoração. [MENU_DUEL]
+func _arrow(from_node: Node3D, to_node: Node3D) -> void:
+	if not (is_instance_valid(from_node) and is_instance_valid(to_node)):
+		return
+	var arrow := MeshInstance3D.new()
+	var bm := BoxMesh.new()
+	bm.size = Vector3(0.035, 0.035, 0.55)   # comprida no eixo Z → vira "flecha"
+	arrow.mesh = bm
+	var mat := StandardMaterial3D.new()
+	mat.albedo_color = Color(0.55, 0.40, 0.18)
+	mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	arrow.material_override = mat
+	add_child(arrow)
+	var start := from_node.global_position + Vector3(0, 1.35, 0)
+	var endp := to_node.global_position + Vector3(0, 1.15, 0)
+	arrow.global_position = start
+	arrow.look_at(endp)   # aponta a vara pro alvo
+	var tw := arrow.create_tween()
+	tw.tween_property(arrow, "global_position", endp, 0.22)
+	tw.tween_callback(arrow.queue_free)
 
 # Jato de sangue por partículas (versão enxuta do GORE do BattleReplay). Some sozinho.
 func _blood(pos: Vector3, dir: Vector3) -> void:
