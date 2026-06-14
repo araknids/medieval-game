@@ -166,6 +166,42 @@ public class WarriorStatsService {
         return stats;
     }
 
+    /** Fontes do bônus de um stat (aditivas; a soma == combatStats). P/ a ficha detalhar de onde vem. [FICHA_BONUS] */
+    public record StatSources(int base, int gear, int buff, int posture, int pet, int skill, int tavern) {}
+
+    /**
+     * Detalha ATK/DEF/HP por FONTE, na MESMA ordem do combatStats:
+     * (base+gear+buff) × postura(ATK/DEF) ou × pet(HP), + skill(passivas), × taverna.
+     * Cada parcela é a contribuição aditiva exata → a soma reproduz o efetivo. [FICHA_BONUS]
+     */
+    public StatSources[] combatBreakdown(Player player, Warrior warrior) {
+        GearBonus g = equippedGear(player);
+        int[] buff = activeBuffBonuses(warrior);
+        com.medieval.game.enums.CombatPosture posture = warrior.getCombatPosture() != null
+                ? warrior.getCombatPosture() : com.medieval.game.enums.CombatPosture.BALANCED;
+        boolean ranged = isRangedWeaponEquipped(player);
+        int gearDmgAffix = ranged ? g.dex() : g.str();
+        int[] passive = abilityService.passiveStatBonus(warrior);
+        var pet = petRepository.findByPlayerAndEquippedTrue(player).map(com.medieval.game.model.Pet::getPetType).orElse(null);
+        int petHpPct = pet != null ? pet.hpBonusPercent : 0;
+        double tav = warrior.tavernBuffMultiplier();
+
+        StatSources atk = breakMul(warrior.getTotalBaseAttack(ranged), g.atk() + gearDmgAffix, buff[0], posture.atkMult(), passive[0], tav, false);
+        StatSources def = breakMul(warrior.getTotalBaseDefense(),       g.def(),                buff[1], posture.defMult(), passive[1], tav, false);
+        StatSources hp  = breakMul(warrior.getTotalBaseHealth(),        g.hp(),                 buff[2], 1.0 + petHpPct / 100.0, passive[2], tav, true);
+        return new StatSources[]{atk, def, hp};
+    }
+
+    // Decompõe (base+gear+buff)×mult + skill, ×tav em parcelas aditivas que somam o efetivo (mesma conta do combatStats).
+    private StatSources breakMul(int base, int gear, int buff, double mult, int skill, double tav, boolean isHp) {
+        int sub      = base + gear + buff;
+        int afterMul = (int) Math.round(sub * mult);          // postura (ATK/DEF) ou pet (HP)
+        int mulDelta = afterMul - sub;
+        int afterTav = (int) Math.round((afterMul + skill) * tav);
+        int tavDelta = afterTav - (afterMul + skill);
+        return new StatSources(base, gear, buff, isHp ? 0 : mulDelta, isHp ? mulDelta : 0, skill, tavDelta);
+    }
+
     /** Soma os bônus dos buffs ATIVOS (Templo slot 1 + 2 + refeição). [COZINHA] */
     private int[] activeBuffBonuses(Warrior w) {
         int atk = 0, def = 0, hp = 0, eva = 0;

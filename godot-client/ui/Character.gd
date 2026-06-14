@@ -92,13 +92,13 @@ func _render() -> void:
 		content.add_child(_attr_row(a, pts > 0))
 	# ── Combate (com detalhamento das fontes do bônus) ──
 	content.add_child(UiKit.section("Combate"))
-	content.add_child(_combat_stat("Ataque",
+	content.add_child(_combat_stat("Ataque", w.get("atkSources"),
 		int(w.get("baseAttack", 0)), int(w.get("itemBonusAttack", 0)), int(w.get("buffBonusAttack", 0)),
 		int(w.get("combatAttack", w.get("totalAttack", 0)))))
-	content.add_child(_combat_stat("Defesa",
+	content.add_child(_combat_stat("Defesa", w.get("defSources"),
 		int(w.get("baseDefense", 0)), int(w.get("itemBonusDefense", 0)), int(w.get("buffBonusDefense", 0)),
 		int(w.get("combatDefense", w.get("totalDefense", 0)))))
-	content.add_child(_combat_stat("Vida máx",
+	content.add_child(_combat_stat("Vida máx", w.get("hpSources"),
 		int(w.get("baseHealth", 0)), int(w.get("itemBonusHealth", 0)), int(w.get("buffBonusHealth", 0)),
 		int(w.get("combatHealth", w.get("totalHealth", 0)))))
 	content.add_child(UiKit.kv("Rank (arena)", str(w.get("rankPoints", 0))))
@@ -137,9 +137,10 @@ func _coin(key: String, amount: int) -> HBoxContainer:
 	h.add_child(l)
 	return h
 
-# Stat de combate: valor EFETIVO + sub-linha detalhando as fontes do bônus.
-# skill/afins = efetivo − (base + gear + buff) → captura habilidades passivas, pet, taverna e postura.
-func _combat_stat(label: String, base: int, item: int, buff: int, effective: int) -> VBoxContainer:
+# Stat de combate: valor EFETIVO + sub-linha detalhando CADA fonte do bônus.
+# Backend novo manda atkSources/defSources/hpSources (base/gear/buff/postura/pet/skill/taverna).
+# Fallback (backend antigo): base/equip/buff e o resto agrupado em "skill/afins".
+func _combat_stat(label: String, src, base_f: int, item_f: int, buff_f: int, effective: int) -> VBoxContainer:
 	var vb := VBoxContainer.new()
 	vb.add_theme_constant_override("separation", 1)
 	var top := HBoxContainer.new(); top.add_theme_constant_override("separation", 8)
@@ -153,17 +154,31 @@ func _combat_stat(label: String, base: int, item: int, buff: int, effective: int
 	v.add_theme_color_override("font_color", UiKit.GOLD)
 	top.add_child(v)
 	vb.add_child(top)
-	var parts: Array = ["base %d" % base]
-	if item != 0: parts.append("🛡 equip %+d" % item)
-	if buff != 0: parts.append("✨ buff %+d" % buff)
-	var other := effective - (base + item + buff)
-	if other != 0: parts.append("⭐ skill/afins %+d" % other)
+	var parts: Array = []
+	if src is Dictionary:   # detalhamento por fonte (backend novo) [FICHA_BONUS]
+		parts.append("base %d" % int(src.get("base", 0)))
+		_src_part(parts, "🛡 equip", int(src.get("gear", 0)))
+		_src_part(parts, "✨ buff", int(src.get("buff", 0)))
+		_src_part(parts, "⭐ skill", int(src.get("skill", 0)))
+		_src_part(parts, "🐾 pet", int(src.get("pet", 0)))
+		_src_part(parts, "🍺 taverna", int(src.get("tavern", 0)))
+		_src_part(parts, "🥋 postura", int(src.get("posture", 0)))
+	else:                   # fallback: backend sem detalhamento
+		parts.append("base %d" % base_f)
+		_src_part(parts, "🛡 equip", item_f)
+		_src_part(parts, "✨ buff", buff_f)
+		_src_part(parts, "⭐ skill/afins", effective - (base_f + item_f + buff_f))
 	var sub := Label.new()
 	sub.text = "      " + "   ·   ".join(parts)
 	sub.add_theme_font_size_override("font_size", 11)
 	sub.add_theme_color_override("font_color", UiKit.TEXT_DIM)
 	vb.add_child(sub)
 	return vb
+
+# Acrescenta uma parcela "nome +N" só se for diferente de zero.
+func _src_part(parts: Array, name: String, val: int) -> void:
+	if val != 0:
+		parts.append("%s %+d" % [name, val])
 
 # linha de atributo: ícone+sigla · valor · efeito · botão + (se há ponto livre)
 func _attr_row(a: Array, can_add: bool) -> HBoxContainer:
