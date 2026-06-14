@@ -341,6 +341,8 @@ const EN := {
 	"expirando…": "expiring…", "Custo:": "Cost:", "OK": "OK",
 	"Guerreiro": "Warrior", "Arqueiro": "Archer", "Aprendiz": "Apprentice",
 	"Você tem %d ponto%s de habilidade guardado%s.": "You have %d ability point%s saved%s.",
+	# --- prep p/ arquivos dirty (coin_str/Erro no UiKit) — usar quando UiKit liberar [I18N] ---
+	"%d ouro": "%d gold", "%d prata": "%d silver", "%d bronze": "%d bronze", "Erro (%s)": "Error (%s)",
 	# --- lacunas da auditoria i18n (tooltips/narrativa/estaticos) [I18N] ---
 	"Mundo — missões, coleta, caça e zonas dos reinos": "World — quests, gathering, hunting and the kingdom zones",
 	"Trabalho — atividade idle por profissão (XP + bronze)": "Work — idle activity by profession (XP + bronze)",
