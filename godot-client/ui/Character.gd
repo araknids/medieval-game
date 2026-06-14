@@ -90,11 +90,17 @@ func _render() -> void:
 	content.add_child(UiKit.section(attr_title))
 	for a in ATTRS:
 		content.add_child(_attr_row(a, pts > 0))
-	# ── Combate ──
+	# ── Combate (com detalhamento das fontes do bônus) ──
 	content.add_child(UiKit.section("Combate"))
-	content.add_child(UiKit.kv("Ataque", str(w.get("combatAttack", w.get("totalAttack", 0)))))
-	content.add_child(UiKit.kv("Defesa", str(w.get("combatDefense", w.get("totalDefense", 0)))))
-	content.add_child(UiKit.kv("Vida máx", str(w.get("combatHealth", w.get("totalHealth", 0)))))
+	content.add_child(_combat_stat("Ataque",
+		int(w.get("baseAttack", 0)), int(w.get("itemBonusAttack", 0)), int(w.get("buffBonusAttack", 0)),
+		int(w.get("combatAttack", w.get("totalAttack", 0)))))
+	content.add_child(_combat_stat("Defesa",
+		int(w.get("baseDefense", 0)), int(w.get("itemBonusDefense", 0)), int(w.get("buffBonusDefense", 0)),
+		int(w.get("combatDefense", w.get("totalDefense", 0)))))
+	content.add_child(_combat_stat("Vida máx",
+		int(w.get("baseHealth", 0)), int(w.get("itemBonusHealth", 0)), int(w.get("buffBonusHealth", 0)),
+		int(w.get("combatHealth", w.get("totalHealth", 0)))))
 	content.add_child(UiKit.kv("Rank (arena)", str(w.get("rankPoints", 0))))
 	# ── Ações ──
 	content.add_child(UiKit.spacer(8))
@@ -130,6 +136,34 @@ func _coin(key: String, amount: int) -> HBoxContainer:
 	l.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	h.add_child(l)
 	return h
+
+# Stat de combate: valor EFETIVO + sub-linha detalhando as fontes do bônus.
+# skill/afins = efetivo − (base + gear + buff) → captura habilidades passivas, pet, taverna e postura.
+func _combat_stat(label: String, base: int, item: int, buff: int, effective: int) -> VBoxContainer:
+	var vb := VBoxContainer.new()
+	vb.add_theme_constant_override("separation", 1)
+	var top := HBoxContainer.new(); top.add_theme_constant_override("separation", 8)
+	var k := Label.new(); k.text = label
+	k.custom_minimum_size = Vector2(140, 0)
+	k.add_theme_font_size_override("font_size", 15)
+	k.add_theme_color_override("font_color", UiKit.TEXT)
+	top.add_child(k)
+	var v := Label.new(); v.text = str(effective)
+	v.add_theme_font_size_override("font_size", 16)
+	v.add_theme_color_override("font_color", UiKit.GOLD)
+	top.add_child(v)
+	vb.add_child(top)
+	var parts: Array = ["base %d" % base]
+	if item != 0: parts.append("🛡 equip %+d" % item)
+	if buff != 0: parts.append("✨ buff %+d" % buff)
+	var other := effective - (base + item + buff)
+	if other != 0: parts.append("⭐ skill/afins %+d" % other)
+	var sub := Label.new()
+	sub.text = "      " + "   ·   ".join(parts)
+	sub.add_theme_font_size_override("font_size", 11)
+	sub.add_theme_color_override("font_color", UiKit.TEXT_DIM)
+	vb.add_child(sub)
+	return vb
 
 # linha de atributo: ícone+sigla · valor · efeito · botão + (se há ponto livre)
 func _attr_row(a: Array, can_add: bool) -> HBoxContainer:
