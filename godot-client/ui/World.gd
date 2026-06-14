@@ -33,10 +33,35 @@ const TIER_COL := {"SAFE": Color(0.30, 0.80, 0.30), "PVP": Color(1.0, 0.76, 0.0)
 const ELEMENTS := [["FIRE", "🔥 Fire"], ["WATER", "💧 Water"], ["EARTH", "🪨 Earth"], ["AIR", "💨 Air"]]
 const ZONE_DURATION := 20   # ação instantânea de tamanho fixo (~10⚡ via d/2), igual ao web
 
+# [MAPA_MUNDO] Mapa-múndi de pergaminho (assets/ui/map/world_map.png, 1536×1024). O mapa CABE INTEIRO
+# na tela (contain) e cada reino é um PIN por coord normalizada (0..1) cravada na arte.
+const MAP_TEX := "res://assets/ui/map/world_map.png"
+const MAP_W := 1536.0
+const MAP_H := 1024.0
+const PIN_POS := {
+	"MINING":            Vector2(0.18, 0.47),  # entrada da mina, base das montanhas nevadas (oeste)
+	"FISHING":           Vector2(0.45, 0.15),  # navios na baía (norte)
+	"MAR_ABENCOADO":     Vector2(0.73, 0.24),  # lago sagrado turquesa brilhante (nordeste)
+	"GRUTAS_DE_CRISTAL": Vector2(0.45, 0.55),  # espinhos de cristal azul (centro)
+	"COMBAT":            Vector2(0.74, 0.60),  # fortaleza maldita escura (leste)
+}
+# Ícone pixel-art (assets/ui/icons/<key>.png) de cada território — fallback no emoji se faltar.
+const KINGDOM_ICON := {
+	"MINING": "map_mines",
+	"FISHING": "map_fishing",
+	"MAR_ABENCOADO": "map_blessed",
+	"GRUTAS_DE_CRISTAL": "map_crystal",
+	"COMBAT": "map_fortress",
+}
+const PIN_ICON_PX := 34   # marcador fica SOBRE o local; o nome cai ABAIXO dele
+
 var content: VBoxContainer
 var status: Label
 var wallet: Label
 var busy := false
+var map_holder: Control = null    # [MAPA_MUNDO] container do mapa (hospeda os pins, mantém o aspecto)
+var pins: Array = []              # [MAPA_MUNDO] [{node, kingdom}] dos reinos sobre o mapa
+var scroll: Control = null        # [MAPA_MUNDO] ScrollContainer da scaffold (p/ medir a área visível)
 var kingdoms: Array = []          # GET /api/world
 var open_kingdom := ""            # reino expandido (só um por vez)
 var _pending_after := {}          # desfecho da quest guardado durante o replay 3D (kingdom, text)
@@ -54,7 +79,18 @@ func _ready() -> void:
 	content = ui.content
 	status = ui.status
 	wallet = ui.wallet
+	scroll = ui.scroll
+	resized.connect(_layout_map)   # [MAPA_MUNDO] recalcula o tamanho do mapa quando a janela muda
+	visibility_changed.connect(_on_world_shown)   # [MAPA_MUNDO] reentrar no Mundo volta pro MAPA
 	await _refresh()
+
+# [MAPA_MUNDO] O Shell cacheia as telas (não recria) → reentrar no Mundo via nav mostraria o último
+# reino aberto. Quando o nó reaparece, reseto pro mapa. A navegação INTERNA (reino ↔ mapa, quests)
+# NÃO esconde/mostra o nó, então não dispara isto.
+func _on_world_shown() -> void:
+	if is_visible_in_tree() and open_kingdom != "":
+		open_kingdom = ""
+		_render()
 
 func _refresh() -> void:
 	UiKit.flash(status, "Carregando…", 0)
@@ -115,59 +151,163 @@ func _has_active_task() -> bool:
 func _render() -> void:
 	for c in content.get_children():
 		c.queue_free()
+	pins = []
+	map_holder = null
 	UiKit.flash(status, "", 0)
 	UiKit.set_wallet(wallet, warrior)
+	# [MAPA_MUNDO] open_kingdom == "" → mapa-múndi com pins; senão → detalhe do reino aberto.
+	if open_kingdom == "":
+		_render_map()
+	else:
+		_render_detail(open_kingdom)
+
+# ── [MAPA_MUNDO] Mapa-múndi: TextureRect do pergaminho + 1 pin clicável por reino ─────────────────
+func _render_map() -> void:
+	var tex = load(MAP_TEX) if ResourceLoader.exists(MAP_TEX) else null   # Texture2D ou null
+	if tex == null:
+		# Fallback (mapa ainda não importado pelo Godot): botões simples → a tela segue usável.
+		content.add_child(UiKit.dim("Mapa não importado ainda — abra o projeto no Godot. Reinos:"))
+		for k in kingdoms:
+			if k is Dictionary:
+				var kid := str(k.get("kingdom", ""))
+				content.add_child(UiKit.action("%s %s" % [str(k.get("icon", "")), str(k.get("displayName", kid))], _toggle.bind(kid)))
+		return
+	map_holder = Control.new()
+	map_holder.size_flags_horizontal = Control.SIZE_SHRINK_CENTER   # largura vem do fit → centraliza
+	map_holder.clip_contents = true
+	content.add_child(map_holder)
+	var tr := TextureRect.new()
+	tr.texture = tex
+	tr.expand_mode = TextureRect.EXPAND_IGNORE_SIZE   # escala p/ o tamanho do nó (não impõe 1536×1024)
+	tr.stretch_mode = TextureRect.STRETCH_SCALE       # holder já tem o aspecto do mapa → não distorce
+	tr.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	tr.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	map_holder.add_child(tr)
+	pins = []
 	for k in kingdoms:
 		if k is Dictionary:
-			content.add_child(_kingdom_card(k))
+			var kid := str(k.get("kingdom", ""))
+			if PIN_POS.has(kid):
+				var pin := _make_pin(k)
+				map_holder.add_child(pin)
+				pins.append({"node": pin, "kingdom": kid})
+	_layout_map()
+	content.add_child(UiKit.dim("Toque numa região do mapa para viajar até o reino."))
 
-func _kingdom_card(k: Dictionary) -> PanelContainer:
+# Pin: MARCADOR (ícone do território) SOBRE o local + NOME numa caixa ABAIXO — o rótulo não cobre
+# mais a construção do mapa. Clique em qualquer parte abre o reino.
+func _make_pin(k: Dictionary) -> Control:
 	var kid := str(k.get("kingdom", ""))
-	var is_open := kid == open_kingdom
-	var is_mine := bool(k.get("isMine", false))
-	var res := UiKit.card(UiKit.OK if is_mine else UiKit.BRONZE)
-	var panel: PanelContainer = res[0]
-	var box: VBoxContainer = res[1]
-	# cabeçalho do card: clicar em QUALQUER parte da área visível alterna o reino.
-	# header captura o clique (STOP); os labels deixam passar (IGNORE) → o detalhe abaixo fica fora dele,
-	# então os botões de quest/zona continuam clicáveis.
-	var header := VBoxContainer.new()
-	header.add_theme_constant_override("separation", 4)
-	header.mouse_filter = Control.MOUSE_FILTER_STOP
-	header.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
-	header.gui_input.connect(func(ev: InputEvent) -> void:
+	var pin := VBoxContainer.new()
+	pin.alignment = BoxContainer.ALIGNMENT_CENTER
+	pin.add_theme_constant_override("separation", 1)
+	pin.mouse_filter = Control.MOUSE_FILTER_STOP
+	pin.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
+	# marcador: ícone pixel-art do território (fallback no emoji do backend se o PNG não existir)
+	var icon_key: String = KINGDOM_ICON.get(kid, "")
+	if icon_key != "" and Icons.tex(icon_key) != null:
+		var ir := Icons.rect(icon_key, PIN_ICON_PX)
+		ir.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+		pin.add_child(ir)
+	else:
+		var ie := Label.new()
+		ie.text = str(k.get("icon", "📍"))
+		ie.add_theme_font_size_override("font_size", PIN_ICON_PX - 6)
+		ie.add_theme_color_override("font_outline_color", Color(0, 0, 0))
+		ie.add_theme_constant_override("outline_size", 5)
+		ie.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+		ie.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		pin.add_child(ie)
+	# nome numa caixa, ABAIXO do marcador
+	var name_box := PanelContainer.new()
+	name_box.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	name_box.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var sb := StyleBoxFlat.new()
+	sb.bg_color = Color(0.06, 0.05, 0.04, 0.82)
+	sb.set_border_width_all(1)
+	sb.border_color = UiKit.OK if bool(k.get("isMine", false)) else UiKit.GOLD_SOFT
+	sb.set_corner_radius_all(4)
+	sb.content_margin_left = 7; sb.content_margin_right = 7
+	sb.content_margin_top = 2; sb.content_margin_bottom = 2
+	sb.shadow_color = Color(0, 0, 0, 0.6); sb.shadow_size = 4
+	name_box.add_theme_stylebox_override("panel", sb)
+	var row := HBoxContainer.new()
+	row.add_theme_constant_override("separation", 4)
+	name_box.add_child(row)
+	var nm := Label.new()
+	nm.text = str(k.get("displayName", kid))
+	nm.add_theme_font_size_override("font_size", 12)
+	nm.add_theme_color_override("font_color", UiKit.TEXT)
+	nm.add_theme_color_override("font_outline_color", Color(0, 0, 0))   # contorno → lê sobre o mapa
+	nm.add_theme_constant_override("outline_size", 4)
+	nm.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	row.add_child(nm)
+	var cg := str(k.get("controllingGuild", ""))
+	if cg != "":
+		var g := Label.new()
+		g.text = "🛡"
+		g.add_theme_font_size_override("font_size", 12)
+		g.add_theme_color_override("font_color", UiKit.OK)
+		g.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		row.add_child(g)
+	pin.add_child(name_box)
+	pin.gui_input.connect(func(ev: InputEvent) -> void:
 		if ev is InputEventMouseButton and ev.pressed and ev.button_index == MOUSE_BUTTON_LEFT:
 			_toggle(kid))
-	box.add_child(header)
-	# P0: chevron ▸/▾ deixa a afordância de clique visível
+	return pin
+
+# [MAPA_MUNDO] Dimensiona o mapa p/ CABER INTEIRO na área visível (contain) + recoloca os pins.
+# avail = largura do content (já capada pela scaffold) × altura visível do scroll. Sem loop: o
+# tamanho do mapa deriva dessas duas medidas, que NÃO dependem do tamanho do próprio mapa.
+func _layout_map() -> void:
+	if map_holder == null or not is_instance_valid(map_holder):
+		return
+	var avail_w := content.size.x
+	if avail_w <= 0.0:
+		avail_w = size.x
+	var avail_h := (scroll.size.y if scroll != null else size.y) - 48.0   # respiro p/ a dica abaixo
+	if avail_h <= 0.0:
+		avail_h = size.y * 0.7
+	var s := minf(avail_w / MAP_W, avail_h / MAP_H)
+	s = maxf(s, 0.05)
+	var map_w := floorf(MAP_W * s)
+	var map_h := floorf(MAP_H * s)
+	if map_holder.custom_minimum_size.x != map_w or map_holder.custom_minimum_size.y != map_h:
+		map_holder.custom_minimum_size = Vector2(map_w, map_h)
+	var sz := Vector2(map_w, map_h)
+	for p in pins:
+		var node: Control = p["node"]
+		if not is_instance_valid(node):
+			continue
+		node.reset_size()
+		var pos: Vector2 = PIN_POS[p["kingdom"]]
+		# âncora no MARCADOR (topo da pilha): centro horizontal no ponto + centro do ícone sobre o
+		# local; o nome (abaixo) não cobre a construção.
+		node.position = pos * sz - Vector2(node.size.x * 0.5, PIN_ICON_PX * 0.5)
+
+# ── [MAPA_MUNDO] Detalhe de um reino: voltar ao mapa + cabeçalho + o miolo (quests/zonas) ─────────
+func _render_detail(kingdom: String) -> void:
+	var k := _kingdom_data(kingdom)
+	content.add_child(UiKit.action("🗺 Voltar ao mapa", _toggle.bind(kingdom)))
 	var head := Label.new()
-	head.text = "%s %s %s" % ["▾" if is_open else "▸", str(k.get("icon", "")), str(k.get("displayName", kid))]
-	head.add_theme_font_size_override("font_size", 17)
+	head.text = "%s %s" % [str(k.get("icon", "")), str(k.get("displayName", kingdom))]
+	head.add_theme_font_size_override("font_size", 20)
 	head.add_theme_color_override("font_color", UiKit.GOLD)
-	head.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	header.add_child(head)
-	var ctrl := Label.new()
+	content.add_child(head)
 	var cg := str(k.get("controllingGuild", ""))
-	ctrl.text = ("🛡 " + cg) if cg != "" else "Neutro"
-	ctrl.add_theme_color_override("font_color", UiKit.OK if cg != "" else UiKit.TEXT_DIM)
-	ctrl.add_theme_font_size_override("font_size", 12)
-	ctrl.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	header.add_child(ctrl)
-	if is_mine:
-		var bonus := Label.new()
-		bonus.text = "Sua guilda: +%d%% XP · +%d%% bronze · +%d%% bônus" % [int(k.get("xpBonus", 0)), int(k.get("bronzeBonus", 0)), int(k.get("exclusiveBonus", 0))]
-		bonus.add_theme_color_override("font_color", UiKit.OK); bonus.add_theme_font_size_override("font_size", 11)
-		bonus.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		header.add_child(bonus)
+	content.add_child(UiKit.dim(("🛡 " + cg) if cg != "" else "Neutro"))
+	if bool(k.get("isMine", false)):
+		content.add_child(UiKit.dim("Sua guilda: +%d%% XP · +%d%% bronze · +%d%% bônus" % [int(k.get("xpBonus", 0)), int(k.get("bronzeBonus", 0)), int(k.get("exclusiveBonus", 0))]))
 	var lore_text := str(k.get("lore", ""))
 	if lore_text != "":
-		var lore := UiKit.dim(lore_text)
-		lore.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		header.add_child(lore)
-	if is_open:
-		box.add_child(UiKit.spacer(6))
-		_build_detail(box, kid)
-	return panel
+		content.add_child(UiKit.dim(lore_text))
+	_build_detail(content, kingdom)
+
+func _kingdom_data(kid: String) -> Dictionary:
+	for k in kingdoms:
+		if k is Dictionary and str(k.get("kingdom", "")) == kid:
+			return k
+	return {}
 
 # Detalhe do reino aberto: pvp banner + tarefas ativas + quests + zonas de coleta/caça.
 func _build_detail(box: VBoxContainer, kingdom: String) -> void:
