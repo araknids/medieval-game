@@ -366,6 +366,10 @@ static func show_battle_report(host: Control, won: bool, title: String, reward_r
 			clean.append(s)
 	if not clean.is_empty():
 		var log_box := VBoxContainer.new()
+		# [FIX] Dentro do ScrollContainer o VBox colapsava p/ largura ~0 → os labels (autowrap) quebravam
+		# 1 caractere por linha. Largura explícita (≤ a do scroll) faz o autowrap funcionar normal.
+		log_box.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		log_box.custom_minimum_size = Vector2(420, 0)
 		for s in clean:
 			log_box.add_child(dim(str(s)))
 		# scroll: cresce até caber log curto; trava em ~300px e rola quando é grande
