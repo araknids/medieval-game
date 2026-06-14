@@ -34,17 +34,19 @@ const TINT_SOCIAL    := Color(0.08, 0.09, 0.11)
 static func rarity_color(r: int) -> Color:
 	return RARITY[clampi(r - 1, 0, 4)]
 
-# Formata um valor em BRONZE (unidade-base) em ouro/prata/bronze com ícones. Ex.: 2500 → "25🥈".
-# 100 bronze = 1 prata · 100 prata = 1 ouro. TODO preço/custo/recompensa do jogo é em bronze —
-# use isto p/ não mostrar um valor de bronze com cara de ouro. [MOEDA]
+# Formata um valor em BRONZE (unidade-base) em TEXTO ouro/prata/bronze. Ex.: 2500 → "25 prata".
+# 100 bronze = 1 prata · 100 prata = 1 ouro. P/ ÍCONES pixel-art use coin_box (nó). TODO preço/custo/
+# recompensa do jogo é em bronze — use isto p/ não mostrar um valor de bronze com cara de ouro. [MOEDA]
 static func coin_str(bronze: int) -> String:
 	var g := bronze / 10000
 	var s := (bronze % 10000) / 100
 	var b := bronze % 100
+	# Em TEXTO os emojis 🥇🥈🥉 ficam todos dourados (fonte mono) → indistinguíveis. Usa PALAVRAS.
+	# Onde dá pra usar nó (cards/linhas), prefira coin_box (ícones pixel-art). [MOEDA]
 	var parts: Array = []
-	if g > 0: parts.append("%d🥇" % g)
-	if s > 0: parts.append("%d🥈" % s)
-	if b > 0 or parts.is_empty(): parts.append("%d🥉" % b)
+	if g > 0: parts.append("%d ouro" % g)
+	if s > 0: parts.append("%d prata" % s)
+	if b > 0 or parts.is_empty(): parts.append("%d bronze" % b)
 	return " ".join(parts)
 
 # [MOEDA] Mesma quebra do coin_str, mas renderiza com os ÍCONES pixel-art (Icons.gd, os
@@ -524,6 +526,59 @@ static func item_icon(item_type: String, px := 48) -> TextureRect:
 	tr.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	return tr
 
+# ── Comparação de item vs EQUIPADO ──────────────────────────────────────────────────
+# Índice dos itens equipados por type (WEAPON/ARMOR/…). Preenchido pelo Shell (a cada nav)
+# e pelo Inventory (após equipar). compare_line lê daqui. [PLANO_UI_SHELL_GODOT]
+static var equipped := {}
+const _CMP_STATS := [["attackBonus", "ATK"], ["defenseBonus", "DEF"], ["healthBonus", "HP"], ["strBonus", "STR"], ["dexBonus", "DEX"], ["lukBonus", "LUK"]]
+
+# Reindexa os equipados por type a partir de uma lista de inventário.
+static func set_equipped(inv: Array) -> void:
+	equipped = {}
+	for it in inv:
+		if it is Dictionary and bool(it.get("equipped", false)):
+			equipped[str(it.get("type", ""))] = it
+
+# Linha "vs equipado": veredito (▲Melhor/▼Pior/◆Lateral) + deltas por stat (verde sobe, vermelho desce).
+# Retorna null se: o item está equipado, não há slot comparável equipado, ou não há diferença. [PLANO_UI_SHELL_GODOT]
+static func compare_line(it: Dictionary) -> Control:
+	if bool(it.get("equipped", false)):
+		return null
+	var t := str(it.get("type", ""))
+	if not equipped.has(t):
+		return null
+	var cur: Dictionary = equipped[t]
+	if int(cur.get("id", -1)) == int(it.get("id", -2)):
+		return null   # é o próprio item equipado
+	var deltas: Array = []
+	var total := 0
+	for pair in _CMP_STATS:
+		var dv := int(it.get(pair[0], 0)) - int(cur.get(pair[0], 0))
+		if dv != 0:
+			deltas.append([pair[1], dv])
+			total += dv
+	if deltas.is_empty():
+		return null
+	var row := HFlowContainer.new()
+	row.add_theme_constant_override("h_separation", 8)
+	row.add_theme_constant_override("v_separation", 2)
+	var chip := Label.new()
+	chip.add_theme_font_size_override("font_size", 11)
+	if total > 0:
+		chip.text = "▲ Melhor"; chip.add_theme_color_override("font_color", OK)
+	elif total < 0:
+		chip.text = "▼ Pior"; chip.add_theme_color_override("font_color", ERR)
+	else:
+		chip.text = "◆ Lateral"; chip.add_theme_color_override("font_color", WARN)
+	row.add_child(chip)
+	for entry in deltas:
+		var l := Label.new()
+		l.text = "%s %+d" % [str(entry[0]), int(entry[1])]
+		l.add_theme_font_size_override("font_size", 11)
+		l.add_theme_color_override("font_color", OK if int(entry[1]) > 0 else ERR)
+		row.add_child(l)
+	return row
+
 static func item_row(it: Dictionary, name_text: String, sub_text: String, stats_text: String, actions: Array) -> PanelContainer:
 	var rar := int(it.get("rarity", 1))
 	var res := card(rarity_color(rar))
@@ -556,6 +611,9 @@ static func item_row(it: Dictionary, name_text: String, sub_text: String, stats_
 		st.add_theme_color_override("font_color", Color(0.62, 0.75, 0.58))
 		st.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		left.add_child(st)
+	var cmp := compare_line(it)   # vs equipado (melhor/pior + deltas) [PLANO_UI_SHELL_GODOT]
+	if cmp:
+		left.add_child(cmp)
 	var rcol := VBoxContainer.new()
 	rcol.add_theme_constant_override("separation", 6)
 	rcol.size_flags_vertical = Control.SIZE_SHRINK_CENTER

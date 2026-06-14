@@ -37,6 +37,7 @@ func _render() -> void:
 		c.queue_free()
 	UiKit.flash(status, "", 0)
 	UiKit.set_wallet(wallet, warrior)
+	UiKit.set_equipped(items)   # mantém a comparação "vs equipado" fresca após equipar/desequipar
 	var equipped: Array = []
 	var bag: Array = []
 	for it in items:

@@ -67,21 +67,26 @@ func _ready() -> void:
 	_ready_done = true
 	await refresh()
 
-# Re-veste o busto com o equip atual (chame depois de equipar/desequipar).
+# Busca o inventário e re-veste (standalone). O Shell usa apply() direto p/ não re-buscar.
 func refresh() -> void:
+	if not _ready_done or skel == null:
+		return
+	var api = get_node_or_null("/root/Api")
+	if api == null:
+		return
+	var inv = await api.get_inventory()
+	if inv.get("ok") and inv.get("json") is Array:
+		apply(inv["json"])
+
+# Re-veste o busto a partir de uma lista de inventário já carregada (sem fetch).
+func apply(inv_arr: Array) -> void:
 	if not _ready_done or skel == null:
 		return
 	# tira roupas anteriores (mantém só os ossos/base); re-veste do zero
 	for c in skel.get_children():
 		if c is MeshInstance3D and c.has_meta("outfit"):
 			c.queue_free()
-	var api = get_node_or_null("/root/Api")
-	if api == null:
-		return
-	var inv = await api.get_inventory()
-	if not (inv.get("ok") and inv.get("json") is Array):
-		return
-	var equipped: Array = inv["json"].filter(func(it): return it is Dictionary and it.get("equipped") == true)
+	var equipped: Array = inv_arr.filter(func(it): return it is Dictionary and it.get("equipped") == true)
 	var dressed: Array = []
 	for it in equipped:
 		var ty := str(it.get("type", ""))

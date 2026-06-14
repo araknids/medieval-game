@@ -289,6 +289,7 @@ func _open(scr: String) -> void:
 	if scene == null:
 		push_warning("tela não encontrada: %s" % scr)
 		return
+	await refresh_warrior()   # ANTES de montar: topbar + índice de equipados prontos → comparação correta no 1º render
 	_clear_content()
 	var node = scene.instantiate()
 	node.set_meta("embedded", true)   # UiKit.scaffold roda em modo embutido (sem fundo/←/carteira)
@@ -296,7 +297,6 @@ func _open(scr: String) -> void:
 	content_host.add_child(node)
 	_wire_screen(node)
 	_set_active(scr)
-	await refresh_warrior()   # topbar fresco ao trocar de tela (+ re-veste o busto)
 
 func _wire_screen(c: Control) -> void:
 	if c.has_signal("go_back"):
@@ -373,8 +373,12 @@ func refresh_warrior() -> void:
 	if r.get("ok") and r.get("json") is Dictionary:
 		warrior = r["json"]
 		update_topbar(warrior)
-	if _bust != null and is_instance_valid(_bust):
-		await _bust.refresh()
+	# 1 fetch de inventário → índice de equipados (p/ comparação) + veste o busto
+	var inv = await api.get_inventory()
+	if inv.get("ok") and inv.get("json") is Array:
+		UiKit.set_equipped(inv["json"])
+		if _bust != null and is_instance_valid(_bust):
+			_bust.apply(inv["json"])
 
 # Atualiza só o topbar a partir de um WarriorResponse (chamado tb pelas telas via UiKit.set_wallet).
 func update_topbar(w: Dictionary) -> void:
