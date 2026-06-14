@@ -99,7 +99,7 @@ func _prefill_dev() -> void:
 func _submit() -> void:
 	if _busy: return
 	if user_edit.text.strip_edges() == "" or pass_edit.text == "":
-		UiKit.flash(status, "Preencha usuário e senha.", 2)
+		UiKit.flash(status, Lang.t("Preencha usuário e senha."), 2)
 		return
 	_busy = true
 	UiKit.flash(status, "Conectando…", 0)
