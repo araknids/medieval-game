@@ -21,12 +21,12 @@ const BLEND := 0.12
 const MELEE_KINDS := ["sword", "greatsword", "axe", "spear", "mace"]
 const WALK := LIB + "Walk"      # andar (reverso = recuar) no kiting do arqueiro [MENU_DUEL]
 # Kiting (arco × melee): o arqueiro recua e, encurralado na borda, PULA pro outro lado.
-const KITE_EDGE := 2.3          # |x| máx do arqueiro (não sai do quadro)
+const KITE_EDGE := 3.6          # |x| máx do arqueiro (campo mais largo → recua de verdade)
 const KITE_RANGE := 1.45        # distância que o melee tenta fechar
 const KITE_PREF := 1.95         # arqueiro recua enquanto o gap for menor que isto
 const KITE_MELEE_SPEED := 1.7
 const KITE_ARCHER_SPEED := 2.0  # > melee → o arqueiro mantém distância
-const KITE_LAND := 1.25         # quão atrás do melee o arqueiro aterrissa após o pulo
+const KITE_LAND := 3.0          # DOIS dodges: aterrissa BEM longe do melee (> alcance) → não dodgeia sem parar
 
 # Peças Ranger por slot (mesmo set do PaperDollLive) + a cabeça-base (rosto).
 const BASE_HEAD := "res://assets/base/Base_Male_Head.gltf"
@@ -313,23 +313,31 @@ func _hop_through(r: int, m: int) -> void:
 	_face(R, toward)                                     # encara a direção do pulo
 	var base_y: float = R.get("base_y", 0.0)
 	var ap_r: AnimationPlayer = R["anim"]
+	var roll: String = ROLL
 	var dur := 0.55
 	if ap_r:
-		var roll: String = ROLL if ap_r.has_animation(ROLL) else WALK
+		if not ap_r.has_animation(ROLL):
+			roll = WALK
 		var a: Animation = ap_r.get_animation(roll)
 		if a and a.get_length() > 0.05:
 			a.loop_mode = Animation.LOOP_NONE
 			dur = a.get_length()
 		ap_r.play(roll, BLEND)
+		# 2º rolê no meio do caminho → "dois dodges" cobrem a distância maior sem deslizar
+		get_tree().create_timer(dur).timeout.connect(func() -> void:
+			if is_instance_valid(rn) and ap_r and R.get("hopping", false):
+				ap_r.play(roll, BLEND))
+	var total := dur * 2.0                               # dois rolês = leva o dobro de distância
 	var tw := rn.create_tween()
-	tw.tween_property(rn, "position:x", land_x, dur).set_trans(Tween.TRANS_SINE)
+	tw.tween_property(rn, "position:x", land_x, total)   # linear = velocidade de rolê constante
 	tw.tween_callback(func() -> void:
 		R["hopping"] = false
 		if is_instance_valid(rn) and ap_r:
 			ap_r.play(IDLE, BLEND))
-	var ty := rn.create_tween()                          # arco vertical = sensação de PULO
-	ty.tween_property(rn, "position:y", base_y + 0.55, dur * 0.5).set_trans(Tween.TRANS_SINE)
-	ty.tween_property(rn, "position:y", base_y, dur * 0.5).set_trans(Tween.TRANS_SINE)
+	var ty := rn.create_tween()                          # arco vertical: um pulinho por rolê (dois)
+	for _i in 2:
+		ty.tween_property(rn, "position:y", base_y + 0.4, dur * 0.5).set_trans(Tween.TRANS_SINE)
+		ty.tween_property(rn, "position:y", base_y, dur * 0.5).set_trans(Tween.TRANS_SINE)
 
 # Um golpe: atacante INVESTE (lunge) pra frente + toca o ataque; defensor reage (Hit_Chest)
 # e SANGRA no impacto. Ambos voltam pro idle sozinhos (animation_finished). Sem await.
