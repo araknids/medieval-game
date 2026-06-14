@@ -41,6 +41,7 @@ public class SchemaMigrator {
         patchPlayerDailyRewardColumns();
         patchGuildEverControlledColumn();
         patchInventoryListedColumn();
+        patchInventoryItemRunPendingColumn();
         patchInventoryWeaponCategoryColumn();
         patchElementColumns();
         patchAbilityPointsColumn();
@@ -279,6 +280,18 @@ public class SchemaMigrator {
             log.info("[SchemaMigrator] inventory_items.listed column ensured");
         } catch (Exception e) {
             log.warn("[SchemaMigrator] inventory_items.listed patch failed: {}", e.getMessage());
+        }
+    }
+
+    // [INCURSAO] flag de item carregado na bolsa de uma Incursão (sai da bag, igual listed/consigned).
+    // A tabela expedition_runs é auto-criada pelo ddl-auto (sem patch). Só o run_pending na tabela
+    // existente inventory_items precisa de patch (ddl-auto=update não põe o DEFAULT explícito).
+    private void patchInventoryItemRunPendingColumn() {
+        try {
+            jdbc.execute("ALTER TABLE inventory_items ADD COLUMN IF NOT EXISTS run_pending boolean NOT NULL DEFAULT false");
+            log.info("[SchemaMigrator] inventory_items.run_pending column ensured");
+        } catch (Exception e) {
+            log.warn("[SchemaMigrator] inventory_items.run_pending patch failed: {}", e.getMessage());
         }
     }
 

@@ -45,6 +45,7 @@ public class BlueMerchantService {
         if (item.isListed())    throw new IllegalStateException("Item is listed in the Auction House.");
         if (item.isGuarded())   throw new IllegalStateException("Un-guard the item at the Temple first.");
         if (item.isConsigned()) throw new IllegalStateException("Item is already with the Blue Merchant.");
+        if (item.isRunPending()) throw new IllegalStateException("Item is in a Delve run (not yet extracted)."); // [INCURSAO]
         if (item.isPvpLocked() && player.isPvpFlagged())
             throw new IllegalStateException("Item is PvP-locked right now.");
         if (item.isBroken())    throw new IllegalStateException("Repair the item first.");
@@ -135,7 +136,7 @@ public class BlueMerchantService {
                         c.getItem().getType().name(), c.getStatus().name(), c.getSteamItemDef(), c.getSteamItemInstance()))
                 .toList();
         List<ItemView> bag = inventoryRepository.findAllByPlayer(player).stream()
-                .filter(i -> !i.isEquipped() && !i.isStashed() && !i.isListed() && !i.isConsigned() && !i.isBroken())
+                .filter(i -> !i.isEquipped() && !i.isStashed() && !i.isListed() && !i.isConsigned() && !i.isRunPending() && !i.isBroken())
                 .map(i -> new ItemView(i.getId(), i.getName(), i.getRarity(), i.getType().name(),
                         i.getAttackBonus(), i.getDefenseBonus(), i.getHealthBonus()))
                 .toList();

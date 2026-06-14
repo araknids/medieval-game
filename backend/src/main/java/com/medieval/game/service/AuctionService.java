@@ -67,6 +67,7 @@ public class AuctionService {
         if (item.isPvpLocked()) throw new IllegalStateException("Item is PvP-locked — can't list it now.");
         if (item.isListed())    throw new IllegalStateException("Item is already listed.");
         if (item.isConsigned()) throw new IllegalStateException("Item is consigned with the Blue Merchant."); // [MERCADO_STEAM]
+        if (item.isRunPending()) throw new IllegalStateException("Item is in a Delve run (not yet extracted)."); // [INCURSAO]
 
         if (listingRepo.countBySellerAndStatus(player, Status.ACTIVE) >= MAX_ACTIVE)
             throw new com.medieval.game.config.LocalizedException("error.auction_max_active", "You already have {0} active listings.", MAX_ACTIVE);

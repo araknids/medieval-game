@@ -51,7 +51,7 @@ public class InventoryService {
             for (InventoryItem i : items) if (i.isPvpLocked()) { i.setPvpLocked(false); any = true; }
             if (any) inventoryRepository.saveAll(items);
         }
-        return items.stream().filter(i -> !i.isListed() && !i.isConsigned()).toList(); // [LEILAO/MERCADO_STEAM] leilão/consignado não aparecem na bag
+        return items.stream().filter(i -> !i.isListed() && !i.isConsigned() && !i.isRunPending()).toList(); // [LEILAO/MERCADO_STEAM/INCURSAO] leilão/consignado/run não aparecem na bag
     }
 
     /**
@@ -86,7 +86,7 @@ public class InventoryService {
     /** Peso ocupado na bag, em quintos de slot (itens não-equipados/listados/consignados + recursos não-stashed). */
     private long bagFifths(Player player) {
         long items = inventoryRepository.findAllByPlayer(player).stream()
-                .filter(i -> !i.isEquipped() && !i.isStashed() && !i.isListed() && !i.isConsigned()).count(); // [LEILAO/MERCADO_STEAM] listado/consignado não conta na bag
+                .filter(i -> !i.isEquipped() && !i.isStashed() && !i.isListed() && !i.isConsigned() && !i.isRunPending()).count(); // [LEILAO/MERCADO_STEAM/INCURSAO] listado/consignado/run não conta na bag
         long resources = resourceRepository.findAllByPlayerAndStashed(player, false).stream()
                 .mapToLong(ResourceInventory::getQuantity).sum();
         return items * SLOT_FIFTHS + resources * RESOURCE_FIFTHS;
@@ -150,6 +150,9 @@ public class InventoryService {
         }
         if (item.isConsigned()) {
             throw new IllegalStateException("Item is consigned with the Blue Merchant.");
+        }
+        if (item.isRunPending()) { // [INCURSAO] item carregado numa Incursão — extraia a run primeiro
+            throw new IllegalStateException("Item is in a Delve run (not yet extracted).");
         }
         Warrior warrior = warriorRepository.findByPlayer(player).orElse(null);
         // Itens V3: requisito de nível — só equipa se itemLevel ≤ nível do guerreiro. [ITENS_V3]
@@ -244,6 +247,9 @@ public class InventoryService {
         if (item.isConsigned()) {
             throw new IllegalStateException("Item is consigned with the Blue Merchant.");
         }
+        if (item.isRunPending()) { // [INCURSAO] item carregado numa Incursão — extraia a run primeiro
+            throw new IllegalStateException("Item is in a Delve run (not yet extracted).");
+        }
         if (item.isPvpLocked() && player.isPvpFlagged()) {
             log.warn("[InventoryService] player={} REJECTED: item {} is PvP-locked (exposed)", player.getId(), itemId);
             throw new IllegalStateException("Item exposto no PvP — não pode vender enquanto você está flagged.");
@@ -300,6 +306,25 @@ public class InventoryService {
             log.warn("[InventoryService] player={} bag full ({}/{}) — item '{}' not added", player.getId(), bagSize(player), max, name);
             throw new com.medieval.game.config.LocalizedException("error.inventory_full", "Inventory full ({0} slots). Sell items or expand with SoulStones.", max);
         }
+        return buildItem(player, name, type, atk, def, hp, rarity, sellPrice, itemLevel, description, origin, false);
+    }
+
+    /**
+     * [INCURSAO] Cria um item já marcado {@code runPending} (bolsa de uma Incursão/Delve): NÃO checa
+     * nem ocupa a bag — o item fica FORA dela até o extract/checkpoint (que limpa o flag, ou manda por
+     * mail se a bag estiver cheia). KO/abandono deleta. Ver docs/PLANO_INCURSAO.md.
+     */
+    @Transactional
+    public InventoryItem makeRunPending(Player player, String name, ItemType type,
+                                        int atk, int def, int hp, int rarity, long sellPrice,
+                                        int itemLevel, String description, String origin) {
+        return buildItem(player, name, type, atk, def, hp, rarity, sellPrice, itemLevel, description, origin, true);
+    }
+
+    /** Núcleo de criação de item (sem o guard de bag). {@code runPending=true} = bolsa de Incursão. [INCURSAO] */
+    private InventoryItem buildItem(Player player, String name, ItemType type,
+                                    int atk, int def, int hp, int rarity, long sellPrice,
+                                    int itemLevel, String description, String origin, boolean runPending) {
         InventoryItem item = new InventoryItem();
         item.setPlayer(player);
         item.setName(name);
@@ -322,10 +347,34 @@ public class InventoryService {
         item.setSellPrice(sellPrice);
         item.setDescription(description);
         item.setOrigin(origin);
+        item.setRunPending(runPending); // [INCURSAO]
         if (rarity >= 5) item.setSockets(3); // Lendário: sockets no máximo [ITENS_V2]
         InventoryItem saved = inventoryRepository.save(item);
         rollAffixesFor(saved, true); // Itens V2: afixos por raridade (no-op p/ Comum), renomeia com prefixo
         return saved;
+    }
+
+    // ── [INCURSAO] Bolsa carregada da Incursão (gear com runPending) ──────────────
+    // Invariante: 1 run ativa por vez → TODOS os itens runPending do player são da run corrente.
+
+    /** Itens carregados na bolsa da Incursão atual (gear ainda não sacado). [INCURSAO] */
+    public List<InventoryItem> runPendingItems(Player player) {
+        return inventoryRepository.findAllByPlayer(player).stream().filter(InventoryItem::isRunPending).toList();
+    }
+
+    /** Saca um item da bolsa: vira item normal na bag (@DynamicUpdate → save explícito). [INCURSAO] */
+    @Transactional
+    public void clearRunPending(InventoryItem item) {
+        item.setRunPending(false);
+        inventoryRepository.save(item);
+    }
+
+    /** Descarta um item carregado (KO/abandono, ou overflow já mandado por mail). FK-safe. [INCURSAO] */
+    @Transactional
+    public void discardRunItem(InventoryItem item) {
+        gemRepository.deleteAllByItem(item);
+        affixRepository.deleteByItem(item);
+        inventoryRepository.delete(item);
     }
 
     /**

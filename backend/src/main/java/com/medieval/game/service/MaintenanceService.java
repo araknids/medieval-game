@@ -34,6 +34,7 @@ public class MaintenanceService {
     private final ArenaMatchRepository         arenaMatchRepository;
     private final ZoneActivityRepository       zoneActivityRepository;
     private final TowerRunRepository           towerRunRepository;
+    private final ExpeditionRunRepository      expeditionRunRepository;  // [INCURSAO] runs (gear carregado sai no batch de itens)
     private final TrainingSessionRepository    trainingSessionRepository;
     private final KingdomActiveQuestRepository kingdomActiveQuestRepository;
     private final SkillLevelRepository         skillLevelRepository;
@@ -76,6 +77,7 @@ public class MaintenanceService {
         arenaMatchRepository.deleteAllInBatch();
         zoneActivityRepository.deleteAllInBatch();
         towerRunRepository.deleteAllInBatch();
+        expeditionRunRepository.deleteAllInBatch(); // [INCURSAO] itens runPending já saem no inventory batch acima
         trainingSessionRepository.deleteAllInBatch();
         kingdomActiveQuestRepository.deleteAllInBatch();
         skillLevelRepository.deleteAllInBatch();

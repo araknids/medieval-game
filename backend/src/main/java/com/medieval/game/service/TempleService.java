@@ -223,6 +223,9 @@ public class TempleService {
             log.warn("[TempleService] player={} REJECTED: item {} is already protected", player.getId(), itemId);
             throw new IllegalStateException("Item is already protected");
         }
+        if (item.isRunPending()) { // [INCURSAO] item carregado numa Incursão — extraia a run primeiro
+            throw new IllegalStateException("Item is in a Delve run (not yet extracted).");
+        }
         if (item.isPvpLocked() && player.isPvpFlagged()) {
             log.warn("[TempleService] player={} REJECTED: item {} is PvP-locked (exposed)", player.getId(), itemId);
             throw new IllegalStateException("Item exposto no PvP — não pode proteger no Templo enquanto flagged.");

@@ -12,6 +12,8 @@
   "nav.territory": "Territories",
   "nav.mail": "Mail",
   "nav.daily": "Daily",
+  "nav.delve": "Delve",
+  "section.delve.desc": "Brave a branching run of battles. Open chests, then choose: extract your loot, or push deeper for stronger foes and better rewards.",
   "section.daily.desc": "Log in every day for stamina fish — keep the streak going!",
   "daily.title": "Daily Reward",
   "daily.claimed_title": "Daily Reward claimed!",

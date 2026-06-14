@@ -12,6 +12,8 @@
   "nav.territory": "Territórios",
   "nav.mail": "Correio",
   "nav.daily": "Diária",
+  "nav.delve": "Incursão",
+  "section.delve.desc": "Encare uma jornada ramificada de batalhas. Abra baús e decida: saque o loot e saia, ou avance mais fundo por inimigos mais fortes e recompensas melhores.",
   "section.daily.desc": "Logue todo dia pra ganhar peixe de stamina — mantenha o streak!",
   "daily.title": "Recompensa Diária",
   "daily.claimed_title": "Recompensa Diária coletada!",

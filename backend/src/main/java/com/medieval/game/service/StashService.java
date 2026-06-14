@@ -53,6 +53,7 @@ public class StashService {
         InventoryItem item = ownedItem(player, itemId);
         if (item.isStashed())  throw new IllegalStateException("Item already in the stash.");
         if (item.isEquipped()) throw new IllegalStateException("Unequip the item before stashing it.");
+        if (item.isRunPending()) throw new IllegalStateException("Item is in a Delve run (not yet extracted)."); // [INCURSAO]
         if (item.isPvpLocked() && player.isPvpFlagged())
             throw new IllegalStateException("Item exposto no PvP — não pode guardar no stash enquanto flagged.");
         playerService.spendBronze(player, STASH_FEE);

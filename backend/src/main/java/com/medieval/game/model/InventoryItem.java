@@ -96,6 +96,12 @@ public class InventoryItem {
     @Column(columnDefinition = "boolean default false")
     private boolean consigned = false;
 
+    // [INCURSAO] Item carregado na bolsa de uma Incursão (Delve): sai da bag — não equipa/vende/
+    // stasha/guarda/lista/consigna (igual a listed/consigned). Limpa no extract/checkpoint (vira
+    // item normal); deletado no KO/abandono. Soft-wipe limpa junto com o batch delete dos itens.
+    @Column(columnDefinition = "boolean default false")
+    private boolean runPending = false;
+
     @Column(columnDefinition = "TEXT")
     private String description; // lore do item
 

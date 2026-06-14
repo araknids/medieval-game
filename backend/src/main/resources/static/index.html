@@ -88,6 +88,7 @@
         </nav>
         <nav class="location-nav" id="loc-nav">
           <button id="loc-world"     data-grp="adventure" class="loc-btn active" onclick="goTo('world')">🌍 World</button>
+          <button id="loc-expedition" data-grp="adventure" class="loc-btn"       onclick="goTo('expedition')">📜 <span data-i18n="nav.delve">Delve</span></button>
           <button id="loc-inventory" data-grp="character" class="loc-btn"        onclick="goTo('inventory')">👤 <span data-i18n="nav.character">Character</span></button>
           <button id="loc-commerce"  data-grp="town"      class="loc-btn"        onclick="goTo('commerce')">🛒 <span data-i18n="nav.commerce">Commerce</span></button>
           <button id="loc-temple"    data-grp="temple"    class="loc-btn"        onclick="goTo('temple')">⛪ <span data-i18n="nav.temple">Temple</span></button>
@@ -218,6 +219,15 @@
             <p class="loc-desc">Three kingdoms, each with its own resources and quests. No kingdom is self-sufficient.</p>
           </div>
           <div id="world-content">Loading...</div>
+        </section>
+
+        <!-- INCURSÃO / DELVE [INCURSAO] -->
+        <section id="loc-panel-expedition" style="display:none">
+          <div class="loc-header">
+            <h2>📜 <span data-i18n="nav.delve">Delve</span></h2>
+            <p class="loc-desc" data-i18n="section.delve.desc">Brave a branching run of battles. Open chests, then choose: extract your loot, or push deeper for stronger foes and better rewards.</p>
+          </div>
+          <div id="expedition-content">Loading...</div>
         </section>
 
         <!-- MAIL -->

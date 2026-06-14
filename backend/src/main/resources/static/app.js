@@ -589,7 +589,7 @@ async function loadWarrior() {
 // ── Navegação de locais ──
 function goTo(loc) {
   if (loc !== 'commerce') stopTavernPolling(); // [TAVERNA] para o polling ao sair do comércio
-  ['inventory','commerce','temple','work','tower','arena','guild','world','mail','daily'].forEach(l => {
+  ['inventory','commerce','temple','work','tower','arena','guild','world','mail','daily','expedition'].forEach(l => {
     document.getElementById('loc-panel-' + l).style.display = l === loc ? 'block' : 'none';
     document.getElementById('loc-' + l)?.classList.toggle('active', l === loc);
   });
@@ -603,6 +603,7 @@ function goTo(loc) {
   if (loc === 'world')      { loadWorld(); }
   if (loc === 'mail')      { loadMail(); }
   if (loc === 'daily')     { loadDailyReward(); }
+  if (loc === 'expedition'){ loadExpedition(); } // [INCURSAO]
 
   // [PILOTO_UI nav 9→5] ativa o grupo do destino e mostra só os botões daquele grupo.
   // Todos os botões seguem no DOM (badges/i18n intactos); só alternamos a visibilidade.
@@ -614,7 +615,7 @@ function goTo(loc) {
 }
 
 // [PILOTO_UI nav 9→5] destino→grupo e grupo→destino primário
-const NAV_LOC_GROUP = { world:'adventure', inventory:'character', commerce:'town', temple:'temple', work:'work', tower:'battle', arena:'battle', guild:'social', mail:'social', daily:'social' };
+const NAV_LOC_GROUP = { world:'adventure', expedition:'adventure', inventory:'character', commerce:'town', temple:'temple', work:'work', tower:'battle', arena:'battle', guild:'social', mail:'social', daily:'social' };
 function goGroup(g) {
   const PRIMARY = { adventure:'world', character:'inventory', town:'commerce', work:'work', temple:'temple', battle:'arena', social:'guild' };
   goTo(PRIMARY[g] || 'world');
@@ -4805,3 +4806,232 @@ async function vipHeal() {
 
 // Resources tab in Commerce — shows all gathered items (fish, ores, gems, bars)
 // (removido) loadResourcesInCommerce — recursos agora aparecem na bag unificada (Inventário V2)
+
+// ════════════════════════════════════════════════════════════════════════════
+// [INCURSAO] Delve — run roguelike de mapa ramificado (push-your-luck). Quest + coleta.
+// Backend: /api/expedition. Reusa showCollectModal (loot + replay) e o modal de diálogo.
+// ════════════════════════════════════════════════════════════════════════════
+
+let _delveTier = 1;       // 1=Easy / 2=Normal / 3=Hard
+let _delveElement = '';   // '' | FIRE | WATER | EARTH | AIR
+
+const DELVE_NODE = {
+  COMBAT:  { icon: '⚔', label: 'Combat',   color: '#9aa3b2' },
+  ELITE:   { icon: '💀', label: 'Elite',    color: '#c97ddb' },
+  TREASURE:{ icon: '🎁', label: 'Treasure', color: '#c9a84c' },
+  EVENT:   { icon: '📜', label: 'Event',    color: '#7fb3ff' },
+  CAMP:    { icon: '🔥', label: 'Camp',     color: '#4caf82' },
+  BOSS:    { icon: '👑', label: 'Boss',     color: '#cf6679' },
+};
+const DELVE_KINGDOMS = [
+  ['COMBAT', '⚔ Cursed Fortress'], ['FISHING', '🎣 Bone Gorge'], ['MINING', '⛏ Black Iron Mines'],
+  ['GRUTAS_DE_CRISTAL', '🔮 Crystal Grottoes'], ['MAR_ABENCOADO', '🌊 Blessed Sea'],
+];
+const DELVE_SKILLS = [['FISHING', '🎣 Fishing'], ['MINING', '⛏ Mining'], ['GARIMPO', '🔎 Prospecting']];
+const DELVE_ELEMENTS = [['', '∅'], ['FIRE', '🔥'], ['WATER', '💧'], ['EARTH', '🪨'], ['AIR', '💨']];
+
+async function loadExpedition() {
+  const r = await api('GET', '/api/expedition/current');
+  if (r && r.active) renderExpeditionMap(r);
+  else renderExpeditionLauncher();
+}
+
+function renderExpeditionLauncher() {
+  const tierBtn = (t, lbl) => `<button onclick="_delveTier=${t};renderExpeditionLauncher()"
+      style="flex:1;padding:8px;border-radius:8px;cursor:pointer;font-size:13px;border:1px solid #3a3a52;
+             background:${_delveTier === t ? '#c9a84c' : '#1f1f33'};color:${_delveTier === t ? '#1a1a2e' : '#e6e6f2'};font-weight:${_delveTier === t ? 'bold' : 'normal'}">${lbl}</button>`;
+  const elBtn = ([v, ic]) => `<button onclick="_delveElement='${v}';renderExpeditionLauncher()"
+      style="padding:6px 10px;border-radius:8px;cursor:pointer;font-size:15px;border:1px solid #3a3a52;
+             background:${_delveElement === v ? '#2e7d52' : '#1f1f33'}">${ic}</button>`;
+  const kBtn = ([k, lbl]) => `<button onclick="startExpeditionKingdom('${k}')"
+      style="display:block;width:100%;text-align:left;margin-top:8px;padding:11px 13px;background:#1f1f33;
+             border:1px solid #3a3a52;border-radius:8px;color:#e6e6f2;cursor:pointer;font-size:14px">${lbl}</button>`;
+  const sBtn = ([s, lbl]) => `<button onclick="startExpeditionZone('${s}')"
+      style="display:block;width:100%;text-align:left;margin-top:8px;padding:11px 13px;background:#16261f;
+             border:1px solid #2e5d44;border-radius:8px;color:#dff;cursor:pointer;font-size:14px">${lbl}</button>`;
+
+  document.getElementById('expedition-content').innerHTML = `
+    <div style="max-width:520px">
+      <div style="display:flex;gap:8px;margin-bottom:10px">
+        ${tierBtn(1, 'Easy')}${tierBtn(2, 'Normal')}${tierBtn(3, 'Hard')}
+      </div>
+      <div style="display:flex;gap:8px;align-items:center;margin-bottom:18px">
+        <span style="color:#9a9aae;font-size:12px">Element:</span>${DELVE_ELEMENTS.map(elBtn).join('')}
+      </div>
+      <h3 style="color:#c9a84c;font-size:14px;margin:0 0 2px">⚔ Quest Delve <span style="color:#888;font-weight:normal;font-size:12px">— gear, bronze, XP</span></h3>
+      ${DELVE_KINGDOMS.map(kBtn).join('')}
+      <h3 style="color:#4caf82;font-size:14px;margin:18px 0 2px">🎣 Gather Delve <span style="color:#888;font-weight:normal;font-size:12px">— resources (PvP on Normal/Hard)</span></h3>
+      ${DELVE_SKILLS.map(sBtn).join('')}
+      <p style="color:#777;font-size:12px;margin-top:16px;line-height:1.5">Costs stamina to enter. Your HP carries between battles — a knockout ends the run and forfeits any un-banked loot. Camp 🔥 nodes and extracting secure your haul.</p>
+    </div>`;
+}
+
+async function startExpeditionKingdom(kingdom) {
+  const body = { source: 'KINGDOM', kingdom, tier: _delveTier };
+  if (_delveElement) body.element = _delveElement;
+  await startExpedition(body);
+}
+
+async function startExpeditionZone(skill) {
+  const zone = _delveTier >= 3 ? 'HIGH_RISK' : _delveTier === 2 ? 'PVP' : 'SAFE';
+  const kingdom = skill === 'FISHING' ? 'FISHING' : skill === 'MINING' ? 'MINING' : 'GRUTAS_DE_CRISTAL';
+  const body = { source: 'ZONE', kingdom, zone, skillType: skill, tier: _delveTier };
+  if (_delveElement) body.element = _delveElement;
+  await startExpedition(body);
+}
+
+async function startExpedition(body) {
+  const r = await api('POST', '/api/expedition/start', body);
+  if (r.error) { showMessage(r.error, true); return; }
+  await loadWarrior();
+  renderExpeditionMap(r);
+}
+
+function renderExpeditionMap(state) {
+  if (!state || !state.active) { loadExpedition(); return; }
+  const layers = state.map || [];
+  const cur = state.currentLayer;
+  const layersHtml = layers.map(layer => {
+    const here = layer.index === cur && state.status === 'IN_PROGRESS';
+    const past = layer.index < cur;
+    const nodes = (layer.nodes || []).map(n => {
+      const m = DELVE_NODE[n.type] || { icon: '?', label: n.type, color: '#888' };
+      const reachable = n.reachable === true;
+      const opacity = past ? 0.35 : (here ? 1 : 0.6);
+      const base = `flex:1;min-width:84px;border-radius:10px;padding:10px 6px;text-align:center;border:1px solid ${m.color};opacity:${opacity}`;
+      if (reachable) return `<button onclick="chooseExpeditionNode('${n.id}')"
+          style="${base};background:#1f1f33;color:${m.color};cursor:pointer;box-shadow:0 0 10px ${m.color}55;font-size:13px">
+          <div style="font-size:22px">${m.icon}</div>${m.label}</button>`;
+      return `<div style="${base};background:#15151f;color:${m.color};font-size:13px">
+          <div style="font-size:22px">${m.icon}</div>${m.label}</div>`;
+    }).join('');
+    return `<div style="margin-bottom:10px">
+        ${here ? '<div style="color:#c9a84c;font-size:11px;text-transform:uppercase;letter-spacing:.05em;margin-bottom:3px">▼ Choose your path</div>' : ''}
+        <div style="display:flex;gap:8px;flex-wrap:wrap">${nodes}</div>
+      </div>`;
+  }).join('');
+
+  const c = state.carried || { bronze: 0, xp: 0, resources: [] };
+  const s = state.secured || { bronze: 0, xp: 0, resources: [] };
+  const bag = (b) => {
+    const parts = [];
+    if (b.bronze > 0) parts.push(fmtBronze(b.bronze));
+    if (b.xp > 0) parts.push(`✨${b.xp}`);
+    (b.resources || []).forEach(r => parts.push(`${escapeHtml(r.displayName)} ×${r.quantity}`));
+    return parts.length ? parts.join(' · ') : '<span style="color:#666">empty</span>';
+  };
+  const over = state.currentLayer >= state.depth;
+
+  document.getElementById('expedition-content').innerHTML = `
+    <div style="max-width:560px">
+      <div style="display:flex;gap:10px;margin-bottom:14px">
+        <div style="flex:1;background:#0d0d18;border:1px solid #3a3a3a;border-radius:8px;padding:9px 11px">
+          <div style="color:#c97ddb;font-size:11px;text-transform:uppercase">🎒 Carried (at risk)</div>
+          <div style="color:#e6e6f2;font-size:13px;margin-top:3px">${bag(c)}</div>
+        </div>
+        <div style="flex:1;background:#0d180d;border:1px solid #2e5d44;border-radius:8px;padding:9px 11px">
+          <div style="color:#4caf82;font-size:11px;text-transform:uppercase">🔒 Banked (safe)</div>
+          <div style="color:#dff;font-size:13px;margin-top:3px">${bag(s)}</div>
+        </div>
+      </div>
+      ${over ? '<div style="color:#c9a84c;text-align:center;margin:14px 0">The Delve is cleared. Extract your loot!</div>' : layersHtml}
+      <div style="display:flex;gap:10px;margin-top:16px">
+        <button onclick="extractExpedition()" style="flex:1;background:#4caf82;color:#06210f;font-weight:bold;border:none;border-radius:8px;padding:11px;cursor:pointer;font-size:14px">🔒 Extract & Exit</button>
+        <button onclick="abandonExpedition()" style="flex:0 0 auto;background:#2a2a3a;color:#bbb;border:none;border-radius:8px;padding:11px 14px;cursor:pointer;font-size:13px">Abandon</button>
+      </div>
+    </div>`;
+
+  // EVENTO pendente → abre o modal de escolha
+  if (state.status === 'NODE_PENDING' && state.dialog) showExpeditionEventModal(state.id, state.dialog);
+}
+
+async function chooseExpeditionNode(nodeId) {
+  const run = await currentDelveId();
+  if (!run) { loadExpedition(); return; }
+  const r = await api('POST', `/api/expedition/${run}/choose`, { nodeId });
+  handleDelveStep(r);
+}
+
+async function resolveExpeditionNode(runId, optionId) {
+  closeCollectModal();
+  const r = await api('POST', `/api/expedition/${runId}/node`, { optionId });
+  handleDelveStep(r);
+}
+
+function handleDelveStep(r) {
+  if (r.error) { showMessage(r.error, true); return; }
+  loadWarrior(); // HP/estamina mudaram
+  if (r.nodePending && r.dialog) { renderExpeditionMap(r.state); return; } // o map re-render abre o modal do evento
+  // re-render o painel por baixo, depois o modal de resultado por cima
+  if (r.state && r.state.active) renderExpeditionMap(r.state); else loadExpedition();
+
+  const rows = [];
+  if (r.bronzeGained > 0) rows.push({ icon: '🟤', label: 'Bronze', value: fmtBronze(r.bronzeGained), color: '#c9a84c' });
+  if (r.xpGained > 0)     rows.push({ icon: '✨', label: 'XP', value: '+' + r.xpGained, color: '#7fb3ff' });
+  (r.drops || []).forEach(d => rows.push({ icon: '📦', label: escapeHtml(d.displayName), value: '×' + d.quantity }));
+  if (r.lootItemName)     rows.push({ icon: '🛡', label: 'Loot (carried)', value: escapeHtml(r.lootItemName), color: '#c97ddb' });
+
+  const ko = r.ko === true;
+  const camp = r.resolvedType === 'CAMP';
+  showCollectModal({
+    title: ko ? '💀 Defeated' : camp ? '🔥 Camp' : '🎉 Victory',
+    color: ko ? '#cf6679' : camp ? '#4caf82' : '#4caf50',
+    rows,
+    note: ko ? 'You were knocked out — your un-banked loot is lost.' : (r.narrative || ''),
+    log: r.battleLog || [],
+    battleEvents: r.battleEvents,
+    scene: r.scene,
+  });
+}
+
+function showExpeditionEventModal(runId, dialog) {
+  closeCollectModal();
+  const optsHtml = (dialog.options || []).map(o => `
+    <button onclick="resolveExpeditionNode(${runId}, '${o.id}')"
+            style="display:block;width:100%;text-align:left;margin-top:8px;padding:10px 12px;background:#1f1f33;
+                   border:1px solid #3a3a52;border-radius:8px;color:#e6e6f2;cursor:pointer;font-size:13px">
+      ${escapeHtml(o.label)}${o.hint ? ` <span style="color:#7fd1b9;font-size:11px">· 🎲 ${escapeHtml(o.hint)}</span>` : ''}
+    </button>`).join('');
+  const el = document.createElement('div');
+  el.id = 'collect-modal-overlay';
+  el.setAttribute('style', 'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.82);z-index:9999;display:flex;align-items:center;justify-content:center;padding:16px;box-sizing:border-box');
+  el.innerHTML = `
+    <div style="background:#16162a;border:2px solid #7fb3ff;border-radius:14px;padding:24px;max-width:460px;width:100%;max-height:85vh;overflow-y:auto;position:relative;box-shadow:0 8px 32px rgba(0,0,0,0.6)">
+      <h3 style="margin:0 0 14px;color:#7fb3ff;font-size:16px">📜 An Encounter</h3>
+      <div style="background:#0d0d18;border-left:3px solid #7fb3ff;border-radius:6px;padding:10px 12px;margin-bottom:6px;font-size:13px;color:#cdd;font-style:italic;line-height:1.5">${escapeHtml(dialog.intro || '')}</div>
+      ${optsHtml}
+    </div>`;
+  document.body.appendChild(el);
+}
+
+async function extractExpedition() {
+  const run = await currentDelveId();
+  if (!run) { loadExpedition(); return; }
+  const r = await api('POST', `/api/expedition/${run}/extract`);
+  if (r.error) { showMessage(r.error, true); return; }
+  await loadWarrior();
+  loadExpedition(); // volta pro launcher
+  const rows = [];
+  if (r.bronzeBanked > 0) rows.push({ icon: '🟤', label: 'Bronze', value: fmtBronze(r.bronzeBanked), color: '#c9a84c' });
+  if (r.xpBanked > 0)     rows.push({ icon: '✨', label: 'XP', value: '+' + r.xpBanked, color: '#7fb3ff' });
+  (r.bankedResources || []).forEach(d => rows.push({ icon: '📦', label: escapeHtml(d.displayName), value: '×' + d.quantity }));
+  if (r.keptItems > 0)    rows.push({ icon: '🛡', label: 'Items to bag', value: '×' + r.keptItems, color: '#c97ddb' });
+  if (r.mailedItems > 0)  rows.push({ icon: '📬', label: 'Mailed (bag full)', value: '×' + r.mailedItems });
+  showCollectModal({ title: '🔒 Loot Secured', color: '#4caf82', rows, note: r.narrative || '' });
+}
+
+async function abandonExpedition() {
+  if (!confirm('Abandon the Delve? You keep only what was already banked (camps/extracts) — un-banked loot is lost.')) return;
+  const run = await currentDelveId();
+  if (!run) { loadExpedition(); return; }
+  const r = await api('POST', `/api/expedition/${run}/abandon`);
+  if (r.error) { showMessage(r.error, true); return; }
+  showMessage(r.narrative || 'You left the Delve.');
+  loadExpedition();
+}
+
+// Resolve o id da run ativa (o map/launcher nem sempre tem em escopo após um modal).
+async function currentDelveId() {
+  const r = await api('GET', '/api/expedition/current');
+  return (r && r.active) ? r.id : null;
+}
