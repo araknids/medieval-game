@@ -117,7 +117,8 @@ public class InventoryController {
                     .map(g -> new GemSlot(g.getSlotIndex(), g.getGemType().name(), com.medieval.game.service.Messages.tr("gem." + g.getGemType().name() + ".name", g.getGemType().displayName)))
                     .toList();
             List<AffixLine> affixes = itemAffixes.stream()
-                    .map(a -> new AffixLine(a.getAffix().name(), a.getAffix().word,
+                    .map(a -> new AffixLine(a.getAffix().name(),
+                            com.medieval.game.service.Messages.word(a.getAffix().word), // [I18N_ITENS] afixo no idioma do request
                             a.getAffix().stat.name(), a.getMagnitude()))
                     .toList();
             return new ItemResponse(

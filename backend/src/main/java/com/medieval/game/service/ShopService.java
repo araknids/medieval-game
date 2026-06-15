@@ -217,7 +217,9 @@ public class ShopService {
         int[] st = (type == ItemType.WEAPON)
                 ? com.medieval.game.enums.WeaponType.fromName(name).stats(itemLevel, rarity)
                 : new int[]{ s[0], s[1], s[2], 0, 0, 0 };
-        return new ShopItem(itemId, name, type,
+        // [I18N_ITENS] nome em PT no locale do request — DEPOIS do fromName (que usa o nome EN p/ inferir o
+        // tipo da arma). A tradução PT preserva o keyword → fromName(PT) == fromName(EN) → preview == compra.
+        return new ShopItem(itemId, Messages.word(name), type,
                 st[0], st[1], st[2], st[3], st[4], st[5], rarity, price, itemLevel, purchased);
     }
 

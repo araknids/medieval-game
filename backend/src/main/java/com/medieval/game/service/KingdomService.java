@@ -643,7 +643,7 @@ public class KingdomService {
         boolean isArcher = warrior != null && warrior.getWarriorClass() == com.medieval.game.enums.WarriorClass.ARCHER;
         String name   = itemName(type, rarity, isArcher, rng);
         String lore   = loreGenerator.generateLore(rarity, type, rng);
-        String origin = loreGenerator.originFromQuest("Kingdom Quest");
+        String origin = loreGenerator.originFromQuest(Messages.word("Kingdom Quest"));
 
         if (inventoryService.bagSize(player) < player.getMaxInventorySlots()) {
             return inventoryService.make(player, name, type, atk, def, hp, rarity, price, itemLevel, lore, origin);
@@ -677,7 +677,8 @@ public class KingdomService {
             case 5 -> new String[]{"of the Ancients", "Mythic", "of Eternity"}; // Lendário [ITENS_V2]
             default -> new String[]{"of Iron", "of Leather", "of Wood"};
         };
-        return bases[rng.nextInt(bases.length)] + " " + suffixes[rng.nextInt(suffixes.length)];
+        // [I18N_ITENS] traduz base + sufixo pro locale do request (itemword.* em messages_pt). EN/teste → inglês.
+        return Messages.word(bases[rng.nextInt(bases.length)]) + " " + Messages.word(suffixes[rng.nextInt(suffixes.length)]);
     }
 
     // ── Inner types ───────────────────────────────────────────────────────────

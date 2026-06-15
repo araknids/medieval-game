@@ -450,7 +450,8 @@ public class ExpeditionService {
             case 5 -> new String[]{"of the Ancients", "Mythic", "of Eternity"};
             default -> new String[]{"of Iron", "of Leather", "of Wood"};
         };
-        return bases[rng.nextInt(bases.length)] + " " + suffixes[rng.nextInt(suffixes.length)];
+        // [I18N_ITENS] traduz base + sufixo pro locale do request (itemword.* em messages_pt). EN/teste → inglês.
+        return Messages.word(bases[rng.nextInt(bases.length)]) + " " + Messages.word(suffixes[rng.nextInt(suffixes.length)]);
     }
 
     // ── Recursos (ZONE) ───────────────────────────────────────────────────────

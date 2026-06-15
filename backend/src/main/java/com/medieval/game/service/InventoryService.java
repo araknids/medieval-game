@@ -464,7 +464,8 @@ public class InventoryService {
                     .filter(a -> a.position == Affix.Position.PREFIX)
                     .findFirst()
                     .ifPresent(p -> {
-                        item.setName(p.word + " " + item.getName());
+                        // [I18N_ITENS] prefixo do afixo no nome traduz pro locale do request (itemword.*).
+                        item.setName(Messages.word(p.word) + " " + item.getName());
                         inventoryRepository.save(item);
                     });
         }

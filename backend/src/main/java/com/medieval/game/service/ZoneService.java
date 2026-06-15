@@ -297,9 +297,12 @@ public class ZoneService {
         int rarity = r < 10 ? 3 : r < 40 ? 2 : 1; // 60% Comum / 30% Incomum / 10% Raro
         com.medieval.game.enums.ItemType type =
                 com.medieval.game.enums.ItemType.values()[rng.nextInt(com.medieval.game.enums.ItemType.values().length)];
-        String name = "Beast Trophy " + type.displayName;
+        // [I18N_ITENS] nome/desc/origem no idioma do request
+        String typeName = Messages.tr("itemtype." + type.name() + ".name", type.displayName);
+        String name = Messages.tr("item.beast_trophy", "Beast Trophy {0}", typeName);
         long price = switch (rarity) { case 3 -> 200L; case 2 -> 80L; default -> 30L; };
-        String desc = "Taken from a slain beast of the Cursed Fortress.", origin = "Combat Zone";
+        String desc = Messages.tr("item.beast_trophy.desc", "Taken from a slain beast of the Cursed Fortress."),
+               origin = Messages.tr("item.combat_zone", "Combat Zone");
         if (inventoryService.bagSpaceLeft(player) >= 1) {
             var it = inventoryService.make(player, name, type, 0, 0, 0, rarity, price, itemLevel, desc, origin);
             return new LootRoll(it.getName(), it.getId());
@@ -496,9 +499,12 @@ public class ZoneService {
         int rarity = r < 25 ? 5 : r < 65 ? 4 : 3;
         com.medieval.game.enums.ItemType type =
                 com.medieval.game.enums.ItemType.values()[rng.nextInt(com.medieval.game.enums.ItemType.values().length)];
-        String name = "Tower Warden's " + type.displayName;
+        // [I18N_ITENS] nome/desc/origem no idioma do request
+        String typeName = Messages.tr("itemtype." + type.name() + ".name", type.displayName);
+        String name = Messages.tr("item.tower_warden", "Tower Warden''s {0}", typeName);
         long price = switch (rarity) { case 5 -> 2500L; case 4 -> 1000L; default -> 400L; };
-        String desc = "Spoils from the escaped Tower boss.", origin = "Roaming Boss";
+        String desc = Messages.tr("item.tower_warden.desc", "Spoils from the escaped Tower boss."),
+               origin = Messages.tr("item.roaming_boss", "Roaming Boss");
         if (inventoryService.bagSpaceLeft(player) >= 1) {
             var it = inventoryService.make(player, name, type, 0, 0, 0, rarity, price, bossLevel, desc, origin);
             return new LootRoll(it.getName(), it.getId());

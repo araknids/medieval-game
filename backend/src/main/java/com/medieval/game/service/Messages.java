@@ -53,4 +53,22 @@ public class Messages {
             return (args == null || args.length == 0) ? defaultEn : java.text.MessageFormat.format(defaultEn, args);
         return MS.getMessage(key, args, defaultEn, locale());
     }
+
+    /**
+     * [I18N_ITENS] Traduz UMA palavra/fragmento de NOME de item (base, sufixo, afixo, nome curado da
+     * loja/arma) pro idioma do request. Chave = {@code "itemword." + SLUG(en)} (dedup por slug). Sem
+     * chave (ou locale EN) → o próprio {@code en}. Usado p/ gerar nomes em PT na criação do item.
+     * <p>ATENÇÃO p/ armas: a tradução PT precisa conter um keyword que {@code WeaponType.fromName}
+     * reconheça (ex.: "machado", "arco", "montante") — o nome é usado p/ inferir o tipo da arma.
+     */
+    public static String word(String en) {
+        if (en == null || en.isBlank()) return en;
+        return tr("itemword." + slug(en), en);
+    }
+
+    /** SLUG p/ chave de {@link #word}: upper + não-alfanumérico→'_' + trim de '_' nas pontas. */
+    private static String slug(String s) {
+        String up = s.trim().toUpperCase(Locale.ROOT).replaceAll("[^A-Z0-9]+", "_");
+        return up.replaceAll("^_+|_+$", "");
+    }
 }

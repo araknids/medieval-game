@@ -198,7 +198,7 @@ public class AuctionService {
             String sellerName = sellerNames.getOrDefault(l.getSeller().getId(), "?");
             long secs = Math.max(0, Duration.between(LocalDateTime.now(), l.getEndsAt()).getSeconds());
             List<String> affixes = affByItem.getOrDefault(it.getId(), List.of()).stream()
-                    .map(a -> a.getAffix().word + " (+" + a.getMagnitude() + " " + a.getAffix().stat.name() + ")").toList();
+                    .map(a -> Messages.word(a.getAffix().word) + " (+" + a.getMagnitude() + " " + a.getAffix().stat.name() + ")").toList(); // [I18N_ITENS]
             List<String> gems = gemsByItem.getOrDefault(it.getId(), List.of()).stream()
                     .map(g -> g.getGemType().displayName).toList();
             out.add(new AuctionView(

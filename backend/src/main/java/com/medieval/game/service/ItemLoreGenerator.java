@@ -56,39 +56,45 @@ public class ItemLoreGenerator {
 
     // ── Origin strings ──
 
+    // [I18N_ITENS] Lore + origem traduzem pelo locale do request (chaves itemlore.*/itemorigin.* em
+    // messages_pt.properties; EN = o default no código). Sem request (testes) → EN.
     public String generateLore(int rarity, ItemType type, Random rng) {
-        String[][] pool = switch (rarity) {
-            case 4 -> EPIC_LORE;
-            case 3 -> RARE_LORE;
-            case 2 -> UNCOMMON_LORE;
-            default -> COMMON_LORE;
-        };
+        String poolName;
+        String[][] pool;
+        switch (rarity) {
+            case 4 -> { pool = EPIC_LORE;     poolName = "epic"; }
+            case 3 -> { pool = RARE_LORE;     poolName = "rare"; }
+            case 2 -> { pool = UNCOMMON_LORE; poolName = "uncommon"; }
+            default -> { pool = COMMON_LORE;  poolName = "common"; }
+        }
         int idx = (type == ItemType.WEAPON) ? 0 : 1;
+        String cat = (idx == 0) ? "weapon" : "armor";
         String[] texts = pool[idx];
-        return texts[rng.nextInt(texts.length)];
+        int i = rng.nextInt(texts.length);
+        return Messages.tr("itemlore." + poolName + "." + cat + "." + i, texts[i]);
     }
 
     public String originFromQuest(String questDisplayName) {
-        return "Found during: " + questDisplayName + ".";
+        return Messages.tr("itemorigin.quest", "Found during: {0}.", questDisplayName);
     }
 
     public String originFromShop(String merchantName) {
-        return "Acquired at " + merchantName + "'s Trading Post.";
+        return Messages.tr("itemorigin.shop", "Acquired at {0}''s Trading Post.", merchantName);
     }
 
     public String originFromZone(String zoneName) {
-        return "Found while exploring " + zoneName + ".";
+        return Messages.tr("itemorigin.zone", "Found while exploring {0}.", zoneName);
     }
 
     public String originFromSmithing() {
-        return "Forged by the warrior at the Temple's anvil.";
+        return Messages.tr("itemorigin.smithing", "Forged by the warrior at the Temple's anvil.");
     }
 
     public String originStarter() {
-        return "Starter equipment provided by the adventurers' guild.";
+        return Messages.tr("itemorigin.starter", "Starter equipment provided by the adventurers' guild.");
     }
 
     public String originDrop(String bossOrEnemyName) {
-        return "Obtained after defeating " + bossOrEnemyName + ".";
+        return Messages.tr("itemorigin.drop", "Obtained after defeating {0}.", bossOrEnemyName);
     }
 }
