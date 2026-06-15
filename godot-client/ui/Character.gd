@@ -25,10 +25,8 @@ const ATTRS := [
 	["strength", "STR"], ["constitution", "CON"], ["dexterity", "DEX"],
 	["agility", "AGI"], ["luck", "LUK"], ["intellect", "INT"],
 ]
-const ATTR_EFFECT := {
-	"STR": "dano corpo-a-corpo", "CON": "+8 HP por ponto", "DEX": "acerto · dano de arco",
-	"AGI": "golpe extra · esquiva", "LUK": "crítico", "INT": "reservado (Mago)",
-}
+# Ganho EXATO por ponto (números do backend committado = prod). CON tem soft-cap (8→4→2) por faixa,
+# então é calculado em _attr_gain a partir da CON atual. [REBALANCE v2]
 
 var w: Dictionary = {}
 var items: Array = []
@@ -342,10 +340,10 @@ func _attr_row(a: Array, can_add: bool) -> Control:
 	val.add_theme_color_override("font_color", UiKit.GOLD)
 	row.add_child(val)
 	var eff := Label.new()
-	eff.text = Lang.t(str(ATTR_EFFECT.get(sig, "")))   # o que o atributo aumenta (inline)
-	eff.custom_minimum_size = Vector2(166, 0)           # largura fixa → o "+" alinha em coluna e fica perto
+	eff.text = _attr_gain(key, sig)                     # ganho EXATO por ponto (inline)
+	eff.custom_minimum_size = Vector2(200, 0)           # largura fixa → o "+" alinha em coluna e fica perto
 	eff.add_theme_font_size_override("font_size", 12)
-	eff.add_theme_color_override("font_color", UiKit.TEXT_DIM)
+	eff.add_theme_color_override("font_color", UiKit.OK)
 	eff.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	row.add_child(eff)
 	if can_add:
@@ -354,6 +352,25 @@ func _attr_row(a: Array, can_add: bool) -> Control:
 		plus.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 		row.add_child(plus)
 	return row
+
+# Ganho EXATO por +1 ponto (fórmulas do backend committado = prod). [REBALANCE v2]
+func _attr_gain(key: String, sig: String) -> String:
+	match sig:
+		"STR":
+			return Lang.t("+1 de ataque")
+		"CON":
+			var con := int(w.get("constitution", 0))
+			var per := 8 if con < 40 else (4 if con < 80 else 2)
+			return Lang.t("+%d de vida") % per
+		"DEX":
+			return Lang.t("+1% acerto (arco: +1 atq)")
+		"AGI":
+			return Lang.t("+1% golpe extra · +0,6% esquiva")
+		"LUK":
+			return Lang.t("+0,5% de crítico")
+		"INT":
+			return Lang.t("reservado (Mago)")
+	return ""
 
 # ✨ Habilidades ────────────────────────────────────────────────────────────────────────
 func _render_abil_panel() -> void:
