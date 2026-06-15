@@ -22,7 +22,7 @@ class TerritoryWarTest {
     @BeforeEach
     void setup() {
         // guildBrawl não usa repos/statsService/abilityService → nulls; BattleSimulator real.
-        service = new TerritoryService(null, null, null, null, null, new BattleSimulator(), null, null, null);
+        service = new TerritoryService(null, null, null, null, null, new BattleSimulator(), null, null, null, new GauntletWarSimulator());
     }
 
     // [REBALANCE] dex=50 (acerto alto) → os golpes acertam de forma confiável: estes testes são sobre

@@ -44,20 +44,24 @@ public class GauntletWarSimulator {
                            int damage, int targetHp, int targetMaxHp,
                            String element, String hitZone, int side, int wave) {}
 
-    /** Resultado: quem venceu + eventos (replay) + log de texto. */
-    public record WarOutcome(boolean attackersWon, List<WarEvent> events, List<String> log) {}
+    /** Resultado: quem venceu + eventos (replay) + log + HP final por índice de entrada (p/ persistir). */
+    public record WarOutcome(boolean attackersWon, List<WarEvent> events, List<String> log,
+                             int[] finalHpAttackers, int[] finalHpDefenders) {}
+
+    /** Combatente + seu índice na lista de entrada (p/ mapear o HP final de volta sem depender do nome). */
+    private record Entry(Combatant c, int idx) {}
 
     /** Estado mutável de um lutador em campo. */
     private static final class F {
         final String name;
-        final int atk, def, dex, agi, luk, maxHp, side;
+        final int atk, def, dex, agi, luk, maxHp, side, idx;
         final Element weapon, armor;
         int hp;
-        F(Combatant c, int side) {
+        F(Combatant c, int side, int idx) {
             this.name = c.name(); this.atk = c.atk(); this.def = c.def();
             this.dex = c.dex(); this.agi = c.agi(); this.luk = c.luk();
             this.hp = c.hp(); this.maxHp = c.hp();   // entra CHEIO (HP atual = máximo no spawn)
-            this.weapon = c.weapon(); this.armor = c.armor(); this.side = side;
+            this.weapon = c.weapon(); this.armor = c.armor(); this.side = side; this.idx = idx;
         }
     }
 
@@ -65,17 +69,21 @@ public class GauntletWarSimulator {
     public WarOutcome resolve(String attackersName, List<Combatant> attackers,
                               String defendersName, List<Combatant> defenders) {
         Random rng = java.util.concurrent.ThreadLocalRandom.current();
-        Deque<Combatant> qA = new ArrayDeque<>(attackers);
-        Deque<Combatant> qB = new ArrayDeque<>(defenders);
+        Deque<Entry> qA = new ArrayDeque<>();
+        for (int i = 0; i < attackers.size(); i++) qA.add(new Entry(attackers.get(i), i));
+        Deque<Entry> qB = new ArrayDeque<>();
+        for (int i = 0; i < defenders.size(); i++) qB.add(new Entry(defenders.get(i), i));
         List<F> fieldA = new ArrayList<>();
         List<F> fieldB = new ArrayList<>();
+        List<F> allA = new ArrayList<>();   // todos que entraram (p/ o HP final)
+        List<F> allB = new ArrayList<>();
         List<WarEvent> events = new ArrayList<>();
         List<String> log = new ArrayList<>();
 
         int wave = 1;
         log.add("⚔ " + attackersName + " vs " + defendersName + " — guerra 15v15 em ondas de 3v3");
-        fill(fieldA, qA, SIDE_ATTACKER, events, wave);
-        fill(fieldB, qB, SIDE_DEFENDER, events, wave);
+        fill(fieldA, qA, SIDE_ATTACKER, events, wave, allA);
+        fill(fieldB, qB, SIDE_DEFENDER, events, wave, allB);
 
         boolean attackersWon;
         while (true) {
@@ -89,8 +97,8 @@ public class GauntletWarSimulator {
             // Próxima onda: SÓ o perdedor (campo vazio) repõe; o vencedor mantém os sobreviventes (Modelo B).
             wave++;
             events.add(new WarEvent(0, "wave", null, null, 0, 0, 0, null, null, -1, wave));
-            if (fieldA.isEmpty()) fill(fieldA, qA, SIDE_ATTACKER, events, wave);
-            if (fieldB.isEmpty()) fill(fieldB, qB, SIDE_DEFENDER, events, wave);
+            if (fieldA.isEmpty()) fill(fieldA, qA, SIDE_ATTACKER, events, wave, allA);
+            if (fieldB.isEmpty()) fill(fieldB, qB, SIDE_DEFENDER, events, wave, allB);
         }
 
         String winner = attackersWon ? attackersName : defendersName;
@@ -98,14 +106,24 @@ public class GauntletWarSimulator {
         log.add("🏆 " + winner + " venceu a guerra! (ondas: " + wave + ")");
         events.add(new WarEvent(0, "victory", winner, loser, 0, 0, 0, null, null,
                 attackersWon ? SIDE_ATTACKER : SIDE_DEFENDER, wave));
-        return new WarOutcome(attackersWon, events, log);
+
+        // HP final por índice: não-entrantes ficam cheios; entrantes com o que sobrou (0 = morreu).
+        int[] fhA = new int[attackers.size()];
+        for (int i = 0; i < attackers.size(); i++) fhA[i] = attackers.get(i).hp();
+        for (F f : allA) fhA[f.idx] = Math.max(0, f.hp);
+        int[] fhB = new int[defenders.size()];
+        for (int i = 0; i < defenders.size(); i++) fhB[i] = defenders.get(i).hp();
+        for (F f : allB) fhB[f.idx] = Math.max(0, f.hp);
+        return new WarOutcome(attackersWon, events, log, fhA, fhB);
     }
 
-    /** Repõe o campo até FIELD com frescos da fila; emite um spawn por entrante. */
-    private void fill(List<F> field, Deque<Combatant> queue, int side, List<WarEvent> events, int wave) {
+    /** Repõe o campo até FIELD com frescos da fila; emite um spawn por entrante e registra em `all`. */
+    private void fill(List<F> field, Deque<Entry> queue, int side, List<WarEvent> events, int wave, List<F> all) {
         while (field.size() < FIELD && !queue.isEmpty()) {
-            F f = new F(queue.poll(), side);
+            Entry e = queue.poll();
+            F f = new F(e.c(), side, e.idx());
             field.add(f);
+            all.add(f);
             events.add(new WarEvent(0, "spawn", f.name, null, 0, f.hp, f.maxHp, null, null, side, wave));
         }
     }

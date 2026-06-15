@@ -35,6 +35,7 @@ public class TerritoryService {
     private final GuildRepository                guildRepository;
     private final WarriorStatsService            statsService; // gear+buffs+postura na guerra. [POSTURE]
     private final AbilityService                 abilityService; // elementos + ativas na guerra [GUERRA_FORMACAO]
+    private final GauntletWarSimulator           gauntletSim;    // [GUERRA_GAUNTLET] guerra 15v15 em ondas de 3v3
 
     // Quais reinos são território de guild-war (config). Os demais são zonas abertas.
     // Começa com os 3 reinos antigos; mudar a config liga guerra em mais reinos. [REINOS_V2 / flag]
@@ -246,7 +247,7 @@ public class TerritoryService {
                 if (f.warrior != null) preBattleHp.put(f.warrior.getId(), f.hp);
             }
 
-            BrawlResult result = guildBrawl(attackers, defenders, territory);
+            BrawlResult result = guildGauntlet(attackers, defenders, territory);   // [GUERRA_GAUNTLET]
 
             // Persist attacker HP (their Phase 1 remaining HP goes to DB)
             persistHpChanges(result.attackerFighters);
@@ -308,7 +309,7 @@ public class TerritoryService {
                 Fighter[][] champFighters = buildFormation(tiebreakerChampion,    0, cycleId);
                 Fighter[][] chalFighters  = buildFormation(tiebreakerChallenger, 0, cycleId);
 
-                BrawlResult tResult = guildBrawl(chalFighters, champFighters, territory);
+                BrawlResult tResult = guildGauntlet(chalFighters, champFighters, territory);   // [GUERRA_GAUNTLET]
 
                 // Do NOT persist HP between tiebreaker fights —
                 // next fight always starts from Phase 1 HP (DB state unchanged)
@@ -429,6 +430,30 @@ public class TerritoryService {
                 : "🛡 Defenders held their ground! (" + defLanes + "-" + atkLanes + " lanes)");
 
         return new BrawlResult(attackersWon, fullLog, flatten(attackers), flatten(defenders));
+    }
+
+    /**
+     * [GUERRA_GAUNTLET] Batalha por GAUNTLET 15v15 em ONDAS de 3v3 (Modelo B): o vencedor mantém os
+     * sobreviventes (HP), o perdedor manda 3 frescos, até um time zerar os 15. Usa o
+     * {@link GauntletWarSimulator} e mapeia o HP final de volta pros Fighters (p/ persistir o dano).
+     */
+    public BrawlResult guildGauntlet(Fighter[][] attackers, Fighter[][] defenders, Kingdom territory) {
+        List<Fighter> atk = flatten(attackers);
+        List<Fighter> def = flatten(defenders);
+        List<BattleSimulator.Combatant> atkC = atk.stream().map(Fighter::toCombatant).collect(Collectors.toList());
+        List<BattleSimulator.Combatant> defC = def.stream().map(Fighter::toCombatant).collect(Collectors.toList());
+        GauntletWarSimulator.WarOutcome out = gauntletSim.resolve("Attackers", atkC, "Defenders", defC);
+        int[] fhA = out.finalHpAttackers();
+        for (int i = 0; i < atk.size(); i++) atk.get(i).hp = fhA[i];   // HP final → persistido depois
+        int[] fhD = out.finalHpDefenders();
+        for (int i = 0; i < def.size(); i++) def.get(i).hp = fhD[i];
+        List<String> log = new ArrayList<>();
+        log.add("=== ⚔ Guild Battle at " + territory.displayName + " (15v15 em ondas de 3v3) ===");
+        log.addAll(out.log());
+        log.add(out.attackersWon()
+                ? "🏆 Attackers conquered the territory!"
+                : "🛡 Defenders held their ground!");
+        return new BrawlResult(out.attackersWon(), log, atk, def);
     }
 
     // ── Fighter building ──────────────────────────────────────────────────────
