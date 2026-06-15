@@ -309,17 +309,9 @@ func _bag_card(it) -> Control:
 	nm.add_theme_color_override("font_color", UiKit.rarity_color(rar))
 	left.add_child(nm)
 	left.add_child(UiKit.item_subline(it, int(w.get("level", 0))))   # [REQ_LEVEL] Nv vermelho se exige nível acima
-	var st := _stats_line(it)
-	if st != "":
-		var sl := Label.new()
-		sl.text = st
-		sl.add_theme_font_size_override("font_size", 12)
-		sl.add_theme_color_override("font_color", Color(0.62, 0.75, 0.58))
-		sl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-		left.add_child(sl)
-	var cmp := UiKit.compare_line(it)   # vs equipado (▲/▼ + deltas)
-	if cmp:
-		left.add_child(cmp)
+	var sline := UiKit.item_stats_line(it)   # [STATS_CMP] stats únicos coloridos vs equipado (1 linha só)
+	if sline:
+		left.add_child(sline)
 	var rcol := VBoxContainer.new()
 	rcol.add_theme_constant_override("separation", 6)
 	rcol.size_flags_vertical = Control.SIZE_SHRINK_CENTER

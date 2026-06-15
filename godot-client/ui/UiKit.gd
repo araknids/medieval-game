@@ -694,6 +694,39 @@ static func compare_line_raw(slot: String, atk: int, def_v: int, hp: int, str_v:
 		"strBonus": str_v, "dexBonus": dex_v, "lukBonus": luk_v,
 	})
 
+# [STATS_CMP] Linha ÚNICA de stats do item, cada um colorido vs o equipado do MESMO slot:
+# ▲ verde = melhor · ▼ vermelho = pior · neutro = igual ou sem item p/ comparar. Substitui a dupla
+# (linha de stats crua + compare_line). Mostra só os stats que o item TEM (≠ 0).
+static func item_stats_line(it: Dictionary) -> Control:
+	var cur: Dictionary = {}
+	var t := str(it.get("type", ""))
+	if not bool(it.get("equipped", false)) and equipped.has(t) and int(equipped[t].get("id", -1)) != int(it.get("id", -2)):
+		cur = equipped[t]
+	var has_cmp := not cur.is_empty()
+	var row := HFlowContainer.new()
+	row.add_theme_constant_override("h_separation", 10)
+	row.add_theme_constant_override("v_separation", 2)
+	var any := false
+	for pair in _CMP_STATS:
+		var v := int(it.get(pair[0], 0))
+		if v == 0:
+			continue
+		any = true
+		var arrow := ""
+		var col := Color(0.62, 0.75, 0.58)   # neutro (sem comparação ou igual)
+		if has_cmp:
+			var d := v - int(cur.get(pair[0], 0))
+			if d > 0:
+				arrow = "▲ "; col = OK
+			elif d < 0:
+				arrow = "▼ "; col = ERR
+		var l := Label.new()
+		l.text = "%s%s %+d" % [arrow, str(pair[1]), v]
+		l.add_theme_font_size_override("font_size", 12)
+		l.add_theme_color_override("font_color", col)
+		row.add_child(l)
+	return row if any else null
+
 # Sub-linha "Tipo · Nv X · Raridade" com o "Nv X" em VERMELHO quando o item exige nível acima do
 # player (não dá pra equipar). player_level <= 0 → não compara (cinza normal). [REQ_LEVEL]
 static func item_subline(it: Dictionary, player_level := 0) -> HBoxContainer:
@@ -746,16 +779,9 @@ static func item_row(it: Dictionary, name_text: String, sub_text: String, stats_
 		left.add_child(item_subline(it, level_for))   # [REQ_LEVEL] Nv vermelho se exige nível acima
 	elif sub_text != "":
 		left.add_child(dim(sub_text))
-	if stats_text != "":
-		var st := Label.new()
-		st.text = stats_text
-		st.add_theme_font_size_override("font_size", 12)
-		st.add_theme_color_override("font_color", Color(0.62, 0.75, 0.58))
-		st.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-		left.add_child(st)
-	var cmp := compare_line(it)   # vs equipado (melhor/pior + deltas) [PLANO_UI_SHELL_GODOT]
-	if cmp:
-		left.add_child(cmp)
+	var sline := item_stats_line(it)   # [STATS_CMP] stats únicos coloridos vs equipado (substitui stats+compare)
+	if sline:
+		left.add_child(sline)
 	var rcol := VBoxContainer.new()
 	rcol.add_theme_constant_override("separation", 6)
 	rcol.size_flags_vertical = Control.SIZE_SHRINK_CENTER

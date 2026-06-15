@@ -127,19 +127,15 @@ func _listing_row(a: Dictionary, is_mine_section: bool) -> PanelContainer:
 	nm.add_theme_color_override("font_color", col)
 	left.add_child(nm)
 	left.add_child(UiKit.dim(Lang.t("%s · 🔧%d%% · ⏳ %s") % [Lang.t(str(a.get("typeDisplay", a.get("type", "")))), int(a.get("durability", 100)), _time_left(int(a.get("secondsLeft", 0)))]))
-	var stats := _stats_line(a)
-	if stats != "":
-		var sl := Label.new(); sl.text = stats; sl.add_theme_font_size_override("font_size", 12)
-		sl.add_theme_color_override("font_color", Color(0.62, 0.75, 0.58))
-		left.add_child(sl)
+	# [STATS_CMP] stats únicos coloridos vs equipado (1 linha só: ▲verde melhor / ▼vermelho pior)
+	var sline := UiKit.item_stats_line(a)
+	if sline:
+		left.add_child(sline)
 	var affs = a.get("affixes", [])
 	if affs is Array and not affs.is_empty():
 		var al := Label.new(); al.text = " · ".join(affs); al.add_theme_font_size_override("font_size", 11)
 		al.add_theme_color_override("font_color", UiKit.GOLD_SOFT)
 		left.add_child(al)
-	var lcmp := UiKit.compare_line(a)   # vs equipado [PLANO_UI_SHELL_GODOT]
-	if lcmp:
-		left.add_child(lcmp)
 	if is_mine_section:
 		# [MOEDA] "você recebe" com ícones pixel-art (coin_box), igual ao preço — não emoji
 		var srow := HBoxContainer.new(); srow.add_theme_constant_override("separation", 4)
@@ -192,14 +188,10 @@ func _picker_row(it: Dictionary) -> PanelContainer:
 	nm.add_theme_color_override("font_color", col)
 	left.add_child(nm)
 	left.add_child(UiKit.item_subline(it, int(warrior.get("level", 0))))   # [REQ_LEVEL] Nv vermelho se exige nível acima
-	var stats := _stats_line(it)
-	if stats != "":
-		var sl := Label.new(); sl.text = stats; sl.add_theme_font_size_override("font_size", 12)
-		sl.add_theme_color_override("font_color", Color(0.62, 0.75, 0.58))
-		left.add_child(sl)
-	var pcmp := UiKit.compare_line(it)   # vs equipado [PLANO_UI_SHELL_GODOT]
-	if pcmp:
-		left.add_child(pcmp)
+	# [STATS_CMP] stats únicos coloridos vs equipado (1 linha só: ▲verde melhor / ▼vermelho pior)
+	var sline := UiKit.item_stats_line(it)
+	if sline:
+		left.add_child(sline)
 	hb.add_child(left)
 	var right := VBoxContainer.new(); right.add_theme_constant_override("separation", 6)
 	right.size_flags_vertical = Control.SIZE_SHRINK_CENTER
