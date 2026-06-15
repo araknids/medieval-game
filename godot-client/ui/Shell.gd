@@ -164,31 +164,17 @@ func _build_topbar() -> Control:
 	# espaçador (mantém vitais/moedas/buffs à direita)
 	var spacer := Control.new(); spacer.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	row.add_child(spacer)
-	# HP + estamina
-	var vit := VBoxContainer.new(); vit.add_theme_constant_override("separation", 4)
+	# HP + estamina — linhas alinhadas (ícone pixel | barra | valor à direita) + cura ao lado [HEAL]
+	var vit := VBoxContainer.new(); vit.add_theme_constant_override("separation", 5)
 	vit.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	_hp_bar = _mini_bar(Color(0.70, 0.22, 0.20), 170)
-	var hp_row := _labeled_bar("HP", _hp_bar)
-	_hp_lbl = hp_row.get_meta("vlabel") as Label   # mostra o valor atual/máximo de vida
-	_tip_row(hp_row, "Vida (HP) — atual/máximo; regenera com o tempo; cure na hora no Templo")
-	# [HEAL] botão de cura direto na barra de vida — cura sem trocar de tela (chama o Templo).
-	# Adicionado APÓS o _tip_row p/ não herdar o MOUSE_FILTER_IGNORE (continua clicável).
-	var heal_btn := Button.new()
-	heal_btn.text = "＋"
-	StoneStyle.apply(heal_btn)
-	heal_btn.add_theme_font_size_override("font_size", 14)
-	heal_btn.add_theme_color_override("font_color", UiKit.OK)
-	heal_btn.custom_minimum_size = Vector2(30, 20)
-	heal_btn.tooltip_text = "Curar agora (Templo) — sem sair da tela"
-	heal_btn.pressed.connect(_on_quick_heal)
-	hp_row.add_child(heal_btn)
-	vit.add_child(hp_row)
-	_stam_bar = _mini_bar(Color(0.36, 0.65, 0.38), 170)
-	var sl := _labeled_bar("Estamina", _stam_bar)
-	_stam_lbl = sl.get_meta("vlabel") as Label
-	_tip_row(sl, "Estamina — gasta nas ações; enche 100% em 1h (15min com buff de novato)")
-	vit.add_child(sl)
+	_hp_bar = _mini_bar(Color(0.80, 0.26, 0.24), 150)
+	_hp_lbl = Label.new()
+	vit.add_child(_vital_row("hp", _hp_bar, _hp_lbl, "Vida (HP) — atual/máximo; cure no botão ao lado (❤) ou no Templo"))
+	_stam_bar = _mini_bar(Color(0.40, 0.68, 0.42), 150)
+	_stam_lbl = Label.new()
+	vit.add_child(_vital_row("stamina", _stam_bar, _stam_lbl, "Estamina — gasta nas ações; enche 100% em 1h (15min com buff de novato)"))
 	row.add_child(vit)
+	row.add_child(_heal_button())   # botão de cura (cruz vermelha pixel) ao lado das barras
 	# moedas
 	var coinbox := VBoxContainer.new(); coinbox.add_theme_constant_override("separation", 2)
 	coinbox.size_flags_vertical = Control.SIZE_SHRINK_CENTER
@@ -270,13 +256,61 @@ func _mini_bar(fill: Color, w: int) -> ProgressBar:
 	var pb := ProgressBar.new()
 	pb.min_value = 0; pb.max_value = 100; pb.value = 0
 	pb.show_percentage = false
-	pb.custom_minimum_size = Vector2(w, 12)
-	var bgs := StyleBoxFlat.new(); bgs.bg_color = Color(0.05, 0.045, 0.06)
-	bgs.set_border_width_all(1); bgs.border_color = Color(0.40, 0.32, 0.20, 0.6); bgs.set_corner_radius_all(2)
-	var fgs := StyleBoxFlat.new(); fgs.bg_color = fill; fgs.set_corner_radius_all(2)
+	pb.custom_minimum_size = Vector2(w, 14)
+	pb.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var bgs := StyleBoxFlat.new()
+	bgs.bg_color = Color(0.04, 0.035, 0.05)
+	bgs.set_corner_radius_all(4)
+	bgs.set_border_width_all(1); bgs.border_color = Color(0, 0, 0, 0.75)
+	var fgs := StyleBoxFlat.new()
+	fgs.bg_color = fill
+	fgs.set_corner_radius_all(4)
+	fgs.set_border_width_all(1); fgs.border_color = fill.lightened(0.28)   # brilho de topo
 	pb.add_theme_stylebox_override("background", bgs)
 	pb.add_theme_stylebox_override("fill", fgs)
 	return pb
+
+# Linha de vital alinhada: [ícone pixel | barra | valor à direita (largura fixa)]. Tooltip na linha toda.
+func _vital_row(icon_key: String, bar: ProgressBar, value_lbl: Label, tip: String) -> HBoxContainer:
+	var h := HBoxContainer.new(); h.add_theme_constant_override("separation", 7)
+	h.tooltip_text = tip
+	h.mouse_filter = Control.MOUSE_FILTER_STOP
+	h.add_child(Icons.rect(icon_key, 18))   # ícone pixel (hp/stamina) — as duas linhas alinham pela esquerda
+	h.add_child(bar)
+	value_lbl.add_theme_font_size_override("font_size", 11)
+	value_lbl.add_theme_color_override("font_color", UiKit.TEXT)
+	value_lbl.custom_minimum_size = Vector2(58, 0)
+	value_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	value_lbl.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	h.add_child(value_lbl)
+	return h
+
+# Botão de cura: ícone pixel (cruz vermelha) → cura no Templo sem trocar de tela. Fallback ❤ se não importado.
+func _heal_button() -> Control:
+	var t := Icons.tex("heal")
+	if t != null:
+		var b := TextureButton.new()
+		b.texture_normal = t
+		b.ignore_texture_size = true
+		b.stretch_mode = TextureButton.STRETCH_KEEP_ASPECT_CENTERED
+		b.custom_minimum_size = Vector2(36, 36)
+		b.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+		b.modulate = Color(1, 1, 1, 0.9)
+		b.tooltip_text = "Curar agora (Templo) — sem sair da tela"
+		b.mouse_entered.connect(func() -> void: b.modulate = Color(1, 1, 1, 1))
+		b.mouse_exited.connect(func() -> void: b.modulate = Color(1, 1, 1, 0.9))
+		b.pressed.connect(_on_quick_heal)
+		return b
+	var fb := Button.new()
+	fb.text = "❤"
+	StoneStyle.apply(fb)
+	fb.add_theme_font_size_override("font_size", 16)
+	fb.add_theme_color_override("font_color", Color(0.86, 0.32, 0.30))
+	fb.custom_minimum_size = Vector2(36, 32)
+	fb.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	fb.tooltip_text = "Curar agora (Templo) — sem sair da tela"
+	fb.pressed.connect(_on_quick_heal)
+	return fb
 
 # Linha "rótulo  [barra]  valor" — guarda o Label de valor em meta "vlabel".
 func _labeled_bar(label: String, pb: ProgressBar) -> HBoxContainer:
