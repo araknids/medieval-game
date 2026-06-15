@@ -104,11 +104,16 @@ async function api(method, path, body) {
 
 // ── Sistema de 3 moedas ──
 // Formata um valor em bronze para exibição com ícones coloridos
+// [PIXEL_UI] Helper p/ ícone pixel inline. cls default = .cur-ico (16px, alinhado ao texto).
+function pxIcon(key, cls) {
+  return `<img class="px-icon ${cls || 'cur-ico'}" src="/assets/ui/icons/${key}.png" alt="">`;
+}
+
 function formatCurrency(bronze, silver, gold) {
   const parts = [];
-  if (gold   > 0) parts.push(`<span class="c-gold">${gold}🥇</span>`);
-  if (silver > 0) parts.push(`<span class="c-silver">${silver}🥈</span>`);
-  if (bronze > 0 || parts.length === 0) parts.push(`<span class="c-bronze">${bronze}🟤</span>`);
+  if (gold   > 0) parts.push(`<span class="c-gold">${gold}${pxIcon('gold')}</span>`);
+  if (silver > 0) parts.push(`<span class="c-silver">${silver}${pxIcon('silver')}</span>`);
+  if (bronze > 0 || parts.length === 0) parts.push(`<span class="c-bronze">${bronze}${pxIcon('bronze')}</span>`);
   return parts.join(' ');
 }
 
@@ -569,20 +574,20 @@ async function loadWarrior() {
       <div class="xp-bar-fill" style="width:${warrior.hpPercent ?? 100}%;background:${hpColor}"></div>
     </div>
     <div style="font-size:.7rem;color:#888;margin-top:.1rem">
-      ❤ ${t('stat.hp')} ${warrior.hpPercent ?? 100}%
+      ${pxIcon('hp')} ${t('stat.hp')} ${warrior.hpPercent ?? 100}%
     </div>
     <div class="xp-bar-bg" style="margin-top:.3rem">
       <div class="xp-bar-fill" style="width:${stamina}%;background:${staminaColor}"></div>
     </div>
     <div style="font-size:.7rem;color:#888;margin-top:.1rem">
-      ⚡ ${t('stat.stamina')} ${stamina}/100
+      ${pxIcon('stamina')} ${t('stat.stamina')} ${stamina}/100
     </div>
     ${skillsHtml}
     ${warrior.isVip ? `<div style="font-size:.72rem;background:#3b0764;color:#c4b5fd;padding:2px 6px;border-radius:4px;margin-top:.3rem;display:inline-block">
-      👑 VIP${warrior.vipExpiresAt ? ' · ' + warrior.vipExpiresAt.substring(0,10) : ''}
+      ${pxIcon('vip')} VIP${warrior.vipExpiresAt ? ' · ' + warrior.vipExpiresAt.substring(0,10) : ''}
     </div>` : ''}
     ${(warrior.soulStones ?? 0) > 0 ? `<div style="font-size:.72rem;color:#a78bfa;margin-top:.2rem;font-weight:600">
-      💎 ${warrior.soulStones} SoulStone${warrior.soulStones !== 1 ? 's' : ''}
+      ${pxIcon('soulstone')} ${warrior.soulStones} SoulStone${warrior.soulStones !== 1 ? 's' : ''}
     </div>` : ''}`;
 }
 
