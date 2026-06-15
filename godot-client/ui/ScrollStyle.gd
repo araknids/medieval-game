@@ -11,10 +11,12 @@ extends RefCounted
 const PANEL_PATH  := "res://assets/ui/scroll_panel.png"
 const BUTTON_PATH := "res://assets/ui/scroll_button.png"
 const SEAL_PATH   := "res://assets/ui/seal.png"
+const WOOD_PATH   := "res://assets/ui/wood.png"
 
 static var _btn_tex: Texture2D = null
 static var _panel_tex: Texture2D = null
 static var _seal_tex: Texture2D = null
+static var _wood_tex: Texture2D = null
 static var _loaded := false
 static var _cache := {}   # int(state)/"panel" -> StyleBoxTexture (1× p/ todos)
 
@@ -25,6 +27,7 @@ static func _ensure() -> void:
 	if ResourceLoader.exists(BUTTON_PATH): _btn_tex = load(BUTTON_PATH)
 	if ResourceLoader.exists(PANEL_PATH):  _panel_tex = load(PANEL_PATH)
 	if ResourceLoader.exists(SEAL_PATH):   _seal_tex = load(SEAL_PATH)
+	if ResourceLoader.exists(WOOD_PATH):   _wood_tex = load(WOOD_PATH)
 
 static func ready() -> bool:
 	_ensure()
@@ -92,4 +95,24 @@ static func panel_box() -> StyleBoxTexture:
 	sb.content_margin_left = 20; sb.content_margin_right = 20
 	sb.content_margin_top = 34; sb.content_margin_bottom = 34
 	_cache["panel"] = sb
+	return sb
+
+# ── Madeira (chrome: topbar + nav) ────────────────────────────────────────────────
+# Fundo de tábuas tileado p/ as barras. darken<1 escurece (legibilidade do texto por cima).
+static func wood_box(content := 8, darken := 0.8) -> StyleBoxTexture:
+	_ensure()
+	if _wood_tex == null:
+		return null
+	var key := "wood_%d_%d" % [content, int(darken * 100)]
+	if _cache.has(key):
+		return _cache[key]
+	var sb := StyleBoxTexture.new()
+	sb.texture = _wood_tex
+	sb.texture_margin_left = 0; sb.texture_margin_right = 0
+	sb.texture_margin_top = 0; sb.texture_margin_bottom = 0
+	sb.axis_stretch_horizontal = StyleBoxTexture.AXIS_STRETCH_MODE_TILE
+	sb.axis_stretch_vertical = StyleBoxTexture.AXIS_STRETCH_MODE_TILE
+	sb.modulate_color = Color(darken, darken, darken)
+	sb.set_content_margin_all(content)
+	_cache[key] = sb
 	return sb

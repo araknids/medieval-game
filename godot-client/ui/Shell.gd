@@ -116,7 +116,8 @@ func _build_topbar() -> Control:
 	sb.border_color = Color(0.40, 0.32, 0.20)
 	sb.border_width_bottom = 2
 	sb.set_content_margin_all(8)
-	pc.add_theme_stylebox_override("panel", sb)
+	var wood := ScrollStyle.wood_box(8, 0.78)   # [PERGAMINHO_UI] chrome de madeira (fallback: flat escuro)
+	pc.add_theme_stylebox_override("panel", wood if wood != null else sb)
 	var row := HBoxContainer.new()
 	row.add_theme_constant_override("separation", 14)
 	pc.add_child(row)
@@ -341,7 +342,8 @@ func _build_nav() -> Control:
 	sb.bg_color = Color(0.07, 0.065, 0.08, 0.96)
 	sb.border_color = Color(0.40, 0.32, 0.20); sb.border_width_right = 2
 	sb.set_content_margin_all(8)
-	pc.add_theme_stylebox_override("panel", sb)
+	var wood := ScrollStyle.wood_box(8, 0.74)   # [PERGAMINHO_UI] nav de madeira (fallback: flat escuro)
+	pc.add_theme_stylebox_override("panel", wood if wood != null else sb)
 	var scroll := ScrollContainer.new()
 	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
 	scroll.follow_focus = true
