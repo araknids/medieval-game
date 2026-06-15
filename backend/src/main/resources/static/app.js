@@ -4853,9 +4853,16 @@ async function startZoneDelve(zoneTier, skill, kingdom, element) {
   if (skill) body.skillType = skill;
   if (element) body.element = element;
   const r = await api('POST', '/api/expedition/start', body);
-  if (r.error) { showMessage(r.error, true); return; }
+  if (r.error) { showMessage(r.error, true); await redirectIfRunInProgress(); return; }
   await loadWarrior();
   goTo('expedition');   // loadExpedition() busca /current (a run nova) e renderiza o mapa
+}
+
+// [STUCK_FIX] Se o start falhou porque já existe uma Incursão, leva o jogador até ela
+// (em vez de só um toast) — lá ele resume/extrai/abandona. Locale-independente: checa /current.
+async function redirectIfRunInProgress() {
+  const cur = await api('GET', '/api/expedition/current');
+  if (cur && cur.active) goTo('expedition');
 }
 
 async function loadExpedition() {
@@ -4916,7 +4923,7 @@ async function startExpeditionZone(skill) {
 
 async function startExpedition(body) {
   const r = await api('POST', '/api/expedition/start', body);
-  if (r.error) { showMessage(r.error, true); return; }
+  if (r.error) { showMessage(r.error, true); await redirectIfRunInProgress(); return; }
   await loadWarrior();
   renderExpeditionMap(r);
 }

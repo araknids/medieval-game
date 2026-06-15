@@ -569,10 +569,13 @@ public class ExpeditionService {
     public ExtractResult abandon(Player playerArg, Long runId) {
         final Player player = playerRepository.findById(playerArg.getId()).orElse(playerArg);
         ExpeditionRun run = requireOwnedRun(player, runId);
-        if (run.getStatus() == ExpeditionStatus.NODE_PENDING)
-            throw new com.medieval.game.config.LocalizedException("error.expedition_node_pending",
-                    "You can't abandon mid-event.");
-        // perde a bolsa NÃO-travada (gear carregado + escalares/CSV), sem KO
+        // [STUCK_FIX] abandono é a SAÍDA DE EMERGÊNCIA: funciona em QUALQUER estado ativo,
+        // inclusive NODE_PENDING. Antes rejeitava NODE_PENDING ("can't abandon mid-event") —
+        // mas extract também rejeita NODE_PENDING, e o modal de evento só abre se o /current
+        // devolve um diálogo válido (pendingEventQuest != null E mapeia p/ KingdomQuestType com
+        // InteractiveQuests). Se esse elo quebrava, a run ficava PRESA pra sempre (sem resolver,
+        // sem extrair, sem abandonar). Abandonar daqui sempre encerra a run; forfeita a bolsa
+        // não-travada, sem KO.
         for (InventoryItem it : inventoryService.runPendingItems(player)) inventoryService.discardRunItem(it);
         run.setCarriedBronze(0); run.setCarriedXp(0); run.setCarriedResources(null);
         run.setStatus(ExpeditionStatus.ABANDONED);
