@@ -171,6 +171,17 @@ func _build_topbar() -> Control:
 	var hp_row := _labeled_bar("HP", _hp_bar)
 	_hp_lbl = hp_row.get_meta("vlabel") as Label   # mostra o valor atual/máximo de vida
 	_tip_row(hp_row, "Vida (HP) — atual/máximo; regenera com o tempo; cure na hora no Templo")
+	# [HEAL] botão de cura direto na barra de vida — cura sem trocar de tela (chama o Templo).
+	# Adicionado APÓS o _tip_row p/ não herdar o MOUSE_FILTER_IGNORE (continua clicável).
+	var heal_btn := Button.new()
+	heal_btn.text = "＋"
+	StoneStyle.apply(heal_btn)
+	heal_btn.add_theme_font_size_override("font_size", 14)
+	heal_btn.add_theme_color_override("font_color", UiKit.OK)
+	heal_btn.custom_minimum_size = Vector2(30, 20)
+	heal_btn.tooltip_text = "Curar agora (Templo) — sem sair da tela"
+	heal_btn.pressed.connect(_on_quick_heal)
+	hp_row.add_child(heal_btn)
 	vit.add_child(hp_row)
 	_stam_bar = _mini_bar(Color(0.36, 0.65, 0.38), 170)
 	var sl := _labeled_bar("Estamina", _stam_bar)
@@ -214,7 +225,7 @@ func _build_statbox() -> VBoxContainer:
 	box.add_theme_constant_override("separation", 2)
 	box.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	var r1 := HBoxContainer.new(); r1.add_theme_constant_override("separation", 14)
-	r1.add_child(_stat_chip("slot_weapon", "ATK", "atk", "Ataque efetivo de combate (base + gear + buffs + skills + postura + pet + taverna)"))
+	r1.add_child(_stat_chip("stat_atk", "ATK", "atk", "Ataque efetivo de combate (base + gear + buffs + skills + postura + pet + taverna)"))
 	r1.add_child(_stat_chip("slot_shield", "DEF", "def", "Defesa efetiva — mitiga o dano recebido"))
 	box.add_child(r1)
 	var r2 := HBoxContainer.new(); r2.add_theme_constant_override("separation", 14)
@@ -636,6 +647,17 @@ func _fmt_left(secs: int) -> String:
 	return "%d s" % secs
 
 # ── helpers ──────────────────────────────────────────────────────────────────────────
+# [HEAL] Cura rápida da topbar: chama o Templo e atualiza HP/moedas sem trocar de tela.
+func _on_quick_heal() -> void:
+	var api = get_node_or_null("/root/Api")
+	if api == null:
+		return
+	await api.temple_heal()
+	var r = await api.get_warrior()
+	if r.get("ok") and r.get("json") is Dictionary:
+		warrior = r["json"]
+		update_topbar(warrior)
+
 func _stone_btn(text: String, h: int) -> Button:
 	var b := Button.new()
 	b.text = text
