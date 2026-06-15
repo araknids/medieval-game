@@ -129,6 +129,8 @@ const GORE_COLORS := [Color(0.5, 0.08, 0.08), Color(0.42, 0.05, 0.05), Color(0.6
 @export var force_mock := true
 ## TESTE: no mock, faz o Bandido (espada) VENCER — p/ ver como fica quando o melee ganha o arqueiro.
 @export var mock_enemy_wins := false
+## [TEAM_MOCK] TESTE 3v3: o botão Lutar (mock) mostra uma batalha de TIME — 3 aliados vs 3 inimigos.
+@export var force_mock_3v3 := true
 ## Troca o INIMIGO (direita) por um monstro ESPECÍFICO do bundle (override manual de teste).
 ## Vazio = decide pelo NOME do inimigo (Monsters.pick_for). Ex.: "Demon", "Dragon", "Ghost Skull".
 @export var enemy_monster := ""
@@ -187,6 +189,7 @@ var _env_base_glow := 0.0
 
 # kiting: ativo quando EXATAMENTE um lado é ranged (arco) e o outro melee
 var kiting := false
+var team_mode := false        # [TEAM_MOCK] batalha 3v3 (movimento por-evento, sem clash/kite 1x1)
 var ranged_f := {}            # lutador que recua/atira
 var melee_f := {}             # lutador que avança
 var victory_label: Label
@@ -216,7 +219,10 @@ func _ready() -> void:
 	if events.is_empty():
 		return
 	_setup_map()                # monta o mapa JÁ sabendo o reino da luta (scene → mapa)
-	_build_fighters()
+	if team_mode:
+		_build_team()           # [TEAM_MOCK] 3 contra 3
+	else:
+		_build_fighters()
 	_frame_camera()
 	phase = "countdown"   # 3,2,1 antes de soltar a luta
 	print("=== BATTLE REPLAY (sim-driven) === %d eventos · kiting=%s" % [events.size(), kiting])
@@ -259,6 +265,13 @@ func _load_events() -> void:
 		fight_scene = str(external_battle.get("scene", ""))
 		var foe := str(external_battle.get("enemy", ""))
 		_status(Lang.t("Duelo…") if foe == "" else (Lang.t("⚔ vs %s") % foe))   # SEM spoiler — o vencedor só no fim
+		return
+
+	if force_mock and force_mock_3v3:   # [TEAM_MOCK] batalha de time 3 contra 3
+		team_mode = true
+		events = _mock_team_events()
+		_status(Lang.t("Modo TESTE — batalha 3 contra 3"))
+		print("=== force_mock_3v3: batalha de time 3v3 ===")
 		return
 
 	if force_mock:
@@ -449,6 +462,36 @@ func _build_fighters() -> void:
 # [GODOT_PAPERDOLL] Veste UM lutador: esconde a base nua, põe a cabeça sempre, roupa no slot
 # equipado e a pele cortada no slot vazio (a roupa cobre o resto → 0 clipping). Se as peças
 # cortadas não existirem, mantém a base visível (nu, mas não invisível).
+# [TEAM_MOCK] Monta uma batalha 3 contra 3. Reusa _make_fighter; cada lado numa coluna (eixo Z).
+# Aliados à esquerda (side=-1, o 1º com o equip/arma REAIS do herói), inimigos à direita (cara própria).
+func _build_team() -> void:
+	team_mode = true
+	kiting = false
+	var rows := [-1.5, 0.0, 1.5]   # 3 posições em Z por lado
+	var ally_names := ["Você", "Aliado", "Recruta"]
+	var foe_names := ["Bandido", "Saqueador", "Capanga"]
+	order = []
+	for i in 3:
+		var wkind := player_weapon if (i == 0 and player_weapon != "") else "sword"
+		var eq: Array = (player_equip if (i == 0 and player_equip.size() > 0) else DEFAULT_OUTFIT).duplicate()
+		var rar := player_weapon_rarity if i == 0 else 1
+		var a := _make_fighter(ally_names[i], -1, 100, wkind, eq, {}, rar)
+		var an := a["node"] as Node3D
+		an.position = Vector3(-3.2, a["base_y"], rows[i])
+		a["home"] = an.position
+		a["team"] = -1
+		order.append(a)
+		fighters[a["name"]] = a
+	for i in 3:
+		var look := _enemy_look(foe_names[i], false)
+		var b := _make_fighter(foe_names[i], 1, 100, str(look["weapon"]), look.get("equip", DEFAULT_OUTFIT), {}, 1, look)
+		var bn := b["node"] as Node3D
+		bn.position = Vector3(3.2, b["base_y"], rows[i])
+		b["home"] = bn.position
+		b["team"] = 1
+		order.append(b)
+		fighters[b["name"]] = b
+
 func _dress(node: Node3D, skel: Skeleton3D, equipped_types: Array) -> void:
 	if skel == null: return
 	var head: PackedScene = load(BASE_HEAD)
@@ -764,6 +807,9 @@ func _countdown(dt: float) -> void:
 
 # Movimento contínuo: arco-vs-melee = perseguição/kite; senão = ambos fecham pro alcance.
 func _move(dt: float) -> void:
+	if team_mode:
+		_move_team(dt)
+		return
 	if order.size() < 2: return
 	if kiting and not ranged_f.is_empty() and not melee_f.is_empty():
 		_move_kite(dt)
@@ -835,6 +881,39 @@ func _move_clash(dt: float) -> void:
 
 # Move o lutador rumo a desired_x com ACELERAÇÃO + frenagem perto do alvo (planta o pé,
 # em vez de partir/parar seco). Retorna o novo x. [game-feel]
+# [TEAM_MOCK] Movimento no 3v3: o MELEE do evento atual avança até o alvo durante a aproximação;
+# o resto fica parado. Arqueiro atira de onde está. Sem clash/kite 1x1 (são vários lutadores).
+func _move_team(dt: float) -> void:
+	if idx >= events.size() or act_state == "recover":
+		return
+	var e: Dictionary = events[idx]
+	var ty := str(e.get("type", ""))
+	if not (ty in SWING_TYPES):
+		return
+	var swinger := str(e.get("target", "")) if ty == "dodge" else str(e.get("actor", ""))
+	var faces := str(e.get("actor", "")) if ty == "dodge" else str(e.get("target", ""))
+	var sw = fighters.get(swinger)
+	var tg = fighters.get(faces)
+	if sw == null or tg == null or sw["dead"] or tg["dead"] or sw["ranged"]:
+		return
+	var sn := sw["node"] as Node3D
+	var tn := tg["node"] as Node3D
+	var off := sn.position - tn.position
+	off.y = 0.0
+	if off.length() < 0.01:
+		off = Vector3(float(sw["side"]), 0, 0)
+	var desired: Vector3 = tn.position + off.normalized() * ATTACK_RANGE
+	desired.y = sw["base_y"]
+	var prev := sn.position
+	sn.position = sn.position.move_toward(desired, MELEE_SPEED * dt)
+	_face(sw, signf(tn.position.x - sn.position.x))
+	if not sw["busy"] and sw["anim"]:
+		if sn.position.distance_to(prev) > 0.004:
+			if sw["anim"].current_animation != A_WALK:
+				sw["anim"].play(A_WALK, BLEND)
+		elif sw["anim"].current_animation != _clip(sw, "idle"):
+			sw["anim"].play(_clip(sw, "idle"), BLEND)
+
 func _step_toward(f: Dictionary, desired_x: float, max_speed: float, dt: float) -> float:
 	var n: Node3D = f["node"]
 	var dist := desired_x - n.position.x
@@ -1920,6 +1999,50 @@ func _mock_events() -> Array:
 		{"type": "attack", "actor": "Você", "target": "Bandido", "damage": 17, "targetHp": 0,  "targetMaxHp": 100, "element": "", "hitZone": "body"},
 		{"type": "victory", "actor": "Você", "target": "Bandido", "damage": 0, "targetHp": 0, "targetMaxHp": 100, "element": "", "hitZone": ""},
 	]
+
+# [TEAM_MOCK] Eventos de uma batalha 3v3 (aliados batem mais forte → vencem). 6 spawns + troca de
+# golpes por NOME (o motor resolve por actor/target). Gera até um time cair. Números são de teste.
+func _mock_team_events() -> Array:
+	var allies := ["Você", "Aliado", "Recruta"]
+	var foes := ["Bandido", "Saqueador", "Capanga"]
+	var hp := {}
+	var ev: Array = []
+	for nm in (allies + foes):
+		hp[nm] = 100
+		ev.append({"type": "spawn", "actor": nm, "target": "", "damage": 0, "targetHp": 100, "targetMaxHp": 100, "element": "", "hitZone": ""})
+	var zones := ["body", "legs", "head"]
+	var turn := 0
+	for _round in 240:
+		var attackers: Array = allies if (turn % 2 == 0) else foes
+		var defenders: Array = foes if (turn % 2 == 0) else allies
+		turn += 1
+		var live_a: Array = []
+		for n in attackers:
+			if int(hp[n]) > 0: live_a.append(n)
+		var live_d: Array = []
+		for n in defenders:
+			if int(hp[n]) > 0: live_d.append(n)
+		if live_a.is_empty() or live_d.is_empty():
+			break
+		var a: String = live_a[randi() % live_a.size()]
+		var t: String = live_d[randi() % live_d.size()]
+		var crit := randf() < 0.18
+		var dmg := (randi() % 8) + (15 if (a in allies) else 9)   # aliados batem mais → vencem
+		if crit: dmg *= 2
+		hp[t] = max(0, int(hp[t]) - dmg)
+		ev.append({"type": "crit" if crit else "attack", "actor": a, "target": t, "damage": dmg, "targetHp": int(hp[t]), "targetMaxHp": 100, "element": "SUPER" if crit else "", "hitZone": zones[randi() % zones.size()]})
+	var alive_ally := ""
+	for n in allies:
+		if int(hp[n]) > 0:
+			alive_ally = n
+			break
+	var dead_foe := ""
+	for n in foes:
+		if int(hp[n]) <= 0:
+			dead_foe = n
+	if alive_ally != "" and dead_foe != "":
+		ev.append({"type": "victory", "actor": alive_ally, "target": dead_foe, "damage": 0, "targetHp": 0, "targetMaxHp": 100, "element": "", "hitZone": ""})
+	return ev
 
 # Luta MOCK local: herói (equip real) vs um MONSTRO (`foe` vira o spawn da direita → Monsters.pick_for
 # o transforma no bicho). O monstro dá alguns golpes e o herói vence (mostra ataque + morte + sangue).
