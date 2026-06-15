@@ -483,6 +483,7 @@ func _build_team() -> void:
 		var an := a["node"] as Node3D
 		an.position = Vector3(-1.7, a["base_y"], rows[i])
 		a["home"] = an.position
+		a["anchor"] = an.position   # [TEAM_MOCK] ponto de onde ataca; vira o lugar do morto ao vencer
 		a["team"] = -1
 		a["lane"] = i
 		a["ctarget"] = foe_names[i]   # 1v1 inicial: aliado[i] × inimigo[i]
@@ -496,6 +497,7 @@ func _build_team() -> void:
 		var bn := b["node"] as Node3D
 		bn.position = Vector3(1.7, b["base_y"], rows[i])
 		b["home"] = bn.position
+		b["anchor"] = bn.position   # [TEAM_MOCK] idem
 		b["team"] = 1
 		b["lane"] = i
 		b["ctarget"] = ally_names[i]
@@ -921,8 +923,13 @@ func _tick_team(dt: float) -> void:
 		var tn := tgt["node"] as Node3D
 		match str(f.get("tstate", "approach")):
 			"approach":
-				# vários atacantes no MESMO alvo → cada um num ÂNGULO ao redor dele (flanqueia, não empilha).
-				# slot = posição entre os co-atacantes (mesmo time, mesmo alvo); base = lado do time no X.
+				# direção de ataque = do ANCHOR do lutador até o alvo (o vencedor herda o LUGAR do morto →
+				# ataca o próximo vindo da posição do morto, perpendicular a quem ainda luta na lane).
+				var anchor: Vector3 = f.get("anchor", sn.position)
+				var atk_dir := Vector3(anchor.x - tn.position.x, 0.0, anchor.z - tn.position.z)
+				if atk_dir.length() < 0.01: atk_dir = Vector3(float(f["team"]), 0, 0)
+				atk_dir = atk_dir.normalized()
+				# 2+ no mesmo alvo → desloca cada um LATERALMENTE (perpendicular) p/ garantir que não empilham
 				var co: Array = []
 				for o in order:
 					if not o["dead"] and int(o["team"]) == int(f["team"]) and str(o.get("ctarget", "")) == str(tgt["name"]):
@@ -930,8 +937,10 @@ func _tick_team(dt: float) -> void:
 				co.sort()
 				var slot := maxi(0, co.find(str(f["name"])))
 				var nslot := maxi(1, co.size())
-				var ang := deg_to_rad(90.0 * float(f["team"])) + deg_to_rad(40.0) * (float(slot) - float(nslot - 1) * 0.5)
-				var desired := Vector3(tn.position.x + sin(ang) * ATTACK_RANGE, f["base_y"], tn.position.z + cos(ang) * ATTACK_RANGE)
+				var perp := Vector3(atk_dir.z, 0.0, -atk_dir.x)
+				var lateral := (float(slot) - float(nslot - 1) * 0.5) * 1.3
+				var desired := tn.position + atk_dir * ATTACK_RANGE + perp * lateral
+				desired.y = f["base_y"]
 				if not f["ranged"]:
 					var prev := sn.position
 					sn.position = sn.position.move_toward(desired, MELEE_SPEED * dt)
@@ -993,6 +1002,7 @@ func _team_strike(a: Dictionary, t: Dictionary) -> void:
 	t["hp"] = max(0, int(t["hp"]) - dmg)
 	_update_hp(t)
 	if int(t["hp"]) <= 0:
+		a["anchor"] = (t["node"] as Node3D).position   # [TEAM_MOCK] vencedor TOMA O LUGAR do morto
 		_kill(t)
 	elif dmg > 0:
 		_on_impact(crit)
