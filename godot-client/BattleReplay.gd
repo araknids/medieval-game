@@ -921,23 +921,18 @@ func _tick_team(dt: float) -> void:
 		var tn := tgt["node"] as Node3D
 		match str(f.get("tstate", "approach")):
 			"approach":
+				# ponto de ataque: no Z (lane) do alvo + no lado do TIME no X → bate de FRENTE, não de lado
+				var desired := Vector3(tn.position.x + float(f["team"]) * ATTACK_RANGE, f["base_y"], tn.position.z)
 				if not f["ranged"]:
-					var off := sn.position - tn.position
-					off.y = 0.0
-					if off.length() < 0.01: off = Vector3(float(f["side"]), 0, 0)
-					var desired: Vector3 = tn.position + off.normalized() * ATTACK_RANGE
-					desired.y = f["base_y"]
 					var prev := sn.position
 					sn.position = sn.position.move_toward(desired, MELEE_SPEED * dt)
-					_face(f, signf(tn.position.x - sn.position.x))
 					if not f["busy"] and f["anim"]:
 						if sn.position.distance_to(prev) > 0.004:
 							if f["anim"].current_animation != A_WALK: f["anim"].play(A_WALK, BLEND)
 						elif f["anim"].current_animation != _clip(f, "idle"):
 							f["anim"].play(_clip(f, "idle"), BLEND)
-				else:
-					_face(f, signf(tn.position.x - sn.position.x))
-				var in_range: bool = f["ranged"] or absf(sn.position.x - tn.position.x) <= ATTACK_RANGE + 0.2
+				_face_node(f, tn)   # encara o alvo DE VERDADE (X+Z), não só esquerda/direita
+				var in_range: bool = f["ranged"] or sn.position.distance_to(tn.position) <= ATTACK_RANGE + 0.3
 				if in_range and not f["busy"]:
 					f["tstate"] = "windup"
 					f["ttimer"] = 0.0
@@ -1328,6 +1323,16 @@ func _face(f: Dictionary, dir: float) -> void:
 	if dir == 0.0: dir = 1.0
 	# + yaw_offset corrige o monstro que nasce de lado/de costas (humano = 0)
 	f["face_target"] = deg_to_rad(90.0 if dir > 0 else -90.0) + f.get("yaw_offset", 0.0)   # o _process gira suave até aqui
+
+# [TEAM_MOCK] Encara um ALVO arbitrário (X+Z), não só esquerda/direita — p/ ir ajudar a lane do lado.
+# atan2(dx,dz) casa com a convenção do _face (+X→90°, -X→-90°); o _process gira suave até aqui.
+func _face_node(f: Dictionary, tn: Node3D) -> void:
+	var sn := f["node"] as Node3D
+	var dx := tn.position.x - sn.position.x
+	var dz := tn.position.z - sn.position.z
+	if absf(dx) < 0.001 and absf(dz) < 0.001:
+		return
+	f["face_target"] = atan2(dx, dz) + f.get("yaw_offset", 0.0)
 
 func _shoot_arrow(a: Dictionary, b: Dictionary) -> void:
 	var arrow := MeshInstance3D.new()
