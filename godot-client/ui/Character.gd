@@ -320,33 +320,38 @@ func _render_attr_panel() -> void:
 	for a in ATTRS:
 		_panel_host.add_child(_attr_row(a, pts > 0))
 	_panel_host.add_child(UiKit.spacer(6))
-	_panel_host.add_child(UiKit.dim("Passe o mouse num atributo para ver o efeito. Ataque/defesa/HP estão na barra de cima."))
+	_panel_host.add_child(UiKit.dim("Ataque, defesa e HP efetivos estão na barra de cima."))
 
+# Linha: [ícone] [sigla] [valor] [o que aumenta] [+]. O "+" fica logo após o efeito (não no canto).
 func _attr_row(a: Array, can_add: bool) -> Control:
 	var key := str(a[0])
 	var sig := str(a[1])
 	var row := HBoxContainer.new()
-	row.add_theme_constant_override("separation", 10)
-	row.tooltip_text = "%s — %s" % [sig, Lang.t(str(ATTR_EFFECT.get(sig, "")))]
-	row.mouse_filter = Control.MOUSE_FILTER_STOP
-	row.add_child(Icons.rect("attr_" + key, 24))   # rect() já vem com mouse_filter IGNORE
+	row.add_theme_constant_override("separation", 8)
+	row.add_child(Icons.rect("attr_" + key, 24))
 	var nm := Label.new()
 	nm.text = sig
-	nm.custom_minimum_size = Vector2(56, 0)
+	nm.custom_minimum_size = Vector2(46, 0)
 	nm.add_theme_font_size_override("font_size", 15)
 	nm.add_theme_color_override("font_color", UiKit.TEXT)
-	nm.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	row.add_child(nm)
 	var val := Label.new()
 	val.text = str(w.get(key, 0))
+	val.custom_minimum_size = Vector2(34, 0)
 	val.add_theme_font_size_override("font_size", 16)
 	val.add_theme_color_override("font_color", UiKit.GOLD)
-	val.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	val.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	row.add_child(val)
+	var eff := Label.new()
+	eff.text = Lang.t(str(ATTR_EFFECT.get(sig, "")))   # o que o atributo aumenta (inline)
+	eff.custom_minimum_size = Vector2(166, 0)           # largura fixa → o "+" alinha em coluna e fica perto
+	eff.add_theme_font_size_override("font_size", 12)
+	eff.add_theme_color_override("font_color", UiKit.TEXT_DIM)
+	eff.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	row.add_child(eff)
 	if can_add:
 		var plus := UiKit.icon_btn("+", func() -> void: await _spend(key))
 		plus.custom_minimum_size = Vector2(36, 36)
+		plus.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 		row.add_child(plus)
 	return row
 
