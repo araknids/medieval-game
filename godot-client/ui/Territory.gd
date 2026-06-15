@@ -6,6 +6,7 @@ extends Control
 # [PADRAO_UI_GODOT]. [MIGRACAO_GODOT]
 
 signal go_back
+signal request_battle(data)   # [GUERRA_GAUNTLET] pede ao App o replay 3D da última guerra do território
 
 var territories: Array = []      # GET /api/territory
 var my_territory: Dictionary = {}  # GET /api/territory/my
@@ -113,6 +114,9 @@ func _territory_card(t) -> Control:
 		for g in declaring:
 			names.append(str(g))
 		box.add_child(UiKit.dim(Lang.t("⚔ Declarando:") + " " + ", ".join(names)))
+	# assistir o replay 3D da última batalha (qualquer um pode ver) [GUERRA_GAUNTLET]
+	box.add_child(UiKit.spacer(4))
+	box.add_child(UiKit.small_btn("⚔ Assistir última batalha", _watch_battle.bind(str(t.get("territory", "")))))
 	# ── Ação: só o líder da guilda declara/cancela ──
 	box.add_child(UiKit.spacer(4))
 	var in_guild := bool(guild.get("inGuild", false))
@@ -168,3 +172,22 @@ func _do_cancel() -> void:
 		UiKit.flash(status, msg, 1)
 	else:
 		UiKit.show_error(status, r)
+
+# [GUERRA_GAUNTLET] busca o replay da última guerra e pede o 3D ao App (via Shell → request_battle).
+func _watch_battle(territory: String) -> void:
+	if busy: return
+	busy = true
+	UiKit.flash(status, "Carregando replay…", 0)
+	var r = await Api.territory_replay(territory)
+	busy = false
+	if r is Dictionary and r.get("ok") and r.get("json") is Dictionary and bool(r["json"].get("hasReplay", false)):
+		var j: Dictionary = r["json"]
+		request_battle.emit({
+			"events": j.get("events", []),
+			"scene": str(j.get("scene", "castle")),
+			"war": true,
+			"won": str(j.get("winner", "")) == str(j.get("attacker", "")),
+			"enemy": str(j.get("defender", "")),
+		})
+	else:
+		UiKit.flash(status, "Sem batalha pra assistir ainda.", 1)

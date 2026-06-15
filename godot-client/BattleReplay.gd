@@ -198,6 +198,11 @@ const TEAM_X := 1.7                    # x de cada lado (ally −1.7 / foe +1.7)
 var _resv_ally: Array = []            # reservas (specs ainda não spawnadas) do time aliado
 var _resv_foe: Array = []             # reservas do time inimigo
 var _team_wave := 1                   # onda atual
+var war_mode := false                 # [GUERRA_GAUNTLET] replay da guerra REAL (eventos do backend, não sim local)
+var war_events: Array = []
+var war_i := 0
+var war_t := 0.0
+const WAR_STEP := 0.16                # seg entre golpes no replay da guerra
 var ranged_f := {}            # lutador que recua/atira
 var melee_f := {}             # lutador que avança
 var victory_label: Label
@@ -229,6 +234,9 @@ func _ready() -> void:
 	if events.is_empty():
 		return
 	_setup_map()                # monta o mapa JÁ sabendo o reino da luta (scene → mapa)
+	if war_mode:                # [GUERRA_GAUNTLET] replay da guerra real (orientado a eventos)
+		_start_war()
+		return
 	if team_mode:
 		_build_team()           # [TEAM_MOCK] 3 contra 3
 	else:
@@ -273,6 +281,7 @@ func _load_events() -> void:
 	if external_battle.get("events") is Array and (external_battle["events"] as Array).size() >= 2:
 		events = external_battle["events"]
 		fight_scene = str(external_battle.get("scene", ""))
+		war_mode = bool(external_battle.get("war", false))   # [GUERRA_GAUNTLET] replay da guerra real
 		var foe := str(external_battle.get("enemy", ""))
 		_status(Lang.t("Duelo…") if foe == "" else (Lang.t("⚔ vs %s") % foe))   # SEM spoiler — o vencedor só no fim
 		return
@@ -541,6 +550,117 @@ func _clear_corpses() -> void:
 		else:
 			keep.append(f)
 	order = keep
+
+# ── [GUERRA_GAUNTLET] Replay da GUERRA real: orientado aos WarEvent do backend (não sim local) ──
+func _start_war() -> void:
+	team_mode = true   # reusa o desenho de time (lanes, billboard de HP)
+	kiting = false
+	war_events = events
+	war_i = 0
+	war_t = 0.0
+	order = []
+	cam.position = Vector3(0.0, 5.2, 8.6)   # câmera fixa enquadrando o campo (±2 x, 3 lanes)
+	cam.look_at(Vector3(0, 1.2, 0), Vector3.UP)
+	phase = "war"
+
+func _war_step(dt: float) -> void:
+	if war_i >= war_events.size():
+		_finish()
+		return
+	war_t += dt
+	if war_t < WAR_STEP:
+		return
+	war_t = 0.0
+	# processa eventos até (incluindo) 1 golpe visível; spawn/wave/victory são instantâneos
+	while war_i < war_events.size():
+		var e: Dictionary = war_events[war_i]
+		war_i += 1
+		var ty := str(e.get("type", ""))
+		_war_event(e)
+		if ty == "attack" or ty == "crit" or ty == "miss":
+			break
+
+func _war_event(e: Dictionary) -> void:
+	match str(e.get("type", "")):
+		"spawn": _war_spawn(e)
+		"attack": _war_hit(e, false)
+		"crit": _war_hit(e, true)
+		"miss":
+			var t = fighters.get(str(e.get("target", "")))
+			if t != null: _popup(_head(t), "MISS", Color(0.62, 0.81, 1), false)
+		"wave":
+			_clear_corpses()
+			_status("Onda %d" % int(e.get("wave", 0)))
+
+# Lane livre (0–2) do lado (team -1 aliado / 1 inimigo); fallback 0.
+func _war_free_lane(team: int) -> int:
+	var occ := [false, false, false]
+	for f in order:
+		if not f.get("dead", false) and int(f.get("team", 0)) == team:
+			var l := int(f.get("lane", -1))
+			if l >= 0 and l < 3: occ[l] = true
+	for i in 3:
+		if not occ[i]: return i
+	return 0
+
+func _war_spawn(e: Dictionary) -> void:
+	var nm := str(e.get("actor", ""))
+	if nm == "" or fighters.has(nm): return
+	var side := int(e.get("side", 0))            # 0 = atacante (aliado, esquerda) / 1 = defensor (direita)
+	var team := -1 if side == 0 else 1
+	var lane := _war_free_lane(team)
+	var maxhp := maxi(1, int(e.get("targetMaxHp", 100)))
+	var hp := clampi(int(e.get("targetHp", maxhp)), 0, maxhp)
+	var f: Dictionary
+	if team == -1:
+		f = _make_fighter(nm, -1, maxhp, "sword", DEFAULT_OUTFIT.duplicate(), {}, 1)
+	else:
+		var look := _enemy_look(nm, false)
+		f = _make_fighter(nm, 1, maxhp, str(look["weapon"]), look.get("equip", DEFAULT_OUTFIT), {}, 1, look)
+	var n := f["node"] as Node3D
+	n.position = Vector3(float(team) * TEAM_X, f["base_y"], TEAM_ROWS[lane])
+	f["home"] = n.position
+	f["anchor"] = n.position
+	f["team"] = team
+	f["lane"] = lane
+	f["hp"] = hp
+	f["shown_hp"] = float(hp)
+	order.append(f)
+	fighters[nm] = f
+	_update_hp(f)
+
+func _war_hit(e: Dictionary, crit: bool) -> void:
+	var t = fighters.get(str(e.get("target", "")))
+	if t == null or t.get("dead", false): return
+	var a = fighters.get(str(e.get("actor", "")))
+	if a != null and not a.get("dead", false):
+		_face_node(a, t["node"])
+		if a.get("anim"):
+			a["anim"].play(_clip(a, "attack") if a.get("is_monster", false) else _rand_sword(a["anim"]), BLEND)
+	var dmg := int(e.get("damage", 0))
+	var zone := str(e.get("hitZone", "body"))
+	if zone == "": zone = "body"
+	var head := zone == "head"
+	if t.get("anim"): t["anim"].play(_clip(t, "hurt_head" if head else "hurt"), BLEND)
+	t["busy"] = true
+	_popup(_chest(t), "-%d" % dmg, Color(1, 0.32, 0.32) if crit else Color(1, 1, 1), crit)
+	var bdir: Vector3 = (((t["node"] as Node3D).global_position - (a["node"] as Node3D).global_position) * Vector3(1, 0, 1)) if a != null else Vector3.RIGHT
+	t["last_hit_dir"] = bdir.normalized() if bdir.length() > 0.01 else Vector3.RIGHT
+	t["last_hit_crit"] = crit
+	var bpos: Vector3 = _hit_pos(t, zone)
+	_blood_spray(bpos, bdir, dmg, crit, "")
+	var icol: Color = _impact_color("")
+	_sparks(bpos, icol, crit)
+	_flash_at(bpos, icol)
+	if crit:
+		_light_flicker()
+		_blood_mist(bpos)
+	t["hp"] = clampi(int(e.get("targetHp", t["hp"])), 0, int(t.get("maxhp", t["hp"])))
+	_update_hp(t)
+	if int(t["hp"]) <= 0:
+		_kill(t)
+	elif dmg > 0:
+		_on_impact(crit)
 
 func _dress(node: Node3D, skel: Skeleton3D, equipped_types: Array) -> void:
 	if skel == null: return
@@ -835,6 +955,7 @@ func _process(dt: float) -> void:
 			f["rim"].global_position = n.global_position + Vector3(0, 1.9, -1.1)
 	match phase:
 		"countdown": _countdown(dt)
+		"war": _war_step(dt)
 		"fight":
 			if team_mode:
 				_tick_team(dt)        # [TEAM_MOCK] sim ao vivo (3 duelos simultâneos)
