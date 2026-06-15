@@ -316,6 +316,9 @@ func territory_cancel() -> Dictionary:
 ## GET /api/territory/{territory}/history → [{attacker, defender, winner, resolvedAt, log}]
 func territory_history(territory: String) -> Dictionary:
 	return await _request(HTTPClient.METHOD_GET, "/api/territory/%s/history" % territory, null, true)
+## GET /api/territory/{territory}/replay → {hasReplay, events:[WarEvent…], scene, winner, attacker, defender} [GUERRA_GAUNTLET]
+func territory_replay(territory: String) -> Dictionary:
+	return await _request(HTTPClient.METHOD_GET, "/api/territory/%s/replay" % territory, null, true)
 
 ## Chamada genérica. method = HTTPClient.METHOD_*; body = Dictionary ou null; authed = manda o Bearer.
 ## Reusa uma conexão keep-alive do pool; conexões diferentes rodam em paralelo. Mesmo contrato

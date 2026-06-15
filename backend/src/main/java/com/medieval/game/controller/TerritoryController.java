@@ -27,6 +27,9 @@ public class TerritoryController {
     private final PlayerRepository               playerRepository;
     private final TerritoryDeclarationRepository declarationRepo;
 
+    private static final com.fasterxml.jackson.databind.ObjectMapper MAPPER =
+            new com.fasterxml.jackson.databind.ObjectMapper(); // [GUERRA_GAUNTLET] parse dos eventos guardados
+
     // ── List all territories ──────────────────────────────────────────────────
     @GetMapping
     public ResponseEntity<?> listAll(Authentication auth) {
@@ -131,6 +134,28 @@ public class TerritoryController {
         )).toList();
         return ResponseEntity.ok(result);
     }
+
+    // ── Replay da última batalha (eventos do gauntlet p/ o 3D) ───────────────────
+    @GetMapping("/{territory}/replay")
+    public ResponseEntity<?> replay(@PathVariable Kingdom territory) {
+        var opt = territoryService.getLatestBattleWithEvents(territory);
+        if (opt.isEmpty()) return ResponseEntity.ok(Map.of("hasReplay", false));
+        TerritoryBattleLog l = opt.get();
+        Object events;
+        try { events = MAPPER.readValue(l.getBattleEvents(), Object.class); }
+        catch (Exception e) { return ResponseEntity.ok(Map.of("hasReplay", false)); }
+        return ResponseEntity.ok(Map.of(
+            "hasReplay",  true,
+            "events",     events,
+            "scene",      "castle",
+            "attacker",   nz(l.getAttackerGuildName()),
+            "defender",   nz(l.getDefenderGuildName()),
+            "winner",     nz(l.getWinnerGuildName()),
+            "resolvedAt", l.getResolvedAt().toString()
+        ));
+    }
+
+    private static String nz(String s) { return s != null ? s : ""; }
 
     private Player getPlayer(Authentication auth) {
         return playerService.findById((Long) auth.getPrincipal());

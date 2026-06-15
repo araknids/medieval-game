@@ -31,6 +31,10 @@ public class TerritoryBattleLog {
     @Column(name = "battle_log", columnDefinition = "TEXT")
     private String battleLog;
 
+    // [GUERRA_GAUNTLET] eventos (JSON) da batalha p/ o replay 3D no cliente. null = sem replay (logs antigos / sem combate).
+    @Column(name = "battle_events", columnDefinition = "TEXT")
+    private String battleEvents;
+
     @Column(nullable = false)
     private LocalDateTime resolvedAt = LocalDateTime.now();
 }

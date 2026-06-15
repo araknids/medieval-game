@@ -47,6 +47,7 @@ public class SchemaMigrator {
         patchAbilityPointsColumn();
         patchStashColumns();
         patchKingdomQuestWindowColumn();
+        patchTerritoryBattleEventsColumn();
         dropWarriorOnMissionColumn();
         dropStaleEnumCheckConstraints();
         purgeStaleEnumRows();
@@ -100,6 +101,16 @@ public class SchemaMigrator {
             catch (Exception e) { log.warn("[SchemaMigrator] index skipped: {} — {}", sql.trim(), e.getMessage()); }
         }
         log.info("[SchemaMigrator] hot FK/lookup indexes ensured ({}/{})", ok, idx.length);
+    }
+
+    // [GUERRA_GAUNTLET] coluna battle_events (JSON dos eventos da guerra) p/ o replay no cliente.
+    private void patchTerritoryBattleEventsColumn() {
+        try {
+            jdbc.execute("ALTER TABLE territory_battle_logs ADD COLUMN IF NOT EXISTS battle_events TEXT");
+            log.info("[SchemaMigrator] territory_battle_logs.battle_events ensured");
+        } catch (Exception e) {
+            log.warn("[SchemaMigrator] territory battle_events patch failed: {}", e.getMessage());
+        }
     }
 
     // Inventário V2: coluna `stashed` (bag vs stash) em inventory_items e resource_inventory.

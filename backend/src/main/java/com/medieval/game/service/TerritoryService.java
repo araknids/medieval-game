@@ -26,6 +26,9 @@ public class TerritoryService {
 
     private static final int ROSTER_MAX = 15; // máx. de lutadores por guild por ciclo. [GUERRA_ROSTER]
 
+    private static final com.fasterxml.jackson.databind.ObjectMapper MAPPER =
+            new com.fasterxml.jackson.databind.ObjectMapper(); // [GUERRA_GAUNTLET] serializa os eventos da guerra
+
     private final TerritoryControlRepository     controlRepo;
     private final TerritoryDeclarationRepository declarationRepo;
     private final TerritoryBattleLogRepository   battleLogRepo;
@@ -263,7 +266,7 @@ public class TerritoryService {
 
             String defenderName = control.isNeutral() ? territory.npcName + "s" : currentHolder.getName();
             saveBattleLog(territory, attackerGuild.getName(), defenderName,
-                    result.attackersWon ? attackerGuild.getName() : defenderName, result.log);
+                    result.attackersWon ? attackerGuild.getName() : defenderName, result.log, result.events);
 
             if (result.attackersWon) {
                 phase1Winners.add(attackerGuild);
@@ -325,7 +328,7 @@ public class TerritoryService {
                 saveBattleLog(territory,
                     tiebreakerChallenger.getName() + " [TIEBREAKER]",
                     tiebreakerChampion.getName()   + " [TIEBREAKER — Phase 1 HP]",
-                    tbWinner, tResult.log);
+                    tbWinner, tResult.log, tResult.events);
             }
 
             newHolder = tiebreakerChampion;
@@ -429,7 +432,7 @@ public class TerritoryService {
                 ? "🏆 Attackers conquered the territory! (" + atkLanes + "-" + defLanes + " lanes)"
                 : "🛡 Defenders held their ground! (" + defLanes + "-" + atkLanes + " lanes)");
 
-        return new BrawlResult(attackersWon, fullLog, flatten(attackers), flatten(defenders));
+        return new BrawlResult(attackersWon, fullLog, flatten(attackers), flatten(defenders), java.util.List.of());
     }
 
     /**
@@ -453,7 +456,7 @@ public class TerritoryService {
         log.add(out.attackersWon()
                 ? "🏆 Attackers conquered the territory!"
                 : "🛡 Defenders held their ground!");
-        return new BrawlResult(out.attackersWon(), log, atk, def);
+        return new BrawlResult(out.attackersWon(), log, atk, def, out.events());
     }
 
     // ── Fighter building ──────────────────────────────────────────────────────
@@ -628,16 +631,33 @@ public class TerritoryService {
         return battleLogRepo.findTop10ByTerritoryOrderByResolvedAtDesc(territory);
     }
 
+    /** [GUERRA_GAUNTLET] a batalha mais recente que tem eventos (p/ o replay no cliente); vazio se não houver. */
+    public Optional<TerritoryBattleLog> getLatestBattleWithEvents(Kingdom territory) {
+        return getHistory(territory).stream()
+                .filter(l -> l.getBattleEvents() != null && !l.getBattleEvents().isBlank())
+                .findFirst();
+    }
+
     // ── Battle log helper ─────────────────────────────────────────────────────
 
     private void saveBattleLog(Kingdom territory, String attacker, String defender,
                                String winner, java.util.List<String> log) {
+        saveBattleLog(territory, attacker, defender, winner, log, java.util.List.of());
+    }
+
+    /** [GUERRA_GAUNTLET] salva o log + (se houver) os eventos JSON da batalha p/ o replay no cliente. */
+    private void saveBattleLog(Kingdom territory, String attacker, String defender, String winner,
+                               java.util.List<String> log, java.util.List<GauntletWarSimulator.WarEvent> events) {
         TerritoryBattleLog entry = new TerritoryBattleLog();
         entry.setTerritory(territory);
         entry.setAttackerGuildName(attacker);
         entry.setDefenderGuildName(defender);
         entry.setWinnerGuildName(winner);
         entry.setBattleLog(String.join("\n", log));
+        if (events != null && !events.isEmpty()) {
+            try { entry.setBattleEvents(MAPPER.writeValueAsString(events)); }
+            catch (Exception ignored) { /* eventos são opcionais (só p/ o replay) */ }
+        }
         entry.setResolvedAt(LocalDateTime.now());
         battleLogRepo.save(entry);
     }
@@ -682,7 +702,8 @@ public class TerritoryService {
     }
 
     public record BrawlResult(boolean attackersWon, List<String> log,
-                               List<Fighter> attackerFighters, List<Fighter> defenderFighters) {}
+                               List<Fighter> attackerFighters, List<Fighter> defenderFighters,
+                               List<GauntletWarSimulator.WarEvent> events) {}
 
     public record TerritoryBonus(Kingdom territory, int xpBonus, int bronzeBonus) {
         public static final TerritoryBonus NONE = new TerritoryBonus(null, 0, 0);
