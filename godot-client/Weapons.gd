@@ -36,12 +36,12 @@ func attach_weapon(node: Node3D, kind: String, rarity := 1, grip := 0.10) -> Nod
 	var ge := RARITY_GLOW[r - 1] as float       # emissão (0 no comum)
 	var ba := BoneAttachment3D.new()
 	if is_bow_kind(kind):
-		ba.bone_name = "LeftHand"
 		skel.add_child(ba)
+		ba.bone_name = "LeftHand"   # bind DEPOIS de entrar na árvore do esqueleto (resolve o osso)
 		_attach_bow(ba, kind, steel, ge)
 		return ba
-	ba.bone_name = "RightHand"
 	skel.add_child(ba)
+	ba.bone_name = "RightHand"   # idem — setar bone_name já dentro do Skeleton3D
 	var holder := Node3D.new()
 	holder.position = Vector3(grip, 0.05, 0.04)   # grip = ao longo da mão; MENOR = cabo mais pra dentro
 	holder.rotation_degrees = Vector3(0, 0, -90)
@@ -89,8 +89,8 @@ func attach_shield(node: Node3D, opts := {}) -> Node3D:
 	if skel == null: return null
 	var bone := "LeftLowerArm" if skel.find_bone("LeftLowerArm") != -1 else "LeftHand"
 	var ba := BoneAttachment3D.new()
-	ba.bone_name = bone
 	skel.add_child(ba)
+	ba.bone_name = bone   # bind DEPOIS de entrar na árvore do esqueleto (resolve o osso)
 	var holder := Node3D.new()
 	holder.top_level = true
 	ba.add_child(holder)
