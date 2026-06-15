@@ -127,6 +127,10 @@ func _item_row(it: Dictionary) -> PanelContainer:
 		var sl := Label.new(); sl.text = stats; sl.add_theme_font_size_override("font_size", 12)
 		sl.add_theme_color_override("font_color", Color(0.62, 0.75, 0.58))
 		left.add_child(sl)
+	# [COMPARA] vs item equipado no mesmo slot (▲Melhor/▼Pior/◆Lateral + deltas)
+	var cmp := UiKit.compare_line(it)
+	if cmp != null:
+		left.add_child(cmp)
 	# preço — P0: vermelho se não dá pra pagar. [MOEDA] preço é em BRONZE (base);
 	# affordability compara o TOTAL (ouro*10000 + prata*100 + bronze), não o resto 0-99.
 	var price := int(it.get("price", 0))

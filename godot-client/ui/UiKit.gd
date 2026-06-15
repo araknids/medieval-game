@@ -646,6 +646,18 @@ static func compare_line(it: Dictionary) -> Control:
 		row.add_child(l)
 	return row
 
+# Comparação a partir de stats AVULSOS + slot (ItemType). P/ fontes que não são item de inventário
+# completo — ex.: receita da Forja (slot + atk/def/hp/str/dex/luk). Monta um item sintético e reusa
+# compare_line (id impossível → nunca casa com o equipado). [PLANO_UI_SHELL_GODOT]
+static func compare_line_raw(slot: String, atk: int, def_v: int, hp: int, str_v: int, dex_v: int, luk_v: int) -> Control:
+	if slot == "":
+		return null
+	return compare_line({
+		"type": slot, "equipped": false, "id": -99999,
+		"attackBonus": atk, "defenseBonus": def_v, "healthBonus": hp,
+		"strBonus": str_v, "dexBonus": dex_v, "lukBonus": luk_v,
+	})
+
 static func item_row(it: Dictionary, name_text: String, sub_text: String, stats_text: String, actions: Array) -> PanelContainer:
 	var rar := int(it.get("rarity", 1))
 	var res := card(rarity_color(rar))

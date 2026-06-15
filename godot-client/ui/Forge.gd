@@ -215,6 +215,10 @@ func _craft_card(r: Dictionary) -> PanelContainer:
 		var sl := Label.new(); sl.text = st; sl.add_theme_font_size_override("font_size", 12)
 		sl.add_theme_color_override("font_color", Color(0.62, 0.75, 0.58))
 		vb.add_child(sl)
+	# [COMPARA] vs item equipado no mesmo slot (▲Melhor/▼Pior/◆Lateral + deltas)
+	var cmp := UiKit.compare_line_raw(str(r.get("slot", "")), int(r.get("atk", 0)), int(r.get("def", 0)), int(r.get("hp", 0)), int(r.get("str", 0)), int(r.get("dex", 0)), int(r.get("luk", 0)))
+	if cmp != null:
+		vb.add_child(cmp)
 	vb.add_child(UiKit.dim(Lang.t("Forja Lv.%d %s") % [int(r.get("levelRequired", 1)), "" if can else "🔒"]))
 	if can:
 		var pct := int(r.get("successPct", 0))
