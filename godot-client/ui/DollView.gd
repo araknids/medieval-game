@@ -143,13 +143,8 @@ func _apply_weapons(equipped: Array) -> void:
 			if node != null:
 				_props.append(node)
 		elif ty == "SHIELD":
-			# forward dinâmico = frente do boneco (acompanha o giro)
-			var face := func() -> Vector3:
-				var f: Vector3 = _character.global_transform.basis.z
-				f.y = 0.0
-				return Vector3.BACK if f.length() < 0.001 else f.normalized()
-			# push maior = escudo mais PRA FRENTE (não fica dentro da mão/braço)
-			var snode := _wp.attach_shield(_character, {"rarity": int(it.get("rarity", 1)), "forward": face, "push": 0.32, "slide": 0.14})
+			# escudo é filho do osso do antebraço → já gira junto com o boneco (sem Callable)
+			var snode := _wp.attach_shield(_character, {"rarity": int(it.get("rarity", 1))})
 			if snode != null:
 				_props.append(snode)
 

@@ -1,14 +1,44 @@
 extends RefCounted
-# ── Construtor de ARMAS + ESCUDO procedurais (compartilhado) ─────────────────────
+# ── ARMAS + ESCUDO (modelos 3D reais) ────────────────────────────────────────────
+# Carrega os modelos do pack "medieval weapons" (assets/weapons/*.obj) e prende no
+# esqueleto do personagem (mão/antebraço). Substitui as armas procedurais antigas.
 # Uso: const Weapons := preload("res://Weapons.gd"); var wp := Weapons.new()
-#      wp.attach_weapon(node, "greatsword", rarity, grip);  wp.attach_shield(node, opts)
-# Métodos de INSTÂNCIA (igual Monsters.gd/Scenery.gd). Espelha o que estava no BattleReplay.
+#      wp.attach_weapon(node, "sword", rarity, grip);  wp.attach_shield(node, opts)
+# Os números (escala/posição/rotação) são tunáveis nas tabelas abaixo. [ARMAS_3D]
 
-# [RARIDADE] cor + brilho do metal pela raridade do item (1 comum → 5 lendário).
+# [RARIDADE] cores/brilho por raridade (mantidos p/ uso futuro — emissão por raridade).
 const RARITY_TINT := [Color(0.82, 0.84, 0.88), Color(0.45, 0.85, 0.45), Color(0.35, 0.60, 1.0), Color(0.72, 0.40, 0.95), Color(1.0, 0.78, 0.28)]
 const RARITY_GLOW := [0.0, 0.5, 1.0, 1.7, 2.6]
 
 const KINDS := ["sword", "greatsword", "axe", "spear", "mace", "shortbow", "longbow", "crossbow"]
+
+const DIR := "res://assets/weapons/"
+
+# tipo visual fino → modelo (arquivo em assets/weapons/, sem extensão). [ARMAS_3D]
+# (não há crossbow no pack → usa um arco dourado como stand-in por ora.)
+const MODELS := {
+	"sword": "Sword", "greatsword": "Claymore", "axe": "Axe", "spear": "Spear",
+	"mace": "Hammer_Small", "shortbow": "Bow_Wooden", "longbow": "Bow_Wooden2", "crossbow": "Bow_Golden",
+}
+const SHIELD_MODEL := "Shield_Heater"
+
+# Transform na mão por tipo: [escala, pos_y, pos_z, rotação(graus)]. pos_x vem do `grip`.
+# Modelos: Y-up, lâmina/comprimento no +Y, origem perto do punho/guarda. Ajuste fino aqui. [ARMAS_3D]
+const HAND_XF := {
+	"sword":      [0.20, 0.05, 0.04, Vector3(0, 0, -90)],
+	"greatsword": [0.20, 0.05, 0.04, Vector3(0, 0, -90)],
+	"axe":        [0.20, 0.05, 0.04, Vector3(0, 0, -90)],
+	"spear":      [0.18, 0.05, 0.04, Vector3(0, 0, -90)],
+	"mace":       [0.22, 0.05, 0.04, Vector3(0, 0, -90)],
+	"shortbow":   [0.24, 0.07, 0.04, Vector3(0, 0, 0)],
+	"longbow":    [0.24, 0.07, 0.04, Vector3(0, 0, 0)],
+	"crossbow":   [0.24, 0.07, 0.04, Vector3(0, 0, 0)],
+}
+
+# Escudo no antebraço: escala + base de posição (somada aos opts slide/push/side) + rotação. [ARMAS_3D]
+const SHIELD_SCALE := 0.20
+const SHIELD_BASE := Vector3(0.0, 0.10, 0.10)   # x=lado, y=ao longo do braço, z=frente
+const SHIELD_ROT := Vector3(0, 0, 0)
 
 # Tipo visual FINO pelo NOME (espelha backend WeaponType.fromName — a API não manda o tipo).
 func weapon_kind(item_name: String, category: String) -> String:
@@ -26,144 +56,70 @@ func weapon_kind(item_name: String, category: String) -> String:
 func is_bow_kind(kind: String) -> bool:
 	return kind in ["shortbow", "longbow", "crossbow", "bow"]
 
-# Desenha a arma no esqueleto do `node` (procura GeneralSkeleton). Arco/besta na LeftHand;
-# melee na RightHand (rot -90; +Y local = direção da arma). rarity 1-5 tinge/brilha o metal.
-# force_bone: força a mão (ex.: "RightHand" no boneco da ficha p/ o arco não cair no mesmo lado do escudo).
-# "" = padrão (arco→LeftHand, melee→RightHand, como na batalha/kiting).
+# Desenha a arma no esqueleto do `node`. Arco→LeftHand, melee→RightHand (ou force_bone).
+# Retorna o BoneAttachment3D (p/ o chamador remover ao reequipar). rarity mantido (sem tint por ora).
 func attach_weapon(node: Node3D, kind: String, rarity := 1, grip := 0.10, force_bone := "") -> Node3D:
 	var skel: Skeleton3D = node.find_child("GeneralSkeleton", true, false)
 	if skel == null: return null
-	var r := clampi(rarity, 1, 5)
-	var steel := RARITY_TINT[r - 1] as Color   # r=1 → aço normal
-	var ge := RARITY_GLOW[r - 1] as float       # emissão (0 no comum)
+	var bone := force_bone
+	if bone == "":
+		bone = "LeftHand" if is_bow_kind(kind) else "RightHand"
 	var ba := BoneAttachment3D.new()
-	if is_bow_kind(kind):
-		skel.add_child(ba)
-		ba.bone_name = force_bone if force_bone != "" else "LeftHand"   # bind DEPOIS do add_child (resolve o osso)
-		_attach_bow(ba, kind, steel, ge)
-		return ba
 	skel.add_child(ba)
-	ba.bone_name = force_bone if force_bone != "" else "RightHand"   # idem — setar bone_name já dentro do Skeleton3D
+	ba.bone_name = bone   # bind DEPOIS de entrar na árvore (resolve o osso, inclusive no SubViewport)
+	var xf: Array = HAND_XF.get(kind, HAND_XF["sword"])
 	var holder := Node3D.new()
-	holder.position = Vector3(grip, 0.05, 0.04)   # grip = ao longo da mão; MENOR = cabo mais pra dentro
-	holder.rotation_degrees = Vector3(0, 0, -90)
+	holder.position = Vector3(grip, float(xf[1]), float(xf[2]))
+	holder.rotation_degrees = xf[3]
 	ba.add_child(holder)
-	var wood := Color(0.35, 0.22, 0.12)
-	match kind:
-		"greatsword":
-			_box(holder, Vector3(0.028, 0.82, 0.10), Vector3(0, 0.54, 0), steel, 0.7, steel, ge)      # lâmina longa
-			_box(holder, Vector3(0.07, 0.04, 0.28),  Vector3(0, 0.10, 0), Color(0.28, 0.22, 0.14), 0.3)  # guarda larga
-			_box(holder, Vector3(0.032, 0.22, 0.032),Vector3(0, -0.04, 0), wood, 0.1)              # cabo (2 mãos)
-			_box(holder, Vector3(0.06, 0.06, 0.06),  Vector3(0, -0.18, 0), Color(0.70, 0.60, 0.20), 0.5)  # pomo
-		"axe":
-			_box(holder, Vector3(0.028, 0.62, 0.028), Vector3(0, 0.20, 0), wood, 0.1)        # cabo longo
-			_box(holder, Vector3(0.02, 0.16, 0.17),   Vector3(0, 0.46, 0.07), steel, 0.7, steel, ge)  # lâmina
-		"spear":
-			_box(holder, Vector3(0.024, 0.95, 0.024), Vector3(0, 0.30, 0), wood, 0.1)         # haste
-			_box(holder, Vector3(0.04, 0.16, 0.04),   Vector3(0, 0.82, 0), steel, 0.7, steel, ge)  # ponta
-		"mace":
-			_box(holder, Vector3(0.03, 0.42, 0.03),   Vector3(0, 0.12, 0), wood, 0.1)         # cabo
-			_sphere(holder, 0.075, Vector3(0, 0.38, 0), steel, 0.6, steel, ge)                # cabeça
-		_:  # sword
-			_box(holder, Vector3(0.022, 0.5, 0.075),  Vector3(0,  0.34, 0), steel, 0.7, steel, ge)    # lâmina
-			_box(holder, Vector3(0.05, 0.035, 0.20),  Vector3(0,  0.07, 0), Color(0.28, 0.22, 0.14), 0.3)  # guarda
-			_box(holder, Vector3(0.028, 0.13, 0.028), Vector3(0, -0.02, 0), wood, 0.1)             # cabo
-			_box(holder, Vector3(0.05, 0.05, 0.05),   Vector3(0, -0.10, 0), Color(0.70, 0.60, 0.20), 0.5)  # pomo
+	var model := _load_model(str(MODELS.get(kind, "Sword")))
+	if model == null:
+		model = _fallback(Vector3(0.05, 0.7, 0.05))   # arma não importada ainda → caixinha
+	model.scale = Vector3(xf[0], xf[0], xf[0])
+	holder.add_child(model)
 	return ba
 
-func _attach_bow(ba: Node3D, kind: String, glow_col := Color.WHITE, ge := 0.0) -> void:
-	var wood := Color(0.45, 0.30, 0.16)
-	var cord := glow_col if ge > 0.0 else Color(0.85, 0.82, 0.70)
-	if kind == "crossbow":
-		_box(ba, Vector3(0.035, 0.05, 0.40), Vector3(0.10, 0.06, 0.10), wood, 0.1)                  # coronha (madeira)
-		_box(ba, Vector3(0.40, 0.03, 0.03),  Vector3(0.10, 0.08, 0.26), glow_col, 0.6, glow_col, ge)  # braço metálico (brilha)
-		_box(ba, Vector3(0.35, 0.006, 0.006),Vector3(0.10, 0.08, 0.25), cord, 0.0, glow_col, ge)    # corda
-		return
-	var h := 0.95 if kind == "longbow" else 0.55
-	_box(ba, Vector3(0.03, h, 0.03),        Vector3(0.10, 0.07, 0.04), wood, 0.1, glow_col, ge * 0.4)  # corpo
-	_box(ba, Vector3(0.006, h * 0.95, 0.006), Vector3(0.10, 0.07, -0.02), cord, 0.0, glow_col, ge)   # corda
-
-# Escudo (heater) na off-hand. [Fable] holder top_level + realinhado todo frame (skeleton_updated):
-# POSIÇÃO ancora no antebraço (roll-safe), FACE pra frente (rumo ao centro), UP = mundo.
-# opts: {slide, push, side, up, flip}.
+# Escudo na off-hand (antebraço esquerdo). opts: {slide, push, side, rarity}. Filho do osso → gira junto.
 func attach_shield(node: Node3D, opts := {}) -> Node3D:
 	var skel: Skeleton3D = node.find_child("GeneralSkeleton", true, false)
 	if skel == null: return null
 	var bone := "LeftLowerArm" if skel.find_bone("LeftLowerArm") != -1 else "LeftHand"
 	var ba := BoneAttachment3D.new()
 	skel.add_child(ba)
-	ba.bone_name = bone   # bind DEPOIS de entrar na árvore do esqueleto (resolve o osso)
+	ba.bone_name = bone
 	var holder := Node3D.new()
-	holder.top_level = true
+	holder.position = SHIELD_BASE + Vector3(
+		float(opts.get("side", 0.0)),
+		float(opts.get("slide", 0.0)),
+		float(opts.get("push", 0.0)))
+	holder.rotation_degrees = SHIELD_ROT
 	ba.add_child(holder)
-	# [RARIDADE] borda/umbo (metal) tingem+brilham pela raridade; corpo fica madeira.
-	var r := clampi(int(opts.get("rarity", 1)), 1, 5)
-	var rim := RARITY_TINT[r - 1] as Color   # r=1 → aço normal
-	var ge := RARITY_GLOW[r - 1] as float
-	var wood := Color(0.40, 0.26, 0.14)
-	_box(holder, Vector3(0.34, 0.42, 0.04),  Vector3(0, 0, 0), wood, 0.1)                # corpo (madeira)
-	_box(holder, Vector3(0.36, 0.045, 0.05), Vector3(0, 0.21, 0), rim, 0.6, rim, ge)     # borda topo
-	_box(holder, Vector3(0.36, 0.045, 0.05), Vector3(0, -0.21, 0), rim, 0.6, rim, ge)    # borda base
-	_box(holder, Vector3(0.045, 0.42, 0.05), Vector3(0.17, 0, 0), rim, 0.6, rim, ge)     # borda direita
-	_box(holder, Vector3(0.045, 0.42, 0.05), Vector3(-0.17, 0, 0), rim, 0.6, rim, ge)    # borda esquerda
-	_sphere(holder, 0.055, Vector3(0, 0, 0.04), rim, 0.6, rim, ge)                       # umbo (frente, brilha)
-	var s_slide := float(opts.get("slide", 0.13))
-	var s_push := float(opts.get("push", 0.18))
-	var s_side := float(opts.get("side", 0.0))
-	var s_up := float(opts.get("up", 0.02))
-	var flip := bool(opts.get("flip", false))
-	# forward: Vector3 fixo (viewer) · Callable() -> Vector3 (boneco que gira: recalcula a frente) ·
-	# null = calcula rumo ao centro/inimigo (batalha).
-	var fixed_fwd = opts.get("forward", null)
-	skel.skeleton_updated.connect(func() -> void:
-		if not is_instance_valid(holder) or not is_instance_valid(node): return
-		var fwd: Vector3
-		if fixed_fwd is Callable:
-			fwd = fixed_fwd.call()
-		elif fixed_fwd != null:
-			fwd = fixed_fwd
-		else:
-			fwd = Vector3(-signf(node.global_position.x), 0.0, 0.0)   # rumo ao centro/inimigo
-			if fwd.length() < 0.01: fwd = Vector3.LEFT
-		if flip: fwd = -fwd
-		if fwd.length() < 0.001: fwd = Vector3.BACK
-		fwd = fwd.normalized()
-		var rx := Vector3.UP.cross(fwd).normalized()
-		var ry := fwd.cross(rx)
-		var along := ba.global_transform.basis.y.normalized()
-		var origin := ba.global_position + along * s_slide + fwd * s_push + rx * s_side + ry * s_up
-		holder.global_transform = Transform3D(Basis(rx, ry, fwd), origin))
+	var model := _load_model(SHIELD_MODEL)
+	if model == null:
+		model = _fallback(Vector3(0.5, 0.6, 0.06))
+	model.scale = Vector3(SHIELD_SCALE, SHIELD_SCALE, SHIELD_SCALE)
+	holder.add_child(model)
 	return ba
 
-func _box(parent: Node, size: Vector3, pos: Vector3, col: Color, metallic: float, emit := Color.BLACK, emit_e := 0.0) -> void:
+# Carrega o modelo .obj como MeshInstance3D (ou null se ainda não importado pelo Godot).
+func _load_model(name: String) -> MeshInstance3D:
+	var p := DIR + name + ".obj"
+	if not ResourceLoader.exists(p):
+		return null
+	var mesh = load(p)
+	if mesh == null or not (mesh is Mesh):
+		return null
+	var mi := MeshInstance3D.new()
+	mi.mesh = mesh
+	return mi
+
+# Caixinha de fallback (modelo ainda não importado) — só p/ não ficar invisível.
+func _fallback(size: Vector3) -> MeshInstance3D:
 	var mi := MeshInstance3D.new()
 	var bm := BoxMesh.new()
 	bm.size = size
 	mi.mesh = bm
-	mi.position = pos
 	var m := StandardMaterial3D.new()
-	m.albedo_color = col
-	m.metallic = metallic
-	if emit_e > 0.0:
-		m.emission_enabled = true
-		m.emission = emit
-		m.emission_energy_multiplier = emit_e
+	m.albedo_color = Color(0.5, 0.5, 0.55)
 	mi.material_override = m
-	parent.add_child(mi)
-
-func _sphere(parent: Node, radius: float, pos: Vector3, col: Color, metallic: float, emit := Color.BLACK, emit_e := 0.0) -> void:
-	var mi := MeshInstance3D.new()
-	var sm := SphereMesh.new()
-	sm.radius = radius
-	sm.height = radius * 2.0
-	mi.mesh = sm
-	mi.position = pos
-	var m := StandardMaterial3D.new()
-	m.albedo_color = col
-	m.metallic = metallic
-	if emit_e > 0.0:
-		m.emission_enabled = true
-		m.emission = emit
-		m.emission_energy_multiplier = emit_e
-	mi.material_override = m
-	parent.add_child(mi)
+	return mi
