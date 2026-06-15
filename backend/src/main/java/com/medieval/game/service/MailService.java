@@ -253,6 +253,62 @@ public class MailService {
         return added;
     }
 
+    // ── Recolher TUDO de uma vez (ouro + itens + recursos) [MAIL_CLAIM_ALL] ──────
+    /** Resultado do claim-all: bronze coletado, nº de itens/recursos adicionados e o que ficou (bag cheia). */
+    public record ClaimAllResult(long gold, int items, long resources, int leftItems, long leftResources) {}
+
+    /**
+     * Recolhe de TODAS as cartas: ouro (sempre), item (se cabe na bag) e recurso (o que couber).
+     * NÃO lança por bag cheia — o que não couber FICA na carta e entra na contagem "left*".
+     * Recebe os services por parâmetro (igual claimItem/claimResource) p/ evitar dependência circular.
+     */
+    @Transactional
+    public ClaimAllResult claimAll(Player player, InventoryService inventoryService, GatheringService gatheringService) {
+        long gold = 0; int items = 0; long resources = 0; int leftItems = 0; long leftResources = 0;
+        for (Mail mail : mailRepository.findByRecipientPlayerIdOrderBySentAtDesc(player.getId())) {
+            boolean changed = false;
+            // Ouro (sem limite de bag)
+            if (mail.getGoldAmount() > 0 && !mail.isCollected()) {
+                playerService.addGold(player, mail.getGoldAmount());
+                mail.setCollectedAt(LocalDateTime.now());
+                gold += mail.getGoldAmount();
+                changed = true;
+            }
+            // Item (1 slot) — só se houver espaço; senão fica na carta
+            if (mail.hasItem() && !mail.isItemCollected() && !mail.isExpired()) {
+                if (inventoryService.bagSpaceLeft(player) > 0) {
+                    ItemType type = ItemType.valueOf(mail.getItemType());
+                    inventoryService.make(player, mail.getItemName(), type,
+                            mail.getItemAtk(), mail.getItemDef(), mail.getItemHp(),
+                            mail.getItemRarity(), 0L, mail.getItemLevel(),
+                            mail.getItemDescription(), mail.getItemOrigin());
+                    mail.setItemCollected(true);
+                    items++; changed = true;
+                } else {
+                    leftItems++;
+                }
+            }
+            // Recurso — adiciona o que couber; o resto fica na carta
+            if (mail.hasResource() && !mail.isResourceCollected() && !mail.isExpired()) {
+                var type = com.medieval.game.enums.ResourceType.valueOf(mail.getResourceType());
+                long added = gatheringService.addResource(player, type, mail.getResourceQty());
+                if (added > 0) {
+                    int remaining = mail.getResourceQty() - (int) added;
+                    if (remaining > 0) { mail.setResourceQty(remaining); leftResources += remaining; }
+                    else mail.setResourceCollected(true);
+                    resources += added; changed = true;
+                } else {
+                    leftResources += mail.getResourceQty();
+                }
+            }
+            if (changed) {
+                if (!mail.isRead()) mail.setReadAt(LocalDateTime.now());
+                mailRepository.save(mail);
+            }
+        }
+        return new ClaimAllResult(gold, items, resources, leftItems, leftResources);
+    }
+
     // ── Helper ────────────────────────────────────────────────────────────────
     private Mail requireRecipient(Player player, Long mailId) {
         Mail mail = mailRepository.findById(mailId)

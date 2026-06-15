@@ -46,6 +46,11 @@ func _render() -> void:
 	if letters.is_empty():
 		content.add_child(UiKit.empty("Caixa vazia", "Recompensas, itens e recados chegam aqui"))
 		return
+	# [MAIL_CLAIM_ALL] recolher ouro + itens + recursos de todas as cartas de uma vez
+	if _has_collectible():
+		var ball := UiKit.action("📥 Recolher tudo", _claim_all)
+		ball.custom_minimum_size = Vector2(200, 40)
+		content.add_child(ball)
 	# cartas em grid (2 col) p/ encurtar a lista; a carta aberta abre num painel
 	# FULL-WIDTH abaixo da grade (preserva o comportamento de abrir inline).
 	content.add_child(UiKit.grid(self, letters, func(letter): return _letter_row(letter) if letter is Dictionary else null))
@@ -221,6 +226,44 @@ func _delete(id: int) -> void:
 		UiKit.flash(status, msg, 1)
 	else:
 		UiKit.show_error(status, r)
+
+# Há algo coletável (ouro/item/recurso não reivindicado e não expirado) na inbox? [MAIL_CLAIM_ALL]
+func _has_collectible() -> bool:
+	for m in letters:
+		if not (m is Dictionary):
+			continue
+		if int(m.get("goldAmount", 0)) > 0 and not bool(m.get("isCollected", false)):
+			return true
+		if bool(m.get("hasItem", false)) and not bool(m.get("itemCollected", false)) and not bool(m.get("isExpired", false)):
+			return true
+		if bool(m.get("hasResource", false)) and not bool(m.get("isExpired", false)):
+			return true
+	return false
+
+# Recolhe tudo de uma vez (1 chamada) → re-sincroniza a inbox + resumo no status. [MAIL_CLAIM_ALL]
+func _claim_all() -> void:
+	if busy: return
+	busy = true
+	var r = await Api.mail_claim_all()
+	busy = false
+	if not (r.get("ok") and r.get("json") is Dictionary):
+		UiKit.show_error(status, r)
+		return
+	var j: Dictionary = r["json"]
+	var parts: Array = []
+	if int(j.get("gold", 0)) > 0:
+		parts.append(UiKit.coin_str(int(j.get("gold", 0))))
+	if int(j.get("items", 0)) > 0:
+		parts.append(Lang.t("%d item(ns)") % int(j.get("items", 0)))
+	if int(j.get("resources", 0)) > 0:
+		parts.append(Lang.t("%d recurso(s)") % int(j.get("resources", 0)))
+	var msg := (Lang.t("Recolhido: ") + ", ".join(parts)) if not parts.is_empty() else Lang.t("Nada para recolher.")
+	if int(j.get("leftItems", 0)) > 0 or int(j.get("leftResources", 0)) > 0:
+		msg += "  " + Lang.t("(parte ficou — mochila cheia)")
+	opened_id = -1
+	opened = {}
+	await _refresh()
+	UiKit.flash(status, msg, 1)
 
 # ── helpers de UI ────────────────────────────────────────────────────────────────
 func _tag(text: String, col: Color) -> Label:

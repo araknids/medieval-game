@@ -268,6 +268,25 @@ class MailIntegrationTest extends BaseIntegrationTest {
                 .andExpect(jsonPath("$.error").value(containsString("full")));
     }
 
+    // ── claim-all: recolhe ouro + item de todas as cartas numa chamada [MAIL_CLAIM_ALL] ──
+    @Test
+    @DisplayName("claim-all recolhe ouro + item de todas as cartas")
+    void claimAll_collectsEverything() throws Exception {
+        Player recip = recipientPlayer();
+        mockMvc.perform(post("/api/mail/send").header("Authorization", bearer(senderToken))
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(json(Map.of("recipientWarriorName", recipientWarriorName, "message", "ouro", "goldAmount", 300))));
+        mailService.sendItemMail(recip, "drop", "Anel Bulk", ItemType.RING, 3, 0, 0, 2, 0, "lore", "o");
+        int bagBefore = inventoryService.bagSize(recip);
+
+        mockMvc.perform(post("/api/mail/claim-all").header("Authorization", bearer(recipientToken)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.gold").value(300))
+                .andExpect(jsonPath("$.items").value(greaterThanOrEqualTo(1)));
+
+        assertBagGrew(recip, bagBefore);
+    }
+
     private void assertBagGrew(Player p, int before) {
         org.assertj.core.api.Assertions.assertThat(inventoryService.bagSize(p)).isGreaterThan(before);
     }

@@ -98,6 +98,21 @@ public class MailController {
         ));
     }
 
+    // ── Recolher TUDO (ouro + itens + recursos de todas as cartas) [MAIL_CLAIM_ALL] ──
+    @PostMapping("/claim-all")
+    public ResponseEntity<?> claimAll(Authentication auth) {
+        Player player = getPlayer(auth);
+        MailService.ClaimAllResult r = mailService.claimAll(player, inventoryService, gatheringService);
+        return ResponseEntity.ok(Map.of(
+            "message",       com.medieval.game.service.Messages.tr("msg.mail_claim_all", "Collected: {0} bronze, {1} item(s), {2} resource(s).", r.gold(), r.items(), r.resources()),
+            "gold",          r.gold(),
+            "items",         r.items(),
+            "resources",     r.resources(),
+            "leftItems",     r.leftItems(),
+            "leftResources", r.leftResources()
+        ));
+    }
+
     // ── Delete ────────────────────────────────────────────────────────────────
     @DeleteMapping("/{id}")
     public ResponseEntity<?> delete(@PathVariable Long id, Authentication auth) {
