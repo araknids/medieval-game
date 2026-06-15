@@ -74,6 +74,7 @@ var quests: Array = []
 var active_quests: Array = []
 var training: Dictionary = {}
 var zone_session: Dictionary = {}
+var active_delve: Dictionary = {}   # [STUCK_FIX] /api/expedition/current — Incursão em andamento
 
 func _ready() -> void:
 	var ui := UiKit.scaffold(self, "🌍 Mundo", func() -> void: go_back.emit(), func() -> void: await _refresh(), UiKit.TINT_ADVENTURE)
@@ -95,12 +96,14 @@ func _on_world_shown() -> void:
 
 func _refresh() -> void:
 	UiKit.flash(status, "Carregando…", 0)
-	# guerreiro (gate das zonas) + reinos em PARALELO — chamadas independentes
-	var rs = await Api.batch_get(["/api/warrior", "/api/world"])
+	# guerreiro (gate das zonas) + reinos + Incursão ativa em PARALELO — chamadas independentes
+	var rs = await Api.batch_get(["/api/warrior", "/api/world", "/api/expedition/current"])
 	var wr = rs[0]
 	if wr.get("ok") and wr.get("json") is Dictionary:
 		warrior = wr["json"]
 		warrior_level = int(warrior.get("level", 1))
+	var rd = rs[2]
+	active_delve = rd["json"] if (rd.get("ok") and rd.get("json") is Dictionary) else {}
 	var r = rs[1]
 	if not (r.get("ok") and r.get("json") is Array):
 		UiKit.show_error(status, r)
@@ -156,6 +159,10 @@ func _render() -> void:
 	map_holder = null
 	UiKit.flash(status, "", 0)
 	UiKit.set_wallet(wallet, warrior)
+	# [STUCK_FIX] Incursão em andamento → botão pra retomar/abandonar (a aba Delve saiu do nav,
+	# então este é o caminho de volta pra uma run presa). Espelha o web "Continuar Incursão".
+	if bool(active_delve.get("active", false)):
+		content.add_child(UiKit.action("⚔ Continuar Incursão em andamento", func() -> void: open_screen.emit("Delve")))
 	# [MAPA_MUNDO] open_kingdom == "" → mapa-múndi com pins; senão → detalhe do reino aberto.
 	if open_kingdom == "":
 		_render_map()
@@ -491,6 +498,11 @@ func _start_zone_delve(kingdom: String, tier: String, skill: String) -> void:
 		open_screen.emit("Delve")   # o Shell abre a Delve; o _refresh dela pega a run nova (/current)
 	else:
 		_show_error(r)
+		# [STUCK_FIX] falhou por já ter uma Incursão ativa? abre a Delve (resume/abandona),
+		# senão o jogador fica preso (sem aba Delve no nav). Locale-independente: checa /current.
+		var cur = await Api.expedition_current()
+		if cur.get("ok") and cur.get("json") is Dictionary and bool(cur["json"].get("active", false)):
+			open_screen.emit("Delve")
 
 # ── Ações (1 chamada cada; em sucesso re-abre o reino p/ refrescar; em falha mostra o erro) ───────
 func _toggle(kingdom: String) -> void:
