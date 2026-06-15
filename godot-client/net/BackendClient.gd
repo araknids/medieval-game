@@ -347,8 +347,11 @@ func _request(method: int, path: String, body: Variant = null, authed := false) 
 	return out
 
 # Headers padrão (+ Bearer se autenticado).
+# [I18N] Accept-Language = idioma escolhido na UI (Lang.current() → "pt"/"en"). O backend
+# (AcceptHeaderLocaleResolver + messages_pt.properties) devolve quests/flavor/lore/diálogo no
+# idioma certo. Sem este header o backend caía no default ENGLISH → texto do servidor em inglês.
 func _headers(authed: bool) -> PackedStringArray:
-	var h := PackedStringArray(["Content-Type: application/json", "Accept: application/json"])
+	var h := PackedStringArray(["Content-Type: application/json", "Accept: application/json", "Accept-Language: " + Lang.current()])
 	if authed and token != "":
 		h.append("Authorization: Bearer " + token)
 	return h
