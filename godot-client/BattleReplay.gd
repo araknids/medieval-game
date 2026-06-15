@@ -470,12 +470,16 @@ func _build_team() -> void:
 	var rows := [-2.2, 0.0, 2.2]   # 3 lanes separadas no eixo Z (cada par duela na sua lane)
 	var ally_names := ["Você", "Aliado", "Recruta"]
 	var foe_names := ["Bandido", "Saqueador", "Capanga"]
+	# [TEAM_MOCK] VIDA DE TESTE (mexa aqui p/ montar cenários): esquerda toda 2× (200);
+	# direita = 2 com 2× (200) + 1 com metade (50). 100 = vida "normal".
+	var ally_hp := [200, 200, 200]
+	var foe_hp := [200, 200, 50]
 	order = []
 	for i in 3:
 		var wkind := player_weapon if (i == 0 and player_weapon != "") else "sword"
 		var eq: Array = (player_equip if (i == 0 and player_equip.size() > 0) else DEFAULT_OUTFIT).duplicate()
 		var rar := player_weapon_rarity if i == 0 else 1
-		var a := _make_fighter(ally_names[i], -1, 100, wkind, eq, {}, rar)
+		var a := _make_fighter(ally_names[i], -1, int(ally_hp[i]), wkind, eq, {}, rar)
 		var an := a["node"] as Node3D
 		an.position = Vector3(-1.7, a["base_y"], rows[i])
 		a["home"] = an.position
@@ -488,7 +492,7 @@ func _build_team() -> void:
 		fighters[a["name"]] = a
 	for i in 3:
 		var look := _enemy_look(foe_names[i], false)
-		var b := _make_fighter(foe_names[i], 1, 100, str(look["weapon"]), look.get("equip", DEFAULT_OUTFIT), {}, 1, look)
+		var b := _make_fighter(foe_names[i], 1, int(foe_hp[i]), str(look["weapon"]), look.get("equip", DEFAULT_OUTFIT), {}, 1, look)
 		var bn := b["node"] as Node3D
 		bn.position = Vector3(1.7, b["base_y"], rows[i])
 		b["home"] = bn.position
