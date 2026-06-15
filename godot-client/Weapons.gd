@@ -72,10 +72,11 @@ func attach_weapon(node: Node3D, kind: String, rarity := 1, grip := 0.10, force_
 	holder.position = Vector3(grip, float(xf[1]), float(xf[2]))
 	holder.rotation_degrees = xf[3]
 	ba.add_child(holder)
-	var model := _load_model(str(MODELS.get(kind, "Sword")))
-	if model == null:
-		model = _fallback(Vector3(0.05, 0.7, 0.05))   # arma não importada ainda → caixinha
-	model.scale = Vector3(xf[0], xf[0], xf[0])
+	var model = _load_model(str(MODELS.get(kind, "Sword")))
+	if model != null:
+		model.scale = Vector3(xf[0], xf[0], xf[0])
+	else:
+		model = _fallback(Vector3(0.06, 0.9, 0.06))   # modelo não importado → stick visível
 	holder.add_child(model)
 	return ba
 
@@ -94,24 +95,23 @@ func attach_shield(node: Node3D, opts := {}) -> Node3D:
 		float(opts.get("push", 0.0)))
 	holder.rotation_degrees = SHIELD_ROT
 	ba.add_child(holder)
-	var model := _load_model(SHIELD_MODEL)
-	if model == null:
+	var model = _load_model(SHIELD_MODEL)
+	if model != null:
+		model.scale = Vector3(SHIELD_SCALE, SHIELD_SCALE, SHIELD_SCALE)
+	else:
 		model = _fallback(Vector3(0.5, 0.6, 0.06))
-	model.scale = Vector3(SHIELD_SCALE, SHIELD_SCALE, SHIELD_SCALE)
 	holder.add_child(model)
 	return ba
 
-# Carrega o modelo .obj como MeshInstance3D (ou null se ainda não importado pelo Godot).
-func _load_model(name: String) -> MeshInstance3D:
-	var p := DIR + name + ".obj"
+# Carrega o modelo .glb (cena) instanciado (ou null se ainda não importado pelo Godot).
+func _load_model(name: String) -> Node3D:
+	var p := DIR + name + ".glb"
 	if not ResourceLoader.exists(p):
 		return null
-	var mesh = load(p)
-	if mesh == null or not (mesh is Mesh):
-		return null
-	var mi := MeshInstance3D.new()
-	mi.mesh = mesh
-	return mi
+	var scene = load(p)
+	if scene is PackedScene:
+		return scene.instantiate()
+	return null
 
 # Caixinha de fallback (modelo ainda não importado) — só p/ não ficar invisível.
 func _fallback(size: Vector3) -> MeshInstance3D:
