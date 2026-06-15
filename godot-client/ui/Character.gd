@@ -10,6 +10,7 @@ signal go_back
 
 const Icons := preload("res://ui/Icons.gd")
 const Doll := preload("res://ui/DollView.gd")
+const Weapons := preload("res://Weapons.gd")   # [SLOT_WEAPON_IMG] kind da arma + mapa de modelos
 
 # colunas de slots em volta do boneco (ItemType do backend)
 const LEFT_SLOTS := ["HELMET", "ARMOR", "GLOVES", "PANTS", "BOOTS"]
@@ -42,6 +43,7 @@ var doll: DollView
 var _id_name: Label
 var _id_sub: Label
 var _slots := {}                  # type -> {frame, icon, item_id}
+var _wp := Weapons.new()          # [SLOT_WEAPON_IMG] p/ derivar o kind/modelo da arma
 var _subtab_bar_host: VBoxContainer
 var _panel_host: VBoxContainer    # onde o painel da sub-aba é montado/limpo
 
@@ -225,12 +227,18 @@ func _update_slots() -> void:
 			sb.border_color = UiKit.rarity_color(int(it.get("rarity", 1)))
 			sb.set_border_width_all(2)
 			frame.tooltip_text = _equipped_tooltip(it)
+			# [SLOT_WEAPON_IMG] arma mostra a IMAGEM do modelo equipado (espada/machado/arco…)
+			if type == "WEAPON":
+				var wt := _weapon_icon(it)
+				icon.texture = wt if wt != null else Icons.tex("slot_weapon")
 		else:
 			s["item_id"] = 0
 			icon.modulate = Color(1, 1, 1, 0.30)
 			sb.border_color = UiKit.BRONZE
 			sb.set_border_width_all(1)
 			frame.tooltip_text = Lang.t(str(SLOT_LABEL.get(type, type)))
+			if type == "WEAPON":
+				icon.texture = Icons.tex("slot_weapon")   # vazio → ícone genérico de volta
 
 func _equipped_tooltip(it: Dictionary) -> String:
 	var tip := str(it.get("name", "?"))
@@ -240,6 +248,17 @@ func _equipped_tooltip(it: Dictionary) -> String:
 		tip += "\n" + st
 	tip += "\n" + Lang.t("(clique para desequipar)")
 	return tip
+
+# [SLOT_WEAPON_IMG] Ícone 2D renderizado do modelo da arma equipada (assets/weapons/icons/<modelo>.png).
+# null se não houver render importado → o slot cai no ícone genérico slot_weapon.
+func _weapon_icon(it: Dictionary) -> Texture2D:
+	var kind := _wp.weapon_kind(str(it.get("name", "")), str(it.get("weaponCategory", "")))
+	var model := str(Weapons.MODELS.get(kind, ""))
+	if model != "":
+		var p := "res://assets/weapons/icons/" + model + ".png"
+		if ResourceLoader.exists(p):
+			return load(p)
+	return null
 
 func _slot_clicked(type: String) -> void:
 	var s: Dictionary = _slots.get(type, {})
