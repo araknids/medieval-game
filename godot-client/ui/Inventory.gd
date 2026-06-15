@@ -109,8 +109,8 @@ func _equip(id: int) -> void:
 		if UiKit.equip_changed_sink.is_valid():
 			UiKit.equip_changed_sink.call(items)   # re-veste o busto 3D (usa o inventário local, sem fetch)
 	else:
-		UiKit.show_error(status, r)
-		await _refresh()   # resync: cache local pode estar velho (item mudou no servidor)
+		await _refresh()   # resync primeiro (cache local pode estar velho)
+		UiKit.notify(self, "⚠ " + UiKit.err_text(r), true)   # [ERRO_VISIVEL] modal: o status (no header) some ao rolar e é apagado pelo refresh
 
 func _unequip(id: int) -> void:
 	if busy: return
@@ -123,8 +123,8 @@ func _unequip(id: int) -> void:
 		if UiKit.equip_changed_sink.is_valid():
 			UiKit.equip_changed_sink.call(items)   # re-veste o busto 3D (sem fetch)
 	else:
-		UiKit.show_error(status, r)
 		await _refresh()
+		UiKit.notify(self, "⚠ " + UiKit.err_text(r), true)   # [ERRO_VISIVEL]
 
 func _sell(id: int) -> void:
 	if busy: return
@@ -136,8 +136,8 @@ func _sell(id: int) -> void:
 		_render()
 		UiKit.flash(status, str(r["json"].get("message", Lang.t("Vendido!"))), 1)
 	else:
-		UiKit.show_error(status, r)
 		await _refresh()   # resync: se o item virou listado/sumiu no servidor, a lista se corrige (e o item some)
+		UiKit.notify(self, "⚠ " + UiKit.err_text(r), true)   # [ERRO_VISIVEL]
 
 func _replace_item(updated: Dictionary) -> void:
 	var uid := int(updated.get("id", -1))

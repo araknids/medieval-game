@@ -280,6 +280,42 @@ static func err_text(r) -> String:
 static func show_error(status: Label, r) -> void:
 	flash(status, err_text(r), 2)
 
+# [ERRO_VISIVEL] Modal centralizado de aviso/erro: overlay escuro + card + OK. Usar quando o `status`
+# (que mora no header) ficaria longe da ação ou seria apagado por um _refresh logo em seguida — ex.:
+# falha ao equipar no fim de uma lista longa. host = a tela (Control). Sai no OK ou clicando fora.
+static func notify(host: Control, text: String, is_error := false) -> void:
+	if host == null or text.strip_edges() == "":
+		return
+	var overlay := ColorRect.new()
+	overlay.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	overlay.color = Color(0, 0, 0, 0.72)
+	overlay.mouse_filter = Control.MOUSE_FILTER_STOP
+	host.add_child(overlay)
+	var center := CenterContainer.new()
+	center.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	overlay.add_child(center)
+	var res := card(GOLD_SOFT)
+	var panel: PanelContainer = res[0]
+	var vb: VBoxContainer = res[1]
+	var sb: StyleBoxFlat = panel.get_theme_stylebox("panel")
+	sb.set_border_width_all(2)
+	if is_error:
+		sb.border_color = ERR
+	vb.add_theme_constant_override("separation", 12)
+	center.add_child(panel)
+	var lbl := body(text)
+	lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	lbl.custom_minimum_size = Vector2(420, 0)
+	vb.add_child(lbl)
+	var ok := action("OK", func() -> void: overlay.queue_free())
+	ok.custom_minimum_size = Vector2(420, 40)
+	vb.add_child(ok)
+	# clicar fora do card (no overlay) também fecha
+	overlay.gui_input.connect(func(ev: InputEvent) -> void:
+		if ev is InputEventMouseButton and ev.pressed:
+			overlay.queue_free())
+	ok.call_deferred("grab_focus")
+
 # ── Modal de confirmação (procedural) ──────────────────────────────────────────────
 static func confirm(host: Control, text: String, confirm_label: String, on_yes: Callable, danger := true) -> void:
 	var dim_rect := ColorRect.new()
