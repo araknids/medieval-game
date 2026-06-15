@@ -9,14 +9,16 @@ signal go_back
 signal request_battle(data)   # pede ao App o replay 3D (overlay), como World/Tower [MIGRACAO_GODOT]
 signal open_screen(name)      # [INCURSAO] sem run → botão "Ir ao Mundo" (a aba saiu)
 
-# tipo de nó → [ícone, rótulo, cor]
+const Icons := preload("res://ui/Icons.gd")
+
+# tipo de nó → [emoji-fallback, rótulo, cor, ícone-pixel] (ícones PixelLab em assets/ui/icons/)
 const NODE := {
-	"COMBAT":   ["⚔", "Combate",  Color(0.62, 0.64, 0.70)],
-	"ELITE":    ["💀", "Elite",    Color(0.79, 0.49, 0.86)],
-	"TREASURE": ["🎁", "Tesouro",  Color(0.96, 0.66, 0.26)],
-	"EVENT":    ["📜", "Evento",   Color(0.50, 0.70, 1.0)],
-	"CAMP":     ["🔥", "Descanso", Color(0.30, 0.80, 0.51)],
-	"BOSS":     ["👑", "Chefe",    Color(0.94, 0.33, 0.33)],
+	"COMBAT":   ["⚔", "Combate",  Color(0.62, 0.64, 0.70), "node_combat"],
+	"ELITE":    ["💀", "Elite",    Color(0.79, 0.49, 0.86), "node_elite"],
+	"TREASURE": ["🎁", "Tesouro",  Color(0.96, 0.66, 0.26), "node_treasure"],
+	"EVENT":    ["📜", "Evento",   Color(0.50, 0.70, 1.0),  "node_event"],
+	"CAMP":     ["🔥", "Descanso", Color(0.30, 0.80, 0.51), "node_camp"],
+	"BOSS":     ["👑", "Chefe",    Color(0.94, 0.33, 0.33), "node_boss"],
 }
 const KINGDOMS := [
 	["COMBAT", "⚔ Fortaleza Maldita"], ["FISHING", "🎣 Garganta dos Ossos"], ["MINING", "⛏ Minas de Ferro Negro"],
@@ -146,12 +148,17 @@ func _layer_row(layer: Dictionary, cur: int, status_str: String) -> VBoxContaine
 func _node_chip(n: Dictionary) -> Control:
 	var type := str(n.get("type", ""))
 	var meta = NODE.get(type, ["?", type, UiKit.TEXT_DIM])
+	var icon_key := str(meta[3]) if meta.size() > 3 else ""
 	var reachable := bool(n.get("reachable", false))
 	if reachable:
 		var b := UiKit.action("%s %s" % [str(meta[0]), str(meta[1])], _choose_node.bind(str(n.get("id", ""))))
 		b.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 		b.custom_minimum_size = Vector2(128, 52)
 		b.add_theme_color_override("font_color", meta[2])
+		# ícone pixel à esquerda do rótulo (fallback: mantém o emoji no texto)
+		if icon_key != "" and Icons.set_icon(b, icon_key):
+			b.add_theme_constant_override("icon_max_width", 30)
+			b.text = str(meta[1])
 		return b
 	# inalcançável → chip estático (preview do caminho)
 	var res := UiKit.card(Color(0.3, 0.3, 0.3, 0.5))
@@ -159,12 +166,25 @@ func _node_chip(n: Dictionary) -> Control:
 	var vb: VBoxContainer = res[1]
 	panel.custom_minimum_size = Vector2(128, 52)
 	panel.modulate = Color(1, 1, 1, 0.5)
-	var l := Label.new()
-	l.text = "%s %s" % [str(meta[0]), str(meta[1])]
-	l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	l.add_theme_font_size_override("font_size", 13)
-	l.add_theme_color_override("font_color", meta[2])
-	vb.add_child(l)
+	var icon_tex: Texture2D = Icons.tex(icon_key) if icon_key != "" else null
+	if icon_tex != null:
+		var row := HBoxContainer.new()
+		row.alignment = BoxContainer.ALIGNMENT_CENTER
+		row.add_theme_constant_override("separation", 6)
+		row.add_child(Icons.rect(icon_key, 22))
+		var nl := Label.new()
+		nl.text = str(meta[1])
+		nl.add_theme_font_size_override("font_size", 13)
+		nl.add_theme_color_override("font_color", meta[2])
+		row.add_child(nl)
+		vb.add_child(row)
+	else:
+		var l := Label.new()
+		l.text = "%s %s" % [str(meta[0]), str(meta[1])]
+		l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		l.add_theme_font_size_override("font_size", 13)
+		l.add_theme_color_override("font_color", meta[2])
+		vb.add_child(l)
 	return panel
 
 func _bag_row() -> HBoxContainer:
