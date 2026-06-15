@@ -73,8 +73,9 @@ func _build_left() -> Control:
 	outer.add_child(row)
 	row.add_child(_slot_column(LEFT_SLOTS))
 	doll = Doll.new()
-	doll.custom_minimum_size = Vector2(210, 320)
+	doll.custom_minimum_size = Vector2(230, 350)
 	doll.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	doll.tooltip_text = Lang.t("Arraste para girar o personagem")
 	row.add_child(doll)
 	row.add_child(_slot_column(RIGHT_SLOTS))
 	_id_name = Label.new()

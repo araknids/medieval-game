@@ -25,15 +25,20 @@ const PIECES := {
 
 @export var spin := true                 # giro lento (mostra o gear de todos os lados)
 const SPIN_DEG_PER_SEC := 16.0
+const SPIN_RESUME := 2.5                  # s parado após arrastar → volta o giro automático
+const DRAG_RAD_PER_PX := 0.01            # sensibilidade do girar-arrastando
 
 var skel: Skeleton3D
 var _world: Node3D
 var _character: Node3D
 var _body_meshes: Array = []
 var _ready_done := false
+var _dragging := false
+var _idle := 999.0                       # começa girando; arrastar zera, e SPIN_RESUME depois retoma
 
 func _ready() -> void:
 	stretch = true
+	mouse_filter = Control.MOUSE_FILTER_STOP   # captura o arrasto p/ girar o boneco
 	var sv := SubViewport.new()
 	sv.own_world_3d = true                 # mundo isolado (não vaza pro World3D do jogo)
 	sv.transparent_bg = true
@@ -41,9 +46,10 @@ func _ready() -> void:
 	add_child(sv)
 	_world = Node3D.new()
 	sv.add_child(_world)
-	var cam := Camera3D.new()               # câmera de CORPO INTEIRO (a comprovada do PaperDollLive)
-	cam.position = Vector3(0.0, 1.1, 3.2)
-	cam.rotation_degrees = Vector3(-8, 0, 0)
+	var cam := Camera3D.new()               # câmera de CORPO INTEIRO, com zoom (FOV teleobjetiva, sem distorção)
+	cam.position = Vector3(0.0, 1.0, 3.2)
+	cam.rotation_degrees = Vector3(-3, 0, 0)
+	cam.fov = 44.0                          # < 75 (default) = mais perto/maior, mantendo o corpo todo
 	_world.add_child(cam)
 	var key := DirectionalLight3D.new()
 	key.rotation_degrees = Vector3(-40, -35, 0)
@@ -75,8 +81,20 @@ func _ready() -> void:
 	_ready_done = true
 
 func _process(delta: float) -> void:
-	if spin and _character != null:
+	if _dragging or _character == null:
+		return
+	_idle += delta
+	if spin and _idle >= SPIN_RESUME:       # giro automático só quando ninguém está arrastando há um tempo
 		_character.rotate_y(deg_to_rad(SPIN_DEG_PER_SEC) * delta)
+
+# Girar arrastando com o mouse (botão esquerdo). Pausa o giro automático enquanto arrasta.
+func _gui_input(event: InputEvent) -> void:
+	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT:
+		_dragging = event.pressed
+		_idle = 0.0
+	elif event is InputEventMouseMotion and _dragging and _character != null:
+		_character.rotate_y(-event.relative.x * DRAG_RAD_PER_PX)
+		_idle = 0.0
 
 # Re-veste o boneco a partir de uma lista de inventário já carregada (sem fetch). Mesma lógica do BustView.
 func apply(inv_arr: Array) -> void:
