@@ -43,6 +43,8 @@ const WINDUP := 0.18         # s — armar o golpe antes do impacto
 const RECOVER := 0.12        # s — respiro após o impacto antes do próximo evento
 const MAX_WAIT := 2.2        # s — timeout p/ disparar mesmo fora de posição (nunca trava)
 const COUNTDOWN := 3.0       # s — contagem 3,2,1 antes da luta (warm-up)
+const CD_STEP := 0.5         # [COUNTDOWN_ART] s por número (3,2,1)
+const CD_WORD := 0.9         # [COUNTDOWN_ART] s que o LUTAR/FIGHT fica na tela
 const INSTANT_TYPES := ["spawn", "victory", "heal", "berserk", "backpedal", "pinned", "pointblank"]
 
 # game-feel (polish de fluidez — sugestões do Fable)
@@ -210,7 +212,9 @@ var wait_timer := 0.0
 var cur_windup := WINDUP     # windup/recover do golpe atual (variados p/ matar o "metrônomo")
 var cur_recover := RECOVER
 var countdown_t := 0.0       # cronômetro da contagem 3,2,1
-var countdown_label: Label
+var countdown_tex: TextureRect   # [COUNTDOWN_ART] 3/2/1 + LUTAR/FIGHT em pixel art
+var _cd_beat := -1               # beat atual da contagem (0=3,1=2,2=1,3=palavra)
+var _cd_tex: Array = []          # texturas pré-carregadas (palavra pelo idioma)
 
 func _ready() -> void:
 	_setup_camera()
@@ -811,16 +815,35 @@ func _countdown(dt: float) -> void:
 	countdown_t += dt
 	for f in order:
 		if not f["dead"] and f["anim"]: _play_loop(f, _clip(f, "dance"))
-	var remaining := COUNTDOWN - countdown_t
-	if remaining > 0.0:
-		countdown_label.text = str(int(ceil(remaining)))
-	elif countdown_t < COUNTDOWN + 0.7:
-		countdown_label.text = "Lutar!"
+	var t := countdown_t
+	var beat := 0
+	if t < CD_STEP: beat = 0
+	elif t < 2.0 * CD_STEP: beat = 1
+	elif t < 3.0 * CD_STEP: beat = 2
+	elif t < 3.0 * CD_STEP + CD_WORD: beat = 3
 	else:
-		countdown_label.text = ""
+		countdown_tex.visible = false
 		for f in order:
 			if f["anim"]: f["anim"].play(_clip(f, "idle"), BLEND)
 		phase = "fight"
+		return
+	if beat != _cd_beat:
+		_cd_beat = beat
+		_pop_cd(beat)
+
+# [COUNTDOWN_ART] troca a textura do beat com um "pop" (escala a partir do centro + fade).
+func _pop_cd(beat: int) -> void:
+	if beat < 0 or beat >= _cd_tex.size() or _cd_tex[beat] == null:
+		return
+	countdown_tex.texture = _cd_tex[beat]
+	countdown_tex.visible = true
+	countdown_tex.pivot_offset = countdown_tex.size / 2.0   # escala a partir do centro
+	var big := beat == 3                                     # o LUTAR/FIGHT entra com pop maior
+	countdown_tex.scale = (Vector2(0.4, 0.4) if big else Vector2(0.55, 0.55))
+	countdown_tex.modulate = Color(1, 1, 1, 0.0)
+	var tw := create_tween().set_ignore_time_scale(true)    # a contagem não sofre slow-mo
+	tw.tween_property(countdown_tex, "modulate:a", 1.0, 0.10)
+	tw.parallel().tween_property(countdown_tex, "scale", Vector2.ONE, (0.30 if big else 0.20)).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
 
 # Movimento contínuo: arco-vs-melee = perseguição/kite; senão = ambos fecham pro alcance.
 func _move(dt: float) -> void:
@@ -2050,14 +2073,23 @@ func _make_ui() -> void:
 	status_label.offset_bottom = -12
 	status_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	layer.add_child(status_label)
-	countdown_label = Label.new()
-	countdown_label.add_theme_font_size_override("font_size", 64)
-	countdown_label.set_anchors_and_offsets_preset(Control.PRESET_TOP_WIDE)
-	countdown_label.offset_top = 60     # mais acima (acima dos personagens)
-	countdown_label.offset_bottom = 150
-	countdown_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	countdown_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	layer.add_child(countdown_label)
+	countdown_tex = TextureRect.new()   # [COUNTDOWN_ART] contagem em pixel art (grande, sem esticar)
+	countdown_tex.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	countdown_tex.offset_top = 40
+	countdown_tex.offset_bottom = -150     # metade de baixo livre p/ os lutadores
+	countdown_tex.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	countdown_tex.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED   # grande, preserva o aspecto
+	countdown_tex.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST        # pixel art nítido ao escalar
+	countdown_tex.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	countdown_tex.visible = false
+	layer.add_child(countdown_tex)
+	var cd_word := "LUTAR" if Lang.current() == "pt" else "FIGHT"   # palavra pelo idioma
+	_cd_tex = [
+		load("res://assets/ui/countdown/3.png"),
+		load("res://assets/ui/countdown/2.png"),
+		load("res://assets/ui/countdown/1.png"),
+		load("res://assets/ui/countdown/%s.png" % cd_word),
+	]
 	cam_hint = Label.new()                    # dica de câmera no canto superior esquerdo
 	cam_hint.add_theme_font_size_override("font_size", 16)
 	cam_hint.position = Vector2(14, 10)
