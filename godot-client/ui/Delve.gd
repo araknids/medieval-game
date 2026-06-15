@@ -113,20 +113,20 @@ func _render_map() -> void:
 	content.add_child(UiKit.section("📜 Incursão — Tier %d" % int(run.get("tier", 1))))
 	content.add_child(_bag_row())
 
+	# [INCURSAO_AUTO_EXTRACT] Vencida (chefe derrotado) → saca AUTOMÁTICO, loot direto pro inventário.
+	# Sem botão "Sacar e Sair" — o que foi garantido na run vai pro inventário sozinho.
 	if cur >= depth:
-		content.add_child(UiKit.dim("A incursão foi vencida. Saque seu loot!"))
-	else:
-		for layer in run.get("map", []):
-			if layer is Dictionary:
-				content.add_child(_layer_row(layer, cur, status_str))
+		content.add_child(UiKit.dim(Lang.t("✅ Incursão vencida! Recolhendo o loot…")))
+		if not busy:
+			_extract()
+		return
+	for layer in run.get("map", []):
+		if layer is Dictionary:
+			content.add_child(_layer_row(layer, cur, status_str))
 
 	content.add_child(HSeparator.new())
-	var actions := HBoxContainer.new(); actions.add_theme_constant_override("separation", 10)
-	var ext := UiKit.action("🔒 Sacar e Sair", _extract)
-	ext.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	actions.add_child(ext)
-	actions.add_child(UiKit.action_danger("Abandonar", _confirm_abandon))
-	content.add_child(actions)
+	# Só "Abandonar": o garantido vai pro inventário; o carregado (em risco) é perdido.
+	content.add_child(UiKit.action_danger("Abandonar", _confirm_abandon))
 
 	# EVENTO pendente → botão pra (re)abrir o diálogo. NÃO auto-abre aqui (o _handle_step já abre uma
 	# vez); o botão cobre o caso de sair e voltar pra tela no meio de um evento.
@@ -220,6 +220,10 @@ func _bag_text(bag: Dictionary) -> String:
 func _run_id() -> int:
 	return int(run.get("id", 0))
 
+# Run vencida (chegou ao fim) e ainda ativa → o _render dispara o saque automático. [INCURSAO_AUTO_EXTRACT]
+func _is_won() -> bool:
+	return bool(run.get("active", false)) and int(run.get("currentLayer", 0)) >= int(run.get("depth", 0))
+
 func _choose_node(node_id: String) -> void:
 	if busy: return
 	busy = true
@@ -254,15 +258,16 @@ func _handle_step(r) -> void:
 	if j.get("state") is Dictionary:
 		run = j["state"]
 	await _reload_warrior()   # CAMP cura HP; nós dão estado fresco
-	_render()
-	_show_step_report(j)
+	_render()                 # se venceu, _render dispara o saque automático (mostra o relatório de loot)
+	if not _is_won():
+		_show_step_report(j)
 
 # o App/Shell chama isto quando o replay 3D termina
 func _on_battle_over() -> void:
 	var result: Dictionary = _pending_after["result"] if _pending_after.get("result") is Dictionary else {}
 	_pending_after = {}
-	await _refresh()
-	if not result.is_empty():
+	await _refresh()          # se venceu, _render disparou o saque automático
+	if not _is_won() and not result.is_empty():
 		_show_step_report(result)
 
 func _extract() -> void:
