@@ -143,9 +143,14 @@ func _listing_row(a: Dictionary, is_mine_section: bool) -> PanelContainer:
 	if is_mine_section:
 		# [MOEDA] "você recebe" com ícones pixel-art (coin_box), igual ao preço — não emoji
 		var srow := HBoxContainer.new(); srow.add_theme_constant_override("separation", 4)
-		srow.add_child(UiKit.dim(Lang.t("Vendedor: %s · você recebe") % str(a.get("sellerName", "?"))))
+		# [FIX] dim() tem autowrap → numa HBox colapsa p/ largura ~0 e quebra 1 char/linha. Inline = sem autowrap.
+		var sv := UiKit.dim(Lang.t("Vendedor: %s · você recebe") % str(a.get("sellerName", "?")))
+		sv.autowrap_mode = TextServer.AUTOWRAP_OFF
+		srow.add_child(sv)
 		srow.add_child(UiKit.coin_box(int(a.get("sellerPayout", 0)), 13))
-		srow.add_child(UiKit.dim("na venda"))
+		var snv := UiKit.dim("na venda")
+		snv.autowrap_mode = TextServer.AUTOWRAP_OFF
+		srow.add_child(snv)
 		left.add_child(srow)
 	else:
 		left.add_child(UiKit.dim(Lang.t("Vendedor: %s") % str(a.get("sellerName", "?"))))
