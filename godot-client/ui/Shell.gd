@@ -116,8 +116,7 @@ func _build_topbar() -> Control:
 	sb.border_color = Color(0.40, 0.32, 0.20)
 	sb.border_width_bottom = 2
 	sb.set_content_margin_all(8)
-	var wood := ScrollStyle.wood_box(8, 0.78)   # [PERGAMINHO_UI] chrome de madeira (fallback: flat escuro)
-	pc.add_theme_stylebox_override("panel", wood if wood != null else sb)
+	pc.add_theme_stylebox_override("panel", sb)
 	var row := HBoxContainer.new()
 	row.add_theme_constant_override("separation", 14)
 	pc.add_child(row)
@@ -304,7 +303,7 @@ func _heal_button() -> Control:
 		return b
 	var fb := Button.new()
 	fb.text = "❤"
-	ScrollStyle.apply(fb)   # [PERGAMINHO_UI]
+	StoneStyle.apply(fb)
 	fb.add_theme_font_size_override("font_size", 16)
 	fb.add_theme_color_override("font_color", Color(0.86, 0.32, 0.30))
 	fb.custom_minimum_size = Vector2(36, 32)
@@ -342,8 +341,7 @@ func _build_nav() -> Control:
 	sb.bg_color = Color(0.07, 0.065, 0.08, 0.96)
 	sb.border_color = Color(0.40, 0.32, 0.20); sb.border_width_right = 2
 	sb.set_content_margin_all(8)
-	var wood := ScrollStyle.wood_box(8, 0.74)   # [PERGAMINHO_UI] nav de madeira (fallback: flat escuro)
-	pc.add_theme_stylebox_override("panel", wood if wood != null else sb)
+	pc.add_theme_stylebox_override("panel", sb)
 	var scroll := ScrollContainer.new()
 	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
 	scroll.follow_focus = true
@@ -500,19 +498,9 @@ func _build_dashboard() -> Control:
 	for s in ["left", "right", "top", "bottom"]:
 		pad.add_theme_constant_override("margin_" + s, 20)
 	scroll.add_child(pad)
-	# [PERGAMINHO_UI] moldura de rolo em volta do dashboard (igual às telas via scaffold)
-	var host: Control = pad
-	var pbox := ScrollStyle.panel_box()
-	if pbox != null:
-		var frame := PanelContainer.new()
-		frame.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		frame.custom_minimum_size = Vector2(0, 160)
-		frame.add_theme_stylebox_override("panel", pbox)
-		pad.add_child(frame)
-		host = frame
 	var box := VBoxContainer.new(); box.add_theme_constant_override("separation", 12)
 	box.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	host.add_child(box)
+	pad.add_child(box)
 	var hi := Label.new()
 	hi.text = Lang.t("Bem-vindo, %s") % str(warrior.get("name", "guerreiro"))
 	hi.add_theme_font_size_override("font_size", 26)
@@ -707,7 +695,7 @@ func _on_quick_heal() -> void:
 func _stone_btn(text: String, h: int) -> Button:
 	var b := Button.new()
 	b.text = text
-	ScrollStyle.apply(b)   # [PERGAMINHO_UI]
+	StoneStyle.apply(b)
 	b.custom_minimum_size = Vector2(0, h)
 	return b
 
