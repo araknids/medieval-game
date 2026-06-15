@@ -28,7 +28,9 @@ func is_bow_kind(kind: String) -> bool:
 
 # Desenha a arma no esqueleto do `node` (procura GeneralSkeleton). Arco/besta na LeftHand;
 # melee na RightHand (rot -90; +Y local = direção da arma). rarity 1-5 tinge/brilha o metal.
-func attach_weapon(node: Node3D, kind: String, rarity := 1, grip := 0.10) -> Node3D:
+# force_bone: força a mão (ex.: "RightHand" no boneco da ficha p/ o arco não cair no mesmo lado do escudo).
+# "" = padrão (arco→LeftHand, melee→RightHand, como na batalha/kiting).
+func attach_weapon(node: Node3D, kind: String, rarity := 1, grip := 0.10, force_bone := "") -> Node3D:
 	var skel: Skeleton3D = node.find_child("GeneralSkeleton", true, false)
 	if skel == null: return null
 	var r := clampi(rarity, 1, 5)
@@ -37,11 +39,11 @@ func attach_weapon(node: Node3D, kind: String, rarity := 1, grip := 0.10) -> Nod
 	var ba := BoneAttachment3D.new()
 	if is_bow_kind(kind):
 		skel.add_child(ba)
-		ba.bone_name = "LeftHand"   # bind DEPOIS de entrar na árvore do esqueleto (resolve o osso)
+		ba.bone_name = force_bone if force_bone != "" else "LeftHand"   # bind DEPOIS do add_child (resolve o osso)
 		_attach_bow(ba, kind, steel, ge)
 		return ba
 	skel.add_child(ba)
-	ba.bone_name = "RightHand"   # idem — setar bone_name já dentro do Skeleton3D
+	ba.bone_name = force_bone if force_bone != "" else "RightHand"   # idem — setar bone_name já dentro do Skeleton3D
 	var holder := Node3D.new()
 	holder.position = Vector3(grip, 0.05, 0.04)   # grip = ao longo da mão; MENOR = cabo mais pra dentro
 	holder.rotation_degrees = Vector3(0, 0, -90)

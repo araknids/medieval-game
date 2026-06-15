@@ -138,7 +138,8 @@ func _apply_weapons(equipped: Array) -> void:
 		var ty := str(it.get("type", ""))
 		if ty == "WEAPON":
 			var kind := _wp.weapon_kind(str(it.get("name", "")), str(it.get("weaponCategory", "")))
-			var node := _wp.attach_weapon(_character, kind, int(it.get("rarity", 1)))
+			# força a mão DIREITA no boneco → arco não fica no mesmo lado do escudo (esquerdo)
+			var node := _wp.attach_weapon(_character, kind, int(it.get("rarity", 1)), 0.10, "RightHand")
 			if node != null:
 				_props.append(node)
 		elif ty == "SHIELD":
@@ -147,7 +148,8 @@ func _apply_weapons(equipped: Array) -> void:
 				var f: Vector3 = _character.global_transform.basis.z
 				f.y = 0.0
 				return Vector3.BACK if f.length() < 0.001 else f.normalized()
-			var snode := _wp.attach_shield(_character, {"rarity": int(it.get("rarity", 1)), "forward": face})
+			# push maior = escudo mais PRA FRENTE (não fica dentro da mão/braço)
+			var snode := _wp.attach_shield(_character, {"rarity": int(it.get("rarity", 1)), "forward": face, "push": 0.32, "slide": 0.14})
 			if snode != null:
 				_props.append(snode)
 
