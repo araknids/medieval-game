@@ -204,6 +204,12 @@ func _drink_pressed() -> void:
 	# atualiza só o card do buff (sem re-render do chat p/ não rolar/limpar)
 	if buff_box != null:
 		_fill_buff(buff_box)
+	# [TOPBAR_BUFFS] empurra o warrior FRESCO pro topbar → o badge do buff da taverna aparece na hora
+	# (antes o topbar ficava com o warrior velho, sem o buff). set_wallet(null→topbar) re-roda _refresh_buffs.
+	var wr = await Api.get_warrior()
+	if wr.get("ok") and wr.get("json") is Dictionary:
+		warrior = wr["json"]
+		UiKit.set_wallet(wallet, warrior)
 
 # ── Chat ─────────────────────────────────────────────────────────────────────────
 # Polling: re-puxa o feed incremental enquanto a tela está aberta (não durante outra ação).
