@@ -431,7 +431,7 @@ func _element_picker() -> HBoxContainer:
 	for e in ELEMENTS:
 		var b := Button.new()
 		Icons.label_button(b, "elem_" + str(e[0]).to_lower(), str(e[1]))  # ícone + nome (fallback no emoji)
-		StoneStyle.apply(b)
+		ScrollStyle.apply(b)   # [PERGAMINHO_UI]
 		b.add_theme_font_size_override("font_size", 13)
 		b.custom_minimum_size = Vector2(96, 36)
 		b.toggle_mode = true; b.button_pressed = (str(e[0]) == selected_element)

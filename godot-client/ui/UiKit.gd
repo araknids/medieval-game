@@ -207,10 +207,21 @@ static func scaffold(screen: Control, title_text: String, on_back: Callable, on_
 	pad.add_theme_constant_override("margin_top", 10)
 	pad.add_theme_constant_override("margin_bottom", 20)
 	scroll.add_child(pad)
+	# [PERGAMINHO_UI] moldura de rolo (pergaminho) em volta do conteúdo da tela — a "realeza"
+	# fica emoldurada pelo papel. Fallback: se o pergaminho não foi importado, sem moldura.
+	var content_host: Control = pad
+	var pbox := ScrollStyle.panel_box()
+	if pbox != null:
+		var frame := PanelContainer.new()
+		frame.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		frame.custom_minimum_size = Vector2(0, 160)
+		frame.add_theme_stylebox_override("panel", pbox)
+		pad.add_child(frame)
+		content_host = frame
 	var content := VBoxContainer.new()
 	content.add_theme_constant_override("separation", 10)
 	content.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	pad.add_child(content)
+	content_host.add_child(content)
 
 	# coluna máx 920 px centrada (legibilidade no desktop)
 	var cap := func() -> void:
@@ -394,7 +405,7 @@ static func show_battle_report(host: Control, won: bool, title: String, reward_r
 static func _btn(text: String, cb: Callable, size: Vector2, font := 15) -> Button:
 	var b := Button.new()
 	b.text = text
-	StoneStyle.apply(b)
+	ScrollStyle.apply(b)   # [PERGAMINHO_UI] botão de pergaminho (fallback pedra até importar)
 	b.add_theme_font_size_override("font_size", font)
 	b.custom_minimum_size = size
 	if cb.is_valid():
@@ -412,13 +423,18 @@ static func _debounce(b: Button) -> void:
 				b.disabled = false)
 
 static func action(text: String, cb: Callable) -> Button:
-	return _btn(text, cb, Vector2(130, 40), 15)
+	var b := _btn(text, cb, Vector2(130, 40), 15)
+	ScrollStyle.add_seal(b)   # [PERGAMINHO_UI] selo de cera à direita
+	return b
 
 static func action_big(text: String, cb: Callable) -> Button:
-	return _btn(text, cb, Vector2(160, 48), 18)
+	var b := _btn(text, cb, Vector2(160, 48), 18)
+	ScrollStyle.add_seal(b)
+	return b
 
 static func action_danger(text: String, cb: Callable) -> Button:
 	var b := _btn(text, cb, Vector2(130, 40), 15)
+	ScrollStyle.add_seal(b)
 	b.add_theme_color_override("font_color", Color(0.92, 0.55, 0.48))
 	b.add_theme_color_override("font_hover_color", Color(1.0, 0.62, 0.50))
 	return b

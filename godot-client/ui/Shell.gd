@@ -303,7 +303,7 @@ func _heal_button() -> Control:
 		return b
 	var fb := Button.new()
 	fb.text = "❤"
-	StoneStyle.apply(fb)
+	ScrollStyle.apply(fb)   # [PERGAMINHO_UI]
 	fb.add_theme_font_size_override("font_size", 16)
 	fb.add_theme_color_override("font_color", Color(0.86, 0.32, 0.30))
 	fb.custom_minimum_size = Vector2(36, 32)
@@ -695,7 +695,7 @@ func _on_quick_heal() -> void:
 func _stone_btn(text: String, h: int) -> Button:
 	var b := Button.new()
 	b.text = text
-	StoneStyle.apply(b)
+	ScrollStyle.apply(b)   # [PERGAMINHO_UI]
 	b.custom_minimum_size = Vector2(0, h)
 	return b
 
