@@ -18,6 +18,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import java.time.LocalDateTime;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 // Trava de arma por classe: arco (Archer) vs corpo-a-corpo (Warrior/Recruit). [CLASSES_ARMAS]
 @DisplayName("Armas por classe | arco vs espada + trava no equip")
@@ -59,6 +60,10 @@ class WeaponClassTest extends BaseIntegrationTest {
 
     private InventoryItem weapon(Player p, String name) {
         return inventoryService.make(p, name, ItemType.WEAPON, 5, 0, 0, 1, 20, 1, "d", "o");
+    }
+
+    private InventoryItem shield(Player p) {
+        return inventoryService.make(p, "Wooden Shield", ItemType.SHIELD, 0, 3, 0, 1, 20, 1, "d", "o");
     }
 
     // ── make() infere a categoria pelo nome ──
@@ -144,6 +149,40 @@ class WeaponClassTest extends BaseIntegrationTest {
                 .anyMatch(i -> i.getType() == ItemType.WEAPON
                         && i.effectiveWeaponCategory() == WeaponCategory.RANGED);
         assertThat(hasBow).isTrue();
+    }
+
+    // ── [ARCO_SEM_ESCUDO] Arco e escudo são mutuamente exclusivos ──
+    @Test
+    @DisplayName("Arco + escudo não combinam (bloqueia nos dois sentidos)")
+    void bowAndShield_mutuallyExclusive() {
+        Player p = newPlayer("wc");
+        makeWarrior(p, WarriorClass.ARCHER, 20);
+        InventoryItem bow = weapon(p, "Hunting Bow");
+        InventoryItem shield = shield(p);
+
+        // arco equipado → equipar escudo é barrado
+        inventoryService.equip(p, bow.getId());
+        assertThatThrownBy(() -> inventoryService.equip(p, shield.getId())).isInstanceOf(RuntimeException.class);
+        assertThat(itemRepo.findById(shield.getId()).orElseThrow().isEquipped()).isFalse();
+
+        // troca: tira o arco, põe o escudo, e equipar o arco passa a ser barrado
+        inventoryService.unequip(p, bow.getId());
+        inventoryService.equip(p, shield.getId());
+        assertThatThrownBy(() -> inventoryService.equip(p, bow.getId())).isInstanceOf(RuntimeException.class);
+        assertThat(itemRepo.findById(bow.getId()).orElseThrow().isEquipped()).isFalse();
+    }
+
+    @Test
+    @DisplayName("Espada (melee) + escudo continuam podendo ser usados juntos")
+    void meleeAndShield_allowed() {
+        Player p = newPlayer("wc");
+        makeWarrior(p, WarriorClass.WARRIOR, 20);
+        InventoryItem sword = weapon(p, "Iron Sword");
+        InventoryItem shield = shield(p);
+        inventoryService.equip(p, sword.getId());
+        inventoryService.equip(p, shield.getId());
+        assertThat(itemRepo.findById(sword.getId()).orElseThrow().isEquipped()).isTrue();
+        assertThat(itemRepo.findById(shield.getId()).orElseThrow().isEquipped()).isTrue();
     }
 
     // ── make() aplica o perfil do tipo de arma (stats secundários + categoria pelo nome) ──

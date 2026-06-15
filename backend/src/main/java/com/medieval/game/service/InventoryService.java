@@ -179,6 +179,21 @@ public class InventoryService {
             }
         }
 
+        // [ARCO_SEM_ESCUDO] Arco (arma RANGED) e escudo são mutuamente exclusivos (precisa das 2 mãos pro arco).
+        if (item.getType() == ItemType.SHIELD
+                && inventoryRepository.findByPlayerAndTypeAndEquippedTrue(player, ItemType.WEAPON)
+                        .filter(this::isRangedWeapon).isPresent()) {
+            log.warn("[InventoryService] player={} REJECTED: shield {} with a bow equipped", player.getId(), itemId);
+            throw new com.medieval.game.config.LocalizedException("error.shield_with_bow",
+                    "A shield can't be used with a bow — unequip the bow first.");
+        }
+        if (item.getType() == ItemType.WEAPON && isRangedWeapon(item)
+                && inventoryRepository.findByPlayerAndTypeAndEquippedTrue(player, ItemType.SHIELD).isPresent()) {
+            log.warn("[InventoryService] player={} REJECTED: bow {} with a shield equipped", player.getId(), itemId);
+            throw new com.medieval.game.config.LocalizedException("error.bow_with_shield",
+                    "A bow can't be used with a shield — unequip the shield first.");
+        }
+
         // Desequipa o item atual do mesmo slot, se houver
         inventoryRepository.findByPlayerAndTypeAndEquippedTrue(player, item.getType())
                 .ifPresent(current -> {
@@ -190,6 +205,12 @@ public class InventoryService {
         InventoryItem saved = inventoryRepository.save(item);
         log.info("[InventoryService] player={} action=equip OK itemId={} name={}", player.getId(), itemId, item.getName());
         return saved;
+    }
+
+    /** [ARCO_SEM_ESCUDO] É uma arma de longo alcance (arco/besta)? Tipo derivado do nome (igual ao resto). */
+    private boolean isRangedWeapon(InventoryItem it) {
+        return it.getType() == ItemType.WEAPON
+                && WeaponType.fromName(it.getName()).category == com.medieval.game.enums.WeaponCategory.RANGED;
     }
 
     @Transactional
