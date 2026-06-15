@@ -247,6 +247,8 @@ func mail_claim_resource(id: int) -> Dictionary:
 	return await _request(HTTPClient.METHOD_POST, "/api/mail/%d/claim-resource" % id, {}, true)
 func mail_claim_all() -> Dictionary:
 	return await _request(HTTPClient.METHOD_POST, "/api/mail/claim-all", {}, true)
+func mail_delete_all() -> Dictionary:
+	return await _request(HTTPClient.METHOD_POST, "/api/mail/delete-all", {}, true)
 func mail_delete(id: int) -> Dictionary:
 	return await _request(HTTPClient.METHOD_DELETE, "/api/mail/%d" % id, null, true)
 func get_stash() -> Dictionary:

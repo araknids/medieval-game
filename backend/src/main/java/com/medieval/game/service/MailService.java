@@ -309,6 +309,15 @@ public class MailService {
         return new ClaimAllResult(gold, items, resources, leftItems, leftResources);
     }
 
+    // ── Apagar TODAS as cartas da inbox [MAIL_CLAIM_ALL] ─────────────────────────
+    /** Apaga todas as cartas do destinatário. @return quantas foram apagadas. */
+    @Transactional
+    public int deleteAll(Player player) {
+        List<Mail> all = mailRepository.findByRecipientPlayerIdOrderBySentAtDesc(player.getId());
+        mailRepository.deleteAll(all);
+        return all.size();
+    }
+
     // ── Helper ────────────────────────────────────────────────────────────────
     private Mail requireRecipient(Player player, Long mailId) {
         Mail mail = mailRepository.findById(mailId)

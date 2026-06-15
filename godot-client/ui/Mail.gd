@@ -46,11 +46,16 @@ func _render() -> void:
 	if letters.is_empty():
 		content.add_child(UiKit.empty("Caixa vazia", "Recompensas, itens e recados chegam aqui"))
 		return
-	# [MAIL_CLAIM_ALL] recolher ouro + itens + recursos de todas as cartas de uma vez
+	# [MAIL_CLAIM_ALL] recolher tudo + apagar tudo (barra de ações no topo)
+	var bar := HBoxContainer.new(); bar.add_theme_constant_override("separation", 10)
 	if _has_collectible():
 		var ball := UiKit.action("📥 Recolher tudo", _claim_all)
-		ball.custom_minimum_size = Vector2(200, 40)
-		content.add_child(ball)
+		ball.custom_minimum_size = Vector2(190, 40)
+		bar.add_child(ball)
+	var dall := UiKit.action_danger("🗑 Apagar tudo", _confirm_delete_all)
+	dall.custom_minimum_size = Vector2(160, 40)
+	bar.add_child(dall)
+	content.add_child(bar)
 	# cartas em grid (2 col) p/ encurtar a lista; a carta aberta abre num painel
 	# FULL-WIDTH abaixo da grade (preserva o comportamento de abrir inline).
 	content.add_child(UiKit.grid(self, letters, func(letter): return _letter_row(letter) if letter is Dictionary else null))
@@ -264,6 +269,27 @@ func _claim_all() -> void:
 	opened = {}
 	await _refresh()
 	UiKit.flash(status, msg, 1)
+
+# Apagar TODAS as cartas — confirma antes (avisa mais forte se há anexo não coletado). [MAIL_CLAIM_ALL]
+func _confirm_delete_all() -> void:
+	var warn := Lang.t("Apagar TODAS as cartas?")
+	if _has_collectible():
+		warn += "  " + Lang.t("⚠ Há anexos não coletados — serão perdidos! (use Recolher tudo antes)")
+	UiKit.confirm(self, warn, "Apagar tudo", func() -> void: await _delete_all(), true)
+
+func _delete_all() -> void:
+	if busy: return
+	busy = true
+	var r = await Api.mail_delete_all()
+	busy = false
+	if r.get("ok"):
+		opened_id = -1
+		opened = {}
+		var msg := str(r["json"].get("message", Lang.t("Cartas apagadas."))) if r.get("json") is Dictionary else Lang.t("Cartas apagadas.")
+		await _refresh()
+		UiKit.flash(status, msg, 1)
+	else:
+		UiKit.show_error(status, r)
 
 # ── helpers de UI ────────────────────────────────────────────────────────────────
 func _tag(text: String, col: Color) -> Label:

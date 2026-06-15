@@ -287,6 +287,23 @@ class MailIntegrationTest extends BaseIntegrationTest {
         assertBagGrew(recip, bagBefore);
     }
 
+    // ── delete-all: esvazia a inbox inteira numa chamada [MAIL_CLAIM_ALL] ──
+    @Test
+    @DisplayName("delete-all apaga todas as cartas da inbox")
+    void deleteAll_clearsInbox() throws Exception {
+        for (int i = 0; i < 3; i++) {
+            mockMvc.perform(post("/api/mail/send").header("Authorization", bearer(senderToken))
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content(json(Map.of("recipientWarriorName", recipientWarriorName, "message", "carta " + i, "goldAmount", 0))));
+        }
+        mockMvc.perform(post("/api/mail/delete-all").header("Authorization", bearer(recipientToken)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.deleted").value(greaterThanOrEqualTo(3)));
+
+        mockMvc.perform(get("/api/mail/inbox").header("Authorization", bearer(recipientToken)))
+                .andExpect(jsonPath("$.letters", hasSize(0)));
+    }
+
     private void assertBagGrew(Player p, int before) {
         org.assertj.core.api.Assertions.assertThat(inventoryService.bagSize(p)).isGreaterThan(before);
     }

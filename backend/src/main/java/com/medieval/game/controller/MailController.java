@@ -113,6 +113,16 @@ public class MailController {
         ));
     }
 
+    // ── Apagar TODAS as cartas [MAIL_CLAIM_ALL] ──────────────────────────────────
+    @PostMapping("/delete-all")
+    public ResponseEntity<?> deleteAll(Authentication auth) {
+        int n = mailService.deleteAll(getPlayer(auth));
+        return ResponseEntity.ok(Map.of(
+            "message", com.medieval.game.service.Messages.tr("msg.mail_deleted_all", "Deleted {0} letter(s).", n),
+            "deleted", n
+        ));
+    }
+
     // ── Delete ────────────────────────────────────────────────────────────────
     @DeleteMapping("/{id}")
     public ResponseEntity<?> delete(@PathVariable Long id, Authentication auth) {
