@@ -377,6 +377,43 @@ public class InventoryService {
         inventoryRepository.delete(item);
     }
 
+    // ── [PVP_FLAG] trava/destrava de itens expostos + roubo de 1 item (raid de zona da Incursão) ──
+
+    /** Trava (snapshot) os itens bag+equipados EXPOSTOS (não-stashed/guarded) ao entrar numa zona PvP. */
+    @Transactional
+    public void lockExposedItems(Player player) {
+        List<InventoryItem> items = inventoryRepository.findAllByPlayer(player);
+        for (InventoryItem i : items) i.setPvpLocked(!i.isStashed() && !i.isGuarded());
+        inventoryRepository.saveAll(items);
+    }
+
+    /** Destrava todos os itens do player (pós-raid / fim do flag). */
+    @Transactional
+    public void unlockAllItems(Player player) {
+        List<InventoryItem> items = inventoryRepository.findAllByPlayer(player);
+        boolean any = false;
+        for (InventoryItem i : items) if (i.isPvpLocked()) { i.setPvpLocked(false); any = true; }
+        if (any) inventoryRepository.saveAll(items);
+    }
+
+    /** Rouba 1 item TRAVADO da vítima → atacante (35%); transfere joias/afixos via FK. Retorna o nome ou null. */
+    @Transactional
+    public String stealOnePvpLockedItem(Player victim, Player attacker) {
+        var rng = java.util.concurrent.ThreadLocalRandom.current();
+        if (rng.nextInt(100) >= 35) return null; // 35% chance
+        List<InventoryItem> pool = inventoryRepository.findAllByPlayer(victim).stream()
+                .filter(InventoryItem::isPvpLocked).toList();
+        if (pool.isEmpty() || bagSpaceLeft(attacker) < 1) return null;
+        InventoryItem item = pool.get(rng.nextInt(pool.size()));
+        String name = item.getName();
+        item.setEquipped(false);
+        item.setStashed(false);
+        item.setPvpLocked(false); // ao trocar de dono, destrava
+        item.setPlayer(attacker);
+        inventoryRepository.save(item);
+        return name;
+    }
+
     /**
      * Itens V3: rola {atk, def, hp} a partir do NÍVEL DO ITEM × multiplicador de raridade.
      * Poder cresce com o nível; raridade é um multiplicador → "lvl100 Comum > lvl1 Épico".

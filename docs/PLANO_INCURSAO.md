@@ -287,10 +287,12 @@ diárias **ficam como estão** (não viram Incursão). PvP **mantido** (🟢 seg
   sem run ativa → dica "entre numa zona"; extract/abandon → volta ao Mundo; banner "Continuar Incursão"
   no World quando há run pendurada. (Funções do launcher antigo ficaram inertes.)
 - ⏳ **Godot:** repetir no `World.gd` (zonas lançam Incursão) + tirar "Incursão" da nav do Shell.
-- ⏳ **PvP raid (saque por outro player):** hoje a 🟡/🔴 te FLAGGA (exposto), mas o **gatilho de raid**
-  (você cruzar e saquear outro flagged) ainda mora no `ZoneService` legado. Portar p/ a Incursão é o
-  próximo passo — está entrelaçado com o WIP não-commitado do dono no `ZoneService`/`BattleSimulator`
-  (HP_SPAWN/`withCurrentHp`), então fica num passo isolado p/ não arrastar o WIP nem duplicar combate à toa.
+- ✅ **PvP raid (saque por outro player):** portado **self-contained** pro `ExpeditionService` (sem
+  tocar o `ZoneService`/WIP do dono): entrar numa 🟡/🔴 **trava itens + flagga**; durante a run, cada nó
+  de combate tem chance (`Zone.pvpEncounterChance`) de **cruzar um flagged** (±10 níveis, sem escudo) e
+  **SAQUEAR** — 🟡 bronze+XP; 🔴 +recursos+1 item travado; a vítima leva **escudo 1h + mail**. Combate via
+  `Combatant.of` (HP no array, sem `withCurrentHp`); helpers de item (lock/unlock/steal) no `InventoryService`.
+  Gate `app.expedition.pvp-raid-enabled` (OFF nos testes; o saque é testado direto via `raidForTest`).
 
 ## 13. Fora de escopo (futuro)
 - Mapa com mais tipos de nó (loja dentro da run, fonte de cura paga, mini-boss intermediário).

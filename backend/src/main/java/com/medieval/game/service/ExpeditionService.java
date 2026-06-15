@@ -12,6 +12,7 @@ import com.medieval.game.quest.QuestDialog.QuestOption;
 import com.medieval.game.quest.QuestOutcome;
 import com.medieval.game.repository.ExpeditionRunRepository;
 import com.medieval.game.repository.PlayerRepository;
+import com.medieval.game.repository.ResourceInventoryRepository;
 import com.medieval.game.repository.WarriorRepository;
 import com.medieval.game.repository.WorkSessionRepository;
 import com.medieval.game.service.ExpeditionMapGenerator.Layer;
@@ -47,7 +48,9 @@ public class ExpeditionService {
 
     private static final List<ExpeditionStatus> ACTIVE =
             List.of(ExpeditionStatus.IN_PROGRESS, ExpeditionStatus.NODE_PENDING);
-    private static final int PVP_FLAG_MINUTES = 60; // [PVP_FLAG] flagga ao extrair de zona 🟡/🔴
+    private static final int PVP_FLAG_MINUTES   = 60; // [PVP_FLAG] exposto ao entrar/extrair de zona 🟡/🔴
+    private static final int PVP_SHIELD_MINUTES = 60; // imune por 1h após ser saqueado
+    private static final int PVP_LEVEL_BAND     = 10; // só cruza com flagged dentro de ±10 níveis
 
     private final ExpeditionRunRepository expeditionRepo;
     private final PlayerRepository        playerRepository;
@@ -59,6 +62,7 @@ public class ExpeditionService {
     private final AbilityService          abilityService;
     private final InventoryService        inventoryService;
     private final GatheringService        gatheringService;
+    private final ResourceInventoryRepository resourceRepo; // [PVP_FLAG] saque de recursos no raid
     private final MailService             mailService;
     private final ItemLoreGenerator       loreGenerator;
     private final KingdomQuestNarrator    narrator;
@@ -72,6 +76,11 @@ public class ExpeditionService {
     // [INCURSAO] Armadilha de baú liga/desliga (FALSE nos testes p/ TREASURE determinístico).
     @Value("${app.expedition.trap-enabled:true}")
     private boolean trapEnabled;
+
+    // [PVP_FLAG] Gatilho de raid PvP nas zonas 🟡/🔴 liga/desliga (FALSE nos testes → collect
+    // determinístico; o saque é exercitado direto via raidForTest, igual ao boss em ZoneBossIntegrationTest).
+    @Value("${app.expedition.pvp-raid-enabled:true}")
+    private boolean pvpRaidEnabled;
 
     // ── Resultados (records p/ o controller serializar) ───────────────────────
 
@@ -120,6 +129,13 @@ public class ExpeditionService {
         run.setDepth(depth);
         run.setCurrentLayer(0);
         run.setStatus(ExpeditionStatus.IN_PROGRESS);
+        // [PVP_FLAG] zona 🟡/🔴: exposto + itens travados durante a run (pode ser saqueado por outro player)
+        if (source == ExpeditionSource.ZONE && zone != null && zone != Zone.SAFE) {
+            inventoryService.lockExposedItems(player);
+            player.setPvpFlaggedZone(zone);
+            player.setPvpFlaggedUntil(LocalDateTime.now().plusMinutes(PVP_FLAG_MINUTES));
+            playerRepository.save(player);
+        }
         ExpeditionRun saved = expeditionRepo.save(run); // precisa do id p/ seed determinístico
 
         saved.setSeed(saved.getId());
@@ -277,6 +293,12 @@ public class ExpeditionService {
         // Seta o HP no array de stats (API estável) em vez de withCurrentHp (que é WIP do [HP_SPAWN]).
         int[] mine = stats.clone();
         mine[2] = curHp;
+        // [PVP_FLAG] zona 🟡/🔴: chance de cruzar um player flagged e SAQUEAR (substitui o NPC deste nó)
+        if (pvpRaidEnabled && run.getSource() == ExpeditionSource.ZONE && isPvpZone(run.getZone())
+                && rng.nextInt(100) < run.getZone().pvpEncounterChance) {
+            Player victim = findFlaggedOpponent(run.getZone(), player, warrior.getLevel());
+            if (victim != null) return resolvePvpRaid(run, player, warrior, mine, maxHp, victim);
+        }
         int[] mob = npcStats(monsterLevel, rng);
         if (boss) { mob[0] = (int) (mob[0] * 1.5); mob[1] = (int) (mob[1] * 1.5); mob[2] = mob[2] * 2; }
 
@@ -606,6 +628,133 @@ public class ExpeditionService {
         int agi = Math.min(level / 5, 12);
         int luk = Math.min(level / 3, 10);
         return new int[]{atk, def, hp, dex, agi, luk};
+    }
+
+    // ── [PVP_FLAG] Raid PvP nas zonas 🟡/🔴 (saque por outro player) ──────────────────────────────
+    // Self-contained (não toca o ZoneService, que é WIP do dono): só APIs commitadas; combate via
+    // Combatant.of com o HP no array de stats (sem withCurrentHp). Espelha ZoneService.resolveEncounters.
+
+    private static boolean isPvpZone(Zone z) { return z == Zone.PVP || z == Zone.HIGH_RISK; }
+
+    /** Sorteia um player FLAGGED (exposto, sem escudo) na zona, dentro de ±PVP_LEVEL_BAND níveis. */
+    private Player findFlaggedOpponent(Zone zone, Player exclude, int attackerLevel) {
+        List<Player> pool = playerRepository.findFlaggedInZone(zone, LocalDateTime.now(), exclude.getId())
+                .stream()
+                .filter(p -> !p.isPvpShielded())
+                .filter(p -> Math.abs(attackerLevel
+                        - warriorRepo.findByPlayer(p).map(Warrior::getLevel).orElse(1)) <= PVP_LEVEL_BAND)
+                .toList();
+        if (pool.isEmpty()) return null;
+        return pool.get(ThreadLocalRandom.current().nextInt(pool.size()));
+    }
+
+    /** Combate PvP contra um flagged: vitória → saqueia (loot imediato); derrota → KO (run encerra). */
+    private NodeResolution resolvePvpRaid(ExpeditionRun run, Player player, Warrior warrior,
+                                          int[] mine, int maxHp, Player victim) {
+        NodeResolution res = new NodeResolution();
+        Warrior victimW = warriorRepo.findByPlayer(victim).orElse(null);
+        if (victimW == null) { res.narrative = "Your quarry slipped away."; return res; }
+
+        int[] vStats = statsService.combatStats(victim, victimW);
+        int vMaxHp = vStats[2];
+        int[] vMine = vStats.clone();
+        vMine[2] = Math.max(1, victimW.getCalculatedHpPercent() * vMaxHp / 100);
+
+        var me = BattleSimulator.Combatant.of(warrior.getName(), mine,
+                warrior.getActiveWeaponElement(), warrior.getActiveArmorElement(),
+                abilityService.activeLoadout(warrior), statsService.isRangedWeaponEquipped(player));
+        var foe = BattleSimulator.Combatant.of(victimW.getName() + " (player)", vMine,
+                victimW.getActiveWeaponElement(), victimW.getActiveArmorElement(),
+                abilityService.activeLoadout(victimW), statsService.isRangedWeaponEquipped(victim));
+        BattleSimulator.BattleOutcome out = battleSimulator.simulate(me, foe, false); // PvP: desempate por %HP
+
+        List<String> lg = new ArrayList<>(out.log());
+        if (!lg.isEmpty()) lg.remove(lg.size() - 1);
+        res.log = lg; res.events = out.events(); res.monsterName = victimW.getName() + " (player)";
+        run.setBattleLog(String.join("\n", lg));
+
+        int vPct = vMaxHp > 0 ? Math.max(0, out.secondHpFinal() * 100 / vMaxHp) : 0;
+        victimW.setCurrentHpSnapshot(vPct);
+        victimW.setHpUpdatedAt(LocalDateTime.now());
+
+        if (out.firstWon() && !warrior.isKnockedOut()) {
+            res.narrative = raidVictim(player, warrior, victim, victimW, run.getZone(), lg);
+        } else {
+            res.ko = true;
+            res.narrative = "You were beaten by " + victimW.getName() + " (player).";
+        }
+        warriorRepo.save(victimW);
+
+        int aPct = maxHp > 0 ? Math.max(0, out.firstHpFinal() * 100 / maxHp) : 0;
+        warrior.setCurrentHpSnapshot(aPct);
+        warrior.setHpUpdatedAt(LocalDateTime.now());
+        inventoryService.wearEquippedItems(player);
+        warriorRepo.save(warrior);
+        return res;
+    }
+
+    /** Saqueia a vítima por TIER (🟡 bronze+XP; 🔴 +recursos+1 item travado). Loot imediato p/ o atacante. */
+    private String raidVictim(Player attacker, Warrior attackerW, Player victim, Warrior victimW, Zone zone, List<String> log) {
+        boolean red = zone == Zone.HIGH_RISK;
+        long bronze = applyDefeatPenaltyTo(victim, attacker, red ? 0.15 : 0.10);
+        long stolenRes = red ? stealResources(attacker, victim) : 0;
+        String stolenItem = red ? inventoryService.stealOnePvpLockedItem(victim, attacker) : null;
+        long xpLost = stealXp(victimW, attackerW);
+        victimW.clearBuff();
+        victim.setPvpShieldUntil(LocalDateTime.now().plusMinutes(PVP_SHIELD_MINUTES)); // saqueado 1x por ciclo
+        victim.clearPvpFlag();
+        inventoryService.unlockAllItems(victim);
+        playerRepository.save(victim);
+        String loot = bronze + " bronze"
+                + (stolenItem != null ? ", " + stolenItem : "")
+                + (stolenRes > 0 ? ", " + stolenRes + " resources" : "")
+                + (xpLost > 0 ? ", " + xpLost + " XP" : "");
+        log.add("💰 You raided " + victimW.getName() + "! Stole " + loot + ".");
+        mailService.sendSystemMail(victim, "💀 You were RAIDED by " + attackerW.getName()
+                + " in the " + zone.displayName + "! Lost " + loot + ". Shield " + PVP_SHIELD_MINUTES + " min.");
+        return "You raided " + victimW.getName() + "! Stole " + loot + ".";
+    }
+
+    private long applyDefeatPenaltyTo(Player loser, Player winner, double pct) {
+        long lost = Math.round(loser.totalBronze() * pct);
+        if (lost > 0) {
+            loser.addBronzeAmount(-lost);
+            playerRepository.save(loser);
+            if (winner != null) { winner.addBronzeAmount(lost / 2); playerRepository.save(winner); }
+        }
+        return lost;
+    }
+
+    private long stealResources(Player attacker, Player victim) {
+        long total = 0;
+        for (com.medieval.game.model.ResourceInventory r : resourceRepo.findAllByPlayerAndStashed(victim, false)) {
+            if (r.getQuantity() <= 0) continue;
+            if (inventoryService.resourceSpaceLeft(attacker) <= 0) break;
+            long take = Math.max(1, r.getQuantity() / 2);
+            long added = gatheringService.addResource(attacker, r.getResourceType(), take);
+            if (added > 0) { r.setQuantity(r.getQuantity() - added); resourceRepo.save(r); total += added; }
+        }
+        return total;
+    }
+
+    private long stealXp(Warrior victimW, Warrior attackerW) {
+        long xpLost = Math.max(1, victimW.expNeededForNextLevel() / 20);
+        warriorService.loseXp(victimW, xpLost);
+        long gain = Math.min(xpLost / 2, Math.max(1, attackerW.expNeededForNextLevel() / 10));
+        if (gain > 0) warriorService.addExperience(attackerW, gain);
+        return xpLost;
+    }
+
+    /** [TESTE] Aplica um raid direto (sem o roll de encontro RNG) — exercita o saque determinístico. */
+    @Transactional
+    public String raidForTest(Long attackerId, Long victimId, Zone zone) {
+        Player attacker = playerRepository.findById(attackerId).orElseThrow();
+        Player victim   = playerRepository.findById(victimId).orElseThrow();
+        Warrior aw = warriorRepo.findByPlayer(attacker).orElseThrow();
+        Warrior vw = warriorRepo.findByPlayer(victim).orElseThrow();
+        String loot = raidVictim(attacker, aw, victim, vw, zone, new ArrayList<>());
+        warriorRepo.save(vw); warriorRepo.save(aw);
+        return loot;
     }
 
     private String monsterName(ExpeditionRun run, Node node, java.util.Random rng) {
