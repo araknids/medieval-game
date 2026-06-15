@@ -500,9 +500,19 @@ func _build_dashboard() -> Control:
 	for s in ["left", "right", "top", "bottom"]:
 		pad.add_theme_constant_override("margin_" + s, 20)
 	scroll.add_child(pad)
+	# [PERGAMINHO_UI] moldura de rolo em volta do dashboard (igual às telas via scaffold)
+	var host: Control = pad
+	var pbox := ScrollStyle.panel_box()
+	if pbox != null:
+		var frame := PanelContainer.new()
+		frame.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		frame.custom_minimum_size = Vector2(0, 160)
+		frame.add_theme_stylebox_override("panel", pbox)
+		pad.add_child(frame)
+		host = frame
 	var box := VBoxContainer.new(); box.add_theme_constant_override("separation", 12)
 	box.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	pad.add_child(box)
+	host.add_child(box)
 	var hi := Label.new()
 	hi.text = Lang.t("Bem-vindo, %s") % str(warrior.get("name", "guerreiro"))
 	hi.add_theme_font_size_override("font_size", 26)
