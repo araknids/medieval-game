@@ -100,8 +100,7 @@ public class SmithingService {
         new WeaponKind("mace",       "Marreta"), // [MERCADOR]
         new WeaponKind("spear",      "Lança"),
         new WeaponKind("shortbow",   "Arco Curto"),
-        new WeaponKind("longbow",    "Arco Longo"),
-        new WeaponKind("crossbow",   "Besta")
+        new WeaponKind("longbow",    "Arco Longo")   // [NO_CROSSBOW] besta removida (sem modelo 3D)
     );
     // [FORJA_ARMADURA] Peças de armadura por tier — def/hp escalam o valor-base do peito (armorDef/armorHp).
     private record ArmorKind(com.medieval.game.enums.ItemType type, String idKey, String pt, double defFrac, double hpFrac, int bars) {}

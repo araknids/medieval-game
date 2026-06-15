@@ -34,11 +34,11 @@ public class ShopService {
 
     // [CLASSES_ARMAS] Nomes de arco — o slot de arma da loja troca p/ um destes quando o
     // jogador é Arqueiro (mesmos stats/preço do tier, só o nome muda → make() infere RANGED).
-    // [CLASSES_ARMAS] Trava de arma por classe REMOVIDA: a loja oferece TODOS os tipos (de todas as
-    // classes) — cobre os 7 WeaponType (espada/montante/machado/lança/marreta/arco curto/longo/besta).
+    // [CLASSES_ARMAS] Trava de arma por classe REMOVIDA: a loja oferece TODOS os tipos.
+    // [NO_CROSSBOW] besta removida (sem modelo 3D) → 6 tipos (espada/montante/machado/lança/marreta/arco curto/longo).
     private static final String[] ALL_WEAPON_NAMES = {
         "Iron Sword", "Steel Greatsword", "Battle Axe", "War Spear", "Iron Mace",
-        "Short Bow", "Long Bow", "Crossbow"
+        "Short Bow", "Long Bow"
     };
 
     // ── Nomes do mercador ──

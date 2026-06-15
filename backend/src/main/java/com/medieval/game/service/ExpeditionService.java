@@ -433,7 +433,7 @@ public class ExpeditionService {
         String[] bases = switch (type) {
             case HELMET   -> new String[]{"Helm", "Helmet"};
             case ARMOR    -> new String[]{"Armor", "Breastplate"};
-            case WEAPON   -> isArcher ? new String[]{"Short Bow", "Long Bow", "Crossbow"}
+            case WEAPON   -> isArcher ? new String[]{"Short Bow", "Long Bow"}   // [NO_CROSSBOW] besta removida (sem modelo 3D)
                                       : new String[]{"Sword", "Greatsword", "Axe", "Spear"};
             case SHIELD   -> new String[]{"Shield", "Buckler"};
             case BOOTS    -> new String[]{"Boots", "Greaves"};
