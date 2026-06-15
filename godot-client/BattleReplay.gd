@@ -2074,9 +2074,9 @@ func _make_ui() -> void:
 	status_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	layer.add_child(status_label)
 	countdown_tex = TextureRect.new()   # [COUNTDOWN_ART] contagem em pixel art (grande, sem esticar)
-	countdown_tex.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	countdown_tex.offset_top = 40
-	countdown_tex.offset_bottom = -150     # metade de baixo livre p/ os lutadores
+	countdown_tex.set_anchors_and_offsets_preset(Control.PRESET_TOP_WIDE)
+	countdown_tex.offset_top = 20
+	countdown_tex.offset_bottom = 180      # faixa PEQUENA no topo (não cobre os lutadores)
 	countdown_tex.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	countdown_tex.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED   # grande, preserva o aspecto
 	countdown_tex.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST        # pixel art nítido ao escalar
