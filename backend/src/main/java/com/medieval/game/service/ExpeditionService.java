@@ -286,6 +286,13 @@ public class ExpeditionService {
         int monsterLevel = Math.max(1, warrior.getLevel() + node.monsterLevelBump());
         ThreadLocalRandom rng = ThreadLocalRandom.current();
 
+        // [INCURSAO] cura automática antes de CADA batalha nas Incursões de ZONA (pedido do dono):
+        // cada luta começa com HP cheio → o gate vira "perder a luta", não o desgaste acumulado.
+        if (run.getSource() == ExpeditionSource.ZONE) {
+            warrior.healFull();
+            warriorRepo.save(warrior);
+        }
+
         int[] stats = statsService.combatStats(player, warrior);
         int maxHp = stats[2];
         int curHp = Math.max(1, warrior.getCalculatedHpPercent() * maxHp / 100);
@@ -300,7 +307,7 @@ public class ExpeditionService {
             if (victim != null) return resolvePvpRaid(run, player, warrior, mine, maxHp, victim);
         }
         int[] mob = npcStats(monsterLevel, rng);
-        if (boss) { mob[0] = (int) (mob[0] * 1.5); mob[1] = (int) (mob[1] * 1.5); mob[2] = mob[2] * 2; }
+        if (boss) { mob[0] = (int) (mob[0] * 1.35); mob[1] = (int) (mob[1] * 1.3); mob[2] = (int) (mob[2] * 1.7); }
 
         String monsterName = monsterName(run, node, rng);
         var me = BattleSimulator.Combatant.of(warrior.getName(), mine,
@@ -621,12 +628,13 @@ public class ExpeditionService {
 
     /** Stats do NPC por nível (replica ZoneService.npcStatsByLevel; private lá). [REBALANCE] */
     private int[] npcStats(int level, java.util.Random rng) {
-        int atk = 3 + level * 2 + rng.nextInt(3);
-        int def = 2 + (level * 3) / 2 + rng.nextInt(2);
-        int hp  = 50 + level * 13 + rng.nextInt(20);
-        int dex = Math.min(10 + level / 2, 35);
-        int agi = Math.min(level / 5, 12);
-        int luk = Math.min(level / 3, 10);
+        // [TUNING] nerf da dificuldade (mobs estavam duros): menos ATK/HP e bem menos ACERTO (dex → erra mais).
+        int atk = 2 + (level * 3) / 2 + rng.nextInt(2);
+        int def = 1 + level + rng.nextInt(2);
+        int hp  = 40 + level * 9 + rng.nextInt(15);
+        int dex = Math.min(7 + level / 3, 22);
+        int agi = Math.min(level / 6, 8);
+        int luk = Math.min(level / 4, 8);
         return new int[]{atk, def, hp, dex, agi, luk};
     }
 
