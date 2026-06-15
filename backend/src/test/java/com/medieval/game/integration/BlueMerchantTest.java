@@ -74,6 +74,20 @@ class BlueMerchantTest extends BaseIntegrationTest {
     }
 
     @Test
+    @DisplayName("Consignar → cancelar → vender NÃO quebra na FK de consignments [CONSIGN_FK_FIX]")
+    void cancel_thenSell_succeeds() {
+        Player p = newPlayer();
+        InventoryItem item = inventoryService.make(p, "Old Ring", ItemType.RING, 5, 0, 0, 1, 100);
+        Long id = item.getId();
+        Consignment c = blueMerchant.consign(p, id);
+        blueMerchant.cancel(p, c.getId());   // devolve (RETURNED) — a linha de consignação fica
+
+        inventoryService.sell(p, id);        // antes: FK consignments.item_id barrava a venda do item devolvido
+
+        assertThat(itemRepo.findById(id)).isEmpty();   // item realmente removido (sem violar FK)
+    }
+
+    @Test
     @DisplayName("Linkar conta Steam grava o steamId")
     void link_setsSteamId() {
         Player p = newPlayer();
