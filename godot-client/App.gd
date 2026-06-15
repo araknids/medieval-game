@@ -19,6 +19,9 @@ var _gear_layer: CanvasLayer = null         # engrenagem ⚙ flutuante (abre Set
 var _settings_layer: CanvasLayer = null     # overlay de Settings aberto
 
 func _ready() -> void:
+	# Tooltip INSTANTÂNEO em TODO o jogo (padrão do Godot é 0.5s parado). Global, lido pelo
+	# Viewport a cada hover → set em runtime vale pra todos os controles. [HOVER_INSTANT]
+	ProjectSettings.set_setting("gui/timers/tooltip_delay_sec", 0.0)
 	Lang.apply_saved()   # registra PT/EN + aplica o idioma salvo ANTES de montar qualquer tela [I18N]
 	get_window().min_size = Vector2i(1024, 576)   # trava o tamanho mínimo da janela (UI não quebra abaixo disso)
 	_setup_emoji_font()
