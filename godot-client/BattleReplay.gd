@@ -467,7 +467,7 @@ func _build_fighters() -> void:
 func _build_team() -> void:
 	team_mode = true
 	kiting = false
-	var rows := [-1.5, 0.0, 1.5]   # 3 posições em Z por lado
+	var rows := [-2.2, 0.0, 2.2]   # 3 lanes separadas no eixo Z (cada par duela na sua lane)
 	var ally_names := ["Você", "Aliado", "Recruta"]
 	var foe_names := ["Bandido", "Saqueador", "Capanga"]
 	order = []
@@ -477,7 +477,7 @@ func _build_team() -> void:
 		var rar := player_weapon_rarity if i == 0 else 1
 		var a := _make_fighter(ally_names[i], -1, 100, wkind, eq, {}, rar)
 		var an := a["node"] as Node3D
-		an.position = Vector3(-3.2, a["base_y"], rows[i])
+		an.position = Vector3(-1.7, a["base_y"], rows[i])
 		a["home"] = an.position
 		a["team"] = -1
 		order.append(a)
@@ -486,7 +486,7 @@ func _build_team() -> void:
 		var look := _enemy_look(foe_names[i], false)
 		var b := _make_fighter(foe_names[i], 1, 100, str(look["weapon"]), look.get("equip", DEFAULT_OUTFIT), {}, 1, look)
 		var bn := b["node"] as Node3D
-		bn.position = Vector3(3.2, b["base_y"], rows[i])
+		bn.position = Vector3(1.7, b["base_y"], rows[i])
 		b["home"] = bn.position
 		b["team"] = 1
 		order.append(b)
@@ -2005,44 +2005,75 @@ func _mock_events() -> Array:
 func _mock_team_events() -> Array:
 	var allies := ["Você", "Aliado", "Recruta"]
 	var foes := ["Bandido", "Saqueador", "Capanga"]
-	var hp := {}
+	# estado por lutador: hp, vivo, lane, team(-1 aliado/+1 inimigo), alvo atual.
+	# Início: cada lane é um 1v1 (aliado[i] × inimigo[i]). Quando alguém MATA o alvo, RE-MIRA
+	# no inimigo vivo mais próximo (a lane do lado) → "quem ganha ajuda o duelo do lado".
+	var st := {}
 	var ev: Array = []
+	for i in 3:
+		st[allies[i]] = {"hp": 100, "alive": true, "lane": i, "team": -1, "target": foes[i]}
+		st[foes[i]]   = {"hp": 100, "alive": true, "lane": i, "team": 1,  "target": allies[i]}
 	for nm in (allies + foes):
-		hp[nm] = 100
 		ev.append({"type": "spawn", "actor": nm, "target": "", "damage": 0, "targetHp": 100, "targetMaxHp": 100, "element": "", "hitZone": ""})
 	var zones := ["body", "legs", "head"]
-	var turn := 0
-	for _round in 240:
-		var attackers: Array = allies if (turn % 2 == 0) else foes
-		var defenders: Array = foes if (turn % 2 == 0) else allies
-		turn += 1
-		var live_a: Array = []
-		for n in attackers:
-			if int(hp[n]) > 0: live_a.append(n)
-		var live_d: Array = []
-		for n in defenders:
-			if int(hp[n]) > 0: live_d.append(n)
-		if live_a.is_empty() or live_d.is_empty():
+	# ordem INTERCALADA por lane → parece 3 duelos ao mesmo tempo (o motor toca 1 evento por vez)
+	var order_names: Array = []
+	for i in 3:
+		order_names.append(allies[i])
+		order_names.append(foes[i])
+	for _round in 400:
+		var allies_alive := false
+		var foes_alive := false
+		for nm in allies:
+			if st[nm]["alive"]: allies_alive = true
+		for nm in foes:
+			if st[nm]["alive"]: foes_alive = true
+		if not allies_alive or not foes_alive:
 			break
-		var a: String = live_a[randi() % live_a.size()]
-		var t: String = live_d[randi() % live_d.size()]
-		var crit := randf() < 0.18
-		var dmg := (randi() % 8) + (15 if (a in allies) else 9)   # aliados batem mais → vencem
-		if crit: dmg *= 2
-		hp[t] = max(0, int(hp[t]) - dmg)
-		ev.append({"type": "crit" if crit else "attack", "actor": a, "target": t, "damage": dmg, "targetHp": int(hp[t]), "targetMaxHp": 100, "element": "SUPER" if crit else "", "hitZone": zones[randi() % zones.size()]})
+		for who in order_names:
+			var a: Dictionary = st[who]
+			if not a["alive"]:
+				continue
+			var tname := str(a["target"])
+			if tname == "" or not st.has(tname) or not st[tname]["alive"]:
+				tname = _nearest_living_enemy(st, who)   # alvo caiu → vai ajudar a lane do lado
+				a["target"] = tname
+			if tname == "":
+				continue
+			var t: Dictionary = st[tname]
+			var crit := randf() < 0.16
+			var dmg := (randi() % 6) + (20 if int(a["team"]) == -1 else 13)   # aliados batem mais → vencem
+			if crit: dmg *= 2
+			t["hp"] = max(0, int(t["hp"]) - dmg)
+			ev.append({"type": "crit" if crit else "attack", "actor": who, "target": tname, "damage": dmg, "targetHp": int(t["hp"]), "targetMaxHp": 100, "element": "SUPER" if crit else "", "hitZone": zones[randi() % zones.size()]})
+			if int(t["hp"]) <= 0:
+				t["alive"] = false
 	var alive_ally := ""
-	for n in allies:
-		if int(hp[n]) > 0:
-			alive_ally = n
+	for nm in allies:
+		if st[nm]["alive"]:
+			alive_ally = nm
 			break
 	var dead_foe := ""
-	for n in foes:
-		if int(hp[n]) <= 0:
-			dead_foe = n
+	for nm in foes:
+		if not st[nm]["alive"]:
+			dead_foe = nm
 	if alive_ally != "" and dead_foe != "":
 		ev.append({"type": "victory", "actor": alive_ally, "target": dead_foe, "damage": 0, "targetHp": 0, "targetMaxHp": 100, "element": "", "hitZone": ""})
 	return ev
+
+# [TEAM_MOCK] Inimigo vivo mais PRÓXIMO (menor diferença de lane) → quem vence ajuda o duelo do lado.
+func _nearest_living_enemy(st: Dictionary, who: String) -> String:
+	var me: Dictionary = st[who]
+	var best := ""
+	var best_d := 99
+	for other in st:
+		var o: Dictionary = st[other]
+		if o["alive"] and int(o["team"]) != int(me["team"]):
+			var d := absi(int(o["lane"]) - int(me["lane"]))
+			if d < best_d:
+				best_d = d
+				best = str(other)
+	return best
 
 # Luta MOCK local: herói (equip real) vs um MONSTRO (`foe` vira o spawn da direita → Monsters.pick_for
 # o transforma no bicho). O monstro dá alguns golpes e o herói vence (mostra ataque + morte + sangue).
