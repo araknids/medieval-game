@@ -121,7 +121,7 @@ func _item_row(it: Dictionary) -> PanelContainer:
 	nm.add_theme_font_size_override("font_size", 16)
 	nm.add_theme_color_override("font_color", UiKit.rarity_color(rar))
 	left.add_child(nm)
-	left.add_child(UiKit.dim(Lang.t("%s · Nv %d · %s") % [Lang.t(str(it.get("typeDisplay", it.get("type", "")))), int(it.get("itemLevel", 1)), Lang.t(str(it.get("rarityName", "")))]))
+	left.add_child(UiKit.item_subline(it, int(warrior.get("level", 0))))   # [REQ_LEVEL] Nv vermelho se exige nível acima
 	var stats := _stats_line(it)
 	if stats != "":
 		var sl := Label.new(); sl.text = stats; sl.add_theme_font_size_override("font_size", 12)

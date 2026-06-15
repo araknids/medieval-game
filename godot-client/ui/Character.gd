@@ -308,7 +308,7 @@ func _bag_card(it) -> Control:
 	nm.add_theme_font_size_override("font_size", 14)
 	nm.add_theme_color_override("font_color", UiKit.rarity_color(rar))
 	left.add_child(nm)
-	left.add_child(UiKit.dim(Lang.t("%s · Nv %d · %s") % [Lang.t(str(it.get("typeDisplay", it.get("type", "")))), int(it.get("itemLevel", 1)), Lang.t(str(it.get("rarityName", "")))]))
+	left.add_child(UiKit.item_subline(it, int(w.get("level", 0))))   # [REQ_LEVEL] Nv vermelho se exige nível acima
 	var st := _stats_line(it)
 	if st != "":
 		var sl := Label.new()
@@ -575,8 +575,8 @@ func _equip(id: int) -> void:
 		_replace_item(updated)
 		await _after_equip_change()
 	else:
+		await _refresh()                # refresh limpa o status → mostrar o erro DEPOIS (senão some) [REQ_LEVEL]
 		UiKit.show_error(status, r)
-		await _refresh()
 
 func _unequip(id: int) -> void:
 	if busy: return
@@ -587,8 +587,8 @@ func _unequip(id: int) -> void:
 		_replace_item(r["json"])
 		await _after_equip_change()
 	else:
+		await _refresh()                # refresh limpa o status → mostrar o erro DEPOIS (senão some) [REQ_LEVEL]
 		UiKit.show_error(status, r)
-		await _refresh()
 
 # Equip mudou: re-veste o boneco + slots + painel + avisa o Shell (busto da topbar + índice) e
 # re-busca o warrior p/ os stats EFETIVOS da topbar (ATK/DEF/HP mudam com o gear).
@@ -621,8 +621,8 @@ func _sell(id: int) -> void:
 		_render_panel()
 		UiKit.flash(status, str(r["json"].get("message", Lang.t("Vendido!"))), 1)
 	else:
+		await _refresh()                # refresh limpa o status → mostrar o erro DEPOIS (senão some) [REQ_LEVEL]
 		UiKit.show_error(status, r)
-		await _refresh()
 
 func _spend(key: String) -> void:
 	if busy: return

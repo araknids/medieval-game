@@ -694,7 +694,32 @@ static func compare_line_raw(slot: String, atk: int, def_v: int, hp: int, str_v:
 		"strBonus": str_v, "dexBonus": dex_v, "lukBonus": luk_v,
 	})
 
-static func item_row(it: Dictionary, name_text: String, sub_text: String, stats_text: String, actions: Array) -> PanelContainer:
+# Sub-linha "Tipo · Nv X · Raridade" com o "Nv X" em VERMELHO quando o item exige nível acima do
+# player (não dá pra equipar). player_level <= 0 → não compara (cinza normal). [REQ_LEVEL]
+static func item_subline(it: Dictionary, player_level := 0) -> HBoxContainer:
+	var h := HBoxContainer.new()
+	h.add_theme_constant_override("separation", 0)
+	var ilvl := int(it.get("itemLevel", 1))
+	var too_high := player_level > 0 and ilvl > player_level
+	var pre := Label.new()
+	pre.text = Lang.t(str(it.get("typeDisplay", it.get("type", "")))) + " · "
+	pre.add_theme_font_size_override("font_size", 12)
+	pre.add_theme_color_override("font_color", TEXT_DIM)
+	h.add_child(pre)
+	var lv := Label.new()
+	lv.text = Lang.t("Nv %d") % ilvl
+	lv.add_theme_font_size_override("font_size", 12)
+	lv.add_theme_color_override("font_color", ERR if too_high else TEXT_DIM)
+	h.add_child(lv)
+	var post := Label.new()
+	post.text = " · " + Lang.t(str(it.get("rarityName", "")))
+	post.add_theme_font_size_override("font_size", 12)
+	post.add_theme_color_override("font_color", TEXT_DIM)
+	h.add_child(post)
+	return h
+
+# level_for > 0 → a sub-linha usa item_subline (Nv vermelho se o item pede nível acima). [REQ_LEVEL]
+static func item_row(it: Dictionary, name_text: String, sub_text: String, stats_text: String, actions: Array, level_for := 0) -> PanelContainer:
 	var rar := int(it.get("rarity", 1))
 	var res := card(rarity_color(rar))
 	var pc: PanelContainer = res[0]
@@ -717,7 +742,9 @@ static func item_row(it: Dictionary, name_text: String, sub_text: String, stats_
 	nm.add_theme_font_size_override("font_size", 16)
 	nm.add_theme_color_override("font_color", rarity_color(rar))
 	left.add_child(nm)
-	if sub_text != "":
+	if level_for > 0:
+		left.add_child(item_subline(it, level_for))   # [REQ_LEVEL] Nv vermelho se exige nível acima
+	elif sub_text != "":
 		left.add_child(dim(sub_text))
 	if stats_text != "":
 		var st := Label.new()

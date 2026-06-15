@@ -119,7 +119,7 @@ func _item_row(it: Dictionary, in_bag: bool) -> PanelContainer:
 		action = [["→ Baú", _deposit_item.bind(id)]]
 	else:
 		action = [["→ Mochila", _withdraw_item.bind(id)]]
-	return UiKit.item_row(it, name_text, sub, stats, action)
+	return UiKit.item_row(it, name_text, sub, stats, action, int(warrior.get("level", 0)))   # [REQ_LEVEL] Nv vermelho se exige nível acima
 
 func _res_row(r: Dictionary, in_bag: bool) -> PanelContainer:
 	var res := UiKit.card(UiKit.BRONZE)
