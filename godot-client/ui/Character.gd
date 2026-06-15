@@ -437,7 +437,7 @@ func _equip(id: int) -> void:
 			if it is Dictionary and str(it.get("type")) == str(updated.get("type")) and int(it.get("id", -1)) != int(updated.get("id", -2)):
 				it["equipped"] = false
 		_replace_item(updated)
-		_after_equip_change()
+		await _after_equip_change()
 	else:
 		UiKit.show_error(status, r)
 		await _refresh()
@@ -449,12 +449,13 @@ func _unequip(id: int) -> void:
 	busy = false
 	if r.get("ok") and r.get("json") is Dictionary:
 		_replace_item(r["json"])
-		_after_equip_change()
+		await _after_equip_change()
 	else:
 		UiKit.show_error(status, r)
 		await _refresh()
 
-# Equip mudou: re-veste o boneco + atualiza slots + painel + avisa o Shell (busto da topbar + índice).
+# Equip mudou: re-veste o boneco + slots + painel + avisa o Shell (busto da topbar + índice) e
+# re-busca o warrior p/ os stats EFETIVOS da topbar (ATK/DEF/HP mudam com o gear).
 func _after_equip_change() -> void:
 	UiKit.set_equipped(items)
 	if doll != null and is_instance_valid(doll):
@@ -463,6 +464,10 @@ func _after_equip_change() -> void:
 	_render_panel()
 	if UiKit.equip_changed_sink.is_valid():
 		UiKit.equip_changed_sink.call(items)
+	var wr = await Api.get_warrior()
+	if wr.get("ok") and wr.get("json") is Dictionary:
+		w = wr["json"]
+		UiKit.set_wallet(wallet, w)
 
 func _ask_sell(id: int, name_text: String, rarity: int) -> void:
 	if rarity >= 3:
