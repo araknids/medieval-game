@@ -27,12 +27,12 @@ const SHIELD_MODEL := "Shield_Heater"
 const HAND_XF := {
 	"sword":      [0.20, 0.05, 0.04, Vector3(0, 0, -90)],
 	"greatsword": [0.20, 0.05, 0.04, Vector3(0, 0, -90)],
-	"axe":        [0.20, 0.05, 0.04, Vector3(0, 0, -90)],
+	"axe":        [0.20, 0.05, 0.04, Vector3(0, 180, -90)],   # cabeça estava virada pra trás → flip Y
 	"spear":      [0.18, 0.05, 0.04, Vector3(0, 0, -90)],
-	"mace":       [0.22, 0.05, 0.04, Vector3(0, 0, -90)],
-	"shortbow":   [0.24, 0.07, 0.04, Vector3(0, 0, 0)],
-	"longbow":    [0.24, 0.07, 0.04, Vector3(0, 0, 0)],
-	"crossbow":   [0.24, 0.07, 0.04, Vector3(0, 0, 0)],
+	"mace":       [0.22, 0.05, 0.04, Vector3(0, 180, -90)],   # idem
+	"shortbow":   [0.24, 0.07, 0.04, Vector3(0, 180, 0)],     # curva estava pra trás → flip Y
+	"longbow":    [0.24, 0.07, 0.04, Vector3(0, 180, 0)],
+	"crossbow":   [0.24, 0.07, 0.04, Vector3(0, 180, 0)],
 }
 
 # Escudo no antebraço: escala + base de posição (somada aos opts slide/push/side) + rotação. [ARMAS_3D]
