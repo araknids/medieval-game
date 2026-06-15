@@ -28,9 +28,9 @@ func is_bow_kind(kind: String) -> bool:
 
 # Desenha a arma no esqueleto do `node` (procura GeneralSkeleton). Arco/besta na LeftHand;
 # melee na RightHand (rot -90; +Y local = direção da arma). rarity 1-5 tinge/brilha o metal.
-func attach_weapon(node: Node3D, kind: String, rarity := 1, grip := 0.10) -> void:
+func attach_weapon(node: Node3D, kind: String, rarity := 1, grip := 0.10) -> Node3D:
 	var skel: Skeleton3D = node.find_child("GeneralSkeleton", true, false)
-	if skel == null: return
+	if skel == null: return null
 	var r := clampi(rarity, 1, 5)
 	var steel := RARITY_TINT[r - 1] as Color   # r=1 → aço normal
 	var ge := RARITY_GLOW[r - 1] as float       # emissão (0 no comum)
@@ -39,7 +39,7 @@ func attach_weapon(node: Node3D, kind: String, rarity := 1, grip := 0.10) -> voi
 		ba.bone_name = "LeftHand"
 		skel.add_child(ba)
 		_attach_bow(ba, kind, steel, ge)
-		return
+		return ba
 	ba.bone_name = "RightHand"
 	skel.add_child(ba)
 	var holder := Node3D.new()
@@ -67,6 +67,7 @@ func attach_weapon(node: Node3D, kind: String, rarity := 1, grip := 0.10) -> voi
 			_box(holder, Vector3(0.05, 0.035, 0.20),  Vector3(0,  0.07, 0), Color(0.28, 0.22, 0.14), 0.3)  # guarda
 			_box(holder, Vector3(0.028, 0.13, 0.028), Vector3(0, -0.02, 0), wood, 0.1)             # cabo
 			_box(holder, Vector3(0.05, 0.05, 0.05),   Vector3(0, -0.10, 0), Color(0.70, 0.60, 0.20), 0.5)  # pomo
+	return ba
 
 func _attach_bow(ba: Node3D, kind: String, glow_col := Color.WHITE, ge := 0.0) -> void:
 	var wood := Color(0.45, 0.30, 0.16)
@@ -83,9 +84,9 @@ func _attach_bow(ba: Node3D, kind: String, glow_col := Color.WHITE, ge := 0.0) -
 # Escudo (heater) na off-hand. [Fable] holder top_level + realinhado todo frame (skeleton_updated):
 # POSIÇÃO ancora no antebraço (roll-safe), FACE pra frente (rumo ao centro), UP = mundo.
 # opts: {slide, push, side, up, flip}.
-func attach_shield(node: Node3D, opts := {}) -> void:
+func attach_shield(node: Node3D, opts := {}) -> Node3D:
 	var skel: Skeleton3D = node.find_child("GeneralSkeleton", true, false)
-	if skel == null: return
+	if skel == null: return null
 	var bone := "LeftLowerArm" if skel.find_bone("LeftLowerArm") != -1 else "LeftHand"
 	var ba := BoneAttachment3D.new()
 	ba.bone_name = bone
@@ -109,21 +110,28 @@ func attach_shield(node: Node3D, opts := {}) -> void:
 	var s_side := float(opts.get("side", 0.0))
 	var s_up := float(opts.get("up", 0.02))
 	var flip := bool(opts.get("flip", false))
-	var fixed_fwd = opts.get("forward", null)   # Vector3 fixo (viewer) OU null = calcula rumo ao centro (batalha)
+	# forward: Vector3 fixo (viewer) · Callable() -> Vector3 (boneco que gira: recalcula a frente) ·
+	# null = calcula rumo ao centro/inimigo (batalha).
+	var fixed_fwd = opts.get("forward", null)
 	skel.skeleton_updated.connect(func() -> void:
 		if not is_instance_valid(holder) or not is_instance_valid(node): return
 		var fwd: Vector3
-		if fixed_fwd != null:
+		if fixed_fwd is Callable:
+			fwd = fixed_fwd.call()
+		elif fixed_fwd != null:
 			fwd = fixed_fwd
 		else:
 			fwd = Vector3(-signf(node.global_position.x), 0.0, 0.0)   # rumo ao centro/inimigo
 			if fwd.length() < 0.01: fwd = Vector3.LEFT
 		if flip: fwd = -fwd
+		if fwd.length() < 0.001: fwd = Vector3.BACK
+		fwd = fwd.normalized()
 		var rx := Vector3.UP.cross(fwd).normalized()
 		var ry := fwd.cross(rx)
 		var along := ba.global_transform.basis.y.normalized()
 		var origin := ba.global_position + along * s_slide + fwd * s_push + rx * s_side + ry * s_up
 		holder.global_transform = Transform3D(Basis(rx, ry, fwd), origin))
+	return ba
 
 func _box(parent: Node, size: Vector3, pos: Vector3, col: Color, metallic: float, emit := Color.BLACK, emit_e := 0.0) -> void:
 	var mi := MeshInstance3D.new()

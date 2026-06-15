@@ -23,6 +23,8 @@ const PIECES := {
 	"SHOULDER": "res://assets/outfits/ranger/Male_Ranger_Acc_Pauldron.gltf",
 }
 
+const Weapons := preload("res://Weapons.gd")   # arma/escudo procedurais (mesmo da batalha)
+
 @export var spin := true                 # giro lento (mostra o gear de todos os lados)
 const SPIN_DEG_PER_SEC := 16.0
 const SPIN_RESUME := 2.5                  # s parado após arrastar → volta o giro automático
@@ -35,6 +37,8 @@ var _body_meshes: Array = []
 var _ready_done := false
 var _dragging := false
 var _idle := 999.0                       # começa girando; arrastar zera, e SPIN_RESUME depois retoma
+var _wp := Weapons.new()
+var _props: Array = []                    # arma/escudo anexados (BoneAttachment3D) — removidos ao reequipar
 
 func _ready() -> void:
 	stretch = true
@@ -122,6 +126,30 @@ func apply(inv_arr: Array) -> void:
 			var p: PackedScene = load(path)
 			if p:
 				_attach(p)
+	_apply_weapons(equipped)
+
+# Anexa arma (mão) + escudo (antebraço) a partir do equip; remove os antigos antes. [FICHA_PERSONAGEM]
+func _apply_weapons(equipped: Array) -> void:
+	for pnode in _props:
+		if is_instance_valid(pnode):
+			pnode.queue_free()
+	_props.clear()
+	for it in equipped:
+		var ty := str(it.get("type", ""))
+		if ty == "WEAPON":
+			var kind := _wp.weapon_kind(str(it.get("name", "")), str(it.get("weaponCategory", "")))
+			var node := _wp.attach_weapon(_character, kind, int(it.get("rarity", 1)))
+			if node != null:
+				_props.append(node)
+		elif ty == "SHIELD":
+			# forward dinâmico = frente do boneco (acompanha o giro)
+			var face := func() -> Vector3:
+				var f: Vector3 = _character.global_transform.basis.z
+				f.y = 0.0
+				return Vector3.BACK if f.length() < 0.001 else f.normalized()
+			var snode := _wp.attach_shield(_character, {"rarity": int(it.get("rarity", 1)), "forward": face})
+			if snode != null:
+				_props.append(snode)
 
 func _attach(scene: PackedScene) -> void:
 	if skel == null:
