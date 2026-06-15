@@ -34,7 +34,7 @@ const NAV_TIPS := {
 	"Stash": "Baú — guarda itens e recursos fora da mochila",
 	"Tavern": "Taverna — beba por buff + chat global",
 	"Vip": "VIP — vantagens premium (SoulStone)",
-	"Character": "Personagem — stats, atributos e ficha",
+	"Character": "Personagem — ficha completa: equipar (paper-doll), atributos e habilidades",
 	"Inventory": "Inventário — equipar, vender, sockets",
 	"Abilities": "Habilidades — árvore de talentos da classe",
 	"Achievements": "Conquistas — marcos e títulos",
@@ -48,7 +48,7 @@ const SECTIONS := [
 	["Aventura",   [["World", "Mundo"], ["Work", "Trabalho"], ["Temple", "Templo"]]],
 	["Batalha",    [["Tower", "Torre"], ["Arena", "Arena"], ["Territory", "Território"]]],
 	["Comércio",   [["Shop", "Loja"], ["Forge", "Forja"], ["Auction", "Leilão"], ["Stash", "Baú"], ["Tavern", "Taverna"], ["Vip", "VIP"]]],
-	["Personagem", [["Character", "Personagem"], ["Inventory", "Inventário"], ["Abilities", "Habilidades"], ["Achievements", "Conquistas"]]],
+	["Personagem", [["Character", "Personagem"], ["Achievements", "Conquistas"]]],   # [FICHA_PERSONAGEM] Inventário+Habilidades fundidos na ficha
 	["Social",     [["Guild", "Guilda"], ["Mail", "Correio"], ["Daily", "Diário"]]],
 ]
 
@@ -469,7 +469,7 @@ func _wire_screen(c: Control) -> void:
 	if c.has_signal("open_screen"):
 		c.open_screen.connect(_open)
 	if c.has_signal("go_inventory"):
-		c.go_inventory.connect(func() -> void: _open("Inventory"))
+		c.go_inventory.connect(func() -> void: _open("Character"))   # [FICHA_PERSONAGEM] inventário vive na ficha
 	if c.has_signal("go_battle"):
 		c.go_battle.connect(func() -> void: get_tree().change_scene_to_file("res://BattleReplay.tscn"))
 	if c.has_signal("request_battle"):
@@ -521,7 +521,7 @@ func _build_dashboard() -> Control:
 	var grid := GridContainer.new(); grid.columns = 3
 	grid.add_theme_constant_override("h_separation", 10); grid.add_theme_constant_override("v_separation", 10)
 	grid.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	for sc in [["World", "Mundo"], ["Inventory", "Inventário"], ["Shop", "Loja"], ["Daily", "Diário"], ["Forge", "Forja"], ["Character", "Personagem"]]:
+	for sc in [["World", "Mundo"], ["Character", "Personagem"], ["Shop", "Loja"], ["Daily", "Diário"], ["Forge", "Forja"], ["Tower", "Torre"]]:
 		var b := _stone_btn(str(sc[1]), 44)
 		Icons.set_icon(b, str(sc[0]).to_lower())
 		var target: String = str(sc[0])
