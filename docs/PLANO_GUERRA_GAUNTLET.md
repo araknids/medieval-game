@@ -50,7 +50,16 @@ Um único `List<BattleEvent>` agregado da guerra inteira:
 ## Fases (commits incrementais)
 1. ✅ **Backend core** (commit e3fe1a2): `GauntletWarSimulator` (melee 3v3 + driver Modelo B) com **evento próprio `WarEvent`** (side/wave) — desacoplado do `BattleSimulator` (havia WIP de outra aba lá; usa só APIs do HEAD: `hitChance`/`critChance`/`mitigatedDamage` + `Element.multiplier`). Testes `GauntletWarTest` (4) + suíte (646) verdes.
 3. ✅ **Frontend visual** (commit 564f884): team-mode do `BattleReplay` vira gauntlet 15v15 — reservas de 15/lado, campo 3v3, perdedor repõe 3 / vencedor mantém sobreviventes, limpa corpos entre ondas, "Onda N". **Gated no `force_mock`** (1v1 real intacto). Testável no Godot via F6/force_mock. ⚠️ não testado em runtime ainda (iterar).
-2. ⏳ **Backend wiring** (pendente): `TerritoryService` usa o gauntlet; persiste `WarEvent` (coluna nova) + endpoint `GET /api/territory/{id}/replay`; e o `BattleReplay` passa a tocar os eventos REAIS (hoje é sim local). Mantém war fatigue / debuff / persistência de HP. ⚠️ toca `TerritoryService` (e talvez `GuildWarService`, que tinha WIP solta).
+2a. ✅ **Backend — guerra usa o gauntlet** (commit e553da9): `resolveTerritory` chama `guildGauntlet` (Modelo B) p/ o vencedor + HP final (mapeado por índice → persistido). `guildBrawl` 3×5 mantido só pros 50 testes. War fatigue / debuff / persistência de HP intactos.
+2b. ✅ **Backend — persistir + endpoint** (commit da99e4a): coluna `battle_events` (JSON) no `TerritoryBattleLog` + migração; `saveBattleLog` serializa os `WarEvent`; `GET /api/territory/{id}/replay` devolve os eventos da última batalha.
+2b. ✅ **Visual — cliente toca o replay real** (commit 609fd0e): `BattleReplay` ganhou `war_mode` (orientado a eventos: spawn em lanes + attack/crit/miss/wave/victory com os visuais existentes); `Territory.gd` tem botão "Assistir última batalha" → `/replay` → `request_battle`.
+
+## Limitações conhecidas do v1 (a iterar quando testar)
+- No replay da guerra os lutadores **não andam** até o alvo (ficam na lane, tocam a anim de golpe + o alvo reage). Menos dinâmico que o mock (que aproxima). Ajustável.
+- Visual **genérico** (o gear real não vai nos `WarEvent` — só nome/HP/lado).
+- "Assistir" só funciona **depois** que uma guerra resolveu (cron 6h) E teve combate. Sem isso: "Sem batalha pra assistir ainda". Pra testar o visual JÁ, use o mock (force_mock, Fase 3).
+- Strings novas do botão ainda **só em PT** (i18n a fazer).
+- Habilidades ativas + kiting na guerra: follow-up (v1 só acerto/crit/mitigação/elemento).
 
 ## Em aberto / tuning (placeholders)
 - Ordem da fila (poder? frescor? posição da formação?).
