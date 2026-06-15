@@ -480,6 +480,10 @@ func _build_team() -> void:
 		an.position = Vector3(-1.7, a["base_y"], rows[i])
 		a["home"] = an.position
 		a["team"] = -1
+		a["lane"] = i
+		a["ctarget"] = foe_names[i]   # 1v1 inicial: aliado[i] × inimigo[i]
+		a["tstate"] = "approach"
+		a["ttimer"] = 0.0
 		order.append(a)
 		fighters[a["name"]] = a
 	for i in 3:
@@ -489,6 +493,10 @@ func _build_team() -> void:
 		bn.position = Vector3(1.7, b["base_y"], rows[i])
 		b["home"] = bn.position
 		b["team"] = 1
+		b["lane"] = i
+		b["ctarget"] = ally_names[i]
+		b["tstate"] = "approach"
+		b["ttimer"] = 0.0
 		order.append(b)
 		fighters[b["name"]] = b
 
@@ -786,8 +794,11 @@ func _process(dt: float) -> void:
 	match phase:
 		"countdown": _countdown(dt)
 		"fight":
-			_move(dt)
-			_advance(dt)
+			if team_mode:
+				_tick_team(dt)        # [TEAM_MOCK] sim ao vivo (3 duelos simultâneos)
+			else:
+				_move(dt)
+				_advance(dt)
 
 # Contagem 3,2,1 → Lutar! Os lutadores dançam (warm-up) e encaram o oponente.
 func _countdown(dt: float) -> void:
@@ -807,9 +818,6 @@ func _countdown(dt: float) -> void:
 
 # Movimento contínuo: arco-vs-melee = perseguição/kite; senão = ambos fecham pro alcance.
 func _move(dt: float) -> void:
-	if team_mode:
-		_move_team(dt)
-		return
 	if order.size() < 2: return
 	if kiting and not ranged_f.is_empty() and not melee_f.is_empty():
 		_move_kite(dt)
@@ -883,36 +891,116 @@ func _move_clash(dt: float) -> void:
 # em vez de partir/parar seco). Retorna o novo x. [game-feel]
 # [TEAM_MOCK] Movimento no 3v3: o MELEE do evento atual avança até o alvo durante a aproximação;
 # o resto fica parado. Arqueiro atira de onde está. Sem clash/kite 1x1 (são vários lutadores).
-func _move_team(dt: float) -> void:
-	if idx >= events.size() or act_state == "recover":
+# [TEAM_MOCK] Sim AO VIVO do 3v3: cada lutador roda seu PRÓPRIO loop (approach→windup→strike→
+# recover) em PARALELO → os 3 duelos acontecem ao MESMO tempo. Ao matar o alvo, re-mira no inimigo
+# vivo mais próximo (ajuda a lane do lado). Não usa o stream de eventos (idx/act_state).
+func _tick_team(dt: float) -> void:
+	var na := 0
+	var nf := 0
+	for f in order:
+		if not f["dead"]:
+			if int(f["team"]) == -1: na += 1
+			else: nf += 1
+	if na == 0 or nf == 0:
+		_finish()
 		return
-	var e: Dictionary = events[idx]
-	var ty := str(e.get("type", ""))
-	if not (ty in SWING_TYPES):
+	for f in order:
+		if f["dead"]:
+			continue
+		var tgt = fighters.get(str(f.get("ctarget", "")))
+		if tgt == null or tgt["dead"]:
+			tgt = _nearest_enemy_fighter(f)            # alvo caiu → ajuda o duelo do lado
+			f["ctarget"] = "" if tgt == null else str(tgt["name"])
+		if tgt == null:
+			continue
+		var sn := f["node"] as Node3D
+		var tn := tgt["node"] as Node3D
+		match str(f.get("tstate", "approach")):
+			"approach":
+				if not f["ranged"]:
+					var off := sn.position - tn.position
+					off.y = 0.0
+					if off.length() < 0.01: off = Vector3(float(f["side"]), 0, 0)
+					var desired: Vector3 = tn.position + off.normalized() * ATTACK_RANGE
+					desired.y = f["base_y"]
+					var prev := sn.position
+					sn.position = sn.position.move_toward(desired, MELEE_SPEED * dt)
+					_face(f, signf(tn.position.x - sn.position.x))
+					if not f["busy"] and f["anim"]:
+						if sn.position.distance_to(prev) > 0.004:
+							if f["anim"].current_animation != A_WALK: f["anim"].play(A_WALK, BLEND)
+						elif f["anim"].current_animation != _clip(f, "idle"):
+							f["anim"].play(_clip(f, "idle"), BLEND)
+				else:
+					_face(f, signf(tn.position.x - sn.position.x))
+				var in_range: bool = f["ranged"] or absf(sn.position.x - tn.position.x) <= ATTACK_RANGE + 0.2
+				if in_range and not f["busy"]:
+					f["tstate"] = "windup"
+					f["ttimer"] = 0.0
+					f["cur_w"] = WINDUP * randf_range(0.85, 1.3)
+					f["busy"] = true
+					if f["anim"]:
+						var clip: String
+						if f.get("is_monster", false): clip = _clip(f, "attack")
+						elif f["ranged"]: clip = A_SHOOT
+						else: clip = _rand_sword(f["anim"])
+						f["anim"].play(clip, BLEND)
+			"windup":
+				f["ttimer"] += dt
+				if f["ttimer"] >= float(f.get("cur_w", WINDUP)):
+					_team_strike(f, tgt)
+					f["tstate"] = "recover"
+					f["ttimer"] = 0.0
+					f["cur_r"] = RECOVER * randf_range(0.9, 1.7)
+			"recover":
+				f["ttimer"] += dt
+				if f["ttimer"] >= float(f.get("cur_r", RECOVER)):
+					f["tstate"] = "approach"
+
+# [TEAM_MOCK] Aplica um golpe ao vivo (dano + efeitos), espelhando o ramo de HIT do _resolve.
+func _team_strike(a: Dictionary, t: Dictionary) -> void:
+	if t["dead"]:
 		return
-	var swinger := str(e.get("target", "")) if ty == "dodge" else str(e.get("actor", ""))
-	var faces := str(e.get("actor", "")) if ty == "dodge" else str(e.get("target", ""))
-	var sw = fighters.get(swinger)
-	var tg = fighters.get(faces)
-	if sw == null or tg == null or sw["dead"] or tg["dead"] or sw["ranged"]:
-		return
-	var sn := sw["node"] as Node3D
-	var tn := tg["node"] as Node3D
-	var off := sn.position - tn.position
-	off.y = 0.0
-	if off.length() < 0.01:
-		off = Vector3(float(sw["side"]), 0, 0)
-	var desired: Vector3 = tn.position + off.normalized() * ATTACK_RANGE
-	desired.y = sw["base_y"]
-	var prev := sn.position
-	sn.position = sn.position.move_toward(desired, MELEE_SPEED * dt)
-	_face(sw, signf(tn.position.x - sn.position.x))
-	if not sw["busy"] and sw["anim"]:
-		if sn.position.distance_to(prev) > 0.004:
-			if sw["anim"].current_animation != A_WALK:
-				sw["anim"].play(A_WALK, BLEND)
-		elif sw["anim"].current_animation != _clip(sw, "idle"):
-			sw["anim"].play(_clip(sw, "idle"), BLEND)
+	var crit := randf() < 0.16
+	var dmg := (randi() % 6) + (20 if int(a["team"]) == -1 else 13)   # aliados batem mais → vencem
+	if crit: dmg *= 2
+	if a["ranged"]: _shoot_arrow(a, t)
+	var zones := ["body", "legs", "head"]
+	var zone: String = zones[randi() % zones.size()]
+	var head := zone == "head"
+	if t["anim"]: t["anim"].play(_clip(t, "hurt_head" if head else "hurt"), BLEND)
+	t["busy"] = true
+	_popup(_chest(t), "-%d" % dmg, Color(1, 0.32, 0.32) if crit else Color(1, 1, 1), crit)
+	var bdir: Vector3 = ((t["node"] as Node3D).global_position - (a["node"] as Node3D).global_position) * Vector3(1, 0, 1)
+	t["last_hit_dir"] = bdir.normalized() if bdir.length() > 0.01 else Vector3.RIGHT
+	t["last_hit_crit"] = crit
+	var bpos: Vector3 = _hit_pos(t, zone)
+	_blood_spray(bpos, bdir, dmg, crit, "")
+	var icol: Color = _impact_color("")
+	_sparks(bpos, icol, crit)
+	_flash_at(bpos, icol)
+	if crit:
+		_light_flicker()
+		_blood_mist(bpos)
+	t["hp"] = max(0, int(t["hp"]) - dmg)
+	_update_hp(t)
+	if int(t["hp"]) <= 0:
+		_kill(t)
+	elif dmg > 0:
+		_on_impact(crit)
+
+# [TEAM_MOCK] Inimigo vivo mais PRÓXIMO (menor diferença de lane). Retorna o dict do lutador ou null.
+func _nearest_enemy_fighter(f: Dictionary):
+	var best = null
+	var best_d := 999
+	for o in order:
+		if o["dead"] or int(o["team"]) == int(f["team"]):
+			continue
+		var d := absi(int(o.get("lane", 0)) - int(f.get("lane", 0)))
+		if d < best_d:
+			best_d = d
+			best = o
+	return best
 
 func _step_toward(f: Dictionary, desired_x: float, max_speed: float, dt: float) -> float:
 	var n: Node3D = f["node"]
@@ -2002,78 +2090,13 @@ func _mock_events() -> Array:
 
 # [TEAM_MOCK] Eventos de uma batalha 3v3 (aliados batem mais forte → vencem). 6 spawns + troca de
 # golpes por NOME (o motor resolve por actor/target). Gera até um time cair. Números são de teste.
+# [TEAM_MOCK] Só os 6 spawns (p/ _ready não abortar). O COMBATE 3v3 é simulado AO VIVO em
+# _tick_team (cada lutador roda seu loop em paralelo → 3 duelos ao mesmo tempo), não por este stream.
 func _mock_team_events() -> Array:
-	var allies := ["Você", "Aliado", "Recruta"]
-	var foes := ["Bandido", "Saqueador", "Capanga"]
-	# estado por lutador: hp, vivo, lane, team(-1 aliado/+1 inimigo), alvo atual.
-	# Início: cada lane é um 1v1 (aliado[i] × inimigo[i]). Quando alguém MATA o alvo, RE-MIRA
-	# no inimigo vivo mais próximo (a lane do lado) → "quem ganha ajuda o duelo do lado".
-	var st := {}
 	var ev: Array = []
-	for i in 3:
-		st[allies[i]] = {"hp": 100, "alive": true, "lane": i, "team": -1, "target": foes[i]}
-		st[foes[i]]   = {"hp": 100, "alive": true, "lane": i, "team": 1,  "target": allies[i]}
-	for nm in (allies + foes):
+	for nm in ["Você", "Aliado", "Recruta", "Bandido", "Saqueador", "Capanga"]:
 		ev.append({"type": "spawn", "actor": nm, "target": "", "damage": 0, "targetHp": 100, "targetMaxHp": 100, "element": "", "hitZone": ""})
-	var zones := ["body", "legs", "head"]
-	# ordem INTERCALADA por lane → parece 3 duelos ao mesmo tempo (o motor toca 1 evento por vez)
-	var order_names: Array = []
-	for i in 3:
-		order_names.append(allies[i])
-		order_names.append(foes[i])
-	for _round in 400:
-		var allies_alive := false
-		var foes_alive := false
-		for nm in allies:
-			if st[nm]["alive"]: allies_alive = true
-		for nm in foes:
-			if st[nm]["alive"]: foes_alive = true
-		if not allies_alive or not foes_alive:
-			break
-		for who in order_names:
-			var a: Dictionary = st[who]
-			if not a["alive"]:
-				continue
-			var tname := str(a["target"])
-			if tname == "" or not st.has(tname) or not st[tname]["alive"]:
-				tname = _nearest_living_enemy(st, who)   # alvo caiu → vai ajudar a lane do lado
-				a["target"] = tname
-			if tname == "":
-				continue
-			var t: Dictionary = st[tname]
-			var crit := randf() < 0.16
-			var dmg := (randi() % 6) + (20 if int(a["team"]) == -1 else 13)   # aliados batem mais → vencem
-			if crit: dmg *= 2
-			t["hp"] = max(0, int(t["hp"]) - dmg)
-			ev.append({"type": "crit" if crit else "attack", "actor": who, "target": tname, "damage": dmg, "targetHp": int(t["hp"]), "targetMaxHp": 100, "element": "SUPER" if crit else "", "hitZone": zones[randi() % zones.size()]})
-			if int(t["hp"]) <= 0:
-				t["alive"] = false
-	var alive_ally := ""
-	for nm in allies:
-		if st[nm]["alive"]:
-			alive_ally = nm
-			break
-	var dead_foe := ""
-	for nm in foes:
-		if not st[nm]["alive"]:
-			dead_foe = nm
-	if alive_ally != "" and dead_foe != "":
-		ev.append({"type": "victory", "actor": alive_ally, "target": dead_foe, "damage": 0, "targetHp": 0, "targetMaxHp": 100, "element": "", "hitZone": ""})
 	return ev
-
-# [TEAM_MOCK] Inimigo vivo mais PRÓXIMO (menor diferença de lane) → quem vence ajuda o duelo do lado.
-func _nearest_living_enemy(st: Dictionary, who: String) -> String:
-	var me: Dictionary = st[who]
-	var best := ""
-	var best_d := 99
-	for other in st:
-		var o: Dictionary = st[other]
-		if o["alive"] and int(o["team"]) != int(me["team"]):
-			var d := absi(int(o["lane"]) - int(me["lane"]))
-			if d < best_d:
-				best_d = d
-				best = str(other)
-	return best
 
 # Luta MOCK local: herói (equip real) vs um MONSTRO (`foe` vira o spawn da direita → Monsters.pick_for
 # o transforma no bicho). O monstro dá alguns golpes e o herói vence (mostra ataque + morte + sangue).
