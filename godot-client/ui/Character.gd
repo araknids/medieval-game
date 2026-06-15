@@ -23,8 +23,8 @@ const SLOT_LABEL := {
 # atributo: chave no JSON, sigla
 const ATTRS := [
 	["strength", "STR"], ["constitution", "CON"], ["dexterity", "DEX"],
-	["agility", "AGI"], ["luck", "LUK"], ["intellect", "INT"],
-]
+	["agility", "AGI"], ["luck", "LUK"],
+]   # INT removido do front (Mago não implementado)
 # Ganho EXATO por ponto (números do backend committado = prod). CON tem soft-cap (8→4→2) por faixa,
 # então é calculado em _attr_gain a partir da CON atual. [REBALANCE v2]
 
@@ -348,36 +348,63 @@ func _render_attr_panel() -> void:
 		col.add_child(_attr_row(a, pts > 0))
 	_panel_host.add_child(col)
 
-# Grade 2-col com os stats efetivos (lê o WarriorResponse; crit = 5 + LUK/2, cap 35).
+# Grade 2-col com os stats efetivos + derivados (fórmulas do BattleSimulator). Tooltip explica cada um.
 func _combat_stats_grid() -> GridContainer:
 	var g := GridContainer.new()
 	g.columns = 2
 	g.add_theme_constant_override("h_separation", 18)
 	g.add_theme_constant_override("v_separation", 4)
+	var dex := int(w.get("dexterity", 0))
+	var agi := int(w.get("agility", 0))
+	var def := int(w.get("combatDefense", w.get("totalDefense", 0)))
 	var crit := clampi(5 + int(w.get("luck", 0)) / 2, 5, 35)
-	g.add_child(_stat_chip("stat_atk", "Ataque", str(int(w.get("combatAttack", w.get("totalAttack", 0))))))
-	g.add_child(_stat_chip("slot_shield", "Defesa", str(int(w.get("combatDefense", w.get("totalDefense", 0))))))
-	g.add_child(_stat_chip("hp", "Vida", str(int(w.get("combatHealth", w.get("totalHealth", 0))))))
-	g.add_child(_stat_chip("attr_luck", "Crítico", "%d%%" % crit))
-	g.add_child(_stat_chip("attr_agility", "Esquiva", "%d%%" % int(w.get("evasionChance", 0))))
-	g.add_child(_stat_chip("arena", "Rank", str(int(w.get("rankPoints", 0)))))
+	var hit := clampi(50 + dex, 20, 95)                       # acerto vs alvo neutro
+	var extra := mini(agi, 75)                                # golpe extra (velocidade) por AGI
+	var mit := int(round(def * 100.0 / (100.0 + def)))        # % de dano cortado pela Defesa
+	var maxhp := int(w.get("combatHealth", w.get("totalHealth", 0)))
+	var curhp := int(round(maxhp * int(w.get("hpPercent", 100)) / 100.0))
+	g.add_child(_stat_chip("stat_atk", "Ataque", str(int(w.get("combatAttack", w.get("totalAttack", 0)))), "Dano base por golpe (antes da mitigação do alvo)"))
+	g.add_child(_stat_chip("slot_shield", "Defesa", str(def), "Reduz o dano recebido"))
+	g.add_child(_stat_chip("hp", "Vida", "%d/%d" % [curhp, maxhp], "Vida atual / máxima"))
+	g.add_child(_stat_chip("stat_atk", "Dano de", _dmg_attr(), "De onde vem seu dano: arma corpo-a-corpo = STR, arco = DEX"))
+	g.add_child(_stat_chip("attr_dexterity", "Acerto", "%d%%" % hit, "Chance de acertar um alvo neutro (50 + DEX, teto 95%)"))
+	g.add_child(_stat_chip("attr_agility", "Golpe extra", "%d%%" % extra, "Velocidade: chance de atacar 2× no round (vem da AGI)"))
+	g.add_child(_stat_chip("attr_agility", "Esquiva", "%d%%" % int(w.get("evasionChance", 0)), "Chance de evitar o golpe inimigo"))
+	g.add_child(_stat_chip("attr_luck", "Crítico", "%d%%" % crit, "Chance de crítico — ×1,5 de dano e fura a esquiva"))
+	g.add_child(_stat_chip("slot_shield", "Mitigação", "%d%%" % mit, "Quanto a Defesa corta do dano recebido"))
+	g.add_child(_stat_chip("arena", "Rank", str(int(w.get("rankPoints", 0))), "Pontos de ranking da Arena"))
 	return g
 
-func _stat_chip(icon_key: String, label: String, value: String) -> HBoxContainer:
+# Atributo de dano da arma equipada: arco → DEX, resto (ou sem arma) → STR.
+func _dmg_attr() -> String:
+	for it in items:
+		if it is Dictionary and bool(it.get("equipped", false)) and str(it.get("type", "")) == "WEAPON":
+			var n := str(it.get("name", "")).to_lower()
+			if "bow" in n or "arco" in n or "crossbow" in n or "besta" in n:
+				return "DEX"
+			return "STR"
+	return "STR"
+
+func _stat_chip(icon_key: String, label: String, value: String, tip := "") -> HBoxContainer:
 	var h := HBoxContainer.new()
 	h.add_theme_constant_override("separation", 6)
+	if tip != "":
+		h.tooltip_text = Lang.t(tip)
+		h.mouse_filter = Control.MOUSE_FILTER_STOP
 	if Icons.tex(icon_key) != null:
 		h.add_child(Icons.rect(icon_key, 18))
 	var k := Label.new()
 	k.text = Lang.t(label)
-	k.custom_minimum_size = Vector2(58, 0)
+	k.custom_minimum_size = Vector2(74, 0)
 	k.add_theme_font_size_override("font_size", 12)
 	k.add_theme_color_override("font_color", UiKit.TEXT_DIM)
+	k.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	h.add_child(k)
 	var v := Label.new()
 	v.text = value
 	v.add_theme_font_size_override("font_size", 14)
 	v.add_theme_color_override("font_color", UiKit.GOLD)
+	v.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	h.add_child(v)
 	return h
 
@@ -450,8 +477,6 @@ func _attr_gain(key: String, sig: String) -> String:
 			return Lang.t("+%d%% golpe · +%d%% esquiva") % [v, (v * 3) / 5]
 		"LUK":
 			return Lang.t("+%d%% de crítico") % mini(v / 2, 30)
-		"INT":
-			return Lang.t("reservado (Mago)")
 	return ""
 
 # ✨ Habilidades ────────────────────────────────────────────────────────────────────────

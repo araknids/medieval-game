@@ -230,8 +230,7 @@ func _build_statbox() -> VBoxContainer:
 	r3.add_child(_stat_chip("attr_constitution", "", "con", "Constituição (CON) — +8 HP por ponto"))
 	r3.add_child(_stat_chip("attr_agility", "", "agi", "Agilidade (AGI) — golpe extra + esquiva"))
 	r3.add_child(_stat_chip("attr_luck", "", "luk", "Sorte (LUK) — crítico"))
-	r3.add_child(_stat_chip("attr_intellect", "", "int", "Intelecto (INT) — reservado (Mago)"))
-	box.add_child(r3)
+	box.add_child(r3)   # INT removido (Mago não implementado)
 	return box
 
 # Chip "[ícone] RÓTULO valor" — guarda o Label de valor em _stat_lbls[store_key] (atualizado em update_topbar).
@@ -603,7 +602,7 @@ func update_topbar(w: Dictionary) -> void:
 	if _stat_lbls.has("hp"): _stat_lbls["hp"].text = str(int(w.get("combatHealth", w.get("totalHealth", 0))))
 	if _stat_lbls.has("eva"): _stat_lbls["eva"].text = "%d%%" % int(w.get("evasionChance", 0))
 	# atributos (valores crus alocados)
-	for pair in [["str", "strength"], ["dex", "dexterity"], ["con", "constitution"], ["agi", "agility"], ["luk", "luck"], ["int", "intellect"]]:
+	for pair in [["str", "strength"], ["dex", "dexterity"], ["con", "constitution"], ["agi", "agility"], ["luk", "luck"]]:
 		if _stat_lbls.has(pair[0]): _stat_lbls[pair[0]].text = str(int(w.get(pair[1], 0)))
 	_refresh_buffs(w)
 
