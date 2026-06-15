@@ -142,12 +142,35 @@ func _build_right() -> Control:
 func _build_subtab_bar() -> void:
 	for c in _subtab_bar_host.get_children():
 		c.queue_free()
-	var opts := [
-		{"label": "🎒 " + Lang.t("Mochila"), "value": "bag", "color": UiKit.GOLD},
-		{"label": "⚔ " + Lang.t("Atributos"), "value": "attr", "color": UiKit.GOLD},
-		{"label": "✨ " + Lang.t("Habilidades"), "value": "abil", "color": UiKit.GOLD},
-	]
-	_subtab_bar_host.add_child(UiKit.filter_row(opts, sub_tab, _set_tab))
+	var row := HBoxContainer.new()
+	row.add_theme_constant_override("separation", 6)
+	for t in [["bag", "tab_bag", "Mochila", "🎒"], ["attr", "tab_attributes", "Atributos", "⚔"], ["abil", "tab_abilities", "Habilidades", "✨"]]:
+		row.add_child(_subtab_btn(str(t[0]), str(t[1]), str(t[2]), str(t[3])))
+	_subtab_bar_host.add_child(row)
+
+# Botão de sub-aba com ícone PixelLab + texto (fallback no emoji) e destaque do ativo.
+func _subtab_btn(value: String, icon_key: String, label: String, emoji: String) -> Button:
+	var b := UiKit.small_btn("%s %s" % [emoji, Lang.t(label)], func() -> void: _set_tab(value))
+	if Icons.set_icon(b, icon_key):
+		b.add_theme_constant_override("icon_max_width", 22)
+		b.text = Lang.t(label)
+	b.custom_minimum_size = Vector2(0, 36)
+	b.add_theme_font_size_override("font_size", 13)
+	b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	if sub_tab == value:                       # ativo: fundo preenchido + borda dourada
+		var col := UiKit.GOLD
+		var sb := StyleBoxFlat.new()
+		sb.bg_color = Color(col.r, col.g, col.b, 0.22)
+		sb.set_border_width_all(2); sb.border_color = col; sb.set_corner_radius_all(6)
+		sb.content_margin_left = 10; sb.content_margin_right = 10
+		sb.content_margin_top = 4; sb.content_margin_bottom = 4
+		b.add_theme_stylebox_override("normal", sb)
+		b.add_theme_stylebox_override("hover", sb)
+		b.add_theme_stylebox_override("pressed", sb)
+		b.add_theme_stylebox_override("focus", sb)
+	else:
+		b.modulate = Color(1, 1, 1, 0.6)
+	return b
 
 func _set_tab(t) -> void:
 	sub_tab = str(t)
@@ -409,11 +432,17 @@ func _ability_card(a: Dictionary, pts: int) -> PanelContainer:
 	var hb := HBoxContainer.new()
 	hb.add_theme_constant_override("separation", 10)
 	box.add_child(hb)
-	var icon := Label.new()
-	icon.text = str(a.get("icon", "•"))
-	icon.custom_minimum_size = Vector2(26, 0)
-	icon.add_theme_font_size_override("font_size", 18)
-	hb.add_child(icon)
+	var icon_key := "skill_" + str(a.get("id", "")).to_lower()   # ícone PixelLab único da skill
+	if Icons.tex(icon_key) != null:
+		var ir := Icons.rect(icon_key, 32)
+		ir.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+		hb.add_child(ir)
+	else:                                                         # fallback: emoji do backend
+		var icon := Label.new()
+		icon.text = str(a.get("icon", "•"))
+		icon.custom_minimum_size = Vector2(26, 0)
+		icon.add_theme_font_size_override("font_size", 18)
+		hb.add_child(icon)
 	var left := VBoxContainer.new()
 	left.add_theme_constant_override("separation", 2)
 	left.size_flags_horizontal = Control.SIZE_EXPAND_FILL
