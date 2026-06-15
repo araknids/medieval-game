@@ -192,6 +192,12 @@ var _env_base_glow := 0.0
 # kiting: ativo quando EXATAMENTE um lado é ranged (arco) e o outro melee
 var kiting := false
 var team_mode := false        # [TEAM_MOCK] batalha 3v3 (movimento por-evento, sem clash/kite 1x1)
+# [GUERRA_GAUNTLET] 15v15 em ondas de 3v3 (Modelo B): vencedor mantém sobreviventes, perdedor repõe 3.
+const TEAM_ROWS := [-2.2, 0.0, 2.2]   # 3 lanes (eixo Z) do campo 3v3
+const TEAM_X := 1.7                    # x de cada lado (ally −1.7 / foe +1.7)
+var _resv_ally: Array = []            # reservas (specs ainda não spawnadas) do time aliado
+var _resv_foe: Array = []             # reservas do time inimigo
+var _team_wave := 1                   # onda atual
 var ranged_f := {}            # lutador que recua/atira
 var melee_f := {}             # lutador que avança
 var victory_label: Label
@@ -471,44 +477,70 @@ func _build_fighters() -> void:
 func _build_team() -> void:
 	team_mode = true
 	kiting = false
-	var rows := [-2.2, 0.0, 2.2]   # 3 lanes separadas no eixo Z (cada par duela na sua lane)
-	var ally_names := ["Você", "Aliado", "Recruta"]
-	var foe_names := ["Bandido", "Saqueador", "Capanga"]
-	# [TEAM_MOCK] VIDA DE TESTE (mexa aqui p/ montar cenários): esquerda toda 2× (200);
-	# direita = 2 com 2× (200) + 1 com metade (50). 100 = vida "normal".
-	var ally_hp := [200, 200, 200]
-	var foe_hp := [200, 200, 50]
 	order = []
-	for i in 3:
-		var wkind := player_weapon if (i == 0 and player_weapon != "") else "sword"
-		var eq: Array = (player_equip if (i == 0 and player_equip.size() > 0) else DEFAULT_OUTFIT).duplicate()
-		var rar := player_weapon_rarity if i == 0 else 1
-		var a := _make_fighter(ally_names[i], -1, int(ally_hp[i]), wkind, eq, {}, rar)
-		var an := a["node"] as Node3D
-		an.position = Vector3(-1.7, a["base_y"], rows[i])
-		a["home"] = an.position
-		a["anchor"] = an.position   # [TEAM_MOCK] ponto de onde ataca; vira o lugar do morto ao vencer
-		a["team"] = -1
-		a["lane"] = i
-		a["ctarget"] = foe_names[i]   # 1v1 inicial: aliado[i] × inimigo[i]
-		a["tstate"] = "approach"
-		a["ttimer"] = 0.0
-		order.append(a)
-		fighters[a["name"]] = a
-	for i in 3:
-		var look := _enemy_look(foe_names[i], false)
-		var b := _make_fighter(foe_names[i], 1, int(foe_hp[i]), str(look["weapon"]), look.get("equip", DEFAULT_OUTFIT), {}, 1, look)
-		var bn := b["node"] as Node3D
-		bn.position = Vector3(1.7, b["base_y"], rows[i])
-		b["home"] = bn.position
-		b["anchor"] = bn.position   # [TEAM_MOCK] idem
-		b["team"] = 1
-		b["lane"] = i
-		b["ctarget"] = ally_names[i]
-		b["tstate"] = "approach"
-		b["ttimer"] = 0.0
-		order.append(b)
-		fighters[b["name"]] = b
+	_team_wave = 1
+	_resv_ally = []
+	_resv_foe = []
+	var foe_arch := ["Bandido", "Saqueador", "Capanga"]   # arquétipos conhecidos (_enemy_look dá o visual)
+	for i in 15:   # [GUERRA_GAUNTLET] specs dos 15 de cada lado; spawnam 3 por vez (Modelo B)
+		var aname := "Você" if i == 0 else "Aliado %d" % (i + 1)
+		_resv_ally.append({
+			"name": aname,
+			"weapon": player_weapon if (i == 0 and player_weapon != "") else "sword",
+			"equip": (player_equip if (i == 0 and player_equip.size() > 0) else DEFAULT_OUTFIT),
+			"rar": player_weapon_rarity if i == 0 else 1,
+			"hp": 100,
+		})
+		var fname := "%s %d" % [foe_arch[i % foe_arch.size()], i + 1]
+		_resv_foe.append({"name": fname, "hp": 100, "look": _enemy_look(fname, false)})
+	for lane in 3:
+		_spawn_team(_resv_ally.pop_front(), -1, lane)
+	for lane in 3:
+		_spawn_team(_resv_foe.pop_front(), 1, lane)
+
+# [GUERRA_GAUNTLET] Spawna um lutador (de um spec) no campo, na lane dada. Reusa _make_fighter.
+func _spawn_team(spec: Dictionary, team: int, lane: int) -> Dictionary:
+	var f: Dictionary
+	if team == -1:
+		f = _make_fighter(str(spec["name"]), -1, int(spec["hp"]), str(spec["weapon"]),
+				(spec["equip"] as Array).duplicate(), {}, int(spec["rar"]))
+	else:
+		var look: Dictionary = spec["look"]
+		f = _make_fighter(str(spec["name"]), 1, int(spec["hp"]), str(look["weapon"]),
+				look.get("equip", DEFAULT_OUTFIT), {}, 1, look)
+	var n := f["node"] as Node3D
+	n.position = Vector3(float(team) * TEAM_X, f["base_y"], TEAM_ROWS[lane])
+	f["home"] = n.position
+	f["anchor"] = n.position   # ponto de onde ataca; vira o lugar do morto ao vencer
+	f["team"] = team
+	f["lane"] = lane
+	f["ctarget"] = ""          # _tick_team acha o inimigo vivo mais próximo
+	f["tstate"] = "approach"
+	f["ttimer"] = 0.0
+	order.append(f)
+	fighters[str(f["name"])] = f
+	return f
+
+# [GUERRA_GAUNTLET] Repõe o campo do `team` com até 3 frescos da reserva (só o perdedor repõe — Modelo B).
+func _refill_side(team: int) -> void:
+	var resv: Array = _resv_ally if team == -1 else _resv_foe
+	var n := mini(3, resv.size())
+	for lane in n:
+		_spawn_team(resv.pop_front(), team, lane)
+
+# [GUERRA_GAUNTLET] Tira os corpos (mortos) entre ondas pra não acumular nós 3D na cena.
+func _clear_corpses() -> void:
+	var keep: Array = []
+	for f in order:
+		if f.get("dead", false):
+			var n = f.get("node")
+			if n != null and is_instance_valid(n): n.queue_free()
+			var bar = f.get("bar")
+			if bar != null and is_instance_valid(bar): bar.queue_free()
+			fighters.erase(str(f["name"]))
+		else:
+			keep.append(f)
+	order = keep
 
 func _dress(node: Node3D, skel: Skeleton3D, equipped_types: Array) -> void:
 	if skel == null: return
@@ -931,7 +963,17 @@ func _tick_team(dt: float) -> void:
 			if int(f["team"]) == -1: na += 1
 			else: nf += 1
 	if na == 0 or nf == 0:
-		_finish()
+		# [GUERRA_GAUNTLET] Modelo B: o lado ZERADO (perdedor) repõe 3 frescos; o vencedor mantém os sobreviventes.
+		var refill_ally := na == 0 and not _resv_ally.is_empty()
+		var refill_foe := nf == 0 and not _resv_foe.is_empty()
+		if refill_ally or refill_foe:
+			_clear_corpses()
+			_team_wave += 1
+			if refill_ally: _refill_side(-1)
+			if refill_foe: _refill_side(1)
+			_status("Onda %d" % _team_wave)
+		else:
+			_finish()
 		return
 	for f in order:
 		if f["dead"]:
