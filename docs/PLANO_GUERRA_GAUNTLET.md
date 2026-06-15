@@ -48,9 +48,9 @@ Um único `List<BattleEvent>` agregado da guerra inteira:
 - `Territory.gd`: botão **"Assistir última batalha"** quando há replay → `request_battle` com os eventos puxados do `/replay`.
 
 ## Fases (commits incrementais)
-1. **Backend core**: helper `strike` + `GauntletWarSimulator` (melee 3v3 + driver Modelo B) + `BattleEvent.side/wave` + **testes** (`GauntletWarTest`: trio forte varre; 15v15 termina; HP carrega; cap de rodadas).
-2. **Backend wiring**: `TerritoryService` usa o gauntlet; persiste eventos; endpoint `/replay`. Roda `mvn -o clean test` (H2) + perfil postgres.
-3. **Frontend**: replay orientado a eventos com ondas + botão "assistir" na Território.
+1. ✅ **Backend core** (commit e3fe1a2): `GauntletWarSimulator` (melee 3v3 + driver Modelo B) com **evento próprio `WarEvent`** (side/wave) — desacoplado do `BattleSimulator` (havia WIP de outra aba lá; usa só APIs do HEAD: `hitChance`/`critChance`/`mitigatedDamage` + `Element.multiplier`). Testes `GauntletWarTest` (4) + suíte (646) verdes.
+3. ✅ **Frontend visual** (commit 564f884): team-mode do `BattleReplay` vira gauntlet 15v15 — reservas de 15/lado, campo 3v3, perdedor repõe 3 / vencedor mantém sobreviventes, limpa corpos entre ondas, "Onda N". **Gated no `force_mock`** (1v1 real intacto). Testável no Godot via F6/force_mock. ⚠️ não testado em runtime ainda (iterar).
+2. ⏳ **Backend wiring** (pendente): `TerritoryService` usa o gauntlet; persiste `WarEvent` (coluna nova) + endpoint `GET /api/territory/{id}/replay`; e o `BattleReplay` passa a tocar os eventos REAIS (hoje é sim local). Mantém war fatigue / debuff / persistência de HP. ⚠️ toca `TerritoryService` (e talvez `GuildWarService`, que tinha WIP solta).
 
 ## Em aberto / tuning (placeholders)
 - Ordem da fila (poder? frescor? posição da formação?).
