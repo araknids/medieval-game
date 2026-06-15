@@ -334,7 +334,7 @@ func _attr_row(a: Array, can_add: bool) -> Control:
 	nm.add_theme_color_override("font_color", UiKit.TEXT)
 	row.add_child(nm)
 	var val := Label.new()
-	val.text = str(w.get(key, 0))
+	val.text = str(int(w.get(key, 0)))
 	val.custom_minimum_size = Vector2(34, 0)
 	val.add_theme_font_size_override("font_size", 16)
 	val.add_theme_color_override("font_color", UiKit.GOLD)
@@ -353,21 +353,24 @@ func _attr_row(a: Array, can_add: bool) -> Control:
 		row.add_child(plus)
 	return row
 
-# Ganho EXATO por +1 ponto (fórmulas do backend committado = prod). [REBALANCE v2]
+# Contribuição TOTAL do valor ATUAL do atributo (não por ponto). Fórmulas do backend committado = prod.
+# Ex.: DEX 15 → "+15% acerto · +15 atq (arco)". CON tem soft-cap (8/4/2 por faixa). [REBALANCE v2]
 func _attr_gain(key: String, sig: String) -> String:
+	var v := int(w.get(key, 0))
 	match sig:
 		"STR":
-			return Lang.t("+1 de ataque")
+			return Lang.t("+%d de ataque") % v
 		"CON":
-			var con := int(w.get("constitution", 0))
-			var per := 8 if con < 40 else (4 if con < 80 else 2)
-			return Lang.t("+%d de vida") % per
+			var t1 := mini(v, 40) * 8
+			var t2 := clampi(v - 40, 0, 40) * 4
+			var t3 := maxi(v - 80, 0) * 2
+			return Lang.t("+%d de vida") % (t1 + t2 + t3)
 		"DEX":
-			return Lang.t("+1% acerto (arco: +1 atq)")
+			return Lang.t("+%d%% acerto · +%d atq (arco)") % [v, v]
 		"AGI":
-			return Lang.t("+1% golpe extra · +0,6% esquiva")
+			return Lang.t("+%d%% golpe · +%d%% esquiva") % [v, (v * 3) / 5]
 		"LUK":
-			return Lang.t("+0,5% de crítico")
+			return Lang.t("+%d%% de crítico") % mini(v / 2, 30)
 		"INT":
 			return Lang.t("reservado (Mago)")
 	return ""
