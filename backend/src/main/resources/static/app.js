@@ -459,7 +459,7 @@ async function loadWarrior() {
   })() : '';
 
   // [ELEMENTOS] Selos de encantamento ativo (arma/armadura) + tempo restante.
-  const ELEM_ICON = { FIRE:'🔥', WATER:'💧', EARTH:'🪨', AIR:'💨' };
+  const ELEM_ICON = { FIRE:pxIcon('elem_fire'), WATER:pxIcon('elem_water'), EARTH:pxIcon('elem_earth'), AIR:pxIcon('elem_air') };
   const enchantLine = (() => {
     const seal = (label, elem, secs) => !elem ? '' :
       `<span style="font-size:.72rem;padding:2px 6px;margin-right:4px;background:#1a2433;border:1px solid #4a7;border-radius:4px;color:#bfe">
@@ -1326,11 +1326,11 @@ function compareHtml(cand, slot) {
 
 // [REBALANCE] cap = maior cap entre as classes (o backend ainda valida o cap real da SUA classe).
 const ATTR_INFO = {
-  STRENGTH:     { icon: '⚔',  label: 'Strength (STR)',     cap: 80,  effect: '+1 ATK/pt — melee damage (sword/axe/mace)' },
-  DEXTERITY:    { icon: '🎯', label: 'Dexterity (DEX)',    cap: 60,  effect: 'Accuracy (d20 + DEX/5) — and bow damage for Archers' },
-  CONSTITUTION: { icon: '❤',  label: 'Constitution (CON)', cap: null, effect: '+8 HP per point · no cap' },
-  AGILITY:      { icon: '💨', label: 'Agility (AGI)',      cap: 55,  effect: 'Speed — extra strikes vs slower foes + dodge incoming hits' },
-  LUCK:         { icon: '🍀', label: 'Luck (LUK)',         cap: 70,  effect: '+1% drop · widens crit window · Fortune Save' },
+  STRENGTH:     { icon: pxIcon('attr_strength'),     label: 'Strength (STR)',     cap: 80,  effect: '+1 ATK/pt — melee damage (sword/axe/mace)' },
+  DEXTERITY:    { icon: pxIcon('attr_dexterity'),    label: 'Dexterity (DEX)',    cap: 60,  effect: 'Accuracy (d20 + DEX/5) — and bow damage for Archers' },
+  CONSTITUTION: { icon: pxIcon('attr_constitution'), label: 'Constitution (CON)', cap: null, effect: '+8 HP per point · no cap' },
+  AGILITY:      { icon: pxIcon('attr_agility'),      label: 'Agility (AGI)',      cap: 55,  effect: 'Speed — extra strikes vs slower foes + dodge incoming hits' },
+  LUCK:         { icon: pxIcon('attr_luck'),         label: 'Luck (LUK)',         cap: 70,  effect: '+1% drop · widens crit window · Fortune Save' },
   // [INT_RESERVADO] INT está reservado p/ a futura classe Mage (S2) — não aparece nem é investível ainda.
 };
 
@@ -1682,7 +1682,7 @@ async function loadSellList() {
 // Mostra sockets do item (com joias se tiver)
 function renderSockets(item) {
   const gems = item.gems || [];
-  const GEM_ICONS = {RUBY:'🔴',SAPPHIRE:'🔵',EMERALD:'💚',DIAMOND:'💎',AMETHYST:'🟣'};
+  const _g = pxIcon('res_gem'); const GEM_ICONS = {RUBY:_g,SAPPHIRE:_g,EMERALD:_g,DIAMOND:_g,AMETHYST:_g};
   let slots = '';
   for (let i = 0; i < item.sockets; i++) {
     const gem = gems.find(g => g.slot === i);
@@ -2079,13 +2079,16 @@ const FISH_DESCRIPTIONS = {
   LEGENDARY_FISH: '+80 stamina + temporary XP buff',
 };
 
+// [PIXEL_UI] Ícones pixel por família (tier vem do texto do nome). pxIcon é hoisted (function decl).
+const _FISH = pxIcon('res_fish'), _ORE = pxIcon('res_ore'), _BAR = pxIcon('res_bar'),
+      _GEM = pxIcon('res_gem'), _LEATHER = pxIcon('res_leather');
 const RESOURCE_ICONS = {
-  SMALL_FISH:'🐟', SALMON:'🐠', TUNA:'🐡', SHARK:'🦈', LEGENDARY_FISH:'🐉',
-  COPPER_ORE:'🟤', IRON_ORE:'⬛', SILVER_ORE:'⬜', GOLD_ORE:'🟡', MITHRIL_ORE:'🔷',
-  RUBY_FRAGMENT:'💠', SAPPHIRE_FRAGMENT:'🔹', EMERALD_FRAGMENT:'💚', DIAMOND_FRAGMENT:'🔶', AMETHYST_FRAGMENT:'🟣',
-  COPPER_BAR:'🟫', IRON_BAR:'⚫', SILVER_BAR:'🪨', GOLD_BAR:'🌟', MITHRIL_BAR:'💎',
-  RUBY:'🔴', SAPPHIRE:'🔵', EMERALD:'💚', DIAMOND:'💎', AMETHYST:'🟣',
-  LEATHER:'🟫',
+  SMALL_FISH:_FISH, SALMON:_FISH, TUNA:_FISH, SHARK:_FISH, LEGENDARY_FISH:_FISH,
+  COPPER_ORE:_ORE, IRON_ORE:_ORE, SILVER_ORE:_ORE, GOLD_ORE:_ORE, MITHRIL_ORE:_ORE,
+  RUBY_FRAGMENT:_GEM, SAPPHIRE_FRAGMENT:_GEM, EMERALD_FRAGMENT:_GEM, DIAMOND_FRAGMENT:_GEM, AMETHYST_FRAGMENT:_GEM,
+  COPPER_BAR:_BAR, IRON_BAR:_BAR, SILVER_BAR:_BAR, GOLD_BAR:_BAR, MITHRIL_BAR:_BAR,
+  RUBY:_GEM, SAPPHIRE:_GEM, EMERALD:_GEM, DIAMOND:_GEM, AMETHYST:_GEM,
+  LEATHER:_LEATHER,
 };
 
 function getSkill(type) {
@@ -2560,7 +2563,7 @@ async function showTowerLobby() {
     <div class="tower-enter-box">
       <div class="tower-enter-title">${t('tower.enter_btn')}</div>
       <p style="color:#888;font-size:.82rem;margin:.4rem 0">
-        Cost: <span class="stamina-cost">⚡ 25 stamina</span>
+        Cost: <span class="stamina-cost">${pxIcon('stamina')} 25 stamina</span>
         &nbsp;·&nbsp; ${t('tower.your_stamina')} <strong>${stamina}/100</strong>
       </p>
       <p style="color:#888;font-size:.8rem;margin-bottom:.8rem">
@@ -2731,7 +2734,7 @@ function renderFightArea() {
       <div class="fight-box">
         <h3>Entrar em batalha</h3>
         <p style="color:#888;font-size:.83rem;margin-bottom:.5rem">
-          Cost: <span class="stamina-cost">⚡ 25 stamina</span> &nbsp;·&nbsp; ${t('tower.your_stamina')} <strong>${stamina}/100</strong>
+          Cost: <span class="stamina-cost">${pxIcon('stamina')} 25 stamina</span> &nbsp;·&nbsp; ${t('tower.your_stamina')} <strong>${stamina}/100</strong>
         </p>
         <p style="color:#888;font-size:.83rem;margin-bottom:.8rem">
           Duelo instantâneo. Vitória: +25 rank, ${fmtBronze(200)}.
@@ -2782,7 +2785,7 @@ async function openClassTrial() {
   }
   closeCollectModal();
   const color = '#a855f7';
-  const CLASS_ICON = { WARRIOR: '🛡', ARCHER: '🏹', MERCHANT: '💰' }; // [MERCADOR]
+  const CLASS_ICON = { WARRIOR: pxIcon('slot_shield'), ARCHER: pxIcon('bow'), MERCHANT: pxIcon('gold') }; // [MERCADOR]
   // [TRIAL_CUSTO] precisa TER Monster Core suficiente (bag + stash) p/ encarar o Guardião; só consome se vencer.
   const costCore = info.monsterCoreCost ?? 0, haveCore = info.monsterCoreHave ?? 0;
   const enough = haveCore >= costCore;
@@ -2827,7 +2830,7 @@ async function openClassTrial() {
 function chooseClassPath(pathId) {
   const p = (classTrialInfo?.paths || []).find(x => x.id === pathId);
   if (!p) { attemptClassTrial(pathId); return; } // fallback: sem intro, vai direto
-  const CLASS_ICON = { WARRIOR: '🛡', ARCHER: '🏹', MERCHANT: '💰' };
+  const CLASS_ICON = { WARRIOR: pxIcon('slot_shield'), ARCHER: pxIcon('bow'), MERCHANT: pxIcon('gold') };
   const color = '#a855f7';
   const costCore = classTrialInfo?.monsterCoreCost ?? 0;
   closeCollectModal();
@@ -4038,8 +4041,8 @@ function renderKingdomDetail(kingdom, quests, activeQuests, training, zoneSessio
     ];
     // [ELEMENTOS] Picker de área (monstros desse elemento + dropa a essência), igual aos reinos de coleta.
     const C_ELEMENTS = [
-      { id:'FIRE', icon:'🔥', name:'Fire' }, { id:'WATER', icon:'💧', name:'Water' },
-      { id:'EARTH', icon:'🪨', name:'Earth' }, { id:'AIR', icon:'💨', name:'Air' },
+      { id:'FIRE', icon:pxIcon('elem_fire'), name:'Fire' }, { id:'WATER', icon:pxIcon('elem_water'), name:'Water' },
+      { id:'EARTH', icon:pxIcon('elem_earth'), name:'Earth' }, { id:'AIR', icon:pxIcon('elem_air'), name:'Air' },
     ];
     const cElemPicker = `
       <div style="margin-bottom:10px">
@@ -4110,8 +4113,8 @@ function renderKingdomDetail(kingdom, quests, activeQuests, training, zoneSessio
 
     // [ELEMENTOS] Picker de área de elemento — dropa a essência do elemento + monstros desse elemento.
     const ZONE_ELEMENTS = [
-      { id:'FIRE', icon:'🔥', name:'Fire' }, { id:'WATER', icon:'💧', name:'Water' },
-      { id:'EARTH', icon:'🪨', name:'Earth' }, { id:'AIR', icon:'💨', name:'Air' },
+      { id:'FIRE', icon:pxIcon('elem_fire'), name:'Fire' }, { id:'WATER', icon:pxIcon('elem_water'), name:'Water' },
+      { id:'EARTH', icon:pxIcon('elem_earth'), name:'Earth' }, { id:'AIR', icon:pxIcon('elem_air'), name:'Air' },
     ];
     const elemPicker = `
       <div style="margin-bottom:10px">
@@ -4840,7 +4843,7 @@ const DELVE_KINGDOMS = [
   ['GRUTAS_DE_CRISTAL', '🔮 Crystal Grottoes'], ['MAR_ABENCOADO', '🌊 Blessed Sea'],
 ];
 const DELVE_SKILLS = [['FISHING', '🎣 Fishing'], ['MINING', '⛏ Mining'], ['GARIMPO', '🔎 Prospecting']];
-const DELVE_ELEMENTS = [['', '∅'], ['FIRE', '🔥'], ['WATER', '💧'], ['EARTH', '🪨'], ['AIR', '💨']];
+const DELVE_ELEMENTS = [['', '∅'], ['FIRE', pxIcon('elem_fire')], ['WATER', pxIcon('elem_water')], ['EARTH', pxIcon('elem_earth')], ['AIR', pxIcon('elem_air')]];
 
 // [INCURSAO] Lança uma Incursão a partir de uma ZONA do reino (verde/amarela/vermelha = tier 1/2/3).
 // Cor = dificuldade + loot. Substitui o antigo enter→collect de zona. A aba Delve saiu: entra-se por aqui.
