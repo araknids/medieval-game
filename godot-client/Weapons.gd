@@ -30,9 +30,9 @@ const HAND_XF := {
 	"axe":        [0.20, 0.05, 0.04, Vector3(0, 180, -90)],   # cabeça estava virada pra trás → flip Y
 	"spear":      [0.18, 0.05, 0.04, Vector3(0, 0, -90)],
 	"mace":       [0.22, 0.05, 0.04, Vector3(0, 180, -90)],   # idem
-	"shortbow":   [0.24, 0.07, 0.04, Vector3(0, 180, -30)],   # flip Y + giro p/ endireitar na mão
-	"longbow":    [0.24, 0.07, 0.04, Vector3(0, 180, -30)],
-	"crossbow":   [0.24, 0.07, 0.04, Vector3(0, 180, -30)],
+	"shortbow":   [0.24, 0.07, 0.04, Vector3(0, 180, -50)],   # flip Y + giro p/ endireitar na mão
+	"longbow":    [0.24, 0.07, 0.04, Vector3(0, 180, -50)],
+	"crossbow":   [0.24, 0.07, 0.04, Vector3(0, 180, -50)],
 }
 
 # Escudo no antebraço: escala + base de posição (somada aos opts slide/push/side) + rotação. [ARMAS_3D]
