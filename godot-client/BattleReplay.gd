@@ -921,8 +921,17 @@ func _tick_team(dt: float) -> void:
 		var tn := tgt["node"] as Node3D
 		match str(f.get("tstate", "approach")):
 			"approach":
-				# ponto de ataque: no Z (lane) do alvo + no lado do TIME no X → bate de FRENTE, não de lado
-				var desired := Vector3(tn.position.x + float(f["team"]) * ATTACK_RANGE, f["base_y"], tn.position.z)
+				# vários atacantes no MESMO alvo → cada um num ÂNGULO ao redor dele (flanqueia, não empilha).
+				# slot = posição entre os co-atacantes (mesmo time, mesmo alvo); base = lado do time no X.
+				var co: Array = []
+				for o in order:
+					if not o["dead"] and int(o["team"]) == int(f["team"]) and str(o.get("ctarget", "")) == str(tgt["name"]):
+						co.append(str(o["name"]))
+				co.sort()
+				var slot := maxi(0, co.find(str(f["name"])))
+				var nslot := maxi(1, co.size())
+				var ang := deg_to_rad(90.0 * float(f["team"])) + deg_to_rad(40.0) * (float(slot) - float(nslot - 1) * 0.5)
+				var desired := Vector3(tn.position.x + sin(ang) * ATTACK_RANGE, f["base_y"], tn.position.z + cos(ang) * ATTACK_RANGE)
 				if not f["ranged"]:
 					var prev := sn.position
 					sn.position = sn.position.move_toward(desired, MELEE_SPEED * dt)
