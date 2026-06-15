@@ -333,48 +333,104 @@ func _bag_card(it) -> Control:
 
 # ⚔ Atributos ──────────────────────────────────────────────────────────────────────────
 func _render_attr_panel() -> void:
+	# ── Stats de combate efetivos (atk total etc.) ──
+	_panel_host.add_child(UiKit.section("Combate"))
+	_panel_host.add_child(_combat_stats_grid())
+	# ── Atributos (gastar ponto) — compacto ──
 	var pts := int(w.get("availablePoints", 0))
 	var ttl := Lang.t("Atributos")
 	if pts > 0:
 		ttl += "  (%d %s)" % [pts, Lang.t("livre") if pts == 1 else Lang.t("livres")]
 	_panel_host.add_child(UiKit.section(ttl))
+	var col := VBoxContainer.new()
+	col.add_theme_constant_override("separation", 2)     # linhas bem juntas (menos espaçado)
 	for a in ATTRS:
-		_panel_host.add_child(_attr_row(a, pts > 0))
-	_panel_host.add_child(UiKit.spacer(6))
-	_panel_host.add_child(UiKit.dim("Ataque, defesa e HP efetivos estão na barra de cima."))
+		col.add_child(_attr_row(a, pts > 0))
+	_panel_host.add_child(col)
 
-# Linha: [ícone] [sigla] [valor] [o que aumenta] [+]. O "+" fica logo após o efeito (não no canto).
+# Grade 2-col com os stats efetivos (lê o WarriorResponse; crit = 5 + LUK/2, cap 35).
+func _combat_stats_grid() -> GridContainer:
+	var g := GridContainer.new()
+	g.columns = 2
+	g.add_theme_constant_override("h_separation", 18)
+	g.add_theme_constant_override("v_separation", 4)
+	var crit := clampi(5 + int(w.get("luck", 0)) / 2, 5, 35)
+	g.add_child(_stat_chip("stat_atk", "Ataque", str(int(w.get("combatAttack", w.get("totalAttack", 0))))))
+	g.add_child(_stat_chip("slot_shield", "Defesa", str(int(w.get("combatDefense", w.get("totalDefense", 0))))))
+	g.add_child(_stat_chip("hp", "Vida", str(int(w.get("combatHealth", w.get("totalHealth", 0))))))
+	g.add_child(_stat_chip("attr_luck", "Crítico", "%d%%" % crit))
+	g.add_child(_stat_chip("attr_agility", "Esquiva", "%d%%" % int(w.get("evasionChance", 0))))
+	g.add_child(_stat_chip("arena", "Rank", str(int(w.get("rankPoints", 0)))))
+	return g
+
+func _stat_chip(icon_key: String, label: String, value: String) -> HBoxContainer:
+	var h := HBoxContainer.new()
+	h.add_theme_constant_override("separation", 6)
+	if Icons.tex(icon_key) != null:
+		h.add_child(Icons.rect(icon_key, 18))
+	var k := Label.new()
+	k.text = Lang.t(label)
+	k.custom_minimum_size = Vector2(58, 0)
+	k.add_theme_font_size_override("font_size", 12)
+	k.add_theme_color_override("font_color", UiKit.TEXT_DIM)
+	h.add_child(k)
+	var v := Label.new()
+	v.text = value
+	v.add_theme_font_size_override("font_size", 14)
+	v.add_theme_color_override("font_color", UiKit.GOLD)
+	h.add_child(v)
+	return h
+
+# Linha compacta: [ícone] [sigla] [valor] [o que aumenta] [botão de cura/atribuir].
 func _attr_row(a: Array, can_add: bool) -> Control:
 	var key := str(a[0])
 	var sig := str(a[1])
 	var row := HBoxContainer.new()
 	row.add_theme_constant_override("separation", 8)
-	row.add_child(Icons.rect("attr_" + key, 24))
+	row.add_child(Icons.rect("attr_" + key, 20))
 	var nm := Label.new()
 	nm.text = sig
-	nm.custom_minimum_size = Vector2(46, 0)
-	nm.add_theme_font_size_override("font_size", 15)
+	nm.custom_minimum_size = Vector2(40, 0)
+	nm.add_theme_font_size_override("font_size", 13)
 	nm.add_theme_color_override("font_color", UiKit.TEXT)
 	row.add_child(nm)
 	var val := Label.new()
 	val.text = str(int(w.get(key, 0)))
-	val.custom_minimum_size = Vector2(34, 0)
-	val.add_theme_font_size_override("font_size", 16)
+	val.custom_minimum_size = Vector2(30, 0)
+	val.add_theme_font_size_override("font_size", 14)
 	val.add_theme_color_override("font_color", UiKit.GOLD)
 	row.add_child(val)
 	var eff := Label.new()
-	eff.text = _attr_gain(key, sig)                     # ganho EXATO por ponto (inline)
-	eff.custom_minimum_size = Vector2(200, 0)           # largura fixa → o "+" alinha em coluna e fica perto
-	eff.add_theme_font_size_override("font_size", 12)
+	eff.text = _attr_gain(key, sig)                     # ganho total inline
+	eff.custom_minimum_size = Vector2(178, 0)           # largura fixa → o botão fica perto
+	eff.add_theme_font_size_override("font_size", 11)
 	eff.add_theme_color_override("font_color", UiKit.OK)
 	eff.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	row.add_child(eff)
 	if can_add:
-		var plus := UiKit.icon_btn("+", func() -> void: await _spend(key))
-		plus.custom_minimum_size = Vector2(36, 36)
-		plus.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-		row.add_child(plus)
+		row.add_child(_attr_add_btn(key, sig))
 	return row
+
+# Botão de ATRIBUIR ponto = o ícone de cura (cruz) reaproveitado. Fallback: botão de pedra "+".
+func _attr_add_btn(key: String, sig: String) -> Control:
+	var t := Icons.tex("heal")
+	if t != null:
+		var b := TextureButton.new()
+		b.texture_normal = t
+		b.ignore_texture_size = true
+		b.stretch_mode = TextureButton.STRETCH_KEEP_ASPECT_CENTERED
+		b.custom_minimum_size = Vector2(32, 32)
+		b.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+		b.modulate = Color(1, 1, 1, 0.9)
+		b.tooltip_text = Lang.t("Atribuir 1 ponto em %s") % sig
+		b.mouse_entered.connect(func() -> void: b.modulate = Color(1, 1, 1, 1))
+		b.mouse_exited.connect(func() -> void: b.modulate = Color(1, 1, 1, 0.9))
+		b.pressed.connect(func() -> void: await _spend(key))
+		return b
+	var fb := UiKit.icon_btn("+", func() -> void: await _spend(key))
+	fb.custom_minimum_size = Vector2(32, 32)
+	fb.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	return fb
 
 # Contribuição TOTAL do valor ATUAL do atributo (não por ponto). Fórmulas do backend committado = prod.
 # Ex.: DEX 15 → "+15% acerto · +15 atq (arco)". CON tem soft-cap (8/4/2 por faixa). [REBALANCE v2]

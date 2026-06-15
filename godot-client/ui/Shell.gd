@@ -290,9 +290,12 @@ func _vital_row(icon_key: String, bar: ProgressBar, value_lbl: Label, tip: Strin
 	h.add_child(value_lbl)
 	return h
 
-# Botão de cura: ícone pixel (cruz vermelha) → cura no Templo sem trocar de tela. Fallback ❤ se não importado.
+# Botão de cura do Templo: ícone do anjo curando o cavaleiro (heal_temple) → cura sem trocar de tela.
+# Fallback: ícone antigo (cruz) → ❤. [FICHA_PERSONAGEM] a cruz agora é o botão de atribuir atributo.
 func _heal_button() -> Control:
-	var t := Icons.tex("heal")
+	var t := Icons.tex("heal_temple")
+	if t == null:
+		t = Icons.tex("heal")
 	if t != null:
 		var b := TextureButton.new()
 		b.texture_normal = t
