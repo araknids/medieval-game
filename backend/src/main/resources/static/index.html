@@ -60,8 +60,8 @@
         <span id="hdr-currency"></span>
         <span id="hdr-rank"></span>
         <!-- [PILOTO_UI] quick actions: curar e abrir bag em 1 clique de qualquer tela -->
-        <button id="hdr-heal" class="hdr-quick gold" onclick="healWarrior()" title="Heal your warrior">＋ Heal</button>
-        <button class="hdr-quick" onclick="goTo('inventory')" title="Open bag (inventory)">🎒 Bag</button>
+        <button id="hdr-heal" class="hdr-quick gold" onclick="healWarrior()" title="Heal your warrior"><img class="px-icon cur-ico" src="/assets/ui/icons/hp.png" alt="">Heal</button>
+        <button class="hdr-quick" onclick="goTo('inventory')" title="Open bag (inventory)"><img class="px-icon cur-ico" src="/assets/ui/icons/inventory.png" alt="">Bag</button>
         <button onclick="logout()" style="margin-left:.4rem;padding:.2rem .7rem;font-size:.8rem">Exit</button>
       </div>
     </header>
@@ -77,29 +77,29 @@
         <!-- NAV: 5 grupos por intenção (topo) + sub-linha do grupo ativo. Todos os destinos
              continuam acessíveis (nada escondido) — só reagrupados. [PILOTO_UI nav 9→5] -->
         <nav class="group-nav" id="group-nav">
-          <button class="grp-btn active" data-grp="adventure" onclick="goGroup('adventure')"><span class="grp-ico">🗺</span><span class="grp-label">Adventure</span></button>
-          <button class="grp-btn"        data-grp="character" onclick="goGroup('character')"><span class="grp-ico">👤</span><span class="grp-label" data-i18n="nav.character">Character</span></button>
-          <button class="grp-btn"        data-grp="town"      onclick="goGroup('town')"><span class="grp-ico">🏪</span><span class="grp-label" data-i18n="nav.commerce">Commerce</span></button>
-          <button class="grp-btn"        data-grp="work"      onclick="goGroup('work')"><span class="grp-ico">⚒</span><span class="grp-label" data-i18n="nav.work">Work</span></button>
-          <button class="grp-btn"        data-grp="temple"    onclick="goGroup('temple')"><span class="grp-ico">⛪</span><span class="grp-label" data-i18n="nav.temple">Temple</span></button>
-          <button class="grp-btn"        data-grp="battle"    onclick="goGroup('battle')"><span class="grp-ico">⚔</span><span class="grp-label">Battle</span></button>
-          <button class="grp-btn"        data-grp="social"    onclick="goGroup('social')"><span class="grp-ico">📜</span><span class="grp-label">Social</span> <span id="grp-social-dot" style="display:none;width:7px;height:7px;border-radius:50%;background:#ef5350;vertical-align:middle;margin-left:1px"></span></button>
+          <button class="grp-btn active" data-grp="adventure" onclick="goGroup('adventure')"><img class="px-icon grp-ico" src="/assets/ui/icons/world.png" alt=""><span class="grp-label">Adventure</span></button>
+          <button class="grp-btn"        data-grp="character" onclick="goGroup('character')"><img class="px-icon grp-ico" src="/assets/ui/icons/character.png" alt=""><span class="grp-label" data-i18n="nav.character">Character</span></button>
+          <button class="grp-btn"        data-grp="town"      onclick="goGroup('town')"><img class="px-icon grp-ico" src="/assets/ui/icons/shop.png" alt=""><span class="grp-label" data-i18n="nav.commerce">Commerce</span></button>
+          <button class="grp-btn"        data-grp="work"      onclick="goGroup('work')"><img class="px-icon grp-ico" src="/assets/ui/icons/work.png" alt=""><span class="grp-label" data-i18n="nav.work">Work</span></button>
+          <button class="grp-btn"        data-grp="temple"    onclick="goGroup('temple')"><img class="px-icon grp-ico" src="/assets/ui/icons/temple.png" alt=""><span class="grp-label" data-i18n="nav.temple">Temple</span></button>
+          <button class="grp-btn"        data-grp="battle"    onclick="goGroup('battle')"><img class="px-icon grp-ico" src="/assets/ui/icons/arena.png" alt=""><span class="grp-label">Battle</span></button>
+          <button class="grp-btn"        data-grp="social"    onclick="goGroup('social')"><img class="px-icon grp-ico" src="/assets/ui/icons/guild.png" alt=""><span class="grp-label">Social</span> <span id="grp-social-dot" style="display:none;width:7px;height:7px;border-radius:50%;background:#ef5350;vertical-align:middle;margin-left:1px"></span></button>
           <button id="lang-toggle" class="grp-btn" onclick="toggleLanguage()" style="margin-left:auto;background:#1a3a1a;border-color:#2e7d32" title="Switch language">🌐 EN</button>
         </nav>
         <nav class="location-nav" id="loc-nav">
-          <button id="loc-world"     data-grp="adventure" class="loc-btn active" onclick="goTo('world')">🌍 World</button>
+          <button id="loc-world"     data-grp="adventure" class="loc-btn active" onclick="goTo('world')"><img class="px-icon nav-ico" src="/assets/ui/icons/world.png" alt="">World</button>
           <!-- [INCURSAO] aba Delve removida da nav: a Incursão é jogada entrando numa ZONA do reino (World).
                O painel #loc-panel-expedition segue existindo como a tela da run (goTo('expedition') ainda funciona). -->
 
-          <button id="loc-inventory" data-grp="character" class="loc-btn"        onclick="goTo('inventory')">👤 <span data-i18n="nav.character">Character</span></button>
-          <button id="loc-commerce"  data-grp="town"      class="loc-btn"        onclick="goTo('commerce')">🛒 <span data-i18n="nav.commerce">Commerce</span></button>
-          <button id="loc-temple"    data-grp="temple"    class="loc-btn"        onclick="goTo('temple')">⛪ <span data-i18n="nav.temple">Temple</span></button>
-          <button id="loc-work"      data-grp="work"      class="loc-btn"        onclick="goTo('work')">⚒ <span data-i18n="nav.work">Work</span></button>
-          <button id="loc-tower"     data-grp="battle"    class="loc-btn"        onclick="goTo('tower')">🏰 <span data-i18n="nav.tower">Tower</span></button>
-          <button id="loc-arena"     data-grp="battle"    class="loc-btn"        onclick="goTo('arena')">⚔ Arena</button>
-          <button id="loc-guild"     data-grp="social"    class="loc-btn"        onclick="goTo('guild')">🛡 <span data-i18n="nav.guild">Guild</span></button>
-          <button id="loc-mail"      data-grp="social"    class="loc-btn"        onclick="goTo('mail')">📬 <span data-i18n="nav.mail">Mail</span> <span id="mail-badge" style="display:none;background:#ef5350;color:#fff;border-radius:10px;padding:0 5px;font-size:.7em"></span></button>
-          <button id="loc-daily"     data-grp="social"    class="loc-btn"        onclick="goTo('daily')">🎁 <span data-i18n="nav.daily">Daily</span> <span id="daily-badge" style="display:none;background:#ef5350;color:#fff;border-radius:10px;padding:0 5px;font-size:.7em">!</span></button>
+          <button id="loc-inventory" data-grp="character" class="loc-btn"        onclick="goTo('inventory')"><img class="px-icon nav-ico" src="/assets/ui/icons/character.png" alt=""><span data-i18n="nav.character">Character</span></button>
+          <button id="loc-commerce"  data-grp="town"      class="loc-btn"        onclick="goTo('commerce')"><img class="px-icon nav-ico" src="/assets/ui/icons/shop.png" alt=""><span data-i18n="nav.commerce">Commerce</span></button>
+          <button id="loc-temple"    data-grp="temple"    class="loc-btn"        onclick="goTo('temple')"><img class="px-icon nav-ico" src="/assets/ui/icons/temple.png" alt=""><span data-i18n="nav.temple">Temple</span></button>
+          <button id="loc-work"      data-grp="work"      class="loc-btn"        onclick="goTo('work')"><img class="px-icon nav-ico" src="/assets/ui/icons/work.png" alt=""><span data-i18n="nav.work">Work</span></button>
+          <button id="loc-tower"     data-grp="battle"    class="loc-btn"        onclick="goTo('tower')"><img class="px-icon nav-ico" src="/assets/ui/icons/tower.png" alt=""><span data-i18n="nav.tower">Tower</span></button>
+          <button id="loc-arena"     data-grp="battle"    class="loc-btn"        onclick="goTo('arena')"><img class="px-icon nav-ico" src="/assets/ui/icons/arena.png" alt="">Arena</button>
+          <button id="loc-guild"     data-grp="social"    class="loc-btn"        onclick="goTo('guild')"><img class="px-icon nav-ico" src="/assets/ui/icons/guild.png" alt=""><span data-i18n="nav.guild">Guild</span></button>
+          <button id="loc-mail"      data-grp="social"    class="loc-btn"        onclick="goTo('mail')"><img class="px-icon nav-ico" src="/assets/ui/icons/mail.png" alt=""><span data-i18n="nav.mail">Mail</span> <span id="mail-badge" style="display:none;background:#ef5350;color:#fff;border-radius:10px;padding:0 5px;font-size:.7em"></span></button>
+          <button id="loc-daily"     data-grp="social"    class="loc-btn"        onclick="goTo('daily')"><img class="px-icon nav-ico" src="/assets/ui/icons/daily.png" alt=""><span data-i18n="nav.daily">Daily</span> <span id="daily-badge" style="display:none;background:#ef5350;color:#fff;border-radius:10px;padding:0 5px;font-size:.7em">!</span></button>
         </nav>
 
         <!-- PERSONAGEM -->
