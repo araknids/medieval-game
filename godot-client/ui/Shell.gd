@@ -71,7 +71,7 @@ var _stam_bar: ProgressBar
 var _stam_lbl: Label
 var _coins: Dictionary = {}     # key -> Label
 var _stat_lbls: Dictionary = {}  # store_key -> Label do valor (ATK/DEF/HP/EVA no topbar) [TOPBAR]
-var _buffs_box: HBoxContainer    # badges dos buffs ativos (templo/vip/refeição/encanto/novato/taverna)
+var _buffs_box: HFlowContainer    # badges dos buffs ativos (templo/vip/refeição/encanto/novato/taverna) — linha própria que QUEBRA
 var _nav_buttons: Dictionary = {}   # nome da tela -> Button (destaque do ativo)
 var _cache := {}        # nome da tela → node (MANTIDA em memória; alterna visibilidade, não recria)
 var _cache_ver := {}    # nome → mutation_count na última atualização (revisita só refaz request se algo mudou)
@@ -117,9 +117,12 @@ func _build_topbar() -> Control:
 	sb.border_width_bottom = 2
 	sb.set_content_margin_all(8)
 	pc.add_theme_stylebox_override("panel", sb)
+	var col := VBoxContainer.new()   # [TOPBAR_BUFFS] coluna: linha principal + linha de buffs abaixo
+	col.add_theme_constant_override("separation", 6)
+	pc.add_child(col)
 	var row := HBoxContainer.new()
 	row.add_theme_constant_override("separation", 14)
-	pc.add_child(row)
+	col.add_child(row)
 	# busto num quadro de pedra
 	var frame := PanelContainer.new()
 	var fb := StyleBoxFlat.new()
@@ -185,11 +188,13 @@ func _build_topbar() -> Control:
 	c2.add_child(_coin("soulstone"))
 	coinbox.add_child(c2)
 	row.add_child(coinbox)
-	# buffs ativos (badges com tooltip) — populados em update_topbar
-	_buffs_box = HBoxContainer.new()
-	_buffs_box.add_theme_constant_override("separation", 5)
-	_buffs_box.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	row.add_child(_buffs_box)
+	# [TOPBAR_BUFFS] buffs ativos numa LINHA PRÓPRIA abaixo do topbar — sempre visível (não some
+	# no canto direito como antes) e QUEBRA pra próxima linha quando há vários. Populado em update_topbar.
+	_buffs_box = HFlowContainer.new()
+	_buffs_box.add_theme_constant_override("h_separation", 6)
+	_buffs_box.add_theme_constant_override("v_separation", 4)
+	_buffs_box.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	col.add_child(_buffs_box)
 	return pc
 
 func _coin(key: String) -> HBoxContainer:
@@ -625,6 +630,18 @@ func _refresh_buffs(w: Dictionary) -> void:
 	var tav := float(w.get("tavernBuffPct", 0.0))
 	if tav > 0.0:
 		_buffs_box.add_child(_buff_badge_icon("tavern", "+%.2f%%" % tav, Lang.t("Buff da Taverna: +%.2f%% em TODOS os stats — %s") % [tav, _fmt_left(int(w.get("tavernBuffSecondsLeft", 0)))]))
+	# [TOPBAR_BUFFS] prefixo "Buffs:" só quando há algum; esconde a linha inteira se não há nenhum
+	if _buffs_box.get_child_count() > 0:
+		var lbl := Label.new()
+		lbl.text = Lang.t("Buffs:")
+		lbl.add_theme_font_size_override("font_size", 12)
+		lbl.add_theme_color_override("font_color", UiKit.TEXT_DIM)
+		lbl.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+		_buffs_box.add_child(lbl)
+		_buffs_box.move_child(lbl, 0)
+		_buffs_box.visible = true
+	else:
+		_buffs_box.visible = false
 
 func _buff_badge(text: String, tip: String) -> Control:
 	var pc := PanelContainer.new()
