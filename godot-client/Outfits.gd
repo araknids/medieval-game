@@ -184,8 +184,10 @@ static func piece_path_theme(theme: String, slot: String, gender := "male", seed
 	var base := _base(theme, slot, gender, seed_name)
 	return "res://assets/outfits/%s/%s.gltf" % [_dir_for(base), base] if base != "" else ""
 
-static func icon_path_theme(theme: String, slot: String) -> String:
-	var base := _base(theme, slot, "male")   # ícone 2D = variante principal (índice 0)
+# ícone 2D = MESMA variante que o boneco 3D veste (seed = nome do item), só que sempre Male (thumb
+# gênero-neutro). seed=="" → peça principal. [OUTFITS_VARIANTES]
+static func icon_path_theme(theme: String, slot: String, seed_name := "") -> String:
+	var base := _base(theme, slot, "male", seed_name)
 	return "res://assets/outfits/icons/%s.png" % base if base != "" else ""
 
 # ── por ITEM (o caso padrão — visual vem do item) ──
@@ -193,7 +195,7 @@ static func piece_path_item(it: Dictionary, slot: String, gender := "male") -> S
 	return piece_path_theme(theme_for_item(it), slot, gender, str(it.get("name", "")))
 
 static func icon_path_item(it: Dictionary, slot: String) -> String:
-	return icon_path_theme(theme_for_item(it), slot)
+	return icon_path_theme(theme_for_item(it), slot, str(it.get("name", "")))   # mesma variante do boneco
 
 static func is_armor_slot(slot: String) -> bool:
 	return ARMOR_SLOTS.has(slot)
