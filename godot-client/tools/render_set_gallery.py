@@ -10,36 +10,41 @@ BASE = os.path.join(CLIENT, "assets", "base")
 out_dir = os.path.abspath(argv[1])
 os.makedirs(out_dir, exist_ok=True)
 
-VARIANT_FOR_RARITY = [0, 0, 1, 2, 2]   # rarity 1..5 → 0=cor1, 1=cor2, 2=cor3
-BANDS = [1, 3, 5]                       # uma raridade representativa por banda (Comum, Raro, Lendário)
+BANDS = [1, 3, 5]    # uma raridade representativa por banda (Comum, Raro, Lendário)
+# mesma curadoria do Outfits.gd: banda por raridade + variante de cor por tema/banda [SKIN_RARIDADE]
+BAND_FOR_RARITY = [0, 0, 1, 2, 2]
+BAND_VARIANT = {"knight": [3, 1, 2], "noble": [3, 2, 1], "ranger": [3, 1, 2], "peasant": [1, 3, 2], "wizard": [1, 2, 3]}
 
-# peças por gênero/tema (espelha Outfits.gd SLOT_PIECE / SLOT_PIECE_FEMALE; peasant cai p/ ranger no elmo/ombreira)
+# peças por gênero/tema (espelha Outfits.gd; peasant/wizard SEM elmo/ombreira → cabeça nua)
 SETS = {
     "Male": {
         "knight":  ["Male_Knight_Body_Armor", "Male_Knight_Arms", "Male_Knight_Feet_Armor", "Male_Knight_Legs_Armor", "Male_Knight_Head_Armet", "Male_Knight_Acc_Pauldron_Round"],
         "noble":   ["Male_Noble_Body", "Male_Noble_Arms", "Male_Noble_Feet", "Male_Noble_Legs", "Male_Noble_Head_Crown", "Male_Noble_Acc_Pauldron"],
         "ranger":  ["Male_Ranger_Body", "Male_Ranger_Arms", "Male_Ranger_Feet_Boots", "Male_Ranger_Legs", "Male_Ranger_Head_Hood", "Male_Ranger_Acc_Pauldron"],
-        "peasant": ["Male_Peasant_Body", "Male_Peasant_Arms", "Male_Peasant_Feet", "Male_Peasant_Legs", "Male_Ranger_Head_Hood", "Male_Ranger_Acc_Pauldron"],
+        "peasant": ["Male_Peasant_Body", "Male_Peasant_Arms", "Male_Peasant_Feet", "Male_Peasant_Legs"],
+        "wizard":  ["Male_Wizard_Body", "Male_Wizard_Arms", "Male_Wizard_Feet", "Male_Wizard_Legs"],
     },
     "Female": {
         "knight":  ["Female_Knight_Body_Armor", "Female_Knight_Arms", "Female_Knight_Feet", "Female_Knight_Legs", "Female_Knight_Head_Armet", "Female_Knight_Acc_Pauldrons_Round"],
         "noble":   ["Female_Noble_Body", "Female_Noble_Arms", "Female_Noble_Feet", "Female_Noble_Legs", "Female_Noble_Head_Crown", "Female_Noble_Acc_Pauldron"],
         "ranger":  ["Female_Ranger_Body", "Female_Ranger_Arms", "Female_Ranger_Feet", "Female_Ranger_Legs", "Female_Ranger_Head_Hood", "Female_Ranger_Acc_Pauldrons"],
-        "peasant": ["Female_Peasant_Body", "Female_Peasant_Arms", "Female_Peasant_Feet", "Female_Peasant_Legs", "Female_Ranger_Head_Hood", "Female_Ranger_Acc_Pauldrons"],
+        "peasant": ["Female_Peasant_Body", "Female_Peasant_Arms", "Female_Peasant_Feet", "Female_Peasant_Legs"],
+        "wizard":  ["Female_Wizard_Body", "Female_Wizard_Arms", "Female_Wizard_Feet", "Female_Wizard_Legs"],
     },
 }
 
 
 def theme_dir(base):
-    for t in ("Knight", "Noble", "Ranger", "Peasant"):
+    for t in ("Knight", "Noble", "Ranger", "Peasant", "Wizard"):
         if t in base:
             return t.lower()
     return "peasant"
 
 
 def variant_path(theme, rarity):
-    idx = VARIANT_FOR_RARITY[rarity - 1]
-    suffix = "" if idx == 0 else "_%d" % (idx + 1)
+    band = BAND_FOR_RARITY[rarity - 1]
+    v = BAND_VARIANT.get(theme, [1, 2, 3])[band]   # 1=base, 2="_2", 3="_3"
+    suffix = "" if v == 1 else "_%d" % v
     return os.path.join(OUTF, theme, "T_%s%s_BaseColor.png" % (theme.capitalize(), suffix))
 
 

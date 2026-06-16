@@ -17,10 +17,10 @@ const THEME_FOR_CLASS := {
 }
 const DEFAULT_THEME := "peasant"
 # ordem ESPELHA o backend InventoryService.OUTFIT_THEMES (fallback determinístico bate com o servidor)
-const THEME_ORDER := ["knight", "noble", "ranger", "peasant"]
+const THEME_ORDER := ["knight", "noble", "ranger", "peasant", "wizard"]
 
-# tema → slot (ItemType) → basename da peça. Peasant não tem elmo/ombreira no pack → cai pro Ranger
-# (o basename Male_Ranger_* resolve a pasta sozinho via _dir_for).
+# tema → slot (ItemType) → basename da peça. Peasant/Wizard não têm elmo/ombreira no pack → ficam
+# de cabeça/ombro NUS (não usam capuz/ombreira de outro tema).
 const SLOT_PIECE := {
 	"knight": {
 		"ARMOR":    "Male_Knight_Body_Armor",
@@ -51,8 +51,14 @@ const SLOT_PIECE := {
 		"GLOVES":   "Male_Peasant_Arms",
 		"BOOTS":    "Male_Peasant_Feet",
 		"PANTS":    "Male_Peasant_Legs",
-		"HELMET":   "Male_Ranger_Head_Hood",      # peasant sem elmo → capuz ranger
-		"SHOULDER": "Male_Ranger_Acc_Pauldron",   # peasant sem ombreira → ombreira ranger
+		# sem elmo/ombreira no pack → cabeça/ombro nus (NÃO usa capuz ranger)
+	},
+	"wizard": {
+		"ARMOR":    "Male_Wizard_Body",
+		"GLOVES":   "Male_Wizard_Arms",
+		"BOOTS":    "Male_Wizard_Feet",
+		"PANTS":    "Male_Wizard_Legs",
+		# wizard idem: sem elmo/ombreira no pack
 	},
 }
 
@@ -88,15 +94,30 @@ const SLOT_PIECE_FEMALE := {
 		"GLOVES":   "Female_Peasant_Arms",
 		"BOOTS":    "Female_Peasant_Feet",
 		"PANTS":    "Female_Peasant_Legs",
-		"HELMET":   "Female_Ranger_Head_Hood",      # peasant sem elmo → capuz ranger
-		"SHOULDER": "Female_Ranger_Acc_Pauldrons",  # peasant sem ombreira → ombreira ranger
+		# sem elmo/ombreira no pack → cabeça/ombro nus (NÃO usa capuz ranger)
+	},
+	"wizard": {
+		"ARMOR":    "Female_Wizard_Body",
+		"GLOVES":   "Female_Wizard_Arms",
+		"BOOTS":    "Female_Wizard_Feet",
+		"PANTS":    "Female_Wizard_Legs",
+		# wizard idem: sem elmo/ombreira no pack
 	},
 }
 
 # ── Raridade → cor + brilho [SKIN_RARIDADE] ──
-# 5 raridades (1=Comum,2=Incomum,3=Raro,4=Épico,5=Lendário) mapeadas em 3 variantes de cor
-# (0=cor1/base, 1=cor2/"_2", 2=cor3/"_3") — "3 bandas + brilho". Índice = rarity-1.
-const VARIANT_FOR_RARITY := [0, 0, 1, 2, 2]
+# 5 raridades (1=Comum,2=Incomum,3=Raro,4=Épico,5=Lendário) caem em 3 BANDAS:
+#   banda 0 = Comum/Incomum · banda 1 = Raro · banda 2 = Épico/Lendário.
+const BAND_FOR_RARITY := [0, 0, 1, 2, 2]   # rarity 1..5 → banda 0/1/2
+# Cada tema escolhe QUAL variante de cor (1=base, 2="_2", 3="_3") vai em cada banda [Comum, Raro, Lendário].
+# Curadoria do dono: o visual "melhor" (ex.: dourado) fica no Lendário. [SKIN_RARIDADE]
+const BAND_VARIANT := {
+	"knight":  [3, 1, 2],   # Comum=cor3, Raro=cor1, Lendário=cor2 (dourado)
+	"noble":   [3, 2, 1],
+	"ranger":  [3, 1, 2],
+	"peasant": [1, 3, 2],
+	"wizard":  [1, 2, 3],   # não especificado → ordem natural
+}
 # emissão por raridade (mesmas cores do Weapons.RARITY_TINT): branco/verde/azul/roxo/dourado.
 const RARITY_TINT := [Color(0.82, 0.84, 0.88), Color(0.45, 0.85, 0.45), Color(0.35, 0.60, 1.0), Color(0.72, 0.40, 0.95), Color(1.0, 0.78, 0.28)]
 # energia de emissão por raridade — PLACEHOLDER, afinar em engine (0 = sem brilho). Valores BAIXOS de
@@ -134,11 +155,12 @@ static func theme_for_item(it: Dictionary) -> String:
 		return t
 	return _theme_from_name(str(it.get("name", "")))
 
-# pasta da peça derivada do basename (resolve o fallback peasant→ranger sozinho)
+# pasta da peça derivada do basename
 static func _dir_for(base: String) -> String:
 	if "Knight" in base: return "knight"
 	if "Noble" in base: return "noble"
 	if "Ranger" in base: return "ranger"
+	if "Wizard" in base: return "wizard"
 	return "peasant"
 
 static func _base(theme: String, slot: String, gender := "male") -> String:
@@ -166,10 +188,16 @@ static func is_armor_slot(slot: String) -> bool:
 	return ARMOR_SLOTS.has(slot)
 
 # ── Recolor por raridade [SKIN_RARIDADE] ──
+# Variante de cor (1/2/3) que este tema usa p/ a raridade dada (via banda + BAND_VARIANT).
+static func variant_for(theme: String, rarity: int) -> int:
+	var band: int = BAND_FOR_RARITY[clamp(rarity - 1, 0, 4)]
+	var order: Array = BAND_VARIANT.get(theme, [1, 2, 3])
+	return int(order[band])
+
 # Caminho da textura de albedo da variante de cor p/ (tema, raridade).
 static func variant_tex_path(theme: String, rarity: int) -> String:
-	var idx: int = VARIANT_FOR_RARITY[clamp(rarity - 1, 0, 4)]
-	var suffix := "" if idx == 0 else "_%d" % (idx + 1)   # idx1→"_2", idx2→"_3"
+	var v: int = variant_for(theme, rarity)
+	var suffix := "" if v == 1 else "_%d" % v   # 1→base, 2→"_2", 3→"_3"
 	return "res://assets/outfits/%s/T_%s%s_BaseColor.png" % [theme, _theme_cap(theme), suffix]
 
 # Recolore UMA MeshInstance3D de armadura conforme a raridade: troca o albedo p/ a variante de cor
@@ -179,11 +207,10 @@ static func recolor_mesh(mi: MeshInstance3D, theme: String, rarity: int) -> void
 	if mi == null or mi.mesh == null or rarity < 1 or not SLOT_PIECE.has(theme):
 		return
 	var base_tex := "T_%s_BaseColor" % _theme_cap(theme)
-	var variant_path := variant_tex_path(theme, rarity)
+	var variant_path := variant_tex_path(theme, rarity)   # pode ser a cor1 (base) — aí o swap é no-op
 	var rt: int = clamp(rarity - 1, 0, 4)
 	var tint: Color = RARITY_TINT[rt]
 	var glow: float = RARITY_GLOW[rt]
-	var has_variant := variant_path.get_file().begins_with("T_%s_" % _theme_cap(theme)) and "_BaseColor" in variant_path
 	for s in mi.mesh.get_surface_count():
 		var mat := mi.get_active_material(s)
 		if mat == null or not (mat is BaseMaterial3D):
@@ -193,7 +220,8 @@ static func recolor_mesh(mi: MeshInstance3D, theme: String, rarity: int) -> void
 		if alb == null or not alb.resource_path.get_file().begins_with(base_tex):
 			continue
 		var m: BaseMaterial3D = mat.duplicate()
-		if rarity >= 3 and has_variant and ResourceLoader.exists(variant_path):
+		# SEMPRE aplica a variante da banda (cada tema tem sua ordem por raridade — ponto [SKIN_RARIDADE]).
+		if ResourceLoader.exists(variant_path):
 			m.albedo_texture = load(variant_path)
 		if glow > 0.0:
 			m.emission_enabled = true

@@ -447,13 +447,13 @@ public class InventoryService {
      * Itens V3: rola {atk, def, hp} a partir do NÍVEL DO ITEM × multiplicador de raridade.
      * Poder cresce com o nível; raridade é um multiplicador → "lvl100 Comum > lvl1 Épico".
      */
-    // ── [OUTFITS_CLASSE] Tema visual do item ──────────────────────────────────────
-    public static final String[] OUTFIT_THEMES = {"KNIGHT", "NOBLE", "RANGER", "PEASANT"};
+    // ── [OUTFITS_CLASSE][OUTFITS_FEMALE] Tema visual do item (5 famílias do pack Quaternius) ──────
+    public static final String[] OUTFIT_THEMES = {"KNIGHT", "NOBLE", "RANGER", "PEASANT", "WIZARD"};
 
     /**
-     * Tema visual FIXO da armadura, derivado do nome-base por soma de bytes % 4. Determinístico →
-     * o preview da loja/forja bate com o item criado, e o front pode reproduzir no fallback (mesma
-     * ordem de {@link #OUTFIT_THEMES}). Qualquer classe usa qualquer item; o tema é do ITEM.
+     * Tema visual FIXO da armadura, derivado do nome-base por soma de bytes % {@link #OUTFIT_THEMES}.length.
+     * Determinístico → o preview da loja/forja bate com o item criado, e o front pode reproduzir no fallback
+     * (mesma ordem de {@link #OUTFIT_THEMES}). Qualquer classe usa qualquer item; o tema é do ITEM.
      */
     public static String outfitThemeFor(String name) {
         if (name == null || name.isEmpty()) return "PEASANT";

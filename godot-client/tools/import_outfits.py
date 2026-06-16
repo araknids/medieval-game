@@ -1,36 +1,36 @@
-"""Importa peças de outfit do pack Source p/ o projeto Godot + gera os .gltf.import com retarget
-Humanoid_map. Roda com python normal (sem Blender). [OUTFITS_CLASSE][OUTFITS_FEMALE]
+"""Importa TODAS as peças do pack Quaternius "Modular Character Outfits – Fantasy" p/ o projeto Godot
++ gera os .gltf.import com retarget Humanoid_map. Roda com python normal (sem Blender). [OUTFITS_FEMALE]
 
-Cobre:
-  - peças FEMALE dos 4 temas (Knight/Noble/Ranger/Peasant) — o Male já foi importado antes;
-  - texturas do tema INCL. as 3 variantes de cor (T_<Tema>_BaseColor / _2 / _3) p/ recolor por raridade;
-  - skin Male E Female (T_Regular_<gênero>_*) — peças referenciam por nome.
-Aditivo/idempotente: só copia o que encontra; re-rodar reproduz o mesmo resultado.
+Cobre os 5 temas (Knight/Noble/Ranger/Peasant/Wizard), Male E Female, TODAS as peças (inclui as
+variantes: Horns/Spike/Scarf/Body_Cloth/Gorget/Lion). Texturas: as 3 variações de cor por tema
+(T_<Tema>_BaseColor/_2/_3) + Normal + ORM, e a skin exposta dos 2 gêneros (T_Regular_<gênero>_*).
+Aditivo/idempotente: varre a pasta de origem e copia tudo que encontra.
 """
-import os, shutil, hashlib
+import os, re, shutil, hashlib
 
 ROOT = r"f:/Workspace/Jogo de browser mas mais grafico/assets externos/Modular Character Outfits - Fantasy[Source]"
 PACK = os.path.join(ROOT, "Exports", "glTF (Godot-Unreal)")
-PARTS = os.path.join(PACK, "Modular Parts")           # .gltf + .bin das peças
+PARTS = os.path.join(PACK, "Modular Parts")           # .gltf + .bin de TODAS as peças
 TEXROOT = os.path.join(ROOT, "Textures")              # Textures/<Tema>/ (inclui _2/_3) + Textures/Base/
 DEST_ROOT = r"f:/Workspace/Jogo de browser mas mais grafico/godot-client/assets/outfits"
 
-# tema -> peças FEMALE (basename sem extensão). Note: Female usa Feet/Legs SEM "_Armor" e "Pauldrons" plural.
-PIECES = {
-    "knight": ["Female_Knight_Body_Armor", "Female_Knight_Arms", "Female_Knight_Feet",
-               "Female_Knight_Legs", "Female_Knight_Head_Armet", "Female_Knight_Acc_Pauldrons_Round"],
-    "noble":  ["Female_Noble_Body", "Female_Noble_Arms", "Female_Noble_Feet",
-               "Female_Noble_Legs", "Female_Noble_Head_Crown", "Female_Noble_Acc_Pauldron"],
-    "ranger": ["Female_Ranger_Body", "Female_Ranger_Arms", "Female_Ranger_Feet",
-               "Female_Ranger_Legs", "Female_Ranger_Head_Hood", "Female_Ranger_Acc_Pauldrons"],
-    "peasant": ["Female_Peasant_Body", "Female_Peasant_Arms", "Female_Peasant_Feet", "Female_Peasant_Legs"],
-}
-# texturas do tema (da pasta Textures/<Tema>/): base + 2 variantes de cor + normal + ORM.
+THEMES = ["knight", "noble", "ranger", "peasant", "wizard"]
+PIECE_RE = re.compile(r"^(Male|Female)_(Knight|Noble|Ranger|Peasant|Wizard)_.+\.gltf$", re.I)
+
+
+def theme_of(name):
+    for t in THEMES:
+        if ("_%s_" % t) in name.lower():
+            return t
+    return None
+
+
 def theme_tex(theme):
-    t = theme.capitalize()  # knight -> Knight
+    t = theme.capitalize()
     return ["T_%s_BaseColor.png" % t, "T_%s_2_BaseColor.png" % t, "T_%s_3_BaseColor.png" % t,
             "T_%s_Normal.png" % t, "T_%s_ORM.png" % t]
-# skin exposta (mãos/pescoço) — ambos os gêneros, de Textures/Base/
+
+
 SKIN_TEX = ["T_Regular_Male_Dark_BaseColor.png", "T_Regular_Male_Normal.png", "T_Regular_Male_Roughness.png",
             "T_Regular_Female_Dark_BaseColor.png", "T_Regular_Female_Normal.png", "T_Regular_Female_Roughness.png"]
 
@@ -85,8 +85,7 @@ gltf/embedded_image_handling=1
 def uid_for(name):
     h = hashlib.md5(("outfit:" + name).encode()).hexdigest()
     chars = "0123456789abcdefghijklmnopqrstuvwxyz"
-    n = int(h[:16], 16)
-    s = ""
+    n = int(h[:16], 16); s = ""
     for _ in range(13):
         s += chars[n % 36]; n //= 36
     return s
@@ -97,8 +96,7 @@ def fake_hash(name):
 
 
 def copy_tex(filename, dest):
-    """Procura a textura em Textures/<Tema>/ ou Textures/Base/ e copia p/ dest. Retorna True se achou."""
-    for sub in ("", "Base", "Knight", "Noble", "Ranger", "Peasant"):
+    for sub in ("", "Base", "Knight", "Noble", "Ranger", "Peasant", "Wizard"):
         src = os.path.join(TEXROOT, sub, filename) if sub else os.path.join(TEXROOT, filename)
         if os.path.exists(src):
             shutil.copy2(src, os.path.join(dest, filename))
@@ -107,24 +105,31 @@ def copy_tex(filename, dest):
 
 
 count = 0
-for theme, pieces in PIECES.items():
+for f in sorted(os.listdir(PARTS)):
+    if not PIECE_RE.match(f):
+        continue
+    name = os.path.splitext(f)[0]
+    theme = theme_of(name)
+    if theme is None:
+        print("  SKIP (sem tema)", name); continue
     dest = os.path.join(DEST_ROOT, theme)
     os.makedirs(dest, exist_ok=True)
-    for name in pieces:
-        ok = False
-        for ext in (".gltf", ".bin"):
-            src = os.path.join(PARTS, name + ext)
-            if os.path.exists(src):
-                shutil.copy2(src, os.path.join(dest, name + ext))
-                ok = ok or ext == ".gltf"
-        if not ok:
-            print("  MISSING PIECE", name); continue
-        imp = IMPORT_TMPL.format(uid=uid_for(name), name=name, hash=fake_hash(name), theme=theme)
-        with open(os.path.join(dest, name + ".gltf.import"), "w", encoding="utf-8", newline="\n") as f:
-            f.write(imp)
-        count += 1
-        print("PIECE", theme, name)
+    for ext in (".gltf", ".bin"):
+        src = os.path.join(PARTS, name + ext)
+        if os.path.exists(src):
+            shutil.copy2(src, os.path.join(dest, name + ext))
+    # NÃO sobrescreve .gltf.import existente (o Godot pode tê-lo reimportado com hash real) — só cria se faltar.
+    imp_path = os.path.join(dest, name + ".gltf.import")
+    if not os.path.exists(imp_path):
+        with open(imp_path, "w", encoding="utf-8", newline="\n") as fh:
+            fh.write(IMPORT_TMPL.format(uid=uid_for(name), name=name, hash=fake_hash(name), theme=theme))
+    count += 1
+
+for theme in THEMES:
+    dest = os.path.join(DEST_ROOT, theme)
+    os.makedirs(dest, exist_ok=True)
     for tex in theme_tex(theme) + SKIN_TEX:
         if not copy_tex(tex, dest):
             print("  MISSING TEX", theme, tex)
-print("DONE female pieces=", count)
+
+print("DONE pieces=", count, "themes=", THEMES)
