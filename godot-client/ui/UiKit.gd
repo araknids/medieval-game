@@ -714,6 +714,11 @@ static func item_icon_for(it: Dictionary, px := 48) -> TextureRect:
 		var ap := Outfits.icon_path_item(it, ty)   # tema do ITEM (não de quem veste) [OUTFITS_CLASSE]
 		if ap != "" and ResourceLoader.exists(ap):
 			return _tex_rect(load(ap), px)
+	elif ty == "RING" or ty == "NECKLACE":
+		# anel/colar têm ícone POR RARIDADE (anel_1..anel_5) → mais rico = mais raro. [ICONES_RARIDADE]
+		var rt := Icons.tex(ty.to_lower() + "_" + str(clampi(int(it.get("rarity", 1)), 1, 5)))
+		if rt != null:
+			return _tex_rect(rt, px)
 	return item_icon(ty, px)
 
 # ── Comparação de item vs EQUIPADO ──────────────────────────────────────────────────
