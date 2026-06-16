@@ -37,6 +37,33 @@ static func label_button(b: Button, key: String, label_with_emoji: String) -> Bu
 		b.text = label_with_emoji
 	return b
 
+# ── Emoji-marcador → ícone PixelLab [ICONES_MARCADOR] ───────────────────────────────
+# Quando um texto de UI começa com um emoji que é ÍCONE (cabeçalho de seção, título de card,
+# linha de recompensa, badge), trocamos pelo ícone. Inline no meio de frase NÃO entra aqui.
+const EMOJI_ICON := {
+	"🎒": "carried", "🔒": "locked", "🎁": "gift", "📦": "package",
+	"💀": "skull", "☠": "skull", "💎": "gem", "⭐": "star", "⚠": "warning",
+	"⏳": "hourglass", "🐟": "fish", "🎣": "map_fishing", "⛏": "map_mines",
+	"👑": "node_boss", "📜": "node_event", "⚔": "node_combat", "🗡": "node_combat",
+	"🛡": "slot_shield", "🔥": "elem_fire", "🏆": "achievements", "🥇": "gold",
+	"🍺": "tavern", "🏰": "map_fortress", "🌍": "world", "🔨": "forge",
+	"💰": "gold", "🪙": "bronze", "🥈": "silver", "🥉": "bronze",
+	"❤": "hp", "⚡": "stamina", "🏅": "achievements", "🎯": "tower",
+	"📬": "mail", "📭": "mail", "📩": "mail", "📨": "mail", "✉": "mail",
+}
+
+# Separa um emoji-ícone do INÍCIO do texto. Retorna [icon_key, resto] — ["", texto] se não houver.
+# Tira o seletor de variação (U+FE0F) p/ casar "⚔️"/"⚠️" etc.
+static func split_emoji(text: String) -> Array:
+	var t := text.strip_edges()
+	var sp := t.find(" ")
+	if sp <= 0:
+		return ["", text]
+	var head := t.substr(0, sp).replace("️", "")
+	if EMOJI_ICON.has(head) and tex(EMOJI_ICON[head]) != null:
+		return [EMOJI_ICON[head], t.substr(sp + 1).strip_edges()]
+	return ["", text]
+
 # ItemType (backend) → arquivo de ícone do slot. ARMOR=peito, PANTS=perna, SHOULDER reusa o peito.
 const ITEM_TYPE_ICON := {
 	"WEAPON": "slot_weapon", "SHIELD": "slot_shield", "HELMET": "slot_helmet",

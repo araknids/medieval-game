@@ -385,12 +385,26 @@ static func show_battle_report(host: Control, won: bool, title: String, reward_r
 	sb.set_border_width_all(2)
 	vb.add_theme_constant_override("separation", 10)
 	center.add_child(panel)
-	var h := Label.new()
-	h.text = title
-	h.add_theme_font_size_override("font_size", 18)
-	h.add_theme_color_override("font_color", border)
-	h.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	vb.add_child(h)
+	# [ICONES_MARCADOR] título com ícone PixelLab quando começa com emoji-marcador (⚔/💀/🔒/🏆…), centrado.
+	var tsplit := Icons.split_emoji(title)
+	if tsplit[0] != "":
+		var th := HBoxContainer.new()
+		th.alignment = BoxContainer.ALIGNMENT_CENTER
+		th.add_theme_constant_override("separation", 8)
+		var tic := Icons.rect(tsplit[0], 24); tic.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+		th.add_child(tic)
+		var tl := Label.new(); tl.text = tsplit[1]
+		tl.add_theme_font_size_override("font_size", 18)
+		tl.add_theme_color_override("font_color", border)
+		th.add_child(tl)
+		vb.add_child(th)
+	else:
+		var h := Label.new()
+		h.text = title
+		h.add_theme_font_size_override("font_size", 18)
+		h.add_theme_color_override("font_color", border)
+		h.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		vb.add_child(h)
 	for row in reward_rows:
 		if row is Control:
 			vb.add_child(row)
@@ -524,6 +538,13 @@ static func section(text: String) -> Control:
 	v.add_child(spacer(8))
 	var row := HBoxContainer.new()
 	row.add_theme_constant_override("separation", 10)
+	# [ICONES_MARCADOR] emoji no início do título → ícone PixelLab (fallback: mantém o texto/emoji)
+	var split := Icons.split_emoji(text)
+	if split[0] != "":
+		var ic := Icons.rect(split[0], 20)
+		ic.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+		row.add_child(ic)
+		text = split[1]
 	var lbl := Label.new()
 	lbl.text = text.to_upper()
 	lbl.add_theme_font_size_override("font_size", 15)
@@ -553,6 +574,27 @@ static func kv(key: String, value: String, value_col := TEXT) -> HBoxContainer:
 	val.add_theme_color_override("font_color", value_col)
 	val.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	h.add_child(val)
+	return h
+
+# [ICONES_MARCADOR] Linha "[ícone] texto": se o texto começa com um emoji-marcador, troca pelo ícone
+# PixelLab; senão devolve um Label simples (mantém o texto/emoji). Use em título de card, badge, linha
+# de recompensa — qualquer marcador que hoje é emoji. px = tamanho do ícone; font/cor opcionais.
+static func icon_text(text: String, font := 14, col := TEXT, px := 18) -> Control:
+	var split := Icons.split_emoji(text)
+	var lbl := Label.new()
+	lbl.add_theme_font_size_override("font_size", font)
+	lbl.add_theme_color_override("font_color", col)
+	lbl.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	if split[0] == "":
+		lbl.text = text
+		return lbl
+	lbl.text = split[1]
+	var h := HBoxContainer.new()
+	h.add_theme_constant_override("separation", 6)
+	var ic := Icons.rect(split[0], px)
+	ic.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	h.add_child(ic)
+	h.add_child(lbl)
 	return h
 
 static func body(text: String) -> Label:

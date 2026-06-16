@@ -198,23 +198,40 @@ func _bag_card(title: String, bag, col: Color) -> PanelContainer:
 	var panel: PanelContainer = res[0]
 	var vb: VBoxContainer = res[1]
 	panel.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	var t := Label.new()
-	t.text = title
-	t.add_theme_font_size_override("font_size", 12)
-	t.add_theme_color_override("font_color", col)
+	# [ICONES_MARCADOR] título com ícone PixelLab (carregado=mochila / garantido=cadeado)
+	var t := UiKit.icon_text(title, 12, col, 18)
 	vb.add_child(t)
-	vb.add_child(UiKit.dim(_bag_text(bag if bag is Dictionary else {})))
+	vb.add_child(_bag_chips(bag if bag is Dictionary else {}))
 	return panel
 
-func _bag_text(bag: Dictionary) -> String:
-	var parts: Array = []
-	if int(bag.get("bronze", 0)) > 0: parts.append("🥉 %d" % int(bag.get("bronze", 0)))
-	if int(bag.get("xp", 0)) > 0: parts.append("⭐ %d" % int(bag.get("xp", 0)))
+# Conteúdo da bolsa como CHIPS [ícone][número] (bronze/xp/recursos) em vez de string com emoji. [ICONES_MARCADOR]
+func _bag_chips(bag: Dictionary) -> Control:
+	var flow := HFlowContainer.new()
+	flow.add_theme_constant_override("h_separation", 10)
+	flow.add_theme_constant_override("v_separation", 2)
+	var any := false
+	if int(bag.get("bronze", 0)) > 0:
+		flow.add_child(_chip("bronze", str(int(bag.get("bronze", 0))))); any = true
+	if int(bag.get("xp", 0)) > 0:
+		flow.add_child(_chip("star", str(int(bag.get("xp", 0))))); any = true
 	if bag.get("resources") is Array:
 		for d in bag["resources"]:
 			if d is Dictionary:
-				parts.append("📦 %s x%d" % [str(d.get("displayName", "?")), int(d.get("quantity", 0))])
-	return "   ".join(parts) if not parts.is_empty() else "vazio"
+				flow.add_child(_chip("package", "%s x%d" % [str(d.get("displayName", "?")), int(d.get("quantity", 0))])); any = true
+	if not any:
+		return UiKit.dim("vazio")
+	return flow
+
+func _chip(icon_key: String, text: String) -> HBoxContainer:
+	var h := HBoxContainer.new(); h.add_theme_constant_override("separation", 4)
+	var ic := Icons.rect(icon_key, 16); ic.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	h.add_child(ic)
+	var l := Label.new(); l.text = text
+	l.add_theme_font_size_override("font_size", 12)
+	l.add_theme_color_override("font_color", UiKit.TEXT_DIM)
+	l.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	h.add_child(l)
+	return h
 
 # ── Ações da run ────────────────────────────────────────────────────────────────────
 func _run_id() -> int:
@@ -322,11 +339,11 @@ func _reward_rows(j: Dictionary, ko := false) -> Array:
 	if j.get("drops") is Array:
 		for d in j["drops"]:
 			if d is Dictionary:
-				rows.append(UiKit.dim("📦 %s x%d" % [str(d.get("displayName", "?")), int(d.get("quantity", 0))]))
+				rows.append(UiKit.icon_text("📦 %s x%d" % [str(d.get("displayName", "?")), int(d.get("quantity", 0))], 12, UiKit.TEXT_DIM, 16))
 	if str(j.get("lootItemName", "")) != "":
-		rows.append(UiKit.dim("🎁 " + str(j.get("lootItemName"))))
+		rows.append(UiKit.icon_text("🎁 " + str(j.get("lootItemName")), 12, UiKit.TEXT_DIM, 16))
 	if ko:
-		rows.append(UiKit.dim(Lang.t("☠ Você caiu — o loot não-sacado foi perdido. Cure-se no Templo.")))
+		rows.append(UiKit.icon_text(Lang.t("☠ Você caiu — o loot não-sacado foi perdido. Cure-se no Templo."), 12, UiKit.ERR, 16))
 	return rows
 
 func _step_text(j: Dictionary) -> String:
@@ -353,11 +370,11 @@ func _show_extract_report(j: Dictionary) -> void:
 	if j.get("bankedResources") is Array:
 		for d in j["bankedResources"]:
 			if d is Dictionary:
-				rows.append(UiKit.dim("📦 %s x%d" % [str(d.get("displayName", "?")), int(d.get("quantity", 0))]))
+				rows.append(UiKit.icon_text("📦 %s x%d" % [str(d.get("displayName", "?")), int(d.get("quantity", 0))], 12, UiKit.TEXT_DIM, 16))
 	if int(j.get("keptItems", 0)) > 0:
-		rows.append(UiKit.dim(Lang.t("🛡 %d item(ns) na mochila") % int(j.get("keptItems", 0))))
+		rows.append(UiKit.icon_text(Lang.t("🛡 %d item(ns) na mochila") % int(j.get("keptItems", 0)), 12, UiKit.TEXT_DIM, 16))
 	if int(j.get("mailedItems", 0)) > 0:
-		rows.append(UiKit.dim(Lang.t("📬 %d item(ns) no correio (mochila cheia)") % int(j.get("mailedItems", 0))))
+		rows.append(UiKit.icon_text(Lang.t("📬 %d item(ns) no correio (mochila cheia)") % int(j.get("mailedItems", 0)), 12, UiKit.TEXT_DIM, 16))
 	UiKit.show_battle_report(self, true, Lang.t("🔒 Loot garantido!"), rows, [])
 
 # Diálogo do nó EVENTO: intro + um botão por opção (resolve com o optionId). Espelha World._show_quest_dialog.
