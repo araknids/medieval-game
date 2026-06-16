@@ -66,11 +66,6 @@ func _build_layout() -> void:
 	content.add_child(main)
 	main.add_child(_build_left())
 	main.add_child(_build_right())
-	# [RECURSOS] seção própria ABAIXO de tudo (largura cheia, sempre visível — não rola com os itens)
-	_resources_host = VBoxContainer.new()
-	_resources_host.add_theme_constant_override("separation", 6)
-	_resources_host.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	content.add_child(_resources_host)
 
 func _build_left() -> Control:
 	var outer := VBoxContainer.new()
@@ -186,6 +181,11 @@ func _build_right() -> Control:
 	_panel_host.add_theme_constant_override("separation", 8)
 	_panel_host.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	scroll.add_child(_panel_host)
+	# [RECURSOS] seção FIXA embaixo da lista (fora do scroll) → fica na altura da Montaria/Pet, sem alongar a tela
+	_resources_host = VBoxContainer.new()
+	_resources_host.add_theme_constant_override("separation", 6)
+	_resources_host.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	col.add_child(_resources_host)
 	return col
 
 func _build_subtab_bar() -> void:
