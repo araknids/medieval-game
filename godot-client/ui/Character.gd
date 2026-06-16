@@ -31,6 +31,7 @@ const ATTRS := [
 
 var w: Dictionary = {}
 var items: Array = []
+var resources: Array = []     # recursos de coleta (GET /api/gathering/resources) → seção na Mochila
 var abilities_data: Dictionary = {}
 var sub_tab := "bag"          # "bag" | "attr" | "abil"
 var rarity_filter := 0
@@ -222,7 +223,7 @@ func _set_tab(t) -> void:
 # ── Dados ────────────────────────────────────────────────────────────────────────────
 func _refresh() -> void:
 	UiKit.flash(status, "Carregando…", 0)
-	var rs = await Api.batch_get(["/api/warrior", "/api/inventory", "/api/abilities"])
+	var rs = await Api.batch_get(["/api/warrior", "/api/inventory", "/api/abilities", "/api/gathering/resources"])
 	var wr = rs[0]
 	if not (wr.get("ok") and wr.get("json") is Dictionary):
 		UiKit.show_error(status, wr)
@@ -232,6 +233,8 @@ func _refresh() -> void:
 	items = ir["json"] if (ir.get("ok") and ir.get("json") is Array) else []
 	var ar = rs[2]
 	abilities_data = ar["json"] if (ar.get("ok") and ar.get("json") is Dictionary) else {}
+	var rr = rs[3]   # recursos de coleta (minério/peixe/essência/núcleo…) p/ a seção na Mochila
+	resources = rr["json"] if (rr.get("ok") and rr.get("json") is Array) else []
 	_apply()
 
 func _apply() -> void:
@@ -392,17 +395,48 @@ func _render_bag_panel() -> void:
 	_panel_host.add_child(UiKit.rarity_filter(rarity_filter, _set_rarity))
 	if bag.is_empty():
 		_panel_host.add_child(UiKit.empty("Mochila vazia", "Vença missões no 🌍 Mundo para conseguir itens"))
+	else:
+		var shown: Array = bag
+		if rarity_filter > 0:
+			shown = []
+			for it in bag:
+				if it is Dictionary and int(it.get("rarity", 1)) == rarity_filter:
+					shown.append(it)
+		if shown.is_empty():
+			_panel_host.add_child(UiKit.dim("— nada nessa raridade —"))
+		else:
+			_panel_host.add_child(UiKit.grid(self, shown, _bag_card, true))
+	_render_resources_section()   # [RECURSOS] seção embaixo dos itens (minério/peixe/essência/núcleo…)
+
+# Seção de RECURSOS de coleta abaixo dos itens da Mochila (só leitura: nome + quantidade). [RECURSOS]
+func _render_resources_section() -> void:
+	var res: Array = []
+	for r in resources:
+		if r is Dictionary and int(r.get("quantity", 0)) > 0:
+			res.append(r)
+	_panel_host.add_child(UiKit.section(Lang.t("Recursos (%d)") % res.size()))
+	if res.is_empty():
+		_panel_host.add_child(UiKit.dim("— nenhum recurso —"))
 		return
-	var shown: Array = bag
-	if rarity_filter > 0:
-		shown = []
-		for it in bag:
-			if it is Dictionary and int(it.get("rarity", 1)) == rarity_filter:
-				shown.append(it)
-	if shown.is_empty():
-		_panel_host.add_child(UiKit.dim("— nada nessa raridade —"))
-		return
-	_panel_host.add_child(UiKit.grid(self, shown, _bag_card, true))
+	_panel_host.add_child(UiKit.grid(self, res, _res_card, true))
+
+func _res_card(r) -> Control:
+	if not (r is Dictionary):
+		return null
+	var card := UiKit.card(UiKit.BRONZE)
+	var pc: PanelContainer = card[0]
+	var box: VBoxContainer = card[1]
+	var hb := HBoxContainer.new()
+	hb.add_theme_constant_override("separation", 10)
+	box.add_child(hb)
+	var lbl := Label.new()
+	lbl.text = "📦 %s ×%d" % [str(r.get("displayName", r.get("type", "?"))), int(r.get("quantity", 0))]
+	lbl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	lbl.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	lbl.add_theme_font_size_override("font_size", 15)
+	lbl.add_theme_color_override("font_color", UiKit.TEXT)
+	hb.add_child(lbl)
+	return pc
 
 func _set_rarity(r) -> void:
 	rarity_filter = int(r)
