@@ -73,4 +73,33 @@ class BattleEventTest {
             assertThat(e.actor()).isNotBlank();
         });
     }
+
+    // [HP_SPAWN] Quem entra MACHUCADO deve aparecer com a barra no % real — não 100%. Antes do fix,
+    // o Side colapsava atual e máximo no mesmo valor (spawn = 400/400 = barra cheia). Regressão guard.
+    @Test
+    @DisplayName("[HP_SPAWN] entrar com 40% de vida: spawn mostra HP atual < máximo (barra não fica cheia)")
+    void spawnReflectsCurrentHpWhenWounded() {
+        int max = 1000;
+        // Hero entra com 400/1000 (40%); Goblin entra CHEIO.
+        BattleSimulator.Combatant hero = BattleSimulator.Combatant
+                .of("Hero", new int[]{80, 40, max, 10, 5, 5}, null, null, List.of())
+                .withCurrentHp(400);
+        BattleSimulator.Combatant goblin = BattleSimulator.Combatant
+                .of("Goblin", new int[]{5, 0, 40, 0, 0, 0}, null, null, List.of());
+
+        BattleOutcome out = sim.simulate(hero, goblin, false);
+
+        BattleEvent heroSpawn = out.events().stream()
+                .filter(e -> e.type().equals("spawn") && "Hero".equals(e.actor()))
+                .findFirst().orElseThrow();
+        assertThat(heroSpawn.targetMaxHp()).isEqualTo(max);   // máximo continua o CHEIO
+        assertThat(heroSpawn.targetHp()).isEqualTo(400);      // atual reduzido
+        assertThat(heroSpawn.targetHp()).isLessThan(heroSpawn.targetMaxHp()); // barra ~40%, não 100%
+
+        // Lutador cheio: atual == máximo (barra em 100%).
+        BattleEvent goblinSpawn = out.events().stream()
+                .filter(e -> e.type().equals("spawn") && "Goblin".equals(e.actor()))
+                .findFirst().orElseThrow();
+        assertThat(goblinSpawn.targetHp()).isEqualTo(goblinSpawn.targetMaxHp());
+    }
 }

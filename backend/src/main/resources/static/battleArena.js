@@ -62,14 +62,16 @@
 
     const spawns = events.filter(e => e.type === 'spawn');
     if (spawns.length < 2) return { stop() {} };
-    const mk = (sp, side) => ({
-      name: sp.actor, maxHp: Math.max(1, sp.targetMaxHp || 1), hp: Math.max(1, sp.targetMaxHp || 1),
-      shownHp: Math.max(1, sp.targetMaxHp || 1), side,
+    const mk = (sp, side) => {
+      const max = Math.max(1, sp.targetMaxHp || 1);
+      const cur = Math.max(1, Math.min(max, sp.targetHp || max));   // [HP_SPAWN] HP atual ≤ máximo (barra reflete entrar machucado)
+      return {
+      name: sp.actor, maxHp: max, hp: cur, shownHp: cur, side,
       x: combatX(side), x0: entryX(side), color: side < 0 ? '#5b8dd6' : '#cf5b5b',
       set: side < 0 ? 'warrior' : 'purple', // [PAPER_DOLL] player (esquerda) = guerreiro PixelLab; inimigo = knight
 
       anim: 'idle', animStart: 0, animOnce: false, moving: false, flinch: 0, dead: false,
-    });
+    }; };
     let left = mk(spawns[0], -1), right = mk(spawns[1], 1);
     const F = {}; F[left.name] = left; F[right.name] = right;
 
@@ -125,9 +127,9 @@
       else if (e.type === 'heal' && act) { act.hp = e.targetHp; }
       else if (e.type === 'victory' && tgt) { tgt.dead = true; }
       else if (e.type === 'spawn') { // [gauntlet] re-init de lutador no meio do stream (Torre)
-        if (e.actor === left.name) { left.hp = left.shownHp = Math.min(left.maxHp, e.targetMaxHp || left.hp); left.dead = false; setAnim(left, 'idle', false); }
+        if (e.actor === left.name) { left.maxHp = Math.max(1, e.targetMaxHp || left.maxHp); left.hp = left.shownHp = Math.min(left.maxHp, e.targetHp || left.maxHp); left.dead = false; setAnim(left, 'idle', false); } // [HP_SPAWN] atual, não máximo
         else if (e.actor !== right.name) { right = mk(e, 1); right.x0 = right.x; F[right.name] = right; }
-        else { right.hp = right.shownHp = right.maxHp = e.targetMaxHp || right.maxHp; right.dead = false; setAnim(right, 'idle', false); }
+        else { right.maxHp = Math.max(1, e.targetMaxHp || right.maxHp); right.hp = right.shownHp = Math.min(right.maxHp, e.targetHp || right.maxHp); right.dead = false; setAnim(right, 'idle', false); } // [HP_SPAWN] atual, não máximo
       }
     }
 

@@ -122,10 +122,12 @@ public class GuildWarService {
         int aMax = a[2], dMax = d[2];
         int aHp = aw.getCalculatedHpPercent() * aMax / 100;
         int dHp = tw.getCalculatedHpPercent() * dMax / 100;
-        BattleSimulator.BattleOutcome out = battleSimulator.simulateDetailed(
-                aw.getName(), a[0], a[1], aHp, a[3], a[4], a[5],
-                tw.getName(), d[0], d[1], dHp, d[3], d[4], d[5],
-                false, statsService.isRangedWeaponEquipped(attacker), statsService.isRangedWeaponEquipped(target)); // [KITING] PvP, arma ranged (arco) qualquer classe
+        BattleSimulator.BattleOutcome out = battleSimulator.simulate(
+                BattleSimulator.Combatant.of(aw.getName(), a, null, null, java.util.List.of(),
+                    statsService.isRangedWeaponEquipped(attacker)).withCurrentHp(aHp), // [HP_SPAWN] entra com HP atual; máximo = a[2]
+                BattleSimulator.Combatant.of(tw.getName(), d, null, null, java.util.List.of(),
+                    statsService.isRangedWeaponEquipped(target)).withCurrentHp(dHp), // [HP_SPAWN] entra com HP atual; máximo = d[2]
+                false); // [KITING] PvP, arma ranged (arco) qualquer classe
         boolean attackerWon = out.firstWon();
 
         // HP final dos dois

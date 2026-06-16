@@ -427,10 +427,11 @@ public class KingdomService {
         int monsterLevel = questMobLevel(warrior.getLevel(), qt); // [ITEM_DROP_LEVEL]
         int[] mob = questMobStats(warrior.getLevel(), qt, rng);
 
-        BattleSimulator.BattleOutcome out = battleSimulator.simulateDetailed(
-            warrior.getName(), s[0], s[1], curHp, s[3], s[4], s[5],
-            monsterName, mob[0], mob[1], mob[2], mob[3], mob[4], mob[5],
-            true, statsService.isRangedWeaponEquipped(player), false); // PvE: timeout = derrota; [KITING] arma ranged, qualquer classe; monstro = melee
+        BattleSimulator.BattleOutcome out = battleSimulator.simulate(
+            BattleSimulator.Combatant.of(warrior.getName(), s, null, null, java.util.List.of(),
+                statsService.isRangedWeaponEquipped(player)).withCurrentHp(curHp), // [HP_SPAWN] entra com HP atual; máximo = s[2]
+            BattleSimulator.Combatant.of(monsterName, mob, null, null, java.util.List.of(), false),
+            true); // PvE: timeout = derrota; [KITING] arma ranged, qualquer classe; monstro = melee
 
         boolean won = out.firstWon();
         List<String> lg = new ArrayList<>(out.log());

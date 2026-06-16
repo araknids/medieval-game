@@ -131,15 +131,21 @@ public class BattleSimulator {
     public record ActiveAbility(AbilityEffect effect, int cooldown, int magnitude) {}
 
     /** Lutador completo (stats + elementos + ativas + ranged). stats = [atk, def, hp, dex, agi, luk]. */
-    public record Combatant(String name, int atk, int def, int hp, int dex, int agi, int luk,
+    public record Combatant(String name, int atk, int def, int hp, int maxHp, int dex, int agi, int luk,
                             Element weapon, Element armor, List<ActiveAbility> abilities, boolean ranged) {
         public static Combatant of(String name, int[] s, Element weapon, Element armor, List<ActiveAbility> abilities) {
             return of(name, s, weapon, armor, abilities, false);
         }
-        /** [KITING] ranged=true p/ Arqueiro (arco) — sofre/aplica a dinâmica de distância vs melee. */
+        /** [KITING] ranged=true p/ Arqueiro (arco) — sofre/aplica a dinâmica de distância vs melee.
+         *  HP atual = máximo = s[2] (lutador CHEIO); use {@link #withCurrentHp} p/ entrar machucado. */
         public static Combatant of(String name, int[] s, Element weapon, Element armor, List<ActiveAbility> abilities, boolean ranged) {
-            return new Combatant(name, s[0], s[1], s[2], s[3], s[4], s[5], weapon, armor,
+            return new Combatant(name, s[0], s[1], s[2], s[2], s[3], s[4], s[5], weapon, armor,
                     abilities != null ? abilities : List.of(), ranged);
+        }
+        /** Entra no combate com HP ATUAL reduzido; o máximo continua o cheio → barra do spawn correta. */
+        public Combatant withCurrentHp(int currentHp) {
+            return new Combatant(name, atk, def, Math.max(0, currentHp), maxHp, dex, agi, luk,
+                    weapon, armor, abilities, ranged);
         }
     }
 
@@ -201,11 +207,13 @@ public class BattleSimulator {
                 a.name(), a.atk(), a.def(), a.hp(), a.dex(), a.agi(), a.luk(),
                 b.name(), b.atk(), b.def(), b.hp(), b.dex(), b.agi(), b.luk(),
                 firstLosesOnTimeout, a.weapon(), a.armor(), b.weapon(), b.armor(),
-                a.abilities(), b.abilities(), a.ranged(), b.ranged());
+                a.abilities(), b.abilities(), a.ranged(), b.ranged(),
+                a.maxHp(), b.maxHp()); // [HP_SPAWN] HP máximo separado → barra do spawn correta quando entra machucado
     }
 
     // ── Núcleo ──────────────────────────────────────────────────────────────────
 
+    /** Compat: lutadores entram CHEIOS → HP máximo = HP atual (barra do spawn em 100%). */
     public BattleOutcome simulateDetailed(
             String cName, int cAtk, int cDef, int cHp, int cDex, int cAgi, int cLuk,
             String oName, int oAtk, int oDef, int oHp, int oDex, int oAgi, int oLuk,
@@ -213,20 +221,35 @@ public class BattleSimulator {
             Element cWeapon, Element cArmor, Element oWeapon, Element oArmor,
             List<ActiveAbility> cAbilities, List<ActiveAbility> oAbilities,
             boolean cRanged, boolean oRanged) {
+        return simulateDetailed(cName, cAtk, cDef, cHp, cDex, cAgi, cLuk,
+                oName, oAtk, oDef, oHp, oDex, oAgi, oLuk,
+                firstLosesOnTimeout, cWeapon, cArmor, oWeapon, oArmor,
+                cAbilities, oAbilities, cRanged, oRanged, cHp, oHp);
+    }
+
+    /** [HP_SPAWN] Núcleo com HP MÁXIMO separado do atual (p/ a barra do spawn quando entra machucado). */
+    public BattleOutcome simulateDetailed(
+            String cName, int cAtk, int cDef, int cHp, int cDex, int cAgi, int cLuk,
+            String oName, int oAtk, int oDef, int oHp, int oDex, int oAgi, int oLuk,
+            boolean firstLosesOnTimeout,
+            Element cWeapon, Element cArmor, Element oWeapon, Element oArmor,
+            List<ActiveAbility> cAbilities, List<ActiveAbility> oAbilities,
+            boolean cRanged, boolean oRanged,
+            int cMaxHp, int oMaxHp) {
 
         List<String> log = new ArrayList<>();
         List<BattleEvent> events = new ArrayList<>(); // [BATALHA_ANIMADA] eventos do replay (ao lado do log)
         Random rng = java.util.concurrent.ThreadLocalRandom.current();
 
-        Side c = new Side(cName, cAtk, cDef, cHp, cDex, cAgi, cLuk, cWeapon, cArmor, cAbilities, cRanged);
-        Side o = new Side(oName, oAtk, oDef, oHp, oDex, oAgi, oLuk, oWeapon, oArmor, oAbilities, oRanged);
+        Side c = new Side(cName, cAtk, cDef, cHp, cMaxHp, cDex, cAgi, cLuk, cWeapon, cArmor, cAbilities, cRanged);
+        Side o = new Side(oName, oAtk, oDef, oHp, oMaxHp, oDex, oAgi, oLuk, oWeapon, oArmor, oAbilities, oRanged);
 
         log.add(Messages.tr("combat.begins", "⚔ {0} vs {1} — The battle begins!", c.name, o.name)); // [I18N]
         log.add(Messages.tr("combat.hpline", "HP: [{0}: ❤ {1}] | [{2}: ❤ {3}]", c.name, c.maxHp, o.name, o.maxHp));
         log.add("─────────────────────────");
-        // [BATALHA_ANIMADA] spawn dos dois lutadores (o front desenha as barras de HP a partir do maxHp).
-        events.add(new BattleEvent(0, "spawn", c.name, null, 0, c.maxHp, c.maxHp, null, null));
-        events.add(new BattleEvent(0, "spawn", o.name, null, 0, o.maxHp, o.maxHp, null, null));
+        // [BATALHA_ANIMADA] spawn dos dois lutadores: HP ATUAL / HP MÁXIMO → barra correta se entra machucado. [HP_SPAWN]
+        events.add(new BattleEvent(0, "spawn", c.name, null, 0, c.hp, c.maxHp, null, null));
+        events.add(new BattleEvent(0, "spawn", o.name, null, 0, o.hp, o.maxHp, null, null));
 
         for (int round = 1; round <= 40 && c.hp > 0 && o.hp > 0; round++) {
             log.add(Messages.tr("combat.round", "— Round {0} —", round)); // [I18N]
@@ -431,11 +454,11 @@ public class BattleSimulator {
         // [KITING] 0 = à distância (tiro cheio); 2 = encurralado (tiro de perto fraco); 1 = recuando (perde o turno).
         int pinned = 0;
 
-        Side(String name, int atk, int def, int hp, int dex, int agi, int luk,
+        Side(String name, int atk, int def, int hp, int maxHp, int dex, int agi, int luk,
              Element weapon, Element armor, List<ActiveAbility> kit, boolean ranged) {
             this.name = name; this.atk = atk; this.def = def; this.dex = dex;
             this.agi = agi; this.luk = luk; this.weapon = weapon; this.armor = armor;
-            this.maxHp = hp; this.hp = hp; this.ranged = ranged;
+            this.maxHp = Math.max(hp, maxHp); this.hp = hp; this.ranged = ranged;   // [HP_SPAWN] máximo separado do atual
             this.critChance = critChance(luk);
             this.fortuneSave = luk / 10;
             if (kit != null) for (ActiveAbility a : kit) {
