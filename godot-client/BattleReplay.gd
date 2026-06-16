@@ -1153,10 +1153,12 @@ func _tick_team(dt: float) -> void:
 				var lateral := (float(slot) - float(nslot - 1) * 0.5) * 1.3
 				var desired := tn.position + atk_dir * ATTACK_RANGE + perp * lateral
 				desired.y = f["base_y"]
-				if not f["ranged"]:
+				# [FLUIDEZ] só move quando NÃO está em golpe/flinch (busy) → planta o ataque (sem deslizar
+				# enquanto a espada balança) e o flinch fica no lugar. Vira (face) continua suave abaixo.
+				if not f["ranged"] and not f["busy"]:
 					var prev := sn.position
 					sn.position = sn.position.move_toward(desired, MELEE_SPEED * dt)
-					if not f["busy"] and f["anim"]:
+					if f["anim"]:
 						if sn.position.distance_to(prev) > 0.004:
 							if f["anim"].current_animation != A_WALK: f["anim"].play(A_WALK, BLEND)
 						elif f["anim"].current_animation != _clip(f, "idle"):

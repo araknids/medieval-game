@@ -6,6 +6,8 @@ extends Node3D
 # continua funcionando). Personagem 3D: docs/PLANO_GODOT_3D.md
 
 const CHAR := preload("res://addons/quaternius_ik_rigged/Models_with_rigging/Male_rigged.tscn")
+const CHAR_FEMALE := preload("res://addons/quaternius_ik_rigged/Models_with_rigging/Female_Rigged.tscn")  # [OUTFITS_FEMALE]
+const OutfitsLib := preload("res://Outfits.gd")   # sets novos (tema/gênero/cor/variante) — sorteados a cada entrada
 const Weapons := preload("res://Weapons.gd")
 const UAL2_PATH := "res://addons/quaternius_ik_rigged/UAL2_Standard.glb"
 const LIB := "UAL1_Standard/"
@@ -103,8 +105,19 @@ func _clear_fighters() -> void:
 	_atk = 0
 	_timer = 1.0
 
+# Look SORTEADO (tema/gênero/cor/variante) — varia a cada setup() (= a cada entrada no jogo). [OUTFITS]
+func _rand_look() -> Dictionary:
+	var themes: Array = OutfitsLib.THEME_ORDER
+	return {
+		"theme":  str(themes[_rng.randi() % themes.size()]),
+		"gender": "female" if _rng.randi() % 2 == 1 else "male",
+		"rarity": _rng.randi_range(1, 5),
+		"seed":   "menu_%d" % _rng.randi(),   # varia a peça-variante (elmo/ombreira/peitoral)
+	}
+
 func _spawn(pos: Vector3, yaw_deg: float, weapon_kind: String, weapon_rarity: int) -> void:
-	var node := CHAR.instantiate()
+	var look := _rand_look()
+	var node := (CHAR_FEMALE if look["gender"] == "female" else CHAR).instantiate()
 	if node == null:
 		return
 	add_child(node)
@@ -118,9 +131,9 @@ func _spawn(pos: Vector3, yaw_deg: float, weapon_kind: String, weapon_rarity: in
 		var lib2 = load(UAL2_PATH)
 		if lib2 is AnimationLibrary:
 			ap.add_animation_library("UAL2_Standard", lib2)
-	# veste de Ranger (esconde o corpo base) + arma na mão (tipo + raridade)
+	# veste o SET SORTEADO (esconde o corpo base) + arma na mão (tipo + raridade)
 	if skel:
-		_dress(node, skel)
+		_dress(node, skel, look)
 		Weapons.new().attach_weapon(node, weapon_kind, weapon_rarity)
 	# estado do lutador: ranged (arco→kiting) + base_y/hopping/busy p/ o movimento [MENU_DUEL]
 	var fighter := {"node": node, "anim": ap, "ranged": Weapons.new().is_bow_kind(weapon_kind),
@@ -140,19 +153,39 @@ func _spawn(pos: Vector3, yaw_deg: float, weapon_kind: String, weapon_rarity: in
 		ap.play(IDLE)
 	_fighters.append(fighter)
 
-func _dress(node: Node3D, skel: Skeleton3D) -> void:
+func _dress(node: Node3D, skel: Skeleton3D, look := {}) -> void:
+	var theme := str(look.get("theme", "ranger"))
+	var gender := "female" if str(look.get("gender", "male")) == "female" else "male"
+	var rarity := int(look.get("rarity", 1))
+	var seed_name := str(look.get("seed", ""))
+	var g := "Female" if gender == "female" else "Male"
 	# esconde todas as malhas base (Superhero) ANTES de vestir
 	var base: Array = []
 	_collect_meshes(node, base)
 	for m: MeshInstance3D in base:
 		m.visible = false
-	# rosto + set Ranger completo, reparenteados sob o esqueleto compartilhado
-	for path in [BASE_HEAD] + RANGER:
-		var scene = load(path)
-		if scene is PackedScene:
-			_attach_outfit(scene, skel)
+	# rosto (gênero-aware)
+	var head = load("res://assets/base/Base_%s_Head.gltf" % g)
+	if head is PackedScene:
+		_attach_outfit(head, skel)
+	# set completo por tema/gênero/variante + recolor por raridade
+	var dressed := {}
+	for ty in OutfitsLib.ARMOR_SLOTS:
+		var path := OutfitsLib.piece_path_theme(theme, ty, gender, seed_name)
+		if path != "" and ResourceLoader.exists(path):
+			var sc = load(path)
+			if sc is PackedScene:
+				_attach_outfit(sc, skel, theme, rarity)
+				dressed[ty] = true
+	# pele nua nos slots de CORPO sem peça (defensivo: evita buraco se uma peça faltar)
+	var part_slot := {"Torso": "ARMOR", "Arms": "GLOVES", "Legs": "PANTS", "Feet": "BOOTS"}
+	for part in part_slot:
+		if not dressed.has(part_slot[part]):
+			var p = load("res://assets/base/Base_%s_%s.gltf" % [g, part])
+			if p is PackedScene:
+				_attach_outfit(p, skel)
 
-func _attach_outfit(scene: PackedScene, skel: Skeleton3D) -> void:
+func _attach_outfit(scene: PackedScene, skel: Skeleton3D, theme := "", rarity := 0) -> void:
 	var inst := scene.instantiate()
 	var meshes: Array = []
 	_collect_meshes(inst, meshes)
@@ -163,6 +196,8 @@ func _attach_outfit(scene: PackedScene, skel: Skeleton3D) -> void:
 		mi.transform = Transform3D.IDENTITY
 		mi.skin = skin
 		mi.skeleton = NodePath("..")
+		if theme != "" and rarity > 0:
+			OutfitsLib.recolor_mesh(mi, theme, rarity)
 	inst.queue_free()
 
 func _collect_meshes(n: Node, out: Array) -> void:
