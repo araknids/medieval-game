@@ -116,12 +116,25 @@ func _companion_slot(kind: String, caption: String) -> VBoxContainer:
 	sb.set_corner_radius_all(4)
 	sb.set_content_margin_all(4)
 	pc.add_theme_stylebox_override("panel", sb)
-	var emoji := Label.new()
-	emoji.add_theme_font_size_override("font_size", 28)
-	emoji.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	emoji.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	emoji.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	pc.add_child(emoji)
+	# ícone PixelLab "mount"/"pet" se importado; senão cai no emoji 🐎/🐾 [ICONES_RARIDADE]
+	var itex := Icons.tex(kind)
+	if itex != null:
+		var ir := TextureRect.new()
+		ir.texture = itex
+		ir.custom_minimum_size = Vector2(48, 48)
+		ir.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		ir.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+		ir.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		pc.add_child(ir)
+		_companions[kind] = {"frame": pc, "icon": ir}
+	else:
+		var emoji := Label.new()
+		emoji.add_theme_font_size_override("font_size", 28)
+		emoji.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		emoji.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+		emoji.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		pc.add_child(emoji)
+		_companions[kind] = {"frame": pc, "emoji": emoji}
 	vb.add_child(pc)
 	var cap := Label.new()
 	cap.text = Lang.t(caption)
@@ -129,7 +142,6 @@ func _companion_slot(kind: String, caption: String) -> VBoxContainer:
 	cap.add_theme_color_override("font_color", UiKit.TEXT_DIM)
 	cap.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	vb.add_child(cap)
-	_companions[kind] = {"frame": pc, "emoji": emoji}
 	return vb
 
 func _slot_column(types: Array) -> VBoxContainer:
@@ -272,17 +284,19 @@ func _fill_companion(kind: String, data, generic_emoji: String, label: String) -
 	if c.is_empty():
 		return
 	var pc: PanelContainer = c["frame"]
-	var emoji: Label = c["emoji"]
 	var sb: StyleBoxFlat = pc.get_theme_stylebox("panel")
-	if data is Dictionary:
-		emoji.text = str(data.get("icon", generic_emoji))
-		emoji.modulate = Color(1, 1, 1, 1)
+	var equipped := data is Dictionary
+	if c.has("icon"):   # ícone PixelLab: opaco se equipado, apagado se vazio
+		(c["icon"] as TextureRect).modulate = Color(1, 1, 1, 1.0 if equipped else 0.32)
+	elif c.has("emoji"):
+		var emoji: Label = c["emoji"]
+		emoji.text = str(data.get("icon", generic_emoji)) if equipped else generic_emoji
+		emoji.modulate = Color(1, 1, 1, 1.0 if equipped else 0.30)
+	if equipped:
 		sb.border_color = UiKit.GOLD
 		sb.set_border_width_all(2)
 		pc.tooltip_text = _companion_tooltip(kind, data, label)
 	else:
-		emoji.text = generic_emoji
-		emoji.modulate = Color(1, 1, 1, 0.30)
 		sb.border_color = UiKit.BRONZE
 		sb.set_border_width_all(1)
 		pc.tooltip_text = "%s — %s" % [Lang.t(label), Lang.t("nenhuma equipada")]
