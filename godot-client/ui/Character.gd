@@ -398,6 +398,7 @@ func _render_bag_panel() -> void:
 	for it in items:
 		if it is Dictionary and not bool(it.get("equipped", false)):
 			bag.append(it)
+	bag.sort_custom(_bag_sort)   # nível do item ↓, depois poder ↓ (melhor gear no topo)
 	_panel_host.add_child(UiKit.section(Lang.t("Mochila (%d)") % bag.size()))
 	_panel_host.add_child(UiKit.rarity_filter(rarity_filter, _set_rarity))
 	if bag.is_empty():
@@ -413,6 +414,26 @@ func _render_bag_panel() -> void:
 			_panel_host.add_child(UiKit.dim("— nada nessa raridade —"))
 		else:
 			_panel_host.add_child(UiKit.grid(self, shown, _bag_card, true, 200.0, 2))   # 2 itens por linha (cards estreitos)
+
+# "Poder" do item = soma dos stats (HP pesa menos por ser número grande). Empate por raridade no _bag_sort.
+func _item_power(it: Dictionary) -> int:
+	return int(it.get("attackBonus", 0)) + int(it.get("defenseBonus", 0)) \
+		+ int(it.get("strBonus", 0)) + int(it.get("dexBonus", 0)) + int(it.get("lukBonus", 0)) \
+		+ int(round(int(it.get("healthBonus", 0)) * 0.3))
+
+# Ordena a bag: nível do item ↓, depois poder ↓, depois raridade ↓ (melhor gear no topo).
+func _bag_sort(a, b) -> bool:
+	if not (a is Dictionary) or not (b is Dictionary):
+		return false
+	var la := int(a.get("itemLevel", 1))
+	var lb := int(b.get("itemLevel", 1))
+	if la != lb:
+		return la > lb
+	var pa := _item_power(a)
+	var pb := _item_power(b)
+	if pa != pb:
+		return pa > pb
+	return int(a.get("rarity", 1)) > int(b.get("rarity", 1))
 
 # [RECURSOS] Seção PRÓPRIA, fixa abaixo de tudo (não rola com os itens) — chips [📦 nome ×qtd] em flow.
 func _render_resources() -> void:
