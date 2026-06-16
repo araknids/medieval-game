@@ -250,21 +250,24 @@ func _kite_move(dt: float, r: int, m: int) -> void:
 	if side == 0.0:
 		side = 1.0
 	var gap := absf(rn.position.x - mn.position.x)
-	# MELEE persegue até KITE_RANGE — SEMPRE (mesmo durante o pulo do arqueiro → não congela, segue o pouso)
-	var desired_m := rn.position.x - side * KITE_RANGE
-	mn.position.x = move_toward(mn.position.x, desired_m, KITE_MELEE_SPEED * dt)
+	# MELEE persegue o arqueiro — só quando NÃO está golpeando (planta o golpe, sem deslizar)
 	_face(M, side)
-	var ap_m: AnimationPlayer = M["anim"]
-	if ap_m and not M.get("busy", false):
-		var want_m: String = WALK if absf(mn.position.x - desired_m) > 0.03 else IDLE
-		if ap_m.current_animation != want_m:
-			ap_m.play(want_m, BLEND)
+	if not M.get("busy", false):
+		var desired_m := rn.position.x - side * KITE_RANGE
+		mn.position.x = move_toward(mn.position.x, desired_m, KITE_MELEE_SPEED * dt)
+		var ap_m: AnimationPlayer = M["anim"]
+		if ap_m:
+			var want_m: String = WALK if absf(mn.position.x - desired_m) > 0.03 else IDLE
+			if ap_m.current_animation != want_m:
+				ap_m.play(want_m, BLEND)
 	# ── ARQUEIRO ──
 	if R.get("dodging", false):
 		_dodge_step(dt, R, rn)              # rolê EM ANDAMENTO: move até o pouso (frame-based, robusto)
 		return
 	_face(R, -side)                         # encara o melee
-	if gap <= DODGE_GAP:                     # melee COLOU → rola ATRAVÉS pro outro lado (reganha distância)
+	if gap <= DODGE_GAP:                     # melee COLOU → ele GOLPEIA e o arqueiro rola ATRAVÉS (esquiva)
+		if not M.get("busy", false):
+			_melee_swing(m)                 # o golpe que o arqueiro está esquivando (sincronizado)
 		_start_dodge(r, m)
 		return
 	var ap_r: AnimationPlayer = R["anim"]
@@ -282,14 +285,10 @@ func _kite_move(dt: float, r: int, m: int) -> void:
 # Batida do kiting: melee no alcance → golpe (o arqueiro esquiva via _kite_move); senão o arqueiro ATIRA.
 func _kite_beat(r: int, m: int) -> void:
 	var R: Dictionary = _fighters[r]
-	var M: Dictionary = _fighters[m]
 	var rn: Node3D = R["node"]
-	var mn: Node3D = M["node"]
-	if not (is_instance_valid(rn) and is_instance_valid(mn)) or R.get("dodging", false):
-		return
-	if absf(rn.position.x - mn.position.x) < KITE_RANGE + 0.45 and not M.get("busy", false):
-		_melee_swing(m)        # o guerreiro chegou no alcance → golpe (o arqueiro rola e esquiva)
-	else:
+	# o arqueiro ATIRA no beat quando tem espaço (não no meio da esquiva nem de um tiro). O golpe do
+	# melee agora sai SINCRONIZADO com a esquiva, lá no _kite_move (não mais aqui).
+	if is_instance_valid(rn) and not R.get("dodging", false) and not R.get("busy", false):
 		_kite_shoot(r, m)
 
 func _kite_shoot(r: int, m: int) -> void:
