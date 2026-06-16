@@ -24,7 +24,15 @@ LOOKS = [
     ("F_ranger",        "Female", "ranger", ["Female_Ranger_Head_Hood", "Female_Ranger_Body", "Female_Ranger_Acc_Pauldrons", "Female_Ranger_Arms", "Female_Ranger_Legs", "Female_Ranger_Feet"]),
     ("F_wizard",        "Female", "wizard", ["Female_Wizard_Body", "Female_Wizard_Arms", "Female_Wizard_Legs", "Female_Wizard_Feet"]),
 ]
-COLORS = [1, 2, 3]   # as 3 variações de textura por tema (1=base, 2="_2", 3="_3")
+# Showcase ordenado por RARIDADE (não por cor crua) — espelha Outfits.gd: cada tema mostra a cor da
+# sua banda. Assim o "melhor" (ex.: dourado do Knight) cai no Lendário (o mais raro). [SKIN_RARIDADE]
+BAND_FOR_RARITY = [0, 0, 1, 2, 2]
+BAND_VARIANT = {"knight": [3, 1, 2], "noble": [3, 2, 1], "ranger": [3, 1, 2], "peasant": [1, 3, 2], "wizard": [1, 2, 3]}
+RARITIES = [(1, "Comum"), (3, "Raro"), (5, "Lendario")]   # uma raridade por banda
+
+
+def color_for(theme, rarity):
+    return BAND_VARIANT.get(theme, [1, 2, 3])[BAND_FOR_RARITY[rarity - 1]]
 
 
 def theme_dir(base):
@@ -64,7 +72,8 @@ def pick_engine():
 
 
 for look_id, gender, theme, pieces in LOOKS:
-    for cv in COLORS:
+    for rarity, rlabel in RARITIES:
+        cv = color_for(theme, rarity)   # cor da BANDA de raridade deste tema (não a cor crua)
         bpy.ops.wm.read_factory_settings(use_empty=True)
         scene = bpy.context.scene
         scene.render.engine = pick_engine(); scene.render.film_transparent = True
@@ -108,7 +117,7 @@ for look_id, gender, theme, pieces in LOOKS:
             l = bpy.data.lights.new(nm, type='SUN'); l.energy = en
             o = bpy.data.objects.new(nm, l); scene.collection.objects.link(o)
             o.rotation_euler = (math.radians(ang[0]), math.radians(ang[1]), math.radians(ang[2]))
-        out = os.path.join(out_dir, "%s__c%d.png" % (look_id, cv)); scene.render.filepath = out
+        out = os.path.join(out_dir, "%s__r%d.png" % (look_id, rarity)); scene.render.filepath = out
         bpy.ops.render.render(write_still=True)
-        print("SHOW", look_id, "c%d" % cv, "->", os.path.exists(out))
+        print("SHOW", look_id, rlabel, "(cor%d)" % cv, "->", os.path.exists(out))
 print("DONE")
