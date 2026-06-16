@@ -145,9 +145,16 @@ func _open_panel() -> PanelContainer:
 		elif bool(r.get("itemCollected", false)):
 			vb.add_child(UiKit.dim(Lang.t("📦 %s (já reivindicado)") % str(r.get("itemName", ""))))
 		else:
-			var lbl := Label.new(); lbl.text = "📦 %s" % str(r.get("itemName", ""))
+			# ícone do item (arma → render do modelo) + nome [SLOT_WEAPON_IMG]
+			var irow := HBoxContainer.new(); irow.add_theme_constant_override("separation", 8)
+			var ic := UiKit.item_icon_for({"type": str(r.get("itemType", "")), "name": str(r.get("itemName", ""))}, 36)
+			if ic:
+				irow.add_child(ic)
+			var lbl := Label.new(); lbl.text = str(r.get("itemName", ""))
 			lbl.add_theme_color_override("font_color", Color(0.65, 0.55, 0.98))
-			vb.add_child(lbl)
+			lbl.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+			irow.add_child(lbl)
+			vb.add_child(irow)
 			vb.add_child(UiKit.action("📦 Adicionar à mochila", _claim_item.bind(opened_id)))
 	# anexo: RECURSO ([DAILY])
 	if bool(r.get("hasResource", false)) and not bool(r.get("isExpired", false)):

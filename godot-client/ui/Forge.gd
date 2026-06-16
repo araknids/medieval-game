@@ -193,12 +193,19 @@ func _craft_card(r: Dictionary) -> PanelContainer:
 	var pc: PanelContainer = res[0]
 	var vb: VBoxContainer = res[1]
 	var sockets := int(r.get("sockets", 0))
+	# nome com ÍCONE do item à esquerda (arma → render do modelo; resto → slot) [SLOT_WEAPON_IMG]
+	var nrow := HBoxContainer.new(); nrow.add_theme_constant_override("separation", 10)
+	var ic := UiKit.item_icon_for({"type": str(r.get("slot", "")), "name": str(r.get("name", ""))}, 36)
+	if ic:
+		nrow.add_child(ic)
 	var nm := Label.new()
 	nm.text = "%s (%d socket%s)" % [str(r.get("name", "?")), sockets, "" if sockets == 1 else "s"]
 	nm.add_theme_font_size_override("font_size", 15)
 	nm.add_theme_color_override("font_color", col)
 	nm.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	vb.add_child(nm)
+	nm.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	nrow.add_child(nm)
+	vb.add_child(nrow)
 	# ingredientes — P1: cor verde se tem o bastante, vermelho se falta.
 	for i in r.get("ingredients", []):
 		if i is Dictionary:

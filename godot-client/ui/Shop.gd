@@ -114,6 +114,9 @@ func _item_row(it: Dictionary) -> PanelContainer:
 		sbpc.set_border_width_all(2)
 	var hb := HBoxContainer.new(); hb.add_theme_constant_override("separation", 12)
 	box.add_child(hb)
+	var ic := UiKit.item_icon_for(it)   # ícone do item (arma → render do modelo) [SLOT_WEAPON_IMG]
+	if ic:
+		hb.add_child(ic)
 	# esquerda: nome + sub + stats + preço
 	var left := VBoxContainer.new(); left.add_theme_constant_override("separation", 2)
 	left.size_flags_horizontal = Control.SIZE_EXPAND_FILL
