@@ -3,18 +3,19 @@
 importer="scene"
 importer_version=1
 type="PackedScene"
-uid="uid://rjlqodpda5ft1"
-path="res://.godot/imported/Female_Peasant_Body.gltf-233a94058670ed82faa208cae04b3b9a.scn"
+uid="uid://b2yab41c1cwsy"
+path="res://.godot/imported/Female_Peasant_Body.gltf-a3f2335e86f269e77c63887d8a9944d9.scn"
 
 [deps]
 
 source_file="res://assets/outfits/peasant/Female_Peasant_Body.gltf"
-dest_files=["res://.godot/imported/Female_Peasant_Body.gltf-233a94058670ed82faa208cae04b3b9a.scn"]
+dest_files=["res://.godot/imported/Female_Peasant_Body.gltf-a3f2335e86f269e77c63887d8a9944d9.scn"]
 
 [params]
 
 nodes/root_type=""
 nodes/root_name=""
+nodes/root_script=null
 nodes/apply_root_scale=true
 nodes/root_scale=1.0
 nodes/import_as_skeleton_bones=false
@@ -34,6 +35,8 @@ animation/remove_immutable_tracks=true
 animation/import_rest_as_RESET=false
 import_script/path=""
 materials/extract=0
+materials/extract_format=0
+materials/extract_path=""
 _subresources={
 "nodes": {
 "PATH:Armature/Skeleton3D": {

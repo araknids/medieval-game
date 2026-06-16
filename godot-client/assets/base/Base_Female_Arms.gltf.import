@@ -4,12 +4,12 @@ importer="scene"
 importer_version=1
 type="PackedScene"
 uid="uid://basefemarms01"
-path="res://.godot/imported/Base_Female_Arms.gltf-86d7061af7de631eaca38c203adcbe63.scn"
+path="res://.godot/imported/Base_Female_Arms.gltf-a9418e2fb7b0bb94435f0b6ad02d78f4.scn"
 
 [deps]
 
 source_file="res://assets/base/Base_Female_Arms.gltf"
-dest_files=["res://.godot/imported/Base_Female_Arms.gltf-86d7061af7de631eaca38c203adcbe63.scn"]
+dest_files=["res://.godot/imported/Base_Female_Arms.gltf-a9418e2fb7b0bb94435f0b6ad02d78f4.scn"]
 
 [params]
 

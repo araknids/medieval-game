@@ -3,18 +3,19 @@
 importer="scene"
 importer_version=1
 type="PackedScene"
-uid="uid://7x9pmzce5nb43"
-path="res://.godot/imported/Female_Noble_Acc_Pauldron.gltf-2cdd312ca6aee89fbec81a51ddddf413.scn"
+uid="uid://b10qwjyem1b2y"
+path="res://.godot/imported/Female_Noble_Acc_Pauldron.gltf-02c83dd8890f44af30d2f5b1242e5275.scn"
 
 [deps]
 
 source_file="res://assets/outfits/noble/Female_Noble_Acc_Pauldron.gltf"
-dest_files=["res://.godot/imported/Female_Noble_Acc_Pauldron.gltf-2cdd312ca6aee89fbec81a51ddddf413.scn"]
+dest_files=["res://.godot/imported/Female_Noble_Acc_Pauldron.gltf-02c83dd8890f44af30d2f5b1242e5275.scn"]
 
 [params]
 
 nodes/root_type=""
 nodes/root_name=""
+nodes/root_script=null
 nodes/apply_root_scale=true
 nodes/root_scale=1.0
 nodes/import_as_skeleton_bones=false
@@ -34,6 +35,8 @@ animation/remove_immutable_tracks=true
 animation/import_rest_as_RESET=false
 import_script/path=""
 materials/extract=0
+materials/extract_format=0
+materials/extract_path=""
 _subresources={
 "nodes": {
 "PATH:Armature/Skeleton3D": {

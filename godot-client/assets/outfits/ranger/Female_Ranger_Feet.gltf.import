@@ -3,18 +3,19 @@
 importer="scene"
 importer_version=1
 type="PackedScene"
-uid="uid://wtccw5rcbhgr3"
-path="res://.godot/imported/Female_Ranger_Feet.gltf-fd5ac670d140e4b4247e78de491aaa84.scn"
+uid="uid://diayyu52hg20a"
+path="res://.godot/imported/Female_Ranger_Feet.gltf-317480f61fc3f5cf37e1e9e835da0e6a.scn"
 
 [deps]
 
 source_file="res://assets/outfits/ranger/Female_Ranger_Feet.gltf"
-dest_files=["res://.godot/imported/Female_Ranger_Feet.gltf-fd5ac670d140e4b4247e78de491aaa84.scn"]
+dest_files=["res://.godot/imported/Female_Ranger_Feet.gltf-317480f61fc3f5cf37e1e9e835da0e6a.scn"]
 
 [params]
 
 nodes/root_type=""
 nodes/root_name=""
+nodes/root_script=null
 nodes/apply_root_scale=true
 nodes/root_scale=1.0
 nodes/import_as_skeleton_bones=false
@@ -34,6 +35,8 @@ animation/remove_immutable_tracks=true
 animation/import_rest_as_RESET=false
 import_script/path=""
 materials/extract=0
+materials/extract_format=0
+materials/extract_path=""
 _subresources={
 "nodes": {
 "PATH:Armature/Skeleton3D": {

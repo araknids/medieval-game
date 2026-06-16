@@ -4,12 +4,12 @@ importer="scene"
 importer_version=1
 type="PackedScene"
 uid="uid://basefemtors01"
-path="res://.godot/imported/Base_Female_Torso.gltf-0c281d815c920afc7cee5cc48858c002.scn"
+path="res://.godot/imported/Base_Female_Torso.gltf-7b4059f3f63883d5e886b43647cad928.scn"
 
 [deps]
 
 source_file="res://assets/base/Base_Female_Torso.gltf"
-dest_files=["res://.godot/imported/Base_Female_Torso.gltf-0c281d815c920afc7cee5cc48858c002.scn"]
+dest_files=["res://.godot/imported/Base_Female_Torso.gltf-7b4059f3f63883d5e886b43647cad928.scn"]
 
 [params]
 

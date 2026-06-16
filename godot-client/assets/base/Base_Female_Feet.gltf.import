@@ -4,12 +4,12 @@ importer="scene"
 importer_version=1
 type="PackedScene"
 uid="uid://basefemfeet01"
-path="res://.godot/imported/Base_Female_Feet.gltf-d47af974ac7c111bd24125c5143e6143.scn"
+path="res://.godot/imported/Base_Female_Feet.gltf-d455561fb0bc6799af6931d822dfa1d2.scn"
 
 [deps]
 
 source_file="res://assets/base/Base_Female_Feet.gltf"
-dest_files=["res://.godot/imported/Base_Female_Feet.gltf-d47af974ac7c111bd24125c5143e6143.scn"]
+dest_files=["res://.godot/imported/Base_Female_Feet.gltf-d455561fb0bc6799af6931d822dfa1d2.scn"]
 
 [params]
 

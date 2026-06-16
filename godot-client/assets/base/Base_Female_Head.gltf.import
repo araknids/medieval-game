@@ -4,12 +4,12 @@ importer="scene"
 importer_version=1
 type="PackedScene"
 uid="uid://basefemhead01"
-path="res://.godot/imported/Base_Female_Head.gltf-8ded5674d89904bba3f4b2a8d8b758a5.scn"
+path="res://.godot/imported/Base_Female_Head.gltf-18e06c5b7bfb01dfe3275a143f851c51.scn"
 
 [deps]
 
 source_file="res://assets/base/Base_Female_Head.gltf"
-dest_files=["res://.godot/imported/Base_Female_Head.gltf-8ded5674d89904bba3f4b2a8d8b758a5.scn"]
+dest_files=["res://.godot/imported/Base_Female_Head.gltf-18e06c5b7bfb01dfe3275a143f851c51.scn"]
 
 [params]
 

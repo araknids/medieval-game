@@ -3,18 +3,19 @@
 importer="scene"
 importer_version=1
 type="PackedScene"
-uid="uid://710ag74fl65c1"
-path="res://.godot/imported/Female_Knight_Body_Armor.gltf-843cd209e767025c10448013c9decaa8.scn"
+uid="uid://b4qbqrre3k5aw"
+path="res://.godot/imported/Female_Knight_Body_Armor.gltf-d542829934e41713f5f4c523a271204e.scn"
 
 [deps]
 
 source_file="res://assets/outfits/knight/Female_Knight_Body_Armor.gltf"
-dest_files=["res://.godot/imported/Female_Knight_Body_Armor.gltf-843cd209e767025c10448013c9decaa8.scn"]
+dest_files=["res://.godot/imported/Female_Knight_Body_Armor.gltf-d542829934e41713f5f4c523a271204e.scn"]
 
 [params]
 
 nodes/root_type=""
 nodes/root_name=""
+nodes/root_script=null
 nodes/apply_root_scale=true
 nodes/root_scale=1.0
 nodes/import_as_skeleton_bones=false
@@ -34,6 +35,8 @@ animation/remove_immutable_tracks=true
 animation/import_rest_as_RESET=false
 import_script/path=""
 materials/extract=0
+materials/extract_format=0
+materials/extract_path=""
 _subresources={
 "nodes": {
 "PATH:Armature/Skeleton3D": {

@@ -3,18 +3,19 @@
 importer="scene"
 importer_version=1
 type="PackedScene"
-uid="uid://1d0wzkao82ff1"
-path="res://.godot/imported/Female_Noble_Legs.gltf-beb20156105616331ce17fa8410c5451.scn"
+uid="uid://c6kpg7q6ut5vg"
+path="res://.godot/imported/Female_Noble_Legs.gltf-5a4587feeb54efea63bf89b369d544d4.scn"
 
 [deps]
 
 source_file="res://assets/outfits/noble/Female_Noble_Legs.gltf"
-dest_files=["res://.godot/imported/Female_Noble_Legs.gltf-beb20156105616331ce17fa8410c5451.scn"]
+dest_files=["res://.godot/imported/Female_Noble_Legs.gltf-5a4587feeb54efea63bf89b369d544d4.scn"]
 
 [params]
 
 nodes/root_type=""
 nodes/root_name=""
+nodes/root_script=null
 nodes/apply_root_scale=true
 nodes/root_scale=1.0
 nodes/import_as_skeleton_bones=false
@@ -34,6 +35,8 @@ animation/remove_immutable_tracks=true
 animation/import_rest_as_RESET=false
 import_script/path=""
 materials/extract=0
+materials/extract_format=0
+materials/extract_path=""
 _subresources={
 "nodes": {
 "PATH:Armature/Skeleton3D": {
