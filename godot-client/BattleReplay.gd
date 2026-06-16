@@ -9,6 +9,8 @@ extends Node3D
 # Plano: docs/PLANO_GODOT_3D.md (Fase 3) · Evento: BattleSimulator.BattleEvent
 
 const CHAR := preload("res://addons/quaternius_ik_rigged/Models_with_rigging/Male_rigged.tscn")
+const CHAR_FEMALE := preload("res://addons/quaternius_ik_rigged/Models_with_rigging/Female_Rigged.tscn")  # [OUTFITS_FEMALE]
+const OutfitsLib := preload("res://Outfits.gd")   # sets novos por tema/gênero/variante + recolor por raridade
 const Scenery := preload("res://Scenery.gd")
 const Monsters := preload("res://Monsters.gd")
 const Weapons := preload("res://Weapons.gd")
@@ -662,27 +664,35 @@ func _war_hit(e: Dictionary, crit: bool) -> void:
 	elif dmg > 0:
 		_on_impact(crit)
 
-func _dress(node: Node3D, skel: Skeleton3D, equipped_types: Array) -> void:
+# [OUTFITS_FEMALE][SKIN_RARIDADE] veste o lutador com um SET NOVO (tema/gênero/variante do `look`)
+# + recolor por raridade. look = {theme, gender, rarity, seed}; ausente → ranger male cor base.
+func _dress(node: Node3D, skel: Skeleton3D, equipped_types: Array, look := {}) -> void:
 	if skel == null: return
-	var head: PackedScene = load(BASE_HEAD)
-	if head == null:
-		push_warning("paper-doll: %s não carregou — lutador fica com a base nua." % BASE_HEAD)
-		return
+	var theme := str(look.get("theme", "ranger"))
+	var gender := "female" if str(look.get("gender", "male")) == "female" else "male"
+	var rarity := int(look.get("rarity", 1))
+	var seed_name := str(look.get("seed", ""))
+	var g := "Female" if gender == "female" else "Male"
 	var body_meshes: Array = []
 	_collect_meshes(node, body_meshes)   # base do addon (corpo+cabeça) — esconder inteira
 	for m: MeshInstance3D in body_meshes:
 		m.visible = false
-	_attach_outfit_to(skel, head)        # rosto sempre
-	for ty in PIECES:
+	var head: PackedScene = load("res://assets/base/Base_%s_Head.gltf" % g)   # rosto sempre
+	if head: _attach_outfit_to(skel, head)
+	for ty in OutfitsLib.ARMOR_SLOTS:
 		if ty in equipped_types:
-			var sc: PackedScene = load(PIECES[ty])
-			if sc: _attach_outfit_to(skel, sc)
-	for path in BASE_PART:
-		if not (str(BASE_PART[path]) in equipped_types):   # slot sem roupa → pele
-			var p: PackedScene = load(path)
+			var path := OutfitsLib.piece_path_theme(theme, ty, gender, seed_name)
+			if path != "" and ResourceLoader.exists(path):
+				var sc: PackedScene = load(path)
+				if sc: _attach_outfit_to(skel, sc, theme, rarity)   # recolore pela raridade
+	# pele nua (cortada no Blender) nos slots SEM roupa — gênero-aware
+	var part_slot := {"Torso": "ARMOR", "Arms": "GLOVES", "Legs": "PANTS", "Feet": "BOOTS"}
+	for part in part_slot:
+		if not (str(part_slot[part]) in equipped_types):
+			var p: PackedScene = load("res://assets/base/Base_%s_%s.gltf" % [g, part])
 			if p: _attach_outfit_to(skel, p)
 
-func _attach_outfit_to(skel: Skeleton3D, scene: PackedScene) -> void:
+func _attach_outfit_to(skel: Skeleton3D, scene: PackedScene, theme := "", rarity := 0) -> void:
 	var inst := scene.instantiate()
 	var meshes: Array = []
 	_collect_meshes(inst, meshes)
@@ -693,6 +703,8 @@ func _attach_outfit_to(skel: Skeleton3D, scene: PackedScene) -> void:
 		mi.transform = Transform3D.IDENTITY
 		mi.skin = skin
 		mi.skeleton = NodePath("..")   # esqueleto compartilhado anima a peça junto
+		if theme != "" and rarity > 0:
+			OutfitsLib.recolor_mesh(mi, theme, rarity)
 	inst.queue_free()
 
 func _collect_meshes(node: Node, out: Array) -> void:
@@ -700,6 +712,18 @@ func _collect_meshes(node: Node, out: Array) -> void:
 		out.append(node)
 	for c in node.get_children():
 		_collect_meshes(c, out)
+
+# [OUTFITS] Aparência do SET (tema/gênero/cor/variante) determinística pelo NOME → cada lutador veste
+# um set diferente (pra ver os sets novos na batalha). A raridade aqui controla só a COR do set.
+func _appearance(nm: String) -> Dictionary:
+	var h := absi(hash(nm))
+	var themes: Array = OutfitsLib.THEME_ORDER
+	return {
+		"theme":  str(themes[h % themes.size()]),
+		"gender": "female" if (h / 3) % 2 == 1 else "male",
+		"rarity": (h / 7) % 5 + 1,   # 1..5 → banda de cor do tema [SKIN_RARIDADE]
+		"seed":   nm,                # → escolhe a variante da peça (elmo/ombreira/peitoral) [OUTFITS_VARIANTES]
+	}
 
 # [INIMIGO] "cara própria" determinística pelo NOME (mesmo oponente = mesmo visual): {weapon, tint, scale, equip}.
 func _enemy_look(nm: String, ranged: bool) -> Dictionary:
@@ -762,9 +786,11 @@ func _is_ranged(who: String) -> bool:
 
 func _make_fighter(fname: String, side: int, maxhp: int, weapon_kind: String, equipped_types: Array, monster_meta := {}, rarity := 1, look := {}) -> Dictionary:
 	var is_monster := not monster_meta.is_empty()
-	var node: Node3D = mons.instance(str(monster_meta.get("file", ""))) if is_monster else CHAR.instantiate()
+	var aplook := _appearance(fname)   # [OUTFITS] set novo (tema/gênero/cor/variante) pelo nome
+	var char_scene: PackedScene = CHAR_FEMALE if aplook["gender"] == "female" else CHAR
+	var node: Node3D = mons.instance(str(monster_meta.get("file", ""))) if is_monster else char_scene.instantiate()
 	if node == null:   # monstro não carregou → cai no humano p/ não travar a cena
-		node = CHAR.instantiate(); is_monster = false
+		node = char_scene.instantiate(); is_monster = false
 	add_child(node)
 	node.position = Vector3(ENTRY_X * side, 0, 0)
 	var base_y := 0.0
@@ -805,9 +831,7 @@ func _make_fighter(fname: String, side: int, maxhp: int, weapon_kind: String, eq
 	add_child(rim)
 	f["rim"] = rim
 	if not is_monster:
-		_dress(node, skel, equipped_types)   # [GODOT_PAPERDOLL] veste antes da arma
-		if look.has("tint"):                 # [INIMIGO] lavagem de cor (faction) do inimigo
-			_tint_body(node, look["tint"])
+		_dress(node, skel, equipped_types, aplook)   # [OUTFITS] veste o SET NOVO antes da arma
 		wp.attach_weapon(node, weapon_kind, rarity, weapon_grip)
 		# escudo na off-hand — só com arma MELEE (arco usa as duas mãos)
 		if ("SHIELD" in equipped_types) and not wp.is_bow_kind(weapon_kind):
