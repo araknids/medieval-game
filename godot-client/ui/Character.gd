@@ -412,7 +412,7 @@ func _render_bag_panel() -> void:
 		if shown.is_empty():
 			_panel_host.add_child(UiKit.dim("— nada nessa raridade —"))
 		else:
-			_panel_host.add_child(UiKit.grid(self, shown, _bag_card, true))
+			_panel_host.add_child(UiKit.grid(self, shown, _bag_card, true, 270.0, 2))   # 2 itens por linha (cards estreitos)
 
 # [RECURSOS] Seção PRÓPRIA, fixa abaixo de tudo (não rola com os itens) — chips [📦 nome ×qtd] em flow.
 func _render_resources() -> void:
@@ -456,6 +456,8 @@ func _set_rarity(r) -> void:
 	rarity_filter = int(r)
 	_render_panel()
 
+# Card COMPACTO (2 por linha): ícone+nome em cima, nível/stats no meio, botões de ÍCONE embaixo
+# (equipar à esq, vender à dir com o preço). [GRID_COLS]
 func _bag_card(it) -> Control:
 	if not (it is Dictionary):
 		return null
@@ -464,35 +466,58 @@ func _bag_card(it) -> Control:
 	var res := UiKit.card(UiKit.rarity_color(rar))
 	var pc: PanelContainer = res[0]
 	var box: VBoxContainer = res[1]
-	var row := HBoxContainer.new()
-	row.add_theme_constant_override("separation", 10)
-	box.add_child(row)
-	var ic := UiKit.item_icon_for(it, 40)   # arma → render do modelo (igual ao slot) [SLOT_WEAPON_IMG]
+	box.add_theme_constant_override("separation", 3)
+	var top := HBoxContainer.new()
+	top.add_theme_constant_override("separation", 8)
+	box.add_child(top)
+	var ic := UiKit.item_icon_for(it, 36)   # arma → render do modelo (igual ao slot) [SLOT_WEAPON_IMG]
 	if ic:
-		row.add_child(ic)
-	var left := VBoxContainer.new()
-	left.add_theme_constant_override("separation", 2)
-	left.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	row.add_child(left)
+		top.add_child(ic)
 	var nm := Label.new()
 	nm.text = str(it.get("name", "?"))
-	nm.add_theme_font_size_override("font_size", 14)
+	nm.add_theme_font_size_override("font_size", 13)
 	nm.add_theme_color_override("font_color", UiKit.rarity_color(rar))
-	left.add_child(nm)
-	left.add_child(UiKit.item_subline(it, int(w.get("level", 0))))   # [REQ_LEVEL] Nv vermelho se exige nível acima
+	nm.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	nm.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	nm.clip_text = true
+	nm.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS   # nome longo → "…"
+	top.add_child(nm)
+	box.add_child(UiKit.item_subline(it, int(w.get("level", 0))))   # [REQ_LEVEL] Nv vermelho se exige nível acima
 	var sline := UiKit.item_stats_line(it)   # [STATS_CMP] stats únicos coloridos vs equipado (1 linha só)
 	if sline:
-		left.add_child(sline)
-	var rcol := VBoxContainer.new()
-	rcol.add_theme_constant_override("separation", 6)
-	rcol.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	row.add_child(rcol)
-	rcol.add_child(UiKit.small_btn("Equipar", _equip.bind(id)))
+		box.add_child(sline)
+	var btns := HBoxContainer.new()
+	btns.add_theme_constant_override("separation", 6)
+	box.add_child(btns)
+	btns.add_child(_equip_btn(id))
+	var spacer := Control.new()
+	spacer.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	btns.add_child(spacer)
 	if bool(it.get("pvpLocked", false)):
-		rcol.add_child(UiKit.small_btn("🔒 PvP", func() -> void: UiKit.flash(status, Lang.t("Item travado no PvP — não dá pra vender enquanto exposto."), 2)))
+		var lock := UiKit.icon_btn("🔒", func() -> void: UiKit.flash(status, Lang.t("Item travado no PvP — não dá pra vender enquanto exposto."), 2))
+		lock.tooltip_text = Lang.t("Travado no PvP")
+		btns.add_child(lock)
 	else:
-		rcol.add_child(UiKit.small_btn(Lang.t("Vender (%s)") % UiKit.coin_str(int(it.get("sellPrice", 0))), _ask_sell.bind(id, str(it.get("name", "?")), rar)))
+		btns.add_child(_sell_btn(id, str(it.get("name", "?")), rar, int(it.get("sellPrice", 0))))
 	return pc
+
+# Botão de EQUIPAR (ícone PixelLab "equip"; fallback ⚔). [GRID_COLS]
+func _equip_btn(id: int) -> Button:
+	var b := UiKit.icon_btn("⚔", _equip.bind(id))
+	if Icons.set_icon(b, "equip"):
+		b.text = ""
+	b.tooltip_text = Lang.t("Equipar")
+	return b
+
+# Botão de VENDER (ícone "sell" + preço; fallback 💰). [GRID_COLS]
+func _sell_btn(id: int, item_name: String, rar: int, price: int) -> Button:
+	var coin := UiKit.coin_str(price)
+	var b := UiKit.small_btn("💰 " + coin, _ask_sell.bind(id, item_name, rar))
+	b.custom_minimum_size = Vector2(0, 36)   # largura pelo conteúdo (não fixa em 120)
+	if Icons.set_icon(b, "sell"):
+		b.text = coin   # ícone + preço (sem o emoji)
+	b.tooltip_text = Lang.t("Vender (%s)") % coin
+	return b
 
 # ⚔ Atributos ──────────────────────────────────────────────────────────────────────────
 func _render_attr_panel() -> void:

@@ -906,7 +906,9 @@ const RARITY_NAMES := ["Comum", "Incomum", "Raro", "Épico", "Lendário"]
 # embutido no Shell, com nav + cap de 920, a janela é bem mais larga que a área de conteúdo, então
 # medir o viewport superestimava e espremia/estourava os cards) e recalculam quando o tamanho muda.
 # `host` mantido por compatibilidade da assinatura (os callers passam `self`).
-static func grid(host: Control, items: Array, builder: Callable, compact := false) -> GridContainer:
+# cell_w/cols_cap (opcionais) sobrepõem a largura-alvo e o teto de colunas — p/ cards mais estreitos
+# (ex.: 2 itens por linha na Mochila). Sem eles, mantém o comportamento padrão. [GRID_COLS]
+static func grid(host: Control, items: Array, builder: Callable, compact := false, cell_w := 0.0, cols_cap := 0) -> GridContainer:
 	var g := GridContainer.new()
 	g.columns = 1
 	g.add_theme_constant_override("h_separation", 8)
@@ -918,8 +920,8 @@ static func grid(host: Control, items: Array, builder: Callable, compact := fals
 			card.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 			g.add_child(card)
 	# colunas pela largura PRÓPRIA do grid; recalcula no resize (responsivo de verdade).
-	var min_cell := 360.0 if compact else 430.0   # largura-alvo por card
-	var max_cols := 3 if compact else 2
+	var min_cell := cell_w if cell_w > 0.0 else (360.0 if compact else 430.0)   # largura-alvo por card
+	var max_cols := cols_cap if cols_cap > 0 else (3 if compact else 2)
 	var relayout := func() -> void:
 		var w := g.size.x
 		if w <= 0.0:
