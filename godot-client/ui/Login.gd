@@ -20,6 +20,7 @@ var wname_edit: LineEdit
 var email_edit: LineEdit
 var pass_edit: LineEdit
 var auto_check: CheckBox
+var gender_sel := "MALE"       # escolha de gênero no registro (cosmético) [OUTFITS_FEMALE]
 
 func _ready() -> void:
 	set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
@@ -61,6 +62,7 @@ func _build_form() -> void:
 		box.add_child(wname_edit)
 		email_edit = UiKit.input("email")
 		box.add_child(email_edit)
+		box.add_child(_gender_picker())
 	pass_edit = UiKit.input("senha (mín. 8)" if is_reg else "senha")
 	pass_edit.secret = true
 	box.add_child(pass_edit)
@@ -87,6 +89,31 @@ func _build_form() -> void:
 	box.add_child(status)
 	_prefill_dev()
 
+# Seletor de gênero (cosmético) p/ o registro — dois botões radio (♂/♀). [OUTFITS_FEMALE]
+func _gender_picker() -> HBoxContainer:
+	gender_sel = "MALE"
+	var row := HBoxContainer.new()
+	row.add_theme_constant_override("separation", 8)
+	var lbl := Label.new()
+	lbl.text = "Gênero:"
+	lbl.add_theme_color_override("font_color", UiKit.TEXT)
+	row.add_child(lbl)
+	var grp := ButtonGroup.new()
+	var bm := Button.new()
+	bm.text = "♂ Masc"
+	bm.toggle_mode = true
+	bm.button_group = grp
+	bm.button_pressed = true
+	bm.toggled.connect(func(on: bool) -> void: gender_sel = "MALE" if on else gender_sel)
+	row.add_child(bm)
+	var bf := Button.new()
+	bf.text = "♀ Fem"
+	bf.toggle_mode = true
+	bf.button_group = grp
+	bf.toggled.connect(func(on: bool) -> void: gender_sel = "FEMALE" if on else gender_sel)
+	row.add_child(bf)
+	return row
+
 # Pré-preenche do login.cfg (dev) se existir — conveniência local.
 func _prefill_dev() -> void:
 	var cf := ConfigFile.new()
@@ -105,7 +132,7 @@ func _submit() -> void:
 	UiKit.flash(status, "Conectando…", 0)
 	var r: Dictionary
 	if mode == "register":
-		r = await Api.register(user_edit.text, wname_edit.text, email_edit.text, pass_edit.text)
+		r = await Api.register(user_edit.text, wname_edit.text, email_edit.text, pass_edit.text, gender_sel)
 	else:
 		r = await Api.login(user_edit.text, pass_edit.text)
 	_busy = false

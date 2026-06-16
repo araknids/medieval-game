@@ -61,6 +61,14 @@ public class PlayerService {
         if (!p.isOnboardingSeen()) { p.setOnboardingSeen(true); playerRepository.save(p); }
     }
 
+    /** [OUTFITS_FEMALE] Troca o gênero do personagem (cosmético). Devolve o player atualizado. */
+    @Transactional
+    public Player setGender(Long playerId, com.medieval.game.enums.Gender gender) {
+        Player p = findById(playerId);
+        p.setGender(gender == null ? com.medieval.game.enums.Gender.MALE : gender);
+        return playerRepository.save(p);
+    }
+
     /** [I18N] Salva o idioma preferido (en/pt). Valida contra os suportados. Devolve o valor aplicado. */
     @Transactional
     public String setLanguage(Player playerArg, String language) {

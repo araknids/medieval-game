@@ -547,7 +547,7 @@ func _initial_load() -> void:
 	if inv.get("ok") and inv.get("json") is Array:
 		UiKit.set_equipped(inv["json"])
 		if _bust != null and is_instance_valid(_bust):
-			_bust.apply(inv["json"], str(warrior.get("warriorClassId", "")))
+			_bust.apply(inv["json"], str(warrior.get("warriorClassId", "")), str(warrior.get("gender", UiKit.current_gender)))
 
 # Equip mudou (Inventory avisa) → reindexa comparação + re-veste o busto. Usa o inventário que o
 # Inventory já tem (SEM fetch); só busca se vier vazio. [PLANO_UI_SHELL_GODOT]
@@ -555,7 +555,7 @@ func _on_equip_changed(inv_arr := []) -> void:
 	if inv_arr is Array and not inv_arr.is_empty():
 		UiKit.set_equipped(inv_arr)
 		if _bust != null and is_instance_valid(_bust):
-			_bust.apply(inv_arr, str(warrior.get("warriorClassId", "")))
+			_bust.apply(inv_arr, str(warrior.get("warriorClassId", "")), str(warrior.get("gender", UiKit.current_gender)))
 		return
 	var api = get_node_or_null("/root/Api")
 	if api == null:
@@ -564,13 +564,14 @@ func _on_equip_changed(inv_arr := []) -> void:
 	if inv.get("ok") and inv.get("json") is Array:
 		UiKit.set_equipped(inv["json"])
 		if _bust != null and is_instance_valid(_bust):
-			_bust.apply(inv["json"], str(warrior.get("warriorClassId", "")))
+			_bust.apply(inv["json"], str(warrior.get("warriorClassId", "")), str(warrior.get("gender", UiKit.current_gender)))
 
 # Atualiza só o topbar a partir de um WarriorResponse (chamado tb pelas telas via UiKit.set_wallet).
 func update_topbar(w: Dictionary) -> void:
 	if w.is_empty() or _name_lbl == null:
 		return
 	UiKit.current_class = str(w.get("warriorClassId", UiKit.current_class))   # tema das roupas no ícone de item [OUTFITS_CLASSE]
+	UiKit.current_gender = str(w.get("gender", UiKit.current_gender)).to_lower()   # base/peças Male/Female [OUTFITS_FEMALE]
 	_name_lbl.text = str(w.get("name", "?"))
 	var t := str(w.get("title", ""))
 	_title_lbl.text = ("⟨%s⟩" % t) if t != "" else ""

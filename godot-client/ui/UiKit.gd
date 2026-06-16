@@ -677,6 +677,9 @@ static func item_icon(item_type: String, px := 48) -> TextureRect:
 # armadura (Warrior→Knight etc.). Setado pelo Shell.update_topbar + Character. [OUTFITS_CLASSE]
 static var current_class := ""
 
+# Gênero do personagem ("male"/"female") → base + peças do paper-doll. Setado pelo Shell. [OUTFITS_FEMALE]
+static var current_gender := "male"
+
 # TextureRect padrão de ícone (mesmo enquadramento p/ arma/armadura/slot).
 static func _tex_rect(tex: Texture2D, px: int) -> TextureRect:
 	var tr := TextureRect.new()

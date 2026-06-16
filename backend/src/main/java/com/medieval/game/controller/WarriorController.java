@@ -85,6 +85,14 @@ public class WarriorController {
         return ResponseEntity.ok(buildResponse(warrior, player));
     }
 
+    // ── Gênero do personagem (cosmético; troca a base/peças Male/Female no paper-doll). [OUTFITS_FEMALE] ──
+    @PostMapping("/gender/{gender}")
+    public ResponseEntity<?> setGender(@PathVariable com.medieval.game.enums.Gender gender, Authentication auth) {
+        Player  player  = playerService.setGender((Long) auth.getPrincipal(), gender);
+        Warrior warrior = warriorService.getWarrior(player);
+        return ResponseEntity.ok(buildResponse(warrior, player));
+    }
+
     // ── Helper ──
 
     private WarriorResponse buildResponse(Warrior warrior, Player player) {
@@ -225,7 +233,8 @@ public class WarriorController {
                 tavernBuffPct, tavernBuffSecondsLeft, // [TAVERNA]
                 cstats[0], cstats[1], cstats[2], // [POSTURE] ATK/DEF/HP efetivo de combate
                 abilityService.selfCraftedStatBonusPct(player), // [MERCADOR]
-                srcs[0], srcs[1], srcs[2] // [FICHA_BONUS] fontes do bônus (ATK/DEF/HP)
+                srcs[0], srcs[1], srcs[2], // [FICHA_BONUS] fontes do bônus (ATK/DEF/HP)
+                player.getGender() != null ? player.getGender().name() : "MALE" // [OUTFITS_FEMALE] base/peças Male/Female
         );
     }
 
@@ -269,5 +278,6 @@ public class WarriorController {
                            int selfCraftedBonusPct, // [MERCADOR] +stats% em gear forjado por você
                            WarriorStatsService.StatSources atkSources, // [FICHA_BONUS] de onde vem o bônus de ATK
                            WarriorStatsService.StatSources defSources, // … DEF
-                           WarriorStatsService.StatSources hpSources) {} // … HP
+                           WarriorStatsService.StatSources hpSources, // … HP
+                           String gender) {} // [OUTFITS_FEMALE] MALE/FEMALE → base/peças do paper-doll
 }

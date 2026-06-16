@@ -3,13 +3,16 @@
 # (skin por nome de osso → no Godot importa com o mesmo retarget Humanoid_map e gruda no
 # GeneralSkeleton). Assim o paper-doll mostra a peça nua no slot vazio e a roupa no equipado,
 # sem clipping (nunca os dois juntos). [GODOT_PAPERDOLL]
-# Uso: blender --background --python split_base.py -- <src.gltf> <out_dir>
+# Uso: blender --background --python split_base.py -- <src.gltf> <out_dir> [Male|Female]
+# O 3º arg (prefixo de gênero) decide o nome de saída Base_<gênero>_<parte>.gltf; default = derivado
+# do nome do src ("Female" no nome → Female) ou Male. [GODOT_PAPERDOLL][OUTFITS_FEMALE]
 import bpy, sys, os, re
 from collections import Counter
 
 argv = sys.argv[sys.argv.index('--') + 1:] if '--' in sys.argv else []
 src = argv[0]
 out_dir = argv[1]
+gender = argv[2] if len(argv) > 2 else ("Female" if "female" in os.path.basename(src).lower() else "Male")
 os.makedirs(out_dir, exist_ok=True)
 
 bpy.ops.wm.read_factory_settings(use_empty=True)
@@ -82,7 +85,7 @@ for part in PARTS:
             ex.select_set(True)
     arm.select_set(True)
     bpy.context.view_layer.objects.active = arm
-    out = os.path.join(out_dir, 'Base_Male_%s.gltf' % part)
+    out = os.path.join(out_dir, 'Base_%s_%s.gltf' % (gender, part))
     bpy.ops.export_scene.gltf(filepath=out, use_selection=True, export_format='GLTF_SEPARATE')
     print('  exportado %s: %d verts -> %s' % (part, n, out))
     bpy.data.objects.remove(dup)

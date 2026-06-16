@@ -69,6 +69,8 @@ public class AuthController {
             rateLimiter.recordAttempt(rlKey, RL_WINDOW_MS); // tentativa de enumeração (user/email já existe)
             throw e; // GlobalExceptionHandler devolve a mensagem localizada original
         }
+        player.setGender(com.medieval.game.enums.Gender.from(req.gender())); // cosmético: base/peças Male/Female [OUTFITS_FEMALE]
+        playerRepository.save(player);
         Warrior warrior = warriorService.create(player, req.warriorName(), WarriorClass.RECRUIT); // nasce neutro; especializa na Trial do Lv10 [CLASSES]
         inventoryService.giveStarterItems(player);
         emailService.sendWelcomeEmail(player.getEmail(), player.getUsername(), warrior.getName());
@@ -222,7 +224,8 @@ public class AuthController {
             @NotBlank @Size(min = 8) String password,  // mín. 8 caracteres [AUDITORIA M7]
             @NotBlank @Size(max = 30)
             @Pattern(regexp = "[\\p{L}\\p{N} ._'-]+", message = "Warrior name has invalid characters")
-            String warriorName
+            String warriorName,
+            String gender   // opcional: "MALE"/"FEMALE" (default MALE). Cosmético. [OUTFITS_FEMALE]
     ) {}
 
     record LoginRequest(

@@ -47,6 +47,7 @@ public class SchemaMigrator {
         patchAbilityPointsColumn();
         patchStashColumns();
         patchKingdomQuestWindowColumn();
+        patchPlayerGenderColumn();
         patchTerritoryBattleEventsColumn();
         dropWarriorOnMissionColumn();
         dropStaleEnumCheckConstraints();
@@ -261,6 +262,16 @@ public class SchemaMigrator {
             log.info("[SchemaMigrator] warriors.ability_points + players war formation + active_title columns ensured");
         } catch (Exception e) {
             log.warn("[SchemaMigrator] warriors.ability_points patch failed: {}", e.getMessage());
+        }
+    }
+
+    // Gênero do personagem (cosmético: base/peças Male/Female no paper-doll). Default MALE p/ contas antigas. [OUTFITS_FEMALE]
+    private void patchPlayerGenderColumn() {
+        try {
+            jdbc.execute("ALTER TABLE players ADD COLUMN IF NOT EXISTS gender varchar(8) DEFAULT 'MALE'");
+            log.info("[SchemaMigrator] players.gender column ensured");
+        } catch (Exception e) {
+            log.warn("[SchemaMigrator] players.gender patch failed: {}", e.getMessage());
         }
     }
 

@@ -237,10 +237,11 @@ func _refresh() -> void:
 func _apply() -> void:
 	UiKit.flash(status, "", 0)
 	UiKit.current_class = str(w.get("warriorClassId", UiKit.current_class))   # tema das roupas (slot + ícone + doll) [OUTFITS_CLASSE]
+	UiKit.current_gender = str(w.get("gender", UiKit.current_gender)).to_lower()   # base/peças Male/Female [OUTFITS_FEMALE]
 	UiKit.set_wallet(wallet, w)        # alimenta a topbar (HP/estamina/stats/moedas)
 	UiKit.set_equipped(items)
 	if doll != null and is_instance_valid(doll):
-		doll.apply(items, UiKit.current_class)
+		doll.apply(items, UiKit.current_class, UiKit.current_gender)
 	var title := str(w.get("title", ""))
 	_id_name.text = (title + "  " if title != "" else "") + str(w.get("name", "?"))
 	_id_sub.text = Lang.t("%s · Nível %d") % [Lang.t(str(w.get("warriorClass", "Recruta"))), int(w.get("level", 1))]
@@ -714,7 +715,7 @@ func _after_equip_change() -> void:
 		items = ir["json"]
 	UiKit.set_equipped(items)
 	if doll != null and is_instance_valid(doll):
-		doll.apply(items, UiKit.current_class)
+		doll.apply(items, UiKit.current_class, UiKit.current_gender)
 	_update_slots()
 	_render_panel()
 	if UiKit.equip_changed_sink.is_valid():

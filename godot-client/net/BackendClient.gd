@@ -42,10 +42,10 @@ func login(username: String, password: String) -> Dictionary:
 	return r
 
 ## POST /api/auth/register → cria conta E já loga (guarda o token). Campos: username (3-20),
-## warriorName (≤30), email (válido), password (≥8). Erros de validação voltam como 400 c/ message.
-func register(username: String, warrior_name: String, email: String, password: String) -> Dictionary:
+## warriorName (≤30), email (válido), password (≥8), gender ("MALE"/"FEMALE", cosmético). [OUTFITS_FEMALE]
+func register(username: String, warrior_name: String, email: String, password: String, gender := "MALE") -> Dictionary:
 	var r := await _request(HTTPClient.METHOD_POST, "/api/auth/register",
-			{"username": username, "warriorName": warrior_name, "email": email, "password": password}, false)
+			{"username": username, "warriorName": warrior_name, "email": email, "password": password, "gender": gender}, false)
 	if r.get("ok") and r.get("json") is Dictionary and r["json"].has("token"):
 		token = str(r["json"]["token"])
 	return r
@@ -53,6 +53,10 @@ func register(username: String, warrior_name: String, email: String, password: S
 ## GET /api/warrior (autenticado). Retorna {ok, status, json, raw, error}.
 func get_warrior() -> Dictionary:
 	return await _request(HTTPClient.METHOD_GET, "/api/warrior", null, true)
+
+## POST /api/warrior/gender/{MALE|FEMALE} — troca o gênero (cosmético). Devolve o WarriorResponse. [OUTFITS_FEMALE]
+func set_gender(gender: String) -> Dictionary:
+	return await _request(HTTPClient.METHOD_POST, "/api/warrior/gender/%s" % gender.to_upper(), {}, true)
 
 ## POST /api/warrior/attributes/{ATTR} — gasta 1 ponto. Devolve o WarriorResponse atualizado. [MIGRACAO_GODOT]
 func spend_attribute(attr: String) -> Dictionary:

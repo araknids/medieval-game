@@ -3,23 +3,21 @@ class_name BustView
 # ── Busto 3D AO VIVO do personagem (topbar do Shell) ───────────────────────────────
 # Renderiza cabeça+tronco do herói vestido com o gear REAL (via Api autoload) num
 # SubViewport ISOLADO (own_world_3d). Reaproveita o pipeline do PaperDollLive. [PLANO_UI_SHELL_GODOT]
+# Gênero-aware [OUTFITS_FEMALE]: base Male/Female + recolor de armadura por raridade [SKIN_RARIDADE].
 
-const CHAR := preload("res://addons/quaternius_ik_rigged/Models_with_rigging/Male_rigged.tscn")
+const CHAR_MALE := preload("res://addons/quaternius_ik_rigged/Models_with_rigging/Male_rigged.tscn")
+const CHAR_FEMALE := preload("res://addons/quaternius_ik_rigged/Models_with_rigging/Female_Rigged.tscn")
 const IDLE := "UAL1_Standard/Sword_Idle"
-const BASE_HEAD := "res://assets/base/Base_Male_Head.gltf"
-const BASE_PART := {
-	"res://assets/base/Base_Male_Torso.gltf": "ARMOR",
-	"res://assets/base/Base_Male_Arms.gltf":  "GLOVES",
-	"res://assets/base/Base_Male_Legs.gltf":  "PANTS",
-	"res://assets/base/Base_Male_Feet.gltf":  "BOOTS",
-}
-const OutfitsLib := preload("res://Outfits.gd")   # peça por CLASSE [OUTFITS_CLASSE]
+const BASE_PART_SLOT := {"Torso": "ARMOR", "Arms": "GLOVES", "Legs": "PANTS", "Feet": "BOOTS"}
+const OutfitsLib := preload("res://Outfits.gd")   # peça por ITEM [OUTFITS_CLASSE]
 
 var skel: Skeleton3D
 var _world: Node3D
+var _character: Node3D
 var _body_meshes: Array = []
 var _ready_done := false
 var _class_id := ""                       # warriorClassId → tema das roupas [OUTFITS_CLASSE]
+var _gender := "male"                      # MALE/FEMALE → base + peças [OUTFITS_FEMALE]
 
 func _ready() -> void:
 	stretch = true
@@ -48,41 +46,62 @@ func _ready() -> void:
 	var we := WorldEnvironment.new()
 	we.environment = env
 	_world.add_child(we)
-	var character := CHAR.instantiate()
-	_world.add_child(character)
-	skel = character.find_child("GeneralSkeleton", true, false)
-	var anim: AnimationPlayer = character.find_child("AnimationPlayer", true, false)
-	_collect_meshes(character, _body_meshes)
+	_ensure_character(_gender)
+	_ready_done = true
+	await refresh()
+
+# (Re)instancia a base do personagem conforme o gênero (Male/Female compartilham o GeneralSkeleton).
+func _ensure_character(gender: String) -> void:
+	gender = OutfitsLib._norm_gender(gender)
+	if _character != null and _gender == gender:
+		return
+	_gender = gender
+	if _character != null:
+		_character.queue_free()
+	_body_meshes.clear()
+	var scene: PackedScene = CHAR_FEMALE if gender == "female" else CHAR_MALE
+	_character = scene.instantiate()
+	_world.add_child(_character)
+	skel = _character.find_child("GeneralSkeleton", true, false)
+	var anim: AnimationPlayer = _character.find_child("AnimationPlayer", true, false)
+	_collect_meshes(_character, _body_meshes)
 	if anim:
 		var idle := anim.get_animation(IDLE)
 		if idle:
 			idle.loop_mode = Animation.LOOP_LINEAR
 		anim.play(IDLE)
-	_ready_done = true
-	await refresh()
 
-# Busca o inventário (+ classe) e re-veste (standalone). O Shell usa apply() direto p/ não re-buscar.
+func _base_path(part: String) -> String:
+	return "res://assets/base/Base_%s_%s.gltf" % ["Female" if _gender == "female" else "Male", part]
+
+# Busca o inventário (+ classe + gênero) e re-veste (standalone). O Shell usa apply() direto p/ não re-buscar.
 func refresh() -> void:
-	if not _ready_done or skel == null:
+	if not _ready_done:
 		return
 	var api = get_node_or_null("/root/Api")
 	if api == null:
 		return
 	var cls := _class_id
+	var gen := _gender
 	var w = await api.get_warrior()
 	if w.get("ok") and w.get("json") is Dictionary:
 		cls = str(w["json"].get("warriorClassId", cls))
+		gen = str(w["json"].get("gender", gen))
 	var inv = await api.get_inventory()
 	if inv.get("ok") and inv.get("json") is Array:
-		apply(inv["json"], cls)
+		apply(inv["json"], cls, gen)
 
 # Re-veste o busto a partir de uma lista de inventário já carregada (sem fetch).
-# class_id = warriorClassId → tema das roupas (Knight/Noble/Ranger/Peasant). [OUTFITS_CLASSE]
-func apply(inv_arr: Array, class_id := "") -> void:
-	if not _ready_done or skel == null:
+# class_id = warriorClassId → tema; gender = MALE/FEMALE → base + peças. [OUTFITS_CLASSE][OUTFITS_FEMALE]
+func apply(inv_arr: Array, class_id := "", gender := "") -> void:
+	if not _ready_done:
 		return
 	if class_id != "":
 		_class_id = class_id
+	if gender != "":
+		_ensure_character(gender)
+	if skel == null:
+		return
 	# tira roupas anteriores (mantém só os ossos/base); re-veste do zero
 	for c in skel.get_children():
 		if c is MeshInstance3D and c.has_meta("outfit"):
@@ -92,24 +111,25 @@ func apply(inv_arr: Array, class_id := "") -> void:
 	for it in equipped:
 		var ty := str(it.get("type", ""))
 		if OutfitsLib.is_armor_slot(ty):
-			var path := OutfitsLib.piece_path_item(it, ty)   # tema do ITEM [OUTFITS_CLASSE]
+			var path := OutfitsLib.piece_path_item(it, ty, _gender)   # tema do ITEM + gênero
 			if path != "" and ResourceLoader.exists(path):
 				var sc: PackedScene = load(path)
 				if sc:
-					_attach(sc)
+					_attach(sc, OutfitsLib.theme_for_item(it), int(it.get("rarity", 1)))
 					dressed.append(ty)
 	for m: MeshInstance3D in _body_meshes:
 		m.visible = false
-	var head: PackedScene = load(BASE_HEAD)
+	var head: PackedScene = load(_base_path("Head"))
 	if head:
 		_attach(head)
-	for path in BASE_PART:
-		if not dressed.has(BASE_PART[path]):
-			var p: PackedScene = load(path)
+	for part in BASE_PART_SLOT:
+		if not dressed.has(BASE_PART_SLOT[part]):
+			var p: PackedScene = load(_base_path(part))
 			if p:
 				_attach(p)
 
-func _attach(scene: PackedScene) -> void:
+# Anexa a peça ao esqueleto. Se theme!="" e rarity>0, recolore a armadura pela raridade. [SKIN_RARIDADE]
+func _attach(scene: PackedScene, theme := "", rarity := 0) -> void:
 	if skel == null:
 		return
 	var inst := scene.instantiate()
@@ -123,6 +143,8 @@ func _attach(scene: PackedScene) -> void:
 		mi.skin = skin
 		mi.skeleton = NodePath("..")
 		mi.set_meta("outfit", true)   # marca p/ poder re-vestir
+		if theme != "" and rarity > 0:
+			OutfitsLib.recolor_mesh(mi, theme, rarity)
 	inst.queue_free()
 
 func _collect_meshes(node: Node, out: Array) -> void:

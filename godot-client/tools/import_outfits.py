@@ -1,27 +1,38 @@
-"""Copia peças Male dos temas Knight/Noble/Peasant do pack Source + texturas e gera os .gltf.import
-com retarget Humanoid_map (igual à Ranger). Roda com python normal (sem Blender). [OUTFITS_CLASSE]"""
+"""Importa peças de outfit do pack Source p/ o projeto Godot + gera os .gltf.import com retarget
+Humanoid_map. Roda com python normal (sem Blender). [OUTFITS_CLASSE][OUTFITS_FEMALE]
+
+Cobre:
+  - peças FEMALE dos 4 temas (Knight/Noble/Ranger/Peasant) — o Male já foi importado antes;
+  - texturas do tema INCL. as 3 variantes de cor (T_<Tema>_BaseColor / _2 / _3) p/ recolor por raridade;
+  - skin Male E Female (T_Regular_<gênero>_*) — peças referenciam por nome.
+Aditivo/idempotente: só copia o que encontra; re-rodar reproduz o mesmo resultado.
+"""
 import os, shutil, hashlib
 
-PACK = r"f:/Workspace/Jogo de browser mas mais grafico/assets externos/Modular Character Outfits - Fantasy[Source]/Exports/glTF (Godot-Unreal)"
-PARTS = os.path.join(PACK, "Modular Parts")
-OUTF = os.path.join(PACK, "Outfits")  # texturas moram aqui
+ROOT = r"f:/Workspace/Jogo de browser mas mais grafico/assets externos/Modular Character Outfits - Fantasy[Source]"
+PACK = os.path.join(ROOT, "Exports", "glTF (Godot-Unreal)")
+PARTS = os.path.join(PACK, "Modular Parts")           # .gltf + .bin das peças
+TEXROOT = os.path.join(ROOT, "Textures")              # Textures/<Tema>/ (inclui _2/_3) + Textures/Base/
 DEST_ROOT = r"f:/Workspace/Jogo de browser mas mais grafico/godot-client/assets/outfits"
 
-# tema -> peças (basename sem extensão) a copiar
+# tema -> peças FEMALE (basename sem extensão). Note: Female usa Feet/Legs SEM "_Armor" e "Pauldrons" plural.
 PIECES = {
-    "knight": ["Male_Knight_Body_Armor", "Male_Knight_Arms", "Male_Knight_Feet_Armor",
-               "Male_Knight_Legs_Armor", "Male_Knight_Head_Armet", "Male_Knight_Acc_Pauldron_Round"],
-    "noble":  ["Male_Noble_Body", "Male_Noble_Arms", "Male_Noble_Feet",
-               "Male_Noble_Legs", "Male_Noble_Head_Crown", "Male_Noble_Acc_Pauldron"],
-    "peasant": ["Male_Peasant_Body", "Male_Peasant_Arms", "Male_Peasant_Feet", "Male_Peasant_Legs"],
+    "knight": ["Female_Knight_Body_Armor", "Female_Knight_Arms", "Female_Knight_Feet",
+               "Female_Knight_Legs", "Female_Knight_Head_Armet", "Female_Knight_Acc_Pauldrons_Round"],
+    "noble":  ["Female_Noble_Body", "Female_Noble_Arms", "Female_Noble_Feet",
+               "Female_Noble_Legs", "Female_Noble_Head_Crown", "Female_Noble_Acc_Pauldron"],
+    "ranger": ["Female_Ranger_Body", "Female_Ranger_Arms", "Female_Ranger_Feet",
+               "Female_Ranger_Legs", "Female_Ranger_Head_Hood", "Female_Ranger_Acc_Pauldrons"],
+    "peasant": ["Female_Peasant_Body", "Female_Peasant_Arms", "Female_Peasant_Feet", "Female_Peasant_Legs"],
 }
-# texturas por tema (copiadas pra pasta do tema; gltf referencia por nome simples)
-TEX = {
-    "knight": ["T_Knight_BaseColor.png", "T_Knight_Normal.png", "T_Knight_ORM.png"],
-    "noble":  ["T_Noble_BaseColor.png", "T_Noble_Normal.png", "T_Noble_ORM.png"],
-    "peasant": ["T_Peasant_BaseColor.png", "T_Peasant_Normal.png", "T_Peasant_ORM.png"],
-}
-BASE_TEX = ["T_Regular_Male_Dark_BaseColor.png", "T_Regular_Male_Normal.png", "T_Regular_Male_Roughness.png"]
+# texturas do tema (da pasta Textures/<Tema>/): base + 2 variantes de cor + normal + ORM.
+def theme_tex(theme):
+    t = theme.capitalize()  # knight -> Knight
+    return ["T_%s_BaseColor.png" % t, "T_%s_2_BaseColor.png" % t, "T_%s_3_BaseColor.png" % t,
+            "T_%s_Normal.png" % t, "T_%s_ORM.png" % t]
+# skin exposta (mãos/pescoço) — ambos os gêneros, de Textures/Base/
+SKIN_TEX = ["T_Regular_Male_Dark_BaseColor.png", "T_Regular_Male_Normal.png", "T_Regular_Male_Roughness.png",
+            "T_Regular_Female_Dark_BaseColor.png", "T_Regular_Female_Normal.png", "T_Regular_Female_Roughness.png"]
 
 IMPORT_TMPL = '''[remap]
 
@@ -70,9 +81,9 @@ gltf/naming_version=2
 gltf/embedded_image_handling=1
 '''
 
+
 def uid_for(name):
     h = hashlib.md5(("outfit:" + name).encode()).hexdigest()
-    # uid base ~13 chars alfanum minúsculos (formato aceito pelo Godot; se recusar, regenera mantendo o retarget)
     chars = "0123456789abcdefghijklmnopqrstuvwxyz"
     n = int(h[:16], 16)
     s = ""
@@ -80,27 +91,40 @@ def uid_for(name):
         s += chars[n % 36]; n //= 36
     return s
 
+
 def fake_hash(name):
     return hashlib.md5(name.encode()).hexdigest()
+
+
+def copy_tex(filename, dest):
+    """Procura a textura em Textures/<Tema>/ ou Textures/Base/ e copia p/ dest. Retorna True se achou."""
+    for sub in ("", "Base", "Knight", "Noble", "Ranger", "Peasant"):
+        src = os.path.join(TEXROOT, sub, filename) if sub else os.path.join(TEXROOT, filename)
+        if os.path.exists(src):
+            shutil.copy2(src, os.path.join(dest, filename))
+            return True
+    return False
+
 
 count = 0
 for theme, pieces in PIECES.items():
     dest = os.path.join(DEST_ROOT, theme)
     os.makedirs(dest, exist_ok=True)
     for name in pieces:
+        ok = False
         for ext in (".gltf", ".bin"):
             src = os.path.join(PARTS, name + ext)
             if os.path.exists(src):
                 shutil.copy2(src, os.path.join(dest, name + ext))
+                ok = ok or ext == ".gltf"
+        if not ok:
+            print("  MISSING PIECE", name); continue
         imp = IMPORT_TMPL.format(uid=uid_for(name), name=name, hash=fake_hash(name), theme=theme)
         with open(os.path.join(dest, name + ".gltf.import"), "w", encoding="utf-8", newline="\n") as f:
             f.write(imp)
         count += 1
         print("PIECE", theme, name)
-    for tex in TEX[theme] + BASE_TEX:
-        src = os.path.join(OUTF, tex)
-        if os.path.exists(src):
-            shutil.copy2(src, os.path.join(dest, tex))
-        else:
-            print("  MISSING TEX", tex)
-print("DONE pieces=", count)
+    for tex in theme_tex(theme) + SKIN_TEX:
+        if not copy_tex(tex, dest):
+            print("  MISSING TEX", theme, tex)
+print("DONE female pieces=", count)

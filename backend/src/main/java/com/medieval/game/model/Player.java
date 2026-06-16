@@ -1,5 +1,6 @@
 package com.medieval.game.model;
 
+import com.medieval.game.enums.Gender;
 import com.medieval.game.enums.Location;
 import jakarta.persistence.*;
 import lombok.Getter;
@@ -33,6 +34,11 @@ public class Player {
 
     @Column(nullable = false)
     private String passwordHash;
+
+    // Gênero do personagem — cosmético (base + peças Male/Female do paper-doll no Godot). [OUTFITS_FEMALE]
+    @Enumerated(EnumType.STRING)
+    @Column(columnDefinition = "varchar(8) default 'MALE'")
+    private Gender gender = Gender.MALE;
 
     // Sistema de 3 moedas: 100 bronze = 1 prata, 100 prata = 1 ouro
     @Column(columnDefinition = "bigint default 0")
