@@ -211,17 +211,17 @@ static func variant_tex_path(theme: String, rarity: int) -> String:
 	var suffix := "" if v == 1 else "_%d" % v   # 1→base, 2→"_2", 3→"_3"
 	return "res://assets/outfits/%s/T_%s%s_BaseColor.png" % [theme, _theme_cap(theme), suffix]
 
-# Recolore UMA MeshInstance3D de armadura conforme a raridade: troca o albedo p/ a variante de cor
-# (só na superfície cujo albedo é T_<Tema>_BaseColor — pula pele exposta) e aplica emissão de raridade.
-# Seguro p/ Male e Female (mesma textura de tema). Não faz nada p/ rarity<1 ou tema desconhecido.
+# Recolore UMA MeshInstance3D de armadura conforme a raridade: troca SÓ o albedo p/ a variante de cor
+# (só na superfície cujo albedo é T_<Tema>_BaseColor — pula pele exposta). SEM emissão: a emissão de
+# superfície inteira tingia o corpo de neon e escondia o item — a raridade vira a AURA no chão (rarity_aura).
 static func recolor_mesh(mi: MeshInstance3D, theme: String, rarity: int) -> void:
 	if mi == null or mi.mesh == null or rarity < 1 or not SLOT_PIECE.has(theme):
 		return
 	var base_tex := "T_%s_BaseColor" % _theme_cap(theme)
 	var variant_path := variant_tex_path(theme, rarity)   # pode ser a cor1 (base) — aí o swap é no-op
-	var rt: int = clamp(rarity - 1, 0, 4)
-	var tint: Color = RARITY_TINT[rt]
-	var glow: float = RARITY_GLOW[rt]
+	if not ResourceLoader.exists(variant_path):
+		return
+	var vtex := load(variant_path)
 	for s in mi.mesh.get_surface_count():
 		var mat := mi.get_active_material(s)
 		if mat == null or not (mat is BaseMaterial3D):
@@ -231,11 +231,33 @@ static func recolor_mesh(mi: MeshInstance3D, theme: String, rarity: int) -> void
 		if alb == null or not alb.resource_path.get_file().begins_with(base_tex):
 			continue
 		var m: BaseMaterial3D = mat.duplicate()
-		# SEMPRE aplica a variante da banda (cada tema tem sua ordem por raridade — ponto [SKIN_RARIDADE]).
-		if ResourceLoader.exists(variant_path):
-			m.albedo_texture = load(variant_path)
-		if glow > 0.0:
-			m.emission_enabled = true
-			m.emission = tint
-			m.emission_energy_multiplier = glow
+		m.albedo_texture = vtex   # só a cor da variante (banda de raridade) — sem brilho na malha
 		mi.set_surface_override_material(s, m)
+
+# Aura de raridade: anel reluzente no CHÃO sob o lutador (indica raridade SEM tingir o item).
+# Comum/Incomum (1-2) = sem aura; Raro+ ganha o anel (cor da raridade). Filho do nó → segue o lutador.
+# Energia de emissão BAIXA de propósito (o bloom da cena amplia). [SKIN_RARIDADE]
+static func rarity_aura(rarity: int) -> MeshInstance3D:
+	if rarity < 3:
+		return null
+	var rt: int = clamp(rarity - 1, 0, 4)
+	var tint: Color = RARITY_TINT[rt]
+	var ring := MeshInstance3D.new()
+	var tm := TorusMesh.new()
+	tm.inner_radius = 0.30
+	tm.outer_radius = 0.46
+	tm.rings = 6
+	ring.mesh = tm
+	ring.rotation_degrees = Vector3(90, 0, 0)   # deita o anel no chão
+	ring.position = Vector3(0, 0.04, 0)          # logo acima do chão, nos pés
+	var m := StandardMaterial3D.new()
+	m.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	m.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	m.blend_mode = BaseMaterial3D.BLEND_MODE_ADD
+	m.albedo_color = Color(tint.r, tint.g, tint.b, 0.5)
+	m.emission_enabled = true
+	m.emission = tint
+	m.emission_energy_multiplier = 0.7          # PLACEHOLDER — afinar com o bloom da cena
+	ring.material_override = m
+	ring.set_meta("rarity_aura", true)
+	return ring

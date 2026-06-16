@@ -832,6 +832,8 @@ func _make_fighter(fname: String, side: int, maxhp: int, weapon_kind: String, eq
 	f["rim"] = rim
 	if not is_monster:
 		_dress(node, skel, equipped_types, aplook)   # [OUTFITS] veste o SET NOVO antes da arma
+		var aura := OutfitsLib.rarity_aura(int(aplook["rarity"]))   # [SKIN_RARIDADE] aura no chão (raro+)
+		if aura: node.add_child(aura)
 		wp.attach_weapon(node, weapon_kind, rarity, weapon_grip)
 		# escudo na off-hand — só com arma MELEE (arco usa as duas mãos)
 		if ("SHIELD" in equipped_types) and not wp.is_bow_kind(weapon_kind):
