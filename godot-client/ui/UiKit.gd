@@ -805,13 +805,15 @@ static func item_stats_line(it: Dictionary) -> Control:
 	var any := false
 	for pair in _CMP_STATS:
 		var v := int(it.get(pair[0], 0))
-		if v == 0:
+		var cv := int(cur.get(pair[0], 0)) if has_cmp else 0
+		# mostra o stat se o ITEM tem OU o EQUIPADO tem (assim aparece o que se PERDE: ex.: HP +0 ▼).
+		if v == 0 and cv == 0:
 			continue
 		any = true
 		var arrow := ""
 		var col := Color(0.62, 0.75, 0.58)   # neutro (sem comparação ou igual)
 		if has_cmp:
-			var d := v - int(cur.get(pair[0], 0))
+			var d := v - cv
 			if d > 0:
 				arrow = "▲ "; col = OK
 			elif d < 0:
