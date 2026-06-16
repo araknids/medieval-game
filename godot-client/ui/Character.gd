@@ -720,6 +720,8 @@ func _after_equip_change() -> void:
 	_render_panel()
 	if UiKit.equip_changed_sink.is_valid():
 		UiKit.equip_changed_sink.call(items)
+	if UiKit.duel_refresh_sink.is_valid():
+		UiKit.duel_refresh_sink.call()   # [MENU_FUNDO] herói do duelo re-veste com o gear novo
 	var wr = await Api.get_warrior()
 	if wr.get("ok") and wr.get("json") is Dictionary:
 		w = wr["json"]

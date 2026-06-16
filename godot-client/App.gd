@@ -28,6 +28,7 @@ func _ready() -> void:
 	randomize()   # mapa de fundo + lutadores diferentes a cada abertura do jogo [MENU_FUNDO]
 	var scenario: String = MENU_MAPS[randi() % MENU_MAPS.size()]
 	_menu_bg = MenuFx.new().bg_3d(self, scenario)   # 1 fundo 3D p/ TODAS as telas (montado 1x; persiste)
+	UiKit.duel_refresh_sink = _refresh_duel          # trocar de equip → o duelo do fundo re-veste com seu gear novo
 	_route()
 	_add_settings_gear()   # ⚙ sempre acessível (até a nav do Shell ganhar o item Configurações) [I18N]
 

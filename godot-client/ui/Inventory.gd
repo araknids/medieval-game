@@ -108,6 +108,8 @@ func _equip(id: int) -> void:
 		_render()
 		if UiKit.equip_changed_sink.is_valid():
 			UiKit.equip_changed_sink.call(items)   # re-veste o busto 3D (usa o inventário local, sem fetch)
+		if UiKit.duel_refresh_sink.is_valid():
+			UiKit.duel_refresh_sink.call()         # [MENU_FUNDO] re-veste o herói do duelo de fundo
 	else:
 		await _refresh()   # resync primeiro (cache local pode estar velho)
 		UiKit.notify(self, "⚠ " + UiKit.err_text(r), true)   # [ERRO_VISIVEL] modal: o status (no header) some ao rolar e é apagado pelo refresh
@@ -122,6 +124,8 @@ func _unequip(id: int) -> void:
 		_render()
 		if UiKit.equip_changed_sink.is_valid():
 			UiKit.equip_changed_sink.call(items)   # re-veste o busto 3D (sem fetch)
+		if UiKit.duel_refresh_sink.is_valid():
+			UiKit.duel_refresh_sink.call()         # [MENU_FUNDO] re-veste o herói do duelo de fundo
 	else:
 		await _refresh()
 		UiKit.notify(self, "⚠ " + UiKit.err_text(r), true)   # [ERRO_VISIVEL]

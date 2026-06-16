@@ -72,27 +72,34 @@ func setup() -> void:
 	_clear_fighters()
 	var left := {}
 	if Api.token != "":
-		left = await _player_loadout()   # única coisa que varia com 1 set de roupa: a ARMA
+		left = await _player_loadout()   # gear REAL (arma + inventário + gênero) do jogador
 		if my != _gen:                   # um setup mais novo começou → aborta este
 			return
-		if left.is_empty():
-			left = {"kind": "sword", "rarity": 1}   # logado mas desarmado → espada padrão (ainda é "você")
-	if left.is_empty():
-		_spawn(POS_L, 90.0, _rand_kind(), _rng.randi_range(1, 5))    # deslogado → aleatório
-	else:
-		_spawn(POS_L, 90.0, str(left.get("kind", "sword")), int(left.get("rarity", 1)))
+	if left.has("inv"):                  # logado: ESQUERDA = você, com seus itens reais
+		_spawn(POS_L, 90.0, str(left["kind"]), int(left["rarity"]), left)
+	else:                                # deslogado / falha → aleatório
+		_spawn(POS_L, 90.0, _rand_kind(), _rng.randi_range(1, 5))
 	_spawn(POS_R, -90.0, _rand_kind(), _rng.randi_range(1, 5))       # oponente sempre aleatório
 
-# Lê /api/inventory e devolve {kind, rarity} da arma equipada (ou {} se falhar/desarmado).
+# Lê /api/warrior (gênero) + /api/inventory (equip REAL) → o herói do fundo usa EXATAMENTE o seu gear.
+# Devolve {kind, rarity, inv, gender} (inv = lista do inventário p/ vestir por item) ou {} se falhar.
 func _player_loadout() -> Dictionary:
+	var gender := "male"
+	var w = await Api.get_warrior()
+	if w.get("ok") and w.get("json") is Dictionary:
+		gender = str(w["json"].get("gender", "male")).to_lower()
 	var r = await Api.get_inventory()
 	if not (r.get("ok") and r.get("json") is Array):
 		return {}
-	for it in r["json"]:
+	var inv: Array = r["json"]
+	var kind := "sword"
+	var rar := 1
+	for it in inv:                                  # arma equipada (tipo + raridade) p/ a mão
 		if it is Dictionary and it.get("equipped") == true and str(it.get("type", "")) == "WEAPON":
-			var kind := Weapons.new().weapon_kind(str(it.get("name", "")), str(it.get("weaponCategory", "")))
-			return {"kind": kind, "rarity": int(it.get("rarity", 1))}
-	return {}
+			kind = Weapons.new().weapon_kind(str(it.get("name", "")), str(it.get("weaponCategory", "")))
+			rar = int(it.get("rarity", 1))
+			break
+	return {"kind": kind, "rarity": rar, "inv": inv, "gender": gender}
 
 func _rand_kind() -> String:
 	return MELEE_KINDS[_rng.randi() % MELEE_KINDS.size()]
@@ -116,9 +123,11 @@ func _rand_look() -> Dictionary:
 		"seed":   "menu_%d" % _rng.randi(),   # varia a peça-variante (elmo/ombreira/peitoral)
 	}
 
-func _spawn(pos: Vector3, yaw_deg: float, weapon_kind: String, weapon_rarity: int) -> void:
-	var look := _rand_look()
-	var node := (CHAR_FEMALE if look["gender"] == "female" else CHAR).instantiate()
+func _spawn(pos: Vector3, yaw_deg: float, weapon_kind: String, weapon_rarity: int, player := {}) -> void:
+	var is_player: bool = player.has("inv")            # ESQUERDA logada = você (gear real); senão aleatório
+	var look := player if is_player else _rand_look()
+	var gender := str(look.get("gender", "male"))
+	var node := (CHAR_FEMALE if gender == "female" else CHAR).instantiate()
 	if node == null:
 		return
 	add_child(node)
@@ -132,9 +141,12 @@ func _spawn(pos: Vector3, yaw_deg: float, weapon_kind: String, weapon_rarity: in
 		var lib2 = load(UAL2_PATH)
 		if lib2 is AnimationLibrary:
 			ap.add_animation_library("UAL2_Standard", lib2)
-	# veste o SET SORTEADO (esconde o corpo base) + arma na mão (tipo + raridade)
+	# veste: você = itens REAIS (por item); oponente = set sorteado. + arma na mão (tipo + raridade)
 	if skel:
-		_dress(node, skel, look)
+		if is_player:
+			_dress_from_inv(node, skel, player["inv"], gender)
+		else:
+			_dress(node, skel, look)
 		Weapons.new().attach_weapon(node, weapon_kind, weapon_rarity)
 	# estado do lutador: ranged (arco→kiting) + base_y/dodging/busy p/ o movimento [MENU_DUEL]
 	var fighter := {"node": node, "anim": ap, "ranged": Weapons.new().is_bow_kind(weapon_kind),
@@ -178,7 +190,34 @@ func _dress(node: Node3D, skel: Skeleton3D, look := {}) -> void:
 			if sc is PackedScene:
 				_attach_outfit(sc, skel, theme, rarity)
 				dressed[ty] = true
-	# pele nua nos slots de CORPO sem peça (defensivo: evita buraco se uma peça faltar)
+	_dress_nude_gaps(skel, dressed, g)
+
+# Veste com os ITENS REAIS do jogador (mesmo do boneco da ficha): cada peça equipada vem do tema/variante
+# do PRÓPRIO item + recolor pela raridade dele. [OUTFITS] (herói do fundo = você, com seu gear exato)
+func _dress_from_inv(node: Node3D, skel: Skeleton3D, inv_arr: Array, gender: String) -> void:
+	var g := "Female" if gender == "female" else "Male"
+	var base: Array = []
+	_collect_meshes(node, base)
+	for m: MeshInstance3D in base:
+		m.visible = false
+	var head = load("res://assets/base/Base_%s_Head.gltf" % g)
+	if head is PackedScene:
+		_attach_outfit(head, skel)
+	var dressed := {}
+	for it in inv_arr:
+		if it is Dictionary and it.get("equipped") == true:
+			var ty := str(it.get("type", ""))
+			if OutfitsLib.is_armor_slot(ty):
+				var path := OutfitsLib.piece_path_item(it, ty, gender)   # tema+variante do ITEM
+				if path != "" and ResourceLoader.exists(path):
+					var sc = load(path)
+					if sc is PackedScene:
+						_attach_outfit(sc, skel, OutfitsLib.theme_for_item(it), int(it.get("rarity", 1)))
+						dressed[ty] = true
+	_dress_nude_gaps(skel, dressed, g)
+
+# Põe a pele nua (cortada no Blender) nos slots de CORPO sem peça vestida (defensivo: zero buraco).
+func _dress_nude_gaps(skel: Skeleton3D, dressed: Dictionary, g: String) -> void:
 	var part_slot := {"Torso": "ARMOR", "Arms": "GLOVES", "Legs": "PANTS", "Feet": "BOOTS"}
 	for part in part_slot:
 		if not dressed.has(part_slot[part]):
