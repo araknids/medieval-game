@@ -8,6 +8,8 @@ extends Control
 signal go_back
 signal request_battle(data)   # [GUERRA_GAUNTLET] pede ao App o replay 3D da última guerra do território
 
+const Icons := preload("res://ui/Icons.gd")   # [AUDITORIA_UI_TERRITORIO] tira de info por ícones + botão de assistir
+
 var territories: Array = []      # GET /api/territory
 var my_territory: Dictionary = {}  # GET /api/territory/my
 var guild: Dictionary = {}       # GET /api/guild (inGuild / isLeader)
@@ -69,13 +71,27 @@ func _my_territory_banner() -> PanelContainer:
 	head.add_theme_font_size_override("font_size", 18)
 	head.add_theme_color_override("font_color", UiKit.GOLD)
 	box.add_child(head)
-	box.add_child(UiKit.kv("Bônus de XP", "+%d%%" % int(my_territory.get("xpBonus", 0)), UiKit.OK))
-	box.add_child(UiKit.kv("Bônus de bronze", "+%d%%" % int(my_territory.get("bronzeBonus", 0)), UiKit.OK))
-	box.add_child(UiKit.kv("Bônus de mineração", "+%d%%" % int(my_territory.get("miningBonus", 0)), UiKit.OK))
-	box.add_child(UiKit.kv("Bônus de pesca", "+%d%%" % int(my_territory.get("fishingBonus", 0)), UiKit.OK))
-	box.add_child(UiKit.kv("Bônus de XP de quest", "+%d%%" % int(my_territory.get("questXpBonus", 0)), UiKit.OK))
-	box.add_child(UiKit.kv("Defesas seguidas", str(int(my_territory.get("defenseStreak", 0)))))
-	box.add_child(UiKit.kv("Debuff de defesa", "-%d%%" % int(my_territory.get("debuffPercent", 0)), UiKit.WARN))
+	# [AUDITORIA_UI_TERRITORIO] bônus em CHIPS [ícone valor] que quebram de linha (compacto vs 7 linhas kv).
+	# Só mostra os bônus > 0 (mineração/pesca/quest são exclusivos de cada reino → 0 nos outros).
+	var flow := HFlowContainer.new()
+	flow.add_theme_constant_override("h_separation", 12)
+	flow.add_theme_constant_override("v_separation", 6)
+	box.add_child(flow)
+	var bonuses := [
+		["star",        Lang.t("XP +%d%%") % int(my_territory.get("xpBonus", 0)),            int(my_territory.get("xpBonus", 0)),       Lang.t("Bônus de XP de toda fonte")],
+		["bronze",      Lang.t("Bronze +%d%%") % int(my_territory.get("bronzeBonus", 0)),      int(my_territory.get("bronzeBonus", 0)),   Lang.t("Bônus de bronze de toda fonte")],
+		["map_mines",   Lang.t("Mineração +%d%%") % int(my_territory.get("miningBonus", 0)),   int(my_territory.get("miningBonus", 0)),   Lang.t("Bônus exclusivo de mineração")],
+		["map_fishing", Lang.t("Pesca +%d%%") % int(my_territory.get("fishingBonus", 0)),      int(my_territory.get("fishingBonus", 0)),  Lang.t("Bônus exclusivo de pesca")],
+		["world",       Lang.t("XP de quest +%d%%") % int(my_territory.get("questXpBonus", 0)), int(my_territory.get("questXpBonus", 0)), Lang.t("Bônus exclusivo de XP de quest")],
+	]
+	for b in bonuses:
+		if int(b[2]) > 0:
+			flow.add_child(_info_chip(str(b[0]), str(b[1]), UiKit.OK, str(b[3])))
+	# defesa/debuff sempre (informativo)
+	flow.add_child(_info_chip("slot_shield", Lang.t("Defesas: %d") % int(my_territory.get("defenseStreak", 0)), UiKit.TEXT, Lang.t("Batalhas defendidas em sequência")))
+	var debuff := int(my_territory.get("debuffPercent", 0))
+	if debuff > 0:
+		flow.add_child(_info_chip("warning", "-%d%%" % debuff, UiKit.WARN, Lang.t("Debuff de defesa por streak (te enfraquece ao defender)")))
 	return pc
 
 # ── Card de território (um por entrada do /api/territory) ──────────────────────────
@@ -86,52 +102,104 @@ func _territory_card(t) -> Control:
 	var res := UiKit.card(UiKit.GOLD if is_mine else UiKit.BRONZE)
 	var pc: PanelContainer = res[0]
 	var box: VBoxContainer = res[1]
+	# ── Header: nome (esquerda) + assistir (ícone à direita, só quando há replay) ──
+	var header := HBoxContainer.new()
+	header.add_theme_constant_override("separation", 8)
+	box.add_child(header)
 	var nm := Label.new()
 	nm.text = str(t.get("displayName", "?"))
 	nm.add_theme_font_size_override("font_size", 16)
 	nm.add_theme_color_override("font_color", UiKit.GOLD)
-	box.add_child(nm)
+	nm.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	header.add_child(nm)
+	# [AUDITORIA_UI_TERRITORIO] "assistir" virou ÍCONE no canto e só aparece quando HÁ replay (some o clique-morto F3)
+	if bool(t.get("hasLastBattle", false)):
+		header.add_child(_watch_icon_btn(str(t.get("territory", ""))))
 	var lore := str(t.get("lore", ""))
 	if lore != "":
 		box.add_child(UiKit.dim(lore))
-	# controlada por (verde se uma guilda segura; "Neutro" se neutro)
-	var is_neutral := bool(t.get("isNeutral", false))
-	var ctrl_guild := str(t.get("controllingGuild", ""))
-	if is_neutral or ctrl_guild == "":
-		box.add_child(UiKit.kv("Controlada por", "Neutro", UiKit.TEXT_DIM))
-	else:
-		box.add_child(UiKit.kv("Controlada por", ctrl_guild, UiKit.OK))
-	# próxima batalha (segundos → "Xh Ymin")
-	box.add_child(UiKit.kv("Próxima batalha", _fmt_time(int(t.get("secsUntilBattle", 0)))))
-	# debuff de defesa / streak (informativo)
-	var streak := int(t.get("defenseStreak", 0))
-	if streak > 0:
-		box.add_child(UiKit.kv("Defesas seguidas", Lang.t("%d (-%d%% debuff)") % [streak, int(t.get("debuffPercent", 0))], UiKit.WARN))
+	# ── Tira de info: [controlador] [próxima batalha] [streak] — ícones+valor no lugar de 3 linhas kv ──
+	box.add_child(_info_strip(t))
 	# guildas declarando ataque
 	var declaring = t.get("declaringGuilds", [])
 	if declaring is Array and not declaring.is_empty():
 		var names: Array = []
 		for g in declaring:
 			names.append(str(g))
-		box.add_child(UiKit.dim(Lang.t("⚔ Declarando:") + " " + ", ".join(names)))
-	# assistir o replay 3D da última batalha (qualquer um pode ver) [GUERRA_GAUNTLET]
-	box.add_child(UiKit.spacer(4))
-	box.add_child(UiKit.small_btn("⚔ Assistir última batalha", _watch_battle.bind(str(t.get("territory", "")))))
-	# ── Ação: só o líder da guilda declara/cancela ──
-	box.add_child(UiKit.spacer(4))
+		box.add_child(_info_chip("node_combat", Lang.t("Declarando:") + " " + ", ".join(names), UiKit.TEXT_DIM, Lang.t("Guildas que vão atacar este território no próximo ciclo")))
+	# ── Ação primária: encolhida e alinhada à DIREITA (não estica mais o card inteiro) [F1] ──
 	var in_guild := bool(guild.get("inGuild", false))
 	var is_leader := bool(guild.get("isLeader", false))
 	if in_guild and is_leader:
 		var territory_id := str(t.get("territory", ""))
+		box.add_child(UiKit.spacer(2))
+		var arow := HBoxContainer.new()
+		arow.alignment = BoxContainer.ALIGNMENT_END   # botão no min-size, encostado à direita
 		if bool(t.get("myGuildDeclared", false)):
-			box.add_child(UiKit.action_danger("Cancelar ataque", _confirm_cancel))
+			arow.add_child(UiKit.action_danger("Cancelar ataque", _confirm_cancel))
 		else:
-			box.add_child(UiKit.action("⚔ Declarar ataque", _declare.bind(territory_id)))
+			var declare_btn := UiKit.action("⚔ Declarar ataque", _declare.bind(territory_id))
+			Icons.label_button(declare_btn, "declare_war", "⚔ Declarar ataque")   # estandarte (fallback: mantém ⚔)
+			declare_btn.add_theme_constant_override("icon_max_width", 22)
+			arow.add_child(declare_btn)
+		box.add_child(arow)
 	elif in_guild:
 		box.add_child(UiKit.dim("Só o líder da guilda pode declarar."))
 	else:
 		box.add_child(UiKit.dim("Entre numa guilda para participar da guerra de território."))
 	return pc
+
+# [AUDITORIA_UI_TERRITORIO] Tira compacta de info do território (controlador · próxima batalha · streak).
+func _info_strip(t: Dictionary) -> Control:
+	var row := HFlowContainer.new()
+	row.add_theme_constant_override("h_separation", 14)
+	row.add_theme_constant_override("v_separation", 4)
+	# controlador (coroa): guilda (verde) ou "Neutro" (cinza)
+	var is_neutral := bool(t.get("isNeutral", false))
+	var ctrl_guild := str(t.get("controllingGuild", ""))
+	if is_neutral or ctrl_guild == "":
+		row.add_child(_info_chip("node_boss", Lang.t("Neutro"), UiKit.TEXT_DIM, Lang.t("Nenhuma guilda controla — ataque para tomar")))
+	else:
+		row.add_child(_info_chip("node_boss", ctrl_guild, UiKit.OK, Lang.t("Guilda que controla este território")))
+	# próxima batalha (ampulheta)
+	row.add_child(_info_chip("hourglass", _fmt_time(int(t.get("secsUntilBattle", 0))), UiKit.TEXT, Lang.t("Quando a próxima batalha do território é resolvida")))
+	# streak de defesa (escudo) — só quando > 0
+	var streak := int(t.get("defenseStreak", 0))
+	if streak > 0:
+		row.add_child(_info_chip("slot_shield", "%d (-%d%%)" % [streak, int(t.get("debuffPercent", 0))], UiKit.WARN, Lang.t("Defesas seguidas — o defensor ganha um debuff acumulado")))
+	return row
+
+# Chip "[ícone] valor" com tooltip explicativo (substitui as linhas kv verbosas). [AUDITORIA_UI_TERRITORIO]
+func _info_chip(icon_key: String, text: String, col: Color, tip := "") -> Control:
+	var h := HBoxContainer.new()
+	h.add_theme_constant_override("separation", 5)
+	if tip != "":
+		h.tooltip_text = tip
+		h.mouse_filter = Control.MOUSE_FILTER_STOP
+	h.add_child(Icons.rect(icon_key, 18))
+	var l := Label.new()
+	l.text = text
+	l.add_theme_font_size_override("font_size", 13)
+	l.add_theme_color_override("font_color", col)
+	l.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	l.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	h.add_child(l)
+	return h
+
+# Botão de ASSISTIR replay como ícone discreto (flat) no header do card. Fallback ▶ até o ícone importar.
+func _watch_icon_btn(territory: String) -> Button:
+	var b := Button.new()
+	b.flat = true
+	b.tooltip_text = Lang.t("Assistir a última batalha (replay 3D)")
+	b.custom_minimum_size = Vector2(32, 32)
+	b.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	if Icons.set_icon(b, "watch"):
+		b.add_theme_constant_override("icon_max_width", 24)
+	else:
+		b.text = "▶"
+		b.add_theme_font_size_override("font_size", 16)
+	b.pressed.connect(_watch_battle.bind(territory))
+	return b
 
 # ── Tempo: segundos → "Xh Ymin" / "Ymin" / "agora" ─────────────────────────────────
 func _fmt_time(secs: int) -> String:

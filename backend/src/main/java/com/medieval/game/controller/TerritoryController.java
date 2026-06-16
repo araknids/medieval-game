@@ -60,6 +60,10 @@ public class TerritoryController {
             boolean myGuildDeclared = myGuildId != null && pending.stream()
                     .anyMatch(d -> d.getGuild().getId().equals(myGuildId));
 
+            // [AUDITORIA_UI_TERRITORIO] o cliente só mostra o botão "assistir" quando há replay —
+            // mata o clique-morto ("Sem batalha pra assistir") da lista.
+            boolean hasLastBattle = territoryService.getLatestBattleWithEvents(t).isPresent();
+
             return Map.ofEntries(
                 Map.entry("territory",       t.name()),
                 Map.entry("displayName",     t.displayName),
@@ -72,7 +76,8 @@ public class TerritoryController {
                 Map.entry("secsUntilBattle", secsUntilNext),
                 Map.entry("exclusiveBonus",  t.exclusiveBonus),
                 Map.entry("declaringGuilds", declaringGuilds),
-                Map.entry("myGuildDeclared", myGuildDeclared)
+                Map.entry("myGuildDeclared", myGuildDeclared),
+                Map.entry("hasLastBattle",   hasLastBattle)
             );
         }).toList();
 
