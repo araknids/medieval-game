@@ -472,11 +472,17 @@ func _res_chip(r: Dictionary) -> Control:
 	sb.set_corner_radius_all(4)
 	sb.set_content_margin_all(6)
 	pc.add_theme_stylebox_override("panel", sb)
+	var hb := HBoxContainer.new()
+	hb.add_theme_constant_override("separation", 6)
+	pc.add_child(hb)
+	var qty := int(r.get("quantity", 0))
 	var lbl := Label.new()
-	lbl.text = "📦 %s ×%d" % [str(r.get("displayName", r.get("type", "?"))), int(r.get("quantity", 0))]
+	lbl.text = "📦 %s ×%d" % [str(r.get("displayName", r.get("type", "?"))), qty]
 	lbl.add_theme_font_size_override("font_size", 13)
 	lbl.add_theme_color_override("font_color", UiKit.TEXT)
-	pc.add_child(lbl)
+	lbl.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	hb.add_child(lbl)
+	hb.add_child(_action_icon("stash", "🧰", _stash_resource.bind(str(r.get("type", "")), qty), Lang.t("Guardar no baú")))
 	return pc
 
 func _set_rarity(r) -> void:
@@ -517,6 +523,7 @@ func _bag_card(it) -> Control:
 	btns.add_theme_constant_override("separation", 6)
 	box.add_child(btns)
 	btns.add_child(_action_icon("equip", "⚔", _equip.bind(id), Lang.t("Equipar")))
+	btns.add_child(_action_icon("stash", "🧰", _stash_item.bind(id), Lang.t("Guardar no baú")))
 	var spacer := Control.new()
 	spacer.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	spacer.size_flags_vertical = Control.SIZE_SHRINK_CENTER
@@ -855,6 +862,33 @@ func _sell(id: int) -> void:
 		UiKit.flash(status, str(r["json"].get("message", Lang.t("Vendido!"))), 1)
 	else:
 		await _refresh()                # refresh limpa o status → mostrar o erro DEPOIS (senão some) [REQ_LEVEL]
+		UiKit.show_error(status, r)
+
+# [STASH] Guardar ITEM no baú (do inventário da Ficha). Mesma API do Baú; o backend cobra a taxa.
+func _stash_item(id: int) -> void:
+	if busy: return
+	busy = true
+	var r = await Api.stash_deposit_item(id)
+	busy = false
+	if r.get("ok"):
+		await _refresh()
+		UiKit.flash(status, Lang.t("Guardado no baú!"), 1)
+	else:
+		await _refresh()
+		UiKit.show_error(status, r)
+
+# [STASH] Guardar RECURSO no baú (deposita a quantidade toda do tipo).
+func _stash_resource(rtype: String, qty: int) -> void:
+	if busy or rtype == "" or qty <= 0:
+		return
+	busy = true
+	var r = await Api.stash_deposit_resource(rtype, qty)
+	busy = false
+	if r.get("ok"):
+		await _refresh()
+		UiKit.flash(status, Lang.t("Guardado no baú!"), 1)
+	else:
+		await _refresh()
 		UiKit.show_error(status, r)
 
 func _spend(key: String) -> void:
