@@ -832,8 +832,13 @@ func _make_fighter(fname: String, side: int, maxhp: int, weapon_kind: String, eq
 	f["rim"] = rim
 	if not is_monster:
 		_dress(node, skel, equipped_types, aplook)   # [OUTFITS] veste o SET NOVO antes da arma
-		var aura := OutfitsLib.rarity_aura(int(aplook["rarity"]))   # [SKIN_RARIDADE] aura no chão (raro+)
-		if aura: node.add_child(aura)
+		var armor_n := 0                       # [SKIN_RARIDADE] quão completo é o set → aura mais visível
+		for ty in equipped_types:
+			if OutfitsLib.is_armor_slot(str(ty)): armor_n += 1
+		var aura := OutfitsLib.rarity_aura(int(aplook["rarity"]), float(armor_n) / 6.0)   # brasas (raro+)
+		if aura:
+			node.add_child(aura)
+			f["aura"] = aura
 		wp.attach_weapon(node, weapon_kind, rarity, weapon_grip)
 		# escudo na off-hand — só com arma MELEE (arco usa as duas mãos)
 		if ("SHIELD" in equipped_types) and not wp.is_bow_kind(weapon_kind):
@@ -1616,6 +1621,7 @@ func _kill(f: Dictionary) -> void:
 	_kill_cam()   # [JUICE] slow-mo + zoom: o ragdoll/gore a seguir voa em câmera lenta
 	_env_pulse()  # [JUICE] glow floresce no kill (sangue + emissivos)
 	if f.has("rim"): (f["rim"] as OmniLight3D).queue_free()   # apaga a rim do morto (o corpo escurece)
+	if f.has("aura") and is_instance_valid(f["aura"]): (f["aura"] as Node).queue_free()   # apaga a aura de raridade
 	# [GORE] golpe fatal: jato de sangue (pra cima + na direção) + névoa + gotejamento + poça grande
 	_blood_spray(_chest(f), Vector3.UP * 1.6 + dir * 0.8, 40 if brutal else 30, true)
 	_blood_mist(_chest(f))
@@ -2222,30 +2228,7 @@ func _victory_flourish(winner: Dictionary) -> void:
 		var rim := winner["rim"] as OmniLight3D
 		rim.light_color = Color(1.0, 0.85, 0.55)
 		create_tween().set_ignore_time_scale(true).tween_property(rim, "light_energy", 3.2, 0.5)
-	# coluna de brasas subindo ao redor do vencedor
-	var p := GPUParticles3D.new()
-	p.amount = 24; p.lifetime = 2.2; p.preprocess = 0.2
-	var m := ParticleProcessMaterial.new()
-	m.emission_shape = ParticleProcessMaterial.EMISSION_SHAPE_SPHERE
-	m.emission_sphere_radius = 0.5
-	m.direction = Vector3.UP; m.spread = 12.0
-	m.initial_velocity_min = 0.6; m.initial_velocity_max = 1.4
-	m.gravity = Vector3(0, 0.5, 0)
-	m.scale_min = 0.4; m.scale_max = 1.0
-	var g := Gradient.new()
-	g.set_color(0, Color(1.0, 0.8, 0.4, 0.0)); g.add_point(0.3, Color(1.0, 0.8, 0.4, 0.7)); g.set_color(2, Color(1.0, 0.5, 0.2, 0.0))
-	var gt := GradientTexture1D.new(); gt.gradient = g; m.color_ramp = gt
-	p.process_material = m
-	var q := QuadMesh.new(); q.size = Vector2(0.08, 0.08)
-	var qm := StandardMaterial3D.new()
-	qm.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-	qm.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
-	qm.vertex_color_use_as_albedo = true
-	qm.billboard_mode = BaseMaterial3D.BILLBOARD_PARTICLES
-	qm.emission_enabled = true; qm.emission = Color(1.0, 0.7, 0.3); qm.emission_energy_multiplier = 2.0
-	q.material = qm
-	p.draw_pass_1 = q
-	add_child(p); p.global_position = wn.global_position + Vector3(0, 0.2, 0); p.emitting = true
+	# [SKIN_RARIDADE] o "foguinho que sobe" saiu daqui — agora é a AURA DE RARIDADE (brasas) durante a luta.
 
 func _make_ui() -> void:
 	var layer := CanvasLayer.new()

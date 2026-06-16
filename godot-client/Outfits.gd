@@ -213,7 +213,7 @@ static func variant_tex_path(theme: String, rarity: int) -> String:
 
 # Recolore UMA MeshInstance3D de armadura conforme a raridade: troca SÓ o albedo p/ a variante de cor
 # (só na superfície cujo albedo é T_<Tema>_BaseColor — pula pele exposta). SEM emissão: a emissão de
-# superfície inteira tingia o corpo de neon e escondia o item — a raridade vira a AURA no chão (rarity_aura).
+# superfície inteira tingia o corpo de neon e escondia o item — a raridade vira a AURA de brasas (rarity_aura).
 static func recolor_mesh(mi: MeshInstance3D, theme: String, rarity: int) -> void:
 	if mi == null or mi.mesh == null or rarity < 1 or not SLOT_PIECE.has(theme):
 		return
@@ -234,30 +234,52 @@ static func recolor_mesh(mi: MeshInstance3D, theme: String, rarity: int) -> void
 		m.albedo_texture = vtex   # só a cor da variante (banda de raridade) — sem brilho na malha
 		mi.set_surface_override_material(s, m)
 
-# Aura de raridade: anel reluzente no CHÃO sob o lutador (indica raridade SEM tingir o item).
-# Comum/Incomum (1-2) = sem aura; Raro+ ganha o anel (cor da raridade). Filho do nó → segue o lutador.
-# Energia de emissão BAIXA de propósito (o bloom da cena amplia). [SKIN_RARIDADE]
-static func rarity_aura(rarity: int) -> MeshInstance3D:
+# Aura de raridade: BRASAS sutis subindo ao redor do corpo (estilo do foguinho de vitória), na cor da
+# raridade. Comum/Incomum (1-2) = sem aura; Raro+ acende. `completeness` (0..1 = peças do set / 6) deixa
+# MAIS visível com o set completo (mais brasas + mais opacas). Filho do lutador → segue ele. [SKIN_RARIDADE]
+static func rarity_aura(rarity: int, completeness := 1.0) -> GPUParticles3D:
 	if rarity < 3:
 		return null
 	var rt: int = clamp(rarity - 1, 0, 4)
 	var tint: Color = RARITY_TINT[rt]
-	var ring := MeshInstance3D.new()
-	var tm := TorusMesh.new()
-	tm.inner_radius = 0.30
-	tm.outer_radius = 0.46
-	tm.rings = 6
-	ring.mesh = tm
-	ring.rotation_degrees = Vector3(90, 0, 0)   # deita o anel no chão
-	ring.position = Vector3(0, 0.04, 0)          # logo acima do chão, nos pés
-	var m := StandardMaterial3D.new()
-	m.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-	m.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
-	m.blend_mode = BaseMaterial3D.BLEND_MODE_ADD
-	m.albedo_color = Color(tint.r, tint.g, tint.b, 0.5)
-	m.emission_enabled = true
-	m.emission = tint
-	m.emission_energy_multiplier = 0.7          # PLACEHOLDER — afinar com o bloom da cena
-	ring.material_override = m
-	ring.set_meta("rarity_aura", true)
-	return ring
+	var c := clampf(completeness, 0.0, 1.0)
+	var p := GPUParticles3D.new()
+	p.local_coords = false                   # brasas sobem no MUNDO (não viram "cano" quando o corpo cai) + trilha
+	p.amount = maxi(4, int(round(5.0 + 12.0 * c)))   # set completo = mais brasas
+	p.lifetime = 1.5
+	p.preprocess = 1.2                       # já começa "cheio" (sem aparecer do nada)
+	p.randomness = 0.5
+	p.position = Vector3(0, 0.55, 0)         # emite ao redor do corpo (tornozelos→peito)
+	var m := ParticleProcessMaterial.new()
+	m.emission_shape = ParticleProcessMaterial.EMISSION_SHAPE_BOX
+	m.emission_box_extents = Vector3(0.26, 0.5, 0.16)
+	m.direction = Vector3.UP
+	m.spread = 6.0
+	m.initial_velocity_min = 0.35
+	m.initial_velocity_max = 0.8
+	m.gravity = Vector3(0, 0.35, 0)          # sobem devagar (fogo)
+	m.scale_min = 0.25
+	m.scale_max = 0.6
+	var a := 0.14 + 0.42 * c                  # SUTIL; mais opaco com set completo
+	var grad := Gradient.new()
+	grad.set_color(0, Color(tint.r, tint.g, tint.b, 0.0))
+	grad.add_point(0.25, Color(tint.r, tint.g, tint.b, a))
+	grad.set_color(2, Color(tint.r, tint.g, tint.b, 0.0))
+	var gt := GradientTexture1D.new()
+	gt.gradient = grad
+	m.color_ramp = gt
+	p.process_material = m
+	var q := QuadMesh.new()
+	q.size = Vector2(0.055, 0.07)
+	var qm := StandardMaterial3D.new()
+	qm.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	qm.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	qm.vertex_color_use_as_albedo = true
+	qm.billboard_mode = BaseMaterial3D.BILLBOARD_PARTICLES
+	qm.emission_enabled = true
+	qm.emission = tint
+	qm.emission_energy_multiplier = 1.0
+	q.material = qm
+	p.draw_pass_1 = q
+	p.set_meta("rarity_aura", true)
+	return p
