@@ -95,6 +95,17 @@ public class ExpeditionRun {
     @Column(length = 60)
     private String pendingEventQuest;
 
+    // ── [INCURSAO_EVENTOS] Eventos NATIVOS da Incursão (pacto/loja/altar/santuário) ──
+    /** Tipo do evento nativo pendente: PACT / SHOP / ALTAR / SANCTUARY (null = é quest de reino). */
+    @Column(length = 20)
+    private String pendingDelveEvent;
+    /** Dados do evento (ex.: ofertas da loja em JSON), gerados no choose e lidos na resolução/diálogo. */
+    @Column(columnDefinition = "TEXT")
+    private String pendingEventData;
+    /** Modificadores de combate da run (pactos/bênçãos): JSON {stat:pct}. Aplicados em TODA batalha. */
+    @Column(columnDefinition = "TEXT")
+    private String runModsJson;
+
     // ── Bolsa carregada (ainda NÃO no inventário) ─────────────────────
     // Gear carregado vive como InventoryItem.runPending=true; aqui só escalares + recursos (CSV).
     @Column(columnDefinition = "bigint default 0")  private long carriedBronze = 0;

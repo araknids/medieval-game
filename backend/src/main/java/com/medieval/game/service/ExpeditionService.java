@@ -190,9 +190,11 @@ public class ExpeditionService {
 
         Warrior warrior = warriorRepo.findByPlayer(player).orElseThrow();
 
-        // EVENTO: pausa e devolve o diálogo (resolvido por resolveNode).
+        // EVENTO: pausa e devolve o diálogo. [INCURSAO_EVENTOS] 20% quest interativa do reino (se houver),
+        // 80% evento NATIVO da Incursão (pacto/loja/altar/santuário).
         if (node.type() == ExpeditionNodeType.EVENT) {
-            String questName = pickEventQuest(run);
+            ThreadLocalRandom erng = ThreadLocalRandom.current();
+            String questName = (erng.nextInt(5) == 0) ? pickEventQuest(run) : null;
             if (questName != null) {
                 run.setStatus(ExpeditionStatus.NODE_PENDING);
                 run.setPendingNodeId(node.id());
@@ -203,7 +205,17 @@ public class ExpeditionService {
                         List.of(), null, null, 0, 0, false, List.of(), List.of(),
                         messages.getOr("delve.node.event", "You come upon something that demands a choice."), null, false);
             }
-            // sem quest interativa p/ o reino → cai como tesouro
+            // evento nativo da Incursão
+            String delve = DELVE_EVENTS[erng.nextInt(DELVE_EVENTS.length)];
+            run.setStatus(ExpeditionStatus.NODE_PENDING);
+            run.setPendingNodeId(node.id());
+            run.setPendingNodeType(ExpeditionNodeType.EVENT);
+            run.setPendingDelveEvent(delve);
+            if (delve.equals("SHOP")) run.setPendingEventData(generateShopOffers(warrior));
+            expeditionRepo.save(run);
+            return new ChooseResult(run, ExpeditionNodeType.EVENT, true, null,
+                    List.of(), null, null, 0, 0, false, List.of(), List.of(),
+                    delveIntro(delve), null, false);
         }
 
         // CAMP: cura + checkpoint (banca a bolsa).
@@ -234,6 +246,16 @@ public class ExpeditionService {
             throw new IllegalArgumentException("This event requires a choice.");
 
         Warrior warrior = warriorRepo.findByPlayer(player).orElseThrow();
+        // [INCURSAO_EVENTOS] evento NATIVO da Incursão (pacto/loja/altar/santuário)
+        if (run.getPendingDelveEvent() != null) {
+            NodeResolution dres = resolveDelveEvent(run, player, warrior, optionId);
+            run.setStatus(ExpeditionStatus.IN_PROGRESS);
+            run.setPendingNodeId(null);
+            run.setPendingNodeType(null);
+            run.setPendingDelveEvent(null);
+            run.setPendingEventData(null);
+            return finishNode(run, player, ExpeditionNodeType.EVENT, dres);
+        }
         KingdomQuestType qt = KingdomQuestType.valueOf(run.getPendingEventQuest());
         QuestDialog dialog = InteractiveQuests.dialogFor(qt).orElseThrow();
         QuestOption option = dialog.options().stream().filter(o -> o.id().equals(optionId)).findFirst()
@@ -294,6 +316,7 @@ public class ExpeditionService {
         }
 
         int[] stats = statsService.combatStats(player, warrior);
+        applyRunMods(run, stats);   // [INCURSAO_EVENTOS] pactos/bênçãos da run modificam o combate
         int maxHp = stats[2];
         int curHp = Math.max(1, warrior.getCalculatedHpPercent() * maxHp / 100);
         // entra com o HP ATUAL (carrega entre os nós da run); o % final usa o maxHp original guardado acima.
@@ -796,6 +819,200 @@ public class ExpeditionService {
             case INTELLECT    -> w.getIntellect();
         };
     }
+
+    // ── [INCURSAO_EVENTOS] Eventos nativos da Incursão (pacto/loja/altar/santuário) ──────────────
+    private static final String[] DELVE_EVENTS = {"PACT", "SHOP", "ALTAR", "SANCTUARY"};
+    private static final String[] RUN_MOD_KEYS = {"atk", "def", "hp", "dex", "agi", "luk"};
+
+    /** Texto de abertura do evento (narrative do choose). */
+    private String delveIntro(String kind) {
+        return switch (kind) {
+            case "PACT"      -> "Um espírito sombrio oferece um pacto.";
+            case "SHOP"      -> "Um mercador errante abre a barganha.";
+            case "ALTAR"     -> "Um altar do risco pulsa diante de você.";
+            case "SANCTUARY" -> "Você encontra um santuário tranquilo.";
+            default          -> "Algo exige uma escolha.";
+        };
+    }
+
+    /** Diálogo do evento nativo p/ o front: {intro, options:[{id,label,hint}]}. [INCURSAO_EVENTOS] */
+    public Map<String, Object> delveEventDialog(ExpeditionRun run) {
+        String kind = run.getPendingDelveEvent();
+        if (kind == null) return null;
+        return switch (kind) {
+            case "PACT" -> Map.of("intro", "Um espírito sombrio oferece poder por um preço.", "options", List.of(
+                    opt("fury", "Pacto da Fúria", "+25% Ataque · −20% Vida máx (resto da run)"),
+                    opt("wall", "Pacto da Muralha", "+30% Defesa · −15% Ataque"),
+                    opt("frenzy", "Pacto do Frenesi", "+crítico (LUK) · −esquiva (AGI)"),
+                    opt("decline", "Recusar", "Seguir sem pacto")));
+            case "SHOP" -> shopDialog(run);
+            case "ALTAR" -> Map.of("intro", "Aposte seu bronze carregado — dobre ou perca.", "options", List.of(
+                    opt("bet", "Apostar " + (run.getCarriedBronze() / 2) + " bronze", "50% dobra · 50% perde"),
+                    opt("leave", "Ignorar", "Seguir em frente")));
+            case "SANCTUARY" -> Map.of("intro", "Um santuário restaura quem para.", "options", List.of(
+                    opt("pray", "Rezar", "Cura total + bênção (+10% Ataque e Defesa)"),
+                    opt("rest", "Descansar", "Cura total"),
+                    opt("leave", "Seguir", "Sem parar")));
+            default -> null;
+        };
+    }
+
+    private Map<String, Object> shopDialog(ExpeditionRun run) {
+        List<Map<String, Object>> offers = readShopOffers(run);
+        List<Map<String, Object>> options = new ArrayList<>();
+        for (int i = 0; i < offers.size(); i++) {
+            Map<String, Object> o = offers.get(i);
+            options.add(opt(String.valueOf(i), String.valueOf(o.get("name")), statHint(o) + " · " + num(o.get("price")) + " bronze"));
+        }
+        options.add(opt("leave", "Sair", "Não comprar nada"));
+        return Map.of("intro", "Um mercador errante exibe relíquias raras (paga com o bronze CARREGADO).", "options", options);
+    }
+
+    private static Map<String, Object> opt(String id, String label, String hint) {
+        return Map.of("id", id, "label", label, "hint", hint);
+    }
+
+    private static String statHint(Map<String, Object> o) {
+        List<String> parts = new ArrayList<>();
+        if (num(o.get("atk")) != 0) parts.add("ATK +" + num(o.get("atk")));
+        if (num(o.get("def")) != 0) parts.add("DEF +" + num(o.get("def")));
+        if (num(o.get("hp"))  != 0) parts.add("HP +" + num(o.get("hp")));
+        return String.join(" ", parts);
+    }
+
+    /** Resolve a escolha de um evento nativo → NodeResolution (finishNode credita/avança). */
+    private NodeResolution resolveDelveEvent(ExpeditionRun run, Player player, Warrior warrior, String optionId) {
+        return switch (run.getPendingDelveEvent()) {
+            case "PACT"      -> resolvePact(run, optionId);
+            case "SHOP"      -> resolveShop(run, player, optionId);
+            case "ALTAR"     -> resolveAltar(run, optionId);
+            case "SANCTUARY" -> resolveSanctuary(run, warrior, optionId);
+            default          -> { NodeResolution r = new NodeResolution(); r.narrative = "Você segue em frente."; yield r; }
+        };
+    }
+
+    private NodeResolution resolvePact(ExpeditionRun run, String optionId) {
+        NodeResolution res = new NodeResolution();
+        switch (optionId == null ? "" : optionId) {
+            case "fury"   -> { addRunMods(run, Map.of("atk", 25, "hp", -20)); res.narrative = "Pacto da Fúria selado: +25% Ataque, −20% Vida máx."; }
+            case "wall"   -> { addRunMods(run, Map.of("def", 30, "atk", -15)); res.narrative = "Pacto da Muralha selado: +30% Defesa, −15% Ataque."; }
+            case "frenzy" -> { addRunMods(run, Map.of("luk", 40, "agi", -30)); res.narrative = "Pacto do Frenesi selado: +crítico, −esquiva."; }
+            default       -> res.narrative = "Você recusa o pacto.";
+        }
+        return res;
+    }
+
+    private NodeResolution resolveAltar(ExpeditionRun run, String optionId) {
+        NodeResolution res = new NodeResolution();
+        if (!"bet".equals(optionId)) { res.narrative = "Você ignora o altar."; return res; }
+        long bet = run.getCarriedBronze() / 2;
+        if (bet <= 0) { res.narrative = "Sem bronze carregado pra apostar."; return res; }
+        boolean win = ThreadLocalRandom.current().nextBoolean();
+        res.bronze = win ? bet : -bet;   // applyToCarried soma (bet = metade → carregado nunca fica negativo)
+        res.narrative = win ? ("🎲 Apostou " + bet + " bronze e DOBROU!") : ("🎲 Apostou " + bet + " bronze e perdeu.");
+        return res;
+    }
+
+    private NodeResolution resolveSanctuary(ExpeditionRun run, Warrior warrior, String optionId) {
+        NodeResolution res = new NodeResolution();
+        switch (optionId == null ? "" : optionId) {
+            case "pray" -> { warrior.healFull(); warriorRepo.save(warrior); addRunMods(run, Map.of("atk", 10, "def", 10));
+                             res.narrative = "⛲ Você reza: vida restaurada e uma bênção (+10% Ataque e Defesa)."; }
+            case "rest" -> { warrior.healFull(); warriorRepo.save(warrior); res.narrative = "⛲ Você descansa: vida totalmente restaurada."; }
+            default     -> res.narrative = "Você segue em frente.";
+        }
+        return res;
+    }
+
+    private NodeResolution resolveShop(ExpeditionRun run, Player player, String optionId) {
+        NodeResolution res = new NodeResolution();
+        if ("leave".equals(optionId)) { res.narrative = "Você deixa a loja."; return res; }
+        List<Map<String, Object>> offers = readShopOffers(run);
+        int idx;
+        try { idx = Integer.parseInt(optionId); } catch (Exception e) { idx = -1; }
+        if (idx < 0 || idx >= offers.size()) { res.narrative = "Oferta indisponível."; return res; }
+        Map<String, Object> o = offers.get(idx);
+        long price = num(o.get("price"));
+        if (run.getCarriedBronze() < price) { res.narrative = "Bronze carregado insuficiente para " + o.get("name") + "."; return res; }
+        res.bronze = -price;   // applyToCarried deduz da bolsa carregada
+        ItemType type = ItemType.valueOf(String.valueOf(o.get("type")));
+        int rarity = num(o.get("rarity")), itemLevel = num(o.get("itemLevel"));
+        var rng = ThreadLocalRandom.current();
+        InventoryItem item = inventoryService.makeRunPending(player, String.valueOf(o.get("name")), type,
+                num(o.get("atk")), num(o.get("def")), num(o.get("hp")), rarity, price, itemLevel,
+                loreGenerator.generateLore(rarity, type, rng), loreGenerator.originFromQuest("Mercador Errante"));
+        res.lootName = item.getName(); res.lootId = item.getId();
+        res.narrative = "🛒 Você compra " + o.get("name") + " por " + price + " bronze.";
+        return res;
+    }
+
+    /** Gera 2-3 ofertas de raridade alta (3-5) p/ a loja → JSON (lido na resolução/diálogo). */
+    private String generateShopOffers(Warrior warrior) {
+        var rng = ThreadLocalRandom.current();
+        boolean isArcher = warrior.getWarriorClass() == WarriorClass.ARCHER;
+        int n = 2 + rng.nextInt(2);
+        List<Map<String, Object>> offers = new ArrayList<>();
+        for (int i = 0; i < n; i++) {
+            ItemType type = ItemType.values()[rng.nextInt(ItemType.values().length)];
+            int rarity = rng.nextInt(100) < 20 ? 5 : rng.nextInt(100) < 50 ? 4 : 3;
+            int itemLevel = Math.max(1, warrior.getLevel() + 1 + rng.nextInt(3));
+            String name = itemName(type, rarity, isArcher, rng);
+            int atk, def, hp;
+            if (type == ItemType.WEAPON) {
+                int[] w = WeaponType.fromName(name).stats(itemLevel, rarity);
+                atk = w[0]; def = w[1]; hp = w[2];
+            } else {
+                int[] s = inventoryService.rollItemStats(itemLevel, rarity);
+                atk = s[0]; def = s[1]; hp = s[2];
+            }
+            long price = switch (rarity) { case 5 -> 700L; case 4 -> 350L; default -> 150L; };
+            Map<String, Object> o = new LinkedHashMap<>();
+            o.put("name", name); o.put("type", type.name()); o.put("rarity", rarity);
+            o.put("itemLevel", itemLevel); o.put("atk", atk); o.put("def", def); o.put("hp", hp); o.put("price", price);
+            offers.add(o);
+        }
+        try { return objectMapper.writeValueAsString(offers); } catch (Exception e) { return "[]"; }
+    }
+
+    @SuppressWarnings("unchecked")
+    private List<Map<String, Object>> readShopOffers(ExpeditionRun run) {
+        if (run.getPendingEventData() == null) return List.of();
+        try { return objectMapper.readValue(run.getPendingEventData(), List.class); }
+        catch (Exception e) { return List.of(); }
+    }
+
+    // ── Modificadores de combate da run (pactos/bênçãos), JSON {stat:pct} ─────────
+    private int[] parseRunMods(ExpeditionRun run) {
+        int[] m = new int[6];
+        String json = run.getRunModsJson();
+        if (json == null || json.isBlank()) return m;
+        try {
+            Map<?, ?> map = objectMapper.readValue(json, Map.class);
+            for (int i = 0; i < 6; i++) m[i] = num(map.get(RUN_MOD_KEYS[i]));
+        } catch (Exception ignored) {}
+        return m;
+    }
+
+    private void addRunMods(ExpeditionRun run, Map<String, Integer> delta) {
+        int[] cur = parseRunMods(run);
+        Map<String, Integer> merged = new LinkedHashMap<>();
+        for (int i = 0; i < 6; i++) {
+            int v = cur[i] + delta.getOrDefault(RUN_MOD_KEYS[i], 0);
+            if (v != 0) merged.put(RUN_MOD_KEYS[i], v);
+        }
+        try { run.setRunModsJson(merged.isEmpty() ? null : objectMapper.writeValueAsString(merged)); }
+        catch (Exception ignored) {}
+    }
+
+    /** Aplica os modificadores da run (%) ao array [atk,def,hp,dex,agi,luk] antes da batalha. */
+    private void applyRunMods(ExpeditionRun run, int[] stats) {
+        int[] mods = parseRunMods(run);
+        for (int i = 0; i < 6 && i < stats.length; i++) {
+            if (mods[i] != 0) stats[i] = Math.max(i == 2 ? 1 : 0, (int) Math.round(stats[i] * (100.0 + mods[i]) / 100.0));
+        }
+    }
+
+    private static int num(Object o) { return o instanceof Number n ? n.intValue() : 0; }
 
     // ── Map (de)serialização ──────────────────────────────────────────────────
 

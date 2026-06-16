@@ -101,10 +101,10 @@ public class ExpeditionController {
                 "resources", resourceList(expeditionService.securedResourceList(run))));
         m.put("canExtract", expeditionService.runCanExtract(run));
         m.put("scene", sceneFor(run));
-        // EVENTO pendente → devolve o diálogo (reusa i18n de quest)
-        if (run.getStatus() == ExpeditionStatus.NODE_PENDING && run.getPendingEventQuest() != null) {
+        // EVENTO pendente → devolve o diálogo (evento nativo da Incursão OU quest de reino)
+        if (run.getStatus() == ExpeditionStatus.NODE_PENDING) {
             m.put("pendingNodeId", run.getPendingNodeId());
-            dialogJson(run.getPendingEventQuest()).ifPresent(d -> m.put("dialog", d));
+            putEventDialog(m, run);
         }
         return m;
     }
@@ -142,8 +142,7 @@ public class ExpeditionController {
         m.put("battleEvents", cr.battleEvents());
         m.put("scene", sceneFor(cr.run()));
         m.put("canExtract", cr.canExtract());
-        if (cr.nodePending() && cr.eventQuest() != null)
-            dialogJson(cr.eventQuest()).ifPresent(d -> m.put("dialog", d));
+        if (cr.nodePending()) putEventDialog(m, cr.run());
         m.put("state", runState(cr.run())); // estado atualizado p/ re-render do mapa
         return m;
     }
@@ -167,6 +166,16 @@ public class ExpeditionController {
                 "displayName", d.type().displayName,
                 "quantity", d.quantity()));
         return out;
+    }
+
+    /** Põe o "dialog" do evento pendente: nativo da Incursão (pacto/loja/altar/santuário) OU quest de reino. */
+    private void putEventDialog(Map<String, Object> m, ExpeditionRun run) {
+        if (run.getPendingDelveEvent() != null) {
+            Map<String, Object> d = expeditionService.delveEventDialog(run);
+            if (d != null) m.put("dialog", d);
+        } else if (run.getPendingEventQuest() != null) {
+            dialogJson(run.getPendingEventQuest()).ifPresent(d -> m.put("dialog", d));
+        }
     }
 
     /** Constrói o diálogo do nó EVENTO a partir do KingdomQuestType (reusa as chaves i18n de quest). */
