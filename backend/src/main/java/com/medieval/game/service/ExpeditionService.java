@@ -618,7 +618,7 @@ public class ExpeditionService {
     }
 
     private int depthForTier(int tier) {
-        return switch (tier) { case 3 -> 5; case 2 -> 4; default -> 3; };
+        return 5;   // [INCURSAO] 5 etapas em TODAS as runs (4 salas + chefe). Antes escalava 3/4/5 por tier.
     }
 
     private int staminaCost(Player player, int tier) {

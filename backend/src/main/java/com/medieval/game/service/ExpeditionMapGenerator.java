@@ -89,7 +89,7 @@ public final class ExpeditionMapGenerator {
         // pares (tipo, peso)
         int wCombat   = 50;
         int wEvent    = 18;
-        int wTreasure = 15;
+        int wTreasure = layer > 0 ? 15 : 0;                       // [INCURSAO] nunca tesouro no 1º round
         int wCamp     = layer > 0 ? 10 : 0;                       // sem checkpoint na 1ª camada
         int wElite    = layer >= 1 ? (layer * 3 + tier * 4) : 0;  // escala fundo/tier
         int total = wCombat + wEvent + wTreasure + wCamp + wElite;

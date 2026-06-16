@@ -56,9 +56,9 @@ class ExpeditionIntegrationTest extends BaseIntegrationTest {
         Map<String, Object> state = parse(r);
         assertEquals(true, state.get("active"));
         assertEquals("IN_PROGRESS", state.get("status"));
-        assertEquals(3, ((Number) state.get("depth")).intValue()); // tier 1 → 3 camadas
+        assertEquals(5, ((Number) state.get("depth")).intValue()); // [INCURSAO] 5 etapas em todas as runs
         List<?> layers = (List<?>) state.get("map");
-        assertEquals(3, layers.size());
+        assertEquals(5, layers.size());
 
         // segunda start é rejeitada (uma run por vez)
         mockMvc.perform(post("/api/expedition/start")
