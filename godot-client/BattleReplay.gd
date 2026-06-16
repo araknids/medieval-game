@@ -41,8 +41,8 @@ const ARCHER_SPEED := 2.2    # recuo do arqueiro (kite)
 const ARCHER_PREF := 2.4     # arqueiro recua p/ manter ~esta distância do melee (obriga o melee a perseguir)
 const FIELD_EDGE := 4.5      # borda do campo: o arqueiro recua até aqui (o guerreiro o alcança)
 const DODGE_LAND := 2.8      # distância ATRÁS do inimigo em que o arqueiro aterrissa após o roll-através
-const WINDUP := 0.18         # s — armar o golpe antes do impacto
-const RECOVER := 0.12        # s — respiro após o impacto antes do próximo evento
+const WINDUP := 0.27         # [FLUIDEZ A] s — armar o golpe; alinha o impacto (sangue/flinch) ~ pico do swing
+const RECOVER := 0.20        # [FLUIDEZ C] s — respiro pós-impacto; deixa o swing "respirar" antes do próximo
 const MAX_WAIT := 2.2        # s — timeout p/ disparar mesmo fora de posição (nunca trava)
 const COUNTDOWN := 3.0       # s — contagem 3,2,1 antes da luta (warm-up)
 const CD_STEP := 0.5         # [COUNTDOWN_ART] s por número (3,2,1)
@@ -1150,7 +1150,7 @@ func _tick_team(dt: float) -> void:
 				var slot := maxi(0, co.find(str(f["name"])))
 				var nslot := maxi(1, co.size())
 				var perp := Vector3(atk_dir.z, 0.0, -atk_dir.x)
-				var lateral := (float(slot) - float(nslot - 1) * 0.5) * 1.3
+				var lateral := (float(slot) - float(nslot - 1) * 0.5) * 1.5   # [FLUIDEZ D] espaça mais (anti-empilha)
 				var desired := tn.position + atk_dir * ATTACK_RANGE + perp * lateral
 				desired.y = f["base_y"]
 				# [FLUIDEZ] só move quando NÃO está em golpe/flinch (busy) → planta o ataque (sem deslizar
