@@ -376,17 +376,9 @@ func _weapon_icon(it: Dictionary) -> Texture2D:
 
 # [OUTFITS_CLASSE] Texture do equipado p/ o slot: arma → modelo 3D; armadura → peça do tema da classe;
 # resto (anel/colar/escudo) → null (cai no ícone genérico do slot).
-func _equip_icon_tex(it: Dictionary, type: String) -> Texture2D:
-	if type == "WEAPON":
-		return _weapon_icon(it)
-	if type == "SHIELD":
-		var sp := "res://assets/weapons/icons/" + str(Weapons.SHIELD_MODEL) + ".png"
-		return load(sp) if ResourceLoader.exists(sp) else null
-	if Outfits.is_armor_slot(type):
-		var ap := Outfits.icon_path_item(it, type)   # tema do ITEM equipado [OUTFITS_CLASSE]
-		if ap != "" and ResourceLoader.exists(ap):
-			return load(ap)
-	return null
+# Ícone do item EQUIPADO no slot = MESMA fonte da bag (UiKit.item_icon_tex) → sempre relacionados.
+func _equip_icon_tex(it: Dictionary, _type: String) -> Texture2D:
+	return UiKit.item_icon_tex(it)
 
 func _slot_clicked(type: String) -> void:
 	var s: Dictionary = _slots.get(type, {})

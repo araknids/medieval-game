@@ -693,10 +693,10 @@ static func _tex_rect(tex: Texture2D, px: int) -> TextureRect:
 	tr.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	return tr
 
-# Ícone do item por DICT, "realista" como o equipado: ARMA → render do modelo 3D
-# (assets/weapons/icons/<modelo>.png); ARMADURA → render da peça do TEMA da classe
-# (assets/outfits/icons/<peça>.png); resto → ícone genérico do slot. [SLOT_WEAPON_IMG][OUTFITS_CLASSE]
-static func item_icon_for(it: Dictionary, px := 48) -> TextureRect:
+# FONTE ÚNICA do ícone de um item (usada pela BAG e pelo SLOT equipado → sempre iguais). Texture2D:
+# ARMA → render do modelo 3D; ARMADURA → peça do tema/variante do item; ANEL/COLAR → por raridade;
+# resto → ícone genérico do slot (nunca null p/ tipo conhecido). [SLOT_WEAPON_IMG][OUTFITS][ICONES_RARIDADE]
+static func item_icon_tex(it: Dictionary) -> Texture2D:
 	var ty := str(it.get("type", ""))
 	if ty == "WEAPON":
 		if _weapons_helper == null:
@@ -705,21 +705,25 @@ static func item_icon_for(it: Dictionary, px := 48) -> TextureRect:
 		var model: String = str(Weapons.MODELS.get(kind, ""))
 		var p := "res://assets/weapons/icons/" + model + ".png"
 		if model != "" and ResourceLoader.exists(p):
-			return _tex_rect(load(p), px)
+			return load(p)
 	elif ty == "SHIELD":
 		var sp := "res://assets/weapons/icons/" + str(Weapons.SHIELD_MODEL) + ".png"
 		if ResourceLoader.exists(sp):
-			return _tex_rect(load(sp), px)
+			return load(sp)
 	elif Outfits.is_armor_slot(ty):
-		var ap := Outfits.icon_path_item(it, ty)   # tema do ITEM (não de quem veste) [OUTFITS_CLASSE]
+		var ap := Outfits.icon_path_item(it, ty)   # mesma variante do boneco [OUTFITS_VARIANTES]
 		if ap != "" and ResourceLoader.exists(ap):
-			return _tex_rect(load(ap), px)
+			return load(ap)
 	elif ty == "RING" or ty == "NECKLACE":
-		# anel/colar têm ícone POR RARIDADE (anel_1..anel_5) → mais rico = mais raro. [ICONES_RARIDADE]
-		var rt := Icons.tex(ty.to_lower() + "_" + str(clampi(int(it.get("rarity", 1)), 1, 5)))
+		var rt := Icons.tex(ty.to_lower() + "_" + str(clampi(int(it.get("rarity", 1)), 1, 5)))   # por raridade
 		if rt != null:
-			return _tex_rect(rt, px)
-	return item_icon(ty, px)
+			return rt
+	return Icons.item_tex(ty)   # fallback: ícone genérico do slot
+
+# Wrapper TextureRect (bag/cards). Mesma fonte do slot equipado → ícone idêntico nos dois lugares.
+static func item_icon_for(it: Dictionary, px := 48) -> TextureRect:
+	var t := item_icon_tex(it)
+	return _tex_rect(t, px) if t != null else null
 
 # ── Comparação de item vs EQUIPADO ──────────────────────────────────────────────────
 # Índice dos itens equipados por type (WEAPON/ARMOR/…). Preenchido pelo Shell (a cada nav)
