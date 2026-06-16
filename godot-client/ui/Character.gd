@@ -164,7 +164,7 @@ func _slot_frame(type: String) -> PanelContainer:
 	sb.set_content_margin_all(4)
 	pc.add_theme_stylebox_override("panel", sb)
 	var icon := TextureRect.new()
-	icon.texture = Icons.tex("slot_" + type.to_lower())
+	icon.texture = Icons.item_tex(type)
 	icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 	icon.custom_minimum_size = Vector2(44, 44)
@@ -345,14 +345,14 @@ func _update_slots() -> void:
 			# [SLOT_WEAPON_IMG][OUTFITS_CLASSE] mostra a IMAGEM do equipado: arma → modelo 3D;
 			# armadura → peça renderizada do TEMA da classe; resto → ícone genérico do slot.
 			var tex := _equip_icon_tex(it, type)
-			icon.texture = tex if tex != null else Icons.tex("slot_" + type.to_lower())
+			icon.texture = tex if tex != null else Icons.item_tex(type)
 		else:
 			s["item_id"] = 0
 			icon.modulate = Color(1, 1, 1, 0.30)
 			sb.border_color = UiKit.BRONZE
 			sb.set_border_width_all(1)
 			frame.tooltip_text = Lang.t(str(SLOT_LABEL.get(type, type)))
-			icon.texture = Icons.tex("slot_" + type.to_lower())   # vazio → ícone genérico de volta
+			icon.texture = Icons.item_tex(type)   # vazio → ícone genérico de volta
 
 func _equipped_tooltip(it: Dictionary) -> String:
 	var tip := str(it.get("name", "?"))

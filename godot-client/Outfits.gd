@@ -163,8 +163,8 @@ static func _dir_for(base: String) -> String:
 # Índice da VARIANTE de peça p/ um item (estável pelo nome+slot → mesmo item = mesma peça sempre;
 # itens diferentes variam). count<=1 → 0. [OUTFITS_VARIANTES]
 static func _variant_index(seed_name: String, slot: String, count: int) -> int:
-	if count <= 1:
-		return 0
+	if count <= 1 or seed_name == "":
+		return 0   # sem seed (ícone 2D / preview) → SEMPRE a peça principal (que tem ícone renderizado)
 	var s := 0
 	for b in (seed_name + slot).to_utf8_buffer():
 		s += int(b)
