@@ -26,8 +26,8 @@ const WALK := LIB + "Walk"      # andar (reverso = recuar) no kiting do arqueiro
 const KITE_EDGE := 3.6          # |x| máx do arqueiro (campo mais largo → recua de verdade)
 const KITE_RANGE := 1.45        # distância que o melee tenta fechar
 const KITE_PREF := 1.95         # arqueiro recua enquanto o gap for menor que isto
-const KITE_MELEE_SPEED := 1.7
-const KITE_ARCHER_SPEED := 2.0  # > melee → o arqueiro mantém distância
+const KITE_MELEE_SPEED := 2.5   # FECHA a distância (antes 1.7 < arqueiro → nunca alcançava = "só seguia")
+const KITE_ARCHER_SPEED := 1.9  # recua mais devagar que o melee → é alcançado e PULA pro outro lado p/ escapar
 const KITE_LAND := 3.0          # DOIS dodges: aterrissa BEM longe do melee (> alcance) → não dodgeia sem parar
 
 # Peças Ranger por slot (mesmo set do PaperDollLive) + a cabeça-base (rosto).
@@ -245,13 +245,11 @@ func _kite_move(dt: float, r: int, m: int) -> void:
 	var mn: Node3D = M["node"]
 	if not (is_instance_valid(rn) and is_instance_valid(mn)):
 		return
-	if R.get("hopping", false):
-		return                                  # no meio do pulo: ninguém anda
 	var side := signf(rn.position.x - mn.position.x)   # +1 = arqueiro à direita do melee
 	if side == 0.0:
 		side = 1.0
 	var gap := absf(rn.position.x - mn.position.x)
-	# MELEE persegue até KITE_RANGE
+	# MELEE persegue até KITE_RANGE — SEMPRE (mesmo durante o pulo do arqueiro → não congela, segue o pouso)
 	var desired_m := rn.position.x - side * KITE_RANGE
 	mn.position.x = move_toward(mn.position.x, desired_m, KITE_MELEE_SPEED * dt)
 	_face(M, side)
@@ -260,7 +258,10 @@ func _kite_move(dt: float, r: int, m: int) -> void:
 		var want_m: String = WALK if absf(mn.position.x - desired_m) > 0.03 else IDLE
 		if ap_m.current_animation != want_m:
 			ap_m.play(want_m, BLEND)
-	# ARQUEIRO encara o melee; pressionado, recua; na borda → pula através
+	# ARQUEIRO: no meio do pulo o tween controla a posição → não mexe (só o melee perseguiu acima)
+	if R.get("hopping", false):
+		return
+	# encara o melee; pressionado, recua; na borda → pula através
 	_face(R, -side)
 	var ap_r: AnimationPlayer = R["anim"]
 	if gap < KITE_PREF and not R.get("busy", false):
