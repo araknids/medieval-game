@@ -1,17 +1,27 @@
-# Roupas por Classe (paper-doll + ícone de item) — [OUTFITS_CLASSE]
+# Roupas por Item (paper-doll + ícone de item) — [OUTFITS_CLASSE]
 
 ## Objetivo
 Trocar o set único (Ranger) por **4 temas de armadura** do pack pago *Modular Character Outfits –
-Fantasy* (Quaternius), escolhidos pela **classe** do personagem. A armadura equipada aparece no
-boneco (DollView/BustView) E nos ícones de item (mochila/loja/leilão/baú/forja/slots) no tema certo.
+Fantasy* (Quaternius). O visual é do **PRÓPRIO ITEM** (não de quem veste) — **qualquer classe usa
+qualquer item**. A armadura equipada aparece no boneco (DollView/BustView) E nos ícones de item
+(mochila/loja/leilão/baú/forja/mail/slots) no tema do item.
 
-## Mapa classe → tema (Wizard fora por enquanto)
-| Classe (`warriorClassId`) | Tema | Cara |
+> ⚠️ **v1 (descartada): tema por CLASSE de quem veste** → fazia o arqueiro ver TUDO como Ranger
+> ("parece que só tem item de ranger"). Corrigido para **tema por item**.
+
+## Tema do item (4 temas; Wizard fora)
+Cada item tem `outfitTheme` FIXO (`KNIGHT/NOBLE/RANGER/PEASANT`), **determinístico pelo nome-base**
+(soma de bytes % 4 — `InventoryService.outfitThemeFor`). Determinístico ⇒ o preview da loja/forja
+bate com o item criado, e o front reproduz no fallback (mesma fórmula/ordem). A ideia: os **afixos do
+item pendem pro atributo do tema** (Knight→STR, Ranger→DEX, Noble→LUK; Peasant=geral, sem viés) — então
+o item "beneficia" a classe do tema, mas **sem trava de uso**.
+
+| Tema | Cara | Afixo enviesado |
 |---|---|---|
-| `WARRIOR` | **Knight** | placas de aço (armet, peitoral, greaves) |
-| `MERCHANT` | **Noble** | nobre (coroa, gorgeira, dourado) |
-| `ARCHER` | **Ranger** | couro/capuz (set original) |
-| `RECRUIT` / default | **Peasant** | túnica simples (geral — "ajuda qualquer build") |
+| **Knight** | placas de aço (armet, peitoral, greaves) | STR (guerreiro) |
+| **Noble** | nobre (coroa, gorgeira, dourado) | LUK (mercador) |
+| **Ranger** | couro/capuz | DEX (arqueiro) |
+| **Peasant** | túnica simples (geral) | — |
 
 Peasant não tem elmo/ombreira no pack → cai pro capuz/ombreira **Ranger** (fallback).
 
@@ -29,17 +39,24 @@ Peasant não tem elmo/ombreira no pack → cai pro capuz/ombreira **Ranger** (fa
   vértices** (os outliers do rig estouravam o bbox). Saída em `assets/outfits/icons/<peça>.png`.
 
 ## Código
-- `Outfits.gd` (novo, `class_name Outfits`) — fonte única do mapa: `theme_for_class`, `piece_path`
-  (gltf p/ vestir), `icon_path` (png p/ UI), `is_armor_slot`. O `_dir_for(base)` deriva a pasta do
-  basename (resolve o fallback peasant→ranger sozinho).
-- `DollView.gd` / `BustView.gd` — `apply(inv, class_id)` veste pela classe via `Outfits.piece_path`.
-- `Shell.gd` — passa `warriorClassId` nos `_bust.apply(...)`; `update_topbar` seta `UiKit.current_class`.
-- `UiKit.gd` — `current_class` (estática) + `item_icon_for` agora cobre **arma** (modelo 3D),
-  **escudo** (`Shield_Heater`), **armadura** (peça do tema da classe) e cai no ícone genérico do slot.
-- `Character.gd` — `_equip_icon_tex` mostra o render certo em cada slot equipado; mochila usa
-  `item_icon_for`; passa a classe pro doll.
+### Backend
+- `InventoryItem.outfitTheme` (coluna `outfit_theme varchar(16)`, migração no `SchemaMigrator`).
+- `InventoryService.outfitThemeFor(name)` (estático, determinístico) + set no `buildItem` ANTES dos
+  afixos; `rollAffixesFor` traz 1 afixo do atributo do tema pra frente (viés).
+- DTOs expõem `outfitTheme`: `InventoryController` (com fallback p/ legado), `ShopController`,
+  `AuctionService/Controller`, `SmithingController`, `MailController` (via `outfitThemeFor(itemName)`).
+
+### Frontend
+- `Outfits.gd` (`class_name Outfits`) — fonte única: `theme_for_item(it)` (usa `outfitTheme`, fallback
+  `_theme_from_name` = mesma soma-de-bytes do backend), `piece_path_item`/`icon_path_item`,
+  `is_armor_slot`. `_dir_for(base)` resolve o fallback peasant→ranger.
+- `DollView.gd` / `BustView.gd` — `apply()` veste cada peça pelo tema do **item** (`piece_path_item`).
+- `UiKit.item_icon_for` cobre **arma** (modelo 3D), **escudo** (`Shield_Heater`), **armadura** (peça do
+  tema DO ITEM) e cai no ícone genérico do slot. (`current_class` virou dead code — pode sair depois.)
+- `Character.gd` (`_equip_icon_tex`), `Forge.gd`, `Mail.gd` passam/usam `outfitTheme` por item.
 
 ## Pendências / notas
 - Só **Male** (o herói é masculino). Female fica pra quando houver personagem feminino.
 - Reabrir o Godot p/ importar os novos `.gltf`/`.png` (gera `.gltf.import` finais + `.png.import`).
 - Wizard e variantes extra (Knight Horns/Spike/Scarf, Noble Gorget/Lion) ficaram de fora — hooks fáceis.
+- Itens **legados** (sem `outfitTheme` no banco) recebem tema pelo fallback determinístico (não muda).

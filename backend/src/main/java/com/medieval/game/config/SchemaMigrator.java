@@ -236,6 +236,7 @@ public class SchemaMigrator {
             jdbc.execute("ALTER TABLE inventory_items ADD COLUMN IF NOT EXISTS dex_bonus integer NOT NULL DEFAULT 0");
             jdbc.execute("ALTER TABLE inventory_items ADD COLUMN IF NOT EXISTS luk_bonus integer NOT NULL DEFAULT 0");
             jdbc.execute("ALTER TABLE mail ADD COLUMN IF NOT EXISTS item_level integer NOT NULL DEFAULT 1");
+            jdbc.execute("ALTER TABLE inventory_items ADD COLUMN IF NOT EXISTS outfit_theme varchar(16)"); // [OUTFITS_CLASSE] tema visual da armadura (do item)
             log.info("[SchemaMigrator] inventory_items.weapon_category/str/dex/luk + mail.item_level columns ensured");
         } catch (Exception e) {
             log.warn("[SchemaMigrator] inventory_items.weapon_category patch failed: {}", e.getMessage());

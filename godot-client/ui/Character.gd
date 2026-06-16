@@ -358,7 +358,7 @@ func _equip_icon_tex(it: Dictionary, type: String) -> Texture2D:
 		var sp := "res://assets/weapons/icons/" + str(Weapons.SHIELD_MODEL) + ".png"
 		return load(sp) if ResourceLoader.exists(sp) else null
 	if Outfits.is_armor_slot(type):
-		var ap := Outfits.icon_path(UiKit.current_class, type)
+		var ap := Outfits.icon_path_item(it, type)   # tema do ITEM equipado [OUTFITS_CLASSE]
 		if ap != "" and ResourceLoader.exists(ap):
 			return load(ap)
 	return null

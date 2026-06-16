@@ -148,6 +148,7 @@ public class MailController {
             Map.entry("hasItem",         m.hasItem()),
             Map.entry("itemName",        m.getItemName()  != null ? m.getItemName()  : ""),
             Map.entry("itemType",        m.getItemType()  != null ? m.getItemType()  : ""),  // [SLOT_WEAPON_IMG] ícone na UI
+            Map.entry("outfitTheme",     m.getItemName()  != null ? com.medieval.game.service.InventoryService.outfitThemeFor(m.getItemName()) : ""),  // [OUTFITS_CLASSE]
             Map.entry("itemCollected",   m.isItemCollected()),
             Map.entry("hasResource",     m.hasResource() && !m.isResourceCollected()), // [DAILY]
             Map.entry("resourceType",    m.getResourceType() != null ? m.getResourceType() : ""),

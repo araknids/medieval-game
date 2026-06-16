@@ -110,7 +110,8 @@ public class InventoryController {
                         boolean equipped, boolean guarded,
                         String description, String origin,
                         int durability, int itemLevel, boolean pvpLocked,
-                        String weaponCategory, boolean selfCrafted) { // [MERCADOR] forjado por você
+                        String weaponCategory, boolean selfCrafted, // [MERCADOR] forjado por você
+                        String outfitTheme) { // [OUTFITS_CLASSE] tema visual da armadura (do ITEM)
 
         static ItemResponse from(InventoryItem i, List<SocketedGem> socketedGems, List<ItemAffix> itemAffixes, Long playerId) {
             List<GemSlot> gems = socketedGems.stream()
@@ -133,7 +134,8 @@ public class InventoryController {
                 i.getOrigin()      != null ? i.getOrigin()      : "",
                 i.getDurability(), i.getItemLevel(), i.isPvpLocked(),
                 i.effectiveWeaponCategory() != null ? i.effectiveWeaponCategory().name() : null, // [CLASSES_ARMAS]
-                playerId != null && i.isSelfCraftedBy(playerId) // [MERCADOR] forjado por você
+                playerId != null && i.isSelfCraftedBy(playerId), // [MERCADOR] forjado por você
+                i.getOutfitTheme() != null ? i.getOutfitTheme() : com.medieval.game.service.InventoryService.outfitThemeFor(i.getName()) // [OUTFITS_CLASSE] fallback p/ legado
             );
         }
 

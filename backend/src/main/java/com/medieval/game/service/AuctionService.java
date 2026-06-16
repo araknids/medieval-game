@@ -49,7 +49,7 @@ public class AuctionService {
                               Long itemId, String name, String type, String typeDisplay,
                               int rarity, String rarityName, int attackBonus, int defenseBonus, int healthBonus,
                               int sockets, int durability, int itemLevel,
-                              List<String> affixes, List<String> gems) {}
+                              List<String> affixes, List<String> gems, String outfitTheme) {}
 
     // ── Postar ──────────────────────────────────────────────────────────────────
     @Transactional
@@ -208,7 +208,8 @@ public class AuctionService {
                     it.getRarity(), rarityName(it.getRarity()),
                     it.getAttackBonus(), it.getDefenseBonus(), it.getHealthBonus(),
                     it.getSockets(), it.getDurability(), it.getItemLevel(),
-                    affixes, gems));
+                    affixes, gems,
+                    it.getOutfitTheme() != null ? it.getOutfitTheme() : InventoryService.outfitThemeFor(it.getName()))); // [OUTFITS_CLASSE]
         }
         return out;
     }

@@ -371,6 +371,7 @@ public class InventoryService {
         item.setDescription(description);
         item.setOrigin(origin);
         item.setRunPending(runPending); // [INCURSAO]
+        item.setOutfitTheme(outfitThemeFor(name)); // [OUTFITS_CLASSE] tema FIXO (determinístico p/ nome) — afixos pendem pro atributo do tema
         if (rarity >= 5) item.setSockets(3); // Lendário: sockets no máximo [ITENS_V2]
         InventoryItem saved = inventoryRepository.save(item);
         rollAffixesFor(saved, true); // Itens V2: afixos por raridade (no-op p/ Comum), renomeia com prefixo
@@ -441,6 +442,32 @@ public class InventoryService {
      * Itens V3: rola {atk, def, hp} a partir do NÍVEL DO ITEM × multiplicador de raridade.
      * Poder cresce com o nível; raridade é um multiplicador → "lvl100 Comum > lvl1 Épico".
      */
+    // ── [OUTFITS_CLASSE] Tema visual do item ──────────────────────────────────────
+    public static final String[] OUTFIT_THEMES = {"KNIGHT", "NOBLE", "RANGER", "PEASANT"};
+
+    /**
+     * Tema visual FIXO da armadura, derivado do nome-base por soma de bytes % 4. Determinístico →
+     * o preview da loja/forja bate com o item criado, e o front pode reproduzir no fallback (mesma
+     * ordem de {@link #OUTFIT_THEMES}). Qualquer classe usa qualquer item; o tema é do ITEM.
+     */
+    public static String outfitThemeFor(String name) {
+        if (name == null || name.isEmpty()) return "PEASANT";
+        int sum = 0;
+        for (byte b : name.getBytes(java.nio.charset.StandardCharsets.UTF_8)) sum += (b & 0xFF);
+        return OUTFIT_THEMES[Math.floorMod(sum, OUTFIT_THEMES.length)];
+    }
+
+    /** Atributo que o tema favorece (afixo enviesado) — Knight→STR, Ranger→DEX, Noble→LUK; resto null. */
+    private static Affix.Stat themeAffixStat(String theme) {
+        if (theme == null) return null;
+        return switch (theme) {
+            case "KNIGHT" -> Affix.Stat.STR;
+            case "RANGER" -> Affix.Stat.DEX;
+            case "NOBLE"  -> Affix.Stat.LUK;
+            default       -> null; // PEASANT / desconhecido: sem viés
+        };
+    }
+
     public int[] rollItemStats(int itemLevel, int rarity) {
         return rollItemStats(itemLevel, rarity, java.util.concurrent.ThreadLocalRandom.current());
     }
@@ -472,6 +499,14 @@ public class InventoryService {
 
         List<Affix> pool = new ArrayList<>(List.of(Affix.values()));
         Collections.shuffle(pool, RNG);
+        // [OUTFITS_CLASSE] viés do tema: garante 1 afixo do atributo do tema → o item beneficia a classe
+        // do seu visual (Knight→STR, Ranger→DEX, Noble→LUK; Peasant/sem-tema = sem viés).
+        Affix.Stat themeStat = themeAffixStat(item.getOutfitTheme());
+        if (themeStat != null) {
+            for (int i = 0; i < pool.size(); i++) {
+                if (pool.get(i).stat == themeStat) { pool.add(0, pool.remove(i)); break; }
+            }
+        }
         List<Affix> chosen = pool.subList(0, Math.min(count, pool.size()));
 
         for (Affix a : chosen) {

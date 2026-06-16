@@ -116,6 +116,12 @@ public class InventoryItem {
     @Column(name = "crafted_by")
     private Long craftedBy;
 
+    // [OUTFITS_CLASSE] Tema visual da armadura (KNIGHT/NOBLE/RANGER/PEASANT), FIXO no item — define a
+    // aparência no boneco/ícone (qualquer classe equipa qualquer item; o tema é do item, não de quem veste).
+    // Determinístico pelo nome-base (preview==compra). Os afixos pendem pro atributo do tema [bônus benef. classe].
+    @Column(name = "outfit_theme", columnDefinition = "varchar(16)")
+    private String outfitTheme;
+
     /** Item dá bônus apenas se tiver durabilidade > 0. */
     public boolean isBroken() { return durability <= 0; }
 

@@ -69,7 +69,8 @@ public class AuctionController {
             Map.entry("durability",   v.durability()),
             Map.entry("itemLevel",    v.itemLevel()),
             Map.entry("affixes",      v.affixes()),
-            Map.entry("gems",         v.gems())
+            Map.entry("gems",         v.gems()),
+            Map.entry("outfitTheme",  v.outfitTheme()) // [OUTFITS_CLASSE]
         );
     }
 

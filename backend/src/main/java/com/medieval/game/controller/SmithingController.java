@@ -89,7 +89,8 @@ public class SmithingController {
                 Map.entry("itemLevel",   r.itemLevel()),
                 Map.entry("rarity",      r.rarity()),
                 Map.entry("sockets",     r.sockets()),
-                Map.entry("canCraft",    smithingLevel >= r.smithingLevel())
+                Map.entry("canCraft",    smithingLevel >= r.smithingLevel()),
+                Map.entry("outfitTheme", com.medieval.game.service.InventoryService.outfitThemeFor(r.name())) // [OUTFITS_CLASSE] preview == item forjado
             );
         }).toList();
 

@@ -1,12 +1,14 @@
 class_name Outfits
 extends RefCounted
-# ── Mapa de roupas por CLASSE (paper-doll + ícone de item) [OUTFITS_CLASSE] ──────────
-# A armadura equipada aparece no TEMA da classe do personagem:
-#   WARRIOR→Knight · MERCHANT→Noble · ARCHER→Ranger · RECRUIT/geral→Peasant (Wizard fora por enquanto)
+# ── Mapa de roupas por ITEM (paper-doll + ícone de item) [OUTFITS_CLASSE] ────────────
+# O visual da armadura é do PRÓPRIO ITEM (não de quem veste) — qualquer classe usa qualquer item.
+# Cada item tem um tema FIXO (backend `outfitTheme`: KNIGHT/NOBLE/RANGER/PEASANT); a ideia é os bônus
+# do item favorecerem a classe do tema (Knight→guerreiro etc.), mas sem trava de uso.
 # Pack: "Modular Character Outfits - Fantasy" (Quaternius). Peças em assets/outfits/<tema>/,
-# ícones 2D renderizados em assets/outfits/icons/. Usado por DollView, BustView e UiKit.
+# ícones 2D em assets/outfits/icons/. Usado por DollView, BustView e UiKit.
 
-# classId (enum estável do backend: warriorClassId) → pasta do tema
+# classId (enum do backend) → tema "natural" da classe (só p/ telas que queiram um tema base; o
+# visual do item NÃO depende disso — ver theme_for_item).
 const THEME_FOR_CLASS := {
 	"WARRIOR":  "knight",
 	"MERCHANT": "noble",
@@ -14,6 +16,8 @@ const THEME_FOR_CLASS := {
 	"RECRUIT":  "peasant",
 }
 const DEFAULT_THEME := "peasant"
+# ordem ESPELHA o backend InventoryService.OUTFIT_THEMES (fallback determinístico bate com o servidor)
+const THEME_ORDER := ["knight", "noble", "ranger", "peasant"]
 
 # tema → slot (ItemType) → basename da peça. Peasant não tem elmo/ombreira no pack → cai pro Ranger
 # (o basename Male_Ranger_* resolve a pasta sozinho via _dir_for).
@@ -58,6 +62,23 @@ const ARMOR_SLOTS := ["ARMOR", "GLOVES", "BOOTS", "PANTS", "HELMET", "SHOULDER"]
 static func theme_for_class(class_id: String) -> String:
 	return THEME_FOR_CLASS.get(class_id.to_upper(), DEFAULT_THEME)
 
+# Fallback determinístico p/ quando o item não trouxe outfitTheme (legado/algum DTO): soma dos bytes
+# UTF-8 do nome % 4 — MESMA fórmula do backend (InventoryService.outfitThemeFor) → resultado bate.
+static func _theme_from_name(name: String) -> String:
+	if name == "":
+		return DEFAULT_THEME
+	var sum := 0
+	for b in name.to_utf8_buffer():
+		sum += int(b)
+	return THEME_ORDER[sum % THEME_ORDER.size()]
+
+# Tema (pasta) de um ITEM: usa o `outfitTheme` do backend; cai no fallback pelo nome se faltar.
+static func theme_for_item(it: Dictionary) -> String:
+	var t := str(it.get("outfitTheme", "")).to_lower()
+	if SLOT_PIECE.has(t):
+		return t
+	return _theme_from_name(str(it.get("name", "")))
+
 # pasta da peça derivada do basename (resolve o fallback peasant→ranger sozinho)
 static func _dir_for(base: String) -> String:
 	if "Knight" in base: return "knight"
@@ -65,24 +86,25 @@ static func _dir_for(base: String) -> String:
 	if "Ranger" in base: return "ranger"
 	return "peasant"
 
-static func _base(class_id: String, slot: String) -> String:
-	var theme: String = theme_for_class(class_id)
+static func _base(theme: String, slot: String) -> String:
 	var m: Dictionary = SLOT_PIECE.get(theme, {})
 	return str(m.get(slot, ""))
 
-# caminho do .gltf da peça p/ vestir o paper-doll ("" se o slot não tem peça)
-static func piece_path(class_id: String, slot: String) -> String:
-	var base := _base(class_id, slot)
-	if base == "":
-		return ""
-	return "res://assets/outfits/%s/%s.gltf" % [_dir_for(base), base]
+# ── por TEMA (folder) ──
+static func piece_path_theme(theme: String, slot: String) -> String:
+	var base := _base(theme, slot)
+	return "res://assets/outfits/%s/%s.gltf" % [_dir_for(base), base] if base != "" else ""
 
-# caminho do .png do ícone 2D da peça p/ a UI ("" se não tem)
-static func icon_path(class_id: String, slot: String) -> String:
-	var base := _base(class_id, slot)
-	if base == "":
-		return ""
-	return "res://assets/outfits/icons/%s.png" % base
+static func icon_path_theme(theme: String, slot: String) -> String:
+	var base := _base(theme, slot)
+	return "res://assets/outfits/icons/%s.png" % base if base != "" else ""
+
+# ── por ITEM (o caso padrão — visual vem do item) ──
+static func piece_path_item(it: Dictionary, slot: String) -> String:
+	return piece_path_theme(theme_for_item(it), slot)
+
+static func icon_path_item(it: Dictionary, slot: String) -> String:
+	return icon_path_theme(theme_for_item(it), slot)
 
 static func is_armor_slot(slot: String) -> bool:
 	return ARMOR_SLOTS.has(slot)

@@ -38,7 +38,8 @@ public class ShopController {
                 Map.entry("rarityName",   i.rarityName()),
                 Map.entry("itemLevel",    i.itemLevel()),
                 Map.entry("price",        i.price()),
-                Map.entry("purchased",    i.purchased())
+                Map.entry("purchased",    i.purchased()),
+                Map.entry("outfitTheme",  com.medieval.game.service.InventoryService.outfitThemeFor(i.name())) // [OUTFITS_CLASSE] preview == item comprado
         )).toList();
 
         return ResponseEntity.ok(Map.of(

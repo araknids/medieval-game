@@ -147,7 +147,7 @@ func _open_panel() -> PanelContainer:
 		else:
 			# ícone do item (arma → render do modelo) + nome [SLOT_WEAPON_IMG]
 			var irow := HBoxContainer.new(); irow.add_theme_constant_override("separation", 8)
-			var ic := UiKit.item_icon_for({"type": str(r.get("itemType", "")), "name": str(r.get("itemName", ""))}, 36)
+			var ic := UiKit.item_icon_for({"type": str(r.get("itemType", "")), "name": str(r.get("itemName", "")), "outfitTheme": str(r.get("outfitTheme", ""))}, 36)
 			if ic:
 				irow.add_child(ic)
 			var lbl := Label.new(); lbl.text = str(r.get("itemName", ""))

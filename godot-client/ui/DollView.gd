@@ -107,7 +107,7 @@ func apply(inv_arr: Array, class_id := "") -> void:
 	for it in equipped:
 		var ty := str(it.get("type", ""))
 		if OutfitsLib.is_armor_slot(ty):
-			var path := OutfitsLib.piece_path(_class_id, ty)
+			var path := OutfitsLib.piece_path_item(it, ty)   # tema do ITEM (qualquer classe usa) [OUTFITS_CLASSE]
 			if path != "" and ResourceLoader.exists(path):
 				var sc: PackedScene = load(path)
 				if sc:

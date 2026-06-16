@@ -195,7 +195,7 @@ func _craft_card(r: Dictionary) -> PanelContainer:
 	var sockets := int(r.get("sockets", 0))
 	# nome com ÍCONE do item à esquerda (arma → render do modelo; resto → slot) [SLOT_WEAPON_IMG]
 	var nrow := HBoxContainer.new(); nrow.add_theme_constant_override("separation", 10)
-	var ic := UiKit.item_icon_for({"type": str(r.get("slot", "")), "name": str(r.get("name", ""))}, 36)
+	var ic := UiKit.item_icon_for({"type": str(r.get("slot", "")), "name": str(r.get("name", "")), "outfitTheme": str(r.get("outfitTheme", ""))}, 36)
 	if ic:
 		nrow.add_child(ic)
 	var nm := Label.new()

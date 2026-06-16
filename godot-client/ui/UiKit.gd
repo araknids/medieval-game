@@ -664,7 +664,7 @@ static func item_icon_for(it: Dictionary, px := 48) -> TextureRect:
 		if ResourceLoader.exists(sp):
 			return _tex_rect(load(sp), px)
 	elif Outfits.is_armor_slot(ty):
-		var ap := Outfits.icon_path(current_class, ty)
+		var ap := Outfits.icon_path_item(it, ty)   # tema do ITEM (não de quem veste) [OUTFITS_CLASSE]
 		if ap != "" and ResourceLoader.exists(ap):
 			return _tex_rect(load(ap), px)
 	return item_icon(ty, px)
