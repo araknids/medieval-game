@@ -13,19 +13,13 @@ const BASE_PART := {
 	"res://assets/base/Base_Male_Legs.gltf":  "PANTS",
 	"res://assets/base/Base_Male_Feet.gltf":  "BOOTS",
 }
-const PIECES := {
-	"ARMOR":    "res://assets/outfits/ranger/Male_Ranger_Body.gltf",
-	"PANTS":    "res://assets/outfits/ranger/Male_Ranger_Legs.gltf",
-	"BOOTS":    "res://assets/outfits/ranger/Male_Ranger_Feet_Boots.gltf",
-	"GLOVES":   "res://assets/outfits/ranger/Male_Ranger_Arms.gltf",
-	"HELMET":   "res://assets/outfits/ranger/Male_Ranger_Head_Hood.gltf",
-	"SHOULDER": "res://assets/outfits/ranger/Male_Ranger_Acc_Pauldron.gltf",
-}
+const OutfitsLib := preload("res://Outfits.gd")   # peça por CLASSE [OUTFITS_CLASSE]
 
 var skel: Skeleton3D
 var _world: Node3D
 var _body_meshes: Array = []
 var _ready_done := false
+var _class_id := ""                       # warriorClassId → tema das roupas [OUTFITS_CLASSE]
 
 func _ready() -> void:
 	stretch = true
@@ -67,21 +61,28 @@ func _ready() -> void:
 	_ready_done = true
 	await refresh()
 
-# Busca o inventário e re-veste (standalone). O Shell usa apply() direto p/ não re-buscar.
+# Busca o inventário (+ classe) e re-veste (standalone). O Shell usa apply() direto p/ não re-buscar.
 func refresh() -> void:
 	if not _ready_done or skel == null:
 		return
 	var api = get_node_or_null("/root/Api")
 	if api == null:
 		return
+	var cls := _class_id
+	var w = await api.get_warrior()
+	if w.get("ok") and w.get("json") is Dictionary:
+		cls = str(w["json"].get("warriorClassId", cls))
 	var inv = await api.get_inventory()
 	if inv.get("ok") and inv.get("json") is Array:
-		apply(inv["json"])
+		apply(inv["json"], cls)
 
 # Re-veste o busto a partir de uma lista de inventário já carregada (sem fetch).
-func apply(inv_arr: Array) -> void:
+# class_id = warriorClassId → tema das roupas (Knight/Noble/Ranger/Peasant). [OUTFITS_CLASSE]
+func apply(inv_arr: Array, class_id := "") -> void:
 	if not _ready_done or skel == null:
 		return
+	if class_id != "":
+		_class_id = class_id
 	# tira roupas anteriores (mantém só os ossos/base); re-veste do zero
 	for c in skel.get_children():
 		if c is MeshInstance3D and c.has_meta("outfit"):
@@ -90,11 +91,13 @@ func apply(inv_arr: Array) -> void:
 	var dressed: Array = []
 	for it in equipped:
 		var ty := str(it.get("type", ""))
-		if PIECES.has(ty):
-			var sc: PackedScene = load(PIECES[ty])
-			if sc:
-				_attach(sc)
-				dressed.append(ty)
+		if OutfitsLib.is_armor_slot(ty):
+			var path := OutfitsLib.piece_path(_class_id, ty)
+			if path != "" and ResourceLoader.exists(path):
+				var sc: PackedScene = load(path)
+				if sc:
+					_attach(sc)
+					dressed.append(ty)
 	for m: MeshInstance3D in _body_meshes:
 		m.visible = false
 	var head: PackedScene = load(BASE_HEAD)

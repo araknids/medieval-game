@@ -631,25 +631,43 @@ static func item_icon(item_type: String, px := 48) -> TextureRect:
 	tr.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	return tr
 
-# Ícone do item por DICT: ARMA → render do modelo 3D (assets/weapons/icons/<modelo>.png), igual ao
-# slot equipado; outros tipos → ícone genérico do slot. [SLOT_WEAPON_IMG] Usar em mochila/loja/leilão/baú.
+# Classe do jogador que está VENDO a lista (warriorClassId). Define o tema das roupas no ícone de
+# armadura (Warrior→Knight etc.). Setado pelo Shell.update_topbar + Character. [OUTFITS_CLASSE]
+static var current_class := ""
+
+# TextureRect padrão de ícone (mesmo enquadramento p/ arma/armadura/slot).
+static func _tex_rect(tex: Texture2D, px: int) -> TextureRect:
+	var tr := TextureRect.new()
+	tr.texture = tex
+	tr.custom_minimum_size = Vector2(px, px)
+	tr.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	tr.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	tr.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	tr.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	return tr
+
+# Ícone do item por DICT, "realista" como o equipado: ARMA → render do modelo 3D
+# (assets/weapons/icons/<modelo>.png); ARMADURA → render da peça do TEMA da classe
+# (assets/outfits/icons/<peça>.png); resto → ícone genérico do slot. [SLOT_WEAPON_IMG][OUTFITS_CLASSE]
 static func item_icon_for(it: Dictionary, px := 48) -> TextureRect:
-	if str(it.get("type", "")) == "WEAPON":
+	var ty := str(it.get("type", ""))
+	if ty == "WEAPON":
 		if _weapons_helper == null:
 			_weapons_helper = Weapons.new()
 		var kind: String = _weapons_helper.weapon_kind(str(it.get("name", "")), str(it.get("weaponCategory", "")))
 		var model: String = str(Weapons.MODELS.get(kind, ""))
 		var p := "res://assets/weapons/icons/" + model + ".png"
 		if model != "" and ResourceLoader.exists(p):
-			var tr := TextureRect.new()
-			tr.texture = load(p)
-			tr.custom_minimum_size = Vector2(px, px)
-			tr.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-			tr.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-			tr.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-			tr.mouse_filter = Control.MOUSE_FILTER_IGNORE
-			return tr
-	return item_icon(str(it.get("type", "")), px)
+			return _tex_rect(load(p), px)
+	elif ty == "SHIELD":
+		var sp := "res://assets/weapons/icons/" + str(Weapons.SHIELD_MODEL) + ".png"
+		if ResourceLoader.exists(sp):
+			return _tex_rect(load(sp), px)
+	elif Outfits.is_armor_slot(ty):
+		var ap := Outfits.icon_path(current_class, ty)
+		if ap != "" and ResourceLoader.exists(ap):
+			return _tex_rect(load(ap), px)
+	return item_icon(ty, px)
 
 # ── Comparação de item vs EQUIPADO ──────────────────────────────────────────────────
 # Índice dos itens equipados por type (WEAPON/ARMOR/…). Preenchido pelo Shell (a cada nav)

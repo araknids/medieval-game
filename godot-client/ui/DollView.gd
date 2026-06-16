@@ -14,16 +14,8 @@ const BASE_PART := {
 	"res://assets/base/Base_Male_Legs.gltf":  "PANTS",
 	"res://assets/base/Base_Male_Feet.gltf":  "BOOTS",
 }
-const PIECES := {
-	"ARMOR":    "res://assets/outfits/ranger/Male_Ranger_Body.gltf",
-	"PANTS":    "res://assets/outfits/ranger/Male_Ranger_Legs.gltf",
-	"BOOTS":    "res://assets/outfits/ranger/Male_Ranger_Feet_Boots.gltf",
-	"GLOVES":   "res://assets/outfits/ranger/Male_Ranger_Arms.gltf",
-	"HELMET":   "res://assets/outfits/ranger/Male_Ranger_Head_Hood.gltf",
-	"SHOULDER": "res://assets/outfits/ranger/Male_Ranger_Acc_Pauldron.gltf",
-}
-
-const Weapons := preload("res://Weapons.gd")   # arma/escudo procedurais (mesmo da batalha)
+const OutfitsLib := preload("res://Outfits.gd")   # peça por CLASSE (Knight/Noble/Ranger/Peasant) [OUTFITS_CLASSE]
+const Weapons := preload("res://Weapons.gd")   # arma/escudo (modelos 3D, mesmo da batalha)
 
 @export var spin := true                 # giro lento (mostra o gear de todos os lados)
 const SPIN_DEG_PER_SEC := 16.0
@@ -39,6 +31,7 @@ var _dragging := false
 var _idle := 999.0                       # começa girando; arrastar zera, e SPIN_RESUME depois retoma
 var _wp := Weapons.new()
 var _props: Array = []                    # arma/escudo anexados (BoneAttachment3D) — removidos ao reequipar
+var _class_id := ""                       # warriorClassId → tema das roupas [OUTFITS_CLASSE]
 
 func _ready() -> void:
 	stretch = true
@@ -101,9 +94,11 @@ func _gui_input(event: InputEvent) -> void:
 		_idle = 0.0
 
 # Re-veste o boneco a partir de uma lista de inventário já carregada (sem fetch). Mesma lógica do BustView.
-func apply(inv_arr: Array) -> void:
+# class_id = warriorClassId (decide o TEMA das roupas: Knight/Noble/Ranger/Peasant). [OUTFITS_CLASSE]
+func apply(inv_arr: Array, class_id := "") -> void:
 	if not _ready_done or skel == null:
 		return
+	_class_id = class_id
 	for c in skel.get_children():
 		if c is MeshInstance3D and c.has_meta("outfit"):
 			c.queue_free()
@@ -111,11 +106,13 @@ func apply(inv_arr: Array) -> void:
 	var dressed: Array = []
 	for it in equipped:
 		var ty := str(it.get("type", ""))
-		if PIECES.has(ty):
-			var sc: PackedScene = load(PIECES[ty])
-			if sc:
-				_attach(sc)
-				dressed.append(ty)
+		if OutfitsLib.is_armor_slot(ty):
+			var path := OutfitsLib.piece_path(_class_id, ty)
+			if path != "" and ResourceLoader.exists(path):
+				var sc: PackedScene = load(path)
+				if sc:
+					_attach(sc)
+					dressed.append(ty)
 	for m: MeshInstance3D in _body_meshes:
 		m.visible = false
 	var head: PackedScene = load(BASE_HEAD)

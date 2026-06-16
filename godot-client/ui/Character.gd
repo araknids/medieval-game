@@ -236,10 +236,11 @@ func _refresh() -> void:
 
 func _apply() -> void:
 	UiKit.flash(status, "", 0)
+	UiKit.current_class = str(w.get("warriorClassId", UiKit.current_class))   # tema das roupas (slot + ícone + doll) [OUTFITS_CLASSE]
 	UiKit.set_wallet(wallet, w)        # alimenta a topbar (HP/estamina/stats/moedas)
 	UiKit.set_equipped(items)
 	if doll != null and is_instance_valid(doll):
-		doll.apply(items)
+		doll.apply(items, UiKit.current_class)
 	var title := str(w.get("title", ""))
 	_id_name.text = (title + "  " if title != "" else "") + str(w.get("name", "?"))
 	_id_sub.text = Lang.t("%s · Nível %d") % [Lang.t(str(w.get("warriorClass", "Recruta"))), int(w.get("level", 1))]
@@ -316,18 +317,17 @@ func _update_slots() -> void:
 			sb.border_color = UiKit.rarity_color(int(it.get("rarity", 1)))
 			sb.set_border_width_all(2)
 			frame.tooltip_text = _equipped_tooltip(it)
-			# [SLOT_WEAPON_IMG] arma mostra a IMAGEM do modelo equipado (espada/machado/arco…)
-			if type == "WEAPON":
-				var wt := _weapon_icon(it)
-				icon.texture = wt if wt != null else Icons.tex("slot_weapon")
+			# [SLOT_WEAPON_IMG][OUTFITS_CLASSE] mostra a IMAGEM do equipado: arma → modelo 3D;
+			# armadura → peça renderizada do TEMA da classe; resto → ícone genérico do slot.
+			var tex := _equip_icon_tex(it, type)
+			icon.texture = tex if tex != null else Icons.tex("slot_" + type.to_lower())
 		else:
 			s["item_id"] = 0
 			icon.modulate = Color(1, 1, 1, 0.30)
 			sb.border_color = UiKit.BRONZE
 			sb.set_border_width_all(1)
 			frame.tooltip_text = Lang.t(str(SLOT_LABEL.get(type, type)))
-			if type == "WEAPON":
-				icon.texture = Icons.tex("slot_weapon")   # vazio → ícone genérico de volta
+			icon.texture = Icons.tex("slot_" + type.to_lower())   # vazio → ícone genérico de volta
 
 func _equipped_tooltip(it: Dictionary) -> String:
 	var tip := str(it.get("name", "?"))
@@ -347,6 +347,20 @@ func _weapon_icon(it: Dictionary) -> Texture2D:
 		var p := "res://assets/weapons/icons/" + model + ".png"
 		if ResourceLoader.exists(p):
 			return load(p)
+	return null
+
+# [OUTFITS_CLASSE] Texture do equipado p/ o slot: arma → modelo 3D; armadura → peça do tema da classe;
+# resto (anel/colar/escudo) → null (cai no ícone genérico do slot).
+func _equip_icon_tex(it: Dictionary, type: String) -> Texture2D:
+	if type == "WEAPON":
+		return _weapon_icon(it)
+	if type == "SHIELD":
+		var sp := "res://assets/weapons/icons/" + str(Weapons.SHIELD_MODEL) + ".png"
+		return load(sp) if ResourceLoader.exists(sp) else null
+	if Outfits.is_armor_slot(type):
+		var ap := Outfits.icon_path(UiKit.current_class, type)
+		if ap != "" and ResourceLoader.exists(ap):
+			return load(ap)
 	return null
 
 func _slot_clicked(type: String) -> void:
@@ -695,7 +709,7 @@ func _unequip(id: int) -> void:
 func _after_equip_change() -> void:
 	UiKit.set_equipped(items)
 	if doll != null and is_instance_valid(doll):
-		doll.apply(items)
+		doll.apply(items, UiKit.current_class)
 	_update_slots()
 	_render_panel()
 	if UiKit.equip_changed_sink.is_valid():
