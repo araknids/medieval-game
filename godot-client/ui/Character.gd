@@ -48,6 +48,7 @@ var _companions := {}             # "mount"/"pet" -> {frame, emoji} [COMPANION_S
 var _wp := Weapons.new()          # [SLOT_WEAPON_IMG] p/ derivar o kind/modelo da arma
 var _subtab_bar_host: VBoxContainer
 var _panel_host: VBoxContainer    # onde o painel da sub-aba é montado/limpo
+var _resources_host: VBoxContainer  # [RECURSOS] seção fixa de recursos, abaixo de tudo (fora do scroll)
 
 func _ready() -> void:
 	var ui := UiKit.scaffold(self, "👤 Personagem", func() -> void: go_back.emit(), func() -> void: await _refresh(), UiKit.TINT_DEFAULT)
@@ -65,6 +66,11 @@ func _build_layout() -> void:
 	content.add_child(main)
 	main.add_child(_build_left())
 	main.add_child(_build_right())
+	# [RECURSOS] seção própria ABAIXO de tudo (largura cheia, sempre visível — não rola com os itens)
+	_resources_host = VBoxContainer.new()
+	_resources_host.add_theme_constant_override("separation", 6)
+	_resources_host.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	content.add_child(_resources_host)
 
 func _build_left() -> Control:
 	var outer := VBoxContainer.new()
@@ -254,6 +260,7 @@ func _apply() -> void:
 	_update_companions()
 	_build_subtab_bar()
 	_render_panel()
+	_render_resources()   # [RECURSOS] seção fixa embaixo (independe da sub-aba)
 
 # Preenche os slots de montaria/pet a partir do warrior (equippedMount/equippedPet). [COMPANION_SLOTS]
 func _update_companions() -> void:
@@ -406,36 +413,43 @@ func _render_bag_panel() -> void:
 			_panel_host.add_child(UiKit.dim("— nada nessa raridade —"))
 		else:
 			_panel_host.add_child(UiKit.grid(self, shown, _bag_card, true))
-	_render_resources_section()   # [RECURSOS] seção embaixo dos itens (minério/peixe/essência/núcleo…)
 
-# Seção de RECURSOS de coleta abaixo dos itens da Mochila (só leitura: nome + quantidade). [RECURSOS]
-func _render_resources_section() -> void:
+# [RECURSOS] Seção PRÓPRIA, fixa abaixo de tudo (não rola com os itens) — chips [📦 nome ×qtd] em flow.
+func _render_resources() -> void:
+	if _resources_host == null:
+		return
+	for c in _resources_host.get_children():
+		c.queue_free()
 	var res: Array = []
 	for r in resources:
 		if r is Dictionary and int(r.get("quantity", 0)) > 0:
 			res.append(r)
-	_panel_host.add_child(UiKit.section(Lang.t("Recursos (%d)") % res.size()))
+	_resources_host.add_child(UiKit.section(Lang.t("Recursos (%d)") % res.size()))
 	if res.is_empty():
-		_panel_host.add_child(UiKit.dim("— nenhum recurso —"))
+		_resources_host.add_child(UiKit.dim("— nenhum recurso —"))
 		return
-	_panel_host.add_child(UiKit.grid(self, res, _res_card, true))
+	var flow := HFlowContainer.new()
+	flow.add_theme_constant_override("h_separation", 8)
+	flow.add_theme_constant_override("v_separation", 6)
+	flow.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	for r in res:
+		flow.add_child(_res_chip(r))
+	_resources_host.add_child(flow)
 
-func _res_card(r) -> Control:
-	if not (r is Dictionary):
-		return null
-	var card := UiKit.card(UiKit.BRONZE)
-	var pc: PanelContainer = card[0]
-	var box: VBoxContainer = card[1]
-	var hb := HBoxContainer.new()
-	hb.add_theme_constant_override("separation", 10)
-	box.add_child(hb)
+func _res_chip(r: Dictionary) -> Control:
+	var pc := PanelContainer.new()
+	var sb := StyleBoxFlat.new()
+	sb.bg_color = Color(0.08, 0.07, 0.09, 0.95)
+	sb.set_border_width_all(1)
+	sb.border_color = UiKit.BRONZE
+	sb.set_corner_radius_all(4)
+	sb.set_content_margin_all(6)
+	pc.add_theme_stylebox_override("panel", sb)
 	var lbl := Label.new()
 	lbl.text = "📦 %s ×%d" % [str(r.get("displayName", r.get("type", "?"))), int(r.get("quantity", 0))]
-	lbl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	lbl.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	lbl.add_theme_font_size_override("font_size", 15)
+	lbl.add_theme_font_size_override("font_size", 13)
 	lbl.add_theme_color_override("font_color", UiKit.TEXT)
-	hb.add_child(lbl)
+	pc.add_child(lbl)
 	return pc
 
 func _set_rarity(r) -> void:
