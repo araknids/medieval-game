@@ -130,9 +130,12 @@ func apply(inv_arr: Array) -> void:
 
 # Anexa arma (mão) + escudo (antebraço) a partir do equip; remove os antigos antes. [FICHA_PERSONAGEM]
 func _apply_weapons(equipped: Array) -> void:
-	for pnode in _props:
-		if is_instance_valid(pnode):
-			pnode.queue_free()
+	# Remoção À PROVA DE FALHAS: tira TODO prop marcado do esqueleto (não confia só no array _props,
+	# que pode dessincronizar). Senão a arma antiga continua na mão ao desequipar.
+	if skel != null:
+		for c in skel.get_children():
+			if c.has_meta("delveprop"):
+				c.queue_free()
 	_props.clear()
 	for it in equipped:
 		var ty := str(it.get("type", ""))
@@ -141,11 +144,13 @@ func _apply_weapons(equipped: Array) -> void:
 			# força a mão DIREITA no boneco → arco não fica no mesmo lado do escudo (esquerdo)
 			var node := _wp.attach_weapon(_character, kind, int(it.get("rarity", 1)), 0.10, "RightHand")
 			if node != null:
+				node.set_meta("delveprop", true)
 				_props.append(node)
 		elif ty == "SHIELD":
 			# escudo é filho do osso do antebraço → já gira junto com o boneco (sem Callable)
 			var snode := _wp.attach_shield(_character, {"rarity": int(it.get("rarity", 1))})
 			if snode != null:
+				snode.set_meta("delveprop", true)
 				_props.append(snode)
 
 func _attach(scene: PackedScene) -> void:
