@@ -805,23 +805,22 @@ static func item_stats_line(it: Dictionary) -> Control:
 	var any := false
 	for pair in _CMP_STATS:
 		var v := int(it.get(pair[0], 0))
-		var cv := int(cur.get(pair[0], 0)) if has_cmp else 0
-		# mostra o stat se o ITEM tem OU o EQUIPADO tem (assim aparece o que se PERDE: ex.: HP +0 ▼).
-		if v == 0 and cv == 0:
-			continue
-		any = true
-		var arrow := ""
-		var col := Color(0.62, 0.75, 0.58)   # neutro (sem comparação ou igual)
-		if has_cmp:
-			var d := v - cv
-			if d > 0:
-				arrow = "▲ "; col = OK
-			elif d < 0:
-				arrow = "▼ "; col = ERR
 		var l := Label.new()
-		l.text = "%s%s %+d" % [arrow, str(pair[1]), v]
 		l.add_theme_font_size_override("font_size", 12)
-		l.add_theme_color_override("font_color", col)
+		if has_cmp:
+			# COMPARANDO: mostra o DELTA (quanto MUDA se equipar) — ex.: HP -22, ATK +2. Igual (0) não mostra.
+			var d := v - int(cur.get(pair[0], 0))
+			if d == 0:
+				continue
+			l.text = "%s%s %+d" % ["▲ " if d > 0 else "▼ ", str(pair[1]), d]
+			l.add_theme_color_override("font_color", OK if d > 0 else ERR)
+		else:
+			# SEM equipado p/ comparar: mostra o valor do próprio item.
+			if v == 0:
+				continue
+			l.text = "%s %+d" % [str(pair[1]), v]
+			l.add_theme_color_override("font_color", Color(0.62, 0.75, 0.58))
+		any = true
 		row.add_child(l)
 	return row if any else null
 
