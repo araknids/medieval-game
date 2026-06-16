@@ -19,89 +19,86 @@ const DEFAULT_THEME := "peasant"
 # ordem ESPELHA o backend InventoryService.OUTFIT_THEMES (fallback determinístico bate com o servidor)
 const THEME_ORDER := ["knight", "noble", "ranger", "peasant", "wizard"]
 
-# tema → slot (ItemType) → basename da peça. Peasant/Wizard não têm elmo/ombreira no pack → ficam
-# de cabeça/ombro NUS (não usam capuz/ombreira de outro tema).
+# tema → slot (ItemType) → LISTA de variantes da peça. A peça mostrada é escolhida deterministicamente
+# pelo NOME do item (igual ao tema) → drops diferentes mostram variantes diferentes (elmo aberto vs com
+# chifre, peitoral de placa vs pano, ombreira redonda vs espinho vs cachecol…) sem seletor. [OUTFITS_VARIANTES]
+# Peasant/Wizard não têm elmo/ombreira no pack → ficam de cabeça/ombro NUS.
 const SLOT_PIECE := {
 	"knight": {
-		"ARMOR":    "Male_Knight_Body_Armor",
-		"GLOVES":   "Male_Knight_Arms",
-		"BOOTS":    "Male_Knight_Feet_Armor",
-		"PANTS":    "Male_Knight_Legs_Armor",
-		"HELMET":   "Male_Knight_Head_Armet",
-		"SHOULDER": "Male_Knight_Acc_Pauldron_Round",
+		"ARMOR":    ["Male_Knight_Body_Armor", "Male_Knight_Body_Cloth"],
+		"GLOVES":   ["Male_Knight_Arms"],
+		"BOOTS":    ["Male_Knight_Feet_Armor"],
+		"PANTS":    ["Male_Knight_Legs_Armor"],
+		"HELMET":   ["Male_Knight_Head_Armet", "Male_Knight_Head_Horns"],
+		"SHOULDER": ["Male_Knight_Acc_Pauldron_Round", "Male_Knight_Acc_Pauldron_Spike", "Male_Knight_Acc_Scarf"],
 	},
 	"noble": {
-		"ARMOR":    "Male_Noble_Body",
-		"GLOVES":   "Male_Noble_Arms",
-		"BOOTS":    "Male_Noble_Feet",
-		"PANTS":    "Male_Noble_Legs",
-		"HELMET":   "Male_Noble_Head_Crown",
-		"SHOULDER": "Male_Noble_Acc_Pauldron",
+		"ARMOR":    ["Male_Noble_Body"],
+		"GLOVES":   ["Male_Noble_Arms"],
+		"BOOTS":    ["Male_Noble_Feet"],
+		"PANTS":    ["Male_Noble_Legs"],
+		"HELMET":   ["Male_Noble_Head_Crown"],
+		"SHOULDER": ["Male_Noble_Acc_Pauldron", "Male_Noble_Acc_Pauldron_Lion", "Male_Noble_Acc_Gorget"],
 	},
 	"ranger": {
-		"ARMOR":    "Male_Ranger_Body",
-		"GLOVES":   "Male_Ranger_Arms",
-		"BOOTS":    "Male_Ranger_Feet_Boots",
-		"PANTS":    "Male_Ranger_Legs",
-		"HELMET":   "Male_Ranger_Head_Hood",
-		"SHOULDER": "Male_Ranger_Acc_Pauldron",
+		"ARMOR":    ["Male_Ranger_Body"],
+		"GLOVES":   ["Male_Ranger_Arms"],
+		"BOOTS":    ["Male_Ranger_Feet_Boots"],
+		"PANTS":    ["Male_Ranger_Legs"],
+		"HELMET":   ["Male_Ranger_Head_Hood"],
+		"SHOULDER": ["Male_Ranger_Acc_Pauldron"],
 	},
 	"peasant": {
-		"ARMOR":    "Male_Peasant_Body",
-		"GLOVES":   "Male_Peasant_Arms",
-		"BOOTS":    "Male_Peasant_Feet",
-		"PANTS":    "Male_Peasant_Legs",
-		# sem elmo/ombreira no pack → cabeça/ombro nus (NÃO usa capuz ranger)
+		"ARMOR":    ["Male_Peasant_Body"],
+		"GLOVES":   ["Male_Peasant_Arms"],
+		"BOOTS":    ["Male_Peasant_Feet"],
+		"PANTS":    ["Male_Peasant_Legs"],
 	},
 	"wizard": {
-		"ARMOR":    "Male_Wizard_Body",
-		"GLOVES":   "Male_Wizard_Arms",
-		"BOOTS":    "Male_Wizard_Feet",
-		"PANTS":    "Male_Wizard_Legs",
-		# wizard idem: sem elmo/ombreira no pack
+		"ARMOR":    ["Male_Wizard_Body"],
+		"GLOVES":   ["Male_Wizard_Arms"],
+		"BOOTS":    ["Male_Wizard_Feet"],
+		"PANTS":    ["Male_Wizard_Legs"],
 	},
 }
 
-# ── Female [OUTFITS_FEMALE] ── mesmas pastas/temas; nomes diferem (Feet/Legs SEM "_Armor", "Pauldrons"
-# plural). Peasant não tem elmo/ombreira → cai pro Ranger (o basename Female_Ranger_* resolve a pasta).
+# ── Female [OUTFITS_FEMALE] ── mesmas pastas/temas; nomes diferem (Feet/Legs SEM "_Armor", "Pauldrons" plural).
 const SLOT_PIECE_FEMALE := {
 	"knight": {
-		"ARMOR":    "Female_Knight_Body_Armor",
-		"GLOVES":   "Female_Knight_Arms",
-		"BOOTS":    "Female_Knight_Feet",
-		"PANTS":    "Female_Knight_Legs",
-		"HELMET":   "Female_Knight_Head_Armet",
-		"SHOULDER": "Female_Knight_Acc_Pauldrons_Round",
+		"ARMOR":    ["Female_Knight_Body_Armor", "Female_Knight_Body_Cloth"],
+		"GLOVES":   ["Female_Knight_Arms"],
+		"BOOTS":    ["Female_Knight_Feet"],
+		"PANTS":    ["Female_Knight_Legs"],
+		"HELMET":   ["Female_Knight_Head_Armet", "Female_Knight_Head_Horns"],
+		"SHOULDER": ["Female_Knight_Acc_Pauldrons_Round", "Female_Knight_Acc_Pauldrons_Spike", "Female_Knight_Acc_Scarf"],
 	},
 	"noble": {
-		"ARMOR":    "Female_Noble_Body",
-		"GLOVES":   "Female_Noble_Arms",
-		"BOOTS":    "Female_Noble_Feet",
-		"PANTS":    "Female_Noble_Legs",
-		"HELMET":   "Female_Noble_Head_Crown",
-		"SHOULDER": "Female_Noble_Acc_Pauldron",
+		"ARMOR":    ["Female_Noble_Body"],
+		"GLOVES":   ["Female_Noble_Arms"],
+		"BOOTS":    ["Female_Noble_Feet"],
+		"PANTS":    ["Female_Noble_Legs"],
+		"HELMET":   ["Female_Noble_Head_Crown"],
+		"SHOULDER": ["Female_Noble_Acc_Pauldron", "Female_Noble_Acc_Pauldron_Lion", "Female_Noble_Acc_Gorget"],
 	},
 	"ranger": {
-		"ARMOR":    "Female_Ranger_Body",
-		"GLOVES":   "Female_Ranger_Arms",
-		"BOOTS":    "Female_Ranger_Feet",
-		"PANTS":    "Female_Ranger_Legs",
-		"HELMET":   "Female_Ranger_Head_Hood",
-		"SHOULDER": "Female_Ranger_Acc_Pauldrons",
+		"ARMOR":    ["Female_Ranger_Body"],
+		"GLOVES":   ["Female_Ranger_Arms"],
+		"BOOTS":    ["Female_Ranger_Feet"],
+		"PANTS":    ["Female_Ranger_Legs"],
+		"HELMET":   ["Female_Ranger_Head_Hood"],
+		"SHOULDER": ["Female_Ranger_Acc_Pauldrons"],
 	},
 	"peasant": {
-		"ARMOR":    "Female_Peasant_Body",
-		"GLOVES":   "Female_Peasant_Arms",
-		"BOOTS":    "Female_Peasant_Feet",
-		"PANTS":    "Female_Peasant_Legs",
-		# sem elmo/ombreira no pack → cabeça/ombro nus (NÃO usa capuz ranger)
+		"ARMOR":    ["Female_Peasant_Body"],
+		"GLOVES":   ["Female_Peasant_Arms"],
+		"BOOTS":    ["Female_Peasant_Feet"],
+		"PANTS":    ["Female_Peasant_Legs"],
 	},
 	"wizard": {
-		"ARMOR":    "Female_Wizard_Body",
-		"GLOVES":   "Female_Wizard_Arms",
-		"BOOTS":    "Female_Wizard_Feet",
-		"PANTS":    "Female_Wizard_Legs",
-		# wizard idem: sem elmo/ombreira no pack
+		"ARMOR":    ["Female_Wizard_Body"],
+		"GLOVES":   ["Female_Wizard_Arms"],
+		"BOOTS":    ["Female_Wizard_Feet"],
+		"PANTS":    ["Female_Wizard_Legs"],
 	},
 }
 
@@ -163,23 +160,37 @@ static func _dir_for(base: String) -> String:
 	if "Wizard" in base: return "wizard"
 	return "peasant"
 
-static func _base(theme: String, slot: String, gender := "male") -> String:
+# Índice da VARIANTE de peça p/ um item (estável pelo nome+slot → mesmo item = mesma peça sempre;
+# itens diferentes variam). count<=1 → 0. [OUTFITS_VARIANTES]
+static func _variant_index(seed_name: String, slot: String, count: int) -> int:
+	if count <= 1:
+		return 0
+	var s := 0
+	for b in (seed_name + slot).to_utf8_buffer():
+		s += int(b)
+	return s % count
+
+# basename da peça p/ (tema, slot, gênero), escolhendo a variante pelo seed (nome do item). seed=="" → 1ª.
+static func _base(theme: String, slot: String, gender := "male", seed_name := "") -> String:
 	var table: Dictionary = SLOT_PIECE_FEMALE if _norm_gender(gender) == "female" else SLOT_PIECE
 	var m: Dictionary = table.get(theme, {})
-	return str(m.get(slot, ""))
+	var opts: Array = m.get(slot, [])
+	if opts.is_empty():
+		return ""
+	return str(opts[_variant_index(seed_name, slot, opts.size())])
 
 # ── por TEMA (folder) ── peça 3D é gênero-aware; ícone 2D fica no Male (thumb neutro, sem render female ainda).
-static func piece_path_theme(theme: String, slot: String, gender := "male") -> String:
-	var base := _base(theme, slot, gender)
+static func piece_path_theme(theme: String, slot: String, gender := "male", seed_name := "") -> String:
+	var base := _base(theme, slot, gender, seed_name)
 	return "res://assets/outfits/%s/%s.gltf" % [_dir_for(base), base] if base != "" else ""
 
 static func icon_path_theme(theme: String, slot: String) -> String:
-	var base := _base(theme, slot, "male")
+	var base := _base(theme, slot, "male")   # ícone 2D = variante principal (índice 0)
 	return "res://assets/outfits/icons/%s.png" % base if base != "" else ""
 
 # ── por ITEM (o caso padrão — visual vem do item) ──
 static func piece_path_item(it: Dictionary, slot: String, gender := "male") -> String:
-	return piece_path_theme(theme_for_item(it), slot, gender)
+	return piece_path_theme(theme_for_item(it), slot, gender, str(it.get("name", "")))
 
 static func icon_path_item(it: Dictionary, slot: String) -> String:
 	return icon_path_theme(theme_for_item(it), slot)
