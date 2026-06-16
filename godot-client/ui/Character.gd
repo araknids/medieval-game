@@ -412,7 +412,7 @@ func _render_bag_panel() -> void:
 		if shown.is_empty():
 			_panel_host.add_child(UiKit.dim("— nada nessa raridade —"))
 		else:
-			_panel_host.add_child(UiKit.grid(self, shown, _bag_card, true, 270.0, 2))   # 2 itens por linha (cards estreitos)
+			_panel_host.add_child(UiKit.grid(self, shown, _bag_card, true, 200.0, 2))   # 2 itens por linha (cards estreitos)
 
 # [RECURSOS] Seção PRÓPRIA, fixa abaixo de tudo (não rola com os itens) — chips [📦 nome ×qtd] em flow.
 func _render_resources() -> void:
@@ -489,34 +489,45 @@ func _bag_card(it) -> Control:
 	var btns := HBoxContainer.new()
 	btns.add_theme_constant_override("separation", 6)
 	box.add_child(btns)
-	btns.add_child(_equip_btn(id))
+	btns.add_child(_action_icon("equip", "⚔", _equip.bind(id), Lang.t("Equipar")))
 	var spacer := Control.new()
 	spacer.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	spacer.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	btns.add_child(spacer)
 	if bool(it.get("pvpLocked", false)):
-		var lock := UiKit.icon_btn("🔒", func() -> void: UiKit.flash(status, Lang.t("Item travado no PvP — não dá pra vender enquanto exposto."), 2))
-		lock.tooltip_text = Lang.t("Travado no PvP")
-		btns.add_child(lock)
+		btns.add_child(_action_icon("locked", "🔒", func() -> void: UiKit.flash(status, Lang.t("Item travado no PvP — não dá pra vender enquanto exposto."), 2), Lang.t("Travado no PvP")))
 	else:
-		btns.add_child(_sell_btn(id, str(it.get("name", "?")), rar, int(it.get("sellPrice", 0))))
+		var price := int(it.get("sellPrice", 0))
+		var pl := Label.new()
+		pl.text = UiKit.coin_str(price)
+		pl.add_theme_font_size_override("font_size", 12)
+		pl.add_theme_color_override("font_color", UiKit.TEXT_DIM)
+		pl.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+		btns.add_child(pl)
+		btns.add_child(_action_icon("sell", "💰", _ask_sell.bind(id, str(it.get("name", "?")), rar), Lang.t("Vender (%s)") % UiKit.coin_str(price)))
 	return pc
 
-# Botão de EQUIPAR (ícone PixelLab "equip"; fallback ⚔). [GRID_COLS]
-func _equip_btn(id: int) -> Button:
-	var b := UiKit.icon_btn("⚔", _equip.bind(id))
-	if Icons.set_icon(b, "equip"):
-		b.text = ""
-	b.tooltip_text = Lang.t("Equipar")
-	return b
-
-# Botão de VENDER (ícone "sell" + preço; fallback 💰). [GRID_COLS]
-func _sell_btn(id: int, item_name: String, rar: int, price: int) -> Button:
-	var coin := UiKit.coin_str(price)
-	var b := UiKit.small_btn("💰 " + coin, _ask_sell.bind(id, item_name, rar))
-	b.custom_minimum_size = Vector2(0, 36)   # largura pelo conteúdo (não fixa em 120)
-	if Icons.set_icon(b, "sell"):
-		b.text = coin   # ícone + preço (sem o emoji)
-	b.tooltip_text = Lang.t("Vender (%s)") % coin
+# Ação como ÍCONE-BOTÃO: o ícone É o botão (sem moldura). flat + StyleBoxEmpty (zero padding) + brilho no
+# hover. Usa o ícone PixelLab `key` se importado; senão cai no emoji. [GRID_COLS]
+func _action_icon(key: String, emoji: String, cb: Callable, tip: String) -> Button:
+	var b := Button.new()
+	b.flat = true
+	b.focus_mode = Control.FOCUS_NONE
+	b.custom_minimum_size = Vector2(34, 34)
+	b.tooltip_text = tip
+	b.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
+	var empty := StyleBoxEmpty.new()
+	for s in ["normal", "hover", "pressed", "focus"]:
+		b.add_theme_stylebox_override(s, empty)
+	if Icons.set_icon(b, key):
+		b.expand_icon = true
+		b.add_theme_constant_override("icon_max_width", 30)
+	else:
+		b.text = emoji
+		b.add_theme_font_size_override("font_size", 18)
+	b.mouse_entered.connect(func() -> void: b.modulate = Color(1.25, 1.25, 1.25))
+	b.mouse_exited.connect(func() -> void: b.modulate = Color.WHITE)
+	b.pressed.connect(cb)
 	return b
 
 # ⚔ Atributos ──────────────────────────────────────────────────────────────────────────
