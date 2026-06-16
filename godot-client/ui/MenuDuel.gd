@@ -22,13 +22,14 @@ const BLEND := 0.12
 # Arma aleatória dos lutadores — só MELEE (as anims do duelo são de espada). [MENU_DUEL]
 const MELEE_KINDS := ["sword", "greatsword", "axe", "spear", "mace"]
 const WALK := LIB + "Walk"      # andar (reverso = recuar) no kiting do arqueiro [MENU_DUEL]
-# Kiting (arco × melee): o arqueiro recua e, encurralado na borda, PULA pro outro lado.
-const KITE_EDGE := 3.6          # |x| máx do arqueiro (campo mais largo → recua de verdade)
-const KITE_RANGE := 1.45        # distância que o melee tenta fechar
-const KITE_PREF := 1.95         # arqueiro recua enquanto o gap for menor que isto
-const KITE_MELEE_SPEED := 2.5   # FECHA a distância (antes 1.7 < arqueiro → nunca alcançava = "só seguia")
-const KITE_ARCHER_SPEED := 1.9  # recua mais devagar que o melee → é alcançado e PULA pro outro lado p/ escapar
-const KITE_LAND := 3.0          # DOIS dodges: aterrissa BEM longe do melee (> alcance) → não dodgeia sem parar
+# Kiting (arco × melee): o arqueiro recua atirando; quando o melee COLA, ele rola ATRAVÉS pro outro lado.
+const KITE_EDGE := 3.6          # |x| máx no pátio (encosta na "parede" e clampa)
+const KITE_RANGE := 1.45        # distância que o melee tenta fechar do arqueiro
+const DODGE_GAP := 1.75         # melee chegou a isto → arqueiro ROLA pro outro lado (atravessa) p/ reganhar distância
+const KITE_MELEE_SPEED := 2.0   # perseguição do melee
+const KITE_ARCHER_SPEED := 2.4  # recuo do arqueiro (kita > melee; as pausas de tiro deixam o melee colar → dodge)
+const KITE_LAND := 3.0          # onde o arqueiro POUSA após atravessar o melee (clampado ao pátio)
+const HOP_SPEED := 5.5          # velocidade horizontal do rolê de esquiva (relocaliza DE VERDADE, sem tween)
 
 # Peças Ranger por slot (mesmo set do PaperDollLive) + a cabeça-base (rosto).
 const BASE_HEAD := "res://assets/base/Base_Male_Head.gltf"
@@ -135,9 +136,9 @@ func _spawn(pos: Vector3, yaw_deg: float, weapon_kind: String, weapon_rarity: in
 	if skel:
 		_dress(node, skel, look)
 		Weapons.new().attach_weapon(node, weapon_kind, weapon_rarity)
-	# estado do lutador: ranged (arco→kiting) + base_y/hopping/busy p/ o movimento [MENU_DUEL]
+	# estado do lutador: ranged (arco→kiting) + base_y/dodging/busy p/ o movimento [MENU_DUEL]
 	var fighter := {"node": node, "anim": ap, "ranged": Weapons.new().is_bow_kind(weapon_kind),
-		"base_y": pos.y, "hopping": false, "busy": false}
+		"base_y": pos.y, "dodging": false, "busy": false}
 	# idle em loop; one-shot (ataque/tiro/hurt/roll) volta pro idle ao terminar e libera o "busy"
 	if ap:
 		var il := ap.get_animation(IDLE)
@@ -148,7 +149,7 @@ func _spawn(pos: Vector3, yaw_deg: float, weapon_kind: String, weapon_rarity: in
 			wl.loop_mode = Animation.LOOP_LINEAR
 		ap.animation_finished.connect(func(_a: StringName) -> void:
 			fighter["busy"] = false
-			if is_instance_valid(node) and not fighter.get("hopping", false):
+			if is_instance_valid(node) and not fighter.get("dodging", false):   # não corta o rolê em andamento
 				ap.play(IDLE, BLEND))
 		ap.play(IDLE)
 	_fighters.append(fighter)
@@ -258,34 +259,36 @@ func _kite_move(dt: float, r: int, m: int) -> void:
 		var want_m: String = WALK if absf(mn.position.x - desired_m) > 0.03 else IDLE
 		if ap_m.current_animation != want_m:
 			ap_m.play(want_m, BLEND)
-	# ARQUEIRO: no meio do pulo o tween controla a posição → não mexe (só o melee perseguiu acima)
-	if R.get("hopping", false):
+	# ── ARQUEIRO ──
+	if R.get("dodging", false):
+		_dodge_step(dt, R, rn)              # rolê EM ANDAMENTO: move até o pouso (frame-based, robusto)
 		return
-	# encara o melee; pressionado, recua; na borda → pula através
-	_face(R, -side)
+	_face(R, -side)                         # encara o melee
+	if gap <= DODGE_GAP:                     # melee COLOU → rola ATRAVÉS pro outro lado (reganha distância)
+		_start_dodge(r, m)
+		return
 	var ap_r: AnimationPlayer = R["anim"]
-	if gap < KITE_PREF and not R.get("busy", false):
-		var next_x := rn.position.x + side * KITE_ARCHER_SPEED * dt
-		if absf(next_x) > KITE_EDGE:
-			_hop_through(r, m)                  # encurralado → pula pro outro lado
-			return
+	if not R.get("busy", false):             # senão (atirando) fica parado mirando
+		var next_x := clampf(rn.position.x + side * KITE_ARCHER_SPEED * dt, -KITE_EDGE, KITE_EDGE)
+		var moved := absf(next_x - rn.position.x) > 0.001
 		rn.position.x = next_x
-		if ap_r and ap_r.current_animation != WALK:
-			ap_r.play(WALK, BLEND, -1.0)        # walk em REVERSO = andar pra trás
-	elif ap_r and not R.get("busy", false) and ap_r.current_animation == WALK:
-		ap_r.play(IDLE, BLEND)                  # parou de recuar
+		if ap_r:
+			if moved:
+				if ap_r.current_animation != WALK:
+					ap_r.play(WALK, BLEND, -1.0)   # walk em REVERSO = recuar mirando
+			elif ap_r.current_animation != IDLE:
+				ap_r.play(IDLE, BLEND)
 
-# Batida do kiting: se o melee ALCANÇOU, golpeia e o arqueiro pula pro outro lado; senão o arqueiro ATIRA.
+# Batida do kiting: melee no alcance → golpe (o arqueiro esquiva via _kite_move); senão o arqueiro ATIRA.
 func _kite_beat(r: int, m: int) -> void:
 	var R: Dictionary = _fighters[r]
 	var M: Dictionary = _fighters[m]
 	var rn: Node3D = R["node"]
 	var mn: Node3D = M["node"]
-	if not (is_instance_valid(rn) and is_instance_valid(mn)) or R.get("hopping", false):
+	if not (is_instance_valid(rn) and is_instance_valid(mn)) or R.get("dodging", false):
 		return
-	if absf(rn.position.x - mn.position.x) < KITE_RANGE + 0.3 and not M.get("busy", false):
-		_melee_swing(m)        # o guerreiro encostou → golpe
-		_hop_through(r, m)     # arqueiro rola/pula pro outro lado (esquiva)
+	if absf(rn.position.x - mn.position.x) < KITE_RANGE + 0.45 and not M.get("busy", false):
+		_melee_swing(m)        # o guerreiro chegou no alcance → golpe (o arqueiro rola e esquiva)
 	else:
 		_kite_shoot(r, m)
 
@@ -331,49 +334,48 @@ func _melee_swing(m: int) -> void:
 		M["busy"] = true
 		ap.play(clip, BLEND)
 
-# Arqueiro encurralado: ROLA/PULA através do melee e aterrissa do outro lado (vira o kiting). [MENU_DUEL]
-func _hop_through(r: int, m: int) -> void:
+# Inicia a esquiva: o arqueiro vai ROLAR ATRAVÉS do melee e pousar do OUTRO LADO (alvo guardado em hop_to).
+# O movimento real é feito por frame no _dodge_step (robusto — sem tween que se atrapalha). [MENU_DUEL]
+func _start_dodge(r: int, m: int) -> void:
 	var R: Dictionary = _fighters[r]
 	var M: Dictionary = _fighters[m]
-	if R.get("hopping", false):
-		return
 	var rn: Node3D = R["node"]
 	var mn: Node3D = M["node"]
 	if not (is_instance_valid(rn) and is_instance_valid(mn)):
 		return
-	R["hopping"] = true
-	var toward := signf(mn.position.x - rn.position.x)   # através do melee
-	if toward == 0.0:
-		toward = 1.0
-	var land_x := clampf(mn.position.x + toward * KITE_LAND, -KITE_EDGE, KITE_EDGE)
-	_face(R, toward)                                     # encara a direção do pulo
-	var base_y: float = R.get("base_y", 0.0)
+	var through := signf(mn.position.x - rn.position.x)   # direção ATRAVÉS do melee → outro lado
+	if through == 0.0:
+		through = 1.0
+	R["hop_from"] = rn.position.x
+	R["hop_to"] = clampf(mn.position.x + through * KITE_LAND, -KITE_EDGE, KITE_EDGE)   # pousa além do melee
+	R["dodging"] = true
+	R["busy"] = true                                      # cancela o tiro p/ esquivar
+	_face(R, through)                                     # encara a direção do rolê
 	var ap_r: AnimationPlayer = R["anim"]
-	var roll: String = ROLL
-	var dur := 0.55
 	if ap_r:
-		if not ap_r.has_animation(ROLL):
-			roll = WALK
+		var roll: String = ROLL if ap_r.has_animation(ROLL) else WALK
 		var a: Animation = ap_r.get_animation(roll)
-		if a and a.get_length() > 0.05:
+		if a:
 			a.loop_mode = Animation.LOOP_NONE
-			dur = a.get_length()
 		ap_r.play(roll, BLEND)
-		# 2º rolê no meio do caminho → "dois dodges" cobrem a distância maior sem deslizar
-		get_tree().create_timer(dur).timeout.connect(func() -> void:
-			if is_instance_valid(rn) and ap_r and R.get("hopping", false):
-				ap_r.play(roll, BLEND))
-	var total := dur * 2.0                               # dois rolês = leva o dobro de distância
-	var tw := rn.create_tween()
-	tw.tween_property(rn, "position:x", land_x, total)   # linear = velocidade de rolê constante
-	tw.tween_callback(func() -> void:
-		R["hopping"] = false
-		if is_instance_valid(rn) and ap_r:
-			ap_r.play(IDLE, BLEND))
-	var ty := rn.create_tween()                          # arco vertical: um pulinho por rolê (dois)
-	for _i in 2:
-		ty.tween_property(rn, "position:y", base_y + 0.4, dur * 0.5).set_trans(Tween.TRANS_SINE)
-		ty.tween_property(rn, "position:y", base_y, dur * 0.5).set_trans(Tween.TRANS_SINE)
+
+# Passo do rolê (todo frame): move o arqueiro até hop_to a HOP_SPEED + arco de pulo; termina ao chegar.
+func _dodge_step(dt: float, R: Dictionary, rn: Node3D) -> void:
+	var target_x: float = R.get("hop_to", rn.position.x)
+	var from_x: float = R.get("hop_from", rn.position.x)
+	var base_y: float = R.get("base_y", 0.0)
+	rn.position.x = move_toward(rn.position.x, target_x, HOP_SPEED * dt)
+	var span := maxf(0.01, absf(target_x - from_x))
+	var prog := clampf(1.0 - absf(rn.position.x - target_x) / span, 0.0, 1.0)
+	rn.position.y = base_y + sin(prog * PI) * 0.45        # arco do pulo (pico no meio do caminho)
+	if absf(rn.position.x - target_x) < 0.03:             # chegou no outro lado → encerra a esquiva
+		rn.position.x = target_x
+		rn.position.y = base_y
+		R["dodging"] = false
+		R["busy"] = false
+		var ap: AnimationPlayer = R["anim"]
+		if ap:
+			ap.play(IDLE, BLEND)
 
 # Um golpe: atacante INVESTE (lunge) pra frente + toca o ataque; defensor reage (Hit_Chest)
 # e SANGRA no impacto. Ambos voltam pro idle sozinhos (animation_finished). Sem await.
