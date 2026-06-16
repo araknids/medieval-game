@@ -404,7 +404,7 @@ func _bag_card(it) -> Control:
 	var row := HBoxContainer.new()
 	row.add_theme_constant_override("separation", 10)
 	box.add_child(row)
-	var ic := UiKit.item_icon(str(it.get("type", "")), 40)
+	var ic := UiKit.item_icon_for(it, 40)   # arma → render do modelo (igual ao slot) [SLOT_WEAPON_IMG]
 	if ic:
 		row.add_child(ic)
 	var left := VBoxContainer.new()

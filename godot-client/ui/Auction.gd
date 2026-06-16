@@ -113,7 +113,7 @@ func _listing_row(a: Dictionary, is_mine_section: bool) -> PanelContainer:
 		sbpc.set_border_width_all(2)
 	var hb := HBoxContainer.new(); hb.add_theme_constant_override("separation", 12)
 	box.add_child(hb)
-	var lic := UiKit.item_icon(str(a.get("type", "")))   # ícone do tipo (consistência)
+	var lic := UiKit.item_icon_for(a)   # arma → render do modelo [SLOT_WEAPON_IMG]
 	if lic:
 		hb.add_child(lic)
 	# esquerda: nome + sub + stats + vendedor
@@ -178,7 +178,7 @@ func _picker_row(it: Dictionary) -> PanelContainer:
 	var box: VBoxContainer = res[1]
 	var hb := HBoxContainer.new(); hb.add_theme_constant_override("separation", 12)
 	box.add_child(hb)
-	var pic := UiKit.item_icon(str(it.get("type", "")))   # ícone do tipo (consistência)
+	var pic := UiKit.item_icon_for(it)   # arma → render do modelo [SLOT_WEAPON_IMG]
 	if pic:
 		hb.add_child(pic)
 	var left := VBoxContainer.new(); left.add_theme_constant_override("separation", 2)

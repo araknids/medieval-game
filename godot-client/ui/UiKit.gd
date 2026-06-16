@@ -2,6 +2,8 @@ class_name UiKit
 extends RefCounted
 
 const Icons := preload("res://ui/Icons.gd")
+const Weapons := preload("res://Weapons.gd")   # [SLOT_WEAPON_IMG] render 2D da arma p/ ícone de item
+static var _weapons_helper = null              # instância p/ weapon_kind (lazy)
 
 # Quando uma tela embedded chama set_wallet com wallet=null, manda o warrior pro topbar do Shell.
 # O Shell registra (UiKit.topbar_sink = update_topbar) sem criar ciclo de class_name. [PLANO_UI_SHELL_GODOT]
@@ -629,6 +631,26 @@ static func item_icon(item_type: String, px := 48) -> TextureRect:
 	tr.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	return tr
 
+# Ícone do item por DICT: ARMA → render do modelo 3D (assets/weapons/icons/<modelo>.png), igual ao
+# slot equipado; outros tipos → ícone genérico do slot. [SLOT_WEAPON_IMG] Usar em mochila/loja/leilão/baú.
+static func item_icon_for(it: Dictionary, px := 48) -> TextureRect:
+	if str(it.get("type", "")) == "WEAPON":
+		if _weapons_helper == null:
+			_weapons_helper = Weapons.new()
+		var kind: String = _weapons_helper.weapon_kind(str(it.get("name", "")), str(it.get("weaponCategory", "")))
+		var model: String = str(Weapons.MODELS.get(kind, ""))
+		var p := "res://assets/weapons/icons/" + model + ".png"
+		if model != "" and ResourceLoader.exists(p):
+			var tr := TextureRect.new()
+			tr.texture = load(p)
+			tr.custom_minimum_size = Vector2(px, px)
+			tr.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+			tr.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+			tr.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+			tr.mouse_filter = Control.MOUSE_FILTER_IGNORE
+			return tr
+	return item_icon(str(it.get("type", "")), px)
+
 # ── Comparação de item vs EQUIPADO ──────────────────────────────────────────────────
 # Índice dos itens equipados por type (WEAPON/ARMOR/…). Preenchido pelo Shell (a cada nav)
 # e pelo Inventory (após equipar). compare_line lê daqui. [PLANO_UI_SHELL_GODOT]
@@ -763,7 +785,7 @@ static func item_row(it: Dictionary, name_text: String, sub_text: String, stats_
 	var row := HBoxContainer.new()
 	row.add_theme_constant_override("separation", 12)
 	box.add_child(row)
-	var ic := item_icon(str(it.get("type", "")))   # ícone do tipo (slot_*), consistente em todo o projeto
+	var ic := item_icon_for(it)   # arma → render do modelo; resto → ícone do slot [SLOT_WEAPON_IMG]
 	if ic:
 		row.add_child(ic)
 	var left := VBoxContainer.new()
