@@ -707,6 +707,11 @@ func _unequip(id: int) -> void:
 # Equip mudou: re-veste o boneco + slots + painel + avisa o Shell (busto da topbar + índice) e
 # re-busca o warrior p/ os stats EFETIVOS da topbar (ATK/DEF/HP mudam com o gear).
 func _after_equip_change() -> void:
+	# re-busca o inventário p/ refletir mudanças SERVER-SIDE além do item tocado — ex.: auto-swap
+	# arco↔escudo desequipa o conflitante (senão o boneco/slots ficavam com os dois). [ARCO_SEM_ESCUDO]
+	var ir = await Api.get_inventory()
+	if ir.get("ok") and ir.get("json") is Array:
+		items = ir["json"]
 	UiKit.set_equipped(items)
 	if doll != null and is_instance_valid(doll):
 		doll.apply(items, UiKit.current_class)

@@ -18,7 +18,6 @@ import org.springframework.beans.factory.annotation.Autowired;
 import java.time.LocalDateTime;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 // Trava de arma por classe: arco (Archer) vs corpo-a-corpo (Warrior/Recruit). [CLASSES_ARMAS]
 @DisplayName("Armas por classe | arco vs espada + trava no equip")
@@ -151,25 +150,25 @@ class WeaponClassTest extends BaseIntegrationTest {
         assertThat(hasBow).isTrue();
     }
 
-    // ── [ARCO_SEM_ESCUDO] Arco e escudo são mutuamente exclusivos ──
+    // ── [ARCO_SEM_ESCUDO] Arco e escudo são mutuamente exclusivos → equipar um AUTO-DESEQUIPA o outro ──
     @Test
-    @DisplayName("Arco + escudo não combinam (bloqueia nos dois sentidos)")
+    @DisplayName("Arco + escudo não combinam: equipar um auto-desequipa o outro (nos dois sentidos)")
     void bowAndShield_mutuallyExclusive() {
         Player p = newPlayer("wc");
         makeWarrior(p, WarriorClass.ARCHER, 20);
         InventoryItem bow = weapon(p, "Hunting Bow");
         InventoryItem shield = shield(p);
 
-        // arco equipado → equipar escudo é barrado
+        // arco equipado → equipar escudo PASSA, e o arco sai sozinho
         inventoryService.equip(p, bow.getId());
-        assertThatThrownBy(() -> inventoryService.equip(p, shield.getId())).isInstanceOf(RuntimeException.class);
-        assertThat(itemRepo.findById(shield.getId()).orElseThrow().isEquipped()).isFalse();
-
-        // troca: tira o arco, põe o escudo, e equipar o arco passa a ser barrado
-        inventoryService.unequip(p, bow.getId());
         inventoryService.equip(p, shield.getId());
-        assertThatThrownBy(() -> inventoryService.equip(p, bow.getId())).isInstanceOf(RuntimeException.class);
+        assertThat(itemRepo.findById(shield.getId()).orElseThrow().isEquipped()).isTrue();
         assertThat(itemRepo.findById(bow.getId()).orElseThrow().isEquipped()).isFalse();
+
+        // sentido inverso: com o escudo equipado, equipar o arco PASSA e o escudo sai sozinho
+        inventoryService.equip(p, bow.getId());
+        assertThat(itemRepo.findById(bow.getId()).orElseThrow().isEquipped()).isTrue();
+        assertThat(itemRepo.findById(shield.getId()).orElseThrow().isEquipped()).isFalse();
     }
 
     @Test
