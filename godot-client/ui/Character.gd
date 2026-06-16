@@ -43,6 +43,7 @@ var doll: DollView
 var _id_name: Label
 var _id_sub: Label
 var _slots := {}                  # type -> {frame, icon, item_id}
+var _companions := {}             # "mount"/"pet" -> {frame, emoji} [COMPANION_SLOTS]
 var _wp := Weapons.new()          # [SLOT_WEAPON_IMG] p/ derivar o kind/modelo da arma
 var _subtab_bar_host: VBoxContainer
 var _panel_host: VBoxContainer    # onde o painel da sub-aba é montado/limpo
@@ -88,7 +89,46 @@ func _build_left() -> Control:
 	_id_sub.add_theme_color_override("font_color", UiKit.TEXT_DIM)
 	_id_sub.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	outer.add_child(_id_sub)
+	# [COMPANION_SLOTS] montaria + pet (do /api/warrior), embaixo da identidade
+	var comp := HBoxContainer.new()
+	comp.add_theme_constant_override("separation", 16)
+	comp.alignment = BoxContainer.ALIGNMENT_CENTER
+	comp.add_child(_companion_slot("mount", "Montaria"))
+	comp.add_child(_companion_slot("pet", "Pet"))
+	outer.add_child(comp)
 	return outer
+
+# Slot de companheiro (montaria/pet): moldura + emoji + legenda. [COMPANION_SLOTS]
+func _companion_slot(kind: String, caption: String) -> VBoxContainer:
+	var vb := VBoxContainer.new()
+	vb.add_theme_constant_override("separation", 2)
+	vb.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	var pc := PanelContainer.new()
+	pc.custom_minimum_size = Vector2(56, 56)
+	pc.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	pc.mouse_filter = Control.MOUSE_FILTER_STOP
+	var sb := StyleBoxFlat.new()
+	sb.bg_color = Color(0.06, 0.055, 0.07, 0.95)
+	sb.set_border_width_all(1)
+	sb.border_color = UiKit.BRONZE
+	sb.set_corner_radius_all(4)
+	sb.set_content_margin_all(4)
+	pc.add_theme_stylebox_override("panel", sb)
+	var emoji := Label.new()
+	emoji.add_theme_font_size_override("font_size", 28)
+	emoji.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	emoji.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	emoji.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	pc.add_child(emoji)
+	vb.add_child(pc)
+	var cap := Label.new()
+	cap.text = Lang.t(caption)
+	cap.add_theme_font_size_override("font_size", 11)
+	cap.add_theme_color_override("font_color", UiKit.TEXT_DIM)
+	cap.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	vb.add_child(cap)
+	_companions[kind] = {"frame": pc, "emoji": emoji}
+	return vb
 
 func _slot_column(types: Array) -> VBoxContainer:
 	var col := VBoxContainer.new()
@@ -206,8 +246,57 @@ func _apply() -> void:
 	if bool(w.get("isKnockedOut", false)):
 		_id_sub.text += "   💀"
 	_update_slots()
+	_update_companions()
 	_build_subtab_bar()
 	_render_panel()
+
+# Preenche os slots de montaria/pet a partir do warrior (equippedMount/equippedPet). [COMPANION_SLOTS]
+func _update_companions() -> void:
+	_fill_companion("mount", w.get("equippedMount"), "🐎", "Montaria")
+	_fill_companion("pet", w.get("equippedPet"), "🐾", "Pet")
+
+func _fill_companion(kind: String, data, generic_emoji: String, label: String) -> void:
+	var c: Dictionary = _companions.get(kind, {})
+	if c.is_empty():
+		return
+	var pc: PanelContainer = c["frame"]
+	var emoji: Label = c["emoji"]
+	var sb: StyleBoxFlat = pc.get_theme_stylebox("panel")
+	if data is Dictionary:
+		emoji.text = str(data.get("icon", generic_emoji))
+		emoji.modulate = Color(1, 1, 1, 1)
+		sb.border_color = UiKit.GOLD
+		sb.set_border_width_all(2)
+		pc.tooltip_text = _companion_tooltip(kind, data, label)
+	else:
+		emoji.text = generic_emoji
+		emoji.modulate = Color(1, 1, 1, 0.30)
+		sb.border_color = UiKit.BRONZE
+		sb.set_border_width_all(1)
+		pc.tooltip_text = "%s — %s" % [Lang.t(label), Lang.t("nenhuma equipada")]
+
+func _companion_tooltip(kind: String, data: Dictionary, label: String) -> String:
+	var nm := str(data.get("name", data.get("displayName", "?")))
+	var t := Lang.t(label) + ": " + nm
+	var parts: Array = []
+	if kind == "mount":
+		var st := int(data.get("staminaReductionPct", 0))
+		if st > 0:
+			parts.append(Lang.t("⚡ -%d%% estamina") % st)
+		for pair in [["attackBonus", "ATK"], ["defenseBonus", "DEF"], ["healthBonus", "HP"]]:
+			var v := int(data.get(pair[0], 0))
+			if v != 0:
+				parts.append("%s +%d" % [pair[1], v])
+	else:
+		var hp := int(data.get("hpBonusPercent", 0))
+		if hp != 0:
+			parts.append("HP +%d%%" % hp)
+		var dx := int(data.get("dexBonus", 0))
+		if dx != 0:
+			parts.append("DEX +%d" % dx)
+	if not parts.is_empty():
+		t += "\n" + "   ".join(parts)
+	return t
 
 # Preenche cada slot com o item equipado do seu tipo (ou apagado se vazio). Stats no tooltip.
 func _update_slots() -> void:
