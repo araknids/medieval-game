@@ -259,9 +259,7 @@ func _render_war_idle() -> void:
 		if targets.is_empty():
 			content.add_child(UiKit.empty("Nenhuma guilda elegível.", "Rivais precisam ter controlado um território."))
 		else:
-			for t in targets:
-				if t is Dictionary:
-					content.add_child(_target_row(t))
+			content.add_child(UiKit.grid(self, targets, func(t): return _target_row(t) if t is Dictionary else null, false, 260, 2))   # [SEM_SCROLL]
 		content.add_child(UiKit.action("Cancelar", _cancel_picking))
 	else:
 		content.add_child(UiKit.action("⚔ Declarar Guerra", _open_targets))
@@ -305,9 +303,8 @@ func _render_no_guild() -> void:
 	content.add_child(UiKit.section("Guildas existentes"))
 	if guild_list.is_empty():
 		content.add_child(UiKit.empty("Nenhuma guilda criada ainda.", "Seja o primeiro a fundar uma!"))
-	for g in guild_list:
-		if g is Dictionary:
-			content.add_child(_guild_list_row(g))
+	else:
+		content.add_child(UiKit.grid(self, guild_list, func(g): return _guild_list_row(g) if g is Dictionary else null, false, 260, 2))   # [SEM_SCROLL]
 
 func _guild_list_row(g: Dictionary) -> PanelContainer:
 	var res := UiKit.card()
