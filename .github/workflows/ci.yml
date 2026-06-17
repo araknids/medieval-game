@@ -88,3 +88,30 @@ jobs:
           # O passo do mvn test já falha o job em teste quebrado; o reporter é só
           # publicação — não deve derrubar o build se a API de checks vacilar. [CI_PUBLICO]
           fail-on-error: false
+
+  # [CI_GODOT] "Compile check" do cliente Godot. GDScript não tem compilador que rode no CI, então um
+  # typo/referência quebrada numa tela que você não abriu só crasha em runtime (pro testador do build).
+  # Este job carrega TODOS os .gd headless (ci_check.gd) e falha se algum não parsear — o equivalente
+  # ao `mvn compile` do front. NÃO testa UI/visual (frágil/baixo valor); só garante que o cliente "builda".
+  godot-check:
+    name: Godot Client — Parse Check
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout código
+        uses: actions/checkout@v4
+
+      - name: Instalar Godot 4.6
+        uses: chickensoft-games/setup-godot@v2
+        with:
+          version: 4.6.0          # casar com config/features do project.godot; ajustar se a setup-godot não achar a versão
+          use-dotnet: false
+          include-templates: false
+
+      - name: Importar projeto (gera cache de classes + valida assets)
+        # --import constrói o registro de class_name (senão o parse acusa "classe desconhecida" em
+        # UiKit/StoneStyle/etc.) e importa os assets. Não falha o job aqui — o gate é o parse abaixo.
+        run: godot --headless --path godot-client --import || true
+
+      - name: Verificar parse de todos os scripts (.gd)
+        run: godot --headless --path godot-client --script res://ci_check.gd
