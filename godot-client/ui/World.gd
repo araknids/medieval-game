@@ -32,6 +32,9 @@ const ZONES := {
 }
 const TIER_COL := {"SAFE": Color(0.30, 0.80, 0.30), "PVP": Color(1.0, 0.76, 0.0), "HIGH_RISK": Color(0.94, 0.33, 0.33)}
 const ELEMENTS := [["FIRE", "🔥 Fire"], ["WATER", "💧 Water"], ["EARTH", "🪨 Earth"], ["AIR", "💨 Air"]]
+# [ELEMENTOS] roda RPS: X VENCE Y (×1.25) e PERDE p/ quem vence X (×0.75). FOGO→AR→TERRA→ÁGUA→FOGO.
+const ELEM_BEATS := {"FIRE": "AIR", "AIR": "EARTH", "EARTH": "WATER", "WATER": "FIRE"}
+const ELEM_WEAK := {"FIRE": "WATER", "AIR": "FIRE", "EARTH": "AIR", "WATER": "EARTH"}
 const ZONE_DURATION := 20   # ação instantânea de tamanho fixo (~10⚡ via d/2), igual ao web
 
 # [MAPA_MUNDO] Mapa-múndi de pergaminho (assets/ui/map/world_map.png, 1536×1024). O mapa CABE INTEIRO
@@ -438,29 +441,70 @@ func _lock_seal(text: String) -> Control:
 
 # [CARD_BOTAO] Picker de elemento como toggles SÓ DE ÍCONE (~44px). Ativo destacado (opaco); inativo
 # apagado. Fallback no emoji se o ícone elem_* não foi importado.
+# [ELEMENTOS] Áreas de elemento: ícone GRANDE sem moldura (o ícone É o botão). Ativo = opaco;
+# inativo = apagado (acende no hover). Tooltip = nome + vantagem/fraqueza da roda RPS.
 func _element_picker() -> HBoxContainer:
-	var row := HBoxContainer.new(); row.add_theme_constant_override("separation", 8)
+	var row := HBoxContainer.new(); row.add_theme_constant_override("separation", 18)
 	for e in ELEMENTS:
-		var code := str(e[0])
-		var b := Button.new()
-		StoneStyle.apply(b)
-		b.custom_minimum_size = Vector2(48, 44)
-		b.toggle_mode = true; b.button_pressed = (code == selected_element)
-		var parts := str(e[1]).split(" ")
-		b.tooltip_text = Lang.t(parts[parts.size() - 1])   # "Fire"/"Water"/… na tooltip
-		if Icons.set_icon(b, "elem_" + code.to_lower()):
-			b.expand_icon = true
-			b.icon_alignment = HORIZONTAL_ALIGNMENT_CENTER
-			b.add_theme_constant_override("icon_max_width", 30)
-			b.text = ""
-		else:
-			b.text = str(parts[0])   # só o emoji do elemento
-			b.add_theme_font_size_override("font_size", 20)
-		if code != selected_element:
-			b.modulate = Color(1, 1, 1, 0.5)   # inativo = apagado (igual ao filter_row)
-		b.pressed.connect(_select_element.bind(code))
-		row.add_child(b)
+		row.add_child(_element_btn(str(e[0]), str(e[1])))
 	return row
+
+func _element_btn(code: String, label: String) -> Control:
+	var active := code == selected_element
+	var b := Button.new()
+	b.flat = true
+	b.focus_mode = Control.FOCUS_NONE
+	b.custom_minimum_size = Vector2(60, 60)
+	b.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
+	var empty := StyleBoxEmpty.new()
+	for s in ["normal", "hover", "pressed", "focus"]:
+		b.add_theme_stylebox_override(s, empty)
+	b.tooltip_text = _element_tooltip(code)
+	if Icons.set_icon(b, "elem_" + code.to_lower()):
+		b.expand_icon = true
+		b.icon_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		b.add_theme_constant_override("icon_max_width", 52)   # ícone bem maior (era 30)
+		b.text = ""
+	else:
+		var parts := label.split(" ")
+		b.text = str(parts[0])   # fallback no emoji do elemento
+		b.add_theme_font_size_override("font_size", 40)
+	b.modulate = Color(1, 1, 1, 1.0) if active else Color(1, 1, 1, 0.42)   # ativo opaco / inativo apagado
+	if not active:   # acende no hover p/ dar feedback
+		b.mouse_entered.connect(func() -> void:
+			if is_instance_valid(b):
+				b.modulate = Color(1, 1, 1, 0.85))
+		b.mouse_exited.connect(func() -> void:
+			if is_instance_valid(b):
+				b.modulate = Color(1, 1, 1, 0.42))
+	b.pressed.connect(_select_element.bind(code))
+	return b
+
+# Nome traduzido do elemento (a partir do rótulo "🔥 Fire" → Lang.t("Fire")).
+func _elem_name(code: String) -> String:
+	for e in ELEMENTS:
+		if str(e[0]) == code:
+			var parts := str(e[1]).split(" ")
+			return Lang.t(parts[parts.size() - 1])
+	return code
+
+# Tooltip do elemento: nome + vantagem (×1.25) e fraqueza (×0.75) pela roda RPS. [ELEMENTOS]
+func _element_tooltip(code: String) -> String:
+	var nm := _elem_name(code)
+	var strong := _elem_name(str(ELEM_BEATS.get(code, "")))
+	var weak := _elem_name(str(ELEM_WEAK.get(code, "")))
+	return "%s\n%s +25%% contra %s\n%s -25%% contra %s" % [nm, Lang.t("Vantagem:"), strong, Lang.t("Fraco:"), weak]
+
+# [PVP_FLAG] Tooltip de RISCO da zona — o que o jogador pode PERDER por tier.
+func _zone_risk_tooltip(tier: String) -> String:
+	match tier:
+		"SAFE":
+			return Lang.t("🟢 Seguro — só PvE (monstros). Você não perde nada.")
+		"PVP":
+			return Lang.t("🟡 PvP — outro jogador farmando aqui pode te saquear: você perde ~10% do bronze e o XP da expedição. Recursos e equipamento ficam seguros.")
+		"HIGH_RISK":
+			return Lang.t("🔴 Alto risco — se for saqueado: perde 50% dos recursos, 15% do bronze e 35% de chance de TRAVAR um item equipado. Em troca, dropa o melhor loot.")
+	return ""
 
 # [icon_key, emoji, verbo] da ação de uma zona (caçar/minerar/garimpar/pescar).
 func _zone_action(kingdom: String, skill: String) -> Array:
@@ -483,7 +527,9 @@ func _zone_card(kingdom: String, z: Array) -> PanelContainer:
 	var col: Color = TIER_COL.get(tier, Color(0.6, 0.6, 0.6))
 	var act := _zone_action(kingdom, skill)
 	var on_click := func() -> void: _start_zone_delve(kingdom, tier, skill)
-	var res := UiKit.clickable_card(col, on_click, enabled)
+	var tip := _zone_risk_tooltip(tier)   # [PVP_FLAG] hover mostra o que você pode PERDER nessa zona
+	var res := UiKit.clickable_card(col, on_click, enabled, tip)
+	res[0].tooltip_text = tip   # também no card bloqueado (sem overlay de clique)
 	var vb: VBoxContainer = res[1]
 	var top := HBoxContainer.new(); top.add_theme_constant_override("separation", 10)
 	if Icons.tex(str(act[0])) != null:
