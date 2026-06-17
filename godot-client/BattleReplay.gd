@@ -909,9 +909,13 @@ func _make_fighter(fname: String, side: int, maxhp: int, weapon_kind: String, eq
 	name_lbl.text = fname + ("  🏹" if ranged else "")
 	name_lbl.billboard = BaseMaterial3D.BILLBOARD_ENABLED
 	name_lbl.no_depth_test = true
-	name_lbl.pixel_size = 0.004
-	name_lbl.font_size = 48
-	name_lbl.position = Vector3(0, 0.14, 0)
+	name_lbl.pixel_size = 0.0032   # [HP_CANTO] um pouco menor
+	name_lbl.font_size = 40
+	name_lbl.modulate = Color(0.46, 0.92, 0.5) if side < 0 else Color(0.97, 0.42, 0.40)  # aliado verde / inimigo vermelho
+	name_lbl.outline_modulate = Color(0, 0, 0, 0.95)
+	name_lbl.outline_size = 12
+	# [HP_CANTO] nome no PÉ do personagem (não mais acima da cabeça): bar fica em +bar_off → desce de volta ao chão
+	name_lbl.position = Vector3(0, -bar_off + 0.18, 0)
 	bar.add_child(name_lbl)
 	f["bar"] = bar
 	f["fill"] = fill
@@ -2444,10 +2448,10 @@ func _make_hp_widget(f: Dictionary, right: bool, w: float) -> Control:
 	var nm := Label.new()
 	nm.text = str(f["name"]) + ("  🏹" if f.get("ranged", false) else "")
 	nm.add_theme_font_size_override("font_size", 15)
-	nm.add_theme_color_override("font_color", Color(0.96, 0.9, 0.7))
+	nm.add_theme_color_override("font_color", Color(0.97, 0.42, 0.40) if right else Color(0.46, 0.92, 0.5))  # inimigo vermelho / aliado verde
 	nm.add_theme_color_override("font_outline_color", Color(0, 0, 0))
 	nm.add_theme_constant_override("outline_size", 4)
-	nm.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT if right else HORIZONTAL_ALIGNMENT_LEFT
+	nm.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	nm.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	vb.add_child(nm)
 	var bar := ProgressBar.new()
