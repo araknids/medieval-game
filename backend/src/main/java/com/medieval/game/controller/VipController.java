@@ -38,6 +38,18 @@ public class VipController {
         ));
     }
 
+    // POST /api/vip/change-gender/{gender} — [GENDER] troca de sexo paga em SoulStone (premium)
+    @PostMapping("/change-gender/{gender}")
+    public ResponseEntity<?> changeGender(@PathVariable com.medieval.game.enums.Gender gender, Authentication auth) {
+        Player player = getPlayer(auth);
+        vipService.changeGender(player, gender);
+        return ResponseEntity.ok(Map.of(
+            "message",    com.medieval.game.service.Messages.tr("msg.gender_changed", "Gender changed!"),
+            "gender",     player.getGender().name(),
+            "soulStones", player.getSoulStones()
+        ));
+    }
+
     private Player getPlayer(Authentication auth) {
         return playerService.findById((Long) auth.getPrincipal());
     }

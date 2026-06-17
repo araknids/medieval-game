@@ -58,6 +58,9 @@ func _render() -> void:
 	# ── Produto VIP (o item pra comprar) ──
 	content.add_child(UiKit.section("👑 Comprar VIP"))
 	content.add_child(_vip_product_card(is_vip, ss))
+	# ── Trocar de sexo (premium, pago em SoulStone) [GENDER] ──
+	content.add_child(UiKit.section("Trocar de Sexo"))
+	content.add_child(_gender_product_card(ss))
 	# ── Saldo ──
 	content.add_child(UiKit.section("💎 Saldo"))
 	var bal := HBoxContainer.new(); bal.add_theme_constant_override("separation", 6)
@@ -116,6 +119,67 @@ func _vip_product_card(is_vip: bool, ss: int) -> PanelContainer:
 	if ss < VIP_COST:
 		box.add_child(UiKit.dim(Lang.t("Precisa de %d 💎 (você tem %d)") % [VIP_COST, ss]))
 	return pc
+
+# [GENDER] Card do produto "Trocar de Sexo": sexo atual → oposto + custo em SoulStone + botão.
+func _gender_product_card(ss: int) -> PanelContainer:
+	var cost := int(data.get("genderChangeCost", 10))
+	var cur := str(data.get("gender", "MALE")).to_upper()
+	var target := "FEMALE" if cur == "MALE" else "MALE"
+	var cur_lbl := Lang.t("Masculino") if cur == "MALE" else Lang.t("Feminino")
+	var tgt_lbl := Lang.t("Feminino") if target == "FEMALE" else Lang.t("Masculino")
+	var tgt_sym := "♀" if target == "FEMALE" else "♂"
+	var res := UiKit.card(UiKit.GOLD_SOFT)
+	var pc: PanelContainer = res[0]
+	var box: VBoxContainer = res[1]
+	var top := HBoxContainer.new(); top.add_theme_constant_override("separation", 10)
+	var tb := VBoxContainer.new(); tb.add_theme_constant_override("separation", 0)
+	tb.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	tb.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	var nm := Label.new(); nm.text = Lang.t("Trocar de Sexo")
+	nm.add_theme_font_size_override("font_size", 17); nm.add_theme_color_override("font_color", UiKit.GOLD)
+	tb.add_child(nm)
+	var subl := Label.new(); subl.text = "%s → %s %s" % [cur_lbl, tgt_lbl, tgt_sym]
+	subl.add_theme_font_size_override("font_size", 12); subl.add_theme_color_override("font_color", UiKit.TEXT_DIM)
+	tb.add_child(subl)
+	top.add_child(tb)
+	var price := HBoxContainer.new(); price.add_theme_constant_override("separation", 4)
+	price.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	var pic := Icons.rect("soulstone", 22); pic.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	price.add_child(pic)
+	var pl := Label.new(); pl.text = "%d" % cost
+	pl.add_theme_font_size_override("font_size", 18)
+	pl.add_theme_color_override("font_color", UiKit.GOLD if ss >= cost else UiKit.ERR)
+	pl.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	price.add_child(pl)
+	top.add_child(price)
+	box.add_child(top)
+	box.add_child(UiKit.spacer(4))
+	var can := ss >= cost and not busy
+	var btn := UiKit.action_big("%s %s" % [tgt_sym, Lang.t("Virar %s") % tgt_lbl], (func() -> void: _confirm_gender(target, tgt_lbl, cost)) if can else Callable())
+	btn.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	btn.disabled = not can
+	box.add_child(btn)
+	if ss < cost:
+		box.add_child(UiKit.dim(Lang.t("Precisa de %d 💎 (você tem %d)") % [cost, ss]))
+	return pc
+
+func _confirm_gender(target: String, tgt_lbl: String, cost: int) -> void:
+	if busy: return
+	UiKit.confirm(self, Lang.t("Gastar %d 💎 SoulStones para virar %s?") % [cost, tgt_lbl],
+		Lang.t("Confirmar"), func() -> void: await _do_change_gender(target))
+
+func _do_change_gender(target: String) -> void:
+	if busy: return
+	busy = true
+	var r = await Api.vip_change_gender(target)
+	if r.get("ok") and r.get("json") is Dictionary:
+		var j: Dictionary = r["json"]
+		UiKit.current_gender = str(j.get("gender", target)).to_lower()
+		# recarrega a cena raiz → busto + boneco re-renderizam no sexo novo (igual ao antigo Settings)
+		get_tree().change_scene_to_file("res://App.tscn")
+	else:
+		busy = false
+		UiKit.show_error(status, r)
 
 # Banner VIP ativo em destaque (card dourado + glow), no espírito do banner do Templo.
 func _render_active_banner(days: int) -> void:

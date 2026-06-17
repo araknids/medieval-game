@@ -54,9 +54,9 @@ func register(username: String, warrior_name: String, email: String, password: S
 func get_warrior() -> Dictionary:
 	return await _request(HTTPClient.METHOD_GET, "/api/warrior", null, true)
 
-## POST /api/warrior/gender/{MALE|FEMALE} — troca o gênero (cosmético). Devolve o WarriorResponse. [OUTFITS_FEMALE]
-func set_gender(gender: String) -> Dictionary:
-	return await _request(HTTPClient.METHOD_POST, "/api/warrior/gender/%s" % gender.to_upper(), {}, true)
+## POST /api/vip/change-gender/{MALE|FEMALE} — [GENDER] troca de sexo paga em SoulStone (só pela tela VIP).
+func vip_change_gender(gender: String) -> Dictionary:
+	return await _request(HTTPClient.METHOD_POST, "/api/vip/change-gender/%s" % gender.to_upper(), {}, true)
 
 ## POST /api/warrior/attributes/{ATTR} — gasta 1 ponto. Devolve o WarriorResponse atualizado. [MIGRACAO_GODOT]
 func spend_attribute(attr: String) -> Dictionary:

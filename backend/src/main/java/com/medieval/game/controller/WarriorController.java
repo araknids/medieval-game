@@ -85,13 +85,8 @@ public class WarriorController {
         return ResponseEntity.ok(buildResponse(warrior, player));
     }
 
-    // ── Gênero do personagem (cosmético; troca a base/peças Male/Female no paper-doll). [OUTFITS_FEMALE] ──
-    @PostMapping("/gender/{gender}")
-    public ResponseEntity<?> setGender(@PathVariable com.medieval.game.enums.Gender gender, Authentication auth) {
-        Player  player  = playerService.setGender((Long) auth.getPrincipal(), gender);
-        Warrior warrior = warriorService.getWarrior(player);
-        return ResponseEntity.ok(buildResponse(warrior, player));
-    }
+    // [GENDER] A troca de sexo saiu daqui (era grátis): o sexo é escolhido na CRIAÇÃO e só muda
+    // pagando SoulStone na tela do VIP (POST /api/vip/change-gender/{gender}). [OUTFITS_FEMALE]
 
     // ── Helper ──
 

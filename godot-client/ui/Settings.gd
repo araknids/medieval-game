@@ -29,34 +29,8 @@ func _render() -> void:
 	content.add_child(row)
 	row.add_child(_lang_btn("Português", "pt"))
 	row.add_child(_lang_btn("English", "en"))
-
-	# Gênero do personagem (cosmético: base + peças Male/Female do paper-doll). [OUTFITS_FEMALE]
-	content.add_child(UiKit.section("Personagem"))
-	content.add_child(UiKit.dim("Aparência do herói (cosmético — não afeta stats)."))
-	var grow := HBoxContainer.new()
-	grow.add_theme_constant_override("separation", 10)
-	content.add_child(grow)
-	grow.add_child(_gender_btn("♂ Masculino", "MALE"))
-	grow.add_child(_gender_btn("♀ Feminino", "FEMALE"))
-
-func _gender_btn(label: String, code: String) -> Button:
-	var active := UiKit.current_gender.to_upper() == code
-	var b := UiKit.action_big(("✓ " + label) if active else label, func() -> void: _pick_gender(code))
-	b.auto_translate_mode = Control.AUTO_TRANSLATE_MODE_DISABLED
-	b.disabled = active
-	return b
-
-func _pick_gender(code: String) -> void:
-	if UiKit.current_gender.to_upper() == code:
-		return
-	UiKit.flash(status, "Salvando…", 0)
-	var r = await Api.set_gender(code)
-	if r.get("ok"):
-		UiKit.current_gender = code.to_lower()
-		# recarrega a cena raiz → busto + boneco re-renderizam no gênero novo (mesmo padrão do idioma)
-		get_tree().change_scene_to_file("res://App.tscn")
-	else:
-		UiKit.flash(status, UiKit.err_text(r), 2)
+	# [GENDER] A escolha de sexo saiu daqui: é definida na CRIAÇÃO do personagem e só troca
+	# pagando SoulStone na tela do VIP (não é mais grátis nas Configurações).
 
 func _lang_btn(label: String, code: String) -> Button:
 	var active := Lang.current() == code

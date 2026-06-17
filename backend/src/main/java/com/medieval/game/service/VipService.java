@@ -20,6 +20,7 @@ public class VipService {
     private static final int  VIP_COST_STONES   = 15;
     private static final int  VIP_DAYS          = 30;
     private static final int  VIP_HEAL_CD_MIN   = 10;
+    private static final int  GENDER_CHANGE_COST_STONES = 10; // [GENDER] troca de sexo paga (premium)
 
     private final PlayerRepository playerRepository;
 
@@ -47,6 +48,29 @@ public class VipService {
         return player;
     }
 
+    // ── Trocar de sexo (premium, pago em SoulStone) ──────────────────────────
+    // [GENDER] O sexo é escolhido na criação do personagem e NÃO muda no jogo normal;
+    // a única forma de trocar é aqui, gastando SoulStone (vendido na tela do VIP).
+
+    @Transactional
+    public Player changeGender(Player player, com.medieval.game.enums.Gender gender) {
+        log.info("[VipService] player={} action=changeGender target={}", player.getId(), gender);
+        if (gender == null) throw new IllegalArgumentException("gender required");
+        if (gender == player.getGender())
+            throw new com.medieval.game.config.LocalizedException("error.gender_same", "You are already this gender.");
+        if (player.getSoulStones() < GENDER_CHANGE_COST_STONES) {
+            log.warn("[VipService] player={} REJECTED changeGender: not enough SoulStones ({}<{})",
+                    player.getId(), player.getSoulStones(), GENDER_CHANGE_COST_STONES);
+            throw new com.medieval.game.config.LocalizedException("error.soulstones_required", "Not enough SoulStones. Required: {0}", GENDER_CHANGE_COST_STONES);
+        }
+        player.setSoulStones(player.getSoulStones() - GENDER_CHANGE_COST_STONES);
+        player.setGender(gender);
+        playerRepository.save(player);
+        log.info("[VipService] player={} action=changeGender OK gender={} stonesLeft={}",
+                player.getId(), gender, player.getSoulStones());
+        return player;
+    }
+
     // ── Status ───────────────────────────────────────────────────────────────
 
     public Map<String, Object> status(Player player) {
@@ -60,7 +84,10 @@ public class VipService {
             Map.entry("arenaFightsRemaining",   player.getArenaFightLimit() - player.getArenaFightsToday()),
             Map.entry("arenaFightLimit",        player.getArenaFightLimit()),
             Map.entry("vipHealCooldownSecs",    vipHealCooldownSecs(player)),
-            Map.entry("vipHealReady",           vipHealCooldownSecs(player) == 0)
+            Map.entry("vipHealReady",           vipHealCooldownSecs(player) == 0),
+            // [GENDER] sexo atual + custo da troca (vitrine na tela do VIP)
+            Map.entry("gender",                 player.getGender() != null ? player.getGender().name() : "MALE"),
+            Map.entry("genderChangeCost",       GENDER_CHANGE_COST_STONES)
         );
     }
 
