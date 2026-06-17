@@ -175,21 +175,32 @@ func _layer_row(layer: Dictionary, cur: int, status_str: String) -> VBoxContaine
 	var is_current := idx == cur and status_str == "IN_PROGRESS"
 	if is_current:
 		box.add_child(UiKit.dim("Escolha seu caminho:"))
+	var nodes_arr: Array = layer.get("nodes", [])
+	# [INCURSAO] CHEFE (camada final, 1 nó BOSS) → fica à DIREITA p/ cair no castelo (top-right do mapa).
+	var is_boss := nodes_arr.size() == 1 and nodes_arr[0] is Dictionary and str(nodes_arr[0].get("type", "")) == "BOSS"
 	var hb := HBoxContainer.new(); hb.add_theme_constant_override("separation", 8)
-	hb.alignment = BoxContainer.ALIGNMENT_BEGIN
-	for n in layer.get("nodes", []):
-		if n is Dictionary:
-			# [INCURSAO] caminho ramificado: SETA (apontando p/ cima) ABAIXO dos nós alcançáveis na
-			# camada atual — a progressão sobe rumo ao castelo, então a seta marca "subir por aqui".
-			if is_current and bool(n.get("reachable", false)):
-				var cell := VBoxContainer.new(); cell.add_theme_constant_override("separation", 0)
-				cell.alignment = BoxContainer.ALIGNMENT_CENTER
-				cell.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
-				cell.add_child(_node_chip(n))
-				cell.add_child(_path_arrow())
-				hb.add_child(cell)
-			else:
-				hb.add_child(_node_chip(n))
+	hb.size_flags_horizontal = Control.SIZE_EXPAND_FILL   # ocupa a largura → o alinhamento vale
+	hb.alignment = BoxContainer.ALIGNMENT_CENTER          # centraliza os ícones
+	if is_boss:
+		# empurra o nó do chefe p/ ~2/3 da largura (no castelo) com espaçadores de stretch ratio
+		var lsp := Control.new(); lsp.size_flags_horizontal = Control.SIZE_EXPAND_FILL; lsp.size_flags_stretch_ratio = 3.0
+		hb.add_child(lsp)
+		hb.add_child(_node_chip(nodes_arr[0]))
+		var rsp := Control.new(); rsp.size_flags_horizontal = Control.SIZE_EXPAND_FILL; rsp.size_flags_stretch_ratio = 1.0
+		hb.add_child(rsp)
+	else:
+		for n in nodes_arr:
+			if n is Dictionary:
+				# caminho ramificado: SETA (apontando p/ cima) ABAIXO dos nós alcançáveis na camada atual.
+				if is_current and bool(n.get("reachable", false)):
+					var cell := VBoxContainer.new(); cell.add_theme_constant_override("separation", 0)
+					cell.alignment = BoxContainer.ALIGNMENT_CENTER
+					cell.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+					cell.add_child(_node_chip(n))
+					cell.add_child(_path_arrow())
+					hb.add_child(cell)
+				else:
+					hb.add_child(_node_chip(n))
 	box.add_child(hb)
 	return box
 
