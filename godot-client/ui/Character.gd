@@ -464,7 +464,11 @@ func _render_resources() -> void:
 	_resources_host.add_child(flow)
 
 func _res_chip(r: Dictionary) -> Control:
+	var rtype := str(r.get("type", ""))
+	var category := str(r.get("category", ""))
 	var pc := PanelContainer.new()
+	# [RECURSOS] hover explica p/ que serve o recurso (e se dá pra consumir)
+	pc.tooltip_text = _res_use_text(rtype, category)
 	var sb := StyleBoxFlat.new()
 	sb.bg_color = Color(0.08, 0.07, 0.09, 0.95)
 	sb.set_border_width_all(1)
@@ -474,16 +478,46 @@ func _res_chip(r: Dictionary) -> Control:
 	pc.add_theme_stylebox_override("panel", sb)
 	var hb := HBoxContainer.new()
 	hb.add_theme_constant_override("separation", 6)
+	hb.mouse_filter = Control.MOUSE_FILTER_IGNORE   # hover cai no pc (mostra o tooltip); botões ainda clicam
 	pc.add_child(hb)
 	var qty := int(r.get("quantity", 0))
 	var lbl := Label.new()
-	lbl.text = "📦 %s ×%d" % [str(r.get("displayName", r.get("type", "?"))), qty]
+	lbl.text = "📦 %s ×%d" % [str(r.get("displayName", rtype)), qty]
 	lbl.add_theme_font_size_override("font_size", 13)
 	lbl.add_theme_color_override("font_color", UiKit.TEXT)
 	lbl.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	hb.add_child(lbl)
-	hb.add_child(_action_icon("stash", "🧰", _stash_resource.bind(str(r.get("type", "")), qty), Lang.t("Guardar no baú")))
+	# [RECURSOS] peixe → botão de CONSUMIR (restaura estamina + vida)
+	if category == "FISH":
+		hb.add_child(_action_icon("fish", "🐟", _consume_resource.bind(rtype), Lang.t("Consumir: +estamina e vida")))
+	hb.add_child(_action_icon("stash", "🧰", _stash_resource.bind(rtype, qty), Lang.t("Guardar no baú")))
 	return pc
+
+# [RECURSOS] Texto de hover: p/ que cada categoria de recurso serve.
+func _res_use_text(rtype: String, category: String) -> String:
+	if rtype == "MONSTER_CORE":
+		return Lang.t("Exigido na Path Trial (virar de classe) + material de forja.")
+	match category:
+		"FISH":     return Lang.t("Consumir restaura estamina e vida (peixes maiores dão mais).")
+		"ORE":      return Lang.t("Refine na Forja → barra de metal (base do equipamento).")
+		"BAR":      return Lang.t("Material da Forja: forja armas e armaduras.")
+		"FRAGMENT": return Lang.t("Lapide na Forja → joia (encaixa em soquete).")
+		"GEM":      return Lang.t("Joia: encaixa em soquete de equipamento (bônus de stat).")
+		"ESSENCE":  return Lang.t("Encanta arma/armadura com elemento (na Forja).")
+		"MATERIAL": return Lang.t("Material de forja (craft de equipamento).")
+		_:          return Lang.t("Recurso de coleta.")
+
+func _consume_resource(rtype: String) -> void:
+	if busy or rtype == "":
+		return
+	busy = true
+	var r = await Api.gathering_consume(rtype)
+	busy = false
+	await _refresh()
+	if r.get("ok") and r.get("json") is Dictionary:
+		UiKit.flash(status, str(r["json"].get("message", Lang.t("Consumido!"))), 1)
+	else:
+		UiKit.show_error(status, r)
 
 func _set_rarity(r) -> void:
 	rarity_filter = int(r)

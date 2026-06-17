@@ -179,6 +179,9 @@ func smithing_recipes() -> Dictionary:
 	return await _request(HTTPClient.METHOD_GET, "/api/smithing/recipes", null, true)
 func get_resources() -> Dictionary:
 	return await _request(HTTPClient.METHOD_GET, "/api/gathering/resources", null, true)
+## POST /api/gathering/consume/{type} — consome 1 peixe (restaura estamina + vida). [RECURSOS]
+func gathering_consume(res: String) -> Dictionary:
+	return await _request(HTTPClient.METHOD_POST, "/api/gathering/consume/%s" % res, {}, true)
 func smithing_refine(ore: String, qty: int) -> Dictionary:
 	return await _request(HTTPClient.METHOD_POST, "/api/smithing/refine", {"oreType": ore, "quantity": qty}, true)
 func smithing_craft(recipe_id: String) -> Dictionary:
