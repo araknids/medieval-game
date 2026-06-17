@@ -169,6 +169,8 @@ const GORE_COLORS := [Color(0.5, 0.08, 0.08), Color(0.42, 0.05, 0.05), Color(0.6
 @export var shield_up := 0.02      # nudge vertical (no frame alinhado do escudo)
 ## Vira a face do escudo (use se o umbo ficar virado pro CORPO em vez do inimigo).
 @export var shield_flip := false
+## Orientação do escudo na mão (graus). Ajuste no Inspector se ficar de lado/cabeça-pra-baixo. [ARMAS_3D]
+@export var shield_rot := Vector3(0, 0, 180)
 ## (Legado) escala manual do monstro — hoje o tamanho vem do roster (Monsters.size_for) + auto-fit.
 @export var monster_scale := 1.0
 ## Giro extra do monstro em Y (graus) se ele nascer de lado/de costas. Tente 0, 90, 180, -90.
@@ -450,9 +452,10 @@ func _build_fighters() -> void:
 		return
 	var lname := str(spawns[0].get("actor", "Hero"))
 	var rname := str(spawns[1].get("actor", "Foe"))
-	# HERÓI (esquerda = challenger): arma e equip REAIS. Sem arma equipada → espada.
+	# HERÓI (esquerda = challenger): arma e equip REAIS. [UNARMED] Sem arma equipada → DESARMADO
+	# (sem modelo de arma + golpe de soco/Punch_Cross), não mais uma espada padrão.
 	# force_weapon (Inspector) sobrepõe p/ TESTE — ver qualquer tipo sem equipar no jogo.
-	var lweapon := force_weapon if force_weapon != "" else (player_weapon if player_weapon != "" else "sword")
+	var lweapon := force_weapon if force_weapon != "" else player_weapon
 	var lequip: Array = (player_equip if player_equip.size() > 0 else DEFAULT_OUTFIT).duplicate()
 	if force_shield and not ("SHIELD" in lequip):
 		lequip.append("SHIELD")   # TESTE: força o escudo
@@ -517,7 +520,7 @@ func _build_team() -> void:
 		var aname := "Você" if i == 0 else "Aliado %d" % (i + 1)
 		_resv_ally.append({
 			"name": aname,
-			"weapon": player_weapon if (i == 0 and player_weapon != "") else "sword",
+			"weapon": (player_weapon if i == 0 else "sword"),   # [UNARMED] o herói (i==0) pode ficar desarmado; aliados usam espada
 			"equip": (player_equip if (i == 0 and player_equip.size() > 0) else DEFAULT_OUTFIT),
 			"rar": player_weapon_rarity if i == 0 else 1,
 			"hp": 100,
@@ -680,7 +683,7 @@ func _war_hit(e: Dictionary, crit: bool) -> void:
 	if a != null and not a.get("dead", false):
 		_face_node(a, t["node"])
 		if a.get("anim"):
-			a["anim"].play(_clip(a, "attack") if a.get("is_monster", false) else _rand_sword(a["anim"]), BLEND)
+			a["anim"].play(_clip(a, "attack") if a.get("is_monster", false) else _melee_clip(a), BLEND)
 	var dmg := int(e.get("damage", 0))
 	var zone := str(e.get("hitZone", "body"))
 	if zone == "": zone = "body"
@@ -833,7 +836,12 @@ func _tint_body(node: Node3D, color: Color) -> void:
 
 # Lê o inventário: armadura equipada → player_equip; arma equipada → player_weapon (tipo visual).
 func _read_player_gear(items: Array) -> void:
+	# [UNARMED] reset → sem arma/escudo equipado = desarmado (sem espada residual)
 	player_items = []
+	player_equip = []
+	player_weapon = ""
+	player_shield_rarity = 1
+	player_weapon_rarity = 1
 	for it in items:
 		if not (it is Dictionary) or it.get("equipped") != true:
 			continue
@@ -889,7 +897,8 @@ func _make_fighter(fname: String, side: int, maxhp: int, weapon_kind: String, eq
 			ap.add_animation_library("UAL2_Standard", lib2)
 	var skel: Skeleton3D = node.find_child("GeneralSkeleton", true, false)
 	var yaw_off := deg_to_rad(monster_face_offset_deg) if is_monster else 0.0
-	var f := {"name": fname, "node": node, "anim": ap, "side": side, "ranged": ranged,
+	var unarmed := weapon_kind == "" and not is_monster   # [UNARMED] herói sem arma → soco
+	var f := {"name": fname, "node": node, "anim": ap, "side": side, "ranged": ranged, "unarmed": unarmed,
 			  "dead": false, "maxhp": max(1, maxhp), "hp": max(1, maxhp), "busy": false, "hopping": false,
 			  "vel": 0.0, "shown_hp": float(max(1, maxhp)), "is_monster": is_monster, "yaw_offset": yaw_off,
 			  "base_y": base_y, "bar_off": bar_off,
@@ -917,11 +926,12 @@ func _make_fighter(fname: String, side: int, maxhp: int, weapon_kind: String, eq
 		if aura:
 			node.add_child(aura)
 			f["aura"] = aura
-		wp.attach_weapon(node, weapon_kind, rarity, weapon_grip)
-		# escudo na off-hand — só com arma MELEE (arco usa as duas mãos)
+		if weapon_kind != "":   # [UNARMED] sem arma → não anexa modelo (soco)
+			wp.attach_weapon(node, weapon_kind, rarity, weapon_grip)
+		# escudo na off-hand — só sem arma DE DUAS MÃOS (arco usa as duas mãos); desarmado pode escudar
 		if ("SHIELD" in equipped_types) and not wp.is_bow_kind(weapon_kind):
 			var sh_r := force_rarity if force_rarity > 0 else player_shield_rarity   # [RARIDADE] escudo
-			wp.attach_shield(node, {"slide": shield_slide, "push": shield_push, "side": shield_side, "up": shield_up, "flip": shield_flip, "rarity": sh_r})
+			wp.attach_shield(node, {"slide": shield_slide, "push": shield_push, "side": shield_side, "up": shield_up, "flip": shield_flip, "rot": shield_rot, "rarity": sh_r})
 	# barra de vida (3D) + nome
 	var bar := Node3D.new()
 	add_child(bar)
@@ -1268,7 +1278,7 @@ func _tick_team(dt: float) -> void:
 						var clip: String
 						if f.get("is_monster", false): clip = _clip(f, "attack")
 						elif f["ranged"]: clip = A_SHOOT
-						else: clip = _rand_sword(f["anim"])
+						else: clip = _melee_clip(f)
 						f["anim"].play(clip, BLEND)
 			"windup":
 				f["ttimer"] += dt
@@ -1486,7 +1496,7 @@ func _begin(e: Dictionary) -> void:
 		elif sw["ranged"]:
 			clip = A_SHOOT
 		else:
-			clip = _combo_clip(sw["anim"]) if ty == "crit" else _rand_sword(sw["anim"])
+			clip = _melee_clip(sw, ty == "crit")
 		sw["anim"].play(clip, BLEND)
 
 # Golpe de espada aleatório (A/B/C da UAL2; fallback Sword_Attack da UAL1).
@@ -1498,6 +1508,18 @@ func _rand_sword(ap: AnimationPlayer) -> String:
 # Combo do crit (UAL2); fallback p/ um golpe normal se não existir.
 func _combo_clip(ap: AnimationPlayer) -> String:
 	return SWORD_COMBO if ap.has_animation(SWORD_COMBO) else _rand_sword(ap)
+
+# [UNARMED] Golpe MELEE do lutador: DESARMADO → soco (Punch_Cross no crit, Jab/Cross variando);
+# armado → espada (combo no crit). Centraliza a escolha p/ todos os call sites.
+func _melee_clip(f: Dictionary, crit := false) -> String:
+	var ap: AnimationPlayer = f["anim"]
+	if f.get("unarmed", false):
+		var cross := LIB + "Punch_Cross"
+		var jab := LIB + "Punch_Jab"
+		if crit and ap.has_animation(cross): return cross   # cross = o soco "forte"
+		var pool: Array = [cross, jab].filter(func(a): return ap.has_animation(a))
+		return pool[randi() % pool.size()] if not pool.is_empty() else A_ATTACK
+	return _combo_clip(ap) if crit else _rand_sword(ap)
 
 # Resolve o evento: aplica dano/HP/flinch/flecha/popup/morte (espelha o antigo impact+step_end).
 func _resolve(e: Dictionary) -> void:

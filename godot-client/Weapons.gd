@@ -37,8 +37,10 @@ const HAND_XF := {
 
 # Escudo no antebraço: escala + base de posição (somada aos opts slide/push/side) + rotação. [ARMAS_3D]
 const SHIELD_SCALE := 0.20
-const SHIELD_BASE := Vector3(0.0, 0.10, 0.10)   # x=lado, y=ao longo do braço, z=frente
-const SHIELD_ROT := Vector3(0, 0, 0)
+# y=ao longo do braço (↑ = rumo à mão/pulso) · z=frente (cobre a mão). Aproximado da MÃO.
+const SHIELD_BASE := Vector3(0.0, 0.18, 0.08)   # x=lado, y=ao longo do braço, z=frente
+# [FIX] estava (0,0,0) e o escudo saía de CABEÇA PRA BAIXO → 180° em Z endireita (face pra frente).
+const SHIELD_ROT := Vector3(0, 0, 180)
 
 # Tipo visual FINO pelo NOME (espelha backend WeaponType.fromName — a API não manda o tipo).
 func weapon_kind(item_name: String, category: String) -> String:
@@ -91,9 +93,13 @@ func attach_shield(node: Node3D, opts := {}) -> Node3D:
 	var holder := Node3D.new()
 	holder.position = SHIELD_BASE + Vector3(
 		float(opts.get("side", 0.0)),
-		float(opts.get("slide", 0.0)),
+		float(opts.get("slide", 0.0)) + float(opts.get("up", 0.0)),   # slide = rumo ao pulso; up = nudge
 		float(opts.get("push", 0.0)))
-	holder.rotation_degrees = SHIELD_ROT
+	# [FIX] orientação tunável (opts.rot, default SHIELD_ROT) + flip agora FUNCIONA (antes ignorado).
+	var rot: Vector3 = opts.get("rot", SHIELD_ROT)
+	if bool(opts.get("flip", false)):
+		rot += Vector3(0, 0, 180)
+	holder.rotation_degrees = rot
 	ba.add_child(holder)
 	var model = _load_model(SHIELD_MODEL)
 	if model != null:
