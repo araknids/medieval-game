@@ -447,34 +447,36 @@ static func show_battle_report(host: Control, won: bool, title: String, reward_r
 # [CARD_BOTAO] Botão de escolha ICON-PRIMARY: ícone grande em cima + rótulo pequeno embaixo. P/ modais
 # de escolha binária (Encarar/Fugir, Ajudar/Terminar) e chips de nó da Incursão — bem menor que o
 # botão de texto 460×40. Fallback no emoji se o ícone PixelLab ainda não foi importado.
-static func icon_choice_btn(icon_key: String, emoji: String, label: String, cb: Callable, accent := GOLD_SOFT) -> Button:
+static func icon_choice_btn(icon_key: String, emoji: String, label: String, cb: Callable, accent := GOLD_SOFT, compact := false) -> Button:
+	var icon_px := 26 if compact else 40
+	var lbl_font := 11 if compact else 13
 	var b := Button.new()
 	StoneStyle.apply(b)
-	b.custom_minimum_size = Vector2(112, 84)
+	b.custom_minimum_size = Vector2(72, 54) if compact else Vector2(112, 84)
 	b.focus_mode = Control.FOCUS_NONE
 	if cb.is_valid():
 		b.pressed.connect(_debounce.bind(b))
 		b.pressed.connect(cb)
 	var v := VBoxContainer.new()
 	v.alignment = BoxContainer.ALIGNMENT_CENTER
-	v.add_theme_constant_override("separation", 4)
+	v.add_theme_constant_override("separation", 1 if compact else 4)
 	v.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	v.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	b.add_child(v)
 	var ic := Icons.tex(icon_key)
 	if ic != null:
-		var tr := _tex_rect(ic, 40)
+		var tr := _tex_rect(ic, icon_px)
 		tr.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 		v.add_child(tr)
 	else:
 		var el := Label.new(); el.text = emoji
-		el.add_theme_font_size_override("font_size", 30)
+		el.add_theme_font_size_override("font_size", 20 if compact else 30)
 		el.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		el.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		v.add_child(el)
 	if label != "":
 		var ll := Label.new(); ll.text = label
-		ll.add_theme_font_size_override("font_size", 13)
+		ll.add_theme_font_size_override("font_size", lbl_font)
 		ll.add_theme_color_override("font_color", accent)
 		ll.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		ll.mouse_filter = Control.MOUSE_FILTER_IGNORE

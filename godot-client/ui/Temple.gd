@@ -57,7 +57,7 @@ func _render_blessing() -> void:
 	var active := str(data.get("activeBuff", ""))
 	var active2 := str(data.get("activeBuff2", ""))
 	if active == "" and active2 == "":
-		content.add_child(UiKit.empty("Sem bênção ativa", "Receba uma bênção abaixo para se fortalecer em combate"))
+		content.add_child(UiKit.dim("Sem bênção ativa — receba uma abaixo para se fortalecer."))
 		return
 	var res := UiKit.card(UiKit.GOLD)
 	var pc: PanelContainer = res[0]
@@ -134,8 +134,7 @@ func _render_state() -> void:
 
 # Botão de cura ICON-PRIMARY (ícone + custo/CD). Desabilitado em CD/sem-recurso → apagado.
 func _heal_btn(icon_key: String, emoji: String, label: String, cb: Callable, enabled: bool, tip: String, accent: Color) -> Button:
-	var b := UiKit.icon_choice_btn(icon_key, emoji, label, cb if enabled else Callable(), accent)
-	b.custom_minimum_size = Vector2(104, 80)
+	var b := UiKit.icon_choice_btn(icon_key, emoji, label, cb if enabled else Callable(), accent, true)   # compact (~50% menor)
 	b.tooltip_text = tip
 	if not enabled:
 		b.disabled = true
@@ -154,7 +153,7 @@ func _render_buff_options() -> void:
 	for b in buffs:
 		if b is Dictionary:
 			cells.append(b)
-	content.add_child(UiKit.grid(self, cells, _buff_cell, true))   # grid compacto 2-3 col
+	content.add_child(UiKit.grid(self, cells, _buff_cell, false, 230, 3))   # grid bem compacto (3 col)
 
 # [TEMPLO_UI] Bênção = CARD CLICÁVEL inteiro (clica = aplica), sem botão gigante. Header [ícone] nome +
 # custo; sub = efeito. Efeito completo no tooltip do card. [CARD_BOTAO]
@@ -162,11 +161,13 @@ func _buff_cell(b: Dictionary) -> Control:
 	var eff_txt := str(b.get("effect", ""))
 	var on_click := func() -> void: _apply_buff(str(b.get("id", "")))
 	var res := UiKit.clickable_card(UiKit.GOLD_SOFT, on_click, true, eff_txt)
+	var pc: PanelContainer = res[0]
+	(pc.get_theme_stylebox("panel") as StyleBoxFlat).set_content_margin_all(8)   # padding menor → card mais baixo
 	var box: VBoxContainer = res[1]
-	box.add_theme_constant_override("separation", 4)
+	box.add_theme_constant_override("separation", 2)
 	# header: ícone (emoji da bênção) + nome + custo
 	var top := HBoxContainer.new(); top.add_theme_constant_override("separation", 6)
-	var ic := Label.new(); ic.text = str(b.get("icon", "✨")); ic.add_theme_font_size_override("font_size", 20)
+	var ic := Label.new(); ic.text = str(b.get("icon", "✨")); ic.add_theme_font_size_override("font_size", 18)
 	top.add_child(ic)
 	var nm := Label.new(); nm.text = str(b.get("displayName", b.get("id", "?")))
 	nm.add_theme_font_size_override("font_size", 15); nm.add_theme_color_override("font_color", UiKit.TEXT)
@@ -186,27 +187,21 @@ func _buff_cell(b: Dictionary) -> Control:
 
 # ── Proteção de itens ──────────────────────────────────────────────────────────
 func _render_protection() -> void:
-	# A frase fica num label SOLTO no content (largura cheia → quebra por palavra, normal).
-	# Antes ela morava num HBox e o autowrap do dim() a espremia pra ~1 caractere (quebrava letra-a-letra).
-	content.add_child(UiKit.dim("Itens protegidos não são perdidos em PvP."))
-	# [MOEDA] linha de custo compacta: autowrap OFF nos textos p/ não repetir o bug dentro do HBox.
-	var prot := HBoxContainer.new(); prot.add_theme_constant_override("separation", 4)
-	var prot_a := UiKit.dim("Custo:")
-	prot_a.autowrap_mode = TextServer.AUTOWRAP_OFF
-	prot_a.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	prot.add_child(prot_a)
-	var coin := UiKit.coin_box(50, 14)
-	coin.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	# [TEMPLO_UI] intro compacto numa LINHA só: explicação + custo (autowrap OFF p/ não espremer no HBox).
+	var prot := HBoxContainer.new(); prot.add_theme_constant_override("separation", 5)
+	var pa := UiKit.dim("Protegidos não se perdem em PvP ·")
+	pa.autowrap_mode = TextServer.AUTOWRAP_OFF; pa.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	prot.add_child(pa)
+	var coin := UiKit.coin_box(50, 14); coin.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	prot.add_child(coin)
-	var prot_b := UiKit.dim("/ item")
-	prot_b.autowrap_mode = TextServer.AUTOWRAP_OFF
-	prot_b.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	prot.add_child(prot_b)
+	var pb := UiKit.dim("/item")
+	pb.autowrap_mode = TextServer.AUTOWRAP_OFF; pb.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	prot.add_child(pb)
 	content.add_child(prot)
 	if equipped.is_empty():
-		content.add_child(UiKit.empty("Nenhum item equipado", "Equipe itens no 🎒 Inventário para protegê-los"))
+		content.add_child(UiKit.dim("Nenhum item equipado — equipe no 🎒 Inventário para proteger."))
 		return
-	content.add_child(UiKit.grid(self, equipped, _protect_cell, true))   # grid compacto 2-3 col
+	content.add_child(UiKit.grid(self, equipped, _protect_cell, false, 230, 3))   # grid bem compacto (3 col)
 
 # [TEMPLO_UI] Item de proteção = CARD CLICÁVEL (clica = protege/remove). Selo de escudo quando protegido;
 # sem botão. Tooltip explica a ação. [CARD_BOTAO]
@@ -221,8 +216,10 @@ func _protect_cell(it: Dictionary) -> Control:
 			_protect(id)
 	var tip := Lang.t("Tocar para remover a proteção") if guarded else Lang.t("Tocar para proteger (não se perde em PvP) · custo 50 bronze")
 	var res := UiKit.clickable_card(col, on_click, true, tip)
+	var pc: PanelContainer = res[0]
+	(pc.get_theme_stylebox("panel") as StyleBoxFlat).set_content_margin_all(8)   # padding menor → card mais baixo
 	var box: VBoxContainer = res[1]
-	box.add_theme_constant_override("separation", 4)
+	box.add_theme_constant_override("separation", 2)
 	var nm := Label.new()
 	nm.text = str(it.get("name", "?"))
 	nm.add_theme_font_size_override("font_size", 14)
