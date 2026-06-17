@@ -58,10 +58,12 @@ func _render() -> void:
 	if unlocked.is_empty():
 		content.add_child(UiKit.empty("Nenhum título ainda", "Desbloqueie conquistas abaixo para ganhar títulos."))
 	else:
-		content.add_child(_title_card("Nenhum", "", active == ""))
+		# [SEM_SCROLL] picker de título em GRID 3-col (era 1 card por linha)
+		var pickers: Array = [{"label": "Nenhum", "id": "", "on": active == ""}]
 		for a in unlocked:
 			var t := str(a.get("title", ""))
-			content.add_child(_title_card("👑 %s" % t, str(a.get("id", "")), t == active))
+			pickers.append({"label": "👑 %s" % t, "id": str(a.get("id", "")), "on": t == active})
+		content.add_child(UiKit.grid(self, pickers, func(p): return _title_card(str(p["label"]), str(p["id"]), bool(p["on"])), true, 200, 3))
 
 	# ── Catálogo por categoria (com filtro de status no topo) ──
 	content.add_child(UiKit.section("Catálogo"))

@@ -212,7 +212,7 @@ static func scaffold(screen: Control, title_text: String, on_back: Callable, on_
 	pad.add_theme_constant_override("margin_bottom", 20)
 	scroll.add_child(pad)
 	var content := VBoxContainer.new()
-	content.add_theme_constant_override("separation", 10)
+	content.add_theme_constant_override("separation", 7)   # [SEM_SCROLL] espaçamento menor entre blocos → telas mais curtas
 	content.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	pad.add_child(content)
 
@@ -669,8 +669,8 @@ static func clickable_card(border := BRONZE, on_click := Callable(), enabled := 
 
 static func section(text: String) -> Control:
 	var v := VBoxContainer.new()
-	v.add_theme_constant_override("separation", 6)
-	v.add_child(spacer(8))
+	v.add_theme_constant_override("separation", 4)
+	v.add_child(spacer(4))   # [SEM_SCROLL] respiro menor antes do cabeçalho de seção
 	var row := HBoxContainer.new()
 	row.add_theme_constant_override("separation", 10)
 	# [ICONES_MARCADOR] emoji no início do título → ícone PixelLab (fallback: mantém o texto/emoji)

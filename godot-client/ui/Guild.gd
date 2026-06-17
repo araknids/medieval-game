@@ -104,11 +104,9 @@ func _render_panel() -> void:
 			Lang.t("Lv.%d → Lv.%d  (faltam %s)") % [int(g.get("level", 1)), int(g.get("level", 1)) + 1, _fmt_bronze(int(g.get("goldToNextLevel", 0)))]))
 	content.add_child(head_res[0])
 
-	# ── Membros ──
+	# ── Membros ── [SEM_SCROLL] grid 2-col (era 1 membro por linha)
 	content.add_child(UiKit.section(Lang.t("Membros (%d)") % members.size()))
-	for mm in members:
-		if mm is Dictionary:
-			content.add_child(_member_row(mm, is_leader))
+	content.add_child(UiKit.grid(self, members, func(mm): return _member_row(mm, is_leader) if mm is Dictionary else null, false, 260, 2))
 
 	# ── Doar ──
 	content.add_child(UiKit.section("Doar para o tesouro"))

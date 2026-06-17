@@ -94,7 +94,7 @@ func _render() -> void:
 	content.add_child(UiKit.section("Beber"))
 	content.add_child(UiKit.dim("Acerte o tempo no gole para ganhar +1 stack de buff. Cobra 1🥉 sempre."))
 	mini_panel_holder()
-	drink_btn = UiKit.action_big("🍺 Beber (1 🥉)", func() -> void: await _drink_pressed())
+	drink_btn = UiKit.action("🍺 Beber (1 🥉)", func() -> void: await _drink_pressed())   # [SEM_SCROLL] botão menor
 	content.add_child(drink_btn)
 	msg_label = Label.new()
 	msg_label.custom_minimum_size = Vector2(0, 20)
@@ -104,7 +104,7 @@ func _render() -> void:
 	content.add_child(UiKit.section("💬 Chat"))
 	var cres := UiKit.card()
 	var cbox: VBoxContainer = cres[1]
-	cres[0].custom_minimum_size = Vector2(0, 240)
+	cres[0].custom_minimum_size = Vector2(0, 200)   # [SEM_SCROLL] chat com rolagem própria → reserva menos altura
 	chat_scroll = ScrollContainer.new()
 	chat_scroll.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	chat_scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL

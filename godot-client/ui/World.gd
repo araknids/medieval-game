@@ -350,16 +350,15 @@ func _build_detail(box: VBoxContainer, kingdom: String) -> void:
 	# DAILY QUESTS
 	if not quests.is_empty():
 		box.add_child(UiKit.section("🗓 Daily Quests"))
-		for q in quests:
-			if q is Dictionary:
-				box.add_child(_quest_card(kingdom, q))
+		# [SEM_SCROLL] quests em GRID 2-col (era 1 card por linha → encurta bastante)
+		box.add_child(UiKit.grid(self, quests, func(q): return _quest_card(kingdom, q) if q is Dictionary else null, false, 280, 2))
 	# Zonas de coleta / caça
 	if ZONES.has(kingdom):
 		box.add_child(UiKit.section("⚗ Áreas de Elemento"))
 		box.add_child(_element_picker())
 		box.add_child(UiKit.section("⚔ Zonas" if kingdom == "COMBAT" else "🌍 Zonas"))
-		for z in ZONES[kingdom]:
-			box.add_child(_zone_card(kingdom, z))
+		# [SEM_SCROLL] 3 zonas em GRID 3-col → 1 linha
+		box.add_child(UiKit.grid(self, ZONES[kingdom], func(z): return _zone_card(kingdom, z), false, 200, 3))
 
 # [CARD_BOTAO] Card de quest CLICÁVEL INTEIRO (o card é o botão — sem botão de texto embaixo).
 # Cabeçalho: [pergaminho] nome (expande) [recompensa de bronze] [⭐XP] [⚡custo]. Bloqueado (feito/
