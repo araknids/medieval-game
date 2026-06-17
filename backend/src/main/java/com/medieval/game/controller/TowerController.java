@@ -53,8 +53,8 @@ public class TowerController {
     }
 
     @GetMapping("/ranking")
-    public ResponseEntity<List<?>> getRanking() {
-        var ranking = towerService.getRanking().stream().map(p -> {
+    public ResponseEntity<List<?>> getRanking(@RequestParam(defaultValue = "0") int page) {
+        var ranking = towerService.getRanking(page, 20).stream().map(p -> {   // [PAGINACAO] página de 20 (offset no DB)
             String warriorName = warriorRepository.findByPlayer(p)
                     .map(w -> w.getName()).orElse(p.getUsername());
             return Map.of("warriorName", warriorName,

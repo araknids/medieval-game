@@ -27,8 +27,8 @@ public class ArenaController {
     private final WarriorRepository warriorRepository;
 
     @GetMapping("/rank")
-    public ResponseEntity<List<RankEntry>> getRank() {
-        List<Player> top = arenaService.getRanking().stream().limit(20).toList();
+    public ResponseEntity<List<RankEntry>> getRank(@RequestParam(defaultValue = "0") int page) {
+        List<Player> top = arenaService.getRanking(page, 20);   // [PAGINACAO] página de 20 (offset no DB)
         // [AUDITORIA_2 A5] 1 query batch p/ os nomes em vez de findByPlayer por linha (N+1)
         Map<Long, String> names = warriorRepository.findByPlayerIn(top).stream()
                 .collect(java.util.stream.Collectors.toMap(w -> w.getPlayer().getId(),

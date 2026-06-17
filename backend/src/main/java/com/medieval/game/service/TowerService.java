@@ -101,10 +101,13 @@ public class TowerService {
     }
 
     public List<Player> getRanking() {
-        // Top 20 no banco (não carrega todos os jogadores); descarta quem nunca subiu. [AUDITORIA M14]
-        return playerRepository.findTop20ByOrderByTowerBestFloorDesc().stream()
-                .filter(p -> p.getTowerBestFloor() > 0)
-                .toList();
+        return getRanking(0, 20);
+    }
+
+    /** [PAGINACAO] Página do ranking (só quem subiu, ordenado por melhor andar) — limite/offset no DB. */
+    public List<Player> getRanking(int page, int size) {
+        return playerRepository.findByTowerBestFloorGreaterThanOrderByTowerBestFloorDesc(
+                0, org.springframework.data.domain.PageRequest.of(Math.max(0, page), size));
     }
 
     @Transactional

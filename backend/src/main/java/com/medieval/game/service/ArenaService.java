@@ -169,7 +169,12 @@ public class ArenaService {
     }
 
     public List<Player> getRanking() {
-        return matchRepository.findTopRanked(org.springframework.data.domain.PageRequest.of(0, 20));
+        return getRanking(0, 20);
+    }
+
+    /** [PAGINACAO] Página do ranking (ordenado por rankPoints no banco) — limite/offset no DB, payload pequeno. */
+    public List<Player> getRanking(int page, int size) {
+        return matchRepository.findTopRanked(org.springframework.data.domain.PageRequest.of(Math.max(0, page), size));
     }
 
     // ── Privados ──

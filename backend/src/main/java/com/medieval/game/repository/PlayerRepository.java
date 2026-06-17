@@ -37,6 +37,8 @@ public interface PlayerRepository extends JpaRepository<Player, Long> {
 
     // Ranking da Torre, limitado no banco. [AUDITORIA M14]
     List<Player> findTop20ByOrderByTowerBestFloorDesc();
+    // [PAGINACAO] Ranking da Torre paginado (só quem subiu: bestFloor > floor), limite/offset no banco.
+    List<Player> findByTowerBestFloorGreaterThanOrderByTowerBestFloorDesc(int floor, Pageable pageable);
 
     // PvP por flag: players atualmente expostos numa zona (vítimas potenciais de raid). [PVP_FLAG]
     @Query("SELECT p FROM Player p WHERE p.pvpFlaggedZone = :zone AND p.pvpFlaggedUntil > :now AND p.id <> :excludeId")

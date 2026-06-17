@@ -10,6 +10,7 @@ signal go_back
 signal request_battle(data)   # pede ao App o replay 3D (overlay) [MIGRACAO_GODOT]
 
 const STAMINA_COST := 25
+const PAGE_SIZE := 20            # [PAGINACAO] ranking paginado (offset no backend)
 
 var content: VBoxContainer
 var status: Label
@@ -17,7 +18,8 @@ var wallet: Label
 var busy := false
 var warrior: Dictionary = {}     # p/ saber estamina + destacar "me" no ranking
 var state: Dictionary = {}       # GET /api/tower/current
-var ranking: Array = []          # GET /api/tower/ranking
+var ranking: Array = []          # GET /api/tower/ranking (página atual)
+var page := 0                    # [PAGINACAO] página do ranking
 var last_result: Dictionary = {} # resultado da última luta (texto), se houver
 var arka_pending := false        # escolha do Rei Arka no topo
 var log_open := false            # log da batalha colapsável (P0: não empurra o ranking)
@@ -31,8 +33,8 @@ func _ready() -> void:
 
 func _refresh() -> void:
 	UiKit.flash(status, "Carregando…", 0)
-	# warrior + run + ranking em PARALELO (independentes)
-	var rs = await Api.batch_get(["/api/warrior", "/api/tower/current", "/api/tower/ranking"])
+	# warrior + run + ranking (página atual) em PARALELO (independentes)
+	var rs = await Api.batch_get(["/api/warrior", "/api/tower/current", "/api/tower/ranking?page=%d" % page])
 	var rw = rs[0]
 	if rw.get("ok") and rw.get("json") is Dictionary:
 		warrior = rw["json"]
@@ -196,9 +198,14 @@ func _render_result() -> void:
 func _render_ranking() -> void:
 	content.add_child(UiKit.section("🏰 Ranking — Melhores Andares"))
 	if ranking.is_empty():
-		content.add_child(UiKit.empty("Nenhum registro ainda", "Suba a torre para entrar no ranking"))
+		if page > 0:
+			content.add_child(UiKit.dim("Fim do ranking."))
+			content.add_child(_rank_pager())
+		else:
+			content.add_child(UiKit.empty("Nenhum registro ainda", "Suba a torre para entrar no ranking"))
 		return
 	var my_name := str(warrior.get("name", ""))
+	var base := page * PAGE_SIZE   # posição GLOBAL (#21… na página 2)
 	var i := 0
 	for r in ranking:
 		if not (r is Dictionary):
@@ -215,7 +222,7 @@ func _render_ranking() -> void:
 			sb.bg_color = Color(0.18, 0.15, 0.09, 0.94)
 		var row := HBoxContainer.new(); row.add_theme_constant_override("separation", 8)
 		box.add_child(row)
-		var pos := Label.new(); pos.text = "%d." % i; pos.custom_minimum_size = Vector2(34, 0)
+		var pos := Label.new(); pos.text = "%d." % (base + i); pos.custom_minimum_size = Vector2(40, 0)
 		pos.add_theme_color_override("font_color", UiKit.TEXT_DIM)
 		row.add_child(pos)
 		var nm := Label.new()
@@ -227,6 +234,35 @@ func _render_ranking() -> void:
 		fl.add_theme_color_override("font_color", UiKit.GOLD_SOFT)
 		row.add_child(fl)
 		content.add_child(res[0])
+	if page > 0 or ranking.size() >= PAGE_SIZE:   # paginador só se há mais de uma página
+		content.add_child(_rank_pager())
+
+# [PAGINACAO] Barra ◀ Anterior · Página N · Próxima ▶ no fim do ranking.
+func _rank_pager() -> HBoxContainer:
+	var row := HBoxContainer.new()
+	row.add_theme_constant_override("separation", 12)
+	row.alignment = BoxContainer.ALIGNMENT_CENTER
+	var prev := UiKit.small_btn("◀ Anterior", _page_prev)
+	prev.disabled = page <= 0
+	row.add_child(prev)
+	var lbl := Label.new(); lbl.text = Lang.t("Página %d") % (page + 1)
+	lbl.add_theme_color_override("font_color", UiKit.TEXT_DIM); lbl.add_theme_font_size_override("font_size", 13)
+	lbl.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	row.add_child(lbl)
+	var nxt := UiKit.small_btn("Próxima ▶", _page_next)
+	nxt.disabled = ranking.size() < PAGE_SIZE
+	row.add_child(nxt)
+	return row
+
+func _page_prev() -> void:
+	if busy or page <= 0: return
+	page -= 1
+	await _refresh()
+
+func _page_next() -> void:
+	if busy or ranking.size() < PAGE_SIZE: return
+	page += 1
+	await _refresh()
 
 # ── Ações async ──────────────────────────────────────────────────────────────────
 func _enter() -> void:
@@ -269,7 +305,7 @@ func _on_battle_over() -> void:
 
 # re-sincroniza estamina/HP + próximo andar (ou lobby) + ranking — em PARALELO
 func _resync() -> void:
-	var rs = await Api.batch_get(["/api/warrior", "/api/tower/current", "/api/tower/ranking"])
+	var rs = await Api.batch_get(["/api/warrior", "/api/tower/current", "/api/tower/ranking?page=%d" % page])
 	var rw = rs[0]
 	if rw.get("ok") and rw.get("json") is Dictionary:
 		warrior = rw["json"]

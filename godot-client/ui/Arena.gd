@@ -9,12 +9,14 @@ signal go_back
 signal request_battle(data)   # pede ao App o replay 3D (overlay) [MIGRACAO_GODOT]
 
 const STAMINA_COST := 25
+const PAGE_SIZE := 20         # [PAGINACAO] ranking paginado (offset no backend)
 
 var content: VBoxContainer
 var status: Label
 var wallet: Label
 var busy := false
-var rank: Array = []          # cache do ranking
+var rank: Array = []          # cache do ranking (página atual)
+var page := 0                 # [PAGINACAO] página do ranking
 var w: Dictionary = {}        # warrior (p/ estamina / nome destacado no rank)
 var last_result: Dictionary = {}   # resultado do último duelo (mostrado em texto)
 
@@ -27,8 +29,8 @@ func _ready() -> void:
 
 func _refresh() -> void:
 	UiKit.flash(status, "Carregando…", 0)
-	# warrior (estamina + destacar meu nome) + ranking em PARALELO (independentes)
-	var rs = await Api.batch_get(["/api/warrior", "/api/arena/rank"])
+	# warrior (estamina + destacar meu nome) + ranking (página atual) em PARALELO (independentes)
+	var rs = await Api.batch_get(["/api/warrior", "/api/arena/rank?page=%d" % page])
 	var rw = rs[0]
 	if rw.get("ok") and rw.get("json") is Dictionary:
 		w = rw["json"]
@@ -74,17 +76,51 @@ func _render() -> void:
 	if not last_result.is_empty():
 		content.add_child(UiKit.spacer(8))
 		content.add_child(_result_box(last_result))
-	# ── Ranking ──
+	# ── Ranking (paginado) ──
 	content.add_child(UiKit.section("🏆 Ranking"))
 	if rank.is_empty():
-		content.add_child(UiKit.empty("Nenhum jogador ainda", "Seja o primeiro a lutar na arena"))
+		if page > 0:
+			content.add_child(UiKit.dim("Fim do ranking."))
+			content.add_child(_rank_pager())
+		else:
+			content.add_child(UiKit.empty("Nenhum jogador ainda", "Seja o primeiro a lutar na arena"))
 	else:
 		var my_name := str(w.get("name", ""))
+		var base := page * PAGE_SIZE   # posição GLOBAL (#21, #22… na página 2)
 		var i := 0
 		for r in rank:
 			if r is Dictionary:
 				i += 1
-				content.add_child(_rank_row(i, r, str(r.get("warriorName", "")) == my_name))
+				content.add_child(_rank_row(base + i, r, str(r.get("warriorName", "")) == my_name))
+		if page > 0 or rank.size() >= PAGE_SIZE:   # só mostra o paginador se há mais de uma página
+			content.add_child(_rank_pager())
+
+# [PAGINACAO] Barra ◀ Anterior · Página N · Próxima ▶ no fim do ranking.
+func _rank_pager() -> HBoxContainer:
+	var row := HBoxContainer.new()
+	row.add_theme_constant_override("separation", 12)
+	row.alignment = BoxContainer.ALIGNMENT_CENTER
+	var prev := UiKit.small_btn("◀ Anterior", _page_prev)
+	prev.disabled = page <= 0
+	row.add_child(prev)
+	var lbl := Label.new(); lbl.text = Lang.t("Página %d") % (page + 1)
+	lbl.add_theme_color_override("font_color", UiKit.TEXT_DIM); lbl.add_theme_font_size_override("font_size", 13)
+	lbl.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	row.add_child(lbl)
+	var nxt := UiKit.small_btn("Próxima ▶", _page_next)
+	nxt.disabled = rank.size() < PAGE_SIZE
+	row.add_child(nxt)
+	return row
+
+func _page_prev() -> void:
+	if busy or page <= 0: return
+	page -= 1
+	await _refresh()
+
+func _page_next() -> void:
+	if busy or rank.size() < PAGE_SIZE: return
+	page += 1
+	await _refresh()
 
 # ── Resultado do duelo: título + recompensas + log de batalha (texto) ──
 func _result_box(d: Dictionary) -> PanelContainer:
