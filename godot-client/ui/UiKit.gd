@@ -444,6 +444,107 @@ static func show_battle_report(host: Control, won: bool, title: String, reward_r
 	vb.add_child(ok)
 	ok.call_deferred("grab_focus")
 
+# [CARD_BOTAO] Botão de escolha ICON-PRIMARY: ícone grande em cima + rótulo pequeno embaixo. P/ modais
+# de escolha binária (Encarar/Fugir, Ajudar/Terminar) e chips de nó da Incursão — bem menor que o
+# botão de texto 460×40. Fallback no emoji se o ícone PixelLab ainda não foi importado.
+static func icon_choice_btn(icon_key: String, emoji: String, label: String, cb: Callable, accent := GOLD_SOFT) -> Button:
+	var b := Button.new()
+	StoneStyle.apply(b)
+	b.custom_minimum_size = Vector2(112, 84)
+	b.focus_mode = Control.FOCUS_NONE
+	if cb.is_valid():
+		b.pressed.connect(_debounce.bind(b))
+		b.pressed.connect(cb)
+	var v := VBoxContainer.new()
+	v.alignment = BoxContainer.ALIGNMENT_CENTER
+	v.add_theme_constant_override("separation", 4)
+	v.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	v.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	b.add_child(v)
+	var ic := Icons.tex(icon_key)
+	if ic != null:
+		var tr := _tex_rect(ic, 40)
+		tr.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+		v.add_child(tr)
+	else:
+		var el := Label.new(); el.text = emoji
+		el.add_theme_font_size_override("font_size", 30)
+		el.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		el.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		v.add_child(el)
+	if label != "":
+		var ll := Label.new(); ll.text = label
+		ll.add_theme_font_size_override("font_size", 13)
+		ll.add_theme_color_override("font_color", accent)
+		ll.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		ll.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		v.add_child(ll)
+	return b
+
+# [TOAST] Toast de recompensa NÃO-bloqueante: aparece no topo, fade-in e some sozinho (~2.6s) — sem
+# botão OK. Usado p/ desfecho SIMPLES (coleta/loot sem batalha). title pode ter emoji-marcador (vira
+# ícone). chips = Array; cada item é um Control (ex.: coin_box) OU [icon_key, text]. mouse IGNORE em
+# tudo → o jogador continua clicando a tela por baixo.
+static func reward_toast(host: Control, title: String, chips: Array) -> void:
+	if host == null or (title.strip_edges() == "" and chips.is_empty()):
+		return
+	var root := Control.new()
+	root.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	root.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	host.add_child(root)
+	var center := CenterContainer.new()
+	center.set_anchors_and_offsets_preset(Control.PRESET_TOP_WIDE)
+	center.offset_top = 64
+	center.offset_bottom = 240
+	center.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	root.add_child(center)
+	var panel := PanelContainer.new()
+	panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var sb := StyleBoxFlat.new()
+	sb.bg_color = Color(0.10, 0.09, 0.10, 0.96)
+	sb.set_border_width_all(1)
+	sb.border_color = GOLD_SOFT
+	sb.set_corner_radius_all(6)
+	sb.set_content_margin_all(12)
+	sb.shadow_color = Color(0, 0, 0, 0.5); sb.shadow_size = 6
+	panel.add_theme_stylebox_override("panel", sb)
+	center.add_child(panel)
+	var vb := VBoxContainer.new()
+	vb.add_theme_constant_override("separation", 6)
+	vb.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	panel.add_child(vb)
+	if title.strip_edges() != "":
+		var tnode := icon_text(title, 15, GOLD, 20)
+		tnode.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		vb.add_child(tnode)
+	if not chips.is_empty():
+		var flow := HFlowContainer.new()
+		flow.add_theme_constant_override("h_separation", 12)
+		flow.add_theme_constant_override("v_separation", 4)
+		flow.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		vb.add_child(flow)
+		for c in chips:
+			if c is Control:
+				c.mouse_filter = Control.MOUSE_FILTER_IGNORE
+				flow.add_child(c)
+			elif c is Array and c.size() >= 2:
+				var hh := HBoxContainer.new(); hh.add_theme_constant_override("separation", 4)
+				hh.mouse_filter = Control.MOUSE_FILTER_IGNORE
+				var cic := Icons.rect(str(c[0]), 16); cic.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+				hh.add_child(cic)
+				var lb := Label.new(); lb.text = str(c[1])
+				lb.add_theme_font_size_override("font_size", 13)
+				lb.add_theme_color_override("font_color", TEXT)
+				lb.mouse_filter = Control.MOUSE_FILTER_IGNORE
+				hh.add_child(lb)
+				flow.add_child(hh)
+	root.modulate = Color(1, 1, 1, 0)
+	var tw := root.create_tween()
+	tw.tween_property(root, "modulate:a", 1.0, 0.18)
+	tw.tween_interval(2.2)
+	tw.tween_property(root, "modulate:a", 0.0, 0.4)
+	tw.tween_callback(root.queue_free)
+
 # ── Botões (tudo pedra) ────────────────────────────────────────────────────────────
 static func _btn(text: String, cb: Callable, size: Vector2, font := 15) -> Button:
 	var b := Button.new()
@@ -533,6 +634,34 @@ static func card(border := BRONZE, enabled := true) -> Array:
 	v.add_theme_constant_override("separation", 4)
 	p.add_child(v)
 	return [p, v]
+
+# [CARD_BOTAO] Card clicável INTEIRO (o card É o botão — sem botão de texto embaixo). Retorna
+# [PanelContainer, VBoxContainer] como card(): o chamador enche o VBox com o conteúdo. Um Button
+# transparente é sobreposto ao conteúdo (mesmo rect, desenhado por cima) → captura o clique em
+# qualquer ponto, hover destaca o card todo, cursor vira mãozinha. enabled=false → card apagado
+# e SEM clique (use p/ estado bloqueado, pondo um selo de motivo dentro do VBox).
+static func clickable_card(border := BRONZE, on_click := Callable(), enabled := true) -> Array:
+	var res := card(border, enabled)
+	if not enabled or not on_click.is_valid():
+		return res
+	var panel: PanelContainer = res[0]
+	var hit := Button.new()
+	hit.flat = true
+	hit.focus_mode = Control.FOCUS_NONE
+	hit.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
+	var emptysb := StyleBoxEmpty.new()
+	for s in ["normal", "hover", "pressed", "focus", "disabled"]:
+		hit.add_theme_stylebox_override(s, emptysb)
+	hit.pressed.connect(_debounce.bind(hit))
+	hit.pressed.connect(on_click)
+	hit.mouse_entered.connect(func() -> void:
+		if is_instance_valid(panel):
+			panel.modulate = Color(1.14, 1.14, 1.14))
+	hit.mouse_exited.connect(func() -> void:
+		if is_instance_valid(panel):
+			panel.modulate = Color(1, 1, 1))
+	panel.add_child(hit)   # último filho do PanelContainer = mesmo rect, por cima do conteúdo
+	return res
 
 static func section(text: String) -> Control:
 	var v := VBoxContainer.new()

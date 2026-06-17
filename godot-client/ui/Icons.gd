@@ -44,6 +44,7 @@ const EMOJI_ICON := {
 	"🎒": "carried", "🔒": "locked", "🎁": "gift", "📦": "package",
 	"💀": "skull", "☠": "skull", "💎": "gem", "⭐": "star", "⚠": "warning",
 	"⏳": "hourglass", "🐟": "fish", "🎣": "map_fishing", "⛏": "map_mines",
+	"🔎": "act_pan", "🏃": "act_flee",
 	"👑": "node_boss", "📜": "node_event", "⚔": "node_combat", "🗡": "node_combat",
 	"🛡": "slot_shield", "🔥": "elem_fire", "🏆": "achievements", "🥇": "gold",
 	"🍺": "tavern", "🏰": "map_fortress", "🌍": "world", "🔨": "forge",

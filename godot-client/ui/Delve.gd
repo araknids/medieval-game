@@ -145,46 +145,42 @@ func _layer_row(layer: Dictionary, cur: int, status_str: String) -> VBoxContaine
 	box.add_child(hb)
 	return box
 
+# [CARD_BOTAO] Chip de nó ICON-PRIMARY: ícone grande em cima + rótulo pequeno embaixo. Alcançável =
+# botão clicável (icon_choice_btn, menor); inalcançável = preview apagado no mesmo formato vertical.
 func _node_chip(n: Dictionary) -> Control:
 	var type := str(n.get("type", ""))
 	var meta = NODE.get(type, ["?", type, UiKit.TEXT_DIM])
 	var icon_key := str(meta[3]) if meta.size() > 3 else ""
 	var reachable := bool(n.get("reachable", false))
 	if reachable:
-		var b := UiKit.action("%s %s" % [str(meta[0]), str(meta[1])], _choose_node.bind(str(n.get("id", ""))))
+		var b := UiKit.icon_choice_btn(icon_key, str(meta[0]), str(meta[1]), _choose_node.bind(str(n.get("id", ""))), meta[2])
+		b.custom_minimum_size = Vector2(96, 72)
 		b.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
-		b.custom_minimum_size = Vector2(128, 52)
-		b.add_theme_color_override("font_color", meta[2])
-		# ícone pixel à esquerda do rótulo (fallback: mantém o emoji no texto)
-		if icon_key != "" and Icons.set_icon(b, icon_key):
-			b.add_theme_constant_override("icon_max_width", 30)
-			b.text = str(meta[1])
 		return b
-	# inalcançável → chip estático (preview do caminho)
+	# inalcançável → preview vertical apagado (mesmo formato do alcançável)
 	var res := UiKit.card(Color(0.3, 0.3, 0.3, 0.5))
 	var panel: PanelContainer = res[0]
 	var vb: VBoxContainer = res[1]
-	panel.custom_minimum_size = Vector2(128, 52)
+	panel.custom_minimum_size = Vector2(96, 72)
 	panel.modulate = Color(1, 1, 1, 0.5)
+	vb.alignment = BoxContainer.ALIGNMENT_CENTER
 	var icon_tex: Texture2D = Icons.tex(icon_key) if icon_key != "" else null
 	if icon_tex != null:
-		var row := HBoxContainer.new()
-		row.alignment = BoxContainer.ALIGNMENT_CENTER
-		row.add_theme_constant_override("separation", 6)
-		row.add_child(Icons.rect(icon_key, 22))
-		var nl := Label.new()
-		nl.text = str(meta[1])
-		nl.add_theme_font_size_override("font_size", 13)
-		nl.add_theme_color_override("font_color", meta[2])
-		row.add_child(nl)
-		vb.add_child(row)
+		var ir := Icons.rect(icon_key, 34)
+		ir.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+		vb.add_child(ir)
 	else:
-		var l := Label.new()
-		l.text = "%s %s" % [str(meta[0]), str(meta[1])]
-		l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-		l.add_theme_font_size_override("font_size", 13)
-		l.add_theme_color_override("font_color", meta[2])
-		vb.add_child(l)
+		var el := Label.new()
+		el.text = str(meta[0])
+		el.add_theme_font_size_override("font_size", 26)
+		el.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		vb.add_child(el)
+	var nl := Label.new()
+	nl.text = str(meta[1])
+	nl.add_theme_font_size_override("font_size", 12)
+	nl.add_theme_color_override("font_color", meta[2])
+	nl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	vb.add_child(nl)
 	return panel
 
 func _bag_row() -> HBoxContainer:

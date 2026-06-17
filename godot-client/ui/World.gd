@@ -386,105 +386,136 @@ func _build_training(box: VBoxContainer) -> void:
 		else:
 			box.add_child(UiKit.action("🏋 Treinar (2h)", _start_training.bind(2)))
 
+# [CARD_BOTAO] Card de quest CLICÁVEL INTEIRO (o card é o botão — sem botão de texto embaixo).
+# Cabeçalho: [pergaminho] nome (expande) [recompensa de bronze] [⭐XP] [⚡custo]. Bloqueado (feito/
+# sem estamina/tarefa ativa) = card apagado + selo do motivo, sem clique.
 func _quest_card(kingdom: String, q: Dictionary) -> PanelContainer:
 	var done := bool(q.get("doneToday", false))
-	var res := UiKit.card(UiKit.OK if done else UiKit.BRONZE)
+	var busy_task := _has_active_task()
+	var can_start := bool(q.get("canStart", false))
+	var enabled := not done and not busy_task and can_start
+	var on_click := func() -> void: _start_quest(kingdom, str(q.get("id", "")))
+	var res := UiKit.clickable_card(UiKit.OK if done else UiKit.BRONZE, on_click, enabled)
 	var vb: VBoxContainer = res[1]
 	var top := HBoxContainer.new(); top.add_theme_constant_override("separation", 8)
+	if Icons.tex("node_event") != null:
+		var ir := Icons.rect("node_event", 26); ir.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+		top.add_child(ir)
 	var nm := Label.new(); nm.text = str(q.get("displayName", "?")); nm.add_theme_font_size_override("font_size", 15)
-	nm.add_theme_color_override("font_color", UiKit.TEXT)
+	nm.add_theme_color_override("font_color", UiKit.OK if done else UiKit.TEXT)
 	nm.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	top.add_child(nm)
-	# [MOEDA] recompensa de bronze em ícone pixel-art + exp/estamina
-	var info := HBoxContainer.new(); info.add_theme_constant_override("separation", 4)
-	info.add_child(UiKit.coin_box(int(q.get("bronzeReward", 0)), 14))
-	var info_x := Label.new()
-	info_x.text = "⭐%d  ⚡%d" % [int(q.get("expReward", 0)), int(q.get("staminaCost", 0))]
-	info_x.add_theme_color_override("font_color", UiKit.TEXT_DIM); info_x.add_theme_font_size_override("font_size", 12)
-	info_x.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	info.add_child(info_x)
-	top.add_child(info)
+	# [MOEDA] recompensa de bronze (ícone pixel-art) + ⭐XP + ⚡custo como chips compactos
+	top.add_child(UiKit.coin_box(int(q.get("bronzeReward", 0)), 14))
+	var xp := int(q.get("expReward", 0))
+	if xp > 0:
+		top.add_child(_mini_chip("star", str(xp), UiKit.GOLD_SOFT, "⭐"))
+	var stam := int(q.get("staminaCost", 0))
+	if stam > 0:
+		top.add_child(_mini_chip("stamina", str(stam), UiKit.WARN, "⚡"))
 	vb.add_child(top)
 	var flavor := str(q.get("flavor", ""))
 	if flavor != "":
 		vb.add_child(UiKit.dim(flavor))
 	if done:
-		vb.add_child(UiKit.dim("✔ Feito hoje"))
-	elif _has_active_task():
-		var b := UiKit.action("Termine a tarefa ativa", Callable())
-		b.disabled = true
-		vb.add_child(b)
-	elif not bool(q.get("canStart", false)):
-		var b := UiKit.action("Sem estamina", Callable())
-		b.disabled = true
-		vb.add_child(b)
-	else:
-		var stam := int(q.get("staminaCost", 0))
-		var label := "📜 Começar" if bool(q.get("interactive", false)) else "Iniciar Quest"
-		if stam > 0:
-			label += " · ⚡%d" % stam
-		vb.add_child(UiKit.action(label, _start_quest.bind(kingdom, str(q.get("id", "")))))
+		vb.add_child(_lock_seal("✔ Feito hoje"))
+	elif busy_task:
+		vb.add_child(_lock_seal("Conclua a tarefa ativa"))
+	elif not can_start:
+		vb.add_child(_lock_seal("Sem estamina"))
 	return res[0]
 
+# Chip compacto [ícone][número] (recompensa/custo no cabeçalho do card). Fallback no emoji.
+func _mini_chip(icon_key: String, text: String, col: Color, emoji := "") -> Control:
+	var h := HBoxContainer.new(); h.add_theme_constant_override("separation", 2)
+	if Icons.tex(icon_key) != null:
+		var ic := Icons.rect(icon_key, 14); ic.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+		h.add_child(ic)
+		var l := Label.new(); l.text = text
+		l.add_theme_font_size_override("font_size", 12); l.add_theme_color_override("font_color", col)
+		l.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+		h.add_child(l)
+	else:
+		var l := Label.new(); l.text = "%s%s" % [emoji, text]
+		l.add_theme_font_size_override("font_size", 12); l.add_theme_color_override("font_color", col)
+		h.add_child(l)
+	return h
+
+# Selo de motivo de bloqueio (texto pequeno em vez de botão desabilitado). Emoji-marcador → ícone.
+func _lock_seal(text: String) -> Control:
+	return UiKit.icon_text(text, 12, UiKit.TEXT_DIM, 16)
+
+# [CARD_BOTAO] Picker de elemento como toggles SÓ DE ÍCONE (~44px). Ativo destacado (opaco); inativo
+# apagado. Fallback no emoji se o ícone elem_* não foi importado.
 func _element_picker() -> HBoxContainer:
-	var row := HBoxContainer.new(); row.add_theme_constant_override("separation", 6)
+	var row := HBoxContainer.new(); row.add_theme_constant_override("separation", 8)
 	for e in ELEMENTS:
+		var code := str(e[0])
 		var b := Button.new()
-		Icons.label_button(b, "elem_" + str(e[0]).to_lower(), str(e[1]))  # ícone + nome (fallback no emoji)
 		StoneStyle.apply(b)
-		b.add_theme_font_size_override("font_size", 13)
-		b.custom_minimum_size = Vector2(96, 36)
-		b.toggle_mode = true; b.button_pressed = (str(e[0]) == selected_element)
-		b.pressed.connect(_select_element.bind(str(e[0])))
+		b.custom_minimum_size = Vector2(48, 44)
+		b.toggle_mode = true; b.button_pressed = (code == selected_element)
+		var parts := str(e[1]).split(" ")
+		b.tooltip_text = Lang.t(parts[parts.size() - 1])   # "Fire"/"Water"/… na tooltip
+		if Icons.set_icon(b, "elem_" + code.to_lower()):
+			b.expand_icon = true
+			b.icon_alignment = HORIZONTAL_ALIGNMENT_CENTER
+			b.add_theme_constant_override("icon_max_width", 30)
+			b.text = ""
+		else:
+			b.text = str(parts[0])   # só o emoji do elemento
+			b.add_theme_font_size_override("font_size", 20)
+		if code != selected_element:
+			b.modulate = Color(1, 1, 1, 0.5)   # inativo = apagado (igual ao filter_row)
+		b.pressed.connect(_select_element.bind(code))
 		row.add_child(b)
 	return row
 
+# [icon_key, emoji, verbo] da ação de uma zona (caçar/minerar/garimpar/pescar).
+func _zone_action(kingdom: String, skill: String) -> Array:
+	if kingdom == "COMBAT":
+		return ["node_combat", "⚔", Lang.t("Caçar")]
+	elif skill == "MINING":
+		return ["act_mine", "⛏", Lang.t("Minerar")]
+	elif skill == "GARIMPO":
+		return ["act_pan", "🔎", Lang.t("Garimpar")]
+	return ["fish", "🎣", Lang.t("Pescar")]
+
+# [CARD_BOTAO] Card de zona CLICÁVEL INTEIRO. Cabeçalho: [ícone da ação] nome (expande) [tag PvP/Seguro]
+# [⚡custo]. Bloqueado (nível/tarefa ativa/KO) = card apagado + selo do motivo, sem clique.
 func _zone_card(kingdom: String, z: Array) -> PanelContainer:
 	var zname := str(z[0]); var tier := str(z[1]); var skill := str(z[2]); var min_lv := int(z[3])
 	var locked := warrior_level < min_lv
+	var ko := kingdom == "COMBAT" and int(warrior.get("hpPercent", 100)) <= 0
+	var busy_task := _has_active_task()
+	var enabled := not locked and not ko and not busy_task
 	var col: Color = TIER_COL.get(tier, Color(0.6, 0.6, 0.6))
-	var res := UiKit.card(Color(0.3, 0.3, 0.3, 0.5) if locked else col)
-	var panel: PanelContainer = res[0]
+	var act := _zone_action(kingdom, skill)
+	var on_click := func() -> void: _start_zone_delve(kingdom, tier, skill)
+	var res := UiKit.clickable_card(col, on_click, enabled)
 	var vb: VBoxContainer = res[1]
-	if locked:
-		panel.modulate = Color(1, 1, 1, 0.6)
-	var top := HBoxContainer.new(); top.add_theme_constant_override("separation", 8)
-	var nm := Label.new(); nm.text = zname; nm.add_theme_color_override("font_color", col); nm.add_theme_font_size_override("font_size", 15)
+	var top := HBoxContainer.new(); top.add_theme_constant_override("separation", 10)
+	if Icons.tex(str(act[0])) != null:
+		var ir := Icons.rect(str(act[0]), 30); ir.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+		top.add_child(ir)
+	var nm := Label.new(); nm.text = zname
+	nm.add_theme_color_override("font_color", col if enabled else UiKit.TEXT_DIM); nm.add_theme_font_size_override("font_size", 15)
 	nm.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	top.add_child(nm)
 	var tag := Label.new()
-	tag.text = "🔒 Lv.%d+" % min_lv if locked else ("⚔ PvP" if tier != "SAFE" else "✔ Seguro")
+	tag.text = ("⚔ PvP" if tier != "SAFE" else "✔ Seguro")
 	tag.add_theme_color_override("font_color", UiKit.TEXT_DIM); tag.add_theme_font_size_override("font_size", 11)
 	top.add_child(tag)
+	if enabled:
+		top.add_child(_mini_chip("stamina", str(maxi(5, ZONE_DURATION / 2)), UiKit.WARN, "⚡"))
 	vb.add_child(top)
-	var stam := maxi(5, ZONE_DURATION / 2)
 	if locked:
-		# P0: gate visível na própria ação (botão desabilitado diz POR QUE)
-		var b := UiKit.action(Lang.t("Requer Nv %d") % min_lv, Callable())
-		b.disabled = true
-		vb.add_child(b)
-	elif _has_active_task():
-		var b := UiKit.action("Colete a tarefa ativa", Callable())
-		b.disabled = true
-		vb.add_child(b)
-	elif kingdom == "COMBAT" and int(warrior.get("hpPercent", 100)) <= 0:
-		# KO: a caçada é combate real (o backend recusa com 400 "unconscious"). Guarda no clique. [HP_GUARD]
-		var b := UiKit.action("❤ Inconsciente — cure no Templo", Callable())
-		b.disabled = true
-		vb.add_child(b)
-	else:
-		var verb: String
-		if kingdom == "COMBAT":
-			verb = Lang.t("⚔ Caçar · ⚡%d") % stam
-		elif skill == "MINING":
-			verb = Lang.t("⛏ Minerar · ⚡%d") % stam
-		elif skill == "GARIMPO":
-			verb = Lang.t("🔎 Garimpar · ⚡%d") % stam
-		else:
-			verb = Lang.t("🎣 Pescar · ⚡%d") % stam
-		# [INCURSAO] a zona agora LANÇA uma Incursão (tier por cor). O enter→collect antigo saiu da UI.
-		vb.add_child(UiKit.action(verb, _start_zone_delve.bind(kingdom, tier, skill)))
-	return panel
+		vb.add_child(_lock_seal("🔒 " + Lang.t("Requer Nv %d") % min_lv))
+	elif ko:
+		vb.add_child(_lock_seal("❤ " + Lang.t("Inconsciente — cure no Templo")))
+	elif busy_task:
+		vb.add_child(_lock_seal(Lang.t("Conclua a tarefa ativa")))
+	return res[0]
 
 # [INCURSAO] Inicia uma Incursão ZONE a partir da zona do reino (🟢/🟡/🔴 → tier 1/2/3) e abre a tela da run.
 func _start_zone_delve(kingdom: String, tier: String, skill: String) -> void:
@@ -575,10 +606,10 @@ func _show_quest_dialog(kingdom: String, quest_id: int, dialog: Dictionary) -> v
 	_choice_dialog(str(dialog.get("intro", "")), opts, func(opt_id) -> void:
 		await _collect_quest(kingdom, quest_id, str(opt_id)))
 
-# A Luna apareceu: ajudar (abre mão da recompensa) ou terminar a missão.
+# A Luna apareceu: ajudar (abre mão da recompensa) ou terminar a missão. [CARD_BOTAO] botões de ícone.
 func _show_luna_dialog(kingdom: String, quest_id: int) -> void:
-	_choice_dialog("🐶 Uma cãozinha (Luna) apareceu e interrompeu a missão! O que fazer?",
-		[["Ajudar a Luna", "help"], ["Terminar a missão", "ignore"]],
+	_icon_choice_dialog(Lang.t("🐶 Uma cãozinha (Luna) apareceu e interrompeu a missão! O que fazer?"),
+		[["pet", "🐶", Lang.t("Ajudar"), "help"], ["node_event", "📜", Lang.t("Terminar"), "ignore"]],
 		func(action) -> void:
 			if busy: return
 			busy = true
@@ -616,8 +647,41 @@ func _choice_dialog(title_text: String, options: Array, cb: Callable) -> void:
 		var b := UiKit.action(str(opt[0]), func() -> void:
 			overlay.queue_free()
 			cb.call(val))
-		b.custom_minimum_size = Vector2(460, 40)
+		b.custom_minimum_size = Vector2(380, 40)
 		vb.add_child(b)
+
+# [CARD_BOTAO] Diálogo de escolha ICON-PRIMARY: título + botões de ícone em linha. Para escolhas
+# binárias (Encarar/Fugir, Ajudar/Terminar). options = [[icon_key, emoji, label, value], …].
+func _icon_choice_dialog(title_text: String, options: Array, cb: Callable) -> void:
+	var overlay := ColorRect.new()
+	overlay.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	overlay.color = Color(0, 0, 0, 0.72)
+	overlay.mouse_filter = Control.MOUSE_FILTER_STOP
+	add_child(overlay)
+	var center := CenterContainer.new()
+	center.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	overlay.add_child(center)
+	var res := UiKit.card(UiKit.GOLD_SOFT)
+	var panel: PanelContainer = res[0]
+	var vb: VBoxContainer = res[1]
+	var sb: StyleBoxFlat = panel.get_theme_stylebox("panel")
+	sb.set_border_width_all(2)
+	vb.add_theme_constant_override("separation", 14)
+	center.add_child(panel)
+	var lbl := UiKit.body(title_text)
+	lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	lbl.custom_minimum_size = Vector2(380, 0)
+	vb.add_child(lbl)
+	var row := HBoxContainer.new()
+	row.alignment = BoxContainer.ALIGNMENT_CENTER
+	row.add_theme_constant_override("separation", 16)
+	vb.add_child(row)
+	for opt in options:
+		var val = opt[3]
+		var b := UiKit.icon_choice_btn(str(opt[0]), str(opt[1]), str(opt[2]), func() -> void:
+			overlay.queue_free()
+			cb.call(val))
+		row.add_child(b)
 
 # Modal de RESULTADO: texto + botão OK. Persiste (o status some no _open). Substitui o showCollectModal do web.
 func _show_result(text: String) -> void:
@@ -673,15 +737,15 @@ func _collect_training(session_id: int) -> void:
 	if busy: return
 	busy = true
 	var r = await Api.training_collect(session_id)
-	var msg := ""
+	var xp := -1
 	if r.get("ok") and r.get("json") is Dictionary:
-		msg = Lang.t("🏋 Treino completo! +%d XP") % int(r["json"].get("xpEarned", 0))
+		xp = int(r["json"].get("xpEarned", 0))
 	else:
 		_show_error(r)
 	busy = false
 	await _open("COMBAT")
-	if msg != "":
-		_show_result(msg)
+	if xp >= 0:
+		UiKit.reward_toast(self, Lang.t("🏋 Treino completo!"), [["star", "+%d XP" % xp]])   # [TOAST]
 
 func _cancel_training(session_id: int) -> void:
 	if busy: return
@@ -742,7 +806,7 @@ func _show_boss_dialog(activity_id: int, j: Dictionary) -> void:
 	var lvl := int(j.get("bossLevel", 0))
 	var flee := int(j.get("fleeChance", 0))
 	var intro := Lang.t("💀 %s (Lv %d) escapou da Torre e bloqueou sua expedição!\n\n⚔ Encarar = combate.   🏃 Fugir = %d%% (se falhar, cai na luta).") % [bname, lvl, flee]
-	_choice_dialog(intro, [["⚔ Encarar", "fight"], ["🏃 Fugir", "flee"]], func(choice) -> void:
+	_icon_choice_dialog(intro, [["node_combat", "⚔", Lang.t("Encarar"), "fight"], ["act_flee", "🏃", Lang.t("Fugir"), "flee"]], func(choice) -> void:
 		await _resolve_boss(activity_id, str(choice)))
 
 func _resolve_boss(activity_id: int, choice: String) -> void:
@@ -770,58 +834,40 @@ func _cancel_zone(activity_id: int) -> void:
 		await _open(open_kingdom)
 	UiKit.flash(status, "Expedição cancelada.", 0)
 
-# ── Texto de resultado (substitui o showCollectModal do web) ──────────────────────────────────────
-func _quest_result_text(r: Dictionary) -> String:
-	if bool(r.get("acquiredPet", false)) or str(r.get("acquiredPet", "")) != "":
-		var pet := str(r.get("acquiredPet", ""))
-		if pet != "" and pet != "false":
-			return Lang.t("🎉 Novo companheiro: %s!") % pet
-	var lost := bool(r.get("monsterEncountered", false)) and not bool(r.get("monsterDefeated", false))
-	if lost:
-		return Lang.t("💀 Derrotado por %s — sem recompensa.") % str(r.get("monsterName", "monstro"))
-	var parts: Array = []
-	if bool(r.get("monsterEncountered", false)):
-		parts.append(Lang.t("⚔ %s derrotado!") % str(r.get("monsterName", "inimigo")))
-	else:
-		parts.append(Lang.t("✅ Quest concluída!"))
-	parts.append(Lang.t("+%d XP · +%d bronze") % [int(r.get("xpEarned", 0)), int(r.get("bronzeEarned", 0))])
+# ── [TOAST] Desfecho SIMPLES (coleta/loot sem batalha) → toast com chips, sem clique de OK ───────────
+func _quest_reward_toast(r: Dictionary) -> void:
+	var pet := str(r.get("acquiredPet", ""))
+	if pet != "" and pet != "false":
+		UiKit.reward_toast(self, Lang.t("🎁 Novo companheiro: %s!") % pet, [])
+		return
+	var chips: Array = []
+	var bronze := int(r.get("bronzeEarned", 0))
+	if bronze > 0: chips.append(UiKit.coin_box(bronze, 16))
+	var xp := int(r.get("xpEarned", 0))
+	if xp > 0: chips.append(["star", "+%d XP" % xp])
 	if r.get("droppedItem") is Dictionary:
-		parts.append("🎁 " + str(r["droppedItem"].get("name", "item")))
-	return "   ".join(parts)
+		chips.append(["gift", str(r["droppedItem"].get("name", "item"))])
+	UiKit.reward_toast(self, Lang.t("✅ Quest concluída!"), chips)
 
-func _zone_result_text(r: Dictionary) -> String:
-	if bool(r.get("wasAttacked", false)) and not bool(r.get("survived", false)):
-		var s := Lang.t("💀 Derrotado na expedição!")
-		if str(r.get("attackerName", "")) != "":
-			s += " " + (Lang.t("(por %s)") % str(r.get("attackerName")))
-		if str(r.get("lostItemName", "")) != "":
-			s += " · " + (Lang.t("item roubado: %s") % str(r.get("lostItemName")))
-		return s
-	var parts: Array = []
-	var slew_boss := bool(r.get("wasAttacked", false)) and bool(r.get("survived", false)) and str(r.get("lootItemName", "")) != ""
-	if slew_boss:
-		parts.append(Lang.t("🏆 Chefe errante abatido!"))
-	elif bool(r.get("wasAttacked", false)):
-		parts.append(Lang.t("⚔ Sobreviveu à expedição!"))
-	else:
-		parts.append(Lang.t("✅ Expedição concluída!"))
+func _zone_reward_toast(r: Dictionary) -> void:
+	var chips: Array = []
 	if str(r.get("lootItemName", "")) != "":
-		parts.append("🎁 " + str(r.get("lootItemName")))
+		chips.append(["gift", str(r.get("lootItemName"))])
 	if r.get("drops") is Array:
 		for d in r["drops"]:
 			if d is Dictionary:
-				parts.append("📦 %s x%d" % [str(d.get("displayName", "?")), int(d.get("quantity", 0))])
-	if int(r.get("bronzeGained", 0)) > 0:
-		parts.append("🥉 +%d bronze" % int(r.get("bronzeGained", 0)))
-	if int(r.get("xpGained", 0)) > 0:
-		parts.append("⭐ +%d XP" % int(r.get("xpGained", 0)))
-	return "   ".join(parts)
+				chips.append(["package", "%s x%d" % [str(d.get("displayName", "?")), int(d.get("quantity", 0))]])
+	var bronze := int(r.get("bronzeGained", 0))
+	if bronze > 0: chips.append(UiKit.coin_box(bronze, 16))
+	var xp := int(r.get("xpGained", 0))
+	if xp > 0: chips.append(["star", "+%d XP" % xp])
+	UiKit.reward_toast(self, Lang.t("✅ Expedição concluída!"), chips)
 
 # ── Relatório de batalha (estilo da Torre): card win/loss + recompensas + log colapsável. [BATTLE_REPORT]
 # Combate → relatório completo; sem combate (coleta pura/pet) → modal de texto simples.
 func _show_quest_report(j: Dictionary) -> void:
 	if not bool(j.get("monsterEncountered", false)):
-		_show_result(_quest_result_text(j))
+		_quest_reward_toast(j)   # [TOAST] coleta pura/pet → toast (sem clique)
 		return
 	var won := bool(j.get("monsterDefeated", false))
 	var mob := str(j.get("monsterName", "inimigo"))
@@ -839,7 +885,7 @@ func _show_quest_report(j: Dictionary) -> void:
 
 func _show_zone_report(j: Dictionary) -> void:
 	if not bool(j.get("wasAttacked", false)):
-		_show_result(_zone_result_text(j))   # expedição sem combate → coleta normal
+		_zone_reward_toast(j)   # [TOAST] expedição sem combate → toast (sem clique)
 		return
 	var survived := bool(j.get("survived", false))
 	var title: String
