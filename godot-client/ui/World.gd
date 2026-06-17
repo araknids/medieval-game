@@ -120,7 +120,7 @@ func _on_world_shown() -> void:
 		_render()
 
 func _refresh() -> void:
-	UiKit.flash(status, "Carregando…", 0)
+	UiKit.show_loading(self)
 	# guerreiro (gate das zonas) + reinos + Incursão ativa em PARALELO — chamadas independentes
 	var rs = await Api.batch_get(["/api/warrior", "/api/world", "/api/expedition/current"])
 	var wr = rs[0]
@@ -176,7 +176,7 @@ func _render() -> void:
 		c.queue_free()
 	pins = []
 	map_holder = null
-	UiKit.flash(status, "", 0)
+	UiKit.hide_loading()
 	UiKit.set_wallet(wallet, warrior)
 	# [STUCK_FIX] Incursão em andamento → botão pra retomar/abandonar (a aba Delve saiu do nav,
 	# então este é o caminho de volta pra uma run presa). Espelha o web "Continuar Incursão".

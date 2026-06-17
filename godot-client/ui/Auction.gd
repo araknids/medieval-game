@@ -27,7 +27,7 @@ func _ready() -> void:
 	await _refresh()
 
 func _refresh() -> void:
-	UiKit.flash(status, "Carregando…", 0)
+	UiKit.show_loading(self)
 	# browse + minhas listagens + inventário + warrior em PARALELO (independentes)
 	var rs = await Api.batch_get(["/api/auction", "/api/auction/mine", "/api/inventory", "/api/warrior"])
 	var rl = rs[0]
@@ -50,7 +50,7 @@ func _refresh() -> void:
 func _render() -> void:
 	for c in content.get_children():
 		c.queue_free()
-	UiKit.flash(status, "", 0)
+	UiKit.hide_loading()
 	UiKit.set_wallet(wallet, warrior)
 	price_inputs.clear()
 	# nota da taxa

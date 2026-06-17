@@ -11,6 +11,9 @@ static var topbar_sink := Callable()
 # Inventory chama após equipar/desequipar → Shell re-busca inventário (índice de comparação + busto 3D),
 # SÓ quando o equip muda (não a cada navegação). Evita request à toa. [PLANO_UI_SHELL_GODOT]
 static var equip_changed_sink := Callable()
+
+# [LOADING] overlay central de carregamento (1 por vez) — substitui a mensagem "Carregando…" do topo
+static var _loading_overlay: Control = null
 # [MENU_FUNDO] App liga isto → ao trocar de equip, o duelo do fundo re-monta com o seu gear novo.
 static var duel_refresh_sink := Callable()
 # ── Kit de UI "Stone & Ember" — padrão único das telas internas [PADRAO_UI_GODOT] ──
@@ -282,7 +285,54 @@ static func err_text(r) -> String:
 
 # Atalho: mostra o erro de uma resposta no status.
 static func show_error(status: Label, r) -> void:
+	hide_loading()   # [LOADING] um erro encerra o carregamento → tira o overlay
 	flash(status, err_text(r), 2)
+
+# [LOADING] Overlay CENTRAL de carregamento (dark backdrop + card + engrenagem girando + texto).
+# Substitui a antiga mensagem "Carregando…" no topo (que ficava escondida atrás do header). É o MESMO
+# padrão em todas as telas: o _refresh chama show_loading(self); o _render/erro chama hide_loading().
+# Idempotente (1 overlay por vez) e bloqueia cliques enquanto carrega.
+static func show_loading(host: Control, text := "") -> void:
+	hide_loading()
+	if host == null:
+		return
+	var overlay := ColorRect.new()
+	overlay.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	overlay.color = Color(0, 0, 0, 0.5)
+	overlay.mouse_filter = Control.MOUSE_FILTER_STOP
+	host.add_child(overlay)
+	var center := CenterContainer.new()
+	center.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	overlay.add_child(center)
+	var res := card(GOLD_SOFT)
+	var pc: PanelContainer = res[0]
+	var box: VBoxContainer = res[1]
+	box.alignment = BoxContainer.ALIGNMENT_CENTER
+	box.add_theme_constant_override("separation", 10)
+	var spin := TextureRect.new()
+	spin.texture = Icons.tex("settings")   # engrenagem girando = carregando
+	spin.custom_minimum_size = Vector2(44, 44)
+	spin.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	spin.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	spin.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	spin.pivot_offset = Vector2(22, 22)
+	box.add_child(spin)
+	var lbl := Label.new()
+	lbl.text = text if text != "" else Lang.t("Carregando…")
+	lbl.add_theme_font_size_override("font_size", 16)
+	lbl.add_theme_color_override("font_color", GOLD)
+	lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	box.add_child(lbl)
+	center.add_child(pc)
+	_loading_overlay = overlay
+	if spin.texture != null:   # gira a engrenagem (loop infinito) — sem ícone, só o texto
+		var tw := spin.create_tween().set_loops()
+		tw.tween_property(spin, "rotation", TAU, 1.1).from(0.0)
+
+static func hide_loading() -> void:
+	if _loading_overlay != null and is_instance_valid(_loading_overlay):
+		_loading_overlay.queue_free()
+	_loading_overlay = null
 
 # [ERRO_VISIVEL] Modal centralizado de aviso/erro: overlay escuro + card + OK. Usar quando o `status`
 # (que mora no header) ficaria longe da ação ou seria apagado por um _refresh logo em seguida — ex.:

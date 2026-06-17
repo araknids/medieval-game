@@ -66,7 +66,7 @@ func _process(delta: float) -> void:
 		mini_marker.position.x = (mini_pos / 100.0) * (MINI_W - 6.0)
 
 func _refresh() -> void:
-	UiKit.flash(status, "Carregando…", 0)
+	UiKit.show_loading(self)
 	var rs = await Api.batch_get(["/api/tavern/status", "/api/warrior"])
 	var r = rs[0]
 	if not (r.get("ok") and r.get("json") is Dictionary):
@@ -83,7 +83,7 @@ func _render() -> void:
 		c.queue_free()
 	mini_marker = null
 	mini_zone_rect = null
-	UiKit.flash(status, "", 0)
+	UiKit.hide_loading()
 	UiKit.set_wallet(wallet, warrior)
 	# ── Buff atual (card leve, no espírito do banner do Templo) ──
 	var bres := UiKit.card(UiKit.GOLD_SOFT)

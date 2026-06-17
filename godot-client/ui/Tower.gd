@@ -32,7 +32,7 @@ func _ready() -> void:
 	await _refresh()
 
 func _refresh() -> void:
-	UiKit.flash(status, "Carregando…", 0)
+	UiKit.show_loading(self)
 	# warrior + run + ranking (página atual) em PARALELO (independentes)
 	var rs = await Api.batch_get(["/api/warrior", "/api/tower/current", "/api/tower/ranking?page=%d" % page])
 	var rw = rs[0]
@@ -50,7 +50,7 @@ func _refresh() -> void:
 func _render() -> void:
 	for c in content.get_children():
 		c.queue_free()
-	UiKit.flash(status, "", 0)
+	UiKit.hide_loading()
 	UiKit.set_wallet(wallet, warrior)
 	# resultado da última luta (se houver) sempre no topo
 	if not last_result.is_empty():

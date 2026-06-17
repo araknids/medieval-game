@@ -35,7 +35,7 @@ func _ready() -> void:
 	await _refresh()
 
 func _refresh() -> void:
-	UiKit.flash(status, "Carregando…", 0)
+	UiKit.show_loading(self)
 	# recipes + resources + inventory + warrior em PARALELO (independentes)
 	var rs = await Api.batch_get(["/api/smithing/recipes", "/api/gathering/resources", "/api/inventory", "/api/warrior"])
 	var rr = rs[0]
@@ -54,7 +54,7 @@ func _refresh() -> void:
 func _render() -> void:
 	for c in content.get_children():
 		c.queue_free()
-	UiKit.flash(status, "", 0)
+	UiKit.hide_loading()
 	UiKit.set_wallet(wallet, warrior)
 	# ── Seus materiais ──
 	content.add_child(UiKit.section("📦 Seus materiais"))

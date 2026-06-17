@@ -36,7 +36,7 @@ func _ready() -> void:
 # Carrega o estado: primeiro a sessão atual (decide qual painel), depois a lista de empregos.
 func _refresh() -> void:
 	_tick.stop()
-	UiKit.flash(status, "Carregando…", 0)
+	UiKit.show_loading(self)
 	var rs = await Api.batch_get(["/api/work/current", "/api/warrior", "/api/world/COMBAT/training"])
 	var cur = rs[0]
 	var wr = rs[1]
@@ -64,7 +64,7 @@ func _refresh() -> void:
 # ── PAINEL: Training Hall (topo) + lista de empregos ────────────────────────────────
 func _render_jobs() -> void:
 	_clear()
-	UiKit.flash(status, "", 0)
+	UiKit.hide_loading()
 	UiKit.set_wallet(wallet, warrior)
 	_build_training_section()   # [TRAINING] Training Hall EM CIMA do trabalho (movido do Mundo)
 	content.add_child(UiKit.section(Lang.t("Empregos (%d)") % jobs.size()))
@@ -239,7 +239,7 @@ func _train_cancel(session_id: int) -> void:
 # ── PAINEL: progresso do trabalho ──────────────────────────────────────────────────
 func _render_progress() -> void:
 	_clear()
-	UiKit.flash(status, "", 0)
+	UiKit.hide_loading()
 	UiKit.set_wallet(wallet, warrior)
 	_timer_left = int(session.get("secondsRemaining", 0))
 	var done := _timer_left <= 0 or bool(session.get("readyToCollect", false))
@@ -327,7 +327,7 @@ func _start(work_type: String, hours: int) -> void:
 			busy = false
 			await _collect(int(session.get("id", 0)))
 			return
-		UiKit.flash(status, "", 0)
+		UiKit.hide_loading()
 		_render_progress()
 	else:
 		UiKit.show_error(status, r)

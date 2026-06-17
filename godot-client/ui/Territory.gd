@@ -27,7 +27,7 @@ func _ready() -> void:
 	await _refresh()
 
 func _refresh() -> void:
-	UiKit.flash(status, "Carregando…", 0)
+	UiKit.show_loading(self)
 	# tudo em PARALELO — chamadas independentes
 	var rs = await Api.batch_get(["/api/territory", "/api/territory/my", "/api/guild", "/api/warrior"])
 	var rt = rs[0]
@@ -46,7 +46,7 @@ func _refresh() -> void:
 func _render() -> void:
 	for c in content.get_children():
 		c.queue_free()
-	UiKit.flash(status, "", 0)
+	UiKit.hide_loading()
 	UiKit.set_wallet(wallet, warrior)
 	content.add_child(UiKit.dim("Declare ataque a um território. A batalha roda a cada 6h (formação da guilda). Vencer dá o território + bônus de guilda. Só o líder declara."))
 	if bool(my_territory.get("hasTerritory", false)):
@@ -245,7 +245,7 @@ func _do_cancel() -> void:
 func _watch_battle(territory: String) -> void:
 	if busy: return
 	busy = true
-	UiKit.flash(status, "Carregando replay…", 0)
+	UiKit.show_loading(self)
 	var r = await Api.territory_replay(territory)
 	busy = false
 	if r is Dictionary and r.get("ok") and r.get("json") is Dictionary and bool(r["json"].get("hasReplay", false)):

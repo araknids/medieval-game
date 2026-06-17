@@ -21,7 +21,7 @@ func _ready() -> void:
 	await _refresh()
 
 func _refresh() -> void:
-	UiKit.flash(status, "Carregando…", 0)
+	UiKit.show_loading(self)
 	var rs = await Api.batch_get(["/api/temple", "/api/inventory", "/api/warrior"])
 	var r = rs[0]
 	if not (r.get("ok") and r.get("json") is Dictionary):
@@ -41,7 +41,7 @@ func _refresh() -> void:
 func _render() -> void:
 	for c in content.get_children():
 		c.queue_free()
-	UiKit.flash(status, "", 0)
+	UiKit.hide_loading()
 	UiKit.set_wallet(wallet, warrior)
 	# [TEMPLO_UI] HP, bênção ativa e CURA removidos daqui — HP/buff no topbar, cura no botão do header.
 	content.add_child(UiKit.section("🙏 Bênçãos"))

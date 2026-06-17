@@ -34,7 +34,7 @@ func _ready() -> void:
 	await _refresh()
 
 func _refresh() -> void:
-	UiKit.flash(status, "Carregando…", 0)
+	UiKit.show_loading(self)
 	var rs = await Api.batch_get(["/api/guild", "/api/warrior"])
 	var r = rs[0]
 	if not (r.get("ok") and r.get("json") is Dictionary):
@@ -62,7 +62,7 @@ func _clear() -> void:
 		c.queue_free()
 	name_edit = null; desc_edit = null
 	donate_gold = null; donate_silver = null; donate_bronze = null
-	UiKit.flash(status, "", 0)
+	UiKit.hide_loading()
 	UiKit.set_wallet(wallet, warrior)
 
 # ── Painel COM guilda ──────────────────────────────────────────────────────────────

@@ -27,7 +27,7 @@ func _ready() -> void:
 	await _refresh()
 
 func _refresh() -> void:
-	UiKit.flash(status, "Carregando…", 0)
+	UiKit.show_loading(self)
 	# stash + inventário + recursos + warrior em PARALELO (independentes)
 	var batch = await Api.batch_get(["/api/stash", "/api/inventory", "/api/gathering/resources", "/api/warrior"])
 	var rs = batch[0]
@@ -54,7 +54,7 @@ func _refresh() -> void:
 func _render() -> void:
 	for c in content.get_children():
 		c.queue_free()
-	UiKit.flash(status, "", 0)
+	UiKit.hide_loading()
 	UiKit.set_wallet(wallet, warrior)
 	var fee := int(stash.get("fee", 0))
 	var fee_lbl := Label.new()

@@ -240,7 +240,7 @@ func _set_tab(t) -> void:
 
 # ── Dados ────────────────────────────────────────────────────────────────────────────
 func _refresh() -> void:
-	UiKit.flash(status, "Carregando…", 0)
+	UiKit.show_loading(self)
 	var rs = await Api.batch_get(["/api/warrior", "/api/inventory", "/api/abilities", "/api/gathering/resources"])
 	var wr = rs[0]
 	if not (wr.get("ok") and wr.get("json") is Dictionary):
@@ -256,7 +256,7 @@ func _refresh() -> void:
 	_apply()
 
 func _apply() -> void:
-	UiKit.flash(status, "", 0)
+	UiKit.hide_loading()
 	UiKit.current_class = str(w.get("warriorClassId", UiKit.current_class))   # tema das roupas (slot + ícone + doll) [OUTFITS_CLASSE]
 	UiKit.current_gender = str(w.get("gender", UiKit.current_gender)).to_lower()   # base/peças Male/Female [OUTFITS_FEMALE]
 	UiKit.set_wallet(wallet, w)        # alimenta a topbar (HP/estamina/stats/moedas)

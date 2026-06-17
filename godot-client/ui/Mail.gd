@@ -24,7 +24,7 @@ func _ready() -> void:
 	await _refresh()
 
 func _refresh() -> void:
-	UiKit.flash(status, "Carregando…", 0)
+	UiKit.show_loading(self)
 	var rs = await Api.batch_get(["/api/mail/inbox", "/api/warrior"])
 	var r = rs[0]
 	if not (r.get("ok") and r.get("json") is Dictionary):
@@ -40,7 +40,7 @@ func _refresh() -> void:
 func _render() -> void:
 	for c in content.get_children():
 		c.queue_free()
-	UiKit.flash(status, "", 0)
+	UiKit.hide_loading()
 	UiKit.set_wallet(wallet, warrior)
 	content.add_child(UiKit.section(Lang.t("📥 Caixa de entrada%s") % (Lang.t("  (%d não-lidas)") % unread if unread > 0 else "")))
 	if letters.is_empty():
