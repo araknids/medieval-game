@@ -503,7 +503,7 @@ func _zone_risk_tooltip(tier: String) -> String:
 		"PVP":
 			return Lang.t("🟡 PvP — outro jogador farmando aqui pode te saquear: você perde ~10% do bronze e o XP da expedição. Recursos e equipamento ficam seguros.")
 		"HIGH_RISK":
-			return Lang.t("🔴 Alto risco — se for saqueado: perde 50% dos recursos, 15% do bronze e 35% de chance de TRAVAR um item equipado. Em troca, dropa o melhor loot.")
+			return Lang.t("🔴 Alto risco — você vira alvo de PvP por 1h. Se outro jogador te saquear aqui: perde 50% dos recursos, 15% do bronze e 35% de chance de te ROUBAREM 1 item EXPOSTO (equipado ou na mochila). Itens no Baú ou protegidos no Templo ficam a salvo. Em troca, dropa o melhor loot.")
 	return ""
 
 # [icon_key, emoji, verbo] da ação de uma zona (caçar/minerar/garimpar/pescar).
