@@ -292,7 +292,12 @@ func _vital_row(icon_key: String, bar: ProgressBar, value_lbl: Label, tip: Strin
 # Botão de cura do Templo: ícone do anjo curando o cavaleiro (heal_temple) → cura sem trocar de tela.
 # Fallback: ícone antigo (cruz) → ❤. [FICHA_PERSONAGEM] a cruz agora é o botão de atribuir atributo.
 func _heal_button() -> Control:
-	var t := Icons.tex("heal_temple")
+	# [HEAL] botão com a PALAVRA "CURA"/"HEAL" (PixelLab) conforme o idioma; fallback no ícone (cruz) → ❤.
+	var worded := "heal_en" if Lang.current() == "en" else "heal_pt"
+	var t := Icons.tex(worded)
+	var is_word := t != null
+	if t == null:
+		t = Icons.tex("heal_temple")
 	if t == null:
 		t = Icons.tex("heal")
 	if t != null:
@@ -300,7 +305,7 @@ func _heal_button() -> Control:
 		b.texture_normal = t
 		b.ignore_texture_size = true
 		b.stretch_mode = TextureButton.STRETCH_KEEP_ASPECT_CENTERED
-		b.custom_minimum_size = Vector2(36, 36)
+		b.custom_minimum_size = Vector2(74, 30) if is_word else Vector2(36, 36)   # botão da palavra é 2.5:1
 		b.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 		b.modulate = Color(1, 1, 1, 0.9)
 		b.tooltip_text = "Curar agora (Templo) — sem sair da tela"
