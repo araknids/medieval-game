@@ -122,21 +122,26 @@ func _open(kingdom: String) -> void:
 		return
 	open_kingdom = kingdom
 	UiKit.flash(status, Lang.t("Abrindo %s…") % kingdom, 0)
-	# dispara tudo em PARALELO (independentes); training só no COMBAT — máx. 4 = cabe no pool
+	# dispara tudo em PARALELO (independentes); inclui /api/warrior p/ o header refletir o gasto/XP na hora
+	# (sem isso o topbar só atualizava no próximo _refresh → parecia "demorar" após treinar/quest). training só no COMBAT.
 	var has_training := kingdom == "COMBAT"
-	var paths := ["/api/world/%s/quests" % kingdom, "/api/world/%s/quests/active" % kingdom, "/api/zones/current"]
+	var paths := ["/api/warrior", "/api/world/%s/quests" % kingdom, "/api/world/%s/quests/active" % kingdom, "/api/zones/current"]
 	if has_training:
 		paths.append("/api/world/COMBAT/training")
 	var rs = await Api.batch_get(paths)
-	var rq = rs[0]
+	var rw = rs[0]
+	if rw.get("ok") and rw.get("json") is Dictionary:
+		warrior = rw["json"]
+		warrior_level = int(warrior.get("level", warrior_level))
+	var rq = rs[1]
 	quests = rq["json"] if (rq.get("ok") and rq.get("json") is Array) else []
-	var ra = rs[1]
+	var ra = rs[2]
 	active_quests = ra["json"] if (ra.get("ok") and ra.get("json") is Array) else []
-	var rz = rs[2]
+	var rz = rs[3]
 	zone_session = rz["json"] if (rz.get("ok") and rz.get("json") is Dictionary) else {}
 	var rt: Dictionary = {}
 	if has_training:
-		var rtr = rs[3]
+		var rtr = rs[4]
 		if rtr.get("ok") and rtr.get("json") is Dictionary:
 			rt = rtr["json"]
 	training = rt
@@ -379,12 +384,26 @@ func _build_training(box: VBoxContainer) -> void:
 		box.add_child(UiKit.action_danger("✖ Cancelar", _cancel_training.bind(int(training.get("id", 0)))))
 	else:
 		box.add_child(UiKit.dim("Pague bronze por XP puro."))
+		# [TRAINING] mostra o VALOR pra treinar: custo (nível×10×h) + XP (nível×25×h) — espelha KingdomService.
+		var hours := 2
+		var cost := warrior_level * 10 * hours
+		var xp := warrior_level * 25 * hours
+		var total_bronze := int(warrior.get("gold", 0)) * 10000 + int(warrior.get("silver", 0)) * 100 + int(warrior.get("bronze", 0))
+		var row := HBoxContainer.new(); row.add_theme_constant_override("separation", 8)
+		row.add_child(UiKit.dim(Lang.t("Treinar %dh:") % hours))
+		row.add_child(UiKit.coin_box(cost, 14, UiKit.ERR if total_bronze < cost else UiKit.TEXT))
+		row.add_child(_mini_chip("star", "+%d XP" % xp, UiKit.GOLD_SOFT, "⭐"))
+		box.add_child(row)
 		if _has_active_task():
 			var b := UiKit.action("Colete a tarefa ativa", Callable())
 			b.disabled = true
 			box.add_child(b)
+		elif total_bronze < cost:
+			var b := UiKit.action("Sem bronze", Callable())
+			b.disabled = true
+			box.add_child(b)
 		else:
-			box.add_child(UiKit.action("🏋 Treinar (2h)", _start_training.bind(2)))
+			box.add_child(UiKit.action("🏋 Treinar", _start_training.bind(hours)))
 
 # [CARD_BOTAO] Card de quest CLICÁVEL INTEIRO (o card é o botão — sem botão de texto embaixo).
 # Cabeçalho: [pergaminho] nome (expande) [recompensa de bronze] [⭐XP] [⚡custo]. Bloqueado (feito/
