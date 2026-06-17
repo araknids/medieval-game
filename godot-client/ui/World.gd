@@ -352,7 +352,10 @@ func _build_detail(box: VBoxContainer, kingdom: String) -> void:
 				lbl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 				row.add_child(lbl)
 				var qid := int(q.get("id", 0))
-				if bool(q.get("readyToCollect", false)):
+				if str(q.get("status", "")) == "LUNA_PENDING":
+					# [LUNA_INTERRUPT] pendente → reabrir help/ignore (senão a quest TRAVA: coletar/abandonar são rejeitados)
+					row.add_child(UiKit.small_btn("🐶 Luna", func() -> void: _show_luna_dialog(kingdom, qid)))
+				elif bool(q.get("readyToCollect", false)):
 					if bool(q.get("interactive", false)) and q.get("dialog") is Dictionary:
 						var dlg: Dictionary = q["dialog"]   # interativa: re-abre a escolha
 						row.add_child(UiKit.small_btn("Escolher", func() -> void: _show_quest_dialog(kingdom, qid, dlg)))

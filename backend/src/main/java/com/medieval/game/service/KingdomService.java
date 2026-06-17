@@ -486,11 +486,16 @@ public class KingdomService {
             log.warn("[KingdomService] player={} REJECTED: quest {} does not belong to this player", player.getId(), questId);
             throw new IllegalStateException("This quest does not belong to you.");
         }
-        if (quest.getStatus() != QuestStatus.IN_PROGRESS) {
+        // [LUNA_INTERRUPT] abandonar uma quest com a Luna pendente = espantar o cão e largar a missão
+        // (sem recompensa). Saída de emergência p/ não ficar SOFT-LOCKED: sem isto, uma quest LUNA_PENDING
+        // sem caminho de UI p/ decidir trava (coletar/abandonar rejeitados pra sempre). A escolha real
+        // (help/ignore, com recompensa) continua via POST /luna/{action}.
+        if (quest.getStatus() != QuestStatus.IN_PROGRESS && quest.getStatus() != QuestStatus.LUNA_PENDING) {
             log.warn("[KingdomService] player={} REJECTED: quest {} cannot be abandoned (status={})", player.getId(), questId, quest.getStatus());
             throw new IllegalStateException("Quest cannot be abandoned.");
         }
 
+        quest.setPendingOptionId(null); // limpa a Luna pendente (no-op se IN_PROGRESS)
         quest.setStatus(QuestStatus.ABANDONED);
         questRepo.save(quest);
         log.info("[KingdomService] player={} action=abandonQuest OK questId={}", player.getId(), questId);
