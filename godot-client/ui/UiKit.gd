@@ -694,6 +694,33 @@ static func section(text: String) -> Control:
 	v.add_child(row)
 	return v
 
+# [PAGINACAO] Cabeçalho de seção com PAGINADOR no canto direito (mesma linha do título):
+# [ícone] TÍTULO ──────── ◀ N ▶. page = índice 0-based; has_next = há próxima página.
+# on_prev/on_next = callbacks. Reusa `section` (mesmo visual) e encaixa o pager depois da régua.
+static func section_paged(text: String, page: int, has_next: bool, on_prev: Callable, on_next: Callable) -> Control:
+	var sec := section(text)
+	var row: HBoxContainer = sec.get_child(1)   # [spacer, row] → o cabeçalho é o índice 1
+	row.add_child(_pager_btn("◀", on_prev, page > 0))
+	var pl := Label.new()
+	pl.text = "%d" % (page + 1)
+	pl.add_theme_font_size_override("font_size", 13)
+	pl.add_theme_color_override("font_color", TEXT_DIM)
+	pl.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	pl.custom_minimum_size = Vector2(20, 0)
+	pl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	row.add_child(pl)
+	row.add_child(_pager_btn("▶", on_next, has_next))
+	return sec
+
+# Botãozinho de paginação (◀/▶). Desabilitado = apagado.
+static func _pager_btn(text: String, cb: Callable, enabled: bool) -> Button:
+	var b := _btn(text, cb if enabled else Callable(), Vector2(30, 26), 14)
+	b.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	b.disabled = not enabled
+	if not enabled:
+		b.modulate = Color(1, 1, 1, 0.4)
+	return b
+
 static func kv(key: String, value: String, value_col := TEXT) -> HBoxContainer:
 	var h := HBoxContainer.new()
 	h.add_theme_constant_override("separation", 8)

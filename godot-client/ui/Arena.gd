@@ -76,12 +76,11 @@ func _render() -> void:
 	if not last_result.is_empty():
 		content.add_child(UiKit.spacer(8))
 		content.add_child(_result_box(last_result))
-	# ── Ranking (paginado) ──
-	content.add_child(UiKit.section("🏆 Ranking"))
+	# ── Ranking (paginador no CABEÇALHO, canto direito) ──
+	content.add_child(UiKit.section_paged("🏆 Ranking", page, rank.size() >= PAGE_SIZE, _page_prev, _page_next))
 	if rank.is_empty():
 		if page > 0:
 			content.add_child(UiKit.dim("Fim do ranking."))
-			content.add_child(_rank_pager())
 		else:
 			content.add_child(UiKit.empty("Nenhum jogador ainda", "Seja o primeiro a lutar na arena"))
 	else:
@@ -92,25 +91,6 @@ func _render() -> void:
 			if r is Dictionary:
 				i += 1
 				content.add_child(_rank_row(base + i, r, str(r.get("warriorName", "")) == my_name))
-		if page > 0 or rank.size() >= PAGE_SIZE:   # só mostra o paginador se há mais de uma página
-			content.add_child(_rank_pager())
-
-# [PAGINACAO] Barra ◀ Anterior · Página N · Próxima ▶ no fim do ranking.
-func _rank_pager() -> HBoxContainer:
-	var row := HBoxContainer.new()
-	row.add_theme_constant_override("separation", 12)
-	row.alignment = BoxContainer.ALIGNMENT_CENTER
-	var prev := UiKit.small_btn("◀ Anterior", _page_prev)
-	prev.disabled = page <= 0
-	row.add_child(prev)
-	var lbl := Label.new(); lbl.text = Lang.t("Página %d") % (page + 1)
-	lbl.add_theme_color_override("font_color", UiKit.TEXT_DIM); lbl.add_theme_font_size_override("font_size", 13)
-	lbl.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	row.add_child(lbl)
-	var nxt := UiKit.small_btn("Próxima ▶", _page_next)
-	nxt.disabled = rank.size() < PAGE_SIZE
-	row.add_child(nxt)
-	return row
 
 func _page_prev() -> void:
 	if busy or page <= 0: return
