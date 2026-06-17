@@ -179,9 +179,9 @@ func _build_training_section() -> void:
 		xpl.add_theme_color_override("font_color", UiKit.GOLD_SOFT); xpl.add_theme_font_size_override("font_size", 13)
 		xpl.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 		row.add_child(xpl)
-		var b := UiKit.small_btn("🏋 Treinar %dh" % hours, _train_start.bind(hours))
+		var b := UiKit.small_btn("🏋 Treinar", _train_start.bind(hours))
 		b.disabled = not afford
-		b.tooltip_text = Lang.t("Treinar %dh: gasta %s e ganha +%d XP na hora") % [hours, UiKit.coin_str(cost), xp]
+		b.tooltip_text = Lang.t("Gasta %s e ganha +%d XP na hora (instantâneo)") % [UiKit.coin_str(cost), xp]
 		row.add_child(b)
 	content.add_child(pc)
 
