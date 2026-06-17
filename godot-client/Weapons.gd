@@ -37,8 +37,8 @@ const HAND_XF := {
 
 # Escudo no antebraço: escala + base de posição (somada aos opts slide/push/side) + rotação. [ARMAS_3D]
 const SHIELD_SCALE := 0.20
-# y=ao longo do braço (↑ = rumo à mão/pulso) · z=frente (cobre a mão). Aproximado da MÃO.
-const SHIELD_BASE := Vector3(0.0, 0.18, 0.08)   # x=lado, y=ao longo do braço, z=frente
+# Preso na MÃO (LeftHand) → empunhado, não no antebraço. x=lado, y=ao longo da mão, z=frente.
+const SHIELD_BASE := Vector3(0.0, 0.02, 0.06)
 # [FIX] estava (0,0,0) e o escudo saía de CABEÇA PRA BAIXO → 180° em Z endireita (face pra frente).
 const SHIELD_ROT := Vector3(0, 0, 180)
 
@@ -86,7 +86,8 @@ func attach_weapon(node: Node3D, kind: String, rarity := 1, grip := 0.10, force_
 func attach_shield(node: Node3D, opts := {}) -> Node3D:
 	var skel: Skeleton3D = node.find_child("GeneralSkeleton", true, false)
 	if skel == null: return null
-	var bone := "LeftLowerArm" if skel.find_bone("LeftLowerArm") != -1 else "LeftHand"
+	# [FIX] na MÃO (empunhado), não no antebraço — antes ficava "segurando com o antebraço"
+	var bone := "LeftHand" if skel.find_bone("LeftHand") != -1 else "LeftLowerArm"
 	var ba := BoneAttachment3D.new()
 	skel.add_child(ba)
 	ba.bone_name = bone
