@@ -95,12 +95,14 @@ func _render() -> void:
 		content.add_child(UiKit.dim("— sem fragmentos —"))
 	else:
 		_grid_section(gems, _gem_card, true)
-	# ── Manutenção ──
+	# ── Manutenção (ordenada pelo item mais QUEBRADO primeiro: menor durabilidade no topo) ──
 	content.add_child(UiKit.section("🔧 Manutenção (Reparar / Reforjar)"))
 	if inventory.is_empty():
 		content.add_child(UiKit.empty("Sem itens", "Equipamentos da mochila aparecem aqui p/ reparo/reforja"))
 	else:
-		_grid_section(inventory, _maint_card)
+		var maint := inventory.duplicate()
+		maint.sort_custom(func(a, b): return int(a.get("durability", 100)) < int(b.get("durability", 100)))
+		_grid_section(maint, _maint_card)
 
 # Monta o grid de cards via UiKit.grid (responsivo — colunas pela largura real, não da janela).
 # builder = func(Dictionary) -> Control; filtra não-dicionários antes (o builder assume Dictionary).
