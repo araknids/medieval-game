@@ -640,7 +640,7 @@ static func card(border := BRONZE, enabled := true) -> Array:
 # transparente é sobreposto ao conteúdo (mesmo rect, desenhado por cima) → captura o clique em
 # qualquer ponto, hover destaca o card todo, cursor vira mãozinha. enabled=false → card apagado
 # e SEM clique (use p/ estado bloqueado, pondo um selo de motivo dentro do VBox).
-static func clickable_card(border := BRONZE, on_click := Callable(), enabled := true) -> Array:
+static func clickable_card(border := BRONZE, on_click := Callable(), enabled := true, tooltip := "") -> Array:
 	var res := card(border, enabled)
 	if not enabled or not on_click.is_valid():
 		return res
@@ -649,6 +649,8 @@ static func clickable_card(border := BRONZE, on_click := Callable(), enabled := 
 	hit.flat = true
 	hit.focus_mode = Control.FOCUS_NONE
 	hit.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
+	if tooltip != "":
+		hit.tooltip_text = tooltip   # [CARD_BOTAO] hover no card todo mostra a dica
 	var emptysb := StyleBoxEmpty.new()
 	for s in ["normal", "hover", "pressed", "focus", "disabled"]:
 		hit.add_theme_stylebox_override(s, emptysb)

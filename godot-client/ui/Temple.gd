@@ -46,7 +46,7 @@ func _render() -> void:
 	_render_blessing()                                  # banner ABENÇOADO (prominente)
 	content.add_child(UiKit.section("Estado do Guerreiro"))
 	_render_state()
-	content.add_child(UiKit.section("Bênçãos"))
+	content.add_child(UiKit.section("🙏 Bênçãos"))
 	_render_buff_options()
 	content.add_child(UiKit.section(Lang.t("Proteção de Itens (%d/%d)") % [int(data.get("protectedCount", 0)), int(data.get("maxProtected", 3))]))
 	_render_protection()
@@ -110,35 +110,37 @@ func _render_state() -> void:
 	var ko := bool(data.get("isKnockedOut", false))
 	content.add_child(UiKit.bar("HP", hp, 100, Color(0.70, 0.22, 0.20), Lang.t("💀 Inconsciente") if ko else "%d%%" % hp))
 	var full := hp >= 100
-	if ko:
-		content.add_child(UiKit.dim("Seu guerreiro está nocauteado. Cure para voltar ao combate."))
-	elif not full:
-		content.add_child(UiKit.dim("Regenerando HP… o templo cura instantaneamente."))
-	# cura paga/grátis
 	if full:
-		var done := UiKit.action("✔ HP cheio", Callable())
-		done.disabled = true
-		content.add_child(done)
-	else:
-		var cost := int(data.get("healCost", 100))
-		var lbl := Lang.t("Curar (grátis)") if bool(data.get("healFree", false)) else (Lang.t("Curar (%s)") % UiKit.coin_str(cost))
-		content.add_child(UiKit.action(lbl, _heal))
-	# VIP heal (CD 10min)
+		content.add_child(UiKit.dim("✔ HP cheio."))
+		return
+	if ko:
+		content.add_child(UiKit.dim("Nocauteado — cure para voltar ao combate."))
+	# [TEMPLO_UI] curas viram ÍCONES (sem botão gigante): básica · VIP · SoulStone. Custo/CD no rótulo + tooltip.
+	var row := HBoxContainer.new(); row.add_theme_constant_override("separation", 10)
+	var cost := int(data.get("healCost", 100))
+	var free := bool(data.get("healFree", false))
+	var rlbl := Lang.t("Grátis") if free else UiKit.coin_str(cost)
+	row.add_child(_heal_btn("heal_basic", "❤", rlbl, _heal, true, Lang.t("Curar HP no templo"), UiKit.OK if free else UiKit.GOLD_SOFT))
 	if bool(data.get("isVip", false)):
 		var cd := maxi(0, int(data.get("vipHealCooldownSecs", 0)))
-		var vlbl := "✔ HP cheio" if full else (Lang.t("⏳ VIP CD %dm%02ds") % [cd / 60, cd % 60] if cd > 0 else "👑 VIP Heal (grátis)")
-		var vb := UiKit.action(vlbl, _vip_heal)
-		vb.disabled = full or cd > 0
-		content.add_child(vb)
-	# SoulStone heal (CD 30min)
+		var vlbl := (Lang.t("%dm%02ds") % [cd / 60, cd % 60]) if cd > 0 else Lang.t("Grátis")
+		row.add_child(_heal_btn("heal_vip", "👑", vlbl, _vip_heal, cd <= 0, Lang.t("Cura VIP grátis (CD 10 min)"), UiKit.WARN if cd > 0 else UiKit.OK))
 	var ss := int(data.get("soulStones", 0))
 	if ss > 0:
 		var cd2 := maxi(0, int(data.get("ssHealCooldownSecs", 0)))
-		var slbl := "✔ HP cheio" if full else (Lang.t("⏳ Cooldown %dm%02ds") % [cd2 / 60, cd2 % 60] if cd2 > 0 else "💎 Cura instantânea (1 SoulStone)")
-		var sb := UiKit.action(slbl, _soulstone_heal)
-		sb.disabled = full or cd2 > 0
-		content.add_child(sb)
-		content.add_child(UiKit.dim(Lang.t("💎 %d SoulStone(s) · CD 30 min") % ss))
+		var slbl := (Lang.t("%dm%02ds") % [cd2 / 60, cd2 % 60]) if cd2 > 0 else "1 💎"
+		row.add_child(_heal_btn("heal_soul", "💎", slbl, _soulstone_heal, cd2 <= 0, Lang.t("Cura instantânea — 1 SoulStone (CD 30 min) · você tem %d") % ss, UiKit.WARN if cd2 > 0 else UiKit.GOLD_SOFT))
+	content.add_child(row)
+
+# Botão de cura ICON-PRIMARY (ícone + custo/CD). Desabilitado em CD/sem-recurso → apagado.
+func _heal_btn(icon_key: String, emoji: String, label: String, cb: Callable, enabled: bool, tip: String, accent: Color) -> Button:
+	var b := UiKit.icon_choice_btn(icon_key, emoji, label, cb if enabled else Callable(), accent)
+	b.custom_minimum_size = Vector2(104, 80)
+	b.tooltip_text = tip
+	if not enabled:
+		b.disabled = true
+		b.modulate = Color(1, 1, 1, 0.5)
+	return b
 
 # ── Bênçãos disponíveis ────────────────────────────────────────────────────────
 func _render_buff_options() -> void:
@@ -154,34 +156,33 @@ func _render_buff_options() -> void:
 			cells.append(b)
 	content.add_child(UiKit.grid(self, cells, _buff_cell, true))   # grid compacto 2-3 col
 
-# Bênção compacta: o botão É a bênção (clica = aplica) + 1 linha de explicação (efeito · custo).
+# [TEMPLO_UI] Bênção = CARD CLICÁVEL inteiro (clica = aplica), sem botão gigante. Header [ícone] nome +
+# custo; sub = efeito. Efeito completo no tooltip do card. [CARD_BOTAO]
 func _buff_cell(b: Dictionary) -> Control:
-	var res := UiKit.card()
-	var pc: PanelContainer = res[0]
-	var box: VBoxContainer = res[1]
-	box.add_theme_constant_override("separation", 6)
-	var bname := "%s %s" % [str(b.get("icon", "✨")), str(b.get("displayName", b.get("id", "?")))]
-	var btn := UiKit.action(bname, _apply_buff.bind(str(b.get("id", ""))))
-	btn.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	box.add_child(btn)
-	# explicação numa linha só: efeito · custo (moeda pixel-art [MOEDA])
-	var line := HBoxContainer.new()
-	line.add_theme_constant_override("separation", 5)
 	var eff_txt := str(b.get("effect", ""))
+	var on_click := func() -> void: _apply_buff(str(b.get("id", "")))
+	var res := UiKit.clickable_card(UiKit.GOLD_SOFT, on_click, true, eff_txt)
+	var box: VBoxContainer = res[1]
+	box.add_theme_constant_override("separation", 4)
+	# header: ícone (emoji da bênção) + nome + custo
+	var top := HBoxContainer.new(); top.add_theme_constant_override("separation", 6)
+	var ic := Label.new(); ic.text = str(b.get("icon", "✨")); ic.add_theme_font_size_override("font_size", 20)
+	top.add_child(ic)
+	var nm := Label.new(); nm.text = str(b.get("displayName", b.get("id", "?")))
+	nm.add_theme_font_size_override("font_size", 15); nm.add_theme_color_override("font_color", UiKit.TEXT)
+	nm.size_flags_horizontal = Control.SIZE_EXPAND_FILL; nm.clip_text = true
+	top.add_child(nm)
+	top.add_child(UiKit.coin_box(int(b.get("bronzeCost", 0)), 14))
+	box.add_child(top)
+	# efeito (1 linha, clipada — completo no tooltip)
 	if eff_txt != "":
 		var eff := Label.new()
-		eff.text = "%s ·" % eff_txt
+		eff.text = eff_txt
 		eff.add_theme_font_size_override("font_size", 12)
 		eff.add_theme_color_override("font_color", UiKit.TEXT_DIM)
-		eff.clip_text = true                                       # nunca quebra/expande o card
-		eff.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		eff.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-		line.add_child(eff)
-	var coin := UiKit.coin_box(int(b.get("bronzeCost", 0)), 14)
-	coin.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	line.add_child(coin)
-	box.add_child(line)
-	return pc
+		eff.clip_text = true
+		box.add_child(eff)
+	return res[0]
 
 # ── Proteção de itens ──────────────────────────────────────────────────────────
 func _render_protection() -> void:
@@ -207,35 +208,33 @@ func _render_protection() -> void:
 		return
 	content.add_child(UiKit.grid(self, equipped, _protect_cell, true))   # grid compacto 2-3 col
 
-# Item compacto p/ proteção: nome + status (1 linha) + botão de largura cheia.
+# [TEMPLO_UI] Item de proteção = CARD CLICÁVEL (clica = protege/remove). Selo de escudo quando protegido;
+# sem botão. Tooltip explica a ação. [CARD_BOTAO]
 func _protect_cell(it: Dictionary) -> Control:
 	var col := UiKit.rarity_color(int(it.get("rarity", 1)))
-	var res := UiKit.card(col)
-	var pc: PanelContainer = res[0]
+	var guarded := bool(it.get("guarded", false))
+	var id := int(it.get("id", 0))
+	var on_click := func() -> void:
+		if guarded:
+			_unprotect(id)
+		else:
+			_protect(id)
+	var tip := Lang.t("Tocar para remover a proteção") if guarded else Lang.t("Tocar para proteger (não se perde em PvP) · custo 50 bronze")
+	var res := UiKit.clickable_card(col, on_click, true, tip)
 	var box: VBoxContainer = res[1]
-	box.add_theme_constant_override("separation", 6)
+	box.add_theme_constant_override("separation", 4)
 	var nm := Label.new()
 	nm.text = str(it.get("name", "?"))
 	nm.add_theme_font_size_override("font_size", 14)
 	nm.add_theme_color_override("font_color", col)
-	nm.clip_text = true                                            # nome longo não estoura o card
+	nm.clip_text = true
 	box.add_child(nm)
-	var id := int(it.get("id", 0))
-	var guarded := bool(it.get("guarded", false))
-	var st := Label.new()
-	st.text = "🛡 Protegido" if guarded else "Desprotegido"
-	st.add_theme_font_size_override("font_size", 12)
-	st.add_theme_color_override("font_color", UiKit.OK if guarded else UiKit.TEXT_DIM)
-	box.add_child(st)
+	# status: 🛡 Protegido (ícone) / Desprotegido + dica de ação
 	if guarded:
-		var btn := UiKit.small_btn("Remover", _unprotect.bind(id), true)
-		btn.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		box.add_child(btn)
+		box.add_child(UiKit.icon_text("🛡 Protegido — tocar p/ remover", 12, UiKit.OK, 16))
 	else:
-		var btn := UiKit.small_btn("Proteger", _protect.bind(id))
-		btn.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		box.add_child(btn)
-	return pc
+		box.add_child(UiKit.icon_text("🔒 Tocar para proteger", 12, UiKit.TEXT_DIM, 16))
+	return res[0]
 
 # ── Ações: await DIRETO na API; trata o resultado e re-sincroniza ───────────────
 func _heal() -> void:
