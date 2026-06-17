@@ -54,6 +54,7 @@ const BLEND := 0.12          # cross-fade entre animações (mata o "pop" de tro
 const TURN_SPEED := 13.0     # virada suave (rad/s aprox; frame-rate independente)
 const ACCEL := 12.0          # aceleração do movimento → chega à vel. máx em ~0.23s (sem partir/parar seco)
 const HP_LERP := 9.0         # drenagem suave da barra de vida
+const CORNER_HP := true       # [HP_CANTO] vida no CANTO da tela (estilo jogo de luta) em vez de acima da cabeça
 
 # [GODOT_PAPERDOLL] paper-doll (igual ao PaperDollLive): veste o lutador com as peças Ranger.
 const PIECES := {
@@ -87,6 +88,17 @@ const CAM_PRESETS := [
 ]
 
 # tipos de evento (idênticos ao battleArena.js 2D)
+# [HABILIDADES] id da skill (vem no evento `ability`) → [ícone em assets/ui/icons/, nome exibido, cor].
+# O replay mostra ícone+nome flutuando acima do lutador quando uma ATIVA dispara. [SKILL_POPUP]
+const SKILL_INFO := {
+	"second_wind":   ["skill_second_wind", "Second Wind", Color(0.55, 0.95, 0.6)],
+	"berserk":       ["skill_berserk", "Berserk", Color(1.0, 0.45, 0.25)],
+	"shield_bash":   ["skill_shield_bash", "Shield Bash", Color(1.0, 0.82, 0.4)],
+	"crushing_blow": ["skill_crushing_blow", "Crushing Blow", Color(1.0, 0.7, 0.35)],
+	"precise_shot":  ["skill_precise_shot", "Precise Shot", Color(0.6, 0.85, 1.0)],
+	"volley":        ["skill_volley", "Volley", Color(0.7, 0.8, 1.0)],
+	"evasive_roll":  ["skill_evasive_roll", "Evasive Roll", Color(0.7, 0.9, 1.0)],
+}
 const HIT_TYPES := ["attack", "crit", "volley", "extra"]       # carregam dano/HP
 const SWING_TYPES := ["attack", "crit", "volley", "extra", "miss", "dodge"]  # atacante balança a arma
 const RANGED_MARKERS := ["volley", "pinned", "pointblank", "backpedal"]  # delatam um lutador ranged
@@ -209,6 +221,10 @@ var ranged_f := {}            # lutador que recua/atira
 var melee_f := {}             # lutador que avança
 var victory_label: Label
 var status_label: Label
+# [HP_CANTO] HUD de vida no canto (estilo jogo de luta): 2 colunas (aliados esq / inimigos dir).
+var hud_left: VBoxContainer
+var hud_right: VBoxContainer
+var hud_sig := ""             # assinatura dos lutadores no HUD → reconstrói só quando muda (spawn/morte)
 var chosen_scenario := ""   # mapa sorteado/usado nesta luta
 var fight_scene := ""        # "scene" que o backend mandou (coast/sea/cave/fortress/tower/arena) → casa o mapa
 var _spray_live := 0        # [GORE] emissores de sangue vivos (cap)
@@ -579,14 +595,36 @@ func _war_step(dt: float) -> void:
 		war_i += 1
 		var ty := str(e.get("type", ""))
 		_war_event(e)
-		if ty == "attack" or ty == "crit" or ty == "miss":
+		if ty == "attack" or ty == "crit" or ty == "miss" or ty == "volley" or ty == "dodge":
 			break
 
 func _war_event(e: Dictionary) -> void:
+	# [SKILL_POPUP] ativa disparou na guerra → banner ícone+nome acima do ator
+	var ability := str(e.get("ability", ""))
+	if ability != "":
+		var u = fighters.get(str(e.get("actor", "")))
+		if u != null and not u.get("dead", false): _skill_popup(u, ability)
 	match str(e.get("type", "")):
 		"spawn": _war_spawn(e)
 		"attack": _war_hit(e, false)
 		"crit": _war_hit(e, true)
+		"volley": _war_hit(e, false)   # [HABILIDADES] golpe extra do Volley (tem dano/HP)
+		"heal":
+			var h = fighters.get(str(e.get("actor", "")))   # Second Wind: cura o próprio ator
+			if h != null and not h.get("dead", false):
+				h["hp"] = clampi(int(e.get("targetHp", h["hp"])), 0, int(h.get("maxhp", h["hp"])))
+				_update_hp(h)
+				_popup(_head(h), "+%d" % int(e.get("damage", 0)), Color(0.49, 0.99, 0.6), false)
+		"dodge":
+			var dd = fighters.get(str(e.get("actor", "")))    # Evasive Roll: o ator esquiva
+			var rt = fighters.get(str(e.get("target", "")))   # o atacante leva o reflexo
+			if dd != null: _popup(_head(dd), "DODGE", Color(0.62, 0.81, 1), false)
+			if rt != null:
+				rt["hp"] = clampi(int(e.get("targetHp", rt["hp"])), 0, int(rt.get("maxhp", rt["hp"])))
+				_update_hp(rt)
+				if int(rt["hp"]) <= 0: _kill(rt)
+		"berserk":
+			pass   # só o banner de skill (sem mudança de HP)
 		"miss":
 			var t = fighters.get(str(e.get("target", "")))
 			if t != null: _popup(_head(t), "MISS", Color(0.62, 0.81, 1), false)
@@ -844,10 +882,11 @@ func _make_fighter(fname: String, side: int, maxhp: int, weapon_kind: String, eq
 		if ("SHIELD" in equipped_types) and not wp.is_bow_kind(weapon_kind):
 			var sh_r := force_rarity if force_rarity > 0 else player_shield_rarity   # [RARIDADE] escudo
 			wp.attach_shield(node, {"slide": shield_slide, "push": shield_push, "side": shield_side, "up": shield_up, "flip": shield_flip, "rarity": sh_r})
-	# barra de vida + nome
+	# barra de vida (3D) + nome
 	var bar := Node3D.new()
 	add_child(bar)
-	bar.add_child(_quad(BARW, 0.09, Color(0, 0, 0, 0.55), 0))
+	var bg_quad := _quad(BARW, 0.09, Color(0, 0, 0, 0.55), 0)
+	bar.add_child(bg_quad)
 	var fill := _quad(BARW, 0.09, Color(0.25, 0.85, 0.35, 1.0), 1)
 	bar.add_child(fill)
 	# valor de vida (atual/máx) DENTRO da barra verde [BATALHA]
@@ -862,6 +901,10 @@ func _make_fighter(fname: String, side: int, maxhp: int, weapon_kind: String, eq
 	hp_lbl.outline_size = 14
 	hp_lbl.outline_modulate = Color(0, 0, 0, 0.9)
 	bar.add_child(hp_lbl)
+	if CORNER_HP:   # [HP_CANTO] a vida vai pro HUD no canto → esconde a barra 3D (fica só o nome acima da cabeça)
+		bg_quad.visible = false
+		fill.visible = false
+		hp_lbl.visible = false
 	var name_lbl := Label3D.new()
 	name_lbl.text = fname + ("  🏹" if ranged else "")
 	name_lbl.billboard = BaseMaterial3D.BILLBOARD_ENABLED
@@ -984,6 +1027,8 @@ func _process(dt: float) -> void:
 			_apply_hp_bar(f)
 		if f.has("rim") and is_instance_valid(f["rim"]):   # [JUICE] rim light atrás (−Z, longe da câmera) + acima
 			f["rim"].global_position = n.global_position + Vector3(0, 1.9, -1.1)
+	if CORNER_HP:
+		_update_hud()   # [HP_CANTO] barras de vida no canto (estilo jogo de luta)
 	match phase:
 		"countdown": _countdown(dt)
 		"war": _war_step(dt)
@@ -1416,6 +1461,9 @@ func _resolve(e: Dictionary) -> void:
 	var act = fighters.get(str(e.get("actor", "")))
 	var tgt = fighters.get(str(e.get("target", "")))
 	var dmg := int(e.get("damage", 0))
+	var ability := str(e.get("ability", ""))   # [SKILL_POPUP] ativa disparou → banner ícone+nome no ator
+	if ability != "" and act:
+		_skill_popup(act, ability)
 	if ty == "spawn":
 		_handle_spawn(e)
 	elif ty == "victory":
@@ -1909,6 +1957,49 @@ func _popup(pos: Vector3, text: String, color: Color, big: bool) -> void:
 	tw.tween_property(lbl, "modulate:a", 0.0, 0.8).set_delay(0.25)
 	get_tree().create_timer(0.95).timeout.connect(lbl.queue_free)
 
+# [SKILL_POPUP] Banner de SKILL: ícone (pixel) + nome flutuando acima da cabeça quando uma ATIVA dispara
+# (evento com `ability`). Some sozinho. Vale no 1v1 e na guerra (mesma função). [HABILIDADES]
+func _skill_popup(f: Dictionary, ability_id: String) -> void:
+	if f == null or not is_instance_valid(f.get("node")):
+		return
+	var info = SKILL_INFO.get(ability_id, ["", ability_id.capitalize(), Color(1, 0.9, 0.6)])
+	var col: Color = info[2]
+	var root := Node3D.new()
+	add_child(root)
+	root.global_position = _head(f) + Vector3(0, 0.45, 0)
+	var visuals: Array = []
+	var icon_key := str(info[0])
+	if icon_key != "":
+		var p := "res://assets/ui/icons/%s.png" % icon_key
+		if ResourceLoader.exists(p):
+			var spr := Sprite3D.new()
+			spr.texture = load(p)
+			spr.billboard = BaseMaterial3D.BILLBOARD_ENABLED
+			spr.no_depth_test = true
+			spr.texture_filter = BaseMaterial3D.TEXTURE_FILTER_NEAREST
+			spr.pixel_size = 0.012
+			spr.position = Vector3(0, 0.36, 0)
+			root.add_child(spr)
+			visuals.append(spr)
+	var lbl := Label3D.new()
+	lbl.text = Lang.t(str(info[1]))
+	lbl.billboard = BaseMaterial3D.BILLBOARD_ENABLED
+	lbl.no_depth_test = true
+	lbl.modulate = col
+	lbl.outline_modulate = Color(0, 0, 0, 0.95)
+	lbl.outline_size = 8
+	lbl.pixel_size = 0.0055
+	lbl.font_size = 56
+	root.add_child(lbl)
+	visuals.append(lbl)
+	root.scale = Vector3(0.5, 0.5, 0.5)
+	var tw := create_tween().set_parallel(true)
+	tw.tween_property(root, "scale", Vector3.ONE, 0.24).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+	tw.tween_property(root, "global_position", root.global_position + Vector3(0, 0.7, 0), 1.4).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+	for v in visuals:
+		tw.tween_property(v, "modulate:a", 0.0, 0.5).set_delay(0.95)
+	get_tree().create_timer(1.5).timeout.connect(root.queue_free)
+
 # "scene" do backend → mapa do BattleReplay (casa o cenário com o reino da luta).
 const SCENE_TO_MAP := {
 	"arena": "arena", "tower": "dungeon", "coast": "beach",
@@ -2276,6 +2367,141 @@ func _make_ui() -> void:
 	back.offset_left = -110; back.offset_right = -14; back.offset_top = 10; back.offset_bottom = 42
 	back.pressed.connect(_leave)
 	layer.add_child(back)
+	# [HP_CANTO] HUD de vida no canto (estilo jogo de luta): coluna esquerda (aliados) + direita (inimigos).
+	hud_left = VBoxContainer.new()
+	hud_left.set_anchors_and_offsets_preset(Control.PRESET_TOP_LEFT)
+	hud_left.position = Vector2(14, 44)
+	hud_left.add_theme_constant_override("separation", 6)
+	hud_left.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	layer.add_child(hud_left)
+	hud_right = VBoxContainer.new()
+	hud_right.set_anchors_and_offsets_preset(Control.PRESET_TOP_LEFT)
+	hud_right.position = Vector2(400, 52)   # _update_hud recoloca no canto direito (depende da largura)
+	hud_right.add_theme_constant_override("separation", 6)
+	hud_right.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	layer.add_child(hud_right)
+
+# ── [HP_CANTO] HUD de vida no canto (estilo jogo de luta) ──────────────────────────
+# Lado do lutador: <0 = esquerda (aliado/herói) · >0 = direita (inimigo).
+func _fighter_side(f: Dictionary) -> int:
+	return int(f.get("team", f.get("side", -1)))
+
+# Todo frame: reconstrói as barras se o elenco mudou (spawn/morte) + atualiza valores + recoloca a coluna direita.
+func _update_hud() -> void:
+	if hud_left == null or hud_right == null:
+		return
+	var sig := _hud_signature()
+	if sig != hud_sig:
+		hud_sig = sig
+		_rebuild_hp_hud()
+	for f in order:
+		if f.get("hud_bar") != null and is_instance_valid(f["hud_bar"]):
+			var bar: ProgressBar = f["hud_bar"]
+			bar.max_value = maxi(1, int(f["maxhp"]))
+			bar.value = clampf(float(f.get("shown_hp", f["hp"])), 0.0, bar.max_value)
+			if f.get("hud_num") != null and is_instance_valid(f["hud_num"]):
+				(f["hud_num"] as Label).text = "%d/%d" % [int(round(float(f.get("shown_hp", f["hp"])))), int(f["maxhp"])]
+	# recoloca a coluna direita encostada na borda direita da tela
+	var vpw := get_viewport().get_visible_rect().size.x
+	hud_right.position.x = vpw - hud_right.size.x - 14.0
+
+# Assinatura do elenco visível (nome + vivo/morto) → só reconstrói quando muda.
+func _hud_signature() -> String:
+	var team := team_mode or war_mode
+	var s := ""
+	for f in order:
+		if team and f.get("dead", false): continue
+		s += str(f["name"]) + ("D" if f.get("dead", false) else "L") + ";"
+	return s
+
+# (Re)constrói as barras a partir de `order`. 1v1 mostra os 2 (mesmo mortos); time/guerra só os vivos.
+func _rebuild_hp_hud() -> void:
+	for c in hud_left.get_children(): c.queue_free()
+	for c in hud_right.get_children(): c.queue_free()
+	for f in order:
+		f["hud_bar"] = null
+		f["hud_num"] = null
+	var team := team_mode or war_mode
+	var w := 200.0 if team else 300.0
+	for f in order:
+		if team and f.get("dead", false):
+			continue
+		var right := _fighter_side(f) > 0
+		var widget := _make_hp_widget(f, right, w)
+		if right: hud_right.add_child(widget)
+		else: hud_left.add_child(widget)
+
+# Widget de uma barra: moldura pixel (9-slice) + nome + barra vermelha + número. right=inimigo (espelha).
+func _make_hp_widget(f: Dictionary, right: bool, w: float) -> Control:
+	var pc := PanelContainer.new()
+	pc.custom_minimum_size = Vector2(w, 0)
+	pc.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	pc.add_theme_stylebox_override("panel", _hp_frame_box())
+	var vb := VBoxContainer.new()
+	vb.add_theme_constant_override("separation", 1)
+	vb.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	pc.add_child(vb)
+	var nm := Label.new()
+	nm.text = str(f["name"]) + ("  🏹" if f.get("ranged", false) else "")
+	nm.add_theme_font_size_override("font_size", 15)
+	nm.add_theme_color_override("font_color", Color(0.96, 0.9, 0.7))
+	nm.add_theme_color_override("font_outline_color", Color(0, 0, 0))
+	nm.add_theme_constant_override("outline_size", 4)
+	nm.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT if right else HORIZONTAL_ALIGNMENT_LEFT
+	nm.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	vb.add_child(nm)
+	var bar := ProgressBar.new()
+	bar.custom_minimum_size = Vector2(0, 18)
+	bar.min_value = 0
+	bar.max_value = maxi(1, int(f["maxhp"]))
+	bar.value = clampf(float(f.get("shown_hp", f["hp"])), 0.0, bar.max_value)
+	bar.show_percentage = false
+	bar.fill_mode = ProgressBar.FILL_END_TO_BEGIN if right else ProgressBar.FILL_BEGIN_TO_END
+	bar.add_theme_stylebox_override("background", _hp_bar_bg())
+	bar.add_theme_stylebox_override("fill", _hp_bar_fill())
+	bar.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	vb.add_child(bar)
+	var num := Label.new()   # número de HP sobre a barra
+	num.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	num.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	num.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	num.add_theme_font_size_override("font_size", 12)
+	num.add_theme_color_override("font_color", Color(1, 1, 1))
+	num.add_theme_color_override("font_outline_color", Color(0, 0, 0))
+	num.add_theme_constant_override("outline_size", 4)
+	num.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	bar.add_child(num)
+	f["hud_bar"] = bar
+	f["hud_num"] = num
+	return pc
+
+# Moldura pixel medieval (9-slice). Fallback: caixa madeira/ouro se o PNG não foi importado.
+func _hp_frame_box() -> StyleBox:
+	var p := "res://assets/ui/hp_frame.png"
+	if ResourceLoader.exists(p):
+		var sb := StyleBoxTexture.new()
+		sb.texture = load(p)
+		sb.set_texture_margin_all(28)   # 9-slice: a borda ornamentada do frame
+		sb.set_content_margin_all(15)    # padding interno (a barra fica dentro do frame)
+		return sb
+	var fb := StyleBoxFlat.new()
+	fb.bg_color = Color(0.09, 0.07, 0.05, 0.92)
+	fb.set_border_width_all(2); fb.border_color = Color(0.78, 0.65, 0.36)
+	fb.set_corner_radius_all(3); fb.set_content_margin_all(8)
+	return fb
+
+func _hp_bar_bg() -> StyleBox:
+	var s := StyleBoxFlat.new()
+	s.bg_color = Color(0.06, 0.03, 0.03, 0.95)
+	s.set_border_width_all(1); s.border_color = Color(0.20, 0.10, 0.08)
+	s.set_corner_radius_all(2)
+	return s
+
+func _hp_bar_fill() -> StyleBox:
+	var s := StyleBoxFlat.new()
+	s.bg_color = Color(0.80, 0.16, 0.16)   # vermelho-sangue (medieval)
+	s.set_corner_radius_all(2)
+	return s
 
 func _status(msg: String) -> void:
 	if status_label: status_label.text = msg

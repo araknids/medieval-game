@@ -97,7 +97,7 @@ public class AbilityService {
         for (var e : levels(w).entrySet()) {
             ClassAbility a = e.getKey();
             if (a.isActive())
-                out.add(new BattleSimulator.ActiveAbility(a.effect, a.cooldown, a.magnitude(e.getValue())));
+                out.add(new BattleSimulator.ActiveAbility(a.effect, a.cooldown, a.magnitude(e.getValue()), a.name().toLowerCase())); // id = skill_<id> no replay [HABILIDADES]
         }
         return out;
     }
