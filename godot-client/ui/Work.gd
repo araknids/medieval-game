@@ -93,6 +93,8 @@ func _job_card(job: Dictionary) -> PanelContainer:
 	nm.add_theme_color_override("font_color", UiKit.TEXT)
 	nm.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	nm.clip_text = true
+	if desc != "":
+		nm.tooltip_text = desc   # hover no NOME = descrição (mais confiável que só no card)
 	head.add_child(nm)
 	var bonus := int(job.get("bonusPct", 0))
 	var lvl := Label.new()
