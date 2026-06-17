@@ -8,6 +8,7 @@ extends Control
 signal go_back
 signal request_battle(data)   # pede ao App o replay 3D (overlay), como World/Tower [MIGRACAO_GODOT]
 signal open_screen(name)      # [INCURSAO] sem run → botão "Ir ao Mundo" (a aba saiu)
+signal open_world_at(kingdom) # [INCURSAO] vitória → volta pra tela do reino/território de onde saiu
 
 const Icons := preload("res://ui/Icons.gd")
 
@@ -21,6 +22,8 @@ const NODE := {
 	"BOSS":     ["👑", "Chefe",    Color(0.94, 0.33, 0.33), "node_boss"],
 	"GATHER":   ["⛏", "Coleta",   Color(0.45, 0.78, 0.72), "act_mine"],
 }
+# [INCURSAO] Fundo do mapa (gere no GPT e salve aqui). Ausente → painel escuro suave (fallback).
+const MAP_BG_PATH := "res://assets/ui/delve_map_bg.png"
 const KINGDOMS := [
 	["COMBAT", "⚔ Fortaleza Maldita"], ["FISHING", "🎣 Garganta dos Ossos"], ["MINING", "⛏ Minas de Ferro Negro"],
 	["GRUTAS_DE_CRISTAL", "🔮 Grutas de Cristal"], ["MAR_ABENCOADO", "🌊 Mar Abençoado"],
@@ -107,6 +110,21 @@ func _after_start(r) -> void:
 		_show_error(r)
 
 # ── Mapa da run ─────────────────────────────────────────────────────────────────────
+# [INCURSAO] Fundo da área dos nós: textura do mapa (MAP_BG_PATH) se existir; senão painel escuro suave.
+func _map_stylebox() -> StyleBox:
+	if ResourceLoader.exists(MAP_BG_PATH):
+		var sb := StyleBoxTexture.new()
+		sb.texture = load(MAP_BG_PATH)
+		sb.set_content_margin_all(12)
+		return sb
+	var flat := StyleBoxFlat.new()
+	flat.bg_color = Color(0.07, 0.06, 0.09, 0.55)
+	flat.border_color = UiKit.GOLD_SOFT
+	flat.set_border_width_all(1)
+	flat.set_corner_radius_all(8)
+	flat.set_content_margin_all(12)
+	return flat
+
 func _render_map() -> void:
 	var cur := int(run.get("currentLayer", 0))
 	var depth := int(run.get("depth", 0))
@@ -125,10 +143,16 @@ func _render_map() -> void:
 	cols.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	var left := VBoxContainer.new(); left.add_theme_constant_override("separation", 6)
 	left.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	# [INCURSAO] os nós ficam sobre um FUNDO DE MAPA (estilo Slay-the-Spire): ícones sem moldura + setas.
+	var map_panel := PanelContainer.new()
+	map_panel.add_theme_stylebox_override("panel", _map_stylebox())
+	map_panel.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	var map_vb := VBoxContainer.new(); map_vb.add_theme_constant_override("separation", 6)
 	for layer in run.get("map", []):
 		if layer is Dictionary:
-			left.add_child(_layer_row(layer, cur, status_str))
-	left.add_child(HSeparator.new())
+			map_vb.add_child(_layer_row(layer, cur, status_str))
+	map_panel.add_child(map_vb)
+	left.add_child(map_panel)
 	# Só "Abandonar": o garantido vai pro inventário; o carregado (em risco) é perdido.
 	left.add_child(UiKit.action_danger("Abandonar", _confirm_abandon))
 	# EVENTO pendente → botão pra (re)abrir o diálogo (caso saia e volte no meio do evento).
@@ -193,17 +217,16 @@ func _node_chip(n: Dictionary) -> Control:
 			_:         icon_key = "act_mine"; emoji = "⛏"; label = "Minerar"
 	var reachable := bool(n.get("reachable", false))
 	if reachable:
-		var b := UiKit.icon_choice_btn(icon_key, emoji, label, _choose_node.bind(str(n.get("id", ""))), meta[2])
+		var b := UiKit.icon_choice_btn(icon_key, emoji, label, _choose_node.bind(str(n.get("id", ""))), meta[2], false, true)
 		b.custom_minimum_size = Vector2(96, 72)
 		b.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 		return b
-	# inalcançável → preview vertical apagado (mesmo formato do alcançável)
-	var res := UiKit.card(Color(0.3, 0.3, 0.3, 0.5))
-	var panel: PanelContainer = res[0]
-	var vb: VBoxContainer = res[1]
-	panel.custom_minimum_size = Vector2(96, 72)
-	panel.modulate = Color(1, 1, 1, 0.5)
+	# [INCURSAO] inalcançável → ícone APAGADO sem moldura (nó "futuro" no mapa, estilo Slay-the-Spire)
+	var vb := VBoxContainer.new()
+	vb.custom_minimum_size = Vector2(96, 72)
+	vb.modulate = Color(1, 1, 1, 0.45)
 	vb.alignment = BoxContainer.ALIGNMENT_CENTER
+	vb.add_theme_constant_override("separation", 4)
 	var icon_tex: Texture2D = Icons.tex(icon_key) if icon_key != "" else null
 	if icon_tex != null:
 		var ir := Icons.rect(icon_key, 34)
@@ -221,7 +244,7 @@ func _node_chip(n: Dictionary) -> Control:
 	nl.add_theme_color_override("font_color", meta[2])
 	nl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	vb.add_child(nl)
-	return panel
+	return vb
 
 
 func _bag_card(title: String, bag, col: Color) -> PanelContainer:
@@ -343,6 +366,9 @@ func _on_battle_over() -> void:
 
 func _extract() -> void:
 	if busy: return
+	# [INCURSAO] captura ANTES do extract (que encerra a run): vitória + reino de onde saiu
+	var was_win := _is_won()
+	var from_kingdom := str(run.get("kingdom", ""))
 	busy = true
 	var r = await Api.expedition_extract(_run_id())
 	busy = false
@@ -350,7 +376,15 @@ func _extract() -> void:
 		_show_error(r); await _refresh(); return
 	var j: Dictionary = r["json"]
 	await _refresh()   # run encerrada → volta pro launcher
-	_show_extract_report(j)
+	# vitória → ao fechar o relatório de loot, volta pra tela do reino/território de onde saiu
+	var on_close := Callable()
+	if was_win:
+		on_close = func() -> void:
+			if from_kingdom != "":
+				open_world_at.emit(from_kingdom)
+			else:
+				open_screen.emit("World")
+	_show_extract_report(j, on_close)
 
 func _confirm_abandon() -> void:
 	_choice_dialog("Abandonar a incursão? Você fica só com o que já foi garantido (descansos/extração) — o loot não-sacado é perdido.",
@@ -415,7 +449,7 @@ func _step_text(j: Dictionary) -> String:
 	if str(j.get("lootItemName", "")) != "": parts.append("🎁 " + str(j.get("lootItemName")))
 	return "   ".join(parts) if not parts.is_empty() else Lang.t("Você segue em frente.")
 
-func _show_extract_report(j: Dictionary) -> void:
+func _show_extract_report(j: Dictionary, on_close := Callable()) -> void:
 	var rows: Array = []
 	if int(j.get("bronzeBanked", 0)) > 0:
 		rows.append(UiKit.kv_node("Bronze", UiKit.coin_box(int(j.get("bronzeBanked", 0)), 18)))
@@ -429,7 +463,7 @@ func _show_extract_report(j: Dictionary) -> void:
 		rows.append(UiKit.icon_text(Lang.t("🛡 %d item(ns) na mochila") % int(j.get("keptItems", 0)), 12, UiKit.TEXT_DIM, 16))
 	if int(j.get("mailedItems", 0)) > 0:
 		rows.append(UiKit.icon_text(Lang.t("📬 %d item(ns) no correio (mochila cheia)") % int(j.get("mailedItems", 0)), 12, UiKit.TEXT_DIM, 16))
-	UiKit.show_battle_report(self, true, Lang.t("🔒 Loot garantido!"), rows, [])
+	UiKit.show_battle_report(self, true, Lang.t("🔒 Loot garantido!"), rows, [], on_close)
 
 # Diálogo do nó EVENTO: intro + um botão por opção (resolve com o optionId). Espelha World._show_quest_dialog.
 func _show_event_dialog(dialog: Dictionary) -> void:

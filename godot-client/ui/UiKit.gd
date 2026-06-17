@@ -370,7 +370,7 @@ static func confirm(host: Control, text: String, confirm_label: String, on_yes: 
 # Relatório de batalha (modal) — estilo da Torre: borda win/loss + título + recompensas + log
 # colapsável + OK. Reusado p/ TODAS as batalhas (quest/zona) terem o mesmo desfecho. [BATTLE_REPORT]
 # reward_rows = Array de Control (kv/kv_node/dim já montados pelo chamador). log = Array de String.
-static func show_battle_report(host: Control, won: bool, title: String, reward_rows: Array, log: Array) -> void:
+static func show_battle_report(host: Control, won: bool, title: String, reward_rows: Array, log: Array, on_close := Callable()) -> void:
 	var overlay := ColorRect.new()
 	overlay.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	overlay.color = Color(0, 0, 0, 0.72)
@@ -439,7 +439,10 @@ static func show_battle_report(host: Control, won: bool, title: String, reward_r
 		vb.add_child(toggle)
 		vb.add_child(log_scroll)
 	vb.add_child(spacer(4))
-	var ok := action("OK", func() -> void: overlay.queue_free())
+	var ok := action("OK", func() -> void:
+		overlay.queue_free()
+		if on_close.is_valid():
+			on_close.call())
 	ok.custom_minimum_size = Vector2(440, 40)
 	vb.add_child(ok)
 	ok.call_deferred("grab_focus")
@@ -447,11 +450,14 @@ static func show_battle_report(host: Control, won: bool, title: String, reward_r
 # [CARD_BOTAO] Botão de escolha ICON-PRIMARY: ícone grande em cima + rótulo pequeno embaixo. P/ modais
 # de escolha binária (Encarar/Fugir, Ajudar/Terminar) e chips de nó da Incursão — bem menor que o
 # botão de texto 460×40. Fallback no emoji se o ícone PixelLab ainda não foi importado.
-static func icon_choice_btn(icon_key: String, emoji: String, label: String, cb: Callable, accent := GOLD_SOFT, compact := false) -> Button:
+static func icon_choice_btn(icon_key: String, emoji: String, label: String, cb: Callable, accent := GOLD_SOFT, compact := false, flat := false) -> Button:
 	var icon_px := 26 if compact else 40
 	var lbl_font := 11 if compact else 13
 	var b := Button.new()
-	StoneStyle.apply(b)
+	if flat:
+		_apply_flat_node(b)   # [INCURSAO] ícone "no mapa" sem moldura (estilo Slay-the-Spire) — só hover suave
+	else:
+		StoneStyle.apply(b)
 	b.custom_minimum_size = Vector2(72, 54) if compact else Vector2(112, 84)
 	b.focus_mode = Control.FOCUS_NONE
 	if cb.is_valid():
@@ -482,6 +488,17 @@ static func icon_choice_btn(icon_key: String, emoji: String, label: String, cb: 
 		ll.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		v.add_child(ll)
 	return b
+
+# [INCURSAO] Botão "sem moldura" p/ os nós sobre o mapa: fundo transparente + hover/press suaves.
+static func _apply_flat_node(b: Button) -> void:
+	b.add_theme_stylebox_override("normal", StyleBoxEmpty.new())
+	b.add_theme_stylebox_override("focus", StyleBoxEmpty.new())
+	var hover := StyleBoxFlat.new()
+	hover.bg_color = Color(1, 1, 1, 0.10); hover.set_corner_radius_all(8)
+	b.add_theme_stylebox_override("hover", hover)
+	var press := StyleBoxFlat.new()
+	press.bg_color = Color(1, 1, 1, 0.16); press.set_corner_radius_all(8)
+	b.add_theme_stylebox_override("pressed", press)
 
 # [TOAST] Toast de recompensa NÃO-bloqueante: aparece no topo, fade-in e some sozinho (~2.6s) — sem
 # botão OK. Usado p/ desfecho SIMPLES (coleta/loot sem batalha). title pode ter emoji-marcador (vira

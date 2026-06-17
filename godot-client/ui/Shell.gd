@@ -459,6 +459,13 @@ func _mutation_count() -> int:
 	var api = get_node_or_null("/root/Api")
 	return int(api.mutation_count) if api != null else 0
 
+# [INCURSAO] Abre o Mundo já expandido no reino dado (vitória da Incursão volta pro território de origem).
+func _open_world_at(kingdom: String) -> void:
+	var w = _cache.get("World")
+	if w != null and is_instance_valid(w) and w.has_method("request_open_kingdom"):
+		w.request_open_kingdom(kingdom)
+	_open("World")
+
 # Mostra só `node` no content_host; os escondidos são CONGELADOS (process disabled) → 0 polling/CPU.
 func _show_only(node: Control) -> void:
 	if _dash != null and is_instance_valid(_dash):
@@ -475,6 +482,8 @@ func _wire_screen(c: Control) -> void:
 		c.go_back.connect(_show_dashboard)
 	if c.has_signal("open_screen"):
 		c.open_screen.connect(_open)
+	if c.has_signal("open_world_at"):
+		c.open_world_at.connect(_open_world_at)   # [INCURSAO] vitória → abre o Mundo já no reino de onde saiu
 	if c.has_signal("go_inventory"):
 		c.go_inventory.connect(func() -> void: _open("Character"))   # [FICHA_PERSONAGEM] inventário vive na ficha
 	if c.has_signal("go_battle"):

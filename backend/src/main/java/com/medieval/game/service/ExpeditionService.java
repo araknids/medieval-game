@@ -205,7 +205,7 @@ public class ExpeditionService {
         Warrior warrior = warriorRepo.findByPlayer(player).orElseThrow();
 
         // EVENTO: pausa e devolve o diálogo. [INCURSAO_EVENTOS] 20% quest interativa do reino (se houver),
-        // 80% evento NATIVO da Incursão (pacto/loja/altar/santuário).
+        // 80% evento NATIVO da Incursão (pacto/loja/santuário).
         if (node.type() == ExpeditionNodeType.EVENT) {
             ThreadLocalRandom erng = ThreadLocalRandom.current();
             String questName = (erng.nextInt(5) == 0) ? pickEventQuest(run) : null;
@@ -260,7 +260,7 @@ public class ExpeditionService {
             throw new IllegalArgumentException("This event requires a choice.");
 
         Warrior warrior = warriorRepo.findByPlayer(player).orElseThrow();
-        // [INCURSAO_EVENTOS] evento NATIVO da Incursão (pacto/loja/altar/santuário)
+        // [INCURSAO_EVENTOS] evento NATIVO da Incursão (pacto/loja/santuário)
         if (run.getPendingDelveEvent() != null) {
             NodeResolution dres = resolveDelveEvent(run, player, warrior, optionId);
             run.setStatus(ExpeditionStatus.IN_PROGRESS);
@@ -837,8 +837,8 @@ public class ExpeditionService {
         };
     }
 
-    // ── [INCURSAO_EVENTOS] Eventos nativos da Incursão (pacto/loja/altar/santuário) ──────────────
-    private static final String[] DELVE_EVENTS = {"PACT", "SHOP", "ALTAR", "SANCTUARY"};
+    // ── [INCURSAO_EVENTOS] Eventos nativos da Incursão (pacto/loja/santuário) ──────────────
+    private static final String[] DELVE_EVENTS = {"PACT", "SHOP", "SANCTUARY"}; // [INCURSAO] ALTAR (aposta) removido — minigame inútil
     private static final String[] RUN_MOD_KEYS = {"atk", "def", "hp", "dex", "agi", "luk"};
 
     /** Texto de abertura do evento (narrative do choose). */
@@ -846,7 +846,6 @@ public class ExpeditionService {
         return switch (kind) {
             case "PACT"      -> "Um espírito sombrio oferece um pacto.";
             case "SHOP"      -> "Um mercador errante abre a barganha.";
-            case "ALTAR"     -> "Um altar do risco pulsa diante de você.";
             case "SANCTUARY" -> "Você encontra um santuário tranquilo.";
             default          -> "Algo exige uma escolha.";
         };
@@ -863,9 +862,6 @@ public class ExpeditionService {
                     opt("frenzy", "Pacto do Frenesi", "+crítico (LUK) · −esquiva (AGI)"),
                     opt("decline", "Recusar", "Seguir sem pacto")));
             case "SHOP" -> shopDialog(run);
-            case "ALTAR" -> Map.of("intro", "Aposte seu bronze carregado — dobre ou perca.", "options", List.of(
-                    opt("bet", "Apostar " + (run.getCarriedBronze() / 2) + " bronze", "50% dobra · 50% perde"),
-                    opt("leave", "Ignorar", "Seguir em frente")));
             case "SANCTUARY" -> Map.of("intro", "Um santuário restaura quem para.", "options", List.of(
                     opt("pray", "Rezar", "Cura total + bênção (+10% Ataque e Defesa)"),
                     opt("rest", "Descansar", "Cura total"),
@@ -902,7 +898,6 @@ public class ExpeditionService {
         return switch (run.getPendingDelveEvent()) {
             case "PACT"      -> resolvePact(run, optionId);
             case "SHOP"      -> resolveShop(run, player, optionId);
-            case "ALTAR"     -> resolveAltar(run, optionId);
             case "SANCTUARY" -> resolveSanctuary(run, warrior, optionId);
             default          -> { NodeResolution r = new NodeResolution(); r.narrative = "Você segue em frente."; yield r; }
         };
@@ -916,17 +911,6 @@ public class ExpeditionService {
             case "frenzy" -> { addRunMods(run, Map.of("luk", 40, "agi", -30)); res.narrative = "Pacto do Frenesi selado: +crítico, −esquiva."; }
             default       -> res.narrative = "Você recusa o pacto.";
         }
-        return res;
-    }
-
-    private NodeResolution resolveAltar(ExpeditionRun run, String optionId) {
-        NodeResolution res = new NodeResolution();
-        if (!"bet".equals(optionId)) { res.narrative = "Você ignora o altar."; return res; }
-        long bet = run.getCarriedBronze() / 2;
-        if (bet <= 0) { res.narrative = "Sem bronze carregado pra apostar."; return res; }
-        boolean win = ThreadLocalRandom.current().nextBoolean();
-        res.bronze = win ? bet : -bet;   // applyToCarried soma (bet = metade → carregado nunca fica negativo)
-        res.narrative = win ? ("🎲 Apostou " + bet + " bronze e DOBROU!") : ("🎲 Apostou " + bet + " bronze e perdeu.");
         return res;
     }
 

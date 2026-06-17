@@ -69,6 +69,7 @@ var scroll: Control = null        # [MAPA_MUNDO] ScrollContainer da scaffold (p/
 var _map_btn: Button = null       # [SEM_SCROLL] "voltar ao mapa" no header (ao lado do 🔄), só com reino aberto
 var kingdoms: Array = []          # GET /api/world
 var open_kingdom := ""            # reino expandido (só um por vez)
+var _pending_open_kingdom := ""   # [INCURSAO] reino a abrir na próxima exibição (vitória da Incursão)
 var _pending_after := {}          # resultado guardado durante o replay 3D (kingdom, kind, result) p/ o relatório
 var warrior: Dictionary = {}      # /api/warrior (carteira + gate de nível)
 var warrior_level := 1
@@ -100,8 +101,21 @@ func _ready() -> void:
 # [MAPA_MUNDO] O Shell cacheia as telas (não recria) → reentrar no Mundo via nav mostraria o último
 # reino aberto. Quando o nó reaparece, reseto pro mapa. A navegação INTERNA (reino ↔ mapa, quests)
 # NÃO esconde/mostra o nó, então não dispara isto.
+# [INCURSAO] Outra tela pede pra reabrir um reino específico (ex.: vitória da Incursão volta pro território).
+func request_open_kingdom(k: String) -> void:
+	_pending_open_kingdom = k
+
 func _on_world_shown() -> void:
-	if is_visible_in_tree() and open_kingdom != "":
+	if not is_visible_in_tree():
+		return
+	# vindo da vitória de uma Incursão → abre direto o reino de origem (em vez de resetar pro mapa)
+	if _pending_open_kingdom != "":
+		var k := _pending_open_kingdom
+		_pending_open_kingdom = ""
+		open_kingdom = k
+		await _open(k)
+		return
+	if open_kingdom != "":
 		open_kingdom = ""
 		_render()
 
