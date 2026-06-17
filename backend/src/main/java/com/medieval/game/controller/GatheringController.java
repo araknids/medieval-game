@@ -47,7 +47,10 @@ public class GatheringController {
             "type",        r.getResourceType().name(),
             "displayName", com.medieval.game.service.Messages.tr("resource." + r.getResourceType().name() + ".name", r.getResourceType().displayName),
             "category",    r.getResourceType().category.name(),
-            "quantity",    r.getQuantity()
+            "quantity",    r.getQuantity(),
+            // [RECURSOS] peixe: estamina/HP restaurados ao consumir (0 = não se aplica) — UI mostra no hover
+            "consumeStamina", com.medieval.game.service.GatheringService.fishStaminaValue(r.getResourceType()),
+            "consumeHp",      com.medieval.game.service.GatheringService.fishHpValue(r.getResourceType())
         )).toList();
         return ResponseEntity.ok(resources);
     }

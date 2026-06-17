@@ -467,8 +467,8 @@ func _res_chip(r: Dictionary) -> Control:
 	var rtype := str(r.get("type", ""))
 	var category := str(r.get("category", ""))
 	var pc := PanelContainer.new()
-	# [RECURSOS] hover explica p/ que serve o recurso (e se dá pra consumir)
-	pc.tooltip_text = _res_use_text(rtype, category)
+	# [RECURSOS] hover explica p/ que serve o recurso (e quanto o peixe restaura)
+	pc.tooltip_text = _res_use_text(r)
 	var sb := StyleBoxFlat.new()
 	sb.bg_color = Color(0.08, 0.07, 0.09, 0.95)
 	sb.set_border_width_all(1)
@@ -493,12 +493,18 @@ func _res_chip(r: Dictionary) -> Control:
 	hb.add_child(_action_icon("stash", "🧰", _stash_resource.bind(rtype, qty), Lang.t("Guardar no baú")))
 	return pc
 
-# [RECURSOS] Texto de hover: p/ que cada categoria de recurso serve.
-func _res_use_text(rtype: String, category: String) -> String:
+# [RECURSOS] Texto de hover: p/ que cada categoria de recurso serve (peixe mostra o valor exato).
+func _res_use_text(r: Dictionary) -> String:
+	var rtype := str(r.get("type", ""))
+	var category := str(r.get("category", ""))
+	if category == "FISH":
+		var hp := int(r.get("consumeHp", 0))
+		if hp > 0:
+			return Lang.t("Consumir restaura +%d%% de vida.") % hp
+		return Lang.t("Consumir restaura +%d de estamina.") % int(r.get("consumeStamina", 0))
 	if rtype == "MONSTER_CORE":
 		return Lang.t("Exigido na Path Trial (virar de classe) + material de forja.")
 	match category:
-		"FISH":     return Lang.t("Consumir restaura estamina e vida (peixes maiores dão mais).")
 		"ORE":      return Lang.t("Refine na Forja → barra de metal (base do equipamento).")
 		"BAR":      return Lang.t("Material da Forja: forja armas e armaduras.")
 		"FRAGMENT": return Lang.t("Lapide na Forja → joia (encaixa em soquete).")

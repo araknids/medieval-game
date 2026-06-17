@@ -137,19 +137,9 @@ public class GatheringService {
         };
     }
 
-    @Transactional
-    public FishResult consumeFish(Player player, ResourceType fishType) {
-        if (fishType.category != ResourceType.ResourceCategory.FISH)
-            throw new IllegalArgumentException("Not a fish");
-
-        removeResource(player, fishType, 1);
-
-        boolean hpFish = isHpFish(fishType);
-
-        // Peixe de estamina → só estamina; peixe de vida → só HP. [REINOS_V2]
-        // Combate V2: restauro ACHATADO e reduzido — a pesca deixa de ser fonte infinita de estamina.
-        // O tier do peixe agora vale por VENDA e COZINHA, não por estamina (que é só um top-up leve). [COMBATE_V2]
-        int stamina = hpFish ? 0 : switch (fishType) {
+    /** [RECURSOS] Estamina restaurada ao consumir este peixe (0 = não é peixe de estamina). UI mostra no hover. */
+    public static int fishStaminaValue(ResourceType t) {
+        return isHpFish(t) ? 0 : switch (t) {
             case SMALL_FISH    -> 5;
             case SALMON        -> 8;
             case TUNA          -> 11;
@@ -157,7 +147,11 @@ public class GatheringService {
             case LEGENDARY_FISH-> 18;
             default -> 0;
         };
-        int hpHeal = !hpFish ? 0 : switch (fishType) {
+    }
+
+    /** [RECURSOS] HP (%) restaurado ao consumir este peixe (0 = não é peixe de vida; cura até FISH_HP_CAP). */
+    public static int fishHpValue(ResourceType t) {
+        return !isHpFish(t) ? 0 : switch (t) {
             case CORAL_FISH  -> 15;
             case ANGEL_FISH  -> 30;
             case SPIRIT_FISH -> 50;
@@ -165,6 +159,20 @@ public class GatheringService {
             case PHOENIX_FISH-> 90;
             default -> 0;
         };
+    }
+
+    @Transactional
+    public FishResult consumeFish(Player player, ResourceType fishType) {
+        if (fishType.category != ResourceType.ResourceCategory.FISH)
+            throw new IllegalArgumentException("Not a fish");
+
+        removeResource(player, fishType, 1);
+
+        // Peixe de estamina → só estamina; peixe de vida → só HP. [REINOS_V2]
+        // Combate V2: restauro ACHATADO e reduzido — a pesca deixa de ser fonte infinita de estamina.
+        // O tier do peixe agora vale por VENDA e COZINHA, não por estamina (que é só um top-up leve). [COMBATE_V2]
+        int stamina = fishStaminaValue(fishType);
+        int hpHeal  = fishHpValue(fishType);
 
         int newStamina;
         if (stamina > 0) {
