@@ -72,7 +72,6 @@ var selected_element := "FIRE"    # picker de área de elemento
 # detalhe do reino aberto (carregado sob demanda)
 var quests: Array = []
 var active_quests: Array = []
-var training: Dictionary = {}
 var zone_session: Dictionary = {}
 var active_delve: Dictionary = {}   # [STUCK_FIX] /api/expedition/current — Incursão em andamento
 
@@ -123,11 +122,8 @@ func _open(kingdom: String) -> void:
 	open_kingdom = kingdom
 	UiKit.flash(status, Lang.t("Abrindo %s…") % kingdom, 0)
 	# dispara tudo em PARALELO (independentes); inclui /api/warrior p/ o header refletir o gasto/XP na hora
-	# (sem isso o topbar só atualizava no próximo _refresh → parecia "demorar" após treinar/quest). training só no COMBAT.
-	var has_training := kingdom == "COMBAT"
+	# (sem isso o topbar só atualizava no próximo _refresh → parecia "demorar" após quest/zona).
 	var paths := ["/api/warrior", "/api/world/%s/quests" % kingdom, "/api/world/%s/quests/active" % kingdom, "/api/zones/current"]
-	if has_training:
-		paths.append("/api/world/COMBAT/training")
 	var rs = await Api.batch_get(paths)
 	var rw = rs[0]
 	if rw.get("ok") and rw.get("json") is Dictionary:
@@ -139,12 +135,6 @@ func _open(kingdom: String) -> void:
 	active_quests = ra["json"] if (ra.get("ok") and ra.get("json") is Array) else []
 	var rz = rs[3]
 	zone_session = rz["json"] if (rz.get("ok") and rz.get("json") is Dictionary) else {}
-	var rt: Dictionary = {}
-	if has_training:
-		var rtr = rs[4]
-		if rtr.get("ok") and rtr.get("json") is Dictionary:
-			rt = rtr["json"]
-	training = rt
 	_render()
 
 # "tem tarefa ativa pra coletar" neste reino → bloqueia começar outra (espelha os checks do backend).
@@ -152,8 +142,6 @@ func _has_active_task() -> bool:
 	if not active_quests.is_empty():
 		return true
 	if zone_session.get("active", false):
-		return true
-	if training.get("active", false) and not training.get("readyToCollect", false):
 		return true
 	return false
 
@@ -358,9 +346,7 @@ func _build_detail(box: VBoxContainer, kingdom: String) -> void:
 					row.add_child(tl)
 				row.add_child(UiKit.small_btn("✖", _abandon_quest.bind(kingdom, qid), true))
 				box.add_child(row)
-	# Training Hall (só COMBAT)
-	if kingdom == "COMBAT":
-		_build_training(box)
+	# [UI_TRABALHO] Training Hall MOVIDO p/ a tela de Trabalho (Work.gd) — não fica mais no Mundo.
 	# DAILY QUESTS
 	if not quests.is_empty():
 		box.add_child(UiKit.section("🗓 Daily Quests"))
@@ -374,36 +360,6 @@ func _build_detail(box: VBoxContainer, kingdom: String) -> void:
 		box.add_child(UiKit.section("⚔ Zonas" if kingdom == "COMBAT" else "🌍 Zonas"))
 		for z in ZONES[kingdom]:
 			box.add_child(_zone_card(kingdom, z))
-
-func _build_training(box: VBoxContainer) -> void:
-	box.add_child(UiKit.section("🏋 Training Hall"))
-	if training.get("active", false):
-		box.add_child(UiKit.dim(Lang.t("+%d XP — coletar") % int(training.get("xpReward", 0))))
-		if bool(training.get("readyToCollect", false)):
-			box.add_child(UiKit.action("⭐ Coletar XP", _collect_training.bind(int(training.get("id", 0)))))
-		box.add_child(UiKit.action_danger("✖ Cancelar", _cancel_training.bind(int(training.get("id", 0)))))
-	else:
-		box.add_child(UiKit.dim("Pague bronze por XP puro."))
-		# [TRAINING] mostra o VALOR pra treinar: custo (nível×10×h) + XP (nível×25×h) — espelha KingdomService.
-		var hours := 2
-		var cost := warrior_level * 10 * hours
-		var xp := warrior_level * 25 * hours
-		var total_bronze := int(warrior.get("gold", 0)) * 10000 + int(warrior.get("silver", 0)) * 100 + int(warrior.get("bronze", 0))
-		var row := HBoxContainer.new(); row.add_theme_constant_override("separation", 8)
-		row.add_child(UiKit.dim(Lang.t("Treinar %dh:") % hours))
-		row.add_child(UiKit.coin_box(cost, 14, UiKit.ERR if total_bronze < cost else UiKit.TEXT))
-		row.add_child(_mini_chip("star", "+%d XP" % xp, UiKit.GOLD_SOFT, "⭐"))
-		box.add_child(row)
-		if _has_active_task():
-			var b := UiKit.action("Colete a tarefa ativa", Callable())
-			b.disabled = true
-			box.add_child(b)
-		elif total_bronze < cost:
-			var b := UiKit.action("Sem bronze", Callable())
-			b.disabled = true
-			box.add_child(b)
-		else:
-			box.add_child(UiKit.action("🏋 Treinar", _start_training.bind(hours)))
 
 # [CARD_BOTAO] Card de quest CLICÁVEL INTEIRO (o card é o botão — sem botão de texto embaixo).
 # Cabeçalho: [pergaminho] nome (expande) [recompensa de bronze] [⭐XP] [⚡custo]. Bloqueado (feito/
@@ -737,42 +693,6 @@ func _abandon_quest(kingdom: String, quest_id: int) -> void:
 	busy = false
 	await _open(kingdom)
 	UiKit.flash(status, "Quest abandonada.", 0)
-
-func _start_training(hours: int) -> void:
-	if busy: return
-	busy = true
-	var r = await Api.training_start(hours)
-	if r.get("ok") and r.get("json") is Dictionary:
-		# [SEM_TIMER] instantâneo: resolve e mostra o resultado direto
-		busy = false
-		await _collect_training(int(r["json"].get("id", 0)))
-		return
-	else:
-		_show_error(r)
-	busy = false
-	await _open("COMBAT")
-
-func _collect_training(session_id: int) -> void:
-	if busy: return
-	busy = true
-	var r = await Api.training_collect(session_id)
-	var xp := -1
-	if r.get("ok") and r.get("json") is Dictionary:
-		xp = int(r["json"].get("xpEarned", 0))
-	else:
-		_show_error(r)
-	busy = false
-	await _open("COMBAT")
-	if xp >= 0:
-		UiKit.reward_toast(self, Lang.t("🏋 Treino completo!"), [["star", "+%d XP" % xp]])   # [TOAST]
-
-func _cancel_training(session_id: int) -> void:
-	if busy: return
-	busy = true
-	await Api.training_cancel(session_id)
-	busy = false
-	await _open("COMBAT")
-	UiKit.flash(status, "Treino cancelado.", 0)
 
 # Coleta/caça de zona: enter → collect direto (instantâneo, como o web). Resultado em texto.
 func _enter_zone(kingdom: String, tier: String, role: String, skill: String) -> void:

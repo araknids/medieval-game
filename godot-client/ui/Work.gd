@@ -17,6 +17,8 @@ var busy := false
 var jobs: Array = []          # cache da lista de empregos
 var session: Dictionary = {}  # sessão atual (vazio = sem trabalho ativo)
 var warrior: Dictionary = {}  # /api/warrior (carteira do header)
+var warrior_level := 1
+var training: Dictionary = {} # [TRAINING] estado do Training Hall (/api/world/COMBAT/training) — movido pra cá
 var _timer_left := 0          # segundos restantes p/ o countdown local
 var _tick: Timer              # atualiza o countdown de 1 em 1s
 
@@ -35,10 +37,13 @@ func _ready() -> void:
 func _refresh() -> void:
 	_tick.stop()
 	UiKit.flash(status, "Carregando…", 0)
-	var rs = await Api.batch_get(["/api/work/current", "/api/warrior"])
+	var rs = await Api.batch_get(["/api/work/current", "/api/warrior", "/api/world/COMBAT/training"])
 	var cur = rs[0]
 	var wr = rs[1]
 	warrior = wr["json"] if (wr.get("ok") and wr.get("json") is Dictionary) else {}
+	warrior_level = int(warrior.get("level", 1))
+	var tr = rs[2]
+	training = tr["json"] if (tr.get("ok") and tr.get("json") is Dictionary) else {}
 	if not (cur.get("ok") and cur.get("json") is Dictionary):
 		UiKit.show_error(status, cur)
 		return
@@ -56,53 +61,61 @@ func _refresh() -> void:
 	jobs = r["json"]
 	_render_jobs()
 
-# ── PAINEL: lista de empregos ──────────────────────────────────────────────────────
+# ── PAINEL: Training Hall (topo) + lista de empregos ────────────────────────────────
 func _render_jobs() -> void:
 	_clear()
 	UiKit.flash(status, "", 0)
 	UiKit.set_wallet(wallet, warrior)
+	_build_training_section()   # [TRAINING] Training Hall EM CIMA do trabalho (movido do Mundo)
 	content.add_child(UiKit.section(Lang.t("Empregos (%d)") % jobs.size()))
 	if jobs.is_empty():
 		content.add_child(UiKit.empty("Nenhum emprego disponível", "Suba de nível para destravar novos trabalhos."))
 		return
-	# empregos em grid (2 col) p/ encurtar a lista; o painel de progresso fica fora disso
-	content.add_child(UiKit.grid(self, jobs, func(j): return _job_card(j) if j is Dictionary else null))
+	# grid COMPACTO (até 3 col, cards baixos) → cabe tudo sem scroll [UI_TRABALHO]
+	content.add_child(UiKit.grid(self, jobs, func(j): return _job_card(j) if j is Dictionary else null, false, 280, 3))
 
+# [UI_TRABALHO] Card de emprego COMPACTO: nome+nível · barra de XP fina · rendimento/h · botões de hora.
+# Descrição vira TOOLTIP do card; cada botão de hora tem TOOLTIP com o ganho total + XP. [hover]
 func _job_card(job: Dictionary) -> PanelContainer:
 	var locked := not bool(job.get("meetsLevelReq", true))
 	var res := UiKit.card(UiKit.BRONZE if not locked else Color(0.5, 0.5, 0.5, 0.35), not locked)
 	var pc: PanelContainer = res[0]
 	var box: VBoxContainer = res[1]
-	# nome + nível da profissão (+bônus)
-	var head := HBoxContainer.new()
-	head.add_theme_constant_override("separation", 8)
+	box.add_theme_constant_override("separation", 4)
+	var desc := str(job.get("description", ""))
+	if desc != "":
+		pc.tooltip_text = desc   # hover no card = o que o trabalho faz
+	# linha 1: nome + nível (+bônus)
+	var head := HBoxContainer.new(); head.add_theme_constant_override("separation", 8)
 	var nm := Label.new()
 	nm.text = str(job.get("displayName", job.get("id", "?")))
-	nm.add_theme_font_size_override("font_size", 17)
+	nm.add_theme_font_size_override("font_size", 15)
 	nm.add_theme_color_override("font_color", UiKit.TEXT)
 	nm.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	nm.clip_text = true
 	head.add_child(nm)
-	var lvl := Label.new()
 	var bonus := int(job.get("bonusPct", 0))
+	var lvl := Label.new()
 	lvl.text = "Lv.%d%s" % [int(job.get("profLevel", 1)), ("  +%d%%" % bonus) if bonus > 0 else ""]
-	lvl.add_theme_font_size_override("font_size", 14)
+	lvl.add_theme_font_size_override("font_size", 13)
 	lvl.add_theme_color_override("font_color", UiKit.GOLD_SOFT)
 	head.add_child(lvl)
 	box.add_child(head)
-	# barra de xp da profissão
+	# linha 2: barra de XP da profissão FINA (sem rótulo) — tooltip com os números
 	var px := int(job.get("profXp", 0))
 	var pn := maxi(1, int(job.get("profXpNeeded", 1)))
-	box.add_child(UiKit.bar("XP da profissão", px, pn, Color(0.78, 0.6, 0.3)))
-	# descrição
-	box.add_child(UiKit.dim(str(job.get("description", ""))))
-	# stats: rendimento/h + xp/h — [MOEDA] moeda em ícone pixel-art
-	var rend := HBoxContainer.new(); rend.add_theme_constant_override("separation", 4)
-	rend.add_child(UiKit.coin_box(int(job.get("goldPerHourWithBonus", 0)), 16))
-	var rend_x := Label.new(); rend_x.text = Lang.t("/h    ⭐ %d xp/h") % int(job.get("xpPerHour", 0))
-	rend_x.add_theme_font_size_override("font_size", 14); rend_x.add_theme_color_override("font_color", UiKit.TEXT)
-	rend_x.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	rend.add_child(rend_x)
-	box.add_child(UiKit.kv_node("Rendimento", rend))
+	var xpbar := _thin_bar(px, pn, Color(0.78, 0.6, 0.3))
+	xpbar.tooltip_text = Lang.t("XP da profissão: %d / %d") % [px, pn]
+	box.add_child(xpbar)
+	# linha 3: rendimento por hora (compacto)
+	var gph := int(job.get("goldPerHourWithBonus", 0))
+	var rend := HBoxContainer.new(); rend.add_theme_constant_override("separation", 5)
+	rend.add_child(UiKit.coin_box(gph, 14))
+	var rx := Label.new(); rx.text = Lang.t("/h · ⭐%d/h") % int(job.get("xpPerHour", 0))
+	rx.add_theme_font_size_override("font_size", 12); rx.add_theme_color_override("font_color", UiKit.TEXT_DIM)
+	rx.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	rend.add_child(rx)
+	box.add_child(rend)
 	if locked:
 		var req := Label.new()
 		req.text = Lang.t("🔒 Requer nível %d") % int(job.get("minWorkLevel", 1))
@@ -110,18 +123,116 @@ func _job_card(job: Dictionary) -> PanelContainer:
 		req.add_theme_color_override("font_color", UiKit.ERR)
 		box.add_child(req)
 	else:
-		# botões de horas: cada um mostra o ganho total estimado
-		var hrs := HBoxContainer.new()
-		hrs.add_theme_constant_override("separation", 6)
-		var gph := int(job.get("goldPerHourWithBonus", 0))
+		# linha 4: botões de hora compactos — TOOLTIP com ganho total + XP [hover]
+		var hrs := HBoxContainer.new(); hrs.add_theme_constant_override("separation", 5)
 		var wid := str(job.get("id", ""))
+		var xph := int(job.get("xpPerHour", 0))
 		for h in HOURS:
-			var b := UiKit.action(Lang.t("%dh · 🪙%d") % [h, gph * h], _start.bind(wid, h))
-			b.custom_minimum_size = Vector2(0, 44)
+			var b := UiKit.small_btn("%dh" % h, _start.bind(wid, h))
+			b.custom_minimum_size = Vector2(0, 34)
 			b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+			b.tooltip_text = Lang.t("Trabalhar %dh · ganha %s · +%d XP de profissão") % [h, UiKit.coin_str(gph * h), xph * h]
 			hrs.add_child(b)
 		box.add_child(hrs)
 	return pc
+
+# [TRAINING] Training Hall (movido do Mundo): treina por bronze → XP instantâneo. Card compacto no topo.
+func _build_training_section() -> void:
+	content.add_child(UiKit.section("🏋 Training Hall"))
+	var res := UiKit.card(UiKit.GOLD_SOFT)
+	var pc: PanelContainer = res[0]
+	var box: VBoxContainer = res[1]
+	var row := HBoxContainer.new(); row.add_theme_constant_override("separation", 8)
+	box.add_child(row)
+	if bool(training.get("active", false)):
+		var info := Label.new()
+		info.text = Lang.t("Treinando: +%d XP") % int(training.get("xpReward", 0))
+		info.add_theme_color_override("font_color", UiKit.GOLD_SOFT)
+		info.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		info.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+		row.add_child(info)
+		var sid := int(training.get("id", 0))
+		if bool(training.get("readyToCollect", false)):
+			var cb := UiKit.small_btn("⭐ Coletar XP", _train_collect.bind(sid))
+			cb.tooltip_text = Lang.t("Receber o XP do treino")
+			row.add_child(cb)
+		var xb := UiKit.small_btn("✖", _train_cancel.bind(sid), true)
+		xb.tooltip_text = Lang.t("Cancelar o treino")
+		row.add_child(xb)
+	else:
+		var hours := 2
+		var cost := warrior_level * 10 * hours   # custo (nível×10×h) — espelha KingdomService
+		var xp := warrior_level * 25 * hours      # XP (nível×25×h)
+		var total_bronze := int(warrior.get("gold", 0)) * 10000 + int(warrior.get("silver", 0)) * 100 + int(warrior.get("bronze", 0))
+		var afford := total_bronze >= cost
+		var info := Label.new()
+		info.text = Lang.t("XP instantâneo por bronze")
+		info.add_theme_font_size_override("font_size", 13)
+		info.add_theme_color_override("font_color", UiKit.TEXT_DIM)
+		info.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		info.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+		row.add_child(info)
+		row.add_child(UiKit.coin_box(cost, 14, UiKit.ERR if not afford else UiKit.TEXT))
+		var xpl := Label.new(); xpl.text = "⭐+%d" % xp
+		xpl.add_theme_color_override("font_color", UiKit.GOLD_SOFT); xpl.add_theme_font_size_override("font_size", 13)
+		xpl.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+		row.add_child(xpl)
+		var b := UiKit.small_btn("🏋 Treinar %dh" % hours, _train_start.bind(hours))
+		b.disabled = not afford
+		b.tooltip_text = Lang.t("Treinar %dh: gasta %s e ganha +%d XP na hora") % [hours, UiKit.coin_str(cost), xp]
+		row.add_child(b)
+	content.add_child(pc)
+
+# Barra de progresso FINA (10px, sem rótulo) p/ a XP de profissão nos cards compactos.
+func _thin_bar(value: int, maxv: int, fill: Color) -> ProgressBar:
+	var pb := ProgressBar.new()
+	var cap := maxi(maxv, 1)
+	pb.min_value = 0; pb.max_value = cap; pb.value = clampi(value, 0, cap)
+	pb.show_percentage = false
+	pb.custom_minimum_size = Vector2(0, 10)
+	var bg := StyleBoxFlat.new()
+	bg.bg_color = Color(0.05, 0.045, 0.06); bg.set_border_width_all(1)
+	bg.border_color = Color(0.40, 0.32, 0.20, 0.6); bg.set_corner_radius_all(2)
+	var fg := StyleBoxFlat.new(); fg.bg_color = fill; fg.set_corner_radius_all(2)
+	pb.add_theme_stylebox_override("background", bg)
+	pb.add_theme_stylebox_override("fill", fg)
+	return pb
+
+# ── Training Hall: ações (treino é INSTANTÂNEO; start→collect direto) ───────────────
+func _train_start(hours: int) -> void:
+	if busy: return
+	busy = true
+	var r = await Api.training_start(hours)
+	if r.get("ok") and r.get("json") is Dictionary:
+		busy = false
+		await _train_collect(int(r["json"].get("id", 0)))
+		return
+	else:
+		UiKit.show_error(status, r)
+	busy = false
+	await _refresh()
+
+func _train_collect(session_id: int) -> void:
+	if busy: return
+	busy = true
+	var r = await Api.training_collect(session_id)
+	var xp := -1
+	if r.get("ok") and r.get("json") is Dictionary:
+		xp = int(r["json"].get("xpEarned", 0))
+	else:
+		UiKit.show_error(status, r)
+	busy = false
+	await _refresh()
+	if xp >= 0:
+		UiKit.reward_toast(self, Lang.t("🏋 Treino completo!"), [["star", "+%d XP" % xp]])
+
+func _train_cancel(session_id: int) -> void:
+	if busy: return
+	busy = true
+	await Api.training_cancel(session_id)
+	busy = false
+	await _refresh()
+	UiKit.flash(status, "Treino cancelado.", 0)
 
 # ── PAINEL: progresso do trabalho ──────────────────────────────────────────────────
 func _render_progress() -> void:
