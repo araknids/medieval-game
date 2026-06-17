@@ -63,6 +63,7 @@ var busy := false
 var map_holder: Control = null    # [MAPA_MUNDO] container do mapa (hospeda os pins, mantém o aspecto)
 var pins: Array = []              # [MAPA_MUNDO] [{node, kingdom}] dos reinos sobre o mapa
 var scroll: Control = null        # [MAPA_MUNDO] ScrollContainer da scaffold (p/ medir a área visível)
+var _map_btn: Button = null       # [SEM_SCROLL] "voltar ao mapa" no header (ao lado do 🔄), só com reino aberto
 var kingdoms: Array = []          # GET /api/world
 var open_kingdom := ""            # reino expandido (só um por vez)
 var _pending_after := {}          # resultado guardado durante o replay 3D (kingdom, kind, result) p/ o relatório
@@ -81,6 +82,14 @@ func _ready() -> void:
 	status = ui.status
 	wallet = ui.wallet
 	scroll = ui.scroll
+	# [SEM_SCROLL] botão "voltar ao mapa" no HEADER (à esquerda do 🔄), pequeno — não ocupa mais uma linha do corpo
+	_map_btn = UiKit.icon_btn("🗺", _back_to_map)
+	_map_btn.tooltip_text = "Voltar ao mapa"
+	_map_btn.visible = false
+	var hdr: HBoxContainer = ui.header
+	hdr.add_child(_map_btn)
+	if ui.refresh != null:
+		hdr.move_child(_map_btn, (ui.refresh as Control).get_index())   # logo antes do refresh
 	resized.connect(_layout_map)   # [MAPA_MUNDO] recalcula o tamanho do mapa quando a janela muda
 	visibility_changed.connect(_on_world_shown)   # [MAPA_MUNDO] reentrar no Mundo volta pro MAPA
 	await _refresh()
@@ -156,11 +165,19 @@ func _render() -> void:
 	# então este é o caminho de volta pra uma run presa). Espelha o web "Continuar Incursão".
 	if bool(active_delve.get("active", false)):
 		content.add_child(UiKit.action("⚔ Continuar Incursão em andamento", func() -> void: open_screen.emit("Delve")))
+	# [SEM_SCROLL] o botão "voltar ao mapa" (no header) só aparece com um reino aberto
+	if _map_btn != null:
+		_map_btn.visible = open_kingdom != ""
 	# [MAPA_MUNDO] open_kingdom == "" → mapa-múndi com pins; senão → detalhe do reino aberto.
 	if open_kingdom == "":
 		_render_map()
 	else:
 		_render_detail(open_kingdom)
+
+# [SEM_SCROLL] volta do detalhe do reino pro mapa-múndi (botão do header).
+func _back_to_map() -> void:
+	if open_kingdom != "":
+		_toggle(open_kingdom)
 
 # ── [MAPA_MUNDO] Mapa-múndi: TextureRect do pergaminho + 1 pin clicável por reino ─────────────────
 func _render_map() -> void:
@@ -289,7 +306,7 @@ func _layout_map() -> void:
 # ── [MAPA_MUNDO] Detalhe de um reino: voltar ao mapa + cabeçalho + o miolo (quests/zonas) ─────────
 func _render_detail(kingdom: String) -> void:
 	var k := _kingdom_data(kingdom)
-	content.add_child(UiKit.action("🗺 Voltar ao mapa", _toggle.bind(kingdom)))
+	# [SEM_SCROLL] "voltar ao mapa" virou um botão pequeno no HEADER (ver _ready) — não ocupa mais o corpo.
 	var head := Label.new()
 	head.text = "%s %s" % [str(k.get("icon", "")), str(k.get("displayName", kingdom))]
 	head.add_theme_font_size_override("font_size", 20)
