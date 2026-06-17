@@ -487,9 +487,11 @@ func _res_chip(r: Dictionary) -> Control:
 	lbl.add_theme_color_override("font_color", UiKit.TEXT)
 	lbl.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	hb.add_child(lbl)
-	# [RECURSOS] peixe → botão de CONSUMIR (restaura estamina + vida)
+	# [RECURSOS] peixe → botão de CONSUMIR (peixe de estamina dá SÓ estamina; peixe de vida dá SÓ vida)
 	if category == "FISH":
-		hb.add_child(_action_icon("fish", "🐟", _consume_resource.bind(rtype), Lang.t("Consumir: +estamina e vida")))
+		var ch := int(r.get("consumeHp", 0))
+		var ctip := (Lang.t("Consumir: +%d%% de vida") % ch) if ch > 0 else (Lang.t("Consumir: +%d de estamina") % int(r.get("consumeStamina", 0)))
+		hb.add_child(_action_icon("fish", "🐟", _consume_resource.bind(rtype), ctip))
 	hb.add_child(_action_icon("stash", "🧰", _stash_resource.bind(rtype, qty), Lang.t("Guardar no baú")))
 	return pc
 
