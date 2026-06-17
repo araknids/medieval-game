@@ -43,26 +43,29 @@ public class ExpeditionController {
         Player player = getPlayer(auth);
         ExpeditionRun run = expeditionService.start(player, req.source(), req.kingdom(),
                 req.zone(), req.skillType(), req.element(), req.tier());
-        return ResponseEntity.ok(runState(run));
+        return ResponseEntity.ok(runState(run, player));
     }
 
     @GetMapping("/current")
     public ResponseEntity<?> current(Authentication auth) {
-        ExpeditionRun run = expeditionService.current(getPlayer(auth));
+        Player player = getPlayer(auth);
+        ExpeditionRun run = expeditionService.current(player);
         return run == null ? ResponseEntity.ok(Map.of("active", false))
-                           : ResponseEntity.ok(runState(run));
+                           : ResponseEntity.ok(runState(run, player));
     }
 
     // ── Choose / resolve / extract / abandon ──────────────────────────────────
 
     @PostMapping("/{id}/choose")
     public ResponseEntity<?> choose(@PathVariable Long id, @RequestBody ChooseRequest req, Authentication auth) {
-        return ResponseEntity.ok(chooseResponse(expeditionService.choose(getPlayer(auth), id, req.nodeId())));
+        Player player = getPlayer(auth);
+        return ResponseEntity.ok(chooseResponse(expeditionService.choose(player, id, req.nodeId()), player));
     }
 
     @PostMapping("/{id}/node")
     public ResponseEntity<?> node(@PathVariable Long id, @RequestBody NodeRequest req, Authentication auth) {
-        return ResponseEntity.ok(chooseResponse(expeditionService.resolveNode(getPlayer(auth), id, req.optionId())));
+        Player player = getPlayer(auth);
+        return ResponseEntity.ok(chooseResponse(expeditionService.resolveNode(player, id, req.optionId()), player));
     }
 
     @PostMapping("/{id}/extract")
@@ -77,7 +80,7 @@ public class ExpeditionController {
 
     // ── Serialização ──────────────────────────────────────────────────────────
 
-    private Map<String, Object> runState(ExpeditionRun run) {
+    private Map<String, Object> runState(ExpeditionRun run, Player player) {
         var m = new java.util.HashMap<String, Object>();
         m.put("active", run.isActive());
         m.put("id", run.getId());
@@ -94,7 +97,8 @@ public class ExpeditionController {
         m.put("carried", Map.of(
                 "bronze", run.getCarriedBronze(),
                 "xp", run.getCarriedXp(),
-                "resources", resourceList(expeditionService.carriedResourceList(run))));
+                "resources", resourceList(expeditionService.carriedResourceList(run)),
+                "items", carriedItems(player)));   // [INCURSAO] itens ganhos (em risco) — antes não eram serializados
         m.put("secured", Map.of(
                 "bronze", run.getSecuredBronze(),
                 "xp", run.getSecuredXp(),
@@ -107,6 +111,19 @@ public class ExpeditionController {
             putEventDialog(m, run);
         }
         return m;
+    }
+
+    // [INCURSAO] Itens (equipamento) ganhos durante a run, ainda "em risco" (run-pending). Carrega no carried.
+    private List<Map<String, Object>> carriedItems(Player player) {
+        return expeditionService.runPendingItems(player).stream().map(it -> {
+            Map<String, Object> mi = new java.util.HashMap<>();
+            mi.put("id", it.getId());
+            mi.put("name", it.getName());
+            mi.put("rarity", it.getRarity());
+            mi.put("type", it.getType() != null ? it.getType().name() : "");
+            mi.put("itemLevel", it.getItemLevel());
+            return mi;
+        }).toList();
     }
 
     private List<Map<String, Object>> mapJson(ExpeditionRun run) {
@@ -126,7 +143,7 @@ public class ExpeditionController {
         return layers;
     }
 
-    private Map<String, Object> chooseResponse(ChooseResult cr) {
+    private Map<String, Object> chooseResponse(ChooseResult cr, Player player) {
         var m = new java.util.HashMap<String, Object>();
         m.put("resolvedType", cr.resolvedType() != null ? cr.resolvedType().name() : null);
         m.put("nodePending", cr.nodePending());
@@ -143,7 +160,7 @@ public class ExpeditionController {
         m.put("scene", sceneFor(cr.run()));
         m.put("canExtract", cr.canExtract());
         if (cr.nodePending()) putEventDialog(m, cr.run());
-        m.put("state", runState(cr.run())); // estado atualizado p/ re-render do mapa
+        m.put("state", runState(cr.run(), player)); // estado atualizado p/ re-render do mapa
         return m;
     }
 

@@ -163,6 +163,9 @@ public class ExpeditionService {
     /** Recursos já garantidos (travados por checkpoint/extração) — ledger informativo. */
     public List<ResourceDrop> securedResourceList(ExpeditionRun run) { return toDropList(run.getSecuredResources()); }
 
+    /** [INCURSAO] Itens (equipamento) ainda EM RISCO na run (run-pending) — p/ serializar no carried. */
+    public List<InventoryItem> runPendingItems(Player player) { return inventoryService.runPendingItems(player); }
+
     private static List<ResourceDrop> toDropList(String csv) {
         return parseResources(csv).entrySet().stream()
                 .map(e -> new ResourceDrop(e.getKey(), e.getValue())).toList();

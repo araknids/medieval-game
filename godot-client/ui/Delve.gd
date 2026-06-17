@@ -111,27 +111,35 @@ func _render_map() -> void:
 	var depth := int(run.get("depth", 0))
 	var status_str := str(run.get("status", ""))
 	content.add_child(UiKit.section("📜 Incursão — Tier %d" % int(run.get("tier", 1))))
-	content.add_child(_bag_row())
 
 	# [INCURSAO_AUTO_EXTRACT] Vencida (chefe derrotado) → saca AUTOMÁTICO, loot direto pro inventário.
-	# Sem botão "Sacar e Sair" — o que foi garantido na run vai pro inventário sozinho.
 	if cur >= depth:
 		content.add_child(UiKit.dim(Lang.t("✅ Incursão vencida! Recolhendo o loot…")))
 		if not busy:
 			_extract()
 		return
+
+	# [SEM_SCROLL] 2 colunas: ESQUERDA = caminho (nós) · DIREITA = bolsas (carregado/garantido)
+	var cols := HBoxContainer.new(); cols.add_theme_constant_override("separation", 16)
+	cols.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	var left := VBoxContainer.new(); left.add_theme_constant_override("separation", 6)
+	left.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	for layer in run.get("map", []):
 		if layer is Dictionary:
-			content.add_child(_layer_row(layer, cur, status_str))
-
-	content.add_child(HSeparator.new())
+			left.add_child(_layer_row(layer, cur, status_str))
+	left.add_child(HSeparator.new())
 	# Só "Abandonar": o garantido vai pro inventário; o carregado (em risco) é perdido.
-	content.add_child(UiKit.action_danger("Abandonar", _confirm_abandon))
-
-	# EVENTO pendente → botão pra (re)abrir o diálogo. NÃO auto-abre aqui (o _handle_step já abre uma
-	# vez); o botão cobre o caso de sair e voltar pra tela no meio de um evento.
+	left.add_child(UiKit.action_danger("Abandonar", _confirm_abandon))
+	# EVENTO pendente → botão pra (re)abrir o diálogo (caso saia e volte no meio do evento).
 	if status_str == "NODE_PENDING" and run.get("dialog") is Dictionary:
-		content.add_child(UiKit.action("📜 Continuar evento", func() -> void: _show_event_dialog(run["dialog"])))
+		left.add_child(UiKit.action("📜 Continuar evento", func() -> void: _show_event_dialog(run["dialog"])))
+	cols.add_child(left)
+	var right := VBoxContainer.new(); right.add_theme_constant_override("separation", 8)
+	right.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	right.add_child(_bag_card("🎒 Carregado (em risco)", run.get("carried", {}), UiKit.WARN))
+	right.add_child(_bag_card("🔒 Garantido", run.get("secured", {}), UiKit.OK))
+	cols.add_child(right)
+	content.add_child(cols)
 
 func _layer_row(layer: Dictionary, cur: int, status_str: String) -> VBoxContainer:
 	var box := VBoxContainer.new(); box.add_theme_constant_override("separation", 4)
@@ -183,11 +191,6 @@ func _node_chip(n: Dictionary) -> Control:
 	vb.add_child(nl)
 	return panel
 
-func _bag_row() -> HBoxContainer:
-	var hb := HBoxContainer.new(); hb.add_theme_constant_override("separation", 10)
-	hb.add_child(_bag_card("🎒 Carregado (em risco)", run.get("carried", {}), UiKit.WARN))
-	hb.add_child(_bag_card("🔒 Garantido", run.get("secured", {}), UiKit.OK))
-	return hb
 
 func _bag_card(title: String, bag, col: Color) -> PanelContainer:
 	var res := UiKit.card(col)
@@ -214,9 +217,32 @@ func _bag_chips(bag: Dictionary) -> Control:
 		for d in bag["resources"]:
 			if d is Dictionary:
 				flow.add_child(_chip("package", "%s x%d" % [str(d.get("displayName", "?")), int(d.get("quantity", 0))])); any = true
+	# [INCURSAO] itens (equipamento) ganhos — ícone REAL do item + nome na cor da raridade
+	if bag.get("items") is Array:
+		for it in bag["items"]:
+			if it is Dictionary:
+				flow.add_child(_item_chip(it)); any = true
 	if not any:
 		return UiKit.dim("vazio")
 	return flow
+
+# Chip de ITEM ganho: ícone real (arma/armadura/anel…) + nome na cor da raridade.
+func _item_chip(it: Dictionary) -> HBoxContainer:
+	var h := HBoxContainer.new(); h.add_theme_constant_override("separation", 4)
+	var tex := UiKit.item_icon_tex(it)
+	if tex != null:
+		var tr := TextureRect.new(); tr.texture = tex
+		tr.custom_minimum_size = Vector2(18, 18)
+		tr.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		tr.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+		tr.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+		h.add_child(tr)
+	var l := Label.new(); l.text = str(it.get("name", "item"))
+	l.add_theme_font_size_override("font_size", 12)
+	l.add_theme_color_override("font_color", UiKit.rarity_color(int(it.get("rarity", 1))))
+	l.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	h.add_child(l)
+	return h
 
 func _chip(icon_key: String, text: String) -> HBoxContainer:
 	var h := HBoxContainer.new(); h.add_theme_constant_override("separation", 4)
