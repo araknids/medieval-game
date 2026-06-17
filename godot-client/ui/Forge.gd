@@ -19,10 +19,13 @@ var inventory: Array = []         # GET /api/inventory
 var warrior: Dictionary = {}      # /api/warrior (carteira do header)
 var refine_qty: Dictionary = {}   # ore name → quantidade escolhida (SpinBox)
 var craft_filter := 0             # filtro de raridade da seção Craftar (0=todas, 1-5)
+var craft_category := "all"       # [FORJA_FILTRO] categoria: all|weapon|armor|accessory (o backend manda `category`)
 var craft_page := 0               # [PAGINACAO] página da seção Craftar Equipamento
 
 const RARITY_NAMES := ["Comum", "Incomum", "Raro", "Épico", "Lendário"]
 const CRAFT_PER_PAGE := 6         # [PAGINACAO] receitas de craft por página (grid 2-col → ~3 linhas)
+# [FORJA_FILTRO] chips de categoria (armas vinham primeiro por nível → armadura "sumia" nas páginas)
+const CRAFT_CATEGORIES := [["all", "Todas"], ["weapon", "⚔ Armas"], ["armor", "🛡 Armadura"], ["accessory", "💍 Acessórios"]]
 
 func _ready() -> void:
 	var ui := UiKit.scaffold(self, "🔨 Forja", func() -> void: go_back.emit(), func() -> void: await _refresh(), UiKit.TINT_COMMERCE)
@@ -67,14 +70,14 @@ func _render() -> void:
 		content.add_child(UiKit.dim("— sem receitas —"))
 	else:
 		_grid_section(refine, _refine_card)
-	# ── Craftar equipamento (filtro de raridade + PAGINAÇÃO no cabeçalho) ──
+	# ── Craftar equipamento (filtro de CATEGORIA + raridade + PAGINAÇÃO no cabeçalho) ──
 	var craft: Array = recipes.get("craft", [])
-	var filtered: Array = craft
-	if craft_filter > 0:
-		filtered = []
-		for r in craft:
-			if r is Dictionary and int(r.get("rarity", 1)) == craft_filter:
-				filtered.append(r)
+	var filtered: Array = []
+	for r in craft:
+		if not (r is Dictionary): continue
+		if craft_category != "all" and str(r.get("category", "")) != craft_category: continue   # [FORJA_FILTRO] armas/armadura/acessórios
+		if craft_filter > 0 and int(r.get("rarity", 1)) != craft_filter: continue
+		filtered.append(r)
 	var total_pages := maxi(1, (filtered.size() + CRAFT_PER_PAGE - 1) / CRAFT_PER_PAGE)
 	craft_page = clampi(craft_page, 0, total_pages - 1)
 	var has_next := (craft_page + 1) * CRAFT_PER_PAGE < filtered.size()
@@ -82,9 +85,10 @@ func _render() -> void:
 	if craft.is_empty():
 		content.add_child(UiKit.dim("— sem receitas —"))
 	else:
+		content.add_child(_category_filter_row())
 		content.add_child(_rarity_filter_row())
 		if filtered.is_empty():
-			content.add_child(UiKit.dim(Lang.t("— nenhuma receita de %s —") % Lang.t(_rarity_name(craft_filter))))
+			content.add_child(UiKit.dim("— nenhuma receita com esse filtro —"))
 		else:
 			var slice := filtered.slice(craft_page * CRAFT_PER_PAGE, mini(filtered.size(), (craft_page + 1) * CRAFT_PER_PAGE))
 			_grid_section(slice, _craft_card)
@@ -124,6 +128,25 @@ func _rarity_filter_row() -> Control:
 	for rar in range(1, 6):
 		row.add_child(_rarity_chip(_rarity_name(rar), rar))
 	return row
+
+# [FORJA_FILTRO] Chips de categoria (Todas / ⚔ Armas / 🛡 Armadura / 💍 Acessórios). O ativo aceso.
+func _category_filter_row() -> Control:
+	var row := HFlowContainer.new()
+	row.add_theme_constant_override("h_separation", 6)
+	row.add_theme_constant_override("v_separation", 6)
+	for c in CRAFT_CATEGORIES:
+		var b := UiKit.small_btn(str(c[1]), _set_category.bind(str(c[0])))
+		b.custom_minimum_size = Vector2(0, 32)
+		b.add_theme_font_size_override("font_size", 12)
+		if craft_category != str(c[0]):
+			b.modulate = Color(1, 1, 1, 0.5)   # inativo = apagado
+		row.add_child(b)
+	return row
+
+func _set_category(cat: String) -> void:
+	craft_category = cat
+	craft_page = 0   # troca de categoria volta pra 1ª página
+	_render()
 
 func _rarity_chip(label: String, rar: int) -> Button:
 	var b := UiKit.small_btn(label, _set_filter.bind(rar))
