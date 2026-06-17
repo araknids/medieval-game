@@ -43,79 +43,22 @@ func _render() -> void:
 		c.queue_free()
 	UiKit.flash(status, "", 0)
 	UiKit.set_wallet(wallet, warrior)
-	_render_blessing()                                  # banner ABENÇOADO (prominente)
-	content.add_child(UiKit.section("Estado do Guerreiro"))
+	# [TEMPLO_UI] HP e bênção ativa REMOVIDOS daqui — já aparecem no topbar (sem redundância → tela mais curta).
+	content.add_child(UiKit.section("❤ Cura"))
 	_render_state()
 	content.add_child(UiKit.section("🙏 Bênçãos"))
 	_render_buff_options()
 	content.add_child(UiKit.section(Lang.t("Proteção de Itens (%d/%d)") % [int(data.get("protectedCount", 0)), int(data.get("maxProtected", 3))]))
 	_render_protection()
 
-# ── Banner ABENÇOADO ───────────────────────────────────────────────────────────
-# Estado de bênção em destaque no topo (card dourado + glow) — o jogador vê na hora.
-func _render_blessing() -> void:
-	var active := str(data.get("activeBuff", ""))
-	var active2 := str(data.get("activeBuff2", ""))
-	if active == "" and active2 == "":
-		content.add_child(UiKit.dim("Sem bênção ativa — receba uma abaixo para se fortalecer."))
-		return
-	var res := UiKit.card(UiKit.GOLD)
-	var pc: PanelContainer = res[0]
-	var box: VBoxContainer = res[1]
-	var sb: StyleBoxFlat = pc.get_theme_stylebox("panel")
-	sb.set_border_width_all(2)
-	sb.shadow_color = Color(1.0, 0.8, 0.35, 0.28)             # glow dourado
-	sb.shadow_size = 8
-	var head := Label.new()
-	head.text = "🙏 ABENÇOADO"
-	head.add_theme_font_size_override("font_size", 22)
-	head.add_theme_color_override("font_color", UiKit.GOLD)
-	box.add_child(head)
-	if active != "":
-		box.add_child(_blessing_line("✨", active, int(data.get("buffSecondsLeft", 0))))
-	if active2 != "":
-		box.add_child(_blessing_line("👑", active2, int(data.get("buff2SecondsLeft", 0))))
-	content.add_child(pc)
-
-func _blessing_line(icon: String, name: String, secs: int) -> HBoxContainer:
-	var h := HBoxContainer.new()
-	h.add_theme_constant_override("separation", 8)
-	var n := Label.new()
-	n.text = "%s %s" % [icon, name]
-	n.add_theme_font_size_override("font_size", 15)
-	n.add_theme_color_override("font_color", UiKit.TEXT)
-	n.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	h.add_child(n)
-	var t := Label.new()
-	t.text = _fmt_left(secs)
-	t.add_theme_font_size_override("font_size", 14)
-	t.add_theme_color_override("font_color", UiKit.OK)
-	h.add_child(t)
-	return h
-
-func _fmt_left(secs: int) -> String:
-	if secs <= 0:
-		return Lang.t("expirando…")
-	var hh := secs / 3600
-	var mm := (secs % 3600) / 60
-	if hh > 0:
-		return Lang.t("%dh %02dmin restantes") % [hh, mm]
-	if mm > 0:
-		return Lang.t("%d min restantes") % mm
-	return Lang.t("%d s restantes") % secs
-
-# ── Estado do guerreiro + curas ────────────────────────────────────────────────
+# ── Cura ────────────────────────────────────────────────────────────────────────
 func _render_state() -> void:
 	var hp := int(data.get("hpPercent", 100))
-	var ko := bool(data.get("isKnockedOut", false))
-	content.add_child(UiKit.bar("HP", hp, 100, Color(0.70, 0.22, 0.20), Lang.t("💀 Inconsciente") if ko else "%d%%" % hp))
 	var full := hp >= 100
 	if full:
-		content.add_child(UiKit.dim("✔ HP cheio."))
+		content.add_child(UiKit.dim("❤ HP cheio."))   # HP fica no topbar; aqui só some o botão quando não precisa
 		return
-	if ko:
-		content.add_child(UiKit.dim("Nocauteado — cure para voltar ao combate."))
-	# [TEMPLO_UI] curas viram ÍCONES (sem botão gigante): básica · VIP · SoulStone. Custo/CD no rótulo + tooltip.
+	# [TEMPLO_UI] curas por ÍCONE compacto: básica · VIP · SoulStone. Custo/CD no rótulo + tooltip.
 	var row := HBoxContainer.new(); row.add_theme_constant_override("separation", 10)
 	var cost := int(data.get("healCost", 100))
 	var free := bool(data.get("healFree", false))
