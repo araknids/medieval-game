@@ -39,6 +39,11 @@ public final class ExpeditionMapGenerator {
      * camada intermediária (perk VIP: +1 baú garantido por run). [VIP][INCURSAO]
      */
     public static Map generate(long seed, int depth, int tier, int bonusTreasure) {
+        return generate(seed, depth, tier, bonusTreasure, false);
+    }
+
+    /** Como acima + {@code hasGather}: inclui nós de COLETA (minerar/pescar/garimpar) nas runs de coleta. [INCURSAO] */
+    public static Map generate(long seed, int depth, int tier, int bonusTreasure, boolean hasGather) {
         int d = Math.max(2, depth);
         int t = Math.max(1, tier);
         Random rng = new Random(seed);
@@ -57,7 +62,7 @@ public final class ExpeditionMapGenerator {
                     if (d >= 4 && layer == mid && i == 0) {
                         type = ExpeditionNodeType.CAMP; // checkpoint garantido no meio das runs longas
                     } else {
-                        type = pickType(rng, layer, t);
+                        type = pickType(rng, layer, t, hasGather);
                     }
                     nodes.add(new Node(nodeId(layer, i), type, bumpFor(type, layer, t)));
                 }
@@ -85,26 +90,28 @@ public final class ExpeditionMapGenerator {
     static String nodeId(int layer, int idx) { return "L" + layer + "N" + idx; }
 
     /** Sorteio ponderado do tipo de nó. ELITE só a partir da 2ª camada e mais comum fundo/alto tier. */
-    private static ExpeditionNodeType pickType(Random rng, int layer, int tier) {
+    private static ExpeditionNodeType pickType(Random rng, int layer, int tier, boolean hasGather) {
         // pares (tipo, peso)
         int wCombat   = 50;
         int wEvent    = 18;
         int wTreasure = layer > 0 ? 15 : 0;                       // [INCURSAO] nunca tesouro no 1º round
         int wCamp     = layer > 0 ? 10 : 0;                       // sem checkpoint na 1ª camada
         int wElite    = layer >= 1 ? (layer * 3 + tier * 4) : 0;  // escala fundo/tier
-        int total = wCombat + wEvent + wTreasure + wCamp + wElite;
+        int wGather   = hasGather ? 16 : 0;                       // [INCURSAO] coleta só em runs de coleta (ZONE c/ skill)
+        int total = wCombat + wEvent + wTreasure + wCamp + wElite + wGather;
         int roll = rng.nextInt(total);
         if ((roll -= wCombat)   < 0) return ExpeditionNodeType.COMBAT;
         if ((roll -= wEvent)    < 0) return ExpeditionNodeType.EVENT;
         if ((roll -= wTreasure) < 0) return ExpeditionNodeType.TREASURE;
         if ((roll -= wCamp)     < 0) return ExpeditionNodeType.CAMP;
+        if ((roll -= wGather)   < 0) return ExpeditionNodeType.GATHER;
         return ExpeditionNodeType.ELITE;
     }
 
     private static int bumpFor(ExpeditionNodeType type, int layer, int tier) {
         return switch (type) {
             case ELITE -> layer + 2 + tier;
-            case CAMP, TREASURE -> 0;       // CAMP não luta; TREASURE só luta se armadilhar (usa layer)
+            case CAMP, TREASURE, GATHER -> 0; // CAMP/GATHER não lutam; TREASURE só luta se armadilhar (usa layer)
             default -> layer;               // COMBAT, EVENT
         };
     }

@@ -140,7 +140,10 @@ public class ExpeditionService {
 
         saved.setSeed(saved.getId());
         // [VIP] perk: +1 nó de TESOURO garantido na run (rehome do antigo "+1 daily"). + −20% estamina no staminaCost.
-        ExpeditionMapGenerator.Map map = ExpeditionMapGenerator.generate(saved.getId(), depth, tier, player.isVip() ? 1 : 0);
+        // [INCURSAO] nós de COLETA só em runs de coleta (ZONE com skill de coleta: minerar/pescar/garimpar).
+        boolean hasGather = skillType != null;
+        ExpeditionMapGenerator.Map map = ExpeditionMapGenerator.generate(
+                saved.getId(), depth, tier, player.isVip() ? 1 : 0, hasGather);
         saved.setMapJson(writeMap(map));
         saved = expeditionRepo.save(saved);
         log.info("[ExpeditionService] player={} START source={} tier={} depth={} runId={}",
@@ -190,6 +193,14 @@ public class ExpeditionService {
         Node node = layer.nodes().stream().filter(n -> n.id().equals(nodeId)).findFirst()
                 .orElseThrow(() -> new com.medieval.game.config.LocalizedException(
                         "error.expedition_unreachable", "That node isn't reachable yet."));
+
+        // [INCURSAO] caminho ramificado (vizinhas): o nó tem que ser i-1/i/i+1 da coluna escolhida na
+        // camada anterior. 1ª camada (lastNodeIndex<0) = sem restrição. Avança a "coluna" pro próximo passo.
+        int chosenIdx = layer.nodes().indexOf(node);
+        if (run.getLastNodeIndex() >= 0 && Math.abs(chosenIdx - run.getLastNodeIndex()) > 1)
+            throw new com.medieval.game.config.LocalizedException(
+                    "error.expedition_unreachable", "That node isn't reachable yet.");
+        run.setLastNodeIndex(chosenIdx);
 
         Warrior warrior = warriorRepo.findByPlayer(player).orElseThrow();
 
@@ -301,6 +312,9 @@ public class ExpeditionService {
                 }
                 yield resolveLootOnly(run, player, warrior, node, 90, messages.getOr("delve.node.treasure", "You crack open the chest."));
             }
+            // [INCURSAO] coleta: sem luta, foco em RECURSO (rollZoneResources via grantRewards) + bronze/xp + chance de gear.
+            case GATHER -> resolveLootOnly(run, player, warrior, node, 15,
+                    messages.getOr("delve.node.gather", "You work the land and gather resources."));
             default -> resolveLootOnly(run, player, warrior, node, 30, messages.getOr("delve.node.advance", "You press on."));
         };
     }

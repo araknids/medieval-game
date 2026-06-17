@@ -72,6 +72,8 @@ public class ExpeditionRun {
     private int depth = 4;        // total de camadas; última = BOSS
     @Column(columnDefinition = "integer default 0")
     private int currentLayer = 0; // 0-based; camada aguardando escolha
+    @Column(columnDefinition = "integer default -1")
+    private int lastNodeIndex = -1; // [INCURSAO] coluna do último nó escolhido (caminho ramificado; -1 = 1ª camada)
     @Column(columnDefinition = "integer default 1")
     private int tier = 1;         // dificuldade 1..3 (escala monstro/loot)
     @Column(columnDefinition = "bigint default 0")

@@ -19,6 +19,7 @@ const NODE := {
 	"EVENT":    ["📜", "Evento",   Color(0.50, 0.70, 1.0),  "node_event"],
 	"CAMP":     ["🔥", "Descanso", Color(0.30, 0.80, 0.51), "node_camp"],
 	"BOSS":     ["👑", "Chefe",    Color(0.94, 0.33, 0.33), "node_boss"],
+	"GATHER":   ["⛏", "Coleta",   Color(0.45, 0.78, 0.72), "act_mine"],
 }
 const KINGDOMS := [
 	["COMBAT", "⚔ Fortaleza Maldita"], ["FISHING", "🎣 Garganta dos Ossos"], ["MINING", "⛏ Minas de Ferro Negro"],
@@ -144,14 +145,37 @@ func _render_map() -> void:
 func _layer_row(layer: Dictionary, cur: int, status_str: String) -> VBoxContainer:
 	var box := VBoxContainer.new(); box.add_theme_constant_override("separation", 4)
 	var idx := int(layer.get("index", 0))
-	if idx == cur and status_str == "IN_PROGRESS":
-		box.add_child(UiKit.dim("▼ Escolha seu caminho"))
+	var is_current := idx == cur and status_str == "IN_PROGRESS"
+	if is_current:
+		box.add_child(UiKit.dim("Escolha seu caminho:"))
 	var hb := HBoxContainer.new(); hb.add_theme_constant_override("separation", 8)
+	hb.alignment = BoxContainer.ALIGNMENT_BEGIN
 	for n in layer.get("nodes", []):
 		if n is Dictionary:
-			hb.add_child(_node_chip(n))
+			# [INCURSAO] caminho ramificado: SETA acima dos nós alcançáveis (vizinhas) na camada atual
+			if is_current and bool(n.get("reachable", false)):
+				var cell := VBoxContainer.new(); cell.add_theme_constant_override("separation", 0)
+				cell.alignment = BoxContainer.ALIGNMENT_CENTER
+				cell.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+				cell.add_child(_path_arrow())
+				cell.add_child(_node_chip(n))
+				hb.add_child(cell)
+			else:
+				hb.add_child(_node_chip(n))
 	box.add_child(hb)
 	return box
+
+# [INCURSAO] Seta indicando um nó VÁLIDO do caminho (ícone PixelLab; fallback ▼).
+func _path_arrow() -> Control:
+	if Icons.tex("arrow_path") != null:
+		var r := Icons.rect("arrow_path", 22)
+		r.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+		return r
+	var l := Label.new(); l.text = "▼"
+	l.add_theme_color_override("font_color", UiKit.GOLD)
+	l.add_theme_font_size_override("font_size", 16)
+	l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	return l
 
 # [CARD_BOTAO] Chip de nó ICON-PRIMARY: ícone grande em cima + rótulo pequeno embaixo. Alcançável =
 # botão clicável (icon_choice_btn, menor); inalcançável = preview apagado no mesmo formato vertical.
@@ -159,9 +183,17 @@ func _node_chip(n: Dictionary) -> Control:
 	var type := str(n.get("type", ""))
 	var meta = NODE.get(type, ["?", type, UiKit.TEXT_DIM])
 	var icon_key := str(meta[3]) if meta.size() > 3 else ""
+	var emoji := str(meta[0])
+	var label := str(meta[1])
+	# [INCURSAO] o nó de COLETA reflete a skill da run no mapa (minerar/pescar/garimpar)
+	if type == "GATHER":
+		match str(run.get("skillType", "")):
+			"FISHING": icon_key = "fish";     emoji = "🎣"; label = "Pescar"
+			"GARIMPO": icon_key = "act_pan";  emoji = "🔎"; label = "Garimpar"
+			_:         icon_key = "act_mine"; emoji = "⛏"; label = "Minerar"
 	var reachable := bool(n.get("reachable", false))
 	if reachable:
-		var b := UiKit.icon_choice_btn(icon_key, str(meta[0]), str(meta[1]), _choose_node.bind(str(n.get("id", ""))), meta[2])
+		var b := UiKit.icon_choice_btn(icon_key, emoji, label, _choose_node.bind(str(n.get("id", ""))), meta[2])
 		b.custom_minimum_size = Vector2(96, 72)
 		b.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 		return b
@@ -179,12 +211,12 @@ func _node_chip(n: Dictionary) -> Control:
 		vb.add_child(ir)
 	else:
 		var el := Label.new()
-		el.text = str(meta[0])
+		el.text = emoji
 		el.add_theme_font_size_override("font_size", 26)
 		el.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		vb.add_child(el)
 	var nl := Label.new()
-	nl.text = str(meta[1])
+	nl.text = label
 	nl.add_theme_font_size_override("font_size", 12)
 	nl.add_theme_color_override("font_color", meta[2])
 	nl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER

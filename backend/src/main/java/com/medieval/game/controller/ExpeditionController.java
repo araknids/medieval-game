@@ -129,14 +129,19 @@ public class ExpeditionController {
     private List<Map<String, Object>> mapJson(ExpeditionRun run) {
         ExpeditionMapGenerator.Map map = expeditionService.mapOf(run);
         boolean choosable = run.getStatus() == ExpeditionStatus.IN_PROGRESS;
+        int prevIdx = run.getLastNodeIndex();   // [INCURSAO] coluna escolhida na camada anterior (-1 = sem restrição)
         List<Map<String, Object>> layers = new ArrayList<>();
         for (ExpeditionMapGenerator.Layer layer : map.layers()) {
             List<Map<String, Object>> nodes = new ArrayList<>();
-            for (ExpeditionMapGenerator.Node n : layer.nodes()) {
+            boolean isCurrent = choosable && layer.index() == run.getCurrentLayer();
+            List<ExpeditionMapGenerator.Node> ns = layer.nodes();
+            for (int i = 0; i < ns.size(); i++) {
+                // caminho ramificado: só as vizinhas (i-1/i/i+1) da coluna anterior ficam alcançáveis.
+                boolean neighbor = prevIdx < 0 || Math.abs(i - prevIdx) <= 1;
                 nodes.add(Map.of(
-                        "id", n.id(),
-                        "type", n.type().name(),
-                        "reachable", choosable && layer.index() == run.getCurrentLayer()));
+                        "id", ns.get(i).id(),
+                        "type", ns.get(i).type().name(),
+                        "reachable", isCurrent && neighbor));
             }
             layers.add(Map.of("index", layer.index(), "nodes", nodes));
         }
