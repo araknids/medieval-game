@@ -660,7 +660,31 @@ func _show_luna_dialog(kingdom: String, quest_id: int) -> void:
 				_show_error(r)
 			await _open(kingdom)
 			if not jr.is_empty():
-				_show_quest_report(jr))
+				_show_luna_result(jr))
+
+# [LUNA_INTERRUPT] Desfecho da decisão da Luna: mostra a NARRATIVA dela (afeição/companheira) num
+# modal de texto — antes caía no toast genérico "Quest concluída" e o texto sumia. Se "terminar"
+# retomou uma quest de COMBATE, faz o replay + relatório (como _collect_quest).
+func _show_luna_result(jr: Dictionary) -> void:
+	var be = jr.get("battleEvents")
+	if be is Array and be.size() >= 2:
+		_pending_after = {"kingdom": open_kingdom, "kind": "quest", "result": jr}
+		request_battle.emit({"events": be, "scene": str(jr.get("scene", "")), "won": bool(jr.get("monsterDefeated", false)), "enemy": str(jr.get("monsterName", ""))})
+		return
+	var parts: Array = []
+	var pet := str(jr.get("acquiredPet", ""))
+	if pet != "" and pet != "false":
+		parts.append(Lang.t("🐶 Nova companheira: %s!") % pet)
+	var narr := str(jr.get("narrative", "")).strip_edges()
+	if narr != "":
+		parts.append(narr)
+	var bronze := int(jr.get("bronzeEarned", 0))
+	var xp := int(jr.get("xpEarned", 0))
+	if bronze > 0 or xp > 0:
+		parts.append(Lang.t("Recompensa: %d bronze · +%d XP") % [bronze, xp])
+	if parts.is_empty():
+		parts.append(Lang.t("✅ Missão concluída."))
+	_show_result("\n\n".join(parts))
 
 # Overlay genérico de escolha: título + botões. cb.call(valor) ao escolher. [MIGRACAO_GODOT]
 func _choice_dialog(title_text: String, options: Array, cb: Callable) -> void:
