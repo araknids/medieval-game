@@ -148,9 +148,12 @@ func _render_map() -> void:
 	map_panel.add_theme_stylebox_override("panel", _map_stylebox())
 	map_panel.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	var map_vb := VBoxContainer.new(); map_vb.add_theme_constant_override("separation", 6)
-	for layer in run.get("map", []):
-		if layer is Dictionary:
-			map_vb.add_child(_layer_row(layer, cur, status_str))
+	# [INCURSAO] o mapa (delve_map_bg) tem o castelo do CHEFE no TOPO → renderiza de BAIXO p/ CIMA:
+	# última camada (chefe) em cima, camada 0 (início) embaixo. A progressão sobe rumo ao castelo.
+	var map_layers: Array = run.get("map", [])
+	for i in range(map_layers.size() - 1, -1, -1):
+		if map_layers[i] is Dictionary:
+			map_vb.add_child(_layer_row(map_layers[i], cur, status_str))
 	map_panel.add_child(map_vb)
 	left.add_child(map_panel)
 	# Só "Abandonar": o garantido vai pro inventário; o carregado (em risco) é perdido.
@@ -176,26 +179,29 @@ func _layer_row(layer: Dictionary, cur: int, status_str: String) -> VBoxContaine
 	hb.alignment = BoxContainer.ALIGNMENT_BEGIN
 	for n in layer.get("nodes", []):
 		if n is Dictionary:
-			# [INCURSAO] caminho ramificado: SETA acima dos nós alcançáveis (vizinhas) na camada atual
+			# [INCURSAO] caminho ramificado: SETA (apontando p/ cima) ABAIXO dos nós alcançáveis na
+			# camada atual — a progressão sobe rumo ao castelo, então a seta marca "subir por aqui".
 			if is_current and bool(n.get("reachable", false)):
 				var cell := VBoxContainer.new(); cell.add_theme_constant_override("separation", 0)
 				cell.alignment = BoxContainer.ALIGNMENT_CENTER
 				cell.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
-				cell.add_child(_path_arrow())
 				cell.add_child(_node_chip(n))
+				cell.add_child(_path_arrow())
 				hb.add_child(cell)
 			else:
 				hb.add_child(_node_chip(n))
 	box.add_child(hb)
 	return box
 
-# [INCURSAO] Seta indicando um nó VÁLIDO do caminho (ícone PixelLab; fallback ▼).
+# [INCURSAO] Seta indicando um nó VÁLIDO do caminho. Aponta p/ CIMA (progressão sobe rumo ao castelo);
+# o arrow_path.png é um chevron pra baixo → flip_v. Fallback ▲.
 func _path_arrow() -> Control:
 	if Icons.tex("arrow_path") != null:
 		var r := Icons.rect("arrow_path", 22)
+		r.flip_v = true
 		r.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 		return r
-	var l := Label.new(); l.text = "▼"
+	var l := Label.new(); l.text = "▲"
 	l.add_theme_color_override("font_color", UiKit.GOLD)
 	l.add_theme_font_size_override("font_size", 16)
 	l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
