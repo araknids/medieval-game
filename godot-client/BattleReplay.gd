@@ -187,6 +187,8 @@ var player_equip: Array = []  # tipos de armadura EQUIPADOS pelo jogador (p/ ves
 var player_weapon := ""       # tipo visual fino: sword|greatsword|axe|spear|mace|shortbow|longbow|crossbow
 var player_weapon_rarity := 1 # raridade (1-5) da arma equipada → cor/brilho do metal [RARIDADE]
 var player_shield_rarity := 1 # raridade (1-5) do escudo equipado → cor/brilho da borda/umbo [RARIDADE]
+var player_items: Array = []  # [OUTFITS] itens EQUIPADOS reais (dicts) p/ vestir o herói com o tema/variante/raridade de cada peça
+var player_gender := "male"   # gênero do jogador (UiKit.current_gender) → base + peças do herói [OUTFITS_FEMALE]
 var cam: Camera3D
 var mons := Monsters.new()  # helper de monstros (instancia + auto-fit + roster/mapa)
 var wp := Weapons.new()     # helper de armas/escudo procedurais (+ raridade)
@@ -473,8 +475,10 @@ func _build_fighters() -> void:
 		rweapon = str(rlook["weapon"])
 	var lrarity := force_rarity if force_rarity > 0 else player_weapon_rarity   # [RARIDADE] herói
 	var requip: Array = rlook.get("equip", DEFAULT_OUTFIT)   # peças do inimigo variam (rlook); monstro ignora
+	player_gender = UiKit.current_gender if UiKit.current_gender != "" else "male"   # [OUTFITS] gênero real do jogador
+	# herói (esquerda) = ITENS REAIS equipados (player_items); inimigo segue o set por nome
 	order = [
-		_make_fighter(lname, -1, int(spawns[0].get("targetMaxHp", 100)), lweapon, lequip, {}, lrarity),
+		_make_fighter(lname, -1, int(spawns[0].get("targetMaxHp", 100)), lweapon, lequip, {}, lrarity, {}, player_items),
 		_make_fighter(rname,  1, int(spawns[1].get("targetMaxHp", 100)), rweapon, requip, emeta, 1, rlook),
 	]
 	# [HP_SPAWN] HP inicial = ATUAL (targetHp), não o máximo → a barra reflete entrar machucado.
@@ -599,11 +603,11 @@ func _war_step(dt: float) -> void:
 			break
 
 func _war_event(e: Dictionary) -> void:
-	# [SKILL_POPUP] ativa disparou na guerra → banner ícone+nome acima do ator
-	var ability := str(e.get("ability", ""))
-	if ability != "":
+	# [SKILL_POPUP] ativa disparou na guerra → banner ícone+nome acima do ator (JSON manda null quando não há skill)
+	var ability_v = e.get("ability")
+	if ability_v != null and str(ability_v) != "":
 		var u = fighters.get(str(e.get("actor", "")))
-		if u != null and not u.get("dead", false): _skill_popup(u, ability)
+		if u != null and not u.get("dead", false): _skill_popup(u, str(ability_v))
 	match str(e.get("type", "")):
 		"spawn": _war_spawn(e)
 		"attack": _war_hit(e, false)
@@ -730,6 +734,35 @@ func _dress(node: Node3D, skel: Skeleton3D, equipped_types: Array, look := {}) -
 			var p: PackedScene = load("res://assets/base/Base_%s_%s.gltf" % [g, part])
 			if p: _attach_outfit_to(skel, p)
 
+# [OUTFITS] Veste o HERÓI com os ITENS REAIS equipados (tema+variante+raridade de CADA peça), igual ao
+# boneco/bust — não o set aleatório por nome. Espelha BustView/DollView/MenuDuel._dress_from_inv.
+func _dress_from_inv(node: Node3D, skel: Skeleton3D, inv_arr: Array, gender: String) -> void:
+	if skel == null: return
+	var g := "Female" if gender == "female" else "Male"
+	var body_meshes: Array = []
+	_collect_meshes(node, body_meshes)
+	for m: MeshInstance3D in body_meshes:
+		m.visible = false
+	var head: PackedScene = load("res://assets/base/Base_%s_Head.gltf" % g)   # rosto sempre
+	if head: _attach_outfit_to(skel, head)
+	var dressed := {}
+	for it in inv_arr:
+		if it is Dictionary and it.get("equipped") == true:
+			var ty := str(it.get("type", ""))
+			if OutfitsLib.is_armor_slot(ty):
+				var path := OutfitsLib.piece_path_item(it, ty, gender)   # tema+variante do ITEM
+				if path != "" and ResourceLoader.exists(path):
+					var sc: PackedScene = load(path)
+					if sc:
+						_attach_outfit_to(skel, sc, OutfitsLib.theme_for_item(it), int(it.get("rarity", 1)))
+						dressed[ty] = true
+	# pele nua (cortada no Blender) nos slots de CORPO sem peça vestida
+	var part_slot := {"Torso": "ARMOR", "Arms": "GLOVES", "Legs": "PANTS", "Feet": "BOOTS"}
+	for part in part_slot:
+		if not dressed.has(part_slot[part]):
+			var p: PackedScene = load("res://assets/base/Base_%s_%s.gltf" % [g, part])
+			if p: _attach_outfit_to(skel, p)
+
 func _attach_outfit_to(skel: Skeleton3D, scene: PackedScene, theme := "", rarity := 0) -> void:
 	var inst := scene.instantiate()
 	var meshes: Array = []
@@ -800,9 +833,11 @@ func _tint_body(node: Node3D, color: Color) -> void:
 
 # Lê o inventário: armadura equipada → player_equip; arma equipada → player_weapon (tipo visual).
 func _read_player_gear(items: Array) -> void:
+	player_items = []
 	for it in items:
 		if not (it is Dictionary) or it.get("equipped") != true:
 			continue
+		player_items.append(it)   # [OUTFITS] guarda o item real p/ vestir o herói com o tema/variante/raridade dele
 		var ty := str(it.get("type", ""))
 		if PIECES.has(ty) and not (ty in player_equip):
 			player_equip.append(ty)
@@ -822,10 +857,12 @@ func _is_ranged(who: String) -> bool:
 			return true
 	return false
 
-func _make_fighter(fname: String, side: int, maxhp: int, weapon_kind: String, equipped_types: Array, monster_meta := {}, rarity := 1, look := {}) -> Dictionary:
+func _make_fighter(fname: String, side: int, maxhp: int, weapon_kind: String, equipped_types: Array, monster_meta := {}, rarity := 1, look := {}, inv_items := []) -> Dictionary:
 	var is_monster := not monster_meta.is_empty()
-	var aplook := _appearance(fname)   # [OUTFITS] set novo (tema/gênero/cor/variante) pelo nome
-	var char_scene: PackedScene = CHAR_FEMALE if aplook["gender"] == "female" else CHAR
+	var is_player := not inv_items.is_empty()   # [OUTFITS] herói → veste os ITENS REAIS (não o set por nome)
+	var aplook := _appearance(fname)   # [OUTFITS] set novo (tema/gênero/cor/variante) pelo nome (inimigos)
+	var ap_gender := player_gender if is_player else str(aplook["gender"])
+	var char_scene: PackedScene = CHAR_FEMALE if ap_gender == "female" else CHAR
 	var node: Node3D = mons.instance(str(monster_meta.get("file", ""))) if is_monster else char_scene.instantiate()
 	if node == null:   # monstro não carregou → cai no humano p/ não travar a cena
 		node = char_scene.instantiate(); is_monster = false
@@ -869,7 +906,10 @@ func _make_fighter(fname: String, side: int, maxhp: int, weapon_kind: String, eq
 	add_child(rim)
 	f["rim"] = rim
 	if not is_monster:
-		_dress(node, skel, equipped_types, aplook)   # [OUTFITS] veste o SET NOVO antes da arma
+		if is_player:
+			_dress_from_inv(node, skel, inv_items, player_gender)   # [OUTFITS] herói = itens REAIS equipados
+		else:
+			_dress(node, skel, equipped_types, aplook)   # inimigo = set por nome (variedade)
 		var armor_n := 0                       # [SKIN_RARIDADE] quão completo é o set → aura mais visível
 		for ty in equipped_types:
 			if OutfitsLib.is_armor_slot(str(ty)): armor_n += 1
@@ -1465,9 +1505,9 @@ func _resolve(e: Dictionary) -> void:
 	var act = fighters.get(str(e.get("actor", "")))
 	var tgt = fighters.get(str(e.get("target", "")))
 	var dmg := int(e.get("damage", 0))
-	var ability := str(e.get("ability", ""))   # [SKILL_POPUP] ativa disparou → banner ícone+nome no ator
-	if ability != "" and act:
-		_skill_popup(act, ability)
+	var ability_v = e.get("ability")   # [SKILL_POPUP] ativa disparou → banner ícone+nome no ator (JSON manda null quando não há skill)
+	if ability_v != null and str(ability_v) != "" and act:
+		_skill_popup(act, str(ability_v))
 	if ty == "spawn":
 		_handle_spawn(e)
 	elif ty == "victory":
