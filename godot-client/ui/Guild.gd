@@ -386,7 +386,7 @@ func _save_formation() -> void:
 			UiKit.flash(status, Lang.t("Cada membro só pode ocupar uma célula."), 2)
 			return
 		used[pid] = true
-		var parts := key.split(":")
+		var parts := str(key).split(":")
 		slots.append({"playerId": pid, "lane": int(parts[0]), "depth": int(parts[1])})
 	busy = true
 	var r = await Api.guild_set_formation(slots)
