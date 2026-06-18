@@ -27,9 +27,9 @@ const SHIELD_MODEL := "Shield_Heater"
 const HAND_XF := {
 	"sword":      [0.20, 0.05, 0.04, Vector3(0, 0, -90)],
 	"greatsword": [0.20, 0.05, 0.04, Vector3(0, 0, -90)],
-	"axe":        [0.20, 0.05, 0.04, Vector3(0, 180, -90)],   # cabeça estava virada pra trás → flip Y
+	"axe":        [0.20, 0.05, 0.04, Vector3(0, 0, -90)],     # [FIX] alinhado com a espada (180 no Y deixava a lâmina ao contrário)
 	"spear":      [0.18, 0.05, 0.04, Vector3(0, 0, -90)],
-	"mace":       [0.22, 0.05, 0.04, Vector3(0, 180, -90)],   # idem
+	"mace":       [0.22, 0.05, 0.04, Vector3(0, 0, -90)],     # idem (machado/marreta seguem a espada)
 	"shortbow":   [0.24, 0.07, 0.04, Vector3(0, 180, -90)],   # flip Y + ~horizontal na mão
 	"longbow":    [0.24, 0.07, 0.04, Vector3(0, 180, -90)],
 	"crossbow":   [0.24, 0.07, 0.04, Vector3(0, 180, -90)],
