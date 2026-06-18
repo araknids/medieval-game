@@ -165,6 +165,7 @@ const EN := {
 	"⚔ Zonas": "⚔ Zones", "🌍 Zonas": "🌍 Zones", "Controlada por": "Controlled by",
 	"Toque numa região do mapa para viajar até o reino.": "Tap a region on the map to travel to the kingdom.",
 	"🗺 Voltar ao mapa": "🗺 Back to the map",
+	"Quest disponível": "Quest available",
 	# — Forja —
 	"Refinar Minérios → Barras": "Refine Ores → Bars", "Craftar Equipamento": "Craft Equipment",
 	"Criar Joias": "Create Gems", "Criar Joia": "Create Gem", "🔧 Manutenção (Reparar / Reforjar)": "🔧 Maintenance (Repair / Reforge)",
