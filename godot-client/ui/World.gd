@@ -951,6 +951,32 @@ func _cancel_zone(activity_id: int) -> void:
 	UiKit.flash(status, "Expedição cancelada.", 0)
 
 # ── [TOAST] Desfecho SIMPLES (coleta/loot sem batalha) → toast com chips, sem clique de OK ───────────
+# [DESFECHO] Modal de desfecho da opção SEM combate: a HISTÓRIA (narrativa) + a recompensa + OK.
+# Antes caía no toast genérico e o texto da escolha sumia → "só escolher a opção e boa". [QUESTS_INTERATIVAS]
+func _show_quest_outcome(j: Dictionary) -> void:
+	var narr := str(j.get("narrative", "")).strip_edges()
+	if narr == "":
+		_quest_reward_toast(j)   # sem narrativa → toast simples (fallback)
+		return
+	var rows: Array = []
+	var nl := Label.new()
+	nl.text = narr
+	nl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	nl.custom_minimum_size = Vector2(440, 0)
+	nl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	nl.add_theme_color_override("font_color", UiKit.TEXT)
+	rows.append(nl)
+	var bronze := int(j.get("bronzeEarned", 0))
+	if bronze > 0: rows.append(UiKit.kv_node("Recompensa", UiKit.coin_box(bronze, 18)))
+	var xp := int(j.get("xpEarned", 0))
+	if xp > 0: rows.append(UiKit.kv("⭐ Experiência", "+%d XP" % xp))
+	if j.get("droppedItem") is Dictionary:
+		rows.append(UiKit.dim("🎁 " + str(j["droppedItem"].get("name", "item"))))
+	var pet0 := str(j.get("acquiredPet", ""))
+	if pet0 != "" and pet0 != "false":
+		rows.append(UiKit.dim(Lang.t("🐶 Nova companheira: %s!") % pet0))
+	UiKit.show_battle_report(self, true, Lang.t("📜 Desfecho"), rows, [])
+
 func _quest_reward_toast(r: Dictionary) -> void:
 	var pet := str(r.get("acquiredPet", ""))
 	if pet != "" and pet != "false":
@@ -983,7 +1009,7 @@ func _zone_reward_toast(r: Dictionary) -> void:
 # Combate → relatório completo; sem combate (coleta pura/pet) → modal de texto simples.
 func _show_quest_report(j: Dictionary) -> void:
 	if not bool(j.get("monsterEncountered", false)):
-		_quest_reward_toast(j)   # [TOAST] coleta pura/pet → toast (sem clique)
+		_show_quest_outcome(j)   # [DESFECHO] opção sem combate → modal com a HISTÓRIA + recompensa
 		return
 	var won := bool(j.get("monsterDefeated", false))
 	var mob := str(j.get("monsterName", "inimigo"))
