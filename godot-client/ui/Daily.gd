@@ -130,7 +130,17 @@ func _claim() -> void:
 			parts.append("🥉 %d Bronze" % int(j.get("bronze", 0)))
 		if int(j.get("mailed", 0)) > 0:
 			parts.append(Lang.t("📬 %d por correio (mochila cheia)") % int(j.get("mailed", 0)))
-		await _refresh()
+		# [MENOS_REQUESTS] o /claim já retorna o novo streak/claimDay → patcha o status local
+		# (canClaim vira false: acabou de coletar) em vez de re-puxar /api/daily-reward/status.
+		# Só a recompensa (peixe/bronze) mexe na carteira/mochila → re-puxa apenas /api/warrior.
+		data["streak"] = int(j.get("streak", data.get("streak", 0)))
+		data["claimDay"] = int(j.get("claimDay", data.get("claimDay", 1)))
+		data["canClaim"] = false
+		var wrs = await Api.batch_get(["/api/warrior"])
+		var wr = wrs[0]
+		if wr.get("ok") and wr.get("json") is Dictionary:
+			warrior = wr["json"]
+		_render()
 		UiKit.flash(status, Lang.t("🎁 Recebido! 🔥 %d   —   %s") % [int(j.get("streak", 0)), "   ".join(parts)], 1)
 	else:
 		UiKit.show_error(status, r)

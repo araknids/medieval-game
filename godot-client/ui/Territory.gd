@@ -43,6 +43,22 @@ func _refresh() -> void:
 	warrior = rw["json"] if (rw.get("ok") and rw.get("json") is Dictionary) else {}
 	_render()
 
+# Refresh PARCIAL após declarar/cancelar ataque: só os dados que a ação muda.
+# Declarar/cancelar NÃO custa bronze/estamina (TerritoryService.declare/cancelDeclaration não
+# gastam nada) e NÃO mexem na guilda (membership/liderança) → reusa `guild`/`warrior` do _refresh
+# inicial e re-busca só /api/territory (estado dos territórios + myGuildDeclared) e /api/territory/my.
+func _refresh_territory_only() -> void:
+	UiKit.show_loading(self)
+	var rs = await Api.batch_get(["/api/territory", "/api/territory/my"])
+	var rt = rs[0]
+	if not (rt.get("ok") and rt.get("json") is Array):
+		UiKit.show_error(status, rt)
+		return
+	territories = rt["json"]
+	var rm = rs[1]
+	my_territory = rm["json"] if (rm.get("ok") and rm.get("json") is Dictionary) else {}
+	_render()
+
 func _render() -> void:
 	for c in content.get_children():
 		c.queue_free()
@@ -221,7 +237,7 @@ func _declare(territory: String) -> void:
 	busy = false
 	if r is Dictionary and r.get("ok") and r.get("json") is Dictionary:
 		var msg := str(r["json"].get("message", Lang.t("Ataque declarado!")))
-		await _refresh()
+		await _refresh_territory_only()   # declarar não muda guilda/carteira → refresh enxuto
 		UiKit.flash(status, msg, 1)
 	else:
 		UiKit.show_error(status, r)
@@ -236,7 +252,7 @@ func _do_cancel() -> void:
 	busy = false
 	if r is Dictionary and r.get("ok") and r.get("json") is Dictionary:
 		var msg := str(r["json"].get("message", Lang.t("Ataque cancelado.")))
-		await _refresh()
+		await _refresh_territory_only()   # cancelar não muda guilda/carteira → refresh enxuto
 		UiKit.flash(status, msg, 1)
 	else:
 		UiKit.show_error(status, r)

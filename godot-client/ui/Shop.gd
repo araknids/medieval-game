@@ -162,8 +162,13 @@ func _buy(id: int) -> void:
 		for it in items:
 			if it is Dictionary and int(it.get("id", -1)) == id:
 				it["purchased"] = true
-		# re-sincroniza a carteira p/ refletir o gasto na affordability/preços.
-		await _refresh()
+		# [AUDIT] A compra muda só (a) o item comprado → já marcado em memória acima, e (b) a carteira
+		# (spendGold). Os outros slots da loja são determinísticos por rotação → não mudam. Então em vez
+		# do _refresh (que re-puxa /api/shop inteiro) re-busco SÓ /api/warrior p/ a affordability/preços.
+		var wr = await Api.get_warrior()
+		if wr.get("ok") and wr.get("json") is Dictionary:
+			warrior = wr["json"]
+		_render()
 		UiKit.flash(status, str(r["json"].get("message", Lang.t("Comprado!"))), 1)
 	else:
 		UiKit.show_error(status, r)

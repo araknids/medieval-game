@@ -51,6 +51,24 @@ func _refresh() -> void:
 	warrior = wr["json"] if (wr.get("ok") and wr.get("json") is Dictionary) else {}
 	_render()
 
+# [AUDIT] Refresh PÓS-AÇÃO enxuto: refinar/craftar/joia/reparar/reforjar mudam recursos,
+# inventário e carteira — NUNCA a LISTA de receitas (filtrada por classe+nível de Forja, que
+# essas ações não alteram; a affordability é recalculada no _render a partir dos recursos novos).
+# Mantém o `recipes` em cache → dropa o /api/smithing/recipes (payload pesado). O _refresh inicial
+# (e o botão de recarregar do scaffold) seguem puxando recipes.
+func _refresh_after_action() -> void:
+	var rs = await Api.batch_get(["/api/gathering/resources", "/api/inventory", "/api/warrior"])
+	var res = rs[0]
+	if res.get("ok") and res.get("json") is Array:
+		resources = res["json"]
+	var inv = rs[1]
+	if inv.get("ok") and inv.get("json") is Array:
+		inventory = inv["json"]
+	var wr = rs[2]
+	if wr.get("ok") and wr.get("json") is Dictionary:
+		warrior = wr["json"]
+	_render()
+
 func _render() -> void:
 	for c in content.get_children():
 		c.queue_free()
@@ -340,7 +358,7 @@ func _craft(recipe_id: String) -> void:
 		var j: Dictionary = r["json"]
 		var ok := bool(j.get("success", false))
 		busy = false
-		await _refresh()
+		await _refresh_after_action()
 		UiKit.flash(status, str(j.get("message", "")), 1 if ok else 2)
 	else:
 		UiKit.show_error(status, r); busy = false
@@ -367,11 +385,11 @@ func _reforge(id: int) -> void:
 	var r = await Api.smithing_reforge(id)
 	await _after_action(r, Lang.t("Reforjado!"))
 
-# Resultado padrão (sucesso = mensagem + re-refresh; falha = erro).
+# Resultado padrão (sucesso = mensagem + re-refresh enxuto; falha = erro).
 func _after_action(r, fallback: String) -> void:
 	if r.get("ok") and r.get("json") is Dictionary:
 		busy = false
-		await _refresh()
+		await _refresh_after_action()
 		UiKit.flash(status, str(r["json"].get("message", fallback)), 1)
 	else:
 		UiKit.show_error(status, r); busy = false

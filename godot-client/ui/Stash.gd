@@ -142,42 +142,84 @@ func _res_row(r: Dictionary, in_bag: bool) -> PanelContainer:
 		hb.add_child(UiKit.small_btn("→ Mochila", _withdraw_resource.bind(rtype, qty)))
 	return pc
 
-# ── Ações async (cada move re-baixa o estado: a taxa muda moeda e os dois lados) ──
+# ── Ações async (cada move re-baixa o estado: a taxa muda moeda e o lado afetado) ──
+# [AUDIT] mover ITEM mexe em InventoryItem + bronze (StashService.deposit/withdrawItem) → NÃO toca
+# recurso; mover RECURSO mexe em ResourceInventory + bronze → NÃO toca o inventário de itens. Os dois
+# mudam o stash + a carteira. Então cada handler só re-baixa o lado que pode mudar (dropa o irrelevante).
 func _deposit_item(id: int) -> void:
 	if busy: return
 	busy = true
 	var r = await Api.stash_deposit_item(id)
-	await _after(r)
+	await _after(r, true)
 	busy = false
 
 func _withdraw_item(id: int) -> void:
 	if busy: return
 	busy = true
 	var r = await Api.stash_withdraw_item(id)
-	await _after(r)
+	await _after(r, true)
 	busy = false
 
 func _deposit_resource(rtype: String, qty: int) -> void:
 	if busy: return
 	busy = true
 	var r = await Api.stash_deposit_resource(rtype, qty)
-	await _after(r)
+	await _after(r, false)
 	busy = false
 
 func _withdraw_resource(rtype: String, qty: int) -> void:
 	if busy: return
 	busy = true
 	var r = await Api.stash_withdraw_resource(rtype, qty)
-	await _after(r)
+	await _after(r, false)
 	busy = false
 
-func _after(r) -> void:
-	if r is Dictionary and r.get("ok"):
-		await _refresh()
-		if r.get("json") is Dictionary:
-			UiKit.flash(status, str(r["json"].get("message", "")), 1)
-	else:
+# is_item=true → re-baixa stash + inventário + warrior (move de item); false → stash + recursos + warrior.
+# Erro → só mostra o erro (igual antes, sem re-baixar). Sucesso → batch enxuto preenchendo os MESMOS membros do _refresh.
+func _after(r, is_item: bool) -> void:
+	if not (r is Dictionary and r.get("ok")):
 		UiKit.show_error(status, r)
+		return
+	if is_item:
+		await _refresh_item_move()
+	else:
+		await _refresh_resource_move()
+	if r.get("json") is Dictionary:
+		UiKit.flash(status, str(r["json"].get("message", "")), 1)
+
+# Move de ITEM: stash (items/used/bag*) + inventário (bag de itens) + warrior (carteira). Recursos inalterados.
+func _refresh_item_move() -> void:
+	var batch = await Api.batch_get(["/api/stash", "/api/inventory", "/api/warrior"])
+	var rs = batch[0]
+	if rs.get("ok") and rs.get("json") is Dictionary:
+		stash = rs["json"]
+	var ri = batch[1]
+	if ri.get("ok") and ri.get("json") is Array:
+		bag_items = []
+		for it in ri["json"]:
+			if it is Dictionary and not bool(it.get("equipped", false)):
+				bag_items.append(it)
+	var wr = batch[2]
+	if wr.get("ok") and wr.get("json") is Dictionary:
+		warrior = wr["json"]
+	_render()
+
+# Move de RECURSO: stash (resources/used/bag*) + recursos (bag de recursos) + warrior (carteira). Itens inalterados.
+func _refresh_resource_move() -> void:
+	var batch = await Api.batch_get(["/api/stash", "/api/gathering/resources", "/api/warrior"])
+	var rs = batch[0]
+	if rs.get("ok") and rs.get("json") is Dictionary:
+		stash = rs["json"]
+	var rr = batch[1]
+	if rr.get("ok") and rr.get("json") is Array:
+		bag_res = []
+		for r in rr["json"]:
+			if r is Dictionary and int(r.get("quantity", 0)) > 0:
+				bag_res.append(r)
+	var wr = batch[2]
+	if wr.get("ok") and wr.get("json") is Dictionary:
+		warrior = wr["json"]
+	_render()
 
 func _stats_line(it: Dictionary) -> String:
 	var parts: Array = []

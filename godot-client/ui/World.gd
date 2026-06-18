@@ -121,22 +121,30 @@ func _on_world_shown() -> void:
 
 func _refresh() -> void:
 	UiKit.show_loading(self)
-	# guerreiro (gate das zonas) + reinos + Incursão ativa em PARALELO — chamadas independentes
-	var rs = await Api.batch_get(["/api/warrior", "/api/world", "/api/expedition/current"])
-	var wr = rs[0]
-	if wr.get("ok") and wr.get("json") is Dictionary:
-		warrior = wr["json"]
-		warrior_level = int(warrior.get("level", 1))
-	var rd = rs[2]
+	# [REDE_ENXUTA] Quando há reino aberto, o _open() logo abaixo JÁ busca /api/warrior — então
+	# não pedimos o guerreiro AQUI (era um duplo-fetch). Sem reino aberto, incluímos /api/warrior
+	# no batch p/ o header refletir a carteira (o _render usa `warrior`, e o _open não roda).
+	var will_open := open_kingdom != ""
+	var paths := ["/api/world", "/api/expedition/current"]
+	if not will_open:
+		paths.append("/api/warrior")
+	# reinos + Incursão ativa (+ guerreiro só se não for reabrir um reino) em PARALELO
+	var rs = await Api.batch_get(paths)
+	var rd = rs[1]
 	active_delve = rd["json"] if (rd.get("ok") and rd.get("json") is Dictionary) else {}
-	var r = rs[1]
+	if not will_open:
+		var wr = rs[2]
+		if wr.get("ok") and wr.get("json") is Dictionary:
+			warrior = wr["json"]
+			warrior_level = int(warrior.get("level", 1))
+	var r = rs[0]
 	if not (r.get("ok") and r.get("json") is Array):
 		UiKit.show_error(status, r)
 		return
 	kingdoms = r["json"]
 	# NÃO auto-abre nenhum reino — o usuário escolhe qual expandir (todos começam fechados).
-	# Se já havia um aberto (refresh após uma ação), reabre ele pra atualizar os dados.
-	if open_kingdom != "":
+	# Se já havia um aberto (refresh após uma ação), reabre ele pra atualizar os dados (e o /api/warrior).
+	if will_open:
 		await _open(open_kingdom)
 	else:
 		_render()

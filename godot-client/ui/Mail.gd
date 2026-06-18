@@ -231,10 +231,12 @@ func _delete(id: int) -> void:
 	var r = await Api.mail_delete(id)
 	busy = false
 	if r.get("ok"):
+		# Deletar não mexe na carteira (controller só retorna {message}) e a carta some da inbox:
+		# limpa o cache local + re-renderiza, sem re-puxar inbox/warrior (já patchado acima).
 		opened_id = -1; opened = {}
 		letters = letters.filter(func(it): return not (it is Dictionary) or int(it.get("id", -1)) != id)
 		var msg := str(r["json"].get("message", Lang.t("Carta deletada."))) if r.get("json") is Dictionary else Lang.t("Carta deletada.")
-		await _refresh()
+		_render()
 		UiKit.flash(status, msg, 1)
 	else:
 		UiKit.show_error(status, r)

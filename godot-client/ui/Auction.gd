@@ -87,6 +87,32 @@ func _render() -> void:
 	else:
 		content.add_child(UiKit.grid(self, bag_f, func(it): return _picker_row(it) if it is Dictionary else null))
 
+# Re-puxa SÓ os endpoints passados (subconjunto do _refresh), atualiza as vars
+# correspondentes e re-renderiza; as listas não pedidas ficam com o cache atual.
+# [MENOS_REQUESTS] cada ação re-busca só o que ela pode ter mudado.
+func _refetch(paths: Array) -> void:
+	var rs = await Api.batch_get(paths)
+	for i in range(paths.size()):
+		var path: String = paths[i]
+		var res = rs[i]
+		match path:
+			"/api/auction":
+				if res.get("ok") and res.get("json") is Array:
+					listings = res["json"]
+			"/api/auction/mine":
+				if res.get("ok") and res.get("json") is Array:
+					mine = res["json"]
+			"/api/inventory":
+				if res.get("ok") and res.get("json") is Array:
+					bag = []
+					for it in res["json"]:
+						if it is Dictionary and not bool(it.get("equipped", false)):
+							bag.append(it)
+			"/api/warrior":
+				if res.get("ok") and res.get("json") is Dictionary:
+					warrior = res["json"]
+	_render()
+
 func _set_rarity(r: int) -> void:
 	rarity_filter = r
 	_render()
@@ -211,7 +237,9 @@ func _buy(listing_id: int) -> void:
 	var r = await Api.auction_buy(listing_id)
 	busy = false
 	if r.get("ok") and r.get("json") is Dictionary:
-		await _refresh()
+		# Comprar não pode mexer nas MINHAS listagens (comprar a própria é bloqueado no backend);
+		# muda browse (some a listagem), inventário (item na mochila) e carteira → re-puxa só esses 3.
+		await _refetch(["/api/auction", "/api/inventory", "/api/warrior"])
 		UiKit.flash(status, str(r["json"].get("message", Lang.t("Comprado!"))), 1)
 	else:
 		UiKit.show_error(status, r)
@@ -226,7 +254,9 @@ func _cancel(listing_id: int) -> void:
 	var r = await Api.auction_cancel(listing_id)
 	busy = false
 	if r.get("ok"):
-		await _refresh()
+		# Cancelar NÃO devolve a taxa (não mexe na carteira) → não re-puxa /api/warrior.
+		# Some de mine + de browse (era ACTIVE) e o item volta pra mochila → re-puxa esses 3.
+		await _refetch(["/api/auction", "/api/auction/mine", "/api/inventory"])
 		UiKit.flash(status, Lang.t("Listagem cancelada — item de volta na mochila."), 1)
 	else:
 		UiKit.show_error(status, r)

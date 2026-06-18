@@ -255,6 +255,30 @@ func _refresh() -> void:
 	resources = rr["json"] if (rr.get("ok") and rr.get("json") is Array) else []
 	_apply()
 
+# [AUDIT] Refresh PÓS-AÇÃO enxuto: re-baixa só os endpoints que o `paths` pede, preenchendo os MESMOS
+# membros que o _refresh preencheria (w/items/abilities_data/resources). Os membros NÃO pedidos guardam
+# o valor em cache (a ação não os altera). Re-renderiza por _apply() (mesmo caminho do _refresh).
+# Endpoints aceitos: /api/warrior, /api/inventory, /api/abilities, /api/gathering/resources.
+func _refresh_subset(paths: Array) -> void:
+	var rs = await Api.batch_get(paths)
+	for i in paths.size():
+		var path := str(paths[i])
+		var res = rs[i]
+		match path:
+			"/api/warrior":
+				if res.get("ok") and res.get("json") is Dictionary:
+					w = res["json"]
+			"/api/inventory":
+				if res.get("ok") and res.get("json") is Array:
+					items = res["json"]
+			"/api/abilities":
+				if res.get("ok") and res.get("json") is Dictionary:
+					abilities_data = res["json"]
+			"/api/gathering/resources":
+				if res.get("ok") and res.get("json") is Array:
+					resources = res["json"]
+	_apply()
+
 func _apply() -> void:
 	UiKit.hide_loading()
 	UiKit.current_class = str(w.get("warriorClassId", UiKit.current_class))   # tema das roupas (slot + ícone + doll) [OUTFITS_CLASSE]
@@ -521,10 +545,14 @@ func _consume_resource(rtype: String) -> void:
 	busy = true
 	var r = await Api.gathering_consume(rtype)
 	busy = false
-	await _refresh()
 	if r.get("ok") and r.get("json") is Dictionary:
+		# [AUDIT] consumir peixe muda estamina/HP (warrior) + a pilha do peixe (recursos). NÃO toca
+		# inventário de itens nem habilidades. Re-busca só warrior+recursos (o /api/warrior é obrigatório:
+		# a resposta só devolve newStamina/newHpPercent, não o DTO completo que a topbar/stats renderizam).
+		await _refresh_subset(["/api/warrior", "/api/gathering/resources"])
 		UiKit.flash(status, str(r["json"].get("message", Lang.t("Consumido!"))), 1)
 	else:
+		await _refresh()                # erro → resync FULL (igual antes)
 		UiKit.show_error(status, r)
 
 func _set_rarity(r) -> void:
@@ -915,10 +943,12 @@ func _stash_item(id: int) -> void:
 	var r = await Api.stash_deposit_item(id)
 	busy = false
 	if r.get("ok"):
-		await _refresh()
+		# [AUDIT] guardar ITEM tira-o da bag (inventário) + cobra a taxa (warrior). NÃO toca recursos
+		# nem habilidades. Re-busca só warrior+inventário.
+		await _refresh_subset(["/api/warrior", "/api/inventory"])
 		UiKit.flash(status, Lang.t("Guardado no baú!"), 1)
 	else:
-		await _refresh()
+		await _refresh()                # erro → resync FULL (igual antes)
 		UiKit.show_error(status, r)
 
 # [STASH] Guardar RECURSO no baú (deposita a quantidade toda do tipo).
@@ -929,10 +959,12 @@ func _stash_resource(rtype: String, qty: int) -> void:
 	var r = await Api.stash_deposit_resource(rtype, qty)
 	busy = false
 	if r.get("ok"):
-		await _refresh()
+		# [AUDIT] guardar RECURSO tira da pilha da bag (recursos) + cobra a taxa (warrior). NÃO toca
+		# inventário de itens nem habilidades. Re-busca só warrior+recursos.
+		await _refresh_subset(["/api/warrior", "/api/gathering/resources"])
 		UiKit.flash(status, Lang.t("Guardado no baú!"), 1)
 	else:
-		await _refresh()
+		await _refresh()                # erro → resync FULL (igual antes)
 		UiKit.show_error(status, r)
 
 func _spend(key: String) -> void:
