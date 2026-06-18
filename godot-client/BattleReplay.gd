@@ -2289,9 +2289,10 @@ func _on_impact(big: bool) -> void:
 # [JUICE] Knockback: empurra o alvo pra trás na direção do golpe e volta. O sim não move busy (flinch),
 # então não briga com o movimento. Forte no crit. Só horizontal (mantém y/z da base).
 func _knockback(f: Dictionary, dir: Vector3, big: bool) -> void:
-	var node = f.get("node")
-	if not (node is Node3D) or not is_instance_valid(node) or f.get("dead", false):
+	var nv = f.get("node")
+	if not (nv is Node3D) or not is_instance_valid(nv) or f.get("dead", false):
 		return
+	var node: Node3D = nv                                   # tipado → create_tween() infere Tween
 	var d: Vector3 = dir.normalized() if dir.length() > 0.01 else Vector3.RIGHT
 	d.y = 0.0
 	var base: Vector3 = node.position
