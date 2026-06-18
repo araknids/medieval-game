@@ -27,9 +27,12 @@ public class KingdomController {
     @GetMapping
     public ResponseEntity<?> listKingdoms(Authentication auth) {
         Player player = getPlayer(auth);
+        // [QUEST_BADGE] reinos com daily ainda disponível nesta janela (1 query) → "!" amarelo no mapa.
+        java.util.Set<Kingdom> questAvailable = kingdomService.kingdomsWithAvailableQuest(player);
         List<?> kingdoms = kingdomService.getAllKingdomStatus(player).stream()
                 .map(ks -> Map.ofEntries(
                     Map.entry("kingdom",          ks.kingdom().name()),
+                    Map.entry("questAvailable",   questAvailable.contains(ks.kingdom())),
                     Map.entry("displayName",      messages.getOr("kingdom." + ks.kingdom().name() + ".name", ks.kingdom().displayName)), // [I18N]
                     Map.entry("icon",             ks.kingdom().icon),
                     Map.entry("lore",             messages.getOr("kingdom." + ks.kingdom().name() + ".lore", ks.kingdom().lore)),         // [I18N]

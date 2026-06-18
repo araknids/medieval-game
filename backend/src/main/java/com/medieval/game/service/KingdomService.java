@@ -147,6 +147,23 @@ public class KingdomService {
         return done >= limit;
     }
 
+    /**
+     * [QUEST_BADGE] Reinos que ainda têm ≥1 daily NÃO esgotada nesta janela de 12h → recebem o "!" amarelo
+     * no mapa-múndi. Calculado em 1 query só (todas as conclusões da janela), sem N+1 por reino/quest.
+     */
+    public java.util.Set<Kingdom> kingdomsWithAvailableQuest(Player player) {
+        long window = currentQuestWindowId();
+        int limit = player.isVip() ? 2 : 1; // mesmo limite do isQuestDoneThisPeriod
+        java.util.Map<KingdomQuestType, Long> doneCount = questRepo
+                .collectedQuestTypesInWindow(player, QuestStatus.COLLECTED, window).stream()
+                .collect(java.util.stream.Collectors.groupingBy(t -> t, java.util.stream.Collectors.counting()));
+        java.util.Set<Kingdom> out = java.util.EnumSet.noneOf(Kingdom.class);
+        for (Kingdom k : Kingdom.values())
+            for (KingdomQuestType qt : getQuestsForKingdom(k))
+                if (doneCount.getOrDefault(qt, 0L) < limit) { out.add(k); break; }
+        return out;
+    }
+
     @Transactional
     public KingdomActiveQuest startQuest(Player player, Kingdom kingdom, KingdomQuestType questType) {
         log.info("[KingdomService] player={} action=startQuest kingdom={} questType={}", player.getId(), kingdom, questType);

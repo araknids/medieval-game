@@ -51,6 +51,7 @@ const EMOJI_ICON := {
 	"💰": "gold", "🪙": "bronze", "🥈": "silver", "🥉": "bronze",
 	"❤": "hp", "⚡": "stamina", "🏅": "achievements", "🎯": "tower",
 	"📬": "mail", "📭": "mail", "📩": "mail", "📨": "mail", "✉": "mail",
+	"❗": "quest_alert", "❕": "quest_alert",   # [QUEST_BADGE] "!" de daily disponível
 }
 
 # Separa um emoji-ícone do INÍCIO do texto. Retorna [icon_key, resto] — ["", texto] se não houver.

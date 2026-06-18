@@ -327,6 +327,9 @@ func _make_pin(k: Dictionary) -> Control:
 	var row := HBoxContainer.new()
 	row.add_theme_constant_override("separation", 4)
 	name_box.add_child(row)
+	# [QUEST_BADGE] "!" amarelo quando há daily disponível neste reino (hover: "Quest disponível").
+	if bool(k.get("questAvailable", false)):
+		row.add_child(_quest_badge())
 	var nm := Label.new()
 	nm.text = str(k.get("displayName", kid))
 	nm.add_theme_font_size_override("font_size", 12)
@@ -348,6 +351,27 @@ func _make_pin(k: Dictionary) -> Control:
 		if ev is InputEventMouseButton and ev.pressed and ev.button_index == MOUSE_BUTTON_LEFT:
 			_toggle(kid))
 	return pin
+
+# [QUEST_BADGE] Marcador "!" amarelo de daily disponível. Usa o ícone PixelLab quest_alert se existir,
+# senão um "!" estilizado. MOUSE_FILTER_PASS p/ mostrar o tooltip sem bloquear o clique do pin.
+func _quest_badge() -> Control:
+	var tip := Lang.t("Quest disponível")
+	if Icons.tex("quest_alert") != null:
+		var r := Icons.rect("quest_alert", 16)
+		r.mouse_filter = Control.MOUSE_FILTER_PASS
+		r.tooltip_text = tip
+		r.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+		return r
+	var l := Label.new()
+	l.text = "!"
+	l.tooltip_text = tip
+	l.mouse_filter = Control.MOUSE_FILTER_PASS
+	l.add_theme_font_size_override("font_size", 14)
+	l.add_theme_color_override("font_color", UiKit.GOLD)
+	l.add_theme_color_override("font_outline_color", Color(0, 0, 0))
+	l.add_theme_constant_override("outline_size", 4)
+	l.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	return l
 
 # [MAPA_MUNDO] Dimensiona o mapa p/ CABER INTEIRO na área visível (contain) + recoloca os pins.
 # avail = largura do content (já capada pela scaffold) × altura visível do scroll. Sem loop: o
