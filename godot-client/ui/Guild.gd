@@ -4,11 +4,15 @@ extends Control
 # GET /api/guild + /api/warrior (carteira) → se inGuild: painel (info + membros + doação +
 #   ranking + sair/dissolver, e p/ líder: expulsar/transferir). Se não: criar guilda + lista
 #   p/ entrar (GET /api/guild/list, só buscada quando sem guilda).
-# Guerra de guilda / formação 3×5 / territórios = sub-telas FUTURAS (só notadas).
+# Inclui guerra de guilda + a FORMAÇÃO 3×5 (líder posiciona os membros). Territórios = tela à parte.
 # Padrão visual: UiKit [PADRAO_UI_GODOT]. [MIGRACAO_GODOT]
 
 signal go_back
 
+const F_LANES := 3   # [GUERRA_FORMACAO] colunas (lanes) do tabuleiro de guerra
+const F_DEPTH := 5   # linhas (profundidade): 0 = frente (luta 1º) … 4 = retaguarda
+
+var _formation_cells := {}     # "lane:depth" -> OptionButton (editor do líder)
 var content: VBoxContainer
 var status: Label
 var wallet: Label
@@ -146,8 +150,8 @@ func _render_panel() -> void:
 	# ── Guerra de Guilda [GUERRA_GUILDA] ──
 	_render_war()
 
-	# nota sobre sub-telas futuras
-	content.add_child(UiKit.dim("⚔ Formação 3×5 e territórios virão em telas próprias."))
+	# ── Formação 3×5 da guerra [GUERRA_FORMACAO] ──
+	_render_formation(members, is_leader)
 
 func _member_row(mm: Dictionary, is_leader: bool) -> PanelContainer:
 	var me := bool(mm.get("isMe", false))
@@ -281,6 +285,117 @@ func _target_row(t: Dictionary) -> PanelContainer:
 	var gid := int(t.get("id", 0))
 	row.add_child(UiKit.small_btn("⚔ Declarar", _confirm_declare.bind(gid), true))
 	return pc
+
+# ── Formação 3×5 da guerra [GUERRA_FORMACAO] ────────────────────────────────────────
+# Tabuleiro de 3 lanes (colunas) × 5 de profundidade (linhas). A FRENTE (linha 1) luta primeiro
+# e leva o HP restante pro próximo da coluna; vence quem ganha 2 das 3 lanes. Só o LÍDER edita
+# (um OptionButton por célula); membros veem só leitura. Salvar posiciona + define o roster.
+func _render_formation(members: Array, is_leader: bool) -> void:
+	content.add_child(UiKit.section("⚔ Formação de Guerra (3 lanes × 5)"))
+	content.add_child(UiKit.dim("Cada coluna é um gauntlet: a FRENTE luta primeiro e leva o HP restante pro próximo. Vence quem ganha 2 das 3 lanes. Células vazias = auto-preenchidas pelos membros mais descansados."))
+	_formation_cells = {}
+	# formação atual: "lane:depth" -> membro
+	var placed := {}
+	for m in members:
+		if m is Dictionary and int(m.get("warLane", -1)) >= 0 and int(m.get("warDepth", -1)) >= 0:
+			placed["%d:%d" % [int(m.get("warLane", 0)), int(m.get("warDepth", 0))]] = m
+	var grid := GridContainer.new()
+	grid.columns = F_LANES + 1   # 1 coluna de rótulo de profundidade + 3 lanes
+	grid.add_theme_constant_override("h_separation", 6)
+	grid.add_theme_constant_override("v_separation", 6)
+	# cabeçalho: célula vazia + Lane 1/2/3
+	grid.add_child(_f_label("", 11, UiKit.TEXT_DIM))
+	for l in F_LANES:
+		grid.add_child(_f_label("Lane %d" % (l + 1), 12, UiKit.GOLD))
+	var depth_names := ["Frente", "2ª", "3ª", "4ª", "Retag."]
+	for d in F_DEPTH:
+		var dl := depth_names[d] + (" (1º)" if d == 0 else "")
+		grid.add_child(_f_label(dl, 11, UiKit.GOLD if d == 0 else UiKit.TEXT_DIM))
+		for l in F_LANES:
+			var key := "%d:%d" % [l, d]
+			var cur: Dictionary = placed.get(key, {})
+			if is_leader:
+				var ob := _f_option(members, cur)
+				_formation_cells[key] = ob
+				grid.add_child(ob)
+			else:
+				grid.add_child(_f_readonly_cell(cur))
+	content.add_child(grid)
+	if is_leader:
+		content.add_child(UiKit.action("💾 Salvar formação", _save_formation))
+	else:
+		content.add_child(UiKit.dim("Só o líder pode posicionar a formação."))
+
+# Rótulo simples (cabeçalho / profundidade) do tabuleiro.
+func _f_label(text: String, size: int, col: Color) -> Label:
+	var l := Label.new()
+	l.text = text
+	l.add_theme_font_size_override("font_size", size)
+	l.add_theme_color_override("font_color", col)
+	l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	l.custom_minimum_size = Vector2(64, 0)
+	return l
+
+# Dropdown de uma célula (líder): "—" (vazia) + cada membro. Pré-seleciona quem já está na célula.
+func _f_option(members: Array, current: Dictionary) -> OptionButton:
+	var ob := OptionButton.new()
+	ob.custom_minimum_size = Vector2(112, 30)
+	ob.add_item("—", 0)   # vazio
+	var sel_idx := 0
+	var idx := 1
+	for m in members:
+		if m is Dictionary:
+			var pid := int(m.get("playerId", 0))
+			ob.add_item(str(m.get("warriorName", "?")), pid)
+			if int(current.get("playerId", -1)) == pid:
+				sel_idx = idx
+			idx += 1
+	ob.select(sel_idx)
+	return ob
+
+# Célula só-leitura (membro não-líder): nome de quem está, ou vazio.
+func _f_readonly_cell(current: Dictionary) -> PanelContainer:
+	var pc := PanelContainer.new()
+	pc.custom_minimum_size = Vector2(112, 30)
+	var sb := StyleBoxFlat.new()
+	sb.bg_color = Color(0.08, 0.07, 0.09, 0.95)
+	sb.set_border_width_all(1)
+	sb.border_color = UiKit.BRONZE
+	sb.set_corner_radius_all(4)
+	sb.set_content_margin_all(4)
+	pc.add_theme_stylebox_override("panel", sb)
+	var l := Label.new()
+	l.text = str(current.get("warriorName", "—")) if not current.is_empty() else "—"
+	l.add_theme_font_size_override("font_size", 11)
+	l.add_theme_color_override("font_color", UiKit.TEXT if not current.is_empty() else UiKit.TEXT_DIM)
+	l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	pc.add_child(l)
+	return pc
+
+# Coleta as células preenchidas → valida duplicata → POST /war-formation.
+func _save_formation() -> void:
+	if busy: return
+	var slots := []
+	var used := {}
+	for key in _formation_cells:
+		var ob: OptionButton = _formation_cells[key]
+		var pid := ob.get_selected_id()
+		if pid == 0:
+			continue
+		if used.has(pid):
+			UiKit.flash(status, Lang.t("Cada membro só pode ocupar uma célula."), 2)
+			return
+		used[pid] = true
+		var parts := key.split(":")
+		slots.append({"playerId": pid, "lane": int(parts[0]), "depth": int(parts[1])})
+	busy = true
+	var r = await Api.guild_set_formation(slots)
+	busy = false
+	if r.get("ok"):
+		await _refresh()
+		UiKit.flash(status, Lang.t("Formação salva."), 1)
+	else:
+		UiKit.show_error(status, r)
 
 # ── Painel SEM guilda ──────────────────────────────────────────────────────────────
 func _render_no_guild() -> void:

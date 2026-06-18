@@ -301,6 +301,10 @@ func guild_donate(amount: int) -> Dictionary:
 ## GET /api/guild/war → {atWar, warId, enemyGuildName, myKills, enemyKills, secondsLeft, enemies:[{playerId,warriorName,title,level,hpPercent,knockedOut,shielded}]}
 func guild_war_status() -> Dictionary:
 	return await _request(HTTPClient.METHOD_GET, "/api/guild/war", null, true)
+## POST /api/guild/war-formation — líder posiciona os membros no tabuleiro 3×5. [GUERRA_FORMACAO]
+## slots = Array de {playerId:int, lane:int(0-2), depth:int(0-4)}.
+func guild_set_formation(slots: Array) -> Dictionary:
+	return await _request(HTTPClient.METHOD_POST, "/api/guild/war-formation", {"slots": slots}, true)
 ## GET /api/guild/war/targets → [{id, name, level}] (guildas elegíveis)
 func guild_war_targets() -> Dictionary:
 	return await _request(HTTPClient.METHOD_GET, "/api/guild/war/targets", null, true)
