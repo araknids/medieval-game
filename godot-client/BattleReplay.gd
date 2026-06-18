@@ -158,6 +158,9 @@ const GORE_COLORS := [Color(0.5, 0.08, 0.08), Color(0.42, 0.05, 0.05), Color(0.6
 @export var force_weapon := ""
 ## Posição do CABO da arma melee ao longo da mão (RightHand). MENOR = cabo mais pra dentro/baixo (na mão).
 @export var weapon_grip := 0.10
+## Orientação da ARMA do herói na mão (graus). Inspector: ajuste se o machado/arma ficar pro lado errado.
+## 999,999,999 (default) = usa a tabela HAND_XF. Ache o valor certo aqui e me passe que eu fixo na tabela. [ARMAS_3D]
+@export var weapon_rot_override := Vector3(999, 999, 999)
 ## TESTE: força a RARIDADE visual da arma do herói (1 comum…5 lendário). 0 = raridade real do inventário.
 @export_range(0, 5) var force_rarity := 0
 ## TESTE: força um ESCUDO na off-hand do herói (some com arco). Vazio/false = só se equipado de verdade.
@@ -927,7 +930,9 @@ func _make_fighter(fname: String, side: int, maxhp: int, weapon_kind: String, eq
 			node.add_child(aura)
 			f["aura"] = aura
 		if weapon_kind != "":   # [UNARMED] sem arma → não anexa modelo (soco)
-			wp.attach_weapon(node, weapon_kind, rarity, weapon_grip)
+			# [ARMAS_3D] override de rotação só no herói (p/ calibrar a arma no Inspector)
+			var wrot := weapon_rot_override if is_player else Vector3(999, 999, 999)
+			wp.attach_weapon(node, weapon_kind, rarity, weapon_grip, "", wrot)
 		# escudo na off-hand — só sem arma DE DUAS MÃOS (arco usa as duas mãos); desarmado pode escudar
 		if ("SHIELD" in equipped_types) and not wp.is_bow_kind(weapon_kind):
 			var sh_r := force_rarity if force_rarity > 0 else player_shield_rarity   # [RARIDADE] escudo

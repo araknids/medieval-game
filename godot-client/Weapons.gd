@@ -27,9 +27,9 @@ const SHIELD_MODEL := "Shield_Heater"
 const HAND_XF := {
 	"sword":      [0.20, 0.05, 0.04, Vector3(0, 0, -90)],
 	"greatsword": [0.20, 0.05, 0.04, Vector3(0, 0, -90)],
-	"axe":        [0.20, 0.05, 0.04, Vector3(0, 0, -90)],     # [FIX] alinhado com a espada (180 no Y deixava a lâmina ao contrário)
+	"axe":        [0.20, 0.05, 0.04, Vector3(180, 0, -90)],   # [FIX] lâmina pro lado errado: flip no X (Y 0/180 não resolveu) — calibrável via @export weapon_rot_override
 	"spear":      [0.18, 0.05, 0.04, Vector3(0, 0, -90)],
-	"mace":       [0.22, 0.05, 0.04, Vector3(0, 0, -90)],     # idem (machado/marreta seguem a espada)
+	"mace":       [0.22, 0.05, 0.04, Vector3(180, 0, -90)],   # idem
 	"shortbow":   [0.24, 0.07, 0.04, Vector3(0, 180, -90)],   # flip Y + ~horizontal na mão
 	"longbow":    [0.24, 0.07, 0.04, Vector3(0, 180, -90)],
 	"crossbow":   [0.24, 0.07, 0.04, Vector3(0, 180, -90)],
@@ -60,7 +60,7 @@ func is_bow_kind(kind: String) -> bool:
 
 # Desenha a arma no esqueleto do `node`. Arco→LeftHand, melee→RightHand (ou force_bone).
 # Retorna o BoneAttachment3D (p/ o chamador remover ao reequipar). rarity mantido (sem tint por ora).
-func attach_weapon(node: Node3D, kind: String, rarity := 1, grip := 0.10, force_bone := "") -> Node3D:
+func attach_weapon(node: Node3D, kind: String, rarity := 1, grip := 0.10, force_bone := "", rot_override := Vector3(999, 999, 999)) -> Node3D:
 	var skel: Skeleton3D = node.find_child("GeneralSkeleton", true, false)
 	if skel == null: return null
 	var bone := force_bone
@@ -72,7 +72,8 @@ func attach_weapon(node: Node3D, kind: String, rarity := 1, grip := 0.10, force_
 	var xf: Array = HAND_XF.get(kind, HAND_XF["sword"])
 	var holder := Node3D.new()
 	holder.position = Vector3(grip, float(xf[1]), float(xf[2]))
-	holder.rotation_degrees = xf[3]
+	# [ARMAS_3D] rot_override (Inspector) sobrepõe a rotação da tabela p/ calibrar ao vivo; sentinela = usa a tabela
+	holder.rotation_degrees = rot_override if rot_override.x < 900.0 else xf[3]
 	ba.add_child(holder)
 	var model = _load_model(str(MODELS.get(kind, "Sword")))
 	if model != null:
