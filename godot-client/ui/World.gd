@@ -951,6 +951,17 @@ func _cancel_zone(activity_id: int) -> void:
 	UiKit.flash(status, "Expedição cancelada.", 0)
 
 # ── [TOAST] Desfecho SIMPLES (coleta/loot sem batalha) → toast com chips, sem clique de OK ───────────
+# [DESFECHO] Label da NARRATIVA do desfecho (texto da história, com wrap) — usado no modal sem-combate
+# e no relatório de combate (win/lose).
+func _narr_label(narr: String) -> Label:
+	var nl := Label.new()
+	nl.text = narr
+	nl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	nl.custom_minimum_size = Vector2(440, 0)
+	nl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	nl.add_theme_color_override("font_color", UiKit.TEXT)
+	return nl
+
 # [DESFECHO] Modal de desfecho da opção SEM combate: a HISTÓRIA (narrativa) + a recompensa + OK.
 # Antes caía no toast genérico e o texto da escolha sumia → "só escolher a opção e boa". [QUESTS_INTERATIVAS]
 func _show_quest_outcome(j: Dictionary) -> void:
@@ -959,13 +970,7 @@ func _show_quest_outcome(j: Dictionary) -> void:
 		_quest_reward_toast(j)   # sem narrativa → toast simples (fallback)
 		return
 	var rows: Array = []
-	var nl := Label.new()
-	nl.text = narr
-	nl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	nl.custom_minimum_size = Vector2(440, 0)
-	nl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	nl.add_theme_color_override("font_color", UiKit.TEXT)
-	rows.append(nl)
+	rows.append(_narr_label(narr))
 	var bronze := int(j.get("bronzeEarned", 0))
 	if bronze > 0: rows.append(UiKit.kv_node("Recompensa", UiKit.coin_box(bronze, 18)))
 	var xp := int(j.get("xpEarned", 0))
@@ -1015,6 +1020,9 @@ func _show_quest_report(j: Dictionary) -> void:
 	var mob := str(j.get("monsterName", "inimigo"))
 	var title := (Lang.t("⚔ %s derrotado!") % mob) if won else (Lang.t("💀 Derrotado por %s — sem recompensa.") % mob)
 	var rows: Array = []
+	var narr := str(j.get("narrative", "")).strip_edges()   # [DESFECHO] história do desfecho de combate (win/lose)
+	if narr != "":
+		rows.append(_narr_label(narr))
 	if won:
 		rows.append(UiKit.kv_node("Recompensa", UiKit.coin_box(int(j.get("bronzeEarned", 0)), 18)))
 		rows.append(UiKit.kv("⭐ Experiência", "+%d XP" % int(j.get("xpEarned", 0))))
