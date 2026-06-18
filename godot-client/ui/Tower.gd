@@ -249,7 +249,7 @@ func _page_next() -> void:
 func _enter() -> void:
 	if busy: return
 	busy = true
-	UiKit.flash(status, Lang.t("Entrando…"), 0)
+	UiKit.show_loading(self)
 	var r = await Api.tower_enter()
 	if not (r.get("ok") and r.get("json") is Dictionary):
 		UiKit.show_error(status, r); busy = false; return
@@ -264,7 +264,7 @@ func _fight() -> void:
 func _do_fight() -> void:
 	if busy: return
 	busy = true
-	UiKit.flash(status, "Lutando…", 0)
+	UiKit.show_loading(self)
 	var r = await Api.tower_fight()
 	busy = false
 	if not (r.get("ok") and r.get("json") is Dictionary):
@@ -276,6 +276,7 @@ func _do_fight() -> void:
 	var be = data.get("battleEvents")
 	if be is Array and be.size() >= 2:
 		# Torre = misto (humano/monstro pelo nome do andar) → replay 3D por cima
+		UiKit.hide_loading()   # [LOADING] tira o dialog antes do replay aparecer por cima
 		request_battle.emit({"events": be, "scene": str(data.get("scene", "tower")), "won": bool(data.get("won", false)), "enemy": str(data.get("bossName", ""))})
 	else:
 		await _resync()
@@ -300,7 +301,7 @@ func _resync() -> void:
 func _arka(spare: bool) -> void:
 	if busy: return
 	busy = true
-	UiKit.flash(status, "…", 0)
+	UiKit.show_loading(self)
 	var r = await Api.tower_arka(spare)
 	busy = false
 	if not (r.get("ok") and r.get("json") is Dictionary):

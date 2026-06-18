@@ -163,7 +163,7 @@ func _rank_row(pos: int, r: Dictionary, is_me: bool) -> PanelContainer:
 func _start_fight() -> void:
 	if busy: return
 	busy = true
-	UiKit.flash(status, "Lutando…", 0)
+	UiKit.show_loading(self)
 	var r = await Api.arena_fight()
 	busy = false
 	if r.get("ok") and r.get("json") is Dictionary:
@@ -175,6 +175,7 @@ func _start_fight() -> void:
 		var be = j.get("battleEvents")
 		if be is Array and be.size() >= 2:
 			# vs humano → replay 3D por cima; _on_battle_over volta e mostra a recompensa
+			UiKit.hide_loading()   # [LOADING] tira o dialog antes do replay aparecer por cima
 			request_battle.emit({"events": be, "scene": str(j.get("scene", "arena")), "won": bool(j.get("won", false)), "enemy": str(j.get("opponent", ""))})
 		else:
 			await _refresh()   # sem eventos → resultado em texto

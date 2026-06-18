@@ -129,7 +129,7 @@ func _submit() -> void:
 		UiKit.flash(status, Lang.t("Preencha usuário e senha."), 2)
 		return
 	_busy = true
-	UiKit.flash(status, "Conectando…", 0)
+	UiKit.show_loading(self)
 	var r: Dictionary
 	if mode == "register":
 		r = await Api.register(user_edit.text, wname_edit.text, email_edit.text, pass_edit.text, gender_sel)
@@ -155,7 +155,7 @@ func _try_auto_login() -> void:
 	if tok == "":
 		return
 	Api.token = tok                   # tenta com o token salvo
-	UiKit.flash(status, "Entrando…", 0)
+	UiKit.show_loading(self)
 	_busy = true
 	var r = await Api.get_warrior()   # request autenticado leve = valida o token
 	_busy = false

@@ -154,7 +154,7 @@ func _open(kingdom: String) -> void:
 	if kingdom == "":
 		return
 	open_kingdom = kingdom
-	UiKit.flash(status, Lang.t("Abrindo %s…") % kingdom, 0)
+	UiKit.show_loading(self)
 	# dispara tudo em PARALELO (independentes); inclui /api/warrior p/ o header refletir o gasto/XP na hora
 	# (sem isso o topbar só atualizava no próximo _refresh → parecia "demorar" após quest/zona).
 	var paths := ["/api/warrior", "/api/world/%s/quests" % kingdom, "/api/world/%s/quests/active" % kingdom, "/api/zones/current"]

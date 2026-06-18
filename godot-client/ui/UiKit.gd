@@ -253,6 +253,7 @@ static func set_wallet(wallet, w: Dictionary) -> void:
 
 # ── Feedback de status ─────────────────────────────────────────────────────────────
 static func flash(status: Label, text: String, kind := 0) -> void:
+	hide_loading()   # [LOADING] qualquer mensagem de status encerra o dialog de carregamento (unificado)
 	if status == null:
 		return
 	var col := Color(0.78, 0.74, 0.66)
