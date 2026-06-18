@@ -8,11 +8,13 @@ extends Control
 # Padrão visual: UiKit [PADRAO_UI_GODOT]. [MIGRACAO_GODOT]
 
 signal go_back
+signal request_battle(data)   # [BATALHA_ANIMADA] ataque de guerra → replay 3D (App esconde o shell)
 
 const F_LANES := 3   # [GUERRA_FORMACAO] colunas (lanes) do tabuleiro de guerra
 const F_DEPTH := 5   # linhas (profundidade): 0 = frente (luta 1º) … 4 = retaguarda
 
 var _formation_cells := {}     # "lane:depth" -> OptionButton (editor do líder)
+var _pending_after := {}       # [BATALHA_ANIMADA] resultado do ataque guardado durante o replay 3D
 var content: VBoxContainer
 var status: Label
 var wallet: Label
@@ -245,15 +247,26 @@ func _enemy_card(e: Variant) -> Control:
 	left.add_child(hl)
 	var rcol := VBoxContainer.new()
 	rcol.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	rcol.size_flags_horizontal = Control.SIZE_SHRINK_END
 	row.add_child(rcol)
 	var pid := int(en.get("playerId", 0))
 	if ko:
-		rcol.add_child(UiKit.dim("💀 KO"))          # [AUDIT] status, não botão (não parece clicável)
+		rcol.add_child(_war_status("💀 KO"))          # 1 linha (UiKit.dim quebrava em K/O na coluna estreita)
 	elif shielded:
-		rcol.add_child(UiKit.dim("🛡 Protegido"))   # [AUDIT] idem
+		rcol.add_child(_war_status("🛡 Protegido"))
 	else:
 		rcol.add_child(UiKit.small_btn("⚔ Atacar", _attack.bind(pid), true))
 	return pc
+
+# Status do inimigo (KO/Protegido) numa LINHA só — autowrap OFF (UiKit.dim quebrava + inflava o card).
+func _war_status(text: String) -> Label:
+	var l := Label.new()
+	l.text = text
+	l.add_theme_font_size_override("font_size", 12)
+	l.add_theme_color_override("font_color", UiKit.TEXT_DIM)
+	l.autowrap_mode = TextServer.AUTOWRAP_OFF
+	l.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	return l
 
 func _render_war_idle() -> void:
 	if not bool(data.get("isLeader", false)):
@@ -598,17 +611,39 @@ func _attack(player_id: int) -> void:
 	busy = true
 	var r = await Api.guild_war_attack(player_id)
 	busy = false
-	if r.get("ok") and r.get("json") is Dictionary:
-		var j: Dictionary = r["json"]
-		var won := bool(j.get("won", false))
-		var opp := str(j.get("opponentName", "?"))
-		var head := Lang.t("🏆 Venceu") if won else Lang.t("💀 Perdeu")
-		var loot := str(j.get("loot", ""))
-		var loot_txt := " · %s" % loot if loot != "" else ""
-		await _refresh()
-		UiKit.flash(status, Lang.t("%s contra %s%s · placar %d×%d") % [head, opp, loot_txt, int(j.get("myKills", 0)), int(j.get("enemyKills", 0))], 1)
-	else:
+	if not (r.get("ok") and r.get("json") is Dictionary):
 		UiKit.show_error(status, r)
+		return
+	var j: Dictionary = r["json"]
+	var be = j.get("battleEvents")
+	if be is Array and be.size() >= 2:
+		# [BATALHA_ANIMADA] replay 3D por cima; _on_battle_over volta e mostra o relatório (padrão Arena/Torre)
+		_pending_after = j
+		request_battle.emit({"events": be, "scene": str(j.get("scene", "fortress")), "won": bool(j.get("won", false)), "enemy": str(j.get("opponentName", ""))})
+	else:
+		await _refresh()
+		_show_attack_report(j)
+
+# o App chama isto quando o replay 3D termina (volta pra Guilda + mostra o relatório)
+func _on_battle_over() -> void:
+	var j: Dictionary = _pending_after if _pending_after is Dictionary else {}
+	_pending_after = {}
+	await _refresh()
+	if not j.is_empty():
+		_show_attack_report(j)
+
+# Relatório do ataque no MESMO padrão das outras batalhas (card win/loss + placar + loot + log).
+func _show_attack_report(j: Dictionary) -> void:
+	var won := bool(j.get("won", false))
+	var opp := str(j.get("opponentName", "?"))
+	var title := (Lang.t("🏆 Vitória contra %s!") % opp) if won else (Lang.t("💀 Derrota contra %s") % opp)
+	var rows: Array = []
+	rows.append(UiKit.kv("Placar", "%d × %d" % [int(j.get("myKills", 0)), int(j.get("enemyKills", 0))]))
+	var loot := str(j.get("loot", ""))
+	if loot != "":
+		rows.append(UiKit.dim("🎁 " + loot))
+	var log: Array = j.get("battleLog", []) if j.get("battleLog") is Array else []
+	UiKit.show_battle_report(self, won, title, rows, log)
 
 # ── helpers locais (formatação + SpinBox de doação) ─────────────────────────────────
 func _fmt_time(secs: int) -> String:

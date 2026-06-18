@@ -50,7 +50,8 @@ public class GuildWarService {
                             int myKills, int enemyKills, long secondsLeft, List<EnemyMember> enemies) {}
     public record TargetGuild(Long id, String name, int level) {}
     public record AttackResult(boolean won, String opponentName, String loot,
-                               int myKills, int enemyKills, List<String> log) {}
+                               int myKills, int enemyKills, List<String> log,
+                               List<BattleSimulator.BattleEvent> battleEvents) {} // [BATALHA_ANIMADA] replay 3D
 
     // ── Declaração ────────────────────────────────────────────────────────────
     @Transactional
@@ -147,7 +148,7 @@ public class GuildWarService {
         List<String> battleLog = stripWinnerTag(out.log());
         log.info("[GuildWarService] war={} attacker={} won={} loot={}", war.getId(), attacker.getId(), attackerWon, loot);
         return new AttackResult(attackerWon, tw.getName(), loot,
-                war.killsFor(myGuild.getId()), war.killsFor(enemyGuildId), battleLog);
+                war.killsFor(myGuild.getId()), war.killsFor(enemyGuildId), battleLog, out.events());
     }
 
     // ── Status / alvos ──────────────────────────────────────────────────────────

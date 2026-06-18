@@ -72,7 +72,9 @@ public class GuildWarController {
             "loot",         r.loot(),
             "myKills",      r.myKills(),
             "enemyKills",   r.enemyKills(),
-            "battleLog",    r.log()
+            "battleLog",    r.log(),
+            "battleEvents", r.battleEvents(),          // [BATALHA_ANIMADA] replay 3D
+            "scene",        "fortress"
         ));
     }
 
