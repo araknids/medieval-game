@@ -14,6 +14,7 @@ const OutfitsLib := preload("res://Outfits.gd")   # sets novos por tema/gênero/
 const Scenery := preload("res://Scenery.gd")
 const Monsters := preload("res://Monsters.gd")
 const Weapons := preload("res://Weapons.gd")
+const GameSettings := preload("res://GameSettings.gd")   # [CONFIG] toggle de gore (sangue/desmembramento)
 const LIB := "UAL1_Standard/"
 const A_IDLE := LIB + "Sword_Idle"
 const A_ATTACK := LIB + "Sword_Attack"
@@ -1766,6 +1767,7 @@ func _kill(f: Dictionary) -> void:
 # [GORE] DESMEMBRAMENTO: dispara `count` pedaços (membros=cápsula, cabeça=esfera, naco=cubo) como
 # RigidBody3D voando na direção `dir` + pra cima, com giro. Caem no chão e somem (~4s). Cap MAX_GIBS.
 func _gore_burst(pos: Vector3, dir: Vector3, count: int) -> void:
+	if not GameSettings.gore_enabled(): return   # [CONFIG] gore desligado nas Configurações
 	for i in count:
 		var rb := RigidBody3D.new()
 		var mi := MeshInstance3D.new()
@@ -1864,6 +1866,7 @@ func _pool_texture() -> Texture2D:
 
 # JATO: spray de sangue saindo na direção do golpe (mais forte e largo no crit).
 func _blood_spray(pos: Vector3, dir: Vector3, amount: int, big: bool, elem := "") -> void:
+	if not GameSettings.gore_enabled(): return   # [CONFIG] gore desligado nas Configurações
 	if _spray_live >= MAX_SPRAYS: return
 	_spray_live += 1
 	var p := GPUParticles3D.new()
@@ -1906,6 +1909,7 @@ func _blood_spray(pos: Vector3, dir: Vector3, amount: int, big: bool, elem := ""
 
 # NÉVOA: nuvem fina avermelhada suspensa um instante (crit/morte).
 func _blood_mist(pos: Vector3) -> void:
+	if not GameSettings.gore_enabled(): return   # [CONFIG] gore desligado nas Configurações
 	if _spray_live >= MAX_SPRAYS: return
 	_spray_live += 1
 	var p := GPUParticles3D.new()
@@ -1940,6 +1944,7 @@ func _blood_mist(pos: Vector3) -> void:
 
 # POÇA: decal que drapeja sobre o chão e CRESCE (sangue se espalhando).
 func _blood_pool(pos: Vector3, big := false) -> void:
+	if not GameSettings.gore_enabled(): return   # [CONFIG] gore desligado nas Configurações
 	var dcl := Decal.new()
 	dcl.texture_albedo = _pool_texture()
 	dcl.modulate = POOL_TINT
@@ -1960,6 +1965,7 @@ func _blood_pool(pos: Vector3, big := false) -> void:
 
 # GOTEJAMENTO: preso ao corpo, pinga ~2.2s (acompanha o ragdoll caindo).
 func _blood_drip(f: Dictionary) -> void:
+	if not GameSettings.gore_enabled(): return   # [CONFIG] gore desligado nas Configurações
 	var p := GPUParticles3D.new()
 	p.amount = 22
 	p.lifetime = 0.55

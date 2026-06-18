@@ -5,6 +5,8 @@ extends Control
 
 signal go_back
 
+const GameSettings := preload("res://GameSettings.gd")   # [CONFIG] toggle de gore
+
 var content: VBoxContainer
 var status: Label
 var wallet: Label
@@ -29,8 +31,29 @@ func _render() -> void:
 	content.add_child(row)
 	row.add_child(_lang_btn("Português", "pt"))
 	row.add_child(_lang_btn("English", "en"))
+	# [CONFIG] Gore: sangue + desmembramento nas batalhas (desligar p/ alcançar mais público)
+	content.add_child(UiKit.section("Conteúdo"))
+	content.add_child(UiKit.dim("Sangue e desmembramento nas batalhas. Desligue para um visual mais leve (vale na próxima luta)."))
+	var grow := HBoxContainer.new()
+	grow.add_theme_constant_override("separation", 10)
+	content.add_child(grow)
+	grow.add_child(_gore_btn("🩸 Ligado", true))
+	grow.add_child(_gore_btn("Desligado", false))
 	# [GENDER] A escolha de sexo saiu daqui: é definida na CRIAÇÃO do personagem e só troca
 	# pagando SoulStone na tela do VIP (não é mais grátis nas Configurações).
+
+func _gore_btn(label: String, on: bool) -> Button:
+	var active := GameSettings.gore_enabled() == on
+	var b := UiKit.action_big(("✓ " + label) if active else label, func() -> void: _pick_gore(on))
+	b.disabled = active
+	return b
+
+func _pick_gore(on: bool) -> void:
+	if GameSettings.gore_enabled() == on:
+		return
+	GameSettings.set_gore(on)
+	UiKit.flash(status, "Sangue/desmembramento: %s" % ("ligado" if on else "desligado"), 1)
+	_render()   # atualiza o ✓ (o efeito vale na próxima batalha)
 
 func _lang_btn(label: String, code: String) -> Button:
 	var active := Lang.current() == code
