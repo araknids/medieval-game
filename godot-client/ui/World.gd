@@ -430,16 +430,16 @@ func _build_detail(box: VBoxContainer, kingdom: String) -> void:
 				elif bool(q.get("readyToCollect", false)):
 					if bool(q.get("interactive", false)) and q.get("dialog") is Dictionary:
 						var dlg: Dictionary = q["dialog"]   # interativa: re-abre a escolha
-						row.add_child(UiKit.small_btn("Escolher", func() -> void: _show_quest_dialog(kingdom, qid, dlg)))
+						row.add_child(UiKit.small_btn("▶ Continuar missão", func() -> void: _show_quest_dialog(kingdom, qid, dlg)))
 					else:
-						row.add_child(UiKit.small_btn("Coletar", _collect_quest.bind(kingdom, qid)))
+						row.add_child(UiKit.small_btn("▶ Continuar missão", _collect_quest.bind(kingdom, qid)))
 				else:
 					var tl := Label.new()
 					tl.text = "%dm" % int(q.get("secondsRemaining", 0) / 60)
 					tl.add_theme_font_size_override("font_size", 12)
 					tl.add_theme_color_override("font_color", UiKit.TEXT_DIM)
 					row.add_child(tl)
-				row.add_child(UiKit.small_btn("✖", _abandon_quest.bind(kingdom, qid), true))
+				row.add_child(UiKit.small_btn("✖ Abandonar missão", _abandon_quest.bind(kingdom, qid), true))
 				box.add_child(row)
 	# [UI_TRABALHO] Training Hall MOVIDO p/ a tela de Trabalho (Work.gd) — não fica mais no Mundo.
 	# DAILY QUESTS
