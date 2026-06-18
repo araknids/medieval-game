@@ -89,6 +89,19 @@ public final class ExpeditionMapGenerator {
 
     static String nodeId(int layer, int idx) { return "L" + layer + "N" + idx; }
 
+    /**
+     * [INCURSAO] Alcançabilidade entre camadas de larguras diferentes. A coluna escolhida na camada
+     * anterior ({@code prevIdx}) é CLAMPADA à largura da camada atual antes do teste de vizinhança (±1).
+     * Sem o clamp, o CHEFE (1 nó no índice 0) fica inacessível vindo da coluna 2 — {@code abs(0-2)=2 > 1}
+     * — travando a run (soft-lock). Com clamp, sempre há ≥1 nó alcançável. {@code prevIdx < 0} = 1ª camada
+     * (sem restrição). Usado pelo display (ExpeditionController) E pela validação (ExpeditionService.choose).
+     */
+    public static boolean isReachable(int prevIdx, int nodeIdx, int currentLayerSize) {
+        if (prevIdx < 0) return true;
+        int clamped = Math.max(0, Math.min(prevIdx, currentLayerSize - 1));
+        return Math.abs(nodeIdx - clamped) <= 1;
+    }
+
     /** Sorteio ponderado do tipo de nó. ELITE só a partir da 2ª camada e mais comum fundo/alto tier. */
     private static ExpeditionNodeType pickType(Random rng, int layer, int tier, boolean hasGather) {
         // pares (tipo, peso)

@@ -136,8 +136,9 @@ public class ExpeditionController {
             boolean isCurrent = choosable && layer.index() == run.getCurrentLayer();
             List<ExpeditionMapGenerator.Node> ns = layer.nodes();
             for (int i = 0; i < ns.size(); i++) {
-                // caminho ramificado: só as vizinhas (i-1/i/i+1) da coluna anterior ficam alcançáveis.
-                boolean neighbor = prevIdx < 0 || Math.abs(i - prevIdx) <= 1;
+                // caminho ramificado: só as vizinhas (i-1/i/i+1) da coluna anterior — coluna anterior
+                // CLAMPADA à largura desta camada p/ o chefe (1 nó) nunca ficar inacessível. [INCURSAO]
+                boolean neighbor = ExpeditionMapGenerator.isReachable(prevIdx, i, ns.size());
                 nodes.add(Map.of(
                         "id", ns.get(i).id(),
                         "type", ns.get(i).type().name(),

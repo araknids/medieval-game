@@ -81,6 +81,37 @@ class ExpeditionMapGeneratorTest {
         assertTrue(boss.monsterLevelBump() > maxNormal, "o chefe deve ser o nó mais forte da run");
     }
 
+    @Test
+    void bossReachableFromAnyColumn() {
+        // [INCURSAO] regressão do soft-lock: o CHEFE (1 nó no índice 0) precisa ser alcançável vindo de
+        // QUALQUER coluna da penúltima camada — inclusive a coluna 2 (abs(0-2)=2 > 1 sem o clamp).
+        for (int prevCol = 0; prevCol <= 3; prevCol++) {
+            assertTrue(ExpeditionMapGenerator.isReachable(prevCol, 0, 1),
+                    "chefe deve ser alcançável vindo da coluna " + prevCol);
+        }
+    }
+
+    @Test
+    void firstLayerIsAlwaysReachable() {
+        // 1ª camada (prevIdx = -1) não tem restrição de coluna.
+        for (int i = 0; i < 4; i++)
+            assertTrue(ExpeditionMapGenerator.isReachable(-1, i, 4), "1ª camada livre, coluna " + i);
+    }
+
+    @Test
+    void everyLayerWidthHasAtLeastOneReachableNode() {
+        // Invariante anti-soft-lock: de QUALQUER coluna anterior, p/ QUALQUER largura de camada (1-4),
+        // existe ao menos 1 nó alcançável → a run nunca trava.
+        for (int prevCol = 0; prevCol <= 3; prevCol++) {
+            for (int width = 1; width <= 4; width++) {
+                boolean any = false;
+                for (int i = 0; i < width; i++)
+                    if (ExpeditionMapGenerator.isReachable(prevCol, i, width)) { any = true; break; }
+                assertTrue(any, "sem nó alcançável: coluna anterior=" + prevCol + " largura=" + width);
+            }
+        }
+    }
+
     private static int countType(Map m, ExpeditionNodeType t) {
         return (int) m.layers().stream().flatMap(l -> l.nodes().stream()).filter(n -> n.type() == t).count();
     }

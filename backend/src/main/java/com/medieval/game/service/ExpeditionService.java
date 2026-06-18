@@ -197,7 +197,7 @@ public class ExpeditionService {
         // [INCURSAO] caminho ramificado (vizinhas): o nó tem que ser i-1/i/i+1 da coluna escolhida na
         // camada anterior. 1ª camada (lastNodeIndex<0) = sem restrição. Avança a "coluna" pro próximo passo.
         int chosenIdx = layer.nodes().indexOf(node);
-        if (run.getLastNodeIndex() >= 0 && Math.abs(chosenIdx - run.getLastNodeIndex()) > 1)
+        if (!ExpeditionMapGenerator.isReachable(run.getLastNodeIndex(), chosenIdx, layer.nodes().size()))
             throw new com.medieval.game.config.LocalizedException(
                     "error.expedition_unreachable", "That node isn't reachable yet.");
         run.setLastNodeIndex(chosenIdx);
