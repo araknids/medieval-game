@@ -22,7 +22,10 @@ var mutation_count := 0
 # Em vez de abrir uma conexão TCP+TLS nova por request (handshake caro a cada chamada),
 # mantemos um POOL de HTTPClient que ficam CONECTADOS e são reusados — igual ao pool
 # keep-alive do navegador. Várias conexões = chamadas paralelas (uma por conexão livre).
-const POOL_MAX := 4          # máx. de conexões simultâneas pro mesmo host
+# ⚠ Um único batch_get([...]) segura N conexões ao mesmo tempo (1 por endpoint) até terminar.
+# Se N > POOL_MAX, o batch trava esperando uma conexão que ele mesmo segura (deadlock). Por isso
+# POOL_MAX TEM de ser >= o maior batch da UI (hoje o World._open pede 5). 8 dá folga. [REDE_POOL]
+const POOL_MAX := 8          # máx. de conexões simultâneas pro mesmo host
 var _pool: Array = []        # Array[_Conn]
 var _host := ""              # destino parseado de base_url (preenchido sob demanda)
 var _port := 443
