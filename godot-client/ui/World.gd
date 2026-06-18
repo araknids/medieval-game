@@ -77,6 +77,7 @@ var selected_element := "FIRE"    # picker de área de elemento
 # detalhe do reino aberto (carregado sob demanda)
 var quests: Array = []
 var active_quests: Array = []
+var global_active: Array = []     # [QUESTS_ATIVA_GLOBAL] missão ativa em QUALQUER reino (guard é global)
 var zone_session: Dictionary = {}
 var active_delve: Dictionary = {}   # [STUCK_FIX] /api/expedition/current — Incursão em andamento
 
@@ -125,15 +126,19 @@ func _refresh() -> void:
 	# não pedimos o guerreiro AQUI (era um duplo-fetch). Sem reino aberto, incluímos /api/warrior
 	# no batch p/ o header refletir a carteira (o _render usa `warrior`, e o _open não roda).
 	var will_open := open_kingdom != ""
-	var paths := ["/api/world", "/api/expedition/current"]
+	# [QUESTS_ATIVA_GLOBAL] /active-quests sempre no batch → o mapa e qualquer reino sabem onde está
+	# a missão pendente (o guard de "1 missão por vez" é global no backend).
+	var paths := ["/api/world", "/api/expedition/current", "/api/world/active-quests"]
 	if not will_open:
 		paths.append("/api/warrior")
-	# reinos + Incursão ativa (+ guerreiro só se não for reabrir um reino) em PARALELO
+	# reinos + Incursão ativa + missão ativa global (+ guerreiro se não for reabrir reino) em PARALELO
 	var rs = await Api.batch_get(paths)
 	var rd = rs[1]
 	active_delve = rd["json"] if (rd.get("ok") and rd.get("json") is Dictionary) else {}
+	var rg = rs[2]
+	global_active = rg["json"] if (rg.get("ok") and rg.get("json") is Array) else []
 	if not will_open:
-		var wr = rs[2]
+		var wr = rs[3]
 		if wr.get("ok") and wr.get("json") is Dictionary:
 			warrior = wr["json"]
 			warrior_level = int(warrior.get("level", 1))
@@ -157,7 +162,8 @@ func _open(kingdom: String) -> void:
 	UiKit.show_loading(self)
 	# dispara tudo em PARALELO (independentes); inclui /api/warrior p/ o header refletir o gasto/XP na hora
 	# (sem isso o topbar só atualizava no próximo _refresh → parecia "demorar" após quest/zona).
-	var paths := ["/api/warrior", "/api/world/%s/quests" % kingdom, "/api/world/%s/quests/active" % kingdom, "/api/zones/current"]
+	# inclui /active-quests p/ manter o estado global fresco após coletar/iniciar (gating + banner)
+	var paths := ["/api/warrior", "/api/world/%s/quests" % kingdom, "/api/world/%s/quests/active" % kingdom, "/api/zones/current", "/api/world/active-quests"]
 	var rs = await Api.batch_get(paths)
 	var rw = rs[0]
 	if rw.get("ok") and rw.get("json") is Dictionary:
@@ -169,15 +175,57 @@ func _open(kingdom: String) -> void:
 	active_quests = ra["json"] if (ra.get("ok") and ra.get("json") is Array) else []
 	var rz = rs[3]
 	zone_session = rz["json"] if (rz.get("ok") and rz.get("json") is Dictionary) else {}
+	var rga = rs[4]
+	global_active = rga["json"] if (rga.get("ok") and rga.get("json") is Array) else []
 	_render()
 
-# "tem tarefa ativa pra coletar" neste reino → bloqueia começar outra (espelha os checks do backend).
+# "tem tarefa ativa pra coletar" → bloqueia começar outra (espelha o guard GLOBAL do backend).
 func _has_active_task() -> bool:
+	if not global_active.is_empty():   # missão ativa em QUALQUER reino (guard global)
+		return true
 	if not active_quests.is_empty():
 		return true
 	if zone_session.get("active", false):
 		return true
 	return false
+
+# Reino (nome amigável) onde está a missão ativa, ou "" se nenhuma.
+func _kingdom_name(raw: String) -> String:
+	for k in kingdoms:
+		if k is Dictionary and str(k.get("kingdom", "")) == raw:
+			return str(k.get("displayName", raw))
+	return raw
+
+# Texto do selo de bloqueio "conclua a tarefa ativa" — NOMEIA o reino da missão (intuitivo).
+func _active_task_where() -> String:
+	if not global_active.is_empty():
+		return Lang.t("Conclua a missão em %s") % _kingdom_name(str(global_active[0].get("kingdom", "")))
+	if zone_session.get("active", false):
+		return Lang.t("Conclua a expedição ativa")
+	return Lang.t("Conclua a tarefa ativa")
+
+# [QUESTS_ATIVA_GLOBAL] Banner no topo apontando ONDE está a missão ativa (+ botão p/ ir lá).
+# Só aparece quando a missão NÃO é do reino aberto (lá a seção "Quests Ativas" já a mostra).
+func _active_quest_banner() -> void:
+	if global_active.is_empty():
+		return
+	var q: Dictionary = global_active[0]
+	var qk := str(q.get("kingdom", ""))
+	if qk == open_kingdom and open_kingdom != "":
+		return
+	var kname := _kingdom_name(qk)
+	var ready := bool(q.get("readyToCollect", false))
+	var res := UiKit.card(UiKit.WARN)
+	var pc: PanelContainer = res[0]
+	var box: VBoxContainer = res[1]
+	var sb: StyleBoxFlat = pc.get_theme_stylebox("panel")
+	sb.set_border_width_all(2)
+	box.add_child(UiKit.icon_text("⚠ Missão ativa em %s" % kname, 15, UiKit.WARN, 20))
+	box.add_child(UiKit.dim(Lang.t("%s — conclua ela antes de começar outra.") % str(q.get("displayName", "missão"))))
+	var btn := UiKit.action((Lang.t("📍 Ir coletar em %s") % kname) if ready else (Lang.t("📍 Ir resolver em %s") % kname), func() -> void: await _open(qk))
+	btn.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	box.add_child(btn)
+	content.add_child(pc)
 
 func _render() -> void:
 	for c in content.get_children():
@@ -190,6 +238,8 @@ func _render() -> void:
 	# então este é o caminho de volta pra uma run presa). Espelha o web "Continuar Incursão".
 	if bool(active_delve.get("active", false)):
 		content.add_child(UiKit.action("⚔ Continuar Incursão em andamento", func() -> void: open_screen.emit("Delve")))
+	# [QUESTS_ATIVA_GLOBAL] aviso no topo apontando onde está a missão ativa (se for de outro reino)
+	_active_quest_banner()
 	# [SEM_SCROLL] o botão "voltar ao mapa" (no header) só aparece com um reino aberto
 	if _map_btn != null:
 		_map_btn.visible = open_kingdom != ""
@@ -455,7 +505,7 @@ func _quest_card(kingdom: String, q: Dictionary) -> PanelContainer:
 	if done:
 		vb.add_child(_lock_seal("✔ Feito hoje"))
 	elif busy_task:
-		vb.add_child(_lock_seal("Conclua a tarefa ativa"))
+		vb.add_child(_lock_seal(_active_task_where()))   # [QUESTS_ATIVA_GLOBAL] nomeia o reino da missão
 	elif not can_start:
 		vb.add_child(_lock_seal("Sem estamina"))
 	return res[0]
@@ -592,7 +642,7 @@ func _zone_card(kingdom: String, z: Array) -> PanelContainer:
 	elif ko:
 		vb.add_child(_lock_seal("❤ " + Lang.t("Inconsciente — cure no Templo")))
 	elif busy_task:
-		vb.add_child(_lock_seal(Lang.t("Conclua a tarefa ativa")))
+		vb.add_child(_lock_seal(_active_task_where()))   # [QUESTS_ATIVA_GLOBAL] nomeia o reino da missão
 	return res[0]
 
 # [INCURSAO] Inicia uma Incursão ZONE a partir da zona do reino (🟢/🟡/🔴 → tier 1/2/3) e abre a tela da run.

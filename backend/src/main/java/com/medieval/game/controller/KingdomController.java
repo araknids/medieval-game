@@ -90,6 +90,16 @@ public class KingdomController {
         return ResponseEntity.ok(active);
     }
 
+    // ── [QUESTS_ATIVA_GLOBAL] Missão ativa em QUALQUER reino (o guard de "1 por vez" é global) ──
+    // Sem isto, o cliente só via a quest ativa ao abrir o reino certo → o jogador travava sem saber onde.
+    @GetMapping("/active-quests")
+    public ResponseEntity<?> getAllActiveQuests(Authentication auth) {
+        Player player = getPlayer(auth);
+        List<?> active = kingdomService.getAllActiveQuests(player).stream()
+                .map(this::questToMap).toList();
+        return ResponseEntity.ok(active);
+    }
+
     // ── Start a kingdom quest ─────────────────────────────────────────────────
     @PostMapping("/{kingdom}/quests/start")
     public ResponseEntity<?> startQuest(
