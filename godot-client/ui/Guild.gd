@@ -309,7 +309,7 @@ func _render_formation(members: Array, is_leader: bool) -> void:
 		grid.add_child(_f_label("Lane %d" % (l + 1), 12, UiKit.GOLD))
 	var depth_names := ["Frente", "2ª", "3ª", "4ª", "Retag."]
 	for d in F_DEPTH:
-		var dl := depth_names[d] + (" (1º)" if d == 0 else "")
+		var dl := str(depth_names[d]) + (" (1º)" if d == 0 else "")
 		grid.add_child(_f_label(dl, 11, UiKit.GOLD if d == 0 else UiKit.TEXT_DIM))
 		for l in F_LANES:
 			var key := "%d:%d" % [l, d]
