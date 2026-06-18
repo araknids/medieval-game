@@ -14,6 +14,10 @@ var data: Dictionary = {}        # cache do GET /api/shop (items + mercador + ti
 var warrior: Dictionary = {}     # /api/warrior (carteira + bronze p/ affordability)
 var secs := 0                    # segundos até a próxima rotação (decai por _process)
 var rarity_filter := 0           # filtro de raridade dos itens à venda (0=Todas, 1-5)
+var category_filter := "all"     # [LOJA_FILTRO] categoria: all|weapon|armor|accessory (mesmo da Forja)
+
+# [LOJA_FILTRO] chips de categoria (espelha CRAFT_CATEGORIES da Forge.gd)
+const SHOP_CATEGORIES := [["all", "Todas"], ["weapon", "⚔ Armas"], ["armor", "🛡 Armadura"], ["accessory", "💍 Acessórios"]]
 
 func _ready() -> void:
 	var ui := UiKit.scaffold(self, "🛒 Loja", func() -> void: go_back.emit(), func() -> void: await _refresh(), UiKit.TINT_COMMERCE)
@@ -84,20 +88,45 @@ func _render() -> void:
 		if it is Dictionary and bool(it.get("purchased", false)):
 			sorted_items.append(it)
 	content.add_child(UiKit.section(Lang.t("Itens (%d)") % items.size()))
+	content.add_child(_category_filter_row())   # [LOJA_FILTRO] filtro por tipo de equipamento (igual à Forja)
 	content.add_child(UiKit.rarity_filter(rarity_filter, _set_rarity))
 	if items.is_empty():
 		content.add_child(UiKit.empty("Sem itens nesta rotação", "Volte após a próxima rotação do mercador"))
 	else:
-		var shown: Array = sorted_items
-		if rarity_filter > 0:
-			shown = []
-			for it in sorted_items:
-				if it is Dictionary and int(it.get("rarity", 1)) == rarity_filter:
-					shown.append(it)
+		var shown: Array = []
+		for it in sorted_items:
+			if not (it is Dictionary): continue
+			if category_filter != "all" and _item_category(str(it.get("type", ""))) != category_filter: continue
+			if rarity_filter > 0 and int(it.get("rarity", 1)) != rarity_filter: continue
+			shown.append(it)
 		if shown.is_empty():
-			content.add_child(UiKit.dim("— nada nessa raridade —"))
+			content.add_child(UiKit.dim("— nada com esse filtro —"))
 		else:
 			content.add_child(UiKit.grid(self, shown, _item_row))
+
+# [LOJA_FILTRO] mapeia o ItemType (vindo do backend em `type`) p/ a categoria do filtro
+func _item_category(t: String) -> String:
+	if t == "WEAPON": return "weapon"
+	if t == "RING" or t == "NECKLACE": return "accessory"
+	return "armor"   # SHIELD/HELMET/ARMOR/PANTS/BOOTS/GLOVES/SHOULDER
+
+# [LOJA_FILTRO] linha de chips de categoria (espelha _category_filter_row da Forge.gd)
+func _category_filter_row() -> Control:
+	var row := HFlowContainer.new()
+	row.add_theme_constant_override("h_separation", 6)
+	row.add_theme_constant_override("v_separation", 6)
+	for c in SHOP_CATEGORIES:
+		var b := UiKit.small_btn(str(c[1]), _set_category.bind(str(c[0])))
+		b.custom_minimum_size = Vector2(0, 32)
+		b.add_theme_font_size_override("font_size", 12)
+		if category_filter != str(c[0]):
+			b.modulate = Color(1, 1, 1, 0.5)
+		row.add_child(b)
+	return row
+
+func _set_category(cat: String) -> void:
+	category_filter = cat
+	_render()
 
 func _set_rarity(r: int) -> void:
 	rarity_filter = r
