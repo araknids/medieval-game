@@ -238,6 +238,8 @@ var fight_scene := ""        # "scene" que o backend mandou (coast/sea/cave/fort
 var _spray_live := 0        # [GORE] emissores de sangue vivos (cap)
 var _pools: Array = []      # [GORE] poças/decais ativos (cap)
 var _gibs: Array = []       # [GORE] pedaços/membros (RigidBody) ativos (cap)
+var _trails: Array = []     # [JUICE] rastros de arma ativos (ribbon)
+var _vignette: ColorRect = null   # [JUICE] vinheta vermelha de dano (lazy)
 
 # director dirigido por simulação: movimento contínuo + cursor de evento com gatilho por posição
 var phase := "loading"      # loading → fight → done
@@ -933,7 +935,7 @@ func _make_fighter(fname: String, side: int, maxhp: int, weapon_kind: String, eq
 		if weapon_kind != "":   # [UNARMED] sem arma → não anexa modelo (soco)
 			# [ARMAS_3D] override de rotação só no herói (p/ calibrar a arma no Inspector)
 			var wrot := weapon_rot_override if is_player else Vector3(999, 999, 999)
-			wp.attach_weapon(node, weapon_kind, rarity, weapon_grip, "", wrot)
+			f["weapon_node"] = wp.attach_weapon(node, weapon_kind, rarity, weapon_grip, "", wrot)   # [JUICE] p/ o rastro
 		# escudo na off-hand — só sem arma DE DUAS MÃOS (arco usa as duas mãos); desarmado pode escudar
 		if ("SHIELD" in equipped_types) and not wp.is_bow_kind(weapon_kind):
 			var sh_r := force_rarity if force_rarity > 0 else player_shield_rarity   # [RARIDADE] escudo
@@ -1074,6 +1076,8 @@ func _process(dt: float) -> void:
 			cam.v_offset = _shake_noise.get_noise_1d(_shake_time * 55.0 + 99.0) * a
 		elif cam.h_offset != 0.0 or cam.v_offset != 0.0:
 			cam.h_offset = 0.0; cam.v_offset = 0.0
+	if not _trails.is_empty():
+		_update_trails(dt)   # [JUICE] rastros de arma
 	for f in order:
 		if not is_instance_valid(f["node"]): continue
 		var n := f["node"] as Node3D
@@ -1286,6 +1290,7 @@ func _tick_team(dt: float) -> void:
 						elif f["ranged"]: clip = A_SHOOT
 						else: clip = _melee_clip(f)
 						f["anim"].play(clip, BLEND)
+						_start_weapon_trail(f)   # [JUICE] rastro de arma
 			"windup":
 				f["ttimer"] += dt
 				if f["ttimer"] >= float(f.get("cur_w", WINDUP)):
@@ -1504,6 +1509,7 @@ func _begin(e: Dictionary) -> void:
 		else:
 			clip = _melee_clip(sw, ty == "crit")
 		sw["anim"].play(clip, BLEND)
+		_start_weapon_trail(sw)   # [JUICE] rastro de arma no swing (guard ranged/monstro)
 
 # Golpe de espada aleatório (A/B/C da UAL2; fallback Sword_Attack da UAL1).
 func _rand_sword(ap: AnimationPlayer) -> String:
@@ -1573,6 +1579,12 @@ func _resolve(e: Dictionary) -> void:
 			if big: _blood_mist(bpos)
 			if big or randf() < 0.45:
 				_blood_pool((tgt["node"] as Node3D).global_position + bdir.normalized() * randf_range(0.2, 0.6), big)
+			# [JUICE] knockback (empurra o alvo) + label CRÍTICO + vinheta vermelha se o HERÓI levou
+			_knockback(tgt, tgt.get("last_hit_dir", bdir), big)
+			if big:
+				_popup(_head(tgt), Lang.t("CRÍTICO!"), Color(1, 0.8, 0.25), true)
+			if int(tgt.get("side", 1)) < 0:
+				_damage_vignette(0.6 if big else 0.34)
 		tgt["hp"] = int(e.get("targetHp", tgt["hp"]))
 		_update_hp(tgt)
 		if tgt["hp"] <= 0: _kill(tgt)
@@ -2271,8 +2283,94 @@ func _exit_tree() -> void:
 # Golpe NÃO-fatal: tremor + micro-freeze + punch de FOV (forte no crit, bem sutil no normal).
 func _on_impact(big: bool) -> void:
 	cam_shake = maxf(cam_shake, 0.55 if big else 0.34)
-	_hit_stop(0.10 if big else 0.05)
+	_hit_stop(0.14 if big else 0.05)   # [JUICE] crit congela mais → mais "oomph"
 	_fov_punch(_cam_base_fov - (8.0 if big else 1.5))
+
+# [JUICE] Knockback: empurra o alvo pra trás na direção do golpe e volta. O sim não move busy (flinch),
+# então não briga com o movimento. Forte no crit. Só horizontal (mantém y/z da base).
+func _knockback(f: Dictionary, dir: Vector3, big: bool) -> void:
+	var node = f.get("node")
+	if not (node is Node3D) or not is_instance_valid(node) or f.get("dead", false):
+		return
+	var d: Vector3 = dir.normalized() if dir.length() > 0.01 else Vector3.RIGHT
+	d.y = 0.0
+	var base: Vector3 = node.position
+	var dist := 0.34 if big else 0.13
+	var tw := node.create_tween()
+	tw.tween_property(node, "position", base + d * dist, 0.05).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+	tw.tween_property(node, "position", base, 0.20).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+
+# [JUICE] Vinheta vermelha quando o HERÓI toma dano (feedback "tomei porrada"). Lazy + shader radial.
+func _damage_vignette(strength: float) -> void:
+	if _vignette == null or not is_instance_valid(_vignette):
+		var cl := CanvasLayer.new()
+		cl.layer = 50
+		add_child(cl)
+		_vignette = ColorRect.new()
+		_vignette.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+		_vignette.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		var sh := Shader.new()
+		sh.code = "shader_type canvas_item;\nuniform float strength = 0.0;\nvoid fragment() {\n\tvec2 uv = UV - 0.5;\n\tfloat d = length(uv) * 1.4;\n\tfloat v = smoothstep(0.35, 0.9, d);\n\tCOLOR = vec4(0.8, 0.0, 0.0, v * strength);\n}"
+		var sm := ShaderMaterial.new()
+		sm.shader = sh
+		_vignette.material = sm
+		cl.add_child(_vignette)
+	var mat: ShaderMaterial = _vignette.material
+	mat.set_shader_parameter("strength", strength)
+	var tw := create_tween().set_ignore_time_scale(true)
+	tw.tween_method(func(v): mat.set_shader_parameter("strength", v), strength, 0.0, 0.30).set_trans(Tween.TRANS_SINE)
+
+# [JUICE] Rastro de arma (ribbon) — varre a lâmina (base→ponta) ao longo do swing e some. Só melee humano.
+func _start_weapon_trail(f: Dictionary) -> void:
+	if f.get("ranged", false) or f.get("is_monster", false):
+		return
+	var wn = f.get("weapon_node")
+	if not (wn is Node3D) or not is_instance_valid(wn) or wn.get_child_count() == 0:
+		return
+	var holder: Node3D = wn.get_child(0)
+	var mesh := MeshInstance3D.new()
+	var im := ImmediateMesh.new()
+	mesh.mesh = im
+	var mat := StandardMaterial3D.new()
+	mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	mat.vertex_color_use_as_albedo = true
+	mat.blend_mode = BaseMaterial3D.BLEND_MODE_ADD
+	mat.cull_mode = BaseMaterial3D.CULL_DISABLED
+	mat.no_depth_test = true
+	mesh.material_override = mat
+	add_child(mesh)
+	_trails.append({"mesh": mesh, "im": im, "holder": holder, "base": [], "tip": [], "life": 0.34, "max": 0.34})
+
+func _update_trails(dt: float) -> void:
+	var i := _trails.size() - 1
+	while i >= 0:
+		var t: Dictionary = _trails[i]
+		t["life"] -= dt
+		var holder = t["holder"]
+		if t["life"] <= 0.0 or not is_instance_valid(holder) or not is_instance_valid(t.get("mesh")):
+			if is_instance_valid(t.get("mesh")): t["mesh"].queue_free()
+			_trails.remove_at(i); i -= 1; continue
+		if t["max"] - t["life"] < 0.20:                 # amostra durante o swing; depois congela e some
+			t["base"].append(holder.global_position)
+			t["tip"].append(holder.global_transform * Vector3(0, 0.8, 0))
+			while t["base"].size() > 16:
+				t["base"].pop_front(); t["tip"].pop_front()
+		_rebuild_trail(t, t["life"] / t["max"])
+		i -= 1
+
+func _rebuild_trail(t: Dictionary, fade: float) -> void:
+	var im: ImmediateMesh = t["im"]
+	im.clear_surfaces()
+	var n: int = t["base"].size()
+	if n < 2: return
+	im.surface_begin(Mesh.PRIMITIVE_TRIANGLE_STRIP)
+	for k in n:
+		var a := float(k) / float(n - 1)            # 0=cauda … 1=cabeça
+		var col := Color(0.82, 0.9, 1.0, a * a * 0.55 * fade)
+		im.surface_set_color(col); im.surface_add_vertex(t["tip"][k])
+		im.surface_set_color(col); im.surface_add_vertex(t["base"][k])
+	im.surface_end()
 
 # Congela o tempo por `dur` REAIS (ignore_time_scale no timer); só o último restaura (geração).
 func _hit_stop(dur: float, scale := 0.04) -> void:
