@@ -37,7 +37,8 @@ func _ready() -> void:
 func _refresh() -> void:
 	_tick.stop()
 	UiKit.show_loading(self)
-	var rs = await Api.batch_get(["/api/work/current", "/api/warrior", "/api/world/COMBAT/training"])
+	# [AUDIT] /api/work/jobs entrou no batch (paralelo) — antes era um await sequencial extra no caminho sem-sessão
+	var rs = await Api.batch_get(["/api/work/current", "/api/warrior", "/api/world/COMBAT/training", "/api/work/jobs"])
 	var cur = rs[0]
 	var wr = rs[1]
 	warrior = wr["json"] if (wr.get("ok") and wr.get("json") is Dictionary) else {}
@@ -54,7 +55,7 @@ func _refresh() -> void:
 		_render_progress()
 		return
 	session = {}
-	var r = await Api.work_jobs()
+	var r = rs[3]   # jobs já veio no batch acima (paralelo)
 	if not (r.get("ok") and r.get("json") is Array):
 		UiKit.show_error(status, r)
 		return

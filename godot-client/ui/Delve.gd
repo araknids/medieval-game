@@ -413,8 +413,9 @@ func _confirm_abandon() -> void:
 			busy = true
 			var r = await Api.expedition_abandon(_run_id())
 			busy = false
-			if not (r.get("ok")):
-				_show_error(r)
+			if not r.get("ok"):
+				_show_error(r)   # [AUDIT] não mostra "abandonada" se o request falhou
+				return
 			await _refresh()
 			UiKit.flash(status, "Incursão abandonada.", 0))
 

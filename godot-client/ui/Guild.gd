@@ -35,7 +35,8 @@ func _ready() -> void:
 
 func _refresh() -> void:
 	UiKit.show_loading(self)
-	var rs = await Api.batch_get(["/api/guild", "/api/warrior"])
+	# [AUDIT] /api/guild/war entrou no batch (paralelo) — antes era um await sequencial extra a cada refresh
+	var rs = await Api.batch_get(["/api/guild", "/api/warrior", "/api/guild/war"])
 	var r = rs[0]
 	if not (r.get("ok") and r.get("json") is Dictionary):
 		UiKit.show_error(status, r)
@@ -46,7 +47,7 @@ func _refresh() -> void:
 	# status da guerra (seguro mesmo sem guilda → atWar:false) [GUERRA_GUILDA]
 	picking = false
 	targets = []
-	var wsr = await Api.guild_war_status()
+	var wsr = rs[2]
 	war = wsr["json"] if (wsr.get("ok") and wsr.get("json") is Dictionary) else {}
 	if bool(data.get("inGuild", false)):
 		guild_list = []
@@ -243,9 +244,9 @@ func _enemy_card(e: Variant) -> Control:
 	row.add_child(rcol)
 	var pid := int(en.get("playerId", 0))
 	if ko:
-		rcol.add_child(UiKit.small_btn("💀 KO", Callable()))
+		rcol.add_child(UiKit.dim("💀 KO"))          # [AUDIT] status, não botão (não parece clicável)
 	elif shielded:
-		rcol.add_child(UiKit.small_btn("🛡 Protegido", Callable()))
+		rcol.add_child(UiKit.dim("🛡 Protegido"))   # [AUDIT] idem
 	else:
 		rcol.add_child(UiKit.small_btn("⚔ Atacar", _attack.bind(pid), true))
 	return pc
