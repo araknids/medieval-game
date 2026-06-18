@@ -68,6 +68,7 @@ public class KingdomController {
                         Map.entry("expReward",         qt.expReward),
                         Map.entry("staminaCost",       qt.staminaCost),
                         Map.entry("dropChance",        qt.dropChance),
+                        Map.entry("monsterChance",     qt.monsterChance), // [QUESTS_ICONE] tipo: combate (alta) vs exploração (baixa)
                         Map.entry("interactive",       InteractiveQuests.isInteractive(qt)), // [QUESTS_INTERATIVAS]
                         Map.entry("doneToday",         done),
                         Map.entry("secondsUntilReset", secondsUntilReset),

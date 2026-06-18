@@ -413,13 +413,23 @@ func _quest_card(kingdom: String, q: Dictionary) -> PanelContainer:
 	var busy_task := _has_active_task()
 	var can_start := bool(q.get("canStart", false))
 	var enabled := not done and not busy_task and can_start
+	# [QUESTS_ICONE] tipo da quest pela chance de combate: ⚔ Combate (alta) vs 🧭 Exploração (baixa)
+	var mc := int(q.get("monsterChance", 0))
+	var is_combat := mc >= 50
+	var t_icon := "node_combat" if is_combat else "node_event"
+	var t_emoji := "⚔" if is_combat else "🧭"
+	var t_label := "Combate" if is_combat else "Exploração"
+	var t_col := Color(0.94, 0.45, 0.40) if is_combat else Color(0.45, 0.78, 0.72)
 	var on_click := func() -> void: _start_quest(kingdom, str(q.get("id", "")))
-	var res := UiKit.clickable_card(UiKit.OK if done else UiKit.BRONZE, on_click, enabled)
+	var res := UiKit.clickable_card(UiKit.OK if done else UiKit.BRONZE, on_click, enabled, "%s · %d%% de chance de combate" % [Lang.t(t_label), mc])
 	var vb: VBoxContainer = res[1]
 	var top := HBoxContainer.new(); top.add_theme_constant_override("separation", 8)
-	if Icons.tex("node_event") != null:
-		var ir := Icons.rect("node_event", 26); ir.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	if Icons.tex(t_icon) != null:
+		var ir := Icons.rect(t_icon, 26); ir.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 		top.add_child(ir)
+	else:
+		var el := Label.new(); el.text = t_emoji; el.add_theme_font_size_override("font_size", 22)
+		el.size_flags_vertical = Control.SIZE_SHRINK_CENTER; top.add_child(el)
 	var nm := Label.new(); nm.text = str(q.get("displayName", "?")); nm.add_theme_font_size_override("font_size", 15)
 	nm.add_theme_color_override("font_color", UiKit.OK if done else UiKit.TEXT)
 	nm.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -433,6 +443,12 @@ func _quest_card(kingdom: String, q: Dictionary) -> PanelContainer:
 	if stam > 0:
 		top.add_child(_mini_chip("stamina", str(stam), UiKit.WARN, "⚡"))
 	vb.add_child(top)
+	# [QUESTS_ICONE] rótulo de tipo (cor) — deixa claro combate vs exploração ANTES de clicar
+	var tag := Label.new()
+	tag.text = "%s %s" % [t_emoji, Lang.t(t_label)]
+	tag.add_theme_font_size_override("font_size", 11)
+	tag.add_theme_color_override("font_color", t_col)
+	vb.add_child(tag)
 	var flavor := str(q.get("flavor", ""))
 	if flavor != "":
 		vb.add_child(UiKit.dim(flavor))
