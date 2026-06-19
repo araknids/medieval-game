@@ -62,12 +62,12 @@ public class ArenaController {
                 Map.entry("gender",     o.gender()),
                 Map.entry("rankPoints", o.rankPoints()),
                 Map.entry("power",      o.power()),
-                Map.entry("str",        o.str()),
+                Map.entry("atk",        o.atk()),
+                Map.entry("def",        o.def()),
+                Map.entry("hp",         o.hp()),
                 Map.entry("dex",        o.dex()),
-                Map.entry("con",        o.con()),
                 Map.entry("agi",        o.agi()),
                 Map.entry("luk",        o.luk()),
-                Map.entry("intel",      o.intel()),
                 Map.entry("isNpc",      o.isNpc())
         )).toList();
         return ResponseEntity.ok(Map.of("opponents", cards, "yourPower", arenaService.powerOf(player)));

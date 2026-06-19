@@ -171,7 +171,7 @@ const EN := {
 	"Lutar contra %s": "Fight %s", "Poder": "Power",
 	"▼ Mais fraco": "▼ Weaker", "◆ Parelho": "◆ Even match", "▲ Mais forte": "▲ Tougher",
 	"Força": "Strength", "Destreza": "Dexterity", "Constituição": "Constitution",
-	"Agilidade": "Agility", "Sorte": "Luck", "Intelecto": "Intellect",
+	"Agilidade": "Agility", "Sorte": "Luck", "Intelecto": "Intellect", "Vida": "Health",
 	# — Mundo / zonas / quests —
 	"Quests Ativas": "Active Quests", "🗓 Daily Quests": "🗓 Daily Quests", "⚗ Áreas de Elemento": "⚗ Element Areas",
 	"⚔ Zonas": "⚔ Zones", "🌍 Zonas": "🌍 Zones", "Controlada por": "Controlled by",

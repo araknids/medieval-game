@@ -221,13 +221,13 @@ func _opp_card(o: Dictionary) -> PanelContainer:
 	hl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	box.add_child(hl)
 	box.add_child(UiKit.spacer(2))
-	# 6 atributos (Intelecto apagado — reservado/Mago)
-	box.add_child(UiKit.kv(Lang.t("Força"),        str(int(o.get("str", 0)))))
-	box.add_child(UiKit.kv(Lang.t("Destreza"),     str(int(o.get("dex", 0)))))
-	box.add_child(UiKit.kv(Lang.t("Constituição"), str(int(o.get("con", 0)))))
-	box.add_child(UiKit.kv(Lang.t("Agilidade"),    str(int(o.get("agi", 0)))))
-	box.add_child(UiKit.kv(Lang.t("Sorte"),        str(int(o.get("luk", 0)))))
-	box.add_child(UiKit.kv(Lang.t("Intelecto"),    str(int(o.get("intel", 0))), UiKit.TEXT_DIM))
+	# stats de combate efetivos (sempre fazem sentido; atributos crus começam em 0)
+	box.add_child(UiKit.kv(Lang.t("Ataque"),    str(int(o.get("atk", 0)))))
+	box.add_child(UiKit.kv(Lang.t("Defesa"),    str(int(o.get("def", 0)))))
+	box.add_child(UiKit.kv(Lang.t("Vida"),      str(int(o.get("hp", 0)))))
+	box.add_child(UiKit.kv(Lang.t("Destreza"),  str(int(o.get("dex", 0)))))
+	box.add_child(UiKit.kv(Lang.t("Agilidade"), str(int(o.get("agi", 0)))))
+	box.add_child(UiKit.kv(Lang.t("Sorte"),     str(int(o.get("luk", 0)))))
 	return pc
 
 # escolher um card → fecha o popup e luta

@@ -60,6 +60,10 @@ public class ArenaService {
     public FightResult startFight(Player challengerArg) { return startFight(challengerArg, 0L); }
 
     /** [ARENA_ESCOLHA] Duelo contra o oponente ESCOLHIDO (id do card). 0/inválido → matchmaking normal. */
+    // ⚠️ @Transactional AQUI (não só no overload acima): o controller chama ESTE método; sem a transação
+    // os vários save() do Player#1 (consumeArenaFight/wearEquipped/recompensa) vão em transações separadas
+    // e batem em optimistic-lock ("Row was updated by another transaction"). [ARENA_TX_FIX]
+    @Transactional
     public FightResult startFight(Player challengerArg, long opponentId) {
         log.info("[ArenaService] player={} action=fight opponentId={}", challengerArg.getId(), opponentId);
         // Recarrega como MANAGED (o controller passa um detached; aqui aplicamos recompensa + rank,
@@ -233,10 +237,12 @@ public class ArenaService {
     }
 
     // ── [ARENA_ESCOLHA] Escolha de oponente (3 cards com stats, estilo Shakes & Fidget) ──────────
+    // Mostra os stats de COMBATE efetivos (atk/def/hp/dex/agi/luk), não os atributos crus do warrior —
+    // estes começam em 0 (o poder vem da base da classe + gear), então apareciam '0' nos cards. [ARENA_STATS_FIX]
     public record OpponentInfo(
             long opponentId, String name, String title, int level, String classId, String gender,
             int rankPoints, int power,
-            int str, int dex, int con, int agi, int luk, int intel, boolean isNpc) {}
+            int atk, int def, int hp, int dex, int agi, int luk, boolean isNpc) {}
 
     /** Oferece `count` oponentes do pool de rank (preenche com NPC se faltar gente real). */
     @org.springframework.transaction.annotation.Transactional(readOnly = true)
@@ -271,21 +277,22 @@ public class ArenaService {
     }
 
     private OpponentInfo toInfo(Player p, Warrior w) {
+        int[] cs = totalStats(p, w);   // [atk, def, hp, dex, agi, luk] efetivos (base + atributos + gear)
         String cls = w.getWarriorClass() != null ? w.getWarriorClass().name().toLowerCase() : "recruit";
         String gen = p.getGender() != null ? p.getGender().name().toLowerCase() : "male";
         return new OpponentInfo(p.getId(), w.getName(), AchievementService.titleString(p), w.getLevel(),
-                cls, gen, p.getRankPoints(), powerFromStats(totalStats(p, w)),
-                w.getStrength(), w.getDexterity(), w.getConstitution(), w.getAgility(), w.getLuck(), w.getIntellect(), false);
+                cls, gen, p.getRankPoints(), powerFromStats(cs),
+                cs[0], cs[1], cs[2], cs[3], cs[4], cs[5], false);
     }
 
     private OpponentInfo npcInfo(int lvl) {
         var r = java.util.concurrent.ThreadLocalRandom.current();
-        int str = 8 + r.nextInt(lvl + 5), dex = 8 + r.nextInt(lvl + 5), con = 8 + r.nextInt(lvl + 5),
-            agi = r.nextInt(lvl / 2 + 3), luk = 5 + r.nextInt(8);
-        int atk = 10 + str, def = 8 + con / 2, hp = 80 + con * 8;
+        int con = 8 + r.nextInt(lvl + 5);
+        int atk = 10 + r.nextInt(lvl + 8), def = 8 + con / 2, hp = 80 + con * 8,
+            dex = 8 + r.nextInt(lvl + 5), agi = r.nextInt(lvl / 2 + 3), luk = 5 + r.nextInt(8);
         return new OpponentInfo(-1L, NPC_NAMES[r.nextInt(NPC_NAMES.length)], "",
                 Math.max(1, lvl + r.nextInt(3) - 1), "mercenary", "male", 0,
-                powerFromStats(new int[]{atk, def, hp, dex, agi, luk}), str, dex, con, agi, luk, 0, true);
+                powerFromStats(new int[]{atk, def, hp, dex, agi, luk}), atk, def, hp, dex, agi, luk, true);
     }
 
     /** [ARENA_ESCOLHA] Heurística de poder p/ EXIBIÇÃO (não é o resultado da luta — esse é o BattleSimulator). */
