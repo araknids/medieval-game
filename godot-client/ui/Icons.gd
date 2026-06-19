@@ -81,12 +81,103 @@ static func item_tex(item_type: String) -> Texture2D:
 		return null
 	return tex(key)
 
+# ── Tooltips dos ícones [ICON_TOOLTIP] ──────────────────────────────────────────────
+# key → [pt, en]. Hover explica o que o ícone significa (o jogador não precisa adivinhar).
+# Self-contido (PT+EN aqui) → não polui o Lang.gd. Só keys com sentido próprio entram; ícones
+# de seção que JÁ vêm com rótulo de texto ganham um reforço curto. Sem entrada = sem tooltip.
+const ICON_TIP := {
+	# Moedas
+	"bronze": ["Bronze — moeda básica", "Bronze — basic coin"],
+	"silver": ["Prata — vale 100 bronze", "Silver — worth 100 bronze"],
+	"gold": ["Ouro — vale 100 prata", "Gold — worth 100 silver"],
+	"soulstone": ["Pedra da Alma — moeda premium (VIP)", "SoulStone — premium currency (VIP)"],
+	# Vitais
+	"hp": ["Vida (HP) — regenera com o tempo", "Health (HP) — regenerates over time"],
+	"stamina": ["Estamina — gasta nas ações; enche em 1h", "Stamina — spent on actions; refills in 1h"],
+	# Atributos
+	"attr_strength": ["Força — dano corpo a corpo", "Strength — melee damage"],
+	"attr_dexterity": ["Destreza — acerto e dano de arco", "Dexterity — accuracy and bow damage"],
+	"attr_constitution": ["Constituição — vida máxima", "Constitution — max health"],
+	"attr_agility": ["Agilidade — esquiva e golpes extra", "Agility — dodge and extra hits"],
+	"attr_luck": ["Sorte — chance de crítico", "Luck — critical hit chance"],
+	"attr_intellect": ["Intelecto — reservado p/ o Mago", "Intellect — reserved for the Mage"],
+	"stat_atk": ["Ataque — dano por golpe", "Attack — damage per hit"],
+	# Elementos (roda: Fogo→Ar→Terra→Água→Fogo)
+	"elem_fire": ["Fogo — vence Ar, perde p/ Água", "Fire — beats Air, loses to Water"],
+	"elem_water": ["Água — vence Fogo, perde p/ Terra", "Water — beats Fire, loses to Earth"],
+	"elem_earth": ["Terra — vence Água, perde p/ Ar", "Earth — beats Water, loses to Air"],
+	"elem_air": ["Ar — vence Terra, perde p/ Fogo", "Air — beats Earth, loses to Fire"],
+	# Slots de equipamento
+	"slot_weapon": ["Arma", "Weapon"], "slot_helmet": ["Elmo", "Helmet"],
+	"slot_chest": ["Peitoral", "Chest armor"], "slot_legs": ["Calças", "Leggings"],
+	"slot_boots": ["Botas", "Boots"], "slot_gloves": ["Luvas", "Gloves"],
+	"slot_shield": ["Escudo", "Shield"], "slot_ring": ["Anel", "Ring"],
+	"slot_necklace": ["Colar", "Necklace"],
+	# Nós da Incursão
+	"node_combat": ["Combate — luta contra um inimigo", "Combat — fight an enemy"],
+	"node_elite": ["Elite — inimigo mais forte", "Elite — tougher enemy"],
+	"node_treasure": ["Tesouro — baú com loot", "Treasure — a loot chest"],
+	"node_event": ["Evento — uma escolha", "Event — a choice"],
+	"node_camp": ["Acampamento — garante o loot coletado", "Camp — bank your loot"],
+	"node_boss": ["Chefe — fim da incursão", "Boss — end of the delve"],
+	# Marcadores
+	"carried": ["Carregado — em risco se você cair", "Carried — at risk if you fall"],
+	"locked": ["Travado / protegido", "Locked / protected"],
+	"gift": ["Recompensa", "Reward"], "package": ["Item", "Item"],
+	"skull": ["Derrota / perigo", "Defeat / danger"],
+	"gem": ["Joia — encaixa em soquetes", "Gem — fits into sockets"],
+	"star": ["XP / experiência", "XP / experience"],
+	"warning": ["Atenção", "Warning"], "hourglass": ["Tempo / espera", "Time / wait"],
+	"fish": ["Peixe — consuma p/ estamina", "Fish — consume for stamina"],
+	"quest_alert": ["Quest disponível", "Quest available"],
+	# Ações
+	"act_mine": ["Minerar", "Mine"], "act_pan": ["Garimpar", "Pan for gold"],
+	"act_flee": ["Fugir", "Flee"], "heal": ["Curar", "Heal"], "bless": ["Bênção", "Blessing"],
+	"equip": ["Equipar", "Equip"], "sell": ["Vender", "Sell"],
+	"mount": ["Montaria", "Mount"], "pet": ["Mascote", "Pet"],
+	"settings": ["Configurações", "Settings"], "declare_war": ["Declarar guerra", "Declare war"],
+	# Sub-abas
+	"tab_bag": ["Mochila", "Bag"], "tab_attributes": ["Atributos", "Attributes"],
+	"tab_abilities": ["Habilidades", "Abilities"],
+	# Seções (reforço do rótulo de texto)
+	"world": ["Mundo — reinos, quests e zonas", "World — kingdoms, quests and zones"],
+	"temple": ["Templo — cura e bênçãos", "Temple — healing and blessings"],
+	"forge": ["Forja — criar e reparar itens", "Forge — craft and repair items"],
+	"shop": ["Loja", "Shop"], "tower": ["Torre — andares com chefes", "Tower — floors with bosses"],
+	"arena": ["Arena — duelos PvP", "Arena — PvP duels"], "guild": ["Guilda", "Guild"],
+	"daily": ["Recompensa diária", "Daily reward"],
+	"work": ["Trabalho — renda passiva", "Work — passive income"],
+	"auction": ["Leilão — mercado entre jogadores", "Auction — player market"],
+	"stash": ["Baú — guardar itens", "Stash — store items"],
+	"tavern": ["Taverna — beber, chat e buff", "Tavern — drink, chat and buff"],
+	"vip": ["VIP / Pedra da Alma", "VIP / SoulStone"],
+	"abilities": ["Habilidades de classe", "Class abilities"],
+	"achievements": ["Conquistas e títulos", "Achievements and titles"],
+	"territory": ["Território — guerra de guildas", "Territory — guild war"],
+	"mail": ["Correio", "Mail"], "character": ["Personagem", "Character"],
+	"inventory": ["Inventário / mochila", "Inventory / bag"],
+}
+
+# Descrição do ícone `key` no idioma atual; "" se não houver. [ICON_TOOLTIP]
+static func tip(key: String) -> String:
+	if not ICON_TIP.has(key):
+		return ""
+	var pair: Array = ICON_TIP[key]
+	return str(pair[1]) if Lang.current() == "en" else str(pair[0])
+
 # TextureRect pronto pra HUD (recurso/atributo). size em px; null-safe (volta um TextureRect vazio).
-static func rect(key: String, px := 24) -> TextureRect:
+# tooltip: texto explícito; "" → usa a descrição do mapa ICON_TIP (se houver). Com tooltip → MOUSE_FILTER_PASS
+# (mostra o hover SEM bloquear o clique do card/pai); sem → IGNORE (transparente, como antes). [ICON_TOOLTIP]
+static func rect(key: String, px := 24, tooltip := "") -> TextureRect:
 	var tr := TextureRect.new()
 	tr.texture = tex(key)
 	tr.custom_minimum_size = Vector2(px, px)
 	tr.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	tr.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-	tr.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var tt := tooltip if tooltip != "" else tip(key)
+	if tt != "":
+		tr.tooltip_text = tt
+		tr.mouse_filter = Control.MOUSE_FILTER_PASS
+	else:
+		tr.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	return tr

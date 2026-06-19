@@ -334,32 +334,26 @@ func _maint_card(it: Dictionary) -> PanelContainer:
 	db.add_theme_font_size_override("font_size", 12)
 	db.add_theme_color_override("font_color", UiKit.WARN if dur < 100 else UiKit.TEXT_DIM)
 	vb.add_child(db)
-	# [FORGE_REPAIR_COST] mostra quanto custa cada manutenção (espelha SmithingService):
+	# [FORGE_REPAIR_COST] custo de cada manutenção (espelha SmithingService), SEM emoji:
 	#   reparo  = (100 − durabilidade) × raridade × 5   ·   reforja = raridade³ × 500
+	# Cada ação numa linha: botão (com tooltip explicando) + custo em moedas ao lado.
 	var rep_cost := (100 - dur) * rarity * 5
 	var ref_cost := rarity * rarity * rarity * 500
-	var cost_row := HBoxContainer.new(); cost_row.add_theme_constant_override("separation", 12)
-	if dur < 100:
-		cost_row.add_child(_cost_chip("🔧", rep_cost))
-	cost_row.add_child(_cost_chip("♻", ref_cost))
-	vb.add_child(cost_row)
 	var id := int(it.get("id", 0))
-	var row := HBoxContainer.new(); row.add_theme_constant_override("separation", 6)
 	if dur < 100:
-		row.add_child(UiKit.small_btn("🔧 Reparar", _repair.bind(id)))
-	row.add_child(UiKit.small_btn("♻ Reforjar", _confirm_reforge.bind(id, str(it.get("name", "este item"))), true))
-	vb.add_child(row)
+		var rrow := HBoxContainer.new(); rrow.add_theme_constant_override("separation", 8)
+		var rb := UiKit.small_btn(Lang.t("Reparar"), _repair.bind(id))
+		rb.tooltip_text = Lang.t("Restaura a durabilidade para 100%")
+		rrow.add_child(rb)
+		rrow.add_child(UiKit.coin_box(rep_cost, 13))
+		vb.add_child(rrow)
+	var frow := HBoxContainer.new(); frow.add_theme_constant_override("separation", 8)
+	var fb := UiKit.small_btn(Lang.t("Reforjar"), _confirm_reforge.bind(id, str(it.get("name", "este item"))), true)
+	fb.tooltip_text = Lang.t("Re-rola os stats do item (irreversível)")
+	frow.add_child(fb)
+	frow.add_child(UiKit.coin_box(ref_cost, 13))
+	vb.add_child(frow)
 	return pc
-
-# [FORGE_REPAIR_COST] Chip "emoji + custo em moedas" p/ a linha de manutenção.
-func _cost_chip(emoji: String, bronze: int) -> Control:
-	var h := HBoxContainer.new(); h.add_theme_constant_override("separation", 3)
-	var e := Label.new(); e.text = emoji
-	e.add_theme_font_size_override("font_size", 12)
-	e.add_theme_color_override("font_color", UiKit.TEXT_DIM)
-	h.add_child(e)
-	h.add_child(UiKit.coin_box(bronze, 13))
-	return h
 
 # ── Ações async ───────────────────────────────────────────────────────────────────
 func _refine(ore: String) -> void:

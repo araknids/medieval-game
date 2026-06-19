@@ -170,6 +170,9 @@ const EN := {
 	"Refinar Minérios → Barras": "Refine Ores → Bars", "Craftar Equipamento": "Craft Equipment",
 	"Criar Joias": "Create Gems", "Criar Joia": "Create Gem", "🔧 Manutenção (Reparar / Reforjar)": "🔧 Maintenance (Repair / Reforge)",
 	"🔧 Reparar": "🔧 Repair", "📦 Seus materiais": "📦 Your materials",
+	"Reparar": "Repair", "Restaura a durabilidade para 100%": "Restores durability to 100%",
+	"Re-rola os stats do item (irreversível)": "Re-rolls the item's stats (irreversible)",
+	"❤ Vida · ⚡ Estamina · 🥇 Ouro · 🥈 Prata · 🥉 Bronze": "❤ Health · ⚡ Stamina · 🥇 Gold · 🥈 Silver · 🥉 Bronze",
 	"? Os stats serão re-rolados — isso é irreversível.": "? Stats will be re-rolled — this is irreversible.",
 	# — Taverna —
 	"Acerte o tempo no gole para ganhar +1 stack de buff. Cobra 1🥉 sempre.": "Time the sip to gain +1 buff stack. Always costs 1🥉.",

@@ -244,6 +244,9 @@ static func set_wallet(wallet, w: Dictionary) -> void:
 	var silver := int(w.get("silver", 0))
 	var bronze := int(w.get("bronze", 0))
 	wallet.text = "❤%d%%  ⚡%d   🥇%d 🥈%d 🥉%d" % [hp, stam, gold, silver, bronze]
+	# [ICON_TOOLTIP] carteira é emoji concatenado → 1 tooltip de legenda explica os símbolos.
+	wallet.tooltip_text = Lang.t("❤ Vida · ⚡ Estamina · 🥇 Ouro · 🥈 Prata · 🥉 Bronze")
+	wallet.mouse_filter = Control.MOUSE_FILTER_PASS
 	var col := TEXT_DIM
 	if hp <= 0:
 		col = ERR
