@@ -6,6 +6,9 @@ extends Control
 
 signal go_back
 
+const Icons := preload("res://ui/Icons.gd")
+const MERCHANT_ICONS := 20   # [LOJA_MERCADOR] variações de retrato (merchant_1..20.png); varia por mercador
+
 var content: VBoxContainer
 var status: Label
 var wallet: Label
@@ -65,12 +68,21 @@ func _render() -> void:
 		c.queue_free()
 	UiKit.hide_loading()
 	UiKit.set_wallet(wallet, warrior)
-	# ── Cabeçalho do mercador ──
+	# ── Cabeçalho do mercador ── [LOJA_MERCADOR] retrato varia por mercador (consistente por nome);
+	# fallback no ícone 'character' até a arte merchant_N chegar (sem emoji).
+	var mname := str(data.get("merchantName", "Mercador"))
+	var head := HBoxContainer.new(); head.add_theme_constant_override("separation", 10)
+	var mkey := "merchant_%d" % (abs(mname.hash()) % MERCHANT_ICONS + 1)
+	var icon_key := mkey if Icons.tex(mkey) != null else ("character" if Icons.tex("character") != null else "")
+	if icon_key != "":
+		head.add_child(Icons.rect(icon_key, 48))
 	var name_lbl := Label.new()
-	name_lbl.text = "🧙 %s" % str(data.get("merchantName", "Mercador"))
+	name_lbl.text = mname
 	name_lbl.add_theme_font_size_override("font_size", 22)
 	name_lbl.add_theme_color_override("font_color", UiKit.GOLD)
-	content.add_child(name_lbl)
+	name_lbl.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	head.add_child(name_lbl)
+	content.add_child(head)
 	var quote := str(data.get("merchantQuote", ""))
 	if quote != "":
 		content.add_child(UiKit.dim("\"%s\"" % quote))
