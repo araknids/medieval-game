@@ -329,10 +329,20 @@ func _maint_card(it: Dictionary) -> PanelContainer:
 	nm.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	vb.add_child(nm)
 	var dur := int(it.get("durability", 100))
+	var rarity := int(it.get("rarity", 1))
 	var db := Label.new(); db.text = Lang.t("Durabilidade: %d%%") % dur
 	db.add_theme_font_size_override("font_size", 12)
 	db.add_theme_color_override("font_color", UiKit.WARN if dur < 100 else UiKit.TEXT_DIM)
 	vb.add_child(db)
+	# [FORGE_REPAIR_COST] mostra quanto custa cada manutenção (espelha SmithingService):
+	#   reparo  = (100 − durabilidade) × raridade × 5   ·   reforja = raridade³ × 500
+	var rep_cost := (100 - dur) * rarity * 5
+	var ref_cost := rarity * rarity * rarity * 500
+	var cost_row := HBoxContainer.new(); cost_row.add_theme_constant_override("separation", 12)
+	if dur < 100:
+		cost_row.add_child(_cost_chip("🔧", rep_cost))
+	cost_row.add_child(_cost_chip("♻", ref_cost))
+	vb.add_child(cost_row)
 	var id := int(it.get("id", 0))
 	var row := HBoxContainer.new(); row.add_theme_constant_override("separation", 6)
 	if dur < 100:
@@ -340,6 +350,16 @@ func _maint_card(it: Dictionary) -> PanelContainer:
 	row.add_child(UiKit.small_btn("♻ Reforjar", _confirm_reforge.bind(id, str(it.get("name", "este item"))), true))
 	vb.add_child(row)
 	return pc
+
+# [FORGE_REPAIR_COST] Chip "emoji + custo em moedas" p/ a linha de manutenção.
+func _cost_chip(emoji: String, bronze: int) -> Control:
+	var h := HBoxContainer.new(); h.add_theme_constant_override("separation", 3)
+	var e := Label.new(); e.text = emoji
+	e.add_theme_font_size_override("font_size", 12)
+	e.add_theme_color_override("font_color", UiKit.TEXT_DIM)
+	h.add_child(e)
+	h.add_child(UiKit.coin_box(bronze, 13))
+	return h
 
 # ── Ações async ───────────────────────────────────────────────────────────────────
 func _refine(ore: String) -> void:
