@@ -161,6 +161,7 @@ const EN := {
 	"Duelo instantâneo. Vitória: +25 rank, ~200 bronze.": "Instant duel. Win: +25 rank, ~200 bronze.",
 	"🏅 Rank": "🏅 Rank", "🏆 Ranking": "🏆 Ranking", "Lutas hoje": "Fights today",
 	"Escolha seu oponente": "Choose your opponent", "Nenhum oponente": "No opponents",
+	"Custo ⚡%d por luta · Vitória: +25 rank, ~200 bronze.": "Cost ⚡%d per fight · Win: +25 rank, ~200 bronze.",
 	"⚡ %d por luta  ·  Estamina %d/100": "⚡ %d per fight  ·  Stamina %d/100",
 	"Lutas hoje %d/%d": "Fights today %d/%d", "↻ Trocar": "↻ Reroll",
 	"Sem mais trocas nesta visita": "No more rerolls this visit",
