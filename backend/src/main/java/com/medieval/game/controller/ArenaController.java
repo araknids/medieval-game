@@ -49,11 +49,37 @@ public class ArenaController {
         return ResponseEntity.ok(MatchResponse.from(active.get()));
     }
 
-    // [SEM_TIMER] Duelo instantâneo: resolve e retorna o resultado completo numa chamada só.
-    @PostMapping("/fight")
-    public ResponseEntity<?> startFight(Authentication auth) {
+    // [ARENA_ESCOLHA] Oferece 3 oponentes (com stats) p/ o jogador escolher, estilo Shakes & Fidget.
+    @GetMapping("/opponents")
+    public ResponseEntity<?> opponents(Authentication auth) {
         Player player = getPlayer(auth);
-        ArenaService.FightResult fr = arenaService.startFight(player);
+        List<?> cards = arenaService.offerOpponents(player, 3).stream().map(o -> Map.ofEntries(
+                Map.entry("opponentId", o.opponentId()),
+                Map.entry("name",       o.name()),
+                Map.entry("title",      o.title()),
+                Map.entry("level",      o.level()),
+                Map.entry("classId",    o.classId()),
+                Map.entry("gender",     o.gender()),
+                Map.entry("rankPoints", o.rankPoints()),
+                Map.entry("power",      o.power()),
+                Map.entry("str",        o.str()),
+                Map.entry("dex",        o.dex()),
+                Map.entry("con",        o.con()),
+                Map.entry("agi",        o.agi()),
+                Map.entry("luk",        o.luk()),
+                Map.entry("intel",      o.intel()),
+                Map.entry("isNpc",      o.isNpc())
+        )).toList();
+        return ResponseEntity.ok(Map.of("opponents", cards, "yourPower", arenaService.powerOf(player)));
+    }
+
+    // [SEM_TIMER] Duelo instantâneo: resolve e retorna o resultado completo numa chamada só.
+    // [ARENA_ESCOLHA] body opcional {opponentId} = o card escolhido; ausente/0 → matchmaking normal.
+    @PostMapping("/fight")
+    public ResponseEntity<?> startFight(@RequestBody(required = false) FightRequest req, Authentication auth) {
+        Player player = getPlayer(auth);
+        long opponentId = req != null ? req.opponentId() : 0L;
+        ArenaService.FightResult fr = arenaService.startFight(player, opponentId);
         ArenaMatch match = fr.match();
         return ResponseEntity.ok(Map.of(
                 "id",          match.getId(),
@@ -81,4 +107,6 @@ public class ArenaController {
     }
 
     record RankEntry(String warriorName, String title, int rankPoints, int wins, int losses) {}
+
+    record FightRequest(long opponentId) {}   // [ARENA_ESCOLHA] id do oponente escolhido (0 = matchmaking)
 }

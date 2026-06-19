@@ -157,9 +157,20 @@ const EN := {
 	"Lute andar por andar. Se perder, é expulso. Vá o mais longe que conseguir!": "Fight floor by floor. If you lose, you're out. Go as far as you can!",
 	"Colete a tarefa ativa": "Collect the active task", "Termine a tarefa ativa": "Finish the active task",
 	"Colete recursos": "Collect resources",
-	# — Arena —
+	# — Arena —  [ARENA_ESCOLHA] escolha de oponente (3 cards com stats)
 	"Duelo instantâneo. Vitória: +25 rank, ~200 bronze.": "Instant duel. Win: +25 rank, ~200 bronze.",
 	"🏅 Rank": "🏅 Rank", "🏆 Ranking": "🏆 Ranking", "Lutas hoje": "Fights today",
+	"Escolha seu oponente": "Choose your opponent", "Nenhum oponente": "No opponents",
+	"⚡ %d por luta  ·  Estamina %d/100": "⚡ %d per fight  ·  Stamina %d/100",
+	"Lutas hoje %d/%d": "Fights today %d/%d", "↻ Trocar": "↻ Reroll",
+	"Sem mais trocas nesta visita": "No more rerolls this visit",
+	"💀 Seu guerreiro está nocauteado — cure no Templo.": "💀 Your warrior is knocked out — heal at the Temple.",
+	"Limite diário %d/%d — reseta à meia-noite UTC. VIP tem mais.": "Daily limit %d/%d — resets at midnight UTC. VIP gets more.",
+	"⚡ Estamina insuficiente.": "⚡ Not enough stamina.",
+	"Lutar contra %s": "Fight %s", "Poder": "Power",
+	"▼ Mais fraco": "▼ Weaker", "◆ Parelho": "◆ Even match", "▲ Mais forte": "▲ Tougher",
+	"Força": "Strength", "Destreza": "Dexterity", "Constituição": "Constitution",
+	"Agilidade": "Agility", "Sorte": "Luck", "Intelecto": "Intellect",
 	# — Mundo / zonas / quests —
 	"Quests Ativas": "Active Quests", "🗓 Daily Quests": "🗓 Daily Quests", "⚗ Áreas de Elemento": "⚗ Element Areas",
 	"⚔ Zonas": "⚔ Zones", "🌍 Zonas": "🌍 Zones", "Controlada por": "Controlled by",

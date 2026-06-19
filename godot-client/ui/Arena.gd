@@ -1,15 +1,16 @@
 extends Control
 # ── Tela ARENA (PvP por ranking) ───────────────────────────────────────────────
-# GET /api/arena/rank → top 20 (nome, título, pontos, V/D) + /api/warrior (carteira).
-# Botão "Lutar" dispara POST /api/arena/fight (duelo instantâneo) e mostra o RESULTADO/log
-# em texto — sem lançar o 3D (espelha o showCollectModal do app.js). Volta pro Hub (go_back).
-# Padrão visual: UiKit [PADRAO_UI_GODOT]. [MIGRACAO_GODOT]
+# [ARENA_ESCOLHA] Estilo Shakes & Fidget: ao entrar, mostra 3 OPONENTES com stats pra escolher
+# (GET /api/arena/opponents). Clicar num card = duelo contra ele (POST /api/arena/fight {opponentId})
+# → replay 3D. Ranking abaixo. Padrão visual: UiKit [PADRAO_UI_GODOT]. [MIGRACAO_GODOT]
 
 signal go_back
 signal request_battle(data)   # pede ao App o replay 3D (overlay) [MIGRACAO_GODOT]
 
+const Icons := preload("res://ui/Icons.gd")
 const STAMINA_COST := 25
 const PAGE_SIZE := 20         # [PAGINACAO] ranking paginado (offset no backend)
+const MAX_REROLLS := 3        # [ARENA_ESCOLHA] trocas de oponente por visita
 
 var content: VBoxContainer
 var status: Label
@@ -17,8 +18,11 @@ var wallet: Label
 var busy := false
 var rank: Array = []          # cache do ranking (página atual)
 var page := 0                 # [PAGINACAO] página do ranking
-var w: Dictionary = {}        # warrior (p/ estamina / nome destacado no rank)
+var w: Dictionary = {}        # warrior (estamina / nome destacado no rank)
 var last_result: Dictionary = {}   # resultado do último duelo (mostrado em texto)
+var opponents: Array = []          # [ARENA_ESCOLHA] os 3 oponentes oferecidos
+var your_power := 0                # poder do jogador (p/ colorir a dificuldade dos cards)
+var reroll_count := 0              # trocas usadas nesta visita
 
 func _ready() -> void:
 	var ui := UiKit.scaffold(self, "⚔ Arena", func() -> void: go_back.emit(), func() -> void: await _refresh(), UiKit.TINT_BATTLE)
@@ -27,10 +31,13 @@ func _ready() -> void:
 	wallet = ui.wallet
 	await _refresh()
 
-func _refresh() -> void:
+# reoffer=true → re-sorteia os 3 oponentes (entrada / pós-batalha / atualizar). false → só paginar o rank.
+func _refresh(reoffer := true) -> void:
 	UiKit.show_loading(self)
-	# warrior (estamina + destacar meu nome) + ranking (página atual) em PARALELO (independentes)
-	var rs = await Api.batch_get(["/api/warrior", "/api/arena/rank?page=%d" % page])
+	var paths := ["/api/warrior", "/api/arena/rank?page=%d" % page]
+	if reoffer:
+		paths.append("/api/arena/opponents")
+	var rs = await Api.batch_get(paths)
 	var rw = rs[0]
 	if rw.get("ok") and rw.get("json") is Dictionary:
 		w = rw["json"]
@@ -39,44 +46,63 @@ func _refresh() -> void:
 		UiKit.show_error(status, rr)
 		return
 	rank = rr["json"]
+	if reoffer:
+		_apply_opponents(rs[2])
+		reroll_count = 0
 	_render()
+
+func _apply_opponents(ro) -> void:
+	if ro is Dictionary and ro.get("ok") and ro.get("json") is Dictionary:
+		var j: Dictionary = ro["json"]
+		opponents = j.get("opponents", []) if j.get("opponents") is Array else []
+		your_power = int(j.get("yourPower", your_power))
 
 func _render() -> void:
 	for c in content.get_children():
 		c.queue_free()
 	UiKit.hide_loading()
 	UiKit.set_wallet(wallet, w)
-	# ── Painel de luta ──
+	# ── [ARENA_ESCOLHA] faixa de status (custo · lutas hoje · trocar) ──
 	var stamina := int(w.get("stamina", 100))
 	var ko := bool(w.get("isKnockedOut", false))
 	var no_stamina := stamina < STAMINA_COST
 	var fights := int(w.get("arenaFightsToday", 0))
 	var limit := int(w.get("arenaFightLimit", 5))
 	var at_limit := fights >= limit
-	content.add_child(UiKit.section("Entrar em batalha"))
-	content.add_child(UiKit.dim(Lang.t("Custo: ⚡ %d estamina  ·  Sua estamina: %d/100") % [STAMINA_COST, stamina]))
-	content.add_child(UiKit.kv("Lutas hoje", "%d/%d" % [fights, limit], UiKit.WARN if at_limit else UiKit.TEXT))
-	content.add_child(UiKit.dim("Duelo instantâneo. Vitória: +25 rank, ~200 bronze."))
+	var strip := HBoxContainer.new(); strip.add_theme_constant_override("separation", 14)
+	var cost_lbl := UiKit.dim(Lang.t("⚡ %d por luta  ·  Estamina %d/100") % [STAMINA_COST, stamina])
+	cost_lbl.add_theme_color_override("font_color", UiKit.WARN if no_stamina else UiKit.TEXT_DIM)
+	strip.add_child(cost_lbl)
+	var ft := UiKit.dim(Lang.t("Lutas hoje %d/%d") % [fights, limit])
+	ft.add_theme_color_override("font_color", UiKit.WARN if at_limit else UiKit.TEXT_DIM)
+	strip.add_child(ft)
+	var sp := Control.new(); sp.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	strip.add_child(sp)
+	if not (ko or at_limit):
+		var rb := UiKit.small_btn(Lang.t("↻ Trocar"), _reroll)
+		if reroll_count >= MAX_REROLLS:
+			rb.disabled = true
+			rb.tooltip_text = Lang.t("Sem mais trocas nesta visita")
+		strip.add_child(rb)
+	content.add_child(strip)
+	# motivo de bloqueio (os cards ficam desabilitados)
 	if ko:
-		var b := UiKit.action_big("💀 Nocauteado", Callable())
-		b.disabled = true
-		content.add_child(b)
+		content.add_child(UiKit.dim(Lang.t("💀 Seu guerreiro está nocauteado — cure no Templo.")))
 	elif at_limit:
-		var b := UiKit.action_big(Lang.t("Limite diário (%d/%d)") % [fights, limit], Callable())
-		b.disabled = true
-		content.add_child(b)
-		content.add_child(UiKit.dim("Reseta à meia-noite UTC. VIP tem mais lutas por dia."))
+		content.add_child(UiKit.dim(Lang.t("Limite diário %d/%d — reseta à meia-noite UTC. VIP tem mais.") % [fights, limit]))
 	elif no_stamina:
-		var b := UiKit.action_big("⚡ Sem estamina", Callable())
-		b.disabled = true
-		content.add_child(b)
+		content.add_child(UiKit.dim(Lang.t("⚡ Estamina insuficiente.")))
+	# ── os 3 oponentes ──
+	content.add_child(UiKit.section("Escolha seu oponente"))
+	if opponents.is_empty():
+		content.add_child(UiKit.empty("Nenhum oponente", "Toque em atualizar"))
 	else:
-		content.add_child(UiKit.action_big(Lang.t("⚔ Lutar · ⚡%d") % STAMINA_COST, _start_fight))
-	# ── Resultado do último duelo (texto, no lugar do canvas/replay) ──
+		content.add_child(UiKit.grid(self, opponents, _opp_card, true, 290.0, 3))
+	# ── resultado do último duelo (texto, fallback sem replay) ──
 	if not last_result.is_empty():
 		content.add_child(UiKit.spacer(8))
 		content.add_child(_result_box(last_result))
-	# ── Ranking (paginador no CABEÇALHO, canto direito) ──
+	# ── ranking ──
 	content.add_child(UiKit.section_paged("🏆 Ranking", page, rank.size() >= PAGE_SIZE, _page_prev, _page_next))
 	if rank.is_empty():
 		if page > 0:
@@ -85,22 +111,80 @@ func _render() -> void:
 			content.add_child(UiKit.empty("Nenhum jogador ainda", "Seja o primeiro a lutar na arena"))
 	else:
 		var my_name := str(w.get("name", ""))
-		var base := page * PAGE_SIZE   # posição GLOBAL (#21, #22… na página 2)
+		var base := page * PAGE_SIZE
 		var i := 0
 		for r in rank:
 			if r is Dictionary:
 				i += 1
 				content.add_child(_rank_row(base + i, r, str(r.get("warriorName", "")) == my_name))
 
+# bloqueado de lutar? (KO / sem estamina / limite diário) — os cards não clicam.
+func _blocked() -> bool:
+	var stamina := int(w.get("stamina", 100))
+	return bool(w.get("isKnockedOut", false)) or stamina < STAMINA_COST \
+		or int(w.get("arenaFightsToday", 0)) >= int(w.get("arenaFightLimit", 5))
+
+# ── [ARENA_ESCOLHA] Card de um oponente: retrato + nome/nível + barra de poder + 6 atributos ──
+func _opp_card(o: Dictionary) -> PanelContainer:
+	var power := int(o.get("power", 0))
+	var ratio := float(power) / float(maxi(your_power, 1))
+	var fill: Color = UiKit.OK if ratio < 0.9 else (UiKit.GOLD if ratio <= 1.1 else UiKit.ERR)
+	var hint := Lang.t("▼ Mais fraco") if ratio < 0.9 else (Lang.t("◆ Parelho") if ratio <= 1.1 else Lang.t("▲ Mais forte"))
+	var npc := bool(o.get("isNpc", false))
+	var res := UiKit.clickable_card(fill, _fight.bind(int(o.get("opponentId", 0))), not _blocked(), Lang.t("Lutar contra %s") % str(o.get("name", "?")))
+	var pc: PanelContainer = res[0]
+	var box: VBoxContainer = res[1]
+	box.add_theme_constant_override("separation", 4)
+	# retrato (avatar de classe; fallback no 'character' até importar os PNGs)
+	var key := ("class_mercenary" if npc else "class_" + str(o.get("classId", "recruit")))
+	if Icons.tex(key) == null: key = "class_recruit"
+	if Icons.tex(key) == null: key = "character"
+	var port := Icons.rect(key, 72)
+	port.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	box.add_child(port)
+	# nome + título + nível
+	var nm := Label.new()
+	var title := str(o.get("title", ""))
+	nm.text = (title + " " if title != "" else "") + str(o.get("name", "?")) + "  " + (Lang.t("Nv %d") % int(o.get("level", 1)))
+	nm.add_theme_font_size_override("font_size", 15)
+	nm.add_theme_color_override("font_color", UiKit.GOLD)
+	nm.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	nm.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	box.add_child(nm)
+	# barra de poder (cor = dificuldade vs você) + dica
+	box.add_child(UiKit.bar(Lang.t("Poder"), power, maxi(maxi(your_power, power), 1), fill, str(power)))
+	var hl := Label.new(); hl.text = hint
+	hl.add_theme_font_size_override("font_size", 11); hl.add_theme_color_override("font_color", fill)
+	hl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	box.add_child(hl)
+	box.add_child(UiKit.spacer(2))
+	# 6 atributos (Intelecto apagado — reservado/Mago)
+	box.add_child(UiKit.kv(Lang.t("Força"),        str(int(o.get("str", 0)))))
+	box.add_child(UiKit.kv(Lang.t("Destreza"),     str(int(o.get("dex", 0)))))
+	box.add_child(UiKit.kv(Lang.t("Constituição"), str(int(o.get("con", 0)))))
+	box.add_child(UiKit.kv(Lang.t("Agilidade"),    str(int(o.get("agi", 0)))))
+	box.add_child(UiKit.kv(Lang.t("Sorte"),        str(int(o.get("luk", 0)))))
+	box.add_child(UiKit.kv(Lang.t("Intelecto"),    str(int(o.get("intel", 0))), UiKit.TEXT_DIM))
+	return pc
+
+func _reroll() -> void:
+	if busy or reroll_count >= MAX_REROLLS or _blocked(): return
+	busy = true
+	var rs = await Api.batch_get(["/api/arena/opponents"])
+	busy = false
+	_apply_opponents(rs[0])
+	reroll_count += 1
+	_render()
+
 func _page_prev() -> void:
 	if busy or page <= 0: return
 	page -= 1
-	await _refresh()
+	await _refresh(false)
 
 func _page_next() -> void:
 	if busy or rank.size() < PAGE_SIZE: return
 	page += 1
-	await _refresh()
+	await _refresh(false)
 
 # ── Resultado do duelo: título + recompensas + log de batalha (texto) ──
 func _result_box(d: Dictionary) -> PanelContainer:
@@ -118,8 +202,7 @@ func _result_box(d: Dictionary) -> PanelContainer:
 	box.add_child(ttl)
 	var rc := int(d.get("rankChange", 0))
 	box.add_child(UiKit.kv("🏅 Rank", "%s%d pts" % ["+" if rc > 0 else "", rc]))
-	box.add_child(UiKit.kv_node("Recompensa", UiKit.coin_box(int(d.get("goldEarned", 0)), 18)))   # [MOEDA] ícones pixel-art
-	# log de batalha (linha a linha, descartando a tag WINNER:)
+	box.add_child(UiKit.kv_node("Recompensa", UiKit.coin_box(int(d.get("goldEarned", 0)), 18)))
 	var log: Array = d.get("log", []) if d.get("log") is Array else []
 	if not log.is_empty():
 		box.add_child(UiKit.spacer(4))
@@ -133,7 +216,6 @@ func _result_box(d: Dictionary) -> PanelContainer:
 	return panel
 
 func _rank_row(pos: int, r: Dictionary, is_me: bool) -> PanelContainer:
-	# linha do próprio jogador ganha fundo dourado sutil (não só cor de fonte)
 	var res := UiKit.card(UiKit.GOLD if is_me else Color(1, 1, 1, 0.12))
 	var panel: PanelContainer = res[0]
 	var box: VBoxContainer = res[1]
@@ -159,12 +241,12 @@ func _rank_row(pos: int, r: Dictionary, is_me: bool) -> PanelContainer:
 	hb.add_child(wl)
 	return panel
 
-# ── Ação: duelo instantâneo. 1 chamada resolve tudo; guarda o resultado e re-renderiza. ──
-func _start_fight() -> void:
-	if busy: return
+# ── Ação: duelo contra o oponente ESCOLHIDO. 1 chamada resolve; guarda o resultado e lança o replay. ──
+func _fight(opponent_id: int) -> void:
+	if busy or _blocked(): return
 	busy = true
 	UiKit.show_loading(self)
-	var r = await Api.arena_fight()
+	var r = await Api.arena_fight(opponent_id)
 	busy = false
 	if r.get("ok") and r.get("json") is Dictionary:
 		var j: Dictionary = r["json"]
@@ -174,14 +256,13 @@ func _start_fight() -> void:
 		last_result = j
 		var be = j.get("battleEvents")
 		if be is Array and be.size() >= 2:
-			# vs humano → replay 3D por cima; _on_battle_over volta e mostra a recompensa
 			UiKit.hide_loading()   # [LOADING] tira o dialog antes do replay aparecer por cima
 			request_battle.emit({"events": be, "scene": str(j.get("scene", "arena")), "won": bool(j.get("won", false)), "enemy": str(j.get("opponent", ""))})
 		else:
-			await _refresh()   # sem eventos → resultado em texto
+			await _refresh()
 	else:
 		UiKit.show_error(status, r)
 
-# o App chama isto quando o replay 3D termina (volta pra Arena)
+# o App chama isto quando o replay 3D termina (volta pra Arena, re-oferta 3 novos + mostra o resultado)
 func _on_battle_over() -> void:
-	await _refresh()   # estamina/rank + mostra o _result_box(last_result) no _render
+	await _refresh()

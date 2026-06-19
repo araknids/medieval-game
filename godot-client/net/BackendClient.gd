@@ -84,8 +84,8 @@ func sell_item(id: int) -> Dictionary:
 ## POST /api/arena/fight (autenticado) — resolve um duelo de arena e devolve o resultado completo.
 ## json.battleEvents = Array de eventos (spawn/attack/crit/miss/dodge/extra/volley/heal/.../victory),
 ## os MESMOS que o battleArena.js 2D toca. Usado pelo replay 3D (Fase 3). [BATALHA_ANIMADA]
-func arena_fight() -> Dictionary:
-	return await _request(HTTPClient.METHOD_POST, "/api/arena/fight", {}, true)
+func arena_fight(opponent_id := 0) -> Dictionary:   # [ARENA_ESCOLHA] 0 = matchmaking; >0 = card escolhido
+	return await _request(HTTPClient.METHOD_POST, "/api/arena/fight", {"opponentId": opponent_id}, true)
 
 # ── PvE (Fase 3): puxar luta de TORRE / QUEST que também devolve json.battleEvents ──────
 ## POST /api/tower/enter — cria/garante uma run da torre. Retorna runState (currentFloor…). Sem corpo.

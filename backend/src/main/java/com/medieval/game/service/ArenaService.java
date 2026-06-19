@@ -56,8 +56,12 @@ public class ArenaService {
     public record FightResult(ArenaMatch match, List<BattleSimulator.BattleEvent> events) {}
 
     @Transactional
-    public FightResult startFight(Player challengerArg) {
-        log.info("[ArenaService] player={} action=fight", challengerArg.getId());
+    /** Duelo com matchmaking normal (compat). */
+    public FightResult startFight(Player challengerArg) { return startFight(challengerArg, 0L); }
+
+    /** [ARENA_ESCOLHA] Duelo contra o oponente ESCOLHIDO (id do card). 0/inválido → matchmaking normal. */
+    public FightResult startFight(Player challengerArg, long opponentId) {
+        log.info("[ArenaService] player={} action=fight opponentId={}", challengerArg.getId(), opponentId);
         // Recarrega como MANAGED (o controller passa um detached; aqui aplicamos recompensa + rank,
         // salvando o player mais de uma vez → sem isto haveria merge de versão velha). [SEM_TIMER/PVP_FLAG]
         final Player challenger = playerRepository.findById(challengerArg.getId()).orElse(challengerArg);
@@ -86,8 +90,8 @@ public class ArenaService {
         java.util.List<BattleSimulator.ActiveAbility> oAbilities = java.util.List.of();
         boolean oRanged = false; // [KITING] preenchido se o oponente for um Arqueiro real
 
-        // Oponente: outro jogador real (rank próximo) ou NPC
-        Player opponent = findOpponent(challenger);
+        // Oponente: o ESCOLHIDO no card (validado contra o pool de rank) ou matchmaking/NPC. [ARENA_ESCOLHA]
+        Player opponent = resolveChosenOpponent(challenger, opponentId);
         String opponentName;
         int[]  oStats;
         if (opponent != null) {
@@ -181,14 +185,18 @@ public class ArenaService {
 
     // Matchmaking: escolhe entre os 10 jogadores de rank mais próximo (query limitada
     // no banco — não carrega todos os jogadores). Sem candidatos → NPC. [AUDITORIA M14]
-    private Player findOpponent(Player challenger) {
-        // [AUDITORIA_2 A6] os 5 logo abaixo + 5 logo acima do rank (cada query usa o índice + LIMIT),
-        // mescla — em vez de ordenar a tabela inteira por ABS(rank-alvo) a cada luta.
+    // [AUDITORIA_2 A6] os 5 logo abaixo + 5 logo acima do rank (cada query usa o índice + LIMIT),
+    // mescla — em vez de ordenar a tabela inteira por ABS(rank-alvo) a cada luta. [ARENA_ESCOLHA] reusado pela oferta.
+    private List<Player> rankPool(Player challenger) {
         var page5 = org.springframework.data.domain.PageRequest.of(0, 5);
         List<Player> candidates = new java.util.ArrayList<>();
         candidates.addAll(playerRepository.findOpponentsBelow(challenger.getId(), challenger.getRankPoints(), page5));
         candidates.addAll(playerRepository.findOpponentsAbove(challenger.getId(), challenger.getRankPoints(), page5));
-        candidates = candidates.stream().distinct().toList(); // o de rank == challenger cai nas duas
+        return candidates.stream().distinct().collect(java.util.stream.Collectors.toList()); // rank == challenger cai nas duas
+    }
+
+    private Player findOpponent(Player challenger) {
+        List<Player> candidates = rankPool(challenger);
         if (candidates.isEmpty()) return null;
         return weightedPickByRankProximity(candidates, challenger.getRankPoints());
     }
@@ -222,6 +230,67 @@ public class ArenaService {
         Random r = java.util.concurrent.ThreadLocalRandom.current();
         // [REBALANCE] NPC: atk, def, hp, dex(acerto ~15), agi(esquiva baixa), luk(5)
         return new int[]{ 12 + r.nextInt(8), 8 + r.nextInt(6), 90 + r.nextInt(40), 15, 3, 5 };
+    }
+
+    // ── [ARENA_ESCOLHA] Escolha de oponente (3 cards com stats, estilo Shakes & Fidget) ──────────
+    public record OpponentInfo(
+            long opponentId, String name, String title, int level, String classId, String gender,
+            int rankPoints, int power,
+            int str, int dex, int con, int agi, int luk, int intel, boolean isNpc) {}
+
+    /** Oferece `count` oponentes do pool de rank (preenche com NPC se faltar gente real). */
+    @org.springframework.transaction.annotation.Transactional(readOnly = true)
+    public List<OpponentInfo> offerOpponents(Player challengerArg, int count) {
+        final Player challenger = playerRepository.findById(challengerArg.getId()).orElse(challengerArg);
+        List<Player> remaining = new java.util.ArrayList<>(rankPool(challenger));
+        List<OpponentInfo> out = new java.util.ArrayList<>();
+        while (out.size() < count && !remaining.isEmpty()) {
+            Player p = weightedPickByRankProximity(remaining, challenger.getRankPoints());
+            remaining.remove(p);
+            Warrior w = warriorRepository.findByPlayer(p).orElse(null);
+            if (w != null) out.add(toInfo(p, w));
+        }
+        int lvl = warriorRepository.findByPlayer(challenger).map(Warrior::getLevel).orElse(1);
+        while (out.size() < count) out.add(npcInfo(lvl));
+        return out;
+    }
+
+    /** Poder do desafiante (mesmo cálculo dos cards) p/ a UI colorir a dificuldade. */
+    @org.springframework.transaction.annotation.Transactional(readOnly = true)
+    public int powerOf(Player playerArg) {
+        final Player p = playerRepository.findById(playerArg.getId()).orElse(playerArg);
+        return warriorRepository.findByPlayer(p).map(w -> powerFromStats(totalStats(p, w))).orElse(0);
+    }
+
+    /** Resolve o oponente escolhido; valida que está no pool de rank (anti-farm). 0/inválido → matchmaking. */
+    private Player resolveChosenOpponent(Player challenger, long opponentId) {
+        if (opponentId <= 0) return findOpponent(challenger);
+        boolean inPool = rankPool(challenger).stream().anyMatch(p -> p.getId().equals(opponentId));
+        if (inPool) return playerRepository.findById(opponentId).orElseGet(() -> findOpponent(challenger));
+        return findOpponent(challenger); // fora do pool → cai no matchmaking normal
+    }
+
+    private OpponentInfo toInfo(Player p, Warrior w) {
+        String cls = w.getWarriorClass() != null ? w.getWarriorClass().name().toLowerCase() : "recruit";
+        String gen = p.getGender() != null ? p.getGender().name().toLowerCase() : "male";
+        return new OpponentInfo(p.getId(), w.getName(), AchievementService.titleString(p), w.getLevel(),
+                cls, gen, p.getRankPoints(), powerFromStats(totalStats(p, w)),
+                w.getStrength(), w.getDexterity(), w.getConstitution(), w.getAgility(), w.getLuck(), w.getIntellect(), false);
+    }
+
+    private OpponentInfo npcInfo(int lvl) {
+        var r = java.util.concurrent.ThreadLocalRandom.current();
+        int str = 8 + r.nextInt(lvl + 5), dex = 8 + r.nextInt(lvl + 5), con = 8 + r.nextInt(lvl + 5),
+            agi = r.nextInt(lvl / 2 + 3), luk = 5 + r.nextInt(8);
+        int atk = 10 + str, def = 8 + con / 2, hp = 80 + con * 8;
+        return new OpponentInfo(-1L, NPC_NAMES[r.nextInt(NPC_NAMES.length)], "",
+                Math.max(1, lvl + r.nextInt(3) - 1), "mercenary", "male", 0,
+                powerFromStats(new int[]{atk, def, hp, dex, agi, luk}), str, dex, con, agi, luk, 0, true);
+    }
+
+    /** [ARENA_ESCOLHA] Heurística de poder p/ EXIBIÇÃO (não é o resultado da luta — esse é o BattleSimulator). */
+    private int powerFromStats(int[] s) {
+        return s[0] * 2 + s[1] * 2 + s[2] + s[3] + s[4] + s[5];
     }
 
 }
