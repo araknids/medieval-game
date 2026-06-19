@@ -39,8 +39,9 @@ const HAND_XF := {
 const SHIELD_SCALE := 0.20
 # Preso na MÃO (LeftHand) → empunhado, não no antebraço. x=lado, y=ao longo da mão, z=frente.
 const SHIELD_BASE := Vector3(0.0, 0.02, 0.06)
-# [FIX] estava (0,0,0) e o escudo saía de CABEÇA PRA BAIXO → 180° em Z endireita (face pra frente).
-const SHIELD_ROT := Vector3(0, 0, 180)
+# [FIX] (0,0,0)=de cabeça pra baixo; (0,0,180)=em pé MAS a face apontava pra TRÁS (escudo ao contrário).
+# 180° em X vira a face pra FRENTE e mantém em pé (espelha Y e Z, preserva o lado). [ESCUDO_FACE]
+const SHIELD_ROT := Vector3(180, 0, 0)
 
 # Tipo visual FINO pelo NOME (espelha backend WeaponType.fromName — a API não manda o tipo).
 func weapon_kind(item_name: String, category: String) -> String:
