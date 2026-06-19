@@ -47,7 +47,8 @@ const EN := {
 	# — Login —
 	"Criar conta": "Create account", "Já tenho conta — entrar": "I have an account — log in",
 	"Não tem conta? Criar uma": "No account? Create one", "Entrar automaticamente": "Log in automatically",
-	"nome do guerreiro": "warrior name", "usuário": "username", "senha (mín. 8)": "password (min. 8)",
+	"nome do guerreiro": "warrior name", "nome do guerreiro (máx 20)": "warrior name (max 20)",
+	"usuário": "username", "senha (mín. 8)": "password (min. 8)",
 	"Nome (3-30 chars)": "Name (3-30 chars)", "Descrição (opcional)": "Description (optional)",
 	"Preencha usuário e senha.": "Fill in username and password.",
 	"Sessão expirada — entre de novo.": "Session expired — log in again.",

@@ -222,7 +222,7 @@ public class AuthController {
             String username,
             @NotBlank @Email String email,
             @NotBlank @Size(min = 8) String password,  // mín. 8 caracteres [AUDITORIA M7]
-            @NotBlank @Size(max = 30)
+            @NotBlank @Size(max = 20)   // [NICK_LIMIT] nick do guerreiro: até 20 chars (curtos tipo "Zé" valem)
             @Pattern(regexp = "[\\p{L}\\p{N} ._'-]+", message = "Warrior name has invalid characters")
             String warriorName,
             String gender   // opcional: "MALE"/"FEMALE" (default MALE). Cosmético. [OUTFITS_FEMALE]

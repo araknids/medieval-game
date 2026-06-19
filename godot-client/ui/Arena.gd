@@ -209,15 +209,23 @@ func _opp_card(o: Dictionary) -> PanelContainer:
 	var port := Icons.rect(key, 60)
 	port.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	box.add_child(port)
-	# nome + título + nível
+	# nome com ALTURA FIXA (2 linhas, "…" se passar) → todos os cards alinham mesmo com nome grande
 	var nm := Label.new()
-	var title := str(o.get("title", ""))
-	nm.text = (title + " " if title != "" else "") + str(o.get("name", "?")) + "  " + (Lang.t("Nv %d") % int(o.get("level", 1)))
+	nm.text = str(o.get("name", "?"))
 	nm.add_theme_font_size_override("font_size", 15); nm.add_theme_color_override("font_color", UiKit.GOLD)
 	nm.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	nm.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	nm.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	nm.max_lines_visible = 2
+	nm.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+	nm.custom_minimum_size = Vector2(0, 40)
 	box.add_child(nm)
-	# só a barra de VIDA (vermelha) — nível já está no nome; sem revelar quem ganha
+	# nível numa linha própria (posição consistente entre os cards)
+	var lvl := Label.new(); lvl.text = Lang.t("Nv %d") % int(o.get("level", 1))
+	lvl.add_theme_font_size_override("font_size", 12); lvl.add_theme_color_override("font_color", UiKit.TEXT_DIM)
+	lvl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	box.add_child(lvl)
+	# só a barra de VIDA (vermelha) — sem revelar quem ganha
 	box.add_child(UiKit.bar(Lang.t("Vida"), hp, maxi(_offer_max_hp, 1), Color(0.80, 0.22, 0.20), str(hp)))
 	return pc
 

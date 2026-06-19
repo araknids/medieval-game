@@ -58,7 +58,8 @@ func _build_form() -> void:
 	user_edit = UiKit.input("usuário")
 	box.add_child(user_edit)
 	if is_reg:
-		wname_edit = UiKit.input("nome do guerreiro")
+		wname_edit = UiKit.input("nome do guerreiro (máx 20)")
+		wname_edit.max_length = 20   # [NICK_LIMIT] casa com o @Size(max=20) do backend
 		box.add_child(wname_edit)
 		email_edit = UiKit.input("email")
 		box.add_child(email_edit)
