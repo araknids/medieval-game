@@ -193,20 +193,20 @@ func _reroll() -> void:
 	reroll_count += 1
 	_show_picker()   # reabre com os novos 3
 
-# ── Card de um oponente: retrato + nome/nível + barra de poder + 6 atributos ──
+# ── Card de um oponente (compacto): retrato + nome/nível + barra de vida ──
 func _opp_card(o: Dictionary) -> PanelContainer:
 	var hp := int(o.get("hp", 0))
 	var npc := bool(o.get("isNpc", false))
 	var res := UiKit.clickable_card(UiKit.GOLD_SOFT, _pick.bind(int(o.get("opponentId", 0))), true, Lang.t("Lutar contra %s") % str(o.get("name", "?")))
 	var pc: PanelContainer = res[0]
 	var box: VBoxContainer = res[1]
-	pc.custom_minimum_size = Vector2(264, 0)
+	pc.custom_minimum_size = Vector2(176, 0)
 	box.add_theme_constant_override("separation", 4)
 	# retrato (avatar de classe; fallback no 'character' até importar os PNGs)
 	var key := ("class_mercenary" if npc else "class_" + str(o.get("classId", "recruit")))
 	if Icons.tex(key) == null: key = "class_recruit"
 	if Icons.tex(key) == null: key = "character"
-	var port := Icons.rect(key, 72)
+	var port := Icons.rect(key, 60)
 	port.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	box.add_child(port)
 	# nome + título + nível
@@ -217,15 +217,8 @@ func _opp_card(o: Dictionary) -> PanelContainer:
 	nm.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	nm.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	box.add_child(nm)
-	# barra de VIDA (vermelha) — NÃO revela quem ganha (vida alta ≠ vitória); o jogador decide pelos stats
+	# só a barra de VIDA (vermelha) — nível já está no nome; sem revelar quem ganha
 	box.add_child(UiKit.bar(Lang.t("Vida"), hp, maxi(_offer_max_hp, 1), Color(0.80, 0.22, 0.20), str(hp)))
-	box.add_child(UiKit.spacer(2))
-	# stats de combate efetivos (sem Vida — já é a barra acima)
-	box.add_child(UiKit.kv(Lang.t("Ataque"),    str(int(o.get("atk", 0)))))
-	box.add_child(UiKit.kv(Lang.t("Defesa"),    str(int(o.get("def", 0)))))
-	box.add_child(UiKit.kv(Lang.t("Destreza"),  str(int(o.get("dex", 0)))))
-	box.add_child(UiKit.kv(Lang.t("Agilidade"), str(int(o.get("agi", 0)))))
-	box.add_child(UiKit.kv(Lang.t("Sorte"),     str(int(o.get("luk", 0)))))
 	return pc
 
 # escolher um card → fecha o popup e luta
