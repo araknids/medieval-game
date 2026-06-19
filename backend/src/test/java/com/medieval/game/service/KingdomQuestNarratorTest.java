@@ -42,12 +42,13 @@ class KingdomQuestNarratorTest {
     }
 
     @Test
-    @DisplayName("pickMonster retorna um monstro do pool do reino")
+    @DisplayName("pickMonster retorna um inimigo comum do pool do reino")
     void pickMonster_fromKingdomPool() {
-        // 20 sorteios — todos devem vir do conjunto esperado da Pesca.
-        var pool = java.util.Set.of("Sea Serpent", "Colossal Crab", "Drowned Pirate", "Young Kraken");
+        // 30 sorteios — todos devem vir do conjunto COMMON temático da Pesca. [ENEMY_NAMES]
+        var pool = java.util.Set.of("Sea Serpent", "Colossal Crab", "Gulper Fish",
+                "Coastal Brigand", "Pirate Raider", "Harbor Cutthroat");
         Random rng = new Random(7);
-        for (int i = 0; i < 20; i++) {
+        for (int i = 0; i < 30; i++) {
             assertThat(pool).contains(narrator.pickMonster(Kingdom.FISHING, rng));
         }
     }

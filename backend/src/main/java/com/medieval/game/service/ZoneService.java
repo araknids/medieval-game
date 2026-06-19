@@ -35,8 +35,8 @@ public class ZoneService {
     private final WarriorStatsService      statsService;
     private final ResourceInventoryRepository resourceRepo; // raid de recursos [PVP_FLAG]
     private final AbilityService           abilityService; // ativas no combate [HABILIDADES]
-    private final Messages                 messages;        // [I18N] nome do NPC da zona (→ battle log)
     private final WorkSessionRepository    workSessionRepository; // [WORK_IDLE] trava enquanto trabalha
+    private final KingdomQuestNarrator     narrator;        // [ENEMY_NAMES] nome do inimigo por bioma + tier (localizado)
 
     @Value("${app.dev.instant-complete:false}")
     private boolean instantComplete;
@@ -648,12 +648,12 @@ public class ZoneService {
                 }
             }
             // Nenhum flagged → NPC ambusher (preenchimento). [PVP_FLAG]
-            return fightNpc(player, attacker, atkStats, atkHp, atkMaxHp, zone, rng, activity.getElement());
+            return fightNpc(player, attacker, atkStats, atkHp, atkMaxHp, zone, rng, activity.getElement(), activity.getKingdom());
         }
 
         // ── NPC selvagem (PvE) ──
         if (rng.nextInt(100) < zone.npcEncounterChance) {
-            return fightNpc(player, attacker, atkStats, atkHp, atkMaxHp, zone, rng, activity.getElement());
+            return fightNpc(player, attacker, atkStats, atkHp, atkMaxHp, zone, rng, activity.getElement(), activity.getKingdom());
         }
 
         persistAttackerHp(attacker, atkHp, atkMaxHp);
@@ -662,9 +662,11 @@ public class ZoneService {
 
     /** Luta contra um NPC (monstro selvagem ou "ambusher" de preenchimento). Monstro usa o elemento da área. */
     private PvpResult fightNpc(Player player, Warrior attacker, int[] atkStats, int atkHp, int atkMaxHp, Zone zone, Random rng,
-                              com.medieval.game.enums.Element areaElement) {
+                              com.medieval.game.enums.Element areaElement, Kingdom kingdom) {
         int    npcLevel = monsterLevelFor(zone, attacker.getLevel(), rng); // [ZONA_CHEFE] escala por tier
-        String npcName  = areaElement != null ? areaElement.icon + " " + npcName(zone, rng) : npcName(zone, rng);
+        // [ENEMY_NAMES] inimigo temático do BIOMA (reino) + tier: alto risco = elite. Modelo 3D casa pelo nome.
+        String foeName  = narrator.pickZoneEnemy(kingdom, zone == Zone.HIGH_RISK, rng);
+        String npcName  = areaElement != null ? areaElement.icon + " " + foeName : foeName;
         int[]  npcStats = npcStatsByLevel(npcLevel, rng);
         BattleSimulator.BattleOutcome out = battleSimulator.simulate(
                 BattleSimulator.Combatant.of(attacker.getName(), atkStats,
@@ -859,24 +861,8 @@ public class ZoneService {
 
     // ── NPC generation ──
 
-    private static final String[][] NPC_NAMES = {
-        // SAFE
-        {"Wild Wolf", "Brigand", "Road Plunderer", "Enraged Bear", "Giant Boar"},
-        // PVP
-        {"Corrupt Mercenary", "Orc Warrior", "Renegade Knight", "Stone Golem", "Mountain Troll"},
-        // HIGH_RISK
-        {"Lesser Demon", "Dark Lich", "Young Dragon", "Infernal Champion", "Death Specter"},
-    };
-
-    private String npcName(Zone zone, Random rng) {
-        String[] pool = switch (zone) {
-            case SAFE      -> NPC_NAMES[0];
-            case PVP       -> NPC_NAMES[1];
-            case HIGH_RISK -> NPC_NAMES[2];
-        };
-        String en = pool[rng.nextInt(pool.length)];
-        return messages.getOr("monster." + en.replace(' ', '_'), en); // [I18N] nome localizado → battle log
-    }
+    // [ENEMY_NAMES] O nome do NPC agora vem do KingdomQuestNarrator (temático por bioma + tier),
+    // não mais de uma lista genérica por tier. Ver narrator.pickZoneEnemy em fightNpc.
 
     /** Stats do NPC baseados no nível (até +3 do guerreiro) */
     /** Returns [atk, def, hp, dex, agi, luk] for NPCs. [REBALANCE] dex=acerto, agi=esquiva/velocidade. */

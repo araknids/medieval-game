@@ -21,13 +21,33 @@ public class KingdomQuestNarrator {
 
     private final Messages messages; // [I18N]
 
-    // Monstros comuns por reino (chefes ficam na Torre).
-    private static final Map<Kingdom, String[]> MONSTERS = Map.of(
-        Kingdom.FISHING,           new String[]{"Sea Serpent", "Colossal Crab", "Drowned Pirate", "Young Kraken"},
-        Kingdom.MINING,            new String[]{"Stone Golem", "Deepworm", "Rock Spider", "Mine Wraith"},
-        Kingdom.COMBAT,            new String[]{"Fallen Knight", "War Ogre", "Cursed Headsman", "Renegade Captain"},
-        Kingdom.GRUTAS_DE_CRISTAL, new String[]{"Crystal Aberration", "Prismatic Golem", "Gem Warden", "Glimmering Bat"},
-        Kingdom.MAR_ABENCOADO,     new String[]{"Cursed Drowned", "Shadow Siren", "Tide Servant", "Pale Leviathan"}
+    // [ENEMY_NAMES] Inimigos temáticos por reino, em 3 tiers (comum / elite / chefe). Cada nome foi
+    // conferido contra o NAME_MAP do cliente (Monsters.gd): nome com PALAVRA DE BESTA inteira
+    // (serpent/golem/wraith/kraken/spider/drowned…) vira MONSTRO no replay 3D; sem palavra de besta
+    // (cavaleiro/bandido/pirata/cultista/capitão) vira HUMANOIDE (mesmo rig do player). Assim o MODELO
+    // sempre casa o NOME. ELITE/BOSS usam BOSS_WORDS (ancient/elder/tyrant/…) p/ o cliente aumentar o porte.
+    // Mix por bioma: praia=serpente/cranguejo/pirata; mina=golem/aranha/bandido; fortaleza=cavaleiro caído/ogro;
+    // grutas=aberração de cristal/cultista; mar=afogado/sereia/peregrino.
+    private static final Map<Kingdom, String[]> COMMON = Map.of(
+        Kingdom.FISHING,           new String[]{"Sea Serpent", "Colossal Crab", "Gulper Fish", "Coastal Brigand", "Pirate Raider", "Harbor Cutthroat"},
+        Kingdom.MINING,            new String[]{"Rock Spider", "Cave Bat Swarm", "Stone Golem", "Cave Brigand", "Mad Prospector", "Tunnel Cutthroat"},
+        Kingdom.COMBAT,            new String[]{"Fallen Knight", "Cursed Headsman", "Renegade Captain", "Oathbroken Guard", "War Ogre", "Battlefield Wraith"},
+        Kingdom.GRUTAS_DE_CRISTAL, new String[]{"Crystal Aberration", "Gem Slime", "Glimmering Bat", "Crazed Spelunker", "Cave Cultist", "Lost Delver"},
+        Kingdom.MAR_ABENCOADO,     new String[]{"Cursed Drowned", "Shadow Siren", "Abyssal Serpent", "Fallen Pilgrim", "Cursed Sailor", "Heretic Priest"}
+    );
+    private static final Map<Kingdom, String[]> ELITE = Map.of(
+        Kingdom.FISHING,           new String[]{"Young Kraken", "Abyssal Leviathan", "Great Sea Serpent", "Dread Pirate Captain"},
+        Kingdom.MINING,            new String[]{"Greater Stone Golem", "Cavern Troll", "Deepworm", "Mountain Bandit Chief"},
+        Kingdom.COMBAT,            new String[]{"Risen War Ogre", "Bound Bone Lich", "Dread Knight Commander", "Cursed Standard-Bearer"},
+        Kingdom.GRUTAS_DE_CRISTAL, new String[]{"Greater Crystal Aberration", "Prismatic Crawler", "Greater Gem Slime", "Geode Hermit"},
+        Kingdom.MAR_ABENCOADO,     new String[]{"Pale Leviathan", "Greater Drowned Horror", "Deep Siren", "Apostate Warden"}
+    );
+    private static final Map<Kingdom, String[]> BOSS = Map.of(
+        Kingdom.FISHING,           new String[]{"Ancient Kraken", "Leviathan of the Abyss", "Elder Sea Serpent"},
+        Kingdom.MINING,            new String[]{"Elder Stone Golem", "The Tunnel Behemoth", "Deep Tyrant Worm"},
+        Kingdom.COMBAT,            new String[]{"The Fortress Warlord", "Tyrant of the Cursed Keep", "Ancient Bone Lich"},
+        Kingdom.GRUTAS_DE_CRISTAL, new String[]{"Ancient Crystal Aberration", "The Prismatic Tyrant", "Elder Crystal Horror"},
+        Kingdom.MAR_ABENCOADO,     new String[]{"The Drowned Tyrant", "Leviathan of the Blessed Deep", "Ancient Abyssal Serpent"}
     );
 
     private static final String[] PEACE = {
@@ -48,9 +68,23 @@ public class KingdomQuestNarrator {
         "The %3$s proved too strong during '%1$s'. You fled with your life but nothing else."
     };
 
-    /** Sorteia um monstro temático do reino (nome localizado p/ idioma do request → propaga ao log). [I18N] */
-    public String pickMonster(Kingdom kingdom, Random rng) {
-        String[] pool = MONSTERS.getOrDefault(kingdom, new String[]{"Wild Beast"});
+    /** Inimigo comum temático do reino (nome localizado p/ idioma do request → propaga ao log). [I18N][ENEMY_NAMES] */
+    public String pickMonster(Kingdom kingdom, Random rng) { return pickFrom(COMMON, kingdom, rng, "Wild Beast"); }
+
+    /** Inimigo ELITE do reino (zona de alto risco, nó ELITE da Incursão). [ENEMY_NAMES] */
+    public String pickElite(Kingdom kingdom, Random rng) { return pickFrom(ELITE, kingdom, rng, "Dire Beast"); }
+
+    /** CHEFE do reino — nome à altura (nó BOSS da Incursão). [ENEMY_NAMES] */
+    public String pickBoss(Kingdom kingdom, Random rng) { return pickFrom(BOSS, kingdom, rng, "Ancient Horror"); }
+
+    /** Encontro temático de zona: tier de alto risco puxa os ELITE; senão os comuns. [ENEMY_NAMES] */
+    public String pickZoneEnemy(Kingdom kingdom, boolean highRisk, Random rng) {
+        return highRisk ? pickElite(kingdom, rng) : pickMonster(kingdom, rng);
+    }
+
+    // Sorteia + localiza; null-safe p/ reino nulo (Map.of.get(null) lançaria NPE).
+    private String pickFrom(Map<Kingdom, String[]> pools, Kingdom kingdom, Random rng, String fallback) {
+        String[] pool = (kingdom != null) ? pools.getOrDefault(kingdom, new String[]{fallback}) : new String[]{fallback};
         String en = pool[rng.nextInt(pool.length)];
         return messages.getOr("monster." + en.replace(' ', '_'), en);
     }

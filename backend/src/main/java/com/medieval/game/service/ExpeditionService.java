@@ -810,7 +810,15 @@ public class ExpeditionService {
     }
 
     private String monsterName(ExpeditionRun run, Node node, java.util.Random rng) {
-        if (run.getKingdom() != null) return narrator.pickMonster(run.getKingdom(), rng);
+        Kingdom k = run.getKingdom();
+        if (k != null) {
+            // [ENEMY_NAMES] nó dita o tier do nome: BOSS = chefe à altura, ELITE = elite, resto = comum.
+            return switch (node.type()) {
+                case BOSS  -> narrator.pickBoss(k, rng);
+                case ELITE -> narrator.pickElite(k, rng);
+                default    -> narrator.pickMonster(k, rng);
+            };
+        }
         return node.type() == ExpeditionNodeType.BOSS ? "Delve Horror" : "Wandering Beast";
     }
 
