@@ -118,12 +118,14 @@ func _tab_btn(value: String, icon_key: String, label: String, tooltip: String) -
 	var b := UiKit.small_btn("", func() -> void: _set_tab(value))
 	b.tooltip_text = Lang.t(tooltip)
 	if Icons.set_icon(b, icon_key):
-		b.add_theme_constant_override("icon_max_width", 30)
+		b.add_theme_constant_override("icon_max_width", 34)
+		b.icon_alignment = HORIZONTAL_ALIGNMENT_CENTER   # ícone CENTRADO (sem texto, senão fica no canto)
 		b.text = ""
 	else:
 		b.text = Lang.t(label)   # fallback sem emoji até o ícone PixelLab importar
-	b.custom_minimum_size = Vector2(56, 44)
-	b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	# aba COMPACTA (não estica pra tela toda): tamanho de botão de ícone, encostadas à esquerda.
+	b.custom_minimum_size = Vector2(84, 52)
+	b.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	if tab == value:             # ativo: fundo dourado + borda
 		var col := UiKit.GOLD
 		var sb := StyleBoxFlat.new()
