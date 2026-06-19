@@ -173,8 +173,14 @@ static func _variant_index(seed_name: String, slot: String, count: int) -> int:
 # basename da peça p/ (tema, slot, gênero), escolhendo a variante pelo seed (nome do item). seed=="" → 1ª.
 static func _base(theme: String, slot: String, gender := "male", seed_name := "") -> String:
 	var table: Dictionary = SLOT_PIECE_FEMALE if _norm_gender(gender) == "female" else SLOT_PIECE
-	var m: Dictionary = table.get(theme, {})
-	var opts: Array = m.get(slot, [])
+	var opts: Array = table.get(theme, {}).get(slot, [])
+	# [HELMET_FALLBACK] tema sem peça pra esse slot (ex.: HELMET/SHOULDER não existem em peasant/wizard) →
+	# usa um tema que TEM, senão o capacete/ombreira equipado simplesmente não aparece no boneco.
+	if opts.is_empty():
+		for fb in ["knight", "noble", "ranger"]:
+			opts = table.get(fb, {}).get(slot, [])
+			if not opts.is_empty():
+				break
 	if opts.is_empty():
 		return ""
 	return str(opts[_variant_index(seed_name, slot, opts.size())])
