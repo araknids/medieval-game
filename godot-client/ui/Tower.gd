@@ -112,10 +112,14 @@ func _render_floor() -> void:
 	bn.add_theme_font_size_override("font_size", 17); bn.add_theme_color_override("font_color", border)
 	vb.add_child(bn)
 	if monsters.size() > 1:
-		var names: Array = []
-		for mob in monsters:
-			names.append(str(mob))
-		var gl := Label.new(); gl.text = Lang.t("⚔ Gauntlet — %s") % " · ".join(names)
+		# [TORRE_GAUNTLET] agrupa repetidos ("Nome ×3") e tira o "Gauntlet" cru. Se todos iguais
+		# (o nome já está no título acima), só diz QUANTOS enfrentar; senão lista os distintos.
+		var grouped := _group_names(monsters)
+		var gl := Label.new()
+		if grouped.size() == 1:
+			gl.text = Lang.t("⚔ %d inimigos em sequência") % monsters.size()
+		else:
+			gl.text = Lang.t("⚔ Sequência: %s") % " · ".join(grouped)
 		gl.add_theme_color_override("font_color", Color(0.8, 0.4, 0.6)); gl.add_theme_font_size_override("font_size", 12)
 		gl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		vb.add_child(gl)
@@ -142,6 +146,21 @@ func _render_floor() -> void:
 	vb.add_child(rew)
 	vb.add_child(UiKit.action_big("⚔ Lutar", _fight))
 	content.add_child(res[0])
+
+# [TORRE_GAUNTLET] Agrupa nomes repetidos preservando a ordem: ["A","A","B"] → ["A ×2","B"].
+func _group_names(arr: Array) -> Array:
+	var order: Array = []
+	var counts := {}
+	for x in arr:
+		var s := str(x)
+		if not counts.has(s):
+			order.append(s); counts[s] = 0
+		counts[s] = int(counts[s]) + 1
+	var out: Array = []
+	for s in order:
+		var c := int(counts[s])
+		out.append(("%s ×%d" % [s, c]) if c > 1 else s)
+	return out
 
 # ── Escolha do Rei Arka (andar 50) ───────────────────────────────────────────────
 func _render_arka() -> void:

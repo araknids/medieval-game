@@ -465,7 +465,8 @@ const EN := {
 	"💎 %d SoulStone(s) · CD 30 min": "💎 %d SoulStone(s) · CD 30 min",
 	"%d (-%d%% debuff)": "%d (-%d%% debuff)",
 	"%dmin": "%dmin", "%ds": "%ds",
-	"⚔ Gauntlet — %s": "⚔ Gauntlet — %s",
+	"⚔ %d inimigos em sequência": "⚔ %d enemies in a row",
+	"⚔ Sequência: %s": "⚔ Sequence: %s",
 	"esta listagem": "this listing",
 	"falha ao conectar em %s": "failed to connect to %s", "conexão caiu": "connection dropped",
 	"✔ em uso": "✔ in use",
@@ -544,5 +545,3 @@ static func _load() -> String:
 # Tradução explícita (p/ strings dinâmicas: Lang.t("Nível %d") % n). Usa o locale atual.
 static func t(key: String) -> String:
 	return TranslationServer.translate(key)
-
-
