@@ -779,6 +779,7 @@ func _attach_outfit_to(skel: Skeleton3D, scene: PackedScene, theme := "", rarity
 	for mi: MeshInstance3D in meshes:
 		var skin := mi.skin
 		mi.get_parent().remove_child(mi)
+		mi.owner = null   # [OWNER_FIX] zera o owner antes de reparentar p/ o esqueleto (evita warning "owner inconsistent")
 		skel.add_child(mi)
 		mi.transform = Transform3D.IDENTITY
 		mi.skin = skin

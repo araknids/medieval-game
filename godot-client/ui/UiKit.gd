@@ -631,13 +631,18 @@ static func _btn(text: String, cb: Callable, size: Vector2, font := 15) -> Butto
 	return b
 
 # Feedback imediato + trava de clique-duplo: desabilita o botão por 0.4s (some no busy da tela também).
-# Se a tela re-renderizar e liberar o botão, o is_instance_valid no timer evita tocar num nó morto.
+# [LAMBDA_FREED] Captura o instance_id (int), NÃO o nó: se o clique navega e a tela/botão é liberada antes
+# do timer de 0.4s, capturar o nó faria o engine logar "Lambda capture at index 0 was freed" quando o
+# SceneTreeTimer (dono = a árvore) dispara. Com o id, o capture nunca é um objeto liberado → sem warning;
+# instance_from_id volta null se já morreu → seguro.
 static func _debounce(b: Button) -> void:
 	b.disabled = true
 	if b.is_inside_tree():
+		var bid := b.get_instance_id()
 		b.get_tree().create_timer(0.4).timeout.connect(func() -> void:
-			if is_instance_valid(b):
-				b.disabled = false)
+			var btn := instance_from_id(bid) as Button
+			if is_instance_valid(btn):
+				btn.disabled = false)
 
 static func action(text: String, cb: Callable) -> Button:
 	return _btn(text, cb, Vector2(130, 40), 15)

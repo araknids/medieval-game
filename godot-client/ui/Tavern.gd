@@ -68,6 +68,7 @@ func _process(delta: float) -> void:
 func _refresh() -> void:
 	UiKit.show_loading(self)
 	var rs = await Api.batch_get(["/api/tavern/status", "/api/warrior"])
+	if not is_instance_valid(self): return   # [TAVERN_FREED] logout liberou a Taverna durante o request
 	var r = rs[0]
 	if not (r.get("ok") and r.get("json") is Dictionary):
 		UiKit.show_error(status, r)
@@ -195,6 +196,7 @@ func _drink_pressed() -> void:
 	drink_btn.text = "🍺 Beber (1 🥉)"
 	busy = true
 	var r = await Api.tavern_drink(success)
+	if not is_instance_valid(self): return   # [TAVERN_FREED] logout liberou a Taverna durante o request
 	busy = false
 	if not (r.get("ok") and r.get("json") is Dictionary):
 		_flash(UiKit.err_text(r), true)
@@ -207,6 +209,7 @@ func _drink_pressed() -> void:
 	# [TOPBAR_BUFFS] empurra o warrior FRESCO pro topbar → o badge do buff da taverna aparece na hora
 	# (antes o topbar ficava com o warrior velho, sem o buff). set_wallet(null→topbar) re-roda _refresh_buffs.
 	var wr = await Api.get_warrior()
+	if not is_instance_valid(self): return   # [TAVERN_FREED]
 	if wr.get("ok") and wr.get("json") is Dictionary:
 		warrior = wr["json"]
 		UiKit.set_wallet(wallet, warrior)
@@ -221,6 +224,7 @@ func _poll_feed() -> void:
 func _load_feed(replace: bool) -> void:
 	var since := 0 if replace else last_id
 	var r = await Api.tavern_feed(since)
+	if not is_instance_valid(self): return   # [TAVERN_FREED] logout liberou a Taverna durante o poll de 4s
 	if not (r.get("ok") and r.get("json") is Dictionary):
 		return
 	var msgs = r["json"].get("messages", [])
@@ -268,6 +272,7 @@ func _send_pressed() -> void:
 	chat_input.text = ""
 	busy = true
 	var r = await Api.tavern_chat(text)
+	if not is_instance_valid(self): return   # [TAVERN_FREED] logout liberou a Taverna durante o request
 	busy = false
 	if not (r.get("ok") and r.get("json") is Dictionary):
 		_flash(UiKit.err_text(r), true)

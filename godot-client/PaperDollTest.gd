@@ -65,6 +65,7 @@ func _attach_outfit(skel: Skeleton3D, scene: PackedScene) -> void:
 		else:
 			print("  malha '%s': SEM skin (não é skinada?)" % mi.name)
 		mi.get_parent().remove_child(mi)
+		mi.owner = null   # [OWNER_FIX] zera o owner antes de reparentar p/ o esqueleto (evita warning "owner inconsistent")
 		skel.add_child(mi)
 		mi.transform = Transform3D.IDENTITY
 		mi.skin = skin
