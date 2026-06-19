@@ -156,6 +156,10 @@ const ICON_TIP := {
 	"territory": ["Território — guerra de guildas", "Territory — guild war"],
 	"mail": ["Correio", "Mail"], "character": ["Personagem", "Character"],
 	"inventory": ["Inventário / mochila", "Inventory / bag"],
+	# Abas do Leilão [LEILAO_ABAS]
+	"auction_buy": ["Comprar de outros jogadores", "Buy from other players"],
+	"auction_listings": ["Suas listagens ativas", "Your active listings"],
+	"auction_sell": ["Listar um item da mochila", "List an item from your bag"],
 }
 
 # Descrição do ícone `key` no idioma atual; "" se não houver. [ICON_TOOLTIP]

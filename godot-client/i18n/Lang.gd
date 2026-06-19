@@ -319,9 +319,13 @@ const EN := {
 	"Deletar a carta de \"%s\"? Anexos não coletados serão perdidos.": "Delete the mail from \"%s\"? Uncollected attachments will be lost.",
 	# — Stash —
 	"Taxa: %d bronze por movimento (depositar/sacar)": "Fee: %d bronze per move (deposit/withdraw)",
-	# — Auction —
-	"🛒 Comprar (%d)": "🛒 Buy (%d)", "📋 Minhas listagens (%d/10)": "📋 My listings (%d/10)",
-	"➕ Listar um item (%d)": "➕ List an item (%d)",
+	# — Auction —  [LEILAO_ABAS] abas (ícone + tooltip) + títulos sem emoji
+	"Leilão": "Auction House",
+	"Comprar (%d)": "Buy (%d)", "Minhas listagens (%d/10)": "My listings (%d/10)",
+	"Listar um item (%d)": "List an item (%d)", "Minhas listagens": "My listings",
+	"Comprar de outros jogadores": "Buy from other players",
+	"Suas listagens ativas": "Your active listings",
+	"Listar um item da mochila": "List an item from your bag",
 	"%s · 🔧%d%% · ⏳ %s": "%s · 🔧%d%% · ⏳ %s",
 	"Vendedor: %s · você recebe": "Seller: %s · you receive", "Vendedor: %s": "Seller: %s",
 	"Cancelar a listagem de \"%s\"? O item volta pra mochila (a taxa de 5% não é devolvida).": "Cancel the listing of \"%s\"? The item returns to your bag (the 5% fee is not refunded).",

@@ -1,12 +1,21 @@
 extends Control
 # ── Tela CASA DE LEILÃO (Auction House) — preço fixo / buyout. [LEILAO][MIGRACAO_GODOT] ─────
-# 3 seções: 🛒 Browse (comprar), 📋 Minhas listagens (cancelar), ➕ Listar item (da mochila).
+# [LEILAO_ABAS] 3 ABAS de ícone (PixelLab + tooltip): Comprar (browse), Minhas listagens (cancelar),
+# Listar um item (da mochila). Antes era tudo numa página só; agora cada uma é uma aba.
 # Endpoints: GET /api/auction, GET /api/auction/mine, GET /api/inventory, GET /api/warrior,
 #            POST /api/auction/buy/{id}, POST /api/auction/cancel/{id}, POST /api/auction/list {itemId, price}.
 # Taxa: 5% adiantada (queima) + 15% na venda → vendedor recebe ~80%. Listagens duram 2 dias, máx 10.
 # Padrão visual: UiKit [PADRAO_UI_GODOT].
 
 signal go_back
+
+const Icons := preload("res://ui/Icons.gd")
+# [LEILAO_ABAS] abas: value · icon_key (PixelLab) · rótulo de fallback (sem emoji) · tooltip do hover
+const TABS := [
+	["buy",  "auction_buy",      "Comprar",          "Comprar de outros jogadores"],
+	["mine", "auction_listings", "Minhas listagens", "Suas listagens ativas"],
+	["sell", "auction_sell",     "Listar",           "Listar um item da mochila"],
+]
 
 var content: VBoxContainer
 var status: Label
@@ -18,9 +27,10 @@ var bag: Array = []        # itens da mochila p/ listar (não-equipados)
 var warrior: Dictionary = {}  # /api/warrior (carteira do header)
 var price_inputs := {}     # itemId(int) → LineEdit (preço digitado na seção de listagem)
 var rarity_filter := 0     # filtro de raridade da seção Comprar (0=Todas, 1-5)
+var tab := "buy"           # [LEILAO_ABAS] aba ativa: buy | mine | sell
 
 func _ready() -> void:
-	var ui := UiKit.scaffold(self, "💰 Leilão", func() -> void: go_back.emit(), func() -> void: await _refresh(), UiKit.TINT_COMMERCE)
+	var ui := UiKit.scaffold(self, "Leilão", func() -> void: go_back.emit(), func() -> void: await _refresh(), UiKit.TINT_COMMERCE)
 	content = ui.content
 	status = ui.status
 	wallet = ui.wallet
@@ -55,37 +65,81 @@ func _render() -> void:
 	price_inputs.clear()
 	# nota da taxa
 	content.add_child(UiKit.dim("Mercado de preço fixo. Taxa: 5% adiantada (queima) + 15% na venda → você recebe 80%. Duram 2 dias, máx 10."))
-	# ── filtro de raridade — [FILTRO] vale pra TELA TODA (compra + minhas + mochila),
-	# senão as seções de baixo ficam mostrando outras raridades e parece que "filtra errado".
-	content.add_child(UiKit.dim("Filtrar por raridade (vale p/ todas as seções):"))
+	# ── [LEILAO_ABAS] abas de ícone (Comprar / Minhas listagens / Listar) com tooltip no hover ──
+	content.add_child(_tab_bar())
+	# ── filtro de raridade (vale p/ a aba ativa) ──
 	content.add_child(UiKit.rarity_filter(rarity_filter, _set_rarity))
-	# ── 🛒 Browse ──
+	match tab:
+		"mine": _render_mine()
+		"sell": _render_sell()
+		_:      _render_buy()
+
+# ── 🛒 Comprar (browse de todos) ──
+func _render_buy() -> void:
 	var browse := _by_rarity(listings)
-	content.add_child(UiKit.section(Lang.t("🛒 Comprar (%d)") % browse.size()))
+	content.add_child(UiKit.section(Lang.t("Comprar (%d)") % browse.size()))
 	if listings.is_empty():
-		content.add_child(UiKit.empty("Nenhum item à venda agora", "Volte mais tarde ou liste algo abaixo"))
+		content.add_child(UiKit.empty("Nenhum item à venda agora", "Volte mais tarde ou liste algo na aba Listar"))
 	elif browse.is_empty():
 		content.add_child(UiKit.dim("— nada à venda nessa raridade —"))
 	else:
 		content.add_child(UiKit.grid(self, browse, func(a): return _listing_row(a, false) if a is Dictionary else null))
-	# ── 📋 Minhas listagens ──
+
+# ── 📋 Minhas listagens (cancelar) ──
+func _render_mine() -> void:
 	var mine_f := _by_rarity(mine)
-	content.add_child(UiKit.section(Lang.t("📋 Minhas listagens (%d/10)") % mine.size()))
+	content.add_child(UiKit.section(Lang.t("Minhas listagens (%d/10)") % mine.size()))
 	if mine.is_empty():
 		content.add_child(UiKit.dim("— nenhuma listagem ativa —"))
 	elif mine_f.is_empty():
 		content.add_child(UiKit.dim("— nenhuma listagem nessa raridade —"))
 	else:
 		content.add_child(UiKit.grid(self, mine_f, func(a): return _listing_row(a, true) if a is Dictionary else null))
-	# ── ➕ Listar item ──
+
+# ── ➕ Listar um item (da mochila) ──
+func _render_sell() -> void:
 	var bag_f := _by_rarity(bag)
-	content.add_child(UiKit.section(Lang.t("➕ Listar um item (%d)") % bag.size()))
+	content.add_child(UiKit.section(Lang.t("Listar um item (%d)") % bag.size()))
 	if bag.is_empty():
 		content.add_child(UiKit.dim("— nada na mochila p/ listar —"))
 	elif bag_f.is_empty():
 		content.add_child(UiKit.dim("— nada na mochila nessa raridade —"))
 	else:
 		content.add_child(UiKit.grid(self, bag_f, func(it): return _picker_row(it) if it is Dictionary else null))
+
+# [LEILAO_ABAS] Barra de abas: 3 botões SÓ-ÍCONE (PixelLab) com tooltip explicando cada um.
+func _tab_bar() -> Control:
+	var row := HBoxContainer.new(); row.add_theme_constant_override("separation", 8)
+	for t in TABS:
+		row.add_child(_tab_btn(str(t[0]), str(t[1]), str(t[2]), str(t[3])))
+	return row
+
+func _tab_btn(value: String, icon_key: String, label: String, tooltip: String) -> Button:
+	var b := UiKit.small_btn("", func() -> void: _set_tab(value))
+	b.tooltip_text = Lang.t(tooltip)
+	if Icons.set_icon(b, icon_key):
+		b.add_theme_constant_override("icon_max_width", 30)
+		b.text = ""
+	else:
+		b.text = Lang.t(label)   # fallback sem emoji até o ícone PixelLab importar
+	b.custom_minimum_size = Vector2(56, 44)
+	b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	if tab == value:             # ativo: fundo dourado + borda
+		var col := UiKit.GOLD
+		var sb := StyleBoxFlat.new()
+		sb.bg_color = Color(col.r, col.g, col.b, 0.22)
+		sb.set_border_width_all(2); sb.border_color = col; sb.set_corner_radius_all(6)
+		b.add_theme_stylebox_override("normal", sb)
+		b.add_theme_stylebox_override("hover", sb)
+		b.add_theme_stylebox_override("pressed", sb)
+		b.add_theme_stylebox_override("focus", sb)
+	else:
+		b.modulate = Color(1, 1, 1, 0.6)
+	return b
+
+func _set_tab(value: String) -> void:
+	tab = value
+	_render()
 
 # Re-puxa SÓ os endpoints passados (subconjunto do _refresh), atualiza as vars
 # correspondentes e re-renderiza; as listas não pedidas ficam com o cache atual.
