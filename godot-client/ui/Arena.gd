@@ -21,7 +21,8 @@ var page := 0                 # [PAGINACAO] página do ranking
 var w: Dictionary = {}        # warrior (estamina / nome destacado no rank)
 var last_result: Dictionary = {}   # resultado do último duelo (mostrado em texto)
 var opponents: Array = []          # [ARENA_ESCOLHA] os 3 oponentes oferecidos
-var your_power := 0                # poder do jogador (p/ colorir a dificuldade)
+var your_power := 0                # poder do jogador (vem do backend; não usado na UI agora)
+var _offer_max_hp := 1             # maior HP entre os 3 oponentes (escala da barra de vida)
 var reroll_count := 0              # trocas usadas nesta abertura do popup
 var _picker: Control = null        # overlay do popup de escolha (1 por vez)
 
@@ -165,6 +166,11 @@ func _show_picker() -> void:
 	head.add_child(rb)
 	head.add_child(UiKit.small_btn("✖", _close_picker))
 	box.add_child(head)
+	# escala da barra de vida = maior HP dos 3 (pra comparar VIDA, não o resultado)
+	_offer_max_hp = 1
+	for o in opponents:
+		if o is Dictionary:
+			_offer_max_hp = maxi(_offer_max_hp, int(o.get("hp", 0)))
 	# 3 cards lado a lado
 	var row := HBoxContainer.new(); row.add_theme_constant_override("separation", 10)
 	for o in opponents:
@@ -189,12 +195,9 @@ func _reroll() -> void:
 
 # ── Card de um oponente: retrato + nome/nível + barra de poder + 6 atributos ──
 func _opp_card(o: Dictionary) -> PanelContainer:
-	var power := int(o.get("power", 0))
-	var ratio := float(power) / float(maxi(your_power, 1))
-	var fill: Color = UiKit.OK if ratio < 0.9 else (UiKit.GOLD if ratio <= 1.1 else UiKit.ERR)
-	var hint := Lang.t("▼ Mais fraco") if ratio < 0.9 else (Lang.t("◆ Parelho") if ratio <= 1.1 else Lang.t("▲ Mais forte"))
+	var hp := int(o.get("hp", 0))
 	var npc := bool(o.get("isNpc", false))
-	var res := UiKit.clickable_card(fill, _pick.bind(int(o.get("opponentId", 0))), true, Lang.t("Lutar contra %s") % str(o.get("name", "?")))
+	var res := UiKit.clickable_card(UiKit.GOLD_SOFT, _pick.bind(int(o.get("opponentId", 0))), true, Lang.t("Lutar contra %s") % str(o.get("name", "?")))
 	var pc: PanelContainer = res[0]
 	var box: VBoxContainer = res[1]
 	pc.custom_minimum_size = Vector2(264, 0)
@@ -214,17 +217,12 @@ func _opp_card(o: Dictionary) -> PanelContainer:
 	nm.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	nm.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	box.add_child(nm)
-	# barra de poder (cor = dificuldade vs você) + dica
-	box.add_child(UiKit.bar(Lang.t("Poder"), power, maxi(maxi(your_power, power), 1), fill, str(power)))
-	var hl := Label.new(); hl.text = hint
-	hl.add_theme_font_size_override("font_size", 11); hl.add_theme_color_override("font_color", fill)
-	hl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	box.add_child(hl)
+	# barra de VIDA (vermelha) — NÃO revela quem ganha (vida alta ≠ vitória); o jogador decide pelos stats
+	box.add_child(UiKit.bar(Lang.t("Vida"), hp, maxi(_offer_max_hp, 1), Color(0.80, 0.22, 0.20), str(hp)))
 	box.add_child(UiKit.spacer(2))
-	# stats de combate efetivos (sempre fazem sentido; atributos crus começam em 0)
+	# stats de combate efetivos (sem Vida — já é a barra acima)
 	box.add_child(UiKit.kv(Lang.t("Ataque"),    str(int(o.get("atk", 0)))))
 	box.add_child(UiKit.kv(Lang.t("Defesa"),    str(int(o.get("def", 0)))))
-	box.add_child(UiKit.kv(Lang.t("Vida"),      str(int(o.get("hp", 0)))))
 	box.add_child(UiKit.kv(Lang.t("Destreza"),  str(int(o.get("dex", 0)))))
 	box.add_child(UiKit.kv(Lang.t("Agilidade"), str(int(o.get("agi", 0)))))
 	box.add_child(UiKit.kv(Lang.t("Sorte"),     str(int(o.get("luk", 0)))))
