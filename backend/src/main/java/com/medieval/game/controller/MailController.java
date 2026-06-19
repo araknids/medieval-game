@@ -139,6 +139,8 @@ public class MailController {
         return Map.ofEntries(
             Map.entry("id",              m.getId()),
             Map.entry("from",            m.getSenderWarriorName()),
+            // [MAIL_ABAS] 0 = remetente do SISTEMA (recompensa/aviso); !=0 = carta de outro jogador.
+            Map.entry("senderPlayerId",  m.getSenderPlayerId() != null ? m.getSenderPlayerId() : 0L),
             Map.entry("message",         m.getMessage()),
             Map.entry("goldAmount",      m.getGoldAmount()),
             Map.entry("sentAt",          m.getSentAt().toString()),
