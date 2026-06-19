@@ -1752,7 +1752,7 @@ func _kill(f: Dictionary) -> void:
 	var brutal: bool = f.get("last_hit_crit", false)
 	_kill_cam()   # [JUICE] slow-mo + zoom: o ragdoll/gore a seguir voa em câmera lenta
 	_env_pulse()  # [JUICE] glow floresce no kill (sangue + emissivos)
-	if f.has("rim"): (f["rim"] as OmniLight3D).queue_free()   # apaga a rim do morto (o corpo escurece)
+	if f.has("rim") and is_instance_valid(f["rim"]): (f["rim"] as OmniLight3D).queue_free()   # apaga a rim do morto (já pode ter sido liberada → guarda)
 	if f.has("aura") and is_instance_valid(f["aura"]): (f["aura"] as Node).queue_free()   # apaga a aura de raridade
 	# [GORE] golpe fatal: jato de sangue (pra cima + na direção) + névoa + gotejamento + poça grande
 	_blood_spray(_chest(f), Vector3.UP * 1.6 + dir * 0.8, 40 if brutal else 30, true)
@@ -2491,7 +2491,7 @@ func _victory_flourish(winner: Dictionary) -> void:
 	var tw := create_tween().set_ignore_time_scale(true).set_parallel(true)
 	tw.tween_property(glow, "light_energy", 3.0, 0.6)
 	tw.tween_property(glow, "global_position", wn.global_position + Vector3(0, 2.3, 0), 1.4)
-	if winner.has("rim"):
+	if winner.has("rim") and is_instance_valid(winner["rim"]):
 		var rim := winner["rim"] as OmniLight3D
 		rim.light_color = Color(1.0, 0.85, 0.55)
 		create_tween().set_ignore_time_scale(true).tween_property(rim, "light_energy", 3.2, 0.5)
