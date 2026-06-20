@@ -141,3 +141,17 @@ A luz agora vem **de baixo** (a cor errada), as paredes **inspiram pra dentro**,
 - **Hum-Made-Flesh** (37) — O zumbido grave da Torre (um **batimento grande demais** pra pertencer a algo vivo) ganhou carne e anda. Prova de que a coisa lá embaixo está **perto**.
 - **Threshold Guard** (38, ×2) — A última guarda **verdadeira** do Rei: **desceu com ele**, mas não conseguiu **atravessar**. Travada na porta, ainda guardando o caminho que não teve coragem de cruzar.
 - **The Failed Seal** (39) — Uma porta **chamuscada por dentro**: algo tentou se **manter preso** aqui — e **falhou**. O último lacre antes do Xamã, já rompido de dentro pra fora.
+
+## Zona 5 — O Limiar · Andares 41–49
+Passado o Xamã, a Torre **deixa de ser torre**: o alto e o baixo se confundem, formas ainda **escolhem o
+que ser**, e lá no fundo **algo vasto se revira no sono**. É o limiar do Rei — e da coisa que ele destranca.
+
+- **Edge-Walker** (41) — Caminha a **borda** onde a Torre para de existir (a escada segue; as paredes esquecem de seguir). Um ser do **limite** entre o que é e o que não chegou a ser.
+- **Vertigo-Thing** (42, ×2) — Nasceu da **vertigem** deste andar — aqui você não distingue cima de baixo e o **zumbido está nos seus dentes**. Ele te desmonta pelo enjoo.
+- **The Undecided** (43) — Formas **quase gente, quase bicho, quase nada** — ainda **decidindo o que ser**. Pegas no meio do tornar-se, sem nunca terminar.
+- **Sleeper's Dream** (44, ×2) — O chão é **morno como pele** e cede como respiração presa; lá embaixo, **algo vasto se vira no sono**. Estes são os **sonhos do dorminhoco** — você luta os pesadelos de um deus adormecido.
+- **The Eager Tide** (45) — O sangue real corre escada **acima**, **ávido**, rumo ao topo. A maré viva da liturgia, com pressa de chegar ao rito — o rio que alimenta o Rei.
+- **Ash-Crowned** (46) — Um trono das velhas bandeiras do Rei, **queimadas e refeitas, queimadas e refeitas**. Coroado de cinzas: o ciclo de tentar coroar o Rei, falhar, recomeçar.
+- **The Listening Dark** (47) — Os sussurros **param**. O silêncio é pior: ele **escuta de volta**. A coisa lá embaixo agora repara em **você**, diretamente.
+- **The One Step Behind** (48) — Um **reflexo seu** sobe ao seu lado, **um passo atrás, sorrindo**. A Torre ensaiou reis (o Eco) — agora ensaia **você**: o herói que, talvez, dará meia-volta.
+- **The Weeping Threshold** (49) — A **última porta**. Uma luz cor de **ferida** vaza por baixo, e do outro lado **um homem chora**. O guardião encharcado do luto do Rei — atrás dele, Arka.
