@@ -127,3 +127,17 @@ sem fim, e os fiéis **ensaiam um rei**. O rito não é antigo — a última amp
 - **The Unborn Rite** (27) — Algo **nasceu aqui e não sobreviveu ao parto** — e ainda **tenta**. Um produto falho da liturgia, meio-feito, recusando-se a deixar de existir.
 - **Altar-Thing** (28, ×2) — O altar mais fundo ganhou malícia (ou os sacerdotes fundiram-se nele). O sangue **trepa as paredes pra cima**, desafiando a gravidade, levando o rito aos andares de cima.
 - **The Pretender** (29) — Sentou no **trono de ensaio** (osso e ouro) e praticou ser rei — e **quebrou** na tentativa. O rascunho falho que veio antes do Eco Coroado aperfeiçoar o papel.
+
+## Zona 4 — A Sombra do Rei · Andares 31–39
+A luz agora vem **de baixo** (a cor errada), as paredes **inspiram pra dentro**, e tudo derrete rumo a
+**uma única forma**. Aqui se sente a **coisa lá embaixo** — e o quanto o Rei já deixou de ser homem.
+
+- **Shadeless One** (31) — A luz que o ilumina sobe do fundo, e **não projeta sombra nenhuma**: sobrou só ele, e nem isso ele deixa pra trás.
+- **Breath-Taken** (32) — A Torre **inspira**, e o ar morno o puxa **pra baixo, sempre pra baixo**. É alguém que a coisa lá embaixo está **engolindo devagar**, ainda de pé.
+- **Dredged Horror** (33, ×2) — Coisas **dragadas de algo mais fundo**, vestindo pedra e ouro do castelo como uma pele que não serve. A coisa lá embaixo manda os seus pra cima.
+- **Ink-Drowned Scholar** (34) — Copiou as anotações do Rei até a **própria letra deixar de ser humana** página a página. Afogou-se na tinta do estudo do rito.
+- **The Becoming** (35, ×2) — Um zoológico dos mudados — cortesãos, guardas, sacerdotes — todos **derretendo rumo a uma só forma** que você não consegue nomear. O reino virando **um** monstro.
+- **Honeyed Whisper** (36) — Numa voz **quase** a do Rei, te chama pelo **seu** nome e promete o que você mais quer — só pra te fazer dar meia-volta. A coisa lá embaixo aprendeu a **mentir bonito**.
+- **Hum-Made-Flesh** (37) — O zumbido grave da Torre (um **batimento grande demais** pra pertencer a algo vivo) ganhou carne e anda. Prova de que a coisa lá embaixo está **perto**.
+- **Threshold Guard** (38, ×2) — A última guarda **verdadeira** do Rei: **desceu com ele**, mas não conseguiu **atravessar**. Travada na porta, ainda guardando o caminho que não teve coragem de cruzar.
+- **The Failed Seal** (39) — Uma porta **chamuscada por dentro**: algo tentou se **manter preso** aqui — e **falhou**. O último lacre antes do Xamã, já rompido de dentro pra fora.
