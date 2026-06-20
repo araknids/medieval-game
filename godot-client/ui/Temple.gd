@@ -5,6 +5,8 @@ extends Control
 
 signal go_back
 
+const Icons := preload("res://ui/Icons.gd")   # [TEMPLO_PADRE] retrato do padre (PixelLab)
+
 var data: Dictionary = {}        # cache de /api/temple
 var warrior: Dictionary = {}     # /api/warrior (carteira do header)
 var equipped: Array = []         # itens equipados (p/ proteção)
@@ -43,11 +45,36 @@ func _render() -> void:
 		c.queue_free()
 	UiKit.hide_loading()
 	UiKit.set_wallet(wallet, warrior)
+	_render_priest_header()
 	# [TEMPLO_UI] HP, bênção ativa e CURA removidos daqui — HP/buff no topbar, cura no botão do header.
 	content.add_child(UiKit.section("🙏 Bênçãos"))
 	_render_buff_options()
 	content.add_child(UiKit.section(Lang.t("Proteção de Itens (%d/%d)") % [int(data.get("protectedCount", 0)), int(data.get("maxProtected", 3))]))
 	_render_protection()
+
+# [TEMPLO_PADRE] Cabeçalho do padre: retrato (PixelLab) + nome + texto de sabor (como o mercador na Loja).
+func _render_priest_header() -> void:
+	var head := HBoxContainer.new()
+	head.add_theme_constant_override("separation", 12)
+	var icon_key := "priest" if Icons.tex("priest") != null else ("temple" if Icons.tex("temple") != null else "")
+	if icon_key != "":
+		var portrait := Icons.rect(icon_key, 72)
+		portrait.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+		head.add_child(portrait)
+	var col := VBoxContainer.new()
+	col.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	col.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	col.add_theme_constant_override("separation", 3)
+	var name_lbl := Label.new()
+	name_lbl.text = "Padre Anselmo"
+	name_lbl.add_theme_font_size_override("font_size", 22)
+	name_lbl.add_theme_color_override("font_color", UiKit.GOLD)
+	col.add_child(name_lbl)
+	var quote := UiKit.dim("\"Fui enviado pelos céus para amparar os que sofrem. Aqui o cansado encontra cura, o bravo recebe bênçãos para a batalha, e o que lhe é precioso fica a salvo. Descanse um instante, guerreiro — que a luz o acompanhe lá fora.\"")
+	quote.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	col.add_child(quote)
+	head.add_child(col)
+	content.add_child(head)
 
 # ── Bênçãos disponíveis ────────────────────────────────────────────────────────
 func _render_buff_options() -> void:
