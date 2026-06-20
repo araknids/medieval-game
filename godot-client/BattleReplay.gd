@@ -775,14 +775,14 @@ func _war_hit(e: Dictionary, crit: bool) -> void:
 		_face_node(a, t["node"])
 		if a.get("anim"):
 			a["anim"].play(_clip(a, "attack") if a.get("is_monster", false) else _melee_clip(a), BLEND)
-		if not a.get("ranged", false):
-			_war_lunge(a, t["node"])   # [GRUPO] melee dá um PASSO até o alvo e volta (não ataca de longe)
+		a["plant"] = 0.34   # [GRUPO] planta no golpe (não desliza balançando); _war_move cuida da aproximação
 	var dmg := int(e.get("damage", 0))
 	var zone := str(e.get("hitZone", "body"))
 	if zone == "": zone = "body"
 	var head := zone == "head"
 	if t.get("anim"): t["anim"].play(_clip(t, "hurt_head" if head else "hurt"), BLEND)
 	t["busy"] = true
+	t["plant"] = 0.30   # [GRUPO] flinch no lugar (não desliza ao tomar o golpe)
 	_popup(_chest(t), "-%d" % dmg, Color(1, 0.32, 0.32) if crit else Color(1, 1, 1), crit)
 	var bdir: Vector3 = (((t["node"] as Node3D).global_position - (a["node"] as Node3D).global_position) * Vector3(1, 0, 1)) if a != null else Vector3.RIGHT
 	t["last_hit_dir"] = bdir.normalized() if bdir.length() > 0.01 else Vector3.RIGHT
@@ -802,19 +802,39 @@ func _war_hit(e: Dictionary, crit: bool) -> void:
 	elif dmg > 0:
 		_on_impact(crit)
 
-# [GRUPO] Lunge: o atacante MELEE dá um PASSO até o alvo e volta — senão fica "atacando de longe" na luta
-# em grupo (torre 2v1/3v1). Para ~1.2u antes do alvo (alcance do golpe). Arco (ranged) NÃO lunga.
-func _war_lunge(a: Dictionary, target: Node3D) -> void:
-	var node := a.get("node") as Node3D
-	if not is_instance_valid(node) or not is_instance_valid(target): return
-	var home: Vector3 = a.get("anchor", node.position)
-	var to_t: Vector3 = (target.position - home) * Vector3(1, 0, 1)
-	if to_t.length() < 1.3: return   # já está perto → não precisa lungar
-	var hit_pos: Vector3 = home + to_t - to_t.normalized() * 1.2
-	var tw := node.create_tween()
-	tw.tween_property(node, "position", hit_pos, 0.12).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
-	tw.tween_interval(0.05)
-	tw.tween_property(node, "position", home, 0.22).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
+# [GRUPO] Movimento de APROXIMAÇÃO na luta em grupo/guerra (event-driven): a cada frame, cada melee
+# anda até o inimigo mais perto e SEGURA no alcance — os HITS vêm dos eventos do backend. Dá vida (clash)
+# igual ao _tick_team, sem refazer a luta. Plantado (golpe/flinch) → não desliza. Arco não avança.
+func _war_move(dt: float) -> void:
+	for f in order:
+		if f.get("dead", false) or f.get("ranged", false):
+			continue
+		var pl: float = f.get("plant", 0.0)
+		if pl > 0.0:
+			f["plant"] = pl - dt   # em golpe/flinch → planta no lugar (a anim de ataque/hurt segue)
+			continue
+		var tgt = _nearest_enemy_fighter(f)
+		if tgt == null:
+			continue
+		var sn := f["node"] as Node3D
+		var tn := tgt["node"] as Node3D
+		if not (is_instance_valid(sn) and is_instance_valid(tn)):
+			continue
+		_face_node(f, tn)
+		var dir: Vector3 = sn.position - tn.position; dir.y = 0.0    # do alvo até mim → paro no ALCANCE, não em cima
+		if dir.length() < 0.05: dir = Vector3(float(f.get("team", 1)), 0, 0)
+		dir = dir.normalized()
+		var perp := Vector3(dir.z, 0, -dir.x)
+		var lateral := (float(f.get("lane", 0)) - 1.0) * 1.3        # leque pela lane (não empilha no mesmo alvo)
+		var desired: Vector3 = tn.position + dir * ATTACK_RANGE + perp * lateral
+		desired.y = f["base_y"]
+		var prev: Vector3 = sn.position
+		sn.position = sn.position.move_toward(desired, MELEE_SPEED * dt)
+		if f["anim"]:
+			if sn.position.distance_to(prev) > 0.004:
+				if f["anim"].current_animation != A_WALK: f["anim"].play(A_WALK, BLEND)
+			elif f["anim"].current_animation == A_WALK:
+				f["anim"].play(_clip(f, "idle"), BLEND)
 
 # [OUTFITS_FEMALE][SKIN_RARIDADE] veste o lutador com um SET NOVO (tema/gênero/variante do `look`)
 # + recolor por raridade. look = {theme, gender, rarity, seed}; ausente → ranger male cor base.
@@ -1272,7 +1292,9 @@ func _process(dt: float) -> void:
 		_update_hud()   # [HP_CANTO] barras de vida no canto (estilo jogo de luta)
 	match phase:
 		"countdown": _countdown(dt)
-		"war": _war_step(dt)
+		"war":
+			_war_step(dt)
+			_war_move(dt)     # [GRUPO] aproximação/clash contínuo por cima do stepping de eventos
 		"fight":
 			if team_mode:
 				_tick_team(dt)        # [TEAM_MOCK] sim ao vivo (3 duelos simultâneos)
@@ -2628,8 +2650,10 @@ func _kill_cam(victim: Node3D = null, dir := Vector3.RIGHT) -> void:
 	var my := _hs_gen
 	Engine.time_scale = 0.16
 	cam_shake = 1.0
-	# [CAM_KILL] reframe pra ângulo baixo 3/4 só no 1v1 (em guerra/time viraria estroboscópio de cortes).
-	var reframe := victim != null and is_instance_valid(victim) and not team_mode and not war_mode
+	# [CAM_KILL] reframe pra ângulo BAIXO 3/4 sobre a vítima no 1v1 E em grupo PEQUENO (≤4: torre 2v1/3v1).
+	# Guerra grande (≥5 em campo) não → viraria estroboscópio. Guarda o estado p/ VOLTAR no fim.
+	var reframe := victim != null and is_instance_valid(victim) and order.size() <= 4
+	var t0 := cam.global_transform
 	var tw := create_tween().set_ignore_time_scale(true)
 	tw.tween_property(cam, "fov", _cam_base_fov - (10.0 if reframe else 16.0), 0.22).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
 	if reframe:
@@ -2639,15 +2663,17 @@ func _kill_cam(victim: Node3D = null, dir := Vector3.RIGHT) -> void:
 		if d.length() < 0.01: d = Vector3.RIGHT
 		d = d.normalized()
 		var side := 1.0 if d.x >= 0.0 else -1.0
-		var kpos := vp + d * 2.4 + Vector3(side * 1.2, 1.0, 0.0)   # baixo (y~1) + de lado, golpe atravessa o quadro
-		if kpos.z < 2.2: kpos.z = 2.2                              # nunca dentro do chão/atrás do cenário
-		var look := vp + Vector3(0, 1.0, 0)
+		var kpos := vp + d * 2.3 + Vector3(side * 1.5, 0.85, 0.0)  # bem BAIXO (y~0.85) + de lado, golpe cruza o quadro
+		if kpos.z < 2.0: kpos.z = 2.0                              # nunca dentro do chão/atrás do cenário
+		var look := vp + Vector3(0, 0.95, 0)
 		create_tween().set_ignore_time_scale(true).tween_method(
-			_kill_cam_step.bind(cam.position, kpos, look), 0.0, 1.0, 0.18).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
+			_kill_cam_step.bind(cam.position, kpos, look), 0.0, 1.0, 0.24).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
 	await get_tree().create_timer(1.0, true, false, true).timeout
 	if my == _hs_gen:
 		Engine.time_scale = 1.0
 		create_tween().set_ignore_time_scale(true).tween_property(cam, "fov", _cam_base_fov, 0.45).set_trans(Tween.TRANS_SINE)
+		if reframe:   # volta a câmera pro enquadramento de antes do kill (1v1: tracking reassume; grupo: cam fixa)
+			create_tween().set_ignore_time_scale(true).tween_property(cam, "global_transform", t0, 0.45).set_trans(Tween.TRANS_SINE)
 		_cam_locked = false   # tracking reassume suave a partir da posição atual
 
 # [CAM_KILL] passo do reframe do kill: interpola a posição e re-mira a vítima a cada passo. [t vem do tween]
