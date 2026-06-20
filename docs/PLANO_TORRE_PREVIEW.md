@@ -1,63 +1,50 @@
-# Plano — Retrato animado do inimigo na tela da Torre [TORRE_PREVIEW]
+# Plano — Busto animado do inimigo na tela da Torre [TORRE_PREVIEW]
 
 ## Objetivo
-Mostrar um **retrato pixel-art animado** (idle em loop) do inimigo que te espera, na tela da
-Torre — tanto no **lobby** (quem vem no próximo andar) quanto no **card do andar** (run ativa).
-Pedido do dono: arte de qualidade no PixelLab, uma "gifzinha" de cada inimigo, no canto do card
-(ele marcou "HERE" no topo-direito do card de entrar).
+Mostrar um **busto pixel-art animado** (close-up, idle em loop) do inimigo na tela da Torre — no
+**lobby** (quem te espera no próximo andar) e no **card do andar** (run ativa). Pedido do dono:
+retrato em zoom com **pose característica** (ex.: o tesoureiro jogando uma moeda) e **um único por
+andar** (50 inimigos distintos).
 
-## Validação de UI/UX (designer)
-- **Colocação primária = card do ANDAR** (`_render_floor`), à **direita** do texto: o card já sabe o
-  inimigo exato (nome/stats/atmosfera) e tem espaço horizontal sobrando. O texto (número do andar →
-  nome do chefe → stats) fica **flush-left** (hierarquia de leitura); o retrato é floreio → vai na
-  borda de fuga. Inimigo à direita "encara" o bloco de stats à esquerda.
-- **Lobby** (onde o dono marcou "HERE"): o endpoint só devolvia `{active:false}`, sem inimigo. Em vez
-  de descartar, **estendi o payload** com o próximo andar → o lobby mostra o retrato de quem vem.
-- **Sem rolagem**: o retrato (124–140px) é **≤ altura do bloco de texto** ao lado → não cresce o card.
-- **Layout**: card vira `HBox[ VBox(texto, EXPAND) , moldura(retrato) ]`; o botão **⚔ Lutar / Entrar**
-  continua **full-width abaixo** do HBox (nunca estreitado pelo retrato).
-- **MVP** (andares 10/20/30/40/50): moldura **dourada** + selo **BOSS**; comuns = moldura cinza.
+## Escopo da arte — 50 bustos (1 por andar)
+Cada um dos 50 andares (ver `TowerFloors.java`) tem o **seu** busto, com uma pose que combina com o
+inimigo (o tesoureiro joga moeda, o xamã ergue o cajado, o cultista levanta a adaga, o Rei Arka
+ajoelhado com a coroa…). MVP a cada 10 (10/20/30/40/50) = chefes de história, com moldura dourada +
+selo BOSS. As 50 descrições estão em `docs/previews/_busts.js` (floor, name, mvp, desc).
 
-## Escopo da arte — 10 sprites (não 50)
-As 50 fases = **5 zonas de 9 comuns + 1 MVP a cada 10** (ver `TowerFloors.java`). Dentro de uma zona,
-os 9 comuns são variações de UM arquétipo (ex.: Zona 1 = "guarda caída"). O jogador vê **um andar por
-vez** → 1 arquétipo por zona lê certo. Os 5 MVPs são marcos de história → arte própria. Total: **10**.
-- `zone1` (1–9) — guarda morta da guarnição (Gate Sentry…)
-- `zone2` (11–19) — nobre cortesão podre (Gilded Wretch…)
-- `zone3` (21–29) — acólito do culto de sangue (Bleeding Acolyte…)
-- `zone4` (31–39) — guarda transformado pela sombra do Rei (The Becoming…)
-- `zone5` (41–49) — espectro quase-humano do Limiar (The Undecided…)
-- `mvp10` The Fallen Captain · `mvp20` The Coin-Eaten · `mvp30` The Crowned Echo ·
-  `mvp40` The Xamã (Oren) · `mvp50` Rei Arka
-
-Promover um comum específico a sprite única depois é trivial (sem mexer no layout) — só se uma zona
-parecer repetitiva no playtest.
+> **Histórico**: a v1 fez 10 sprites de **corpo inteiro** (5 arquétipos de zona + 5 MVPs) via
+> `create_character`. O dono pediu **busto com zoom** + **um por andar**, então trocou-se por 50
+> bustos animados (abaixo). Os 10 antigos foram removidos.
 
 ## Mapeamento andar → chave (i18n-proof)
-Por **número do andar**, não pelo nome (que é localizado PT/EN):
-`_tower_art_key(floor, is_mvp)` → `"mvp%d"` se MVP (múltiplo de 10), senão `"zone%d"` com
-`zone = (floor-1)/10 + 1`.
+Por **número do andar** (o nome do inimigo é localizado PT/EN): `_tower_art_key(floor, _is_mvp)` →
+`"f%d" % floor`. Arte em `godot-client/assets/ui/tower/f<andar>/f0..f4.png`. A moldura dourada do MVP
+é decidida em `_enemy_portrait` pelo `is_mvp`, não pela chave.
 
-## Pipeline PixelLab
-- **Personagem**: `create_character` mode **v3** (qualidade máxima), `view="side"`, `size=64`,
-  `single color outline`, `high detail`, humanoid. ~2 gen cada.
-- **Animação**: `animate_character` template `breathing-idle`, **só `south`** (1 gen) — idle sutil que
-  preserva a pose. Re-roll barato com `mode="v3"` + `action_description` se a template ficar ruim.
-- **Download**: quadros `south` do idle → `godot-client/assets/ui/tower/<key>/f0.png … fN.png`.
-- Custo: ~10 sprites × (2 + 1) ≈ **30 generations** (orçamento da conta: ~4600). Folgado.
+## Pipeline PixelLab (validado)
+- **Busto**: `create_map_object` (ilustração única, estática), `view="side"` (eye-level), `132x140`,
+  `single color outline`, `detailed shading`, `high detail`. Descrição: *"Pixel art bust portrait,
+  head and chest close-up, of <pose característica>, grim dark fantasy"*. ~1-2 gen, ~30-90s.
+- **Animação**: `animate_object` mode **v3**, `frame_count=4` (idle curto → guarda **5** quadros:
+  ref + 4), `"subtle idle, gentle breathing, slight sway"`. O map object vira um "object" animável.
+  ~1 gen, ~1-6 min. O MVP do tesoureiro tem anim própria (moeda girando).
+- **Download**: zip `https://api.pixellab.ai/mcp/objects/<id>/download` → extrai
+  `animations/*/unknown/frame_*.png` → `assets/ui/tower/f<andar>/f0..f4.png`. Script `docs/previews/_dl.sh`
+  (idempotente, lê `docs/previews/_ids.txt` = floor↔object_id).
+- **Limites da conta (Tier 2)**: **10 jobs concorrentes** + **rate-limit de burst** (~4-5/vez) →
+  gerar em ondas. Custo total ~150 generations.
 
 ## Integração Godot
-- **`ui/TowerPreview.gd`** (`class_name TowerPreview`, extends `TextureRect`): cicla
-  `res://assets/ui/tower/<key>/fN.png` em loop (`_process`, 8 fps, `TEXTURE_FILTER_NEAREST`).
-  Fallback em cascata: vários quadros → 1 estático (`<key>.png`) → `null` (quem chama esconde).
-  `TowerPreview.make(key, px)` é a fábrica.
-- **`ui/Tower.gd`**: `_tower_art_key()` + `_enemy_portrait(key, is_mvp, border)` (alcova escura
-  emoldurada; MVP dourado + selo BOSS; fallback `Icons.rect("tower")` enquanto a arte não existe).
-  `_render_floor` e `_render_lobby` viraram 2 colunas.
+- **`ui/TowerPreview.gd`** (`class_name TowerPreview`, extends `TextureRect`): cicla os fN.png em loop
+  (`_process`, 6 fps, `TEXTURE_FILTER_NEAREST`). Fallback: estático → ícone da torre.
+- **`ui/Tower.gd`**: `_tower_art_key()` (→ `fN`) + `_enemy_portrait(key, is_mvp, border)` (alcova
+  escura emoldurada; MVP dourado + selo BOSS). `_render_floor` e `_render_lobby` em 2 colunas
+  (texto à esquerda + busto à direita; CTA full-width abaixo). Sem rolagem.
 - **`TowerController.getCurrent`**: sem run ativa, devolve `nextFloor`/`isMvp`/`bossName`/`highestFloor`
-  (o `enter()` começa em `towerBestFloor+1`). `active:false` preservado → testes antigos passam.
+  (o `enter()` começa em `towerBestFloor+1`) p/ o lobby mostrar o busto. `active:false` preservado.
 
 ## Verificação
 - Backend: `TowerServiceTest` + `TowerIntegrationTest` verdes (payload aditivo).
-- Godot (reabrir p/ importar a arte): lobby e card do andar mostram o retrato à direita, animado;
-  MVP com moldura dourada + BOSS; sem rolagem; fallback de ícone antes da arte existir.
+- Galeria de revisão: `docs/previews/torre_bustos.html` (50 bustos animados; abre no navegador).
+- Godot (reabrir p/ importar a arte): lobby + card do andar mostram o busto animado à direita;
+  MVP com moldura dourada + BOSS; fallback de ícone antes da arte importar.

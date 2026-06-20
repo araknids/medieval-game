@@ -170,12 +170,11 @@ func _render_floor() -> void:
 	vb.add_child(UiKit.action_big("⚔ Lutar", _fight))
 	content.add_child(res[0])
 
-# [TORRE_PREVIEW] andar → chave de arte. Mapeado pelo NÚMERO do andar (i18n-proof — o nome do
-# inimigo é localizado PT/EN). MVP (10/20/…/50) tem arte própria; cada zona de 9 comuns divide 1 arquétipo.
-func _tower_art_key(floor: int, is_mvp: bool) -> String:
-	if is_mvp or floor % 10 == 0:
-		return "mvp%d" % floor
-	return "zone%d" % (int((floor - 1) / 10) + 1)
+# [TORRE_PREVIEW] andar → chave de arte. 1 BUSTO ÚNICO por andar (assets/ui/tower/f<andar>/),
+# mapeado pelo NÚMERO do andar (i18n-proof — o nome do inimigo é localizado PT/EN). O `_is_mvp`
+# segue no parâmetro só p/ a moldura dourada (decidida em _enemy_portrait), não muda a chave.
+func _tower_art_key(floor: int, _is_mvp: bool) -> String:
+	return "f%d" % floor
 
 # [TORRE_PREVIEW] Retrato emoldurado do inimigo numa alcova escura. MVP = moldura dourada + tag BOSS.
 # Sem arte ainda (TowerPreview.make == null) → cai no ícone da torre (nunca caixa vazia).

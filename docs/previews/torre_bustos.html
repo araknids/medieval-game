@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="pt"><head><meta charset="utf-8">
+<title>Torre — 50 Bustos</title>
+<style>
+  :root{--gold:#c9a227;--bg:#0d0b10;--card:#15121a;--alcove:#0b0a0e;--line:#2a2533;--dim:#9a90a6}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:#e8e2ef;font-family:Segoe UI,system-ui,sans-serif;padding:26px}
+  h1{color:var(--gold);font-size:24px;margin:0 0 4px}
+  .sub{color:var(--dim);margin:0 0 22px;font-size:14px}
+  .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:16px}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:12px;text-align:center}
+  .card.mvp{border-color:var(--gold);box-shadow:0 0 0 1px rgba(201,162,39,.25)}
+  .fl{font-size:11px;color:var(--dim);text-align:left;margin-bottom:6px}
+  .card.mvp .fl{color:var(--gold)}
+  .alcove{background:var(--alcove);border:2px solid var(--line);border-radius:6px;height:190px;display:flex;align-items:center;justify-content:center}
+  .card.mvp .alcove{border-color:var(--gold)}
+  img{image-rendering:pixelated;width:165px;height:auto}
+  .tag{display:inline-block;font-size:9px;letter-spacing:1px;color:var(--gold);border:1px solid var(--gold);border-radius:3px;padding:1px 5px;margin-top:7px}
+  .name{font-size:15px;font-weight:600;margin:7px 0 0}
+  .card.mvp .name{color:var(--gold)}
+</style></head><body>
+<h1>Torre — 50 Bustos</h1>
+<p class="sub">Um busto animado (idle em loop) por andar · MVP a cada 10 com moldura dourada · PixelLab</p>
+<div class="grid" id="grid"></div>
+<script src="_busts.js"></script>
+<script>
+const ART = "../../godot-client/assets/ui/tower";
+const grid = document.getElementById("grid");
+for (const b of BUSTS){
+  const card = document.createElement("div");
+  card.className = "card" + (b.mvp ? " mvp" : "");
+  card.innerHTML =
+    '<div class="fl">Andar '+b.floor+'</div>' +
+    '<div class="alcove"><img alt="'+b.name+'"></div>' +
+    (b.mvp ? '<span class="tag">BOSS</span>' : '') +
+    '<div class="name">'+b.name+'</div>';
+  grid.appendChild(card);
+  const img = card.querySelector("img");
+  const frames = [0,1,2,3,4].map(i => ART+"/f"+b.floor+"/f"+i+".png");
+  let i = 0; img.src = frames[0];
+  setInterval(()=>{ i=(i+1)%frames.length; img.src = frames[i]; }, 166);
+}
+</script></body></html>
