@@ -482,7 +482,7 @@ func _build_fighters() -> void:
 	var emeta: Dictionary = {}
 	if enemy_monster != "":
 		emeta = mons.meta_for(enemy_monster)
-	elif not force_mock:
+	elif not force_mock and fight_scene != "tower":   # [TORRE_VESTE] Torre = SEMPRE humano (guarda/corte caída); resto pode ser besta
 		var enemy_name := force_enemy_name if force_enemy_name != "" else rname
 		var pick := mons.pick_for(enemy_name)
 		if pick.get("kind") == "monster":
@@ -559,7 +559,7 @@ func _build_group() -> void:
 		var emeta: Dictionary = {}
 		var look: Dictionary = {}
 		var ew := "sword"
-		var pick := mons.pick_for(nm)
+		var pick := mons.pick_for(nm) if fight_scene != "tower" else {"kind": "human"}   # [TORRE_VESTE] Torre = humano
 		if pick.get("kind") == "monster":
 			emeta = pick
 		else:

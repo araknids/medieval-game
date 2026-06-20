@@ -56,6 +56,13 @@ const NAME_MAP := [
 	["glimmer", "Green Spiky Blob"], ["blob", "Green Blob"], ["slime", "Green Blob"],
 	["ooze", "Green Blob"], ["gel", "Green Blob"], ["alien", "Alien"], ["cactoro", "Cactoro"],
 	["deepworm", "Cactoro"], ["siren", "Glub"],
+	# — PT: nomes LOCALIZADOS (o backend traduz monster.* p/ português; casa por palavra inteira). [I18N]
+	# Ex.: "Serpente Marinha" casava só o EN "serpent" (palavra inteira ≠ "serpente") → vinha humano. Agora vira besta.
+	["serpente", "Glub"], ["caranguejo", "Glub"], ["afogado", "Glub"], ["sereia", "Glub"], ["abissal", "Glub"],
+	["leviatã", "Glub Evolved"], ["leviata", "Glub Evolved"], ["peixe", "Fish"],
+	["aranha", "Hywirl"], ["aberração", "Hywirl"], ["aberracao", "Hywirl"], ["prismático", "Hywirl"], ["prismatico", "Hywirl"],
+	["morcego", "Armabee"], ["morcegos", "Armabee"], ["verme", "Cactoro"], ["ogro", "Goleling Evolved"],
+	["espectro", "Ghost"], ["fantasma", "Ghost"], ["gema", "Green Spiky Blob"], ["lodo", "Green Blob"], ["gosma", "Green Blob"],
 ]
 
 # palavras que indicam BOSS → aumenta a altura ×1.25
