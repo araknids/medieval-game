@@ -775,6 +775,8 @@ func _war_hit(e: Dictionary, crit: bool) -> void:
 		_face_node(a, t["node"])
 		if a.get("anim"):
 			a["anim"].play(_clip(a, "attack") if a.get("is_monster", false) else _melee_clip(a), BLEND)
+		if not a.get("ranged", false):
+			_war_lunge(a, t["node"])   # [GRUPO] melee dá um PASSO até o alvo e volta (não ataca de longe)
 	var dmg := int(e.get("damage", 0))
 	var zone := str(e.get("hitZone", "body"))
 	if zone == "": zone = "body"
@@ -799,6 +801,20 @@ func _war_hit(e: Dictionary, crit: bool) -> void:
 		_kill(t)
 	elif dmg > 0:
 		_on_impact(crit)
+
+# [GRUPO] Lunge: o atacante MELEE dá um PASSO até o alvo e volta — senão fica "atacando de longe" na luta
+# em grupo (torre 2v1/3v1). Para ~1.2u antes do alvo (alcance do golpe). Arco (ranged) NÃO lunga.
+func _war_lunge(a: Dictionary, target: Node3D) -> void:
+	var node := a.get("node") as Node3D
+	if not is_instance_valid(node) or not is_instance_valid(target): return
+	var home: Vector3 = a.get("anchor", node.position)
+	var to_t: Vector3 = (target.position - home) * Vector3(1, 0, 1)
+	if to_t.length() < 1.3: return   # já está perto → não precisa lungar
+	var hit_pos: Vector3 = home + to_t - to_t.normalized() * 1.2
+	var tw := node.create_tween()
+	tw.tween_property(node, "position", hit_pos, 0.12).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+	tw.tween_interval(0.05)
+	tw.tween_property(node, "position", home, 0.22).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
 
 # [OUTFITS_FEMALE][SKIN_RARIDADE] veste o lutador com um SET NOVO (tema/gênero/variante do `look`)
 # + recolor por raridade. look = {theme, gender, rarity, seed}; ausente → ranger male cor base.
@@ -2212,8 +2228,8 @@ func _popup(pos: Vector3, text: String, color: Color, big: bool) -> void:
 	lbl.no_depth_test = true
 	lbl.render_priority = 2   # sempre na frente do burst
 	if is_crit:
-		lbl.modulate = Color(1.0, 0.97, 0.86)              # branco-quente (lê em cima do miolo amarelo do burst)
-		lbl.outline_modulate = Color(0.12, 0.0, 0.0, 1)    # contorno quase-preto = contraste forte
+		lbl.modulate = Color(1.0, 0.88, 0.20)              # amarelo Ragnarok (lê em cima do burst vinho/vermelho-escuro)
+		lbl.outline_modulate = Color(0.10, 0.0, 0.0, 1)    # contorno quase-preto = contraste forte
 		lbl.outline_size = 9
 		lbl.font_size = 80
 		lbl.pixel_size = 0.0050
