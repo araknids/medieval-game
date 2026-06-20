@@ -34,17 +34,30 @@ public class TowerService {
 
     private static final int STAMINA_COST = 25;
 
-    // ── [TORRE_NARRATIVA] Stats por andar (1 monstro / MVP). Tunável pela sonda; alvo ~1 andar por nível. ──
-    /** [REBALANCE] Stats: dex = acerto (d20+dex/5), agi = esquiva/velocidade. */
+    // ── [TORRE_NARRATIVA][TORRE_CURVA] Stats por andar. Calibrado pela sonda (TowerBalanceProbeTest) p/ a
+    // dificuldade SUBIR a cada andar com um build geared no nível recomendado (~1 andar por nível). Andar
+    // de 1 monstro = budget cheio; andar multi escala POR monstro (ver monstersFor) p/ a SOMA virar um
+    // DEGRAU na curva, não um pico. Números são placeholders p/ tuning no playtest. ──
+    /** [REBALANCE] Stats: dex = acerto, agi = esquiva/velocidade. */
     public record BossInfo(String name, int attack, int defense, int health, int dex, int agi, int luk) {}
 
-    private BossInfo monster(int floor, String name, int hpDivisor, double atkMult, boolean mvp) {
-        int atk = (int) Math.round((9 + floor * 1.3) * atkMult * (mvp ? 1.4 : 1.0));
-        int def = (int) Math.round((4 + floor * 0.5) * (mvp ? 1.2 : 1.0));
-        int hp  = (int) Math.round((50 + floor * 11) * (mvp ? 1.9 : 1.0) / hpDivisor);
-        int dex = Math.min(10 + floor / 2, 40);
-        int agi = Math.min(floor / 6, 10) + (mvp ? 3 : 0);
-        int luk = Math.min(floor / 5, 15) + (mvp ? 3 : 0);
+    // [TORRE_CURVA] base + crescimento por andar dos stats do monstro (single). Crescimento casa com o ganho
+    // de poder do jogador por nível → at-level fica ~constante e a curva sobe suave (sem cliff).
+    private static final double M_ATK_BASE = 9.0,  M_ATK_PER = 1.9;
+    private static final double M_DEF_BASE = 4.0,  M_DEF_PER = 0.7;
+    private static final double M_HP_BASE  = 60.0, M_HP_PER  = 16.0;
+    // [TORRE_CURVA] MVP = chefe de história: um degrau acima do andar, mas vencível (não o muro de antes).
+    private static final double MVP_ATK = 1.12, MVP_DEF = 1.05, MVP_HP = 1.3;
+    private static final int    MVP_AGI = 1,    MVP_LUK = 1;
+
+    /** {@code atkScale}/{@code hpScale} = 1.0 no single; <1 nos andares multi (ver monstersFor) p/ a soma encaixar. */
+    private BossInfo monster(int floor, String name, double atkScale, double hpScale, boolean mvp) {
+        int atk = (int) Math.round((M_ATK_BASE + floor * M_ATK_PER) * atkScale * (mvp ? MVP_ATK : 1.0));
+        int def = (int) Math.round((M_DEF_BASE + floor * M_DEF_PER) * (mvp ? MVP_DEF : 1.0));
+        int hp  = (int) Math.round((M_HP_BASE + floor * M_HP_PER) * hpScale * (mvp ? MVP_HP : 1.0));
+        int dex = Math.min(10 + floor / 2, 45);
+        int agi = Math.min(floor / 6, 10) + (mvp ? MVP_AGI : 0);
+        int luk = Math.min(floor / 5, 15) + (mvp ? MVP_LUK : 0);
         return new BossInfo(name, atk, def, Math.max(1, hp), dex, agi, luk);
     }
 
@@ -60,13 +73,21 @@ public class TowerService {
         return n >= 0 && n < r.length ? r[n] : String.valueOf(n);
     }
 
+    // [TORRE_CURVA] andar multi: a SOMA dos N monstros ≈ este múltiplo de um single → DEGRAU, não pico.
+    // (N atacam ao mesmo tempo, então a soma fica só um pouco acima do single do andar — encaixa na curva.)
+    private static final double GROUP_ATK_BUMP = 1.0;    // soma atk ≈ single; produto atk×hp ≈ 1.4 → andar multi ≈ single
+    private static final double GROUP_HP_BUMP  = 1.4;    // (N atacam JUNTOS é mais punível, então a soma fica ~no single)
+
     public List<BossInfo> monstersFor(int floor) {
         TowerFloors.FloorDef d = TowerFloors.forFloor(floor);
         if (d.isMvp()) return List.of(monster(floor,
-                monName(d.mvp()) + messages.getOr("tower.floor_suffix", " (Floor {0})", floor), 1, 1.0, true)); // [I18N]
+                monName(d.mvp()) + messages.getOr("tower.floor_suffix", " (Floor {0})", floor), 1.0, 1.0, true)); // [I18N]
         String[] ms = d.monsters().length > 0 ? d.monsters() : new String[]{"Tower Horror"};
-        List<BossInfo> out = new java.util.ArrayList<>(ms.length);
-        for (String name : ms) out.add(monster(floor, monName(name), 1, 1.0, false)); // [TORRE_GRUPO] stats cheios p/ cada um
+        int n = ms.length;
+        double atkScale = n == 1 ? 1.0 : GROUP_ATK_BUMP / n; // [TORRE_CURVA] divide o budget do andar entre os N
+        double hpScale  = n == 1 ? 1.0 : GROUP_HP_BUMP / n;
+        List<BossInfo> out = new java.util.ArrayList<>(n);
+        for (String name : ms) out.add(monster(floor, monName(name), atkScale, hpScale, false));
         return out;
     }
 

@@ -72,3 +72,35 @@ de HP, `_war_hit`, `_finish`, e o **stepping por-evento** da fase `"war"`. Reapr
 - Kiting (arco vs melee) no grupo usa o mesmo `attackRound`; com vários inimigos colando, o estado
   `pinned` do jogador é compartilhado (aproximação — placeholder, tunável).
 - Triângulo/elementos não entram na Torre (neutra), mantido.
+
+---
+
+## Curva de dificuldade — crescente [TORRE_CURVA]
+
+Com "stats cheios + simultâneo", os andares multi viraram PICOS (F24 x3 era mais difícil que ~10
+andares à frente) e os de 1 monstro eram triviais (build geared lvl40 limpava o F49 a ~98%). O dono
+pediu dificuldade **crescente**. Rebalance (constantes no topo do `TowerService`, tunadas pela sonda):
+
+- **Base do monstro** (`M_ATK_BASE/PER`, `M_HP_*`, `M_DEF_*`) recalibrada p/ o crescimento por andar
+  casar com o ganho de poder do jogador por nível → **at-level fica ~constante** e a curva sobe suave
+  (sem cliff). Andares de 1 monstro deixam de ser triviais.
+- **MVP** (`MVP_ATK/DEF/HP/AGI/LUK`) baixado de muro (era 0% at-level) p/ **degrau vencível** — boss
+  do bloco (F10≈70% → F50≈20% at-level), não parede.
+- **Andar multi** (`GROUP_ATK_BUMP`/`GROUP_HP_BUMP`): a soma dos N escala p/ o andar **encaixar na
+  curva** (≈ um single do andar), não N×. Modelo: p/ 2 inimigos simultâneos, `atkBump×hpBump ≈ 1.33`
+  ≈ dificuldade de 1; usei produto ~1.4. Resultado: F24 x3 deixou de ser pico (at-level ~90%, em
+  linha com os vizinhos).
+
+Validação: sonda `ZzTowerCurveProbe` (temp, apagada) varreu os 50 andares em build fixo + at-level
+até a curva subir suave. `TowerBalanceProbeTest` (oficial) mede at-level **20%–99%**. Números seguem
+placeholders p/ playtest — todos os knobs são constantes nomeadas no topo do `monster()`/`monstersFor`.
+
+## Roupas dos inimigos da Torre [TORRE_VESTE]
+Escopo: só quando `fight_scene == "tower"` (arena/PvP/guerra intactos). Em `BattleReplay.gd`:
+- **MVPs** (`TOWER_MVP_LOOK`, casa o nome por substring): **set completo** + tema + recolor alto —
+  Fallen Captain=knight, Coin-Eaten/Crowned Echo/Rei Arka=noble (**HELMET=Crown** → coroa; Arka/Coin
+  raridade 5 = dourado), Xamã=wizard (manto). Um tiquinho maiores (scale 1.10).
+- **Comuns**: sempre **bem vestidos** (nunca pelado/sem peito; raras sem elmo), tema pela "cara" do
+  nome (`_tower_theme_for`: culto→wizard, corte→noble, guarda→knight), wizard empunha "cajado" (mace).
+- Tudo via os temas/peças que já existem em `Outfits.gd` (sem asset novo). `_appearance` dá tema+cor;
+  `_enemy_look` dá os slots vestidos.
