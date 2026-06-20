@@ -46,7 +46,9 @@ public abstract class BaseIntegrationTest {
     protected String registerAndGetToken(String username) throws Exception {
         String email       = username + "@test.com";
         String password    = "senha123";
+        // [NICK_LIMIT] warriorName respeita o @Size(max=20) do backend (username longo não estoura).
         String warriorName = "Guerreiro " + username;
+        if (warriorName.length() > 20) warriorName = warriorName.substring(0, 20);
 
         String body = objectMapper.writeValueAsString(Map.of(
                 "username",    username,
