@@ -38,7 +38,9 @@ const HAND_XF := {
 # Escudo no antebraço: escala + base de posição (somada aos opts slide/push/side) + rotação. [ARMAS_3D]
 const SHIELD_SCALE := 0.20
 # Preso na MÃO (LeftHand) → empunhado, não no antebraço. x=lado, y=ao longo da mão, z=frente.
-const SHIELD_BASE := Vector3(0.0, 0.02, 0.06)
+# [FIX] z subiu (0.06→0.12): empurra o escudo PRA FRENTE da mão → a mão fica ATRÁS dele (não pra fora).
+# Tuning: x=mover de lado · y=ao longo da mão (cima/baixo) · z=frente/trás. [ESCUDO_MAO]
+const SHIELD_BASE := Vector3(0.0, 0.02, 0.12)
 # [FIX] (0,0,0)=de cabeça pra baixo; (0,0,180)=em pé MAS a face apontava pra TRÁS (escudo ao contrário).
 # 180° em X vira a face pra FRENTE e mantém em pé (espelha Y e Z, preserva o lado). [ESCUDO_FACE]
 const SHIELD_ROT := Vector3(180, 0, 0)
