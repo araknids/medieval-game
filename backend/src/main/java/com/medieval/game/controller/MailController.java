@@ -161,7 +161,12 @@ public class MailController {
                     : ""),
             Map.entry("resourceCollected", m.isResourceCollected()),
             Map.entry("isExpired",       m.isExpired()),
-            Map.entry("expiresAt",       m.getExpiresAt() != null ? m.getExpiresAt().toString() : "")
+            Map.entry("expiresAt",       m.getExpiresAt() != null ? m.getExpiresAt().toString() : ""),
+            // [INCURSAO_PVP] replay anexado (mail de raid): log + eventos (JSON) + cena → o cliente toca o replay
+            Map.entry("hasReplay",       m.hasReplay()),
+            Map.entry("battleLog",       m.getBattleLog()        != null ? m.getBattleLog()        : ""),
+            Map.entry("battleEventsJson",m.getBattleEventsJson() != null ? m.getBattleEventsJson() : ""),
+            Map.entry("battleScene",     m.getBattleScene()      != null ? m.getBattleScene()      : "")
         );
     }
 

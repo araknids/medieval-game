@@ -459,6 +459,10 @@ public class SchemaMigrator {
             jdbc.execute("ALTER TABLE mail ADD COLUMN IF NOT EXISTS resource_type      varchar(40)");
             jdbc.execute("ALTER TABLE mail ADD COLUMN IF NOT EXISTS resource_qty       integer NOT NULL DEFAULT 0");
             jdbc.execute("ALTER TABLE mail ADD COLUMN IF NOT EXISTS resource_collected boolean NOT NULL DEFAULT false");
+            // [INCURSAO_PVP] replay anexado (mail de raid): log + eventos + cena
+            jdbc.execute("ALTER TABLE mail ADD COLUMN IF NOT EXISTS battle_log         text");
+            jdbc.execute("ALTER TABLE mail ADD COLUMN IF NOT EXISTS battle_events_json text");
+            jdbc.execute("ALTER TABLE mail ADD COLUMN IF NOT EXISTS battle_scene       varchar(20)");
             log.info("[SchemaMigrator] mail item columns ensured");
         } catch (Exception e) {
             log.warn("[SchemaMigrator] mail item columns patch failed: {}", e.getMessage());

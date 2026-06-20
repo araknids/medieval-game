@@ -192,6 +192,14 @@ const EN := {
 	"🍺 Beber AGORA!": "🍺 Drink NOW!", "💬 Chat": "💬 Chat", "Diga algo…": "Say something…",
 	# — Templo / bênçãos —
 	"Padre Anselmo": "Father Anselm",
+	# — [INCURSAO_PVP] escolha PvP na Incursão + Replays no Correio —
+	"Atacar %s (PvP)": "Attack %s (PvP)",
+	"Lutar o monstro (PvE)": "Fight the monster (PvE)",
+	"Um guerreiro exposto cruza seu caminho — pego em PvP na última hora.": "An exposed warrior crosses your path — flagged for PvP within the last hour.",
+	"A luta": "The fight", "Ver replay": "Watch replay",
+	"Replays (%d)": "Replays (%d)", "Nenhum replay": "No replays",
+	"Lutas que você perdeu (ataques PvP) aparecem aqui pra rever.": "Fights you lost (PvP attacks) show up here to rewatch.",
+	"Reveja batalhas que você perdeu (ataques PvP)": "Rewatch battles you lost (PvP attacks)",
 	"Fui enviado pelos céus para amparar os que sofrem. Aqui o cansado encontra cura, o bravo recebe bênçãos para a batalha, e o que lhe é precioso fica a salvo. Descanse um instante, guerreiro — que a luz o acompanhe lá fora.": "I was sent from the heavens to comfort those who suffer. Here the weary find healing, the brave receive blessings for battle, and what you hold dear is kept safe. Rest a moment, warrior — may the light go with you out there.",
 	"Bênçãos": "Blessings", "🙏 Bênçãos": "🙏 Blessings", "🙏 ABENÇOADO": "🙏 BLESSED",
 	"Curar (grátis)": "Heal (free)", "💎 Cura instantânea (1 SoulStone)": "💎 Instant heal (1 SoulStone)",

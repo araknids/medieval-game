@@ -6,6 +6,7 @@ extends Control
 # /api/warrior; POST /api/mail/{id}/read|collect|... Padrão visual: UiKit [PADRAO_UI_GODOT].
 
 signal go_back
+signal request_battle(data)   # [INCURSAO_PVP] toca o replay 3D da luta guardada num mail (raid)
 
 const Icons := preload("res://ui/Icons.gd")
 # [MAIL_ABAS] value · icon_key (PixelLab) · rótulo de fallback (sem emoji) · tooltip do hover
@@ -13,7 +14,7 @@ const TABS := [
 	["received", "mail_received", "Recebidos", "Cartas de outros jogadores"],
 	["system",   "mail_system",   "Sistema",   "Recompensas, conquistas e avisos do jogo"],
 	["sent",     "mail_sent",     "Enviados",  "Cartas que você enviou"],
-	["replays",  "mail_replays",  "Replays",   "Reveja suas batalhas (em breve)"],
+	["replays",  "mail_replays",  "Replays",   "Reveja batalhas que você perdeu (ataques PvP)"],
 ]
 
 var content: VBoxContainer
@@ -108,8 +109,13 @@ func _render_sent() -> void:
 	content.add_child(UiKit.grid(self, sent, func(m): return _letter_row(m) if m is Dictionary else null))
 
 func _render_replays() -> void:
-	content.add_child(UiKit.section(Lang.t("Replays")))
-	content.add_child(UiKit.empty("Replays — em breve", "Reveja suas batalhas aqui. Em construção."))
+	# [INCURSAO_PVP] cartas com replay anexado (ex.: raid PvP que você sofreu) — abre o modal com log + replay.
+	var withReplay: Array = letters.filter(func(m): return m is Dictionary and bool(m.get("hasReplay", false)))
+	content.add_child(UiKit.section(Lang.t("Replays (%d)") % withReplay.size()))
+	if withReplay.is_empty():
+		content.add_child(UiKit.empty(Lang.t("Nenhum replay"), Lang.t("Lutas que você perdeu (ataques PvP) aparecem aqui pra rever.")))
+		return
+	content.add_child(UiKit.grid(self, withReplay, func(m): return _letter_row(m) if m is Dictionary else null))
 
 # ── barra de abas (ícone + nome + tooltip; badge de não-lidas) [MAIL_ABAS] ──
 func _tab_bar() -> Control:
@@ -140,8 +146,6 @@ func _tab_btn(value: String, icon_key: String, label: String, tooltip: String) -
 		b.add_theme_stylebox_override("hover", sb)
 		b.add_theme_stylebox_override("pressed", sb)
 		b.add_theme_stylebox_override("focus", sb)
-	elif value == "replays":
-		b.modulate = Color(1, 1, 1, 0.45)  # "em breve" — apagado
 	else:
 		b.modulate = Color(1, 1, 1, 0.6)
 	return b
@@ -277,11 +281,36 @@ func _open_panel() -> PanelContainer:
 		lbl.add_theme_color_override("font_color", Color(0.5, 0.82, 0.88))
 		vb.add_child(lbl)
 		vb.add_child(UiKit.action("📦 Adicionar à mochila", _claim_resource.bind(opened_id)))
+	if bool(r.get("hasReplay", false)):   # [INCURSAO_PVP] mail de raid: log + replay 3D da luta perdida
+		vb.add_child(UiKit.section(Lang.t("A luta")))
+		var log_txt := UiKit.strip_web_emoji(str(r.get("battleLog", "")))
+		if log_txt != "":
+			var sc := ScrollContainer.new()
+			sc.custom_minimum_size = Vector2(0, 150)
+			sc.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+			var log_lbl := UiKit.dim(log_txt)
+			log_lbl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+			log_lbl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+			sc.add_child(log_lbl)
+			vb.add_child(sc)
+		vb.add_child(UiKit.action(Lang.t("Ver replay"), _watch_replay))
 	vb.add_child(UiKit.spacer(4))
 	var close_btn := UiKit.action(Lang.t("Fechar"), _close_modal)
 	close_btn.custom_minimum_size = Vector2(0, 38)
 	vb.add_child(close_btn)
 	return pc
+
+# [INCURSAO_PVP] toca o replay 3D da batalha guardada no mail aberto (eventos serializados pelo backend).
+func _watch_replay() -> void:
+	var raw := str(opened.get("battleEventsJson", ""))
+	if raw == "":
+		return
+	var events = JSON.parse_string(raw)
+	if not (events is Array) or events.size() < 2:
+		return
+	_close_modal()
+	request_battle.emit({"events": events, "scene": str(opened.get("battleScene", "")),
+		"won": false, "enemy": str(opened.get("from", ""))})
 
 # ── ações (1 chamada; em sucesso re-sincroniza a inbox e fecha o modal via _refresh) ──
 func _collect_gold(id: int) -> void:

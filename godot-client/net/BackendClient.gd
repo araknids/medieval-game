@@ -164,6 +164,9 @@ func expedition_choose(id: int, node_id: String) -> Dictionary:
 ## POST /api/expedition/{id}/node {optionId} — resolve o nó de EVENTO pendente.
 func expedition_node(id: int, option_id: String) -> Dictionary:
 	return await _request(HTTPClient.METHOD_POST, "/api/expedition/%d/node" % id, {"optionId": option_id}, true)
+## POST /api/expedition/{id}/combat {pvp} — escolhe o combate do nó: pvp=true saqueia a vítima flagada. [INCURSAO_PVP]
+func expedition_combat(id: int, pvp: bool) -> Dictionary:
+	return await _request(HTTPClient.METHOD_POST, "/api/expedition/%d/combat" % id, {"pvp": pvp}, true)
 ## POST /api/expedition/{id}/extract — saca a bolsa (banca tudo) e encerra a run.
 func expedition_extract(id: int) -> Dictionary:
 	return await _request(HTTPClient.METHOD_POST, "/api/expedition/%d/extract" % id, {}, true)

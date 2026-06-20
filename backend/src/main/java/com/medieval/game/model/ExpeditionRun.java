@@ -97,6 +97,10 @@ public class ExpeditionRun {
     @Column(length = 60)
     private String pendingEventQuest;
 
+    /** [INCURSAO_PVP] Quando NODE_PENDING de COMBATE (zona 🟡/🔴): id da vítima flagada oferecida — o
+     *  atacante escolhe PvE (monstro) ou PvP (saquear essa vítima). null = nó de combate normal. */
+    private Long pendingPvpVictimId;
+
     // ── [INCURSAO_EVENTOS] Eventos NATIVOS da Incursão (pacto/loja/altar/santuário) ──
     /** Tipo do evento nativo pendente: PACT / SHOP / ALTAR / SANCTUARY (null = é quest de reino). */
     @Column(length = 20)

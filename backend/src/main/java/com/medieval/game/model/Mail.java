@@ -75,9 +75,18 @@ public class Mail {
     @Column(columnDefinition = "boolean default false")
     private boolean resourceCollected = false;
 
+    // ── [INCURSAO_PVP] Replay anexado (mail de raid: a vítima vê o log + o replay 3D da luta que perdeu) ──
+    @Column(columnDefinition = "TEXT")
+    private String battleLog;          // log de texto do combate (linhas join "\n")
+    @Column(columnDefinition = "TEXT")
+    private String battleEventsJson;   // List<BattleEvent> serializado → o cliente toca o replay
+    @Column(length = 20)
+    private String battleScene;        // cena/fundo do replay (coast/sea/cave/fortress/arena)
+
     public boolean isRead()        { return readAt      != null; }
     public boolean isCollected()   { return collectedAt != null; }
     public boolean hasItem()       { return itemName    != null; }
     public boolean hasResource()   { return resourceType != null && resourceQty > 0; }
     public boolean isExpired()     { return expiresAt   != null && LocalDateTime.now().isAfter(expiresAt); }
+    public boolean hasReplay()     { return battleEventsJson != null && !battleEventsJson.isBlank(); }
 }

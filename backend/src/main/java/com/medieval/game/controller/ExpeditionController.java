@@ -68,6 +68,13 @@ public class ExpeditionController {
         return ResponseEntity.ok(chooseResponse(expeditionService.resolveNode(player, id, req.optionId()), player));
     }
 
+    // [INCURSAO_PVP] Resolve a escolha PvE/PvP de um nó de combate (zona 🟡/🔴): pvp=true saqueia a vítima.
+    @PostMapping("/{id}/combat")
+    public ResponseEntity<?> combat(@PathVariable Long id, @RequestBody CombatRequest req, Authentication auth) {
+        Player player = getPlayer(auth);
+        return ResponseEntity.ok(chooseResponse(expeditionService.resolveCombatChoice(player, id, req.pvp()), player));
+    }
+
     @PostMapping("/{id}/extract")
     public ResponseEntity<?> extract(@PathVariable Long id, Authentication auth) {
         return ResponseEntity.ok(extractResponse(expeditionService.extract(getPlayer(auth), id)));
@@ -105,12 +112,23 @@ public class ExpeditionController {
                 "resources", resourceList(expeditionService.securedResourceList(run))));
         m.put("canExtract", expeditionService.runCanExtract(run));
         m.put("scene", sceneFor(run));
-        // EVENTO pendente → devolve o diálogo (evento nativo da Incursão OU quest de reino)
+        // EVENTO pendente → devolve o diálogo; COMBATE pendente em zona PvP → escolha PvE/PvP. [INCURSAO_PVP]
         if (run.getStatus() == ExpeditionStatus.NODE_PENDING) {
             m.put("pendingNodeId", run.getPendingNodeId());
-            putEventDialog(m, run);
+            putPending(m, run);
         }
         return m;
+    }
+
+    // [INCURSAO_PVP] Pending: escolha PvE/PvP (vítima flagada) OU diálogo de evento.
+    private void putPending(Map<String, Object> m, ExpeditionRun run) {
+        Map<String, Object> opp = expeditionService.pendingPvpOpponent(run);
+        if (opp != null) {
+            m.put("pvpChoice", true);
+            m.put("pvpOpponent", opp);
+        } else {
+            putEventDialog(m, run);
+        }
     }
 
     // [INCURSAO] Itens (equipamento) ganhos durante a run, ainda "em risco" (run-pending). Carrega no carried.
@@ -165,7 +183,7 @@ public class ExpeditionController {
         m.put("battleEvents", cr.battleEvents());
         m.put("scene", sceneFor(cr.run()));
         m.put("canExtract", cr.canExtract());
-        if (cr.nodePending()) putEventDialog(m, cr.run());
+        if (cr.nodePending()) putPending(m, cr.run());   // [INCURSAO_PVP] evento OU escolha PvE/PvP
         m.put("state", runState(cr.run(), player)); // estado atualizado p/ re-render do mapa
         return m;
     }
@@ -244,4 +262,5 @@ public class ExpeditionController {
                         SkillType skillType, Element element, int tier) {}
     record ChooseRequest(String nodeId) {}
     record NodeRequest(String optionId) {}
+    record CombatRequest(boolean pvp) {}   // [INCURSAO_PVP] escolha do nó de combate
 }

@@ -349,6 +349,28 @@ func _resolve_event(option_id: String) -> void:
 	busy = false
 	await _handle_step(r)
 
+# [INCURSAO_PVP] Nó de combate em zona 🟡/🔴 com vítima flagada exposta: lutar o monstro (PvE) ou
+# atacar o jogador (PvP). O atacante decide; PvP saqueia a vítima e manda um mail pra ela.
+func _show_pvp_choice(opp: Dictionary) -> void:
+	var nm := str(opp.get("name", "?"))
+	var lvl := int(opp.get("level", 0))
+	var power := int(opp.get("power", 0))
+	var title := Lang.t("Um guerreiro exposto cruza seu caminho — pego em PvP na última hora.") \
+		+ "\n%s · %s %d · %s %d" % [nm, Lang.t("Nível"), lvl, Lang.t("Poder"), power]
+	var opts := [
+		[Lang.t("Atacar %s (PvP)") % nm, "pvp"],
+		[Lang.t("Lutar o monstro (PvE)"), "pve"],
+	]
+	_choice_dialog(title, opts, func(val) -> void:
+		await _resolve_combat(str(val) == "pvp"))
+
+func _resolve_combat(pvp: bool) -> void:
+	if busy: return
+	busy = true
+	var r = await Api.expedition_combat(_run_id(), pvp)
+	busy = false
+	await _handle_step(r)
+
 # Trata a resposta de choose/node: evento pendente → diálogo; combate → replay 3D; senão → relatório.
 func _handle_step(r) -> void:
 	if not (r.get("ok") and r.get("json") is Dictionary):
@@ -359,6 +381,12 @@ func _handle_step(r) -> void:
 			run = j["state"]
 		_render()
 		_show_event_dialog(j["dialog"])
+		return
+	if bool(j.get("pvpChoice", false)) and j.get("pvpOpponent") is Dictionary:   # [INCURSAO_PVP]
+		if j.get("state") is Dictionary:
+			run = j["state"]
+		_render()
+		_show_pvp_choice(j["pvpOpponent"])
 		return
 	var be = j.get("battleEvents")
 	if be is Array and be.size() >= 2:

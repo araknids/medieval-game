@@ -244,6 +244,26 @@ public class ExpeditionService {
                     messages.getOr("delve.node.camp", "You make camp. Your wounds close and your haul is secured."), null, canExtract(run));
         }
 
+        // [INCURSAO_PVP] nó de combate em zona 🟡/🔴 com vítima flagada disponível → oferece a ESCOLHA
+        // PvE (monstro) ou PvP (saquear a vítima); pausa em NODE_PENDING e devolve o oponente. O atacante decide.
+        if (pvpRaidEnabled && (node.type() == ExpeditionNodeType.COMBAT || node.type() == ExpeditionNodeType.ELITE)
+                && run.getSource() == ExpeditionSource.ZONE && isPvpZone(run.getZone())) {
+            Player victim = findFlaggedOpponent(run.getZone(), player, warrior.getLevel());
+            Warrior vw = victim != null ? warriorRepo.findByPlayer(victim).orElse(null) : null;
+            if (vw != null) {
+                run.setStatus(ExpeditionStatus.NODE_PENDING);
+                run.setPendingNodeId(node.id());
+                run.setPendingNodeType(node.type());
+                run.setPendingPvpVictimId(victim.getId());
+                run.setPendingEventData(pvpOpponentJson(victim, vw));
+                expeditionRepo.save(run);
+                return new ChooseResult(run, node.type(), true, null, List.of(), null, null, 0, 0, false,
+                        List.of(), List.of(),
+                        messages.getOr("delve.node.pvp_choice", "A flagged warrior is exposed nearby. Hunt them down — or face the beasts of this place instead."),
+                        vw.getName(), false);
+            }
+        }
+
         NodeResolution res = resolveNonEventNode(run, player, warrior, node);
         return finishNode(run, player, node.type(), res);
     }
@@ -283,6 +303,72 @@ public class ExpeditionService {
         run.setPendingNodeType(null);
         run.setPendingEventQuest(null);
         return finishNode(run, player, ExpeditionNodeType.EVENT, res);
+    }
+
+    // ── [INCURSAO_PVP] Escolha PvE/PvP num nó de combate (zona 🟡/🔴) ──────────────
+
+    /** Preview da vítima oferecida (nome/nível/poder/hp%) em JSON → guardado no pendingEventData. */
+    private String pvpOpponentJson(Player victim, Warrior vw) {
+        int[] s = statsService.combatStats(victim, vw);
+        int power = s[0] * 2 + s[1] * 2 + s[2] + s[3] + s[4] + s[5];
+        Map<String, Object> m = new java.util.HashMap<>();
+        m.put("name", vw.getName());
+        m.put("level", vw.getLevel());
+        m.put("power", power);
+        m.put("hpPct", vw.getCalculatedHpPercent());
+        try { return objectMapper.writeValueAsString(m); } catch (Exception e) { return "{}"; }
+    }
+
+    /** Oponente PvP pendente (parse do pendingEventData) → a UI mostra quem dá pra atacar. null se não houver. */
+    public Map<String, Object> pendingPvpOpponent(ExpeditionRun run) {
+        if (run.getPendingPvpVictimId() == null || run.getPendingEventData() == null) return null;
+        try { return objectMapper.readValue(run.getPendingEventData(), Map.class); }
+        catch (Exception e) { return null; }
+    }
+
+    /** Resolve a escolha do nó de combate: {@code pvp=true} saqueia a vítima guardada; senão luta o monstro. */
+    @Transactional
+    public ChooseResult resolveCombatChoice(Player playerArg, Long runId, boolean pvp) {
+        final Player player = playerRepository.findById(playerArg.getId()).orElse(playerArg);
+        ExpeditionRun run = requireOwnedRun(player, runId);
+        if (run.getStatus() != ExpeditionStatus.NODE_PENDING || run.getPendingPvpVictimId() == null)
+            throw new IllegalStateException("No combat choice to resolve.");
+        Warrior warrior = warriorRepo.findByPlayer(player).orElseThrow();
+
+        ExpeditionMapGenerator.Map map = readMap(run);
+        Layer layer = map.layers().get(run.getCurrentLayer());
+        String nodeId = run.getPendingNodeId();
+        Node node = layer.nodes().stream().filter(n -> n.id().equals(nodeId)).findFirst()
+                .orElseThrow(() -> new IllegalStateException("Pending combat node not found."));
+        Long victimId = run.getPendingPvpVictimId();
+        ExpeditionNodeType type = run.getPendingNodeType();
+
+        // limpa o pending ANTES de resolver
+        run.setStatus(ExpeditionStatus.IN_PROGRESS);
+        run.setPendingNodeId(null);
+        run.setPendingNodeType(null);
+        run.setPendingPvpVictimId(null);
+        run.setPendingEventData(null);
+
+        NodeResolution res;
+        Player victim = pvp ? playerRepository.findById(victimId).orElse(null) : null;
+        if (pvp && victim != null && victim.isPvpFlagged() && !victim.isPvpShielded()) {
+            res = resolvePvpRaidNode(run, player, warrior, victim);   // vítima ainda exposta → saqueia
+        } else {
+            res = resolveBattleNode(run, player, warrior, node);      // PvE escolhido (ou a vítima escapou)
+        }
+        return finishNode(run, player, type, res);
+    }
+
+    /** Prepara os stats do atacante (cura cheia na ZONA, igual ao combate normal) e dispara o raid PvP. */
+    private NodeResolution resolvePvpRaidNode(ExpeditionRun run, Player player, Warrior warrior, Player victim) {
+        if (run.getSource() == ExpeditionSource.ZONE) { warrior.healFull(); warriorRepo.save(warrior); }
+        int[] stats = statsService.combatStats(player, warrior);
+        applyRunMods(run, stats);
+        int maxHp = stats[2];
+        int[] mine = stats.clone();
+        mine[2] = Math.max(1, warrior.getCalculatedHpPercent() * maxHp / 100);
+        return resolvePvpRaid(run, player, warrior, mine, maxHp, victim);
     }
 
     /** Aplica a resolução de um nó (não-pending): KO → derrota; senão credita a bolsa + avança. */
@@ -340,12 +426,8 @@ public class ExpeditionService {
         // Seta o HP no array de stats (API estável) em vez de withCurrentHp (que é WIP do [HP_SPAWN]).
         int[] mine = stats.clone();
         mine[2] = curHp;
-        // [PVP_FLAG] zona 🟡/🔴: chance de cruzar um player flagged e SAQUEAR (substitui o NPC deste nó)
-        if (pvpRaidEnabled && run.getSource() == ExpeditionSource.ZONE && isPvpZone(run.getZone())
-                && rng.nextInt(100) < run.getZone().pvpEncounterChance) {
-            Player victim = findFlaggedOpponent(run.getZone(), player, warrior.getLevel());
-            if (victim != null) return resolvePvpRaid(run, player, warrior, mine, maxHp, victim);
-        }
+        // [INCURSAO_PVP] O raid PvP agora é por ESCOLHA do atacante no nó de combate (ver choose +
+        // resolveCombatChoice), não mais por chance aleatória aqui. Este caminho é só PvE.
         int[] mob = npcStats(monsterLevel, rng);
         if (boss) { mob[0] = (int) (mob[0] * 1.35); mob[1] = (int) (mob[1] * 1.3); mob[2] = (int) (mob[2] * 1.7); }
 
@@ -730,7 +812,7 @@ public class ExpeditionService {
         victimW.setHpUpdatedAt(LocalDateTime.now());
 
         if (out.firstWon() && !warrior.isKnockedOut()) {
-            res.narrative = raidVictim(player, warrior, victim, victimW, run.getZone(), lg);
+            res.narrative = raidVictim(run, player, warrior, victim, victimW, run.getZone(), lg, out.events());
         } else {
             res.ko = true;
             res.narrative = "You were beaten by " + victimW.getName() + " (player).";
@@ -745,8 +827,10 @@ public class ExpeditionService {
         return res;
     }
 
-    /** Saqueia a vítima por TIER (🟡 bronze+XP; 🔴 +recursos+1 item travado). Loot imediato p/ o atacante. */
-    private String raidVictim(Player attacker, Warrior attackerW, Player victim, Warrior victimW, Zone zone, List<String> log) {
+    /** Saqueia a vítima por TIER (🟡 bronze+XP; 🔴 +recursos+1 item travado). Loot imediato p/ o atacante.
+     *  Manda à vítima um mail de RAID com o LOG + os eventos (replay 3D) da luta que ela perdeu. [INCURSAO_PVP] */
+    private String raidVictim(ExpeditionRun run, Player attacker, Warrior attackerW, Player victim, Warrior victimW,
+                              Zone zone, List<String> log, List<BattleSimulator.BattleEvent> events) {
         boolean red = zone == Zone.HIGH_RISK;
         long bronze = applyDefeatPenaltyTo(victim, attacker, red ? 0.15 : 0.10);
         long stolenRes = red ? stealResources(attacker, victim) : 0;
@@ -761,9 +845,12 @@ public class ExpeditionService {
                 + (stolenItem != null ? ", " + stolenItem : "")
                 + (stolenRes > 0 ? ", " + stolenRes + " resources" : "")
                 + (xpLost > 0 ? ", " + xpLost + " XP" : "");
-        log.add("💰 You raided " + victimW.getName() + "! Stole " + loot + ".");
-        mailService.sendSystemMail(victim, "💀 You were RAIDED by " + attackerW.getName()
-                + " in the " + zone.displayName + "! Lost " + loot + ". Shield " + PVP_SHIELD_MINUTES + " min.");
+        log.add("You raided " + victimW.getName() + "! Stole " + loot + ".");
+        String msg = "You were raided by " + attackerW.getName() + " in the " + zone.displayName
+                + "! Lost " + loot + ". Shielded for " + PVP_SHIELD_MINUTES + " min.";
+        String eventsJson;
+        try { eventsJson = objectMapper.writeValueAsString(events); } catch (Exception e) { eventsJson = null; }
+        mailService.sendRaidMail(victim, attackerW.getName(), msg, String.join("\n", log), eventsJson, pvpSceneFor(run));
         return "You raided " + victimW.getName() + "! Stole " + loot + ".";
     }
 
@@ -797,6 +884,26 @@ public class ExpeditionService {
         return xpLost;
     }
 
+    /** Cena/fundo do replay a partir do reino/skill da run (espelha ExpeditionController.sceneFor). [INCURSAO_PVP] */
+    private static String pvpSceneFor(ExpeditionRun run) {
+        if (run == null) return "fortress";
+        if (run.getSkillType() != null) {
+            return switch (run.getSkillType()) {
+                case FISHING -> "coast";
+                case MINING, GARIMPO -> "cave";
+                default -> "fortress";
+            };
+        }
+        Kingdom k = run.getKingdom();
+        if (k == null) return "fortress";
+        return switch (k) {
+            case FISHING -> "coast";
+            case MAR_ABENCOADO -> "sea";
+            case MINING, GRUTAS_DE_CRISTAL -> "cave";
+            default -> "fortress";
+        };
+    }
+
     /** [TESTE] Aplica um raid direto (sem o roll de encontro RNG) — exercita o saque determinístico. */
     @Transactional
     public String raidForTest(Long attackerId, Long victimId, Zone zone) {
@@ -804,7 +911,7 @@ public class ExpeditionService {
         Player victim   = playerRepository.findById(victimId).orElseThrow();
         Warrior aw = warriorRepo.findByPlayer(attacker).orElseThrow();
         Warrior vw = warriorRepo.findByPlayer(victim).orElseThrow();
-        String loot = raidVictim(attacker, aw, victim, vw, zone, new ArrayList<>());
+        String loot = raidVictim(null, attacker, aw, victim, vw, zone, new ArrayList<>(), List.of());
         warriorRepo.save(vw); warriorRepo.save(aw);
         return loot;
     }

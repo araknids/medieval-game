@@ -132,6 +132,22 @@ public class MailService {
         return mailRepository.save(mail);
     }
 
+    /** [INCURSAO_PVP] Mail de raid: notificação + LOG + eventos (replay 3D) da luta que a vítima perdeu.
+     *  {@code eventsJson} = List<BattleEvent> serializado; {@code scene} = fundo do replay (ex.: "fortress"). */
+    @Transactional
+    public Mail sendRaidMail(Player victim, String attackerName, String message,
+                             String battleLog, String eventsJson, String scene) {
+        Mail mail = new Mail();
+        mail.setSenderPlayerId(0L);
+        mail.setSenderWarriorName(attackerName != null ? attackerName : "System");
+        mail.setRecipientPlayerId(victim.getId());
+        mail.setMessage(message.length() > 500 ? message.substring(0, 500) : message);
+        mail.setBattleLog(battleLog);
+        mail.setBattleEventsJson(eventsJson);
+        mail.setBattleScene(scene);
+        return mailRepository.save(mail);
+    }
+
     // ── Item mail (bag-full overflow) ─────────────────────────────────────────
 
     /**
