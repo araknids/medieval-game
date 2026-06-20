@@ -113,3 +113,17 @@ ganância, bajulação — e os fez **mais ainda**: cada um virou a caricatura d
 - **Tally-Keeper** (17) — Escreveu o mesmo nome **mil vezes** num livro-razão até a obsessão o consumir. Te enxerga só como mais uma **entrada** a riscar.
 - **Jewel-Crusted Horror** (18) — Ganância cristalizada: tão incrustado de joias que **virou uma coisa de gemas**, e cada pedra te acompanha como um olho.
 - **Duelist of Lies** (19) — Campeão de armas da corte que **nunca perdeu um duelo — e nunca lutou um de verdade**. Todos eram arranjados. Em morte, encara a primeira luta honesta da existência: a sua.
+
+## Zona 3 — As Profundezas do Ritual · Andares 21–29
+Aqui está a **máquina**: o sangue real **sobe** as paredes pra alimentar o topo, o círculo é recortado
+sem fim, e os fiéis **ensaiam um rei**. O rito não é antigo — a última ampola tem a data de **hoje**.
+
+- **Bleeding Acolyte** (21) — Sangrou pelo rito e **nunca parou**: o vermelho que escorre escada acima, contra a inclinação, é dele — combustível pros andares de cima.
+- **Censer-Wraith** (22, ×2) — A fumaça dos turíbulos ganhou forma: um espectro de **incenso e preces mortas**, respirando cheiro de cobre (de sangue) e oração velha.
+- **Circle-Warden** (23) — O guardião do **círculo** gravado no chão, que ele reabre cem vezes. Os sulcos são fundos o bastante pra **afogar** — e é o que ele faz com quem entra.
+- **The Chanting** (24, ×3) — Três fiéis ajoelhados **de cara pro chão**, presos no cântico que move o rito. A palavra que repetem **não tem forma de boca humana**.
+- **Crystal-Hearted** (25) — O coração dela virou um **cristal vermelho** — e os cristais do altar pulsam no ritmo do **seu**. É um aviso: você já está sendo **medido** pelo rito.
+- **Vintner of Blood** (26) — O **adega-mestre do sangue real**: ampolas de Arka enfileiradas, cada uma com uma data. A última é a de **hoje**. O rito é **agora**.
+- **The Unborn Rite** (27) — Algo **nasceu aqui e não sobreviveu ao parto** — e ainda **tenta**. Um produto falho da liturgia, meio-feito, recusando-se a deixar de existir.
+- **Altar-Thing** (28, ×2) — O altar mais fundo ganhou malícia (ou os sacerdotes fundiram-se nele). O sangue **trepa as paredes pra cima**, desafiando a gravidade, levando o rito aos andares de cima.
+- **The Pretender** (29) — Sentou no **trono de ensaio** (osso e ouro) e praticou ser rei — e **quebrou** na tentativa. O rascunho falho que veio antes do Eco Coroado aperfeiçoar o papel.
