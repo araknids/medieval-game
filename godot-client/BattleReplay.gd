@@ -2203,7 +2203,8 @@ func _popup(pos: Vector3, text: String, color: Color, big: bool) -> void:
 		burst.no_depth_test = true
 		burst.pixel_size = 0.0072
 		burst.render_priority = 1
-		burst.scale = Vector3.ONE * clampf(text.length() * 0.26, 1.0, 1.9)  # cresce com o nº de dígitos
+		var bw := clampf(text.length() * 0.34, 1.1, 2.6)   # largura cresce com os dígitos
+		burst.scale = Vector3(bw, 1.15, 1.0)               # OVAL horizontal (cabe número longo, não redondo)
 		root.add_child(burst)
 	var lbl := Label3D.new()
 	lbl.text = text
@@ -2211,8 +2212,8 @@ func _popup(pos: Vector3, text: String, color: Color, big: bool) -> void:
 	lbl.no_depth_test = true
 	lbl.render_priority = 2   # sempre na frente do burst
 	if is_crit:
-		lbl.modulate = Color(1.0, 0.90, 0.16)              # amarelo Ragnarok
-		lbl.outline_modulate = Color(0.32, 0.02, 0.02, 1)  # contorno vermelho-escuro
+		lbl.modulate = Color(1.0, 0.97, 0.86)              # branco-quente (lê em cima do miolo amarelo do burst)
+		lbl.outline_modulate = Color(0.12, 0.0, 0.0, 1)    # contorno quase-preto = contraste forte
 		lbl.outline_size = 9
 		lbl.font_size = 80
 		lbl.pixel_size = 0.0050
