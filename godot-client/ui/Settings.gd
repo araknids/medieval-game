@@ -4,12 +4,14 @@ extends Control
 # no novo idioma. Padrão visual: UiKit. Futuro: som, gráficos, conta. [I18N]
 
 signal go_back
+signal logout   # [LOGOUT] App/Shell limpam o token + session e voltam pro Login
 
 const GameSettings := preload("res://GameSettings.gd")   # [CONFIG] toggle de gore
 
 var content: VBoxContainer
 var status: Label
 var wallet: Label
+var _confirm_logout := false   # [LOGOUT] 2 cliques: o 1º pede confirmação (evita saída acidental)
 
 func _ready() -> void:
 	var ui := UiKit.scaffold(self, "⚙ Configurações", func() -> void: go_back.emit(), func() -> void: _render(), UiKit.TINT_DEFAULT)
@@ -39,6 +41,15 @@ func _render() -> void:
 	content.add_child(grow)
 	grow.add_child(_gore_btn("🩸 Ligado", true))
 	grow.add_child(_gore_btn("Desligado", false))
+	# [LOGOUT] Conta: sair desconecta e volta pro login (o auto-login salvo e limpo).
+	content.add_child(UiKit.section("Conta"))
+	content.add_child(UiKit.dim("Sair desconecta sua conta e volta para a tela de login."))
+	var crow := HBoxContainer.new()
+	crow.add_theme_constant_override("separation", 10)
+	content.add_child(crow)
+	crow.add_child(_logout_btn())
+	if _confirm_logout:   # cancelar ao lado da confirmacao
+		crow.add_child(UiKit.action_big("Cancelar", func() -> void: _cancel_logout()))
 	# [GENDER] A escolha de sexo saiu daqui: é definida na CRIAÇÃO do personagem e só troca
 	# pagando SoulStone na tela do VIP (não é mais grátis nas Configurações).
 
@@ -54,6 +65,22 @@ func _pick_gore(on: bool) -> void:
 	GameSettings.set_gore(on)
 	UiKit.flash(status, "Sangue/desmembramento: %s" % ("ligado" if on else "desligado"), 1)
 	_render()   # atualiza o ✓ (o efeito vale na próxima batalha)
+
+# [LOGOUT] botao de sair: 1o clique pede confirmacao; 2o emite o sinal (App/Shell limpam o token).
+func _logout_btn() -> Button:
+	return UiKit.action_big("Confirmar saida?" if _confirm_logout else "Sair da conta", func() -> void: _on_logout())
+
+func _on_logout() -> void:
+	if not _confirm_logout:
+		_confirm_logout = true
+		UiKit.flash(status, "Clique de novo para confirmar a saida.", 2)
+		_render()
+		return
+	logout.emit()
+
+func _cancel_logout() -> void:
+	_confirm_logout = false
+	_render()
 
 func _lang_btn(label: String, code: String) -> Button:
 	var active := Lang.current() == code

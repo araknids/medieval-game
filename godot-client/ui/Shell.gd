@@ -490,6 +490,8 @@ func _wire_screen(c: Control) -> void:
 		c.go_battle.connect(func() -> void: get_tree().change_scene_to_file("res://BattleReplay.tscn"))
 	if c.has_signal("request_battle"):
 		c.request_battle.connect(func(data) -> void: request_battle.emit(data))
+	if c.has_signal("logout"):                                # [LOGOUT] Settings → Shell → App (limpa token+session)
+		c.logout.connect(func() -> void: logout.emit())
 	if c.has_signal("logout"):
 		c.logout.connect(func() -> void: logout.emit())
 

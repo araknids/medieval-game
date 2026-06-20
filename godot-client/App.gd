@@ -65,6 +65,12 @@ func _open_settings() -> void:
 	var scr = scene.instantiate()
 	if scr.has_signal("go_back"):
 		scr.go_back.connect(_close_settings)
+	if scr.has_signal("logout"):                 # [LOGOUT] Settings em overlay também desconecta
+		scr.logout.connect(func() -> void:
+			_close_settings()
+			Api.token = ""
+			ConfigFile.new().save("user://session.cfg")
+			_route())
 	_settings_layer.add_child(scr)
 
 func _close_settings() -> void:
