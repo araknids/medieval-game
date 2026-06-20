@@ -191,6 +191,8 @@ const EN := {
 	"Acerte o tempo no gole para ganhar +1 stack de buff. Cobra 1🥉 sempre.": "Time the sip to gain +1 buff stack. Always costs 1🥉.",
 	"🍺 Beber AGORA!": "🍺 Drink NOW!", "💬 Chat": "💬 Chat", "Diga algo…": "Say something…",
 	# — Templo / bênçãos —
+	"Padre Anselmo": "Father Anselm",
+	"Fui enviado pelos céus para amparar os que sofrem. Aqui o cansado encontra cura, o bravo recebe bênçãos para a batalha, e o que lhe é precioso fica a salvo. Descanse um instante, guerreiro — que a luz o acompanhe lá fora.": "I was sent from the heavens to comfort those who suffer. Here the weary find healing, the brave receive blessings for battle, and what you hold dear is kept safe. Rest a moment, warrior — may the light go with you out there.",
 	"Bênçãos": "Blessings", "🙏 Bênçãos": "🙏 Blessings", "🙏 ABENÇOADO": "🙏 BLESSED",
 	"Curar (grátis)": "Heal (free)", "💎 Cura instantânea (1 SoulStone)": "💎 Instant heal (1 SoulStone)",
 	"Proteção de Itens": "Item Protection", "Desprotegido": "Unprotected", "🛡 Protegido": "🛡 Protected",
