@@ -47,9 +47,20 @@ public class TowerController {
 
     @GetMapping("/current")
     public ResponseEntity<?> getCurrent(Authentication auth) {
-        Optional<TowerRun> run = towerService.getCurrentRun(getPlayer(auth));
-        if (run.isEmpty()) return ResponseEntity.ok(Map.of("active", false));
-        return ResponseEntity.ok(runState(run.get()));
+        Player player = getPlayer(auth);
+        Optional<TowerRun> run = towerService.getCurrentRun(player);
+        if (run.isPresent()) return ResponseEntity.ok(runState(run.get()));
+        // [TORRE_PREVIEW] Sem run ativa: devolve quem espera no PRÓXIMO andar (towerBestFloor+1) —
+        // enter() começa exatamente nesse andar — p/ o lobby mostrar o retrato do inimigo.
+        int next = Math.min(player.getTowerBestFloor() + 1, com.medieval.game.service.TowerFloors.maxFloor());
+        TowerService.FloorView fv = towerService.floorView(next);
+        Map<String, Object> m = new LinkedHashMap<>();
+        m.put("active", false);
+        m.put("nextFloor", next);
+        m.put("highestFloor", player.getTowerBestFloor());
+        m.put("isMvp", fv.isMvp());
+        m.put("bossName", fv.primary().name());
+        return ResponseEntity.ok(m);
     }
 
     @GetMapping("/ranking")

@@ -11,6 +11,7 @@ signal request_battle(data)   # pede ao App o replay 3D (overlay) [MIGRACAO_GODO
 
 const STAMINA_COST := 25
 const PAGE_SIZE := 20            # [PAGINACAO] ranking paginado (offset no backend)
+const Icons := preload("res://ui/Icons.gd")   # fallback do retrato [TORRE_PREVIEW]
 
 var content: VBoxContainer
 var status: Label
@@ -70,12 +71,25 @@ func _render_lobby() -> void:
 	var no_stamina := stamina < STAMINA_COST
 	var res := UiKit.card(UiKit.GOLD_SOFT)
 	var vb: VBoxContainer = res[1]
+	# [TORRE_PREVIEW] 2 colunas: texto à esquerda + retrato de QUEM te espera no próximo andar à direita.
+	var bodyrow := HBoxContainer.new(); bodyrow.add_theme_constant_override("separation", 14)
+	vb.add_child(bodyrow)
+	var col := VBoxContainer.new(); col.add_theme_constant_override("separation", 4)
+	col.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	bodyrow.add_child(col)
 	var h := Label.new(); h.text = "⚔ Entrar na Torre"; h.add_theme_font_size_override("font_size", 19)
 	h.add_theme_color_override("font_color", UiKit.GOLD)
-	vb.add_child(h)
-	vb.add_child(UiKit.dim(Lang.t("Custo: ⚡ %d estamina   ·   Sua estamina: %d/100") % [STAMINA_COST, stamina]))
-	vb.add_child(UiKit.dim("Lute andar por andar. Se perder, é expulso. Vá o mais longe que conseguir!"))
-	# P0: "Entrar" já dispara a primeira luta — deixa explícito no rótulo (+ custo).
+	col.add_child(h)
+	col.add_child(UiKit.dim(Lang.t("Custo: ⚡ %d estamina   ·   Sua estamina: %d/100") % [STAMINA_COST, stamina]))
+	col.add_child(UiKit.dim("Lute andar por andar. Se perder, é expulso. Vá o mais longe que conseguir!"))
+	# quem te espera no próximo andar (towerBestFloor+1) — vem do payload do lobby [TORRE_PREVIEW]
+	var nf := int(state.get("nextFloor", 1))
+	var next_mvp := bool(state.get("isMvp", false))
+	var next_name := str(state.get("bossName", ""))
+	if next_name != "":
+		col.add_child(UiKit.dim(Lang.t("A seguir — Andar %d: %s") % [nf, next_name]))
+	bodyrow.add_child(_enemy_portrait(_tower_art_key(nf, next_mvp), next_mvp, UiKit.GOLD if next_mvp else Color(0.33, 0.33, 0.4)))
+	# P0: "Entrar" já dispara a primeira luta — deixa explícito no rótulo (+ custo). CTA full-width abaixo.
 	if no_stamina:
 		var b := UiKit.action_big("Sem estamina", Callable())
 		b.disabled = true
@@ -92,25 +106,31 @@ func _render_floor() -> void:
 	var vb: VBoxContainer = res[1]
 	var cur := int(state.get("currentFloor", 1))
 	var maxf := int(state.get("maxFloor", 0))
+	# [TORRE_PREVIEW] corpo em 2 colunas: texto à esquerda (cresce) + retrato do inimigo à direita.
+	var bodyrow := HBoxContainer.new(); bodyrow.add_theme_constant_override("separation", 14)
+	vb.add_child(bodyrow)
+	var col := VBoxContainer.new(); col.add_theme_constant_override("separation", 4)
+	col.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	bodyrow.add_child(col)
 	var num := Label.new()
 	num.text = Lang.t("🏰 Andar %d%s") % [cur, ("  /  %d" % maxf) if maxf > 0 else ""]
 	num.add_theme_font_size_override("font_size", 21); num.add_theme_color_override("font_color", UiKit.GOLD)
-	vb.add_child(num)
+	col.add_child(num)
 	var highest := int(state.get("highestFloor", 0))
 	if highest > 0:
 		var hc := Label.new(); hc.text = Lang.t("✔ Andar mais alto vencido: %d") % highest
 		hc.add_theme_color_override("font_color", UiKit.OK); hc.add_theme_font_size_override("font_size", 12)
-		vb.add_child(hc)
+		col.add_child(hc)
 	var atmo := str(state.get("atmosphere", ""))
 	if atmo != "":
-		vb.add_child(UiKit.dim(atmo))
+		col.add_child(UiKit.dim(atmo))
 	# boss
 	var monsters: Array = state.get("monsters", []) if state.get("monsters") is Array else []
 	var boss_name := str(monsters[0]) if monsters.size() > 0 else str(state.get("bossName", "?"))
 	var bn := Label.new()
 	bn.text = ("👑 " if is_mvp else "") + boss_name
 	bn.add_theme_font_size_override("font_size", 17); bn.add_theme_color_override("font_color", border)
-	vb.add_child(bn)
+	col.add_child(bn)
 	if monsters.size() > 1:
 		# [TORRE_GAUNTLET] agrupa repetidos ("Nome ×3") e tira o "Gauntlet" cru. Se todos iguais
 		# (o nome já está no título acima), só diz QUANTOS enfrentar; senão lista os distintos.
@@ -122,18 +142,18 @@ func _render_floor() -> void:
 			gl.text = Lang.t("⚔ Sequência: %s") % " · ".join(grouped)
 		gl.add_theme_color_override("font_color", Color(0.8, 0.4, 0.6)); gl.add_theme_font_size_override("font_size", 12)
 		gl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-		vb.add_child(gl)
+		col.add_child(gl)
 	var rec := int(state.get("recommendedLevel", 0))
 	if rec > 0:
 		var rl := Label.new(); rl.text = Lang.t("🚩 Nível recomendado %d+") % rec
 		rl.add_theme_color_override("font_color", UiKit.WARN); rl.add_theme_font_size_override("font_size", 12)
-		vb.add_child(rl)
+		col.add_child(rl)
 	var stats := Label.new()
 	stats.text = "❤ %d HP    ⚔ %d ATK    🛡 %d DEF    🎯 AC %d" % [
 		int(state.get("bossHp", 0)), int(state.get("bossAtk", 0)),
 		int(state.get("bossDef", 0)), int(state.get("bossAc", 0))]
 	stats.add_theme_color_override("font_color", UiKit.TEXT); stats.add_theme_font_size_override("font_size", 13)
-	vb.add_child(stats)
+	col.add_child(stats)
 	# [MOEDA] recompensa com ícone pixel-art (bronze) em vez de emoji
 	var rew := HBoxContainer.new(); rew.add_theme_constant_override("separation", 6)
 	var rew_lbl := Label.new(); rew_lbl.text = "Recompensa:"
@@ -143,9 +163,46 @@ func _render_floor() -> void:
 	var rew_xp := Label.new(); rew_xp.text = "· ⭐ %d exp" % (cur * 20)
 	rew_xp.add_theme_color_override("font_color", UiKit.GOLD_SOFT); rew_xp.add_theme_font_size_override("font_size", 12)
 	rew.add_child(rew_xp)
-	vb.add_child(rew)
+	col.add_child(rew)
+	# [TORRE_PREVIEW] retrato animado do inimigo à direita (alcova; MVP = moldura dourada + tag BOSS)
+	bodyrow.add_child(_enemy_portrait(_tower_art_key(cur, is_mvp), is_mvp, border))
+	# CTA full-width ABAIXO das 2 colunas (nunca estreitado pelo retrato)
 	vb.add_child(UiKit.action_big("⚔ Lutar", _fight))
 	content.add_child(res[0])
+
+# [TORRE_PREVIEW] andar → chave de arte. Mapeado pelo NÚMERO do andar (i18n-proof — o nome do
+# inimigo é localizado PT/EN). MVP (10/20/…/50) tem arte própria; cada zona de 9 comuns divide 1 arquétipo.
+func _tower_art_key(floor: int, is_mvp: bool) -> String:
+	if is_mvp or floor % 10 == 0:
+		return "mvp%d" % floor
+	return "zone%d" % (int((floor - 1) / 10) + 1)
+
+# [TORRE_PREVIEW] Retrato emoldurado do inimigo numa alcova escura. MVP = moldura dourada + tag BOSS.
+# Sem arte ainda (TowerPreview.make == null) → cai no ícone da torre (nunca caixa vazia).
+func _enemy_portrait(key: String, is_mvp: bool, border: Color) -> Control:
+	var px := 140 if is_mvp else 124
+	var art: Control = TowerPreview.make(key, px)
+	if art == null:
+		art = Icons.rect("tower", px)        # fallback estático até a arte ser importada
+	var inner := VBoxContainer.new(); inner.add_theme_constant_override("separation", 2)
+	inner.add_child(art)
+	if is_mvp:
+		var tag := Label.new(); tag.text = "BOSS"
+		tag.add_theme_font_size_override("font_size", 10)
+		tag.add_theme_color_override("font_color", UiKit.GOLD)
+		tag.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		inner.add_child(tag)
+	var frame := PanelContainer.new()
+	var sb := StyleBoxFlat.new()
+	sb.bg_color = Color(0.05, 0.045, 0.06)                  # alcova recuada (combina com UiKit.input)
+	sb.set_border_width_all(2); sb.border_color = border
+	sb.set_corner_radius_all(4)
+	sb.content_margin_left = 5; sb.content_margin_right = 5
+	sb.content_margin_top = 5; sb.content_margin_bottom = 5
+	frame.add_theme_stylebox_override("panel", sb)
+	frame.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	frame.add_child(inner)
+	return frame
 
 # [TORRE_GAUNTLET] Agrupa nomes repetidos preservando a ordem: ["A","A","B"] → ["A ×2","B"].
 func _group_names(arr: Array) -> Array:
