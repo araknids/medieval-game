@@ -34,7 +34,7 @@ public final class TowerFloors {
         floor("A chapel to no god you know. The candles weep wax that pools and crawls toward the stairs up.", "Wax-Eaten Priest"),
         floor("The dead here wear the garrison's colors and salute as you pass — then they reach for their blades.", "Loyal Unto Death", "Loyal Unto Death"),
         floor("The last hall before the upper gate stinks of old blood and new rust. Something big breathed here, recently.", "Gate-Breaker"),
-        mvp("The Fallen Captain", "He held this hall to the last, and was not allowed to die. His sword is still raised. His eyes follow you — and beg."),
+        mvp("The Fallen Captain", "He held this hall to the last, and was not allowed to die. His sword is still raised. His eyes follow you — and beg. He had a name, once — Sor Bramm Holt, Captain of the Gate."),
 
         // ── Zona 2 (11-19): A Corte — a nobreza podre ─────────────────────────────
         floor("Gold leaf peels from the walls in sheets. The floor is carpeted in coins no one stooped to gather.", "Gilded Wretch"),
@@ -46,7 +46,7 @@ public final class TowerFloors {
         floor("A counting-house: ledgers stacked to the ceiling, every page the same name, written a thousand times.", "Tally-Keeper"),
         floor("Jewels grow from the walls like mold. They turn to follow you, the way eyes do.", "Jewel-Crusted Horror"),
         floor("The court's champion-at-arms, who never lost a duel and never fought a real one.", "Duelist of Lies"),
-        mvp("The Coin-Eaten", "He counted his gold while the city burned. The rot found him full — and made him fuller. He offers you a price to turn back. He cannot understand that you won't take it."),
+        mvp("The Coin-Eaten", "He counted his gold while the city burned. The rot found him full — and made him fuller. He offers you a price to turn back. He cannot understand that you won't take it. His name was Lord Casnar Vane, the crown's Treasurer."),
 
         // ── Zona 3 (21-29): As Profundezas do Ritual ──────────────────────────────
         floor("Below the court the stone is warm. The stairs are wet, and the wet is red, and it flows up to meet you.", "Bleeding Acolyte"),
@@ -58,7 +58,7 @@ public final class TowerFloors {
         floor("Something was born here and did not survive the birth. It is still trying.", "The Unborn Rite"),
         floor("The deeper altar. The blood doesn't pool — it climbs the walls, against the slope, toward the floors above.", "Altar-Thing", "Altar-Thing"),
         floor("A throne-shaped chair of bone and gold: a rehearsal seat. Whoever sat here practiced being a king.", "The Pretender"),
-        mvp("The Crowned Echo", "It wears the King's shape, his walk, his voice — a hollow rehearsal for the thing at the top. It greets you by name, in the King's voice, and asks why you've come so far to kill a man you were sent to save."),
+        mvp("The Crowned Echo", "It wears the King's shape, his walk, his voice — a hollow rehearsal for the thing at the top. It greets you by name, in the King's voice, and asks why you've come so far to kill a man you were sent to save. It owns no name of its own — only his."),
 
         // ── Zona 4 (31-39): A Sombra do Rei ───────────────────────────────────────
         floor("The light here comes from below now, the wrong shade of pale, and it casts no shadows at all.", "Shadeless One"),
@@ -70,7 +70,7 @@ public final class TowerFloors {
         floor("The air hums, low and steady — a heartbeat far too large to belong to anything that ought to live.", "Hum-Made-Flesh"),
         floor("The last of the King's true guard, who followed him down and could not follow him through.", "Threshold Guard", "Threshold Guard"),
         floor("A door scorched from the inside. Something tried to keep itself in. It failed.", "The Failed Seal"),
-        mvp("The Xamã", "The man the sea spat back, years ago, declared dead and returned wrong. He lifts no hand against you. He only laughs, and bids you climb. \"Give the poor king his peace,\" he says. \"It's all I ever wanted.\""),
+        mvp("The Xamã", "The man the sea spat back, years ago, declared dead and returned wrong. He lifts no hand against you. He only laughs, and bids you climb. \"Give the poor king his peace,\" he says. \"It's all I ever wanted.\" They called him Oren, the Drowned — the man who lit the rite."),
 
         // ── Zona 5 (41-49): O Limiar ──────────────────────────────────────────────
         floor("Past the Shaman, the tower stops being a tower. The stairs go on; the walls forget to.", "Edge-Walker"),
@@ -82,7 +82,7 @@ public final class TowerFloors {
         floor("The whispers stop. The silence is worse — it is listening back.", "The Listening Dark"),
         floor("A reflection of you climbs beside you, one step behind, smiling.", "The One Step Behind"),
         floor("The last door. Light leaks under it, the color of a wound. Beyond it, you hear a man weeping.", "The Weeping Threshold"),
-        mvp("Rei Arka", "King Arka, wreathed in a light that is not his own — and beneath it, for a flicker, the man who founded a kingdom. He fights to ascend; he does not understand he is only a key. When he falls, he will beg."),
+        mvp("Rei Arka", "King Arka, wreathed in a light that is not his own — and beneath it, for a flicker, the man who founded a kingdom. He fights to ascend; he does not understand he is only a key. When he falls, he will beg. Arka, the Founder — the man beneath the key."),
     };
 
     /** Definição do andar (1..50). Acima de 50 reaproveita o 50 (não deveria acontecer na S1). */
