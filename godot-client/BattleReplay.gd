@@ -886,6 +886,24 @@ const TOWER_MVP_LOOK := {
 }
 const TOWER_FULL_SET := ["ARMOR", "GLOVES", "BOOTS", "PANTS", "HELMET", "SHOULDER"]
 
+# [INCURSAO_VESTE] Cenas da Incursão/Zona (não-Torre): inimigos SEMPRE bem vestidos, tema pelo BIOMA
+# (hash escolhe entre 2 → variedade). Resolve "inimigos sem set" + skin relacionada à zona. [INCURSAO_PVP]
+const DELVE_SCENES := ["fortress", "coast", "sea", "cave"]
+const DELVE_SCENE_THEMES := {
+	"fortress": ["knight", "noble"],   # fortaleza maldita — guarda/corte morta
+	"cave":     ["knight", "ranger"],  # grutas/mina — brutos e batedores
+	"coast":    ["ranger", "noble"],   # costa/pesca — batedores e saqueadores
+	"sea":      ["ranger", "knight"],  # mar abençoado — marujos amaldiçoados
+}
+
+func _is_delve_scene() -> bool:
+	return fight_scene in DELVE_SCENES
+
+# tema do inimigo da Incursão pelo bioma da cena (hash escolhe entre os 2 do bioma → variedade).
+func _delve_theme_for(nm: String) -> String:
+	var opts: Array = DELVE_SCENE_THEMES.get(fight_scene, ["knight", "ranger"])
+	return str(opts[absi(hash(nm)) % opts.size()])
+
 # [TORRE_VESTE] tema do inimigo comum da Torre pela "cara" do nome: culto→wizard, corte→noble, guarda→knight.
 func _tower_theme_for(nm: String) -> String:
 	var n := nm.to_lower()
@@ -912,6 +930,9 @@ func _appearance(nm: String) -> Dictionary:
 				return {"theme": str(mv["theme"]), "gender": "male", "rarity": int(mv["rarity"]), "seed": nm}
 		return {"theme": _tower_theme_for(nm), "gender": ("female" if (h / 3) % 2 == 1 else "male"),
 				"rarity": 1 + (h / 7) % 3, "seed": nm}   # comum: raridade 1-3 (cor leve)
+	if _is_delve_scene():   # [INCURSAO_VESTE] Incursão/Zona = tema por bioma + recolor por raridade
+		return {"theme": _delve_theme_for(nm), "gender": ("female" if (h / 3) % 2 == 1 else "male"),
+				"rarity": 1 + (h / 7) % 4, "seed": nm}
 	var themes: Array = OutfitsLib.THEME_ORDER
 	return {
 		"theme":  str(themes[h % themes.size()]),
@@ -937,6 +958,11 @@ func _enemy_look(nm: String, ranged: bool) -> Dictionary:
 			equip.erase("HELMET")   # ~25% dos comuns sem elmo (variedade), mas nunca pelado
 		if not ranged and _tower_theme_for(nm) == "wizard":
 			weapon = "mace"
+	elif _is_delve_scene():
+		# [INCURSAO_VESTE] Incursão/Zona = SEMPRE bem vestido (set completo, nunca pelado); ~20% sem elmo.
+		equip = TOWER_FULL_SET.duplicate()
+		if (h / 101) % 5 == 0:
+			equip.erase("HELMET")
 	else:
 		# peças variam: às vezes sem capacete / sem parte de cima / pelado (resto = completo)
 		var style := (h / 101) % 10
