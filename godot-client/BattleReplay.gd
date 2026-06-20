@@ -2201,9 +2201,9 @@ func _popup(pos: Vector3, text: String, color: Color, big: bool) -> void:
 		burst.texture = load(BURST_TEX)
 		burst.billboard = BaseMaterial3D.BILLBOARD_ENABLED
 		burst.no_depth_test = true
-		burst.pixel_size = 0.013
+		burst.pixel_size = 0.0072
 		burst.render_priority = 1
-		burst.scale = Vector3.ONE * clampf(text.length() * 0.30, 1.05, 2.4)  # cresce com o nº de dígitos
+		burst.scale = Vector3.ONE * clampf(text.length() * 0.26, 1.0, 1.9)  # cresce com o nº de dígitos
 		root.add_child(burst)
 	var lbl := Label3D.new()
 	lbl.text = text
@@ -2213,15 +2213,15 @@ func _popup(pos: Vector3, text: String, color: Color, big: bool) -> void:
 	if is_crit:
 		lbl.modulate = Color(1.0, 0.90, 0.16)              # amarelo Ragnarok
 		lbl.outline_modulate = Color(0.32, 0.02, 0.02, 1)  # contorno vermelho-escuro
-		lbl.outline_size = 12
-		lbl.font_size = 96
-		lbl.pixel_size = 0.0092
+		lbl.outline_size = 9
+		lbl.font_size = 80
+		lbl.pixel_size = 0.0050
 	else:
 		lbl.modulate = color
 		lbl.outline_modulate = Color(0, 0, 0, 0.9)
-		lbl.outline_size = 8 if big else 6
-		lbl.font_size = 76 if big else 60
-		lbl.pixel_size = 0.0072 if big else 0.006
+		lbl.outline_size = 7 if big else 6
+		lbl.font_size = 64 if big else 56
+		lbl.pixel_size = 0.0048 if big else 0.0044
 	root.add_child(lbl)
 	# [JUICE] "slam": estoura a escala (overshoot) + arco pra cima + fade. Burst pulsa junto e some antes.
 	var pop := 2.0 if is_crit else (1.5 if big else 1.35)
