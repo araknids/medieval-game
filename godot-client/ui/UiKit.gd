@@ -524,7 +524,7 @@ static func icon_choice_btn(icon_key: String, emoji: String, label: String, cb: 
 	if flat:
 		_apply_flat_node(b)   # [INCURSAO] ícone "no mapa" sem moldura (estilo Slay-the-Spire) — só hover suave
 	else:
-		StoneStyle.apply(b)
+		DarkButtonStyle.apply(b)
 	b.custom_minimum_size = Vector2(72, 54) if compact else Vector2(112, 84)
 	b.focus_mode = Control.FOCUS_NONE
 	if cb.is_valid():

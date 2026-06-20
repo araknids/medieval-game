@@ -82,7 +82,7 @@ func title(text: String, size := 56) -> Label:
 func button(text: String) -> Button:
 	var b := Button.new()
 	b.text = text
-	StoneStyle.apply(b)
+	DarkButtonStyle.apply(b)
 	return b
 
 # Painel escuro de pedra (caixa de login etc.).

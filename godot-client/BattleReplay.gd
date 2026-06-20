@@ -1818,7 +1818,7 @@ func _show_continue() -> void:
 		return
 	var btn := Button.new()
 	btn.text = "Continuar  ▶"
-	StoneStyle.apply(btn)
+	DarkButtonStyle.apply(btn)
 	btn.add_theme_font_size_override("font_size", 30)
 	btn.set_anchors_and_offsets_preset(Control.PRESET_CENTER)
 	btn.offset_left = -160; btn.offset_right = 160
