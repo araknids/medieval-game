@@ -47,7 +47,7 @@ const EMOJI_ICON := {
 	"🔎": "act_pan", "🏃": "act_flee", "🙏": "bless",
 	"👑": "node_boss", "📜": "node_event", "⚔": "node_combat", "🗡": "node_combat",
 	"🛡": "slot_shield", "🔥": "elem_fire", "🏆": "achievements", "🥇": "gold",
-	"🍺": "tavern", "🏰": "map_fortress", "🌍": "world", "🔨": "forge",
+	"🍺": "tavern", "🏰": "map_fortress", "🌍": "world", "🗺": "world", "🔨": "forge",
 	"💰": "gold", "🪙": "bronze", "🥈": "silver", "🥉": "bronze",
 	"❤": "hp", "⚡": "stamina", "🏅": "achievements", "🎯": "tower",
 	"📬": "mail", "📭": "mail", "📩": "mail", "📨": "mail", "✉": "mail",

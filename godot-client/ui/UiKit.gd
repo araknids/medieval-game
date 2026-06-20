@@ -260,15 +260,28 @@ static func flash(status: Label, text: String, kind := 0) -> void:
 	if status == null:
 		return
 	var col := Color(0.78, 0.74, 0.66)
-	var prefix := ""
 	if kind == 1:
-		col = OK; prefix = "✔ "
+		col = OK
 	elif kind == 2:
-		col = ERR; prefix = "✖ "
-	if prefix != "" and text.length() > 0 and text.unicode_at(0) > 0x2000:
-		prefix = ""   # já começa com emoji/símbolo
+		col = ERR
 	status.add_theme_color_override("font_color", col)
-	status.text = prefix + text
+	# [SEM_WEB_EMOJI] toast = Label (texto puro, não renderiza ícone inline) → tira QUALQUER emoji de web;
+	# a COR (verde/vermelho) já comunica sucesso/erro. Nada de ✔/✖/💨 de web na UI. [me respeita]
+	status.text = strip_web_emoji(text)
+
+# Tira emoji/dingbat/símbolo de web de QUALQUER posição. Mantém texto/acentos (<0x2000) + pontuação
+# tipográfica (travessão, reticências, aspas, bullet). Colapsa espaços que sobram. [SEM_WEB_EMOJI]
+const _KEEP_SYM := [0x2013, 0x2014, 0x2018, 0x2019, 0x201C, 0x201D, 0x2022, 0x2026]
+static func strip_web_emoji(text: String) -> String:
+	var out := ""
+	for i in text.length():
+		var c := text.unicode_at(i)
+		if c < 0x2000 or c in _KEEP_SYM:
+			out += text[i]
+	while out.find("  ") != -1:
+		out = out.replace("  ", " ")
+	out = out.replace(" )", ")").replace("( ", "(")   # emoji inline em "(1 🥉)" → "(1)" sem buraco
+	return out.strip_edges()
 
 # Texto de erro a partir de uma resposta do BackendClient ({ok,status,json,raw,error}).
 static func err_text(r) -> String:
@@ -621,7 +634,7 @@ static func reward_toast(host: Control, title: String, chips: Array) -> void:
 # ── Botões (tudo pedra) ────────────────────────────────────────────────────────────
 static func _btn(text: String, cb: Callable, size: Vector2, font := 15) -> Button:
 	var b := Button.new()
-	b.text = text
+	_btn_label(b, text)   # [SEM_WEB_EMOJI] emoji-líder vira ÍCONE do projeto; resto sem emoji de web
 	StoneStyle.apply(b)
 	b.add_theme_font_size_override("font_size", font)
 	b.custom_minimum_size = size
@@ -643,6 +656,25 @@ static func _debounce(b: Button) -> void:
 			var btn := instance_from_id(bid) as Button
 			if is_instance_valid(btn):
 				btn.disabled = false)
+
+# [SEM_WEB_EMOJI] Texto do botão sem emoji de web: emoji-líder mapeado → ÍCONE do projeto + resto;
+# emoji solto (ícone próprio) → ícone; senão tira o emoji do texto. Nunca esvazia o botão (fallback).
+static func _btn_label(b: Button, text: String) -> void:
+	var t := text.strip_edges()
+	var parts := Icons.split_emoji(t)            # [icon_key, resto] se o líder mapeia p/ ícone EXISTENTE
+	if str(parts[0]) != "":
+		Icons.set_icon(b, str(parts[0]))
+		b.add_theme_constant_override("icon_max_width", 22)   # ícone pequeno ao lado do texto (não estoura)
+		b.text = strip_web_emoji(str(parts[1]))
+		return
+	var head := t.replace("️", "")               # texto = SÓ um emoji (sem espaço)? tenta ícone próprio
+	if head.find(" ") < 0 and Icons.EMOJI_ICON.has(head) and Icons.tex(Icons.EMOJI_ICON[head]) != null:
+		Icons.set_icon(b, str(Icons.EMOJI_ICON[head]))
+		b.add_theme_constant_override("icon_max_width", 26)
+		b.text = ""
+		return
+	var stripped := strip_web_emoji(t)
+	b.text = t if (stripped == "" and b.icon == null) else stripped   # não deixa botão vazio/invisível
 
 static func action(text: String, cb: Callable) -> Button:
 	return _btn(text, cb, Vector2(130, 40), 15)
