@@ -874,8 +874,44 @@ func _collect_meshes(node: Node, out: Array) -> void:
 
 # [OUTFITS] Aparência do SET (tema/gênero/cor/variante) determinística pelo NOME → cada lutador veste
 # um set diferente (pra ver os sets novos na batalha). A raridade aqui controla só a COR do set.
+# [TORRE_VESTE] Sets temáticos dos MVPs da Torre (chefes de história): tema + recolor (raridade alta
+# = cor nobre/dourada). O nome casa por SUBSTRING (o backend manda "<Nome> (Floor N)"). Coroa vem do
+# tema noble (HELMET=Crown); elmo/ombreira do knight; robe do wizard — tudo via SLOT_PIECE do tema.
+const TOWER_MVP_LOOK := {
+	"Fallen Captain": {"theme": "knight", "rarity": 4},   # capitão da guarda caída — armadura completa
+	"Coin-Eaten":     {"theme": "noble",  "rarity": 5},   # nobre apodrecido em ouro — coroa dourada
+	"Crowned Echo":   {"theme": "noble",  "rarity": 4},   # eco oco do Rei — coroa
+	"Xam":            {"theme": "wizard", "rarity": 4},   # o Xamã — manto (casa "Xamã" por prefixo)
+	"Rei Arka":       {"theme": "noble",  "rarity": 5},   # o Rei — coroa + dourado
+}
+const TOWER_FULL_SET := ["ARMOR", "GLOVES", "BOOTS", "PANTS", "HELMET", "SHOULDER"]
+
+# [TORRE_VESTE] tema do inimigo comum da Torre pela "cara" do nome: culto→wizard, corte→noble, guarda→knight.
+func _tower_theme_for(nm: String) -> String:
+	var n := nm.to_lower()
+	for kw in ["acolyte", "priest", "chant", "rite", "wraith", "censer", "crystal", "vintner", "unborn",
+			"whisper", "becoming", "echo", "shaman", "xam", "scholar", "altar", "sleeper", "dream", "seal"]:
+		if kw in n: return "wizard"
+	for kw in ["gilded", "courtier", "jewel", "coin", "duelist", "crowned", "pretender", "kneel",
+			"tally", "powder", "mirror", "faceless", "feast", "ash", "eager", "weeping"]:
+		if kw in n: return "noble"
+	return "knight"   # guarda/sentinela/husk/gate/etc + default = armadura
+
+# [TORRE_VESTE] é um MVP (chefe de história)? casa o nome-base por substring.
+func _tower_is_mvp(nm: String) -> bool:
+	for key in TOWER_MVP_LOOK:
+		if key in nm: return true
+	return false
+
 func _appearance(nm: String) -> Dictionary:
 	var h := absi(hash(nm))
+	if fight_scene == "tower":   # [TORRE_VESTE] MVP = set temático + recolor alto; comum = tema pela cara do nome
+		for key in TOWER_MVP_LOOK:
+			if key in nm:
+				var mv: Dictionary = TOWER_MVP_LOOK[key]
+				return {"theme": str(mv["theme"]), "gender": "male", "rarity": int(mv["rarity"]), "seed": nm}
+		return {"theme": _tower_theme_for(nm), "gender": ("female" if (h / 3) % 2 == 1 else "male"),
+				"rarity": 1 + (h / 7) % 3, "seed": nm}   # comum: raridade 1-3 (cor leve)
 	var themes: Array = OutfitsLib.THEME_ORDER
 	return {
 		"theme":  str(themes[h % themes.size()]),
@@ -888,23 +924,36 @@ func _appearance(nm: String) -> Dictionary:
 func _enemy_look(nm: String, ranged: bool) -> Dictionary:
 	var h := absi(hash(nm))
 	var weapon: String = ENEMY_BOWS[(h / 7) % ENEMY_BOWS.size()] if ranged else ENEMY_MELEE[(h / 7) % ENEMY_MELEE.size()]
-	# peças variam: às vezes sem capacete / sem parte de cima / pelado (resto = completo)
-	var style := (h / 101) % 10
 	var equip: Array
-	if style == 0:                              # ~10% PELADO
-		equip = []
-	elif style <= 2:                            # ~20% sem capacete
-		equip = ["ARMOR", "PANTS", "BOOTS", "GLOVES", "SHOULDER"]
-	elif style == 3:                            # ~10% sem parte de cima (peito nu)
-		equip = ["PANTS", "BOOTS", "GLOVES"]
-	elif style == 4:                            # ~10% só calça/botas
-		equip = ["PANTS", "BOOTS"]
-	else:                                       # ~50% completo
-		equip = DEFAULT_OUTFIT.duplicate()
+	var scale := 0.86 + float((h / 13) % 16) * 0.01   # 0.86 .. 1.01
+	if fight_scene == "tower":
+		# [TORRE_VESTE] Torre = sempre BEM vestido (nunca pelado/sem peito). MVP = set completo + maior;
+		# comum = quase completo (raras sem elmo). Wizard (culto) empunha "cajado" (mace) em vez de espada.
+		var is_mvp := _tower_is_mvp(nm)
+		equip = TOWER_FULL_SET.duplicate()
+		if is_mvp:
+			scale = 1.10
+		elif (h / 101) % 4 == 0:
+			equip.erase("HELMET")   # ~25% dos comuns sem elmo (variedade), mas nunca pelado
+		if not ranged and _tower_theme_for(nm) == "wizard":
+			weapon = "mace"
+	else:
+		# peças variam: às vezes sem capacete / sem parte de cima / pelado (resto = completo)
+		var style := (h / 101) % 10
+		if style == 0:                              # ~10% PELADO
+			equip = []
+		elif style <= 2:                            # ~20% sem capacete
+			equip = ["ARMOR", "PANTS", "BOOTS", "GLOVES", "SHOULDER"]
+		elif style == 3:                            # ~10% sem parte de cima (peito nu)
+			equip = ["PANTS", "BOOTS", "GLOVES"]
+		elif style == 4:                            # ~10% só calça/botas
+			equip = ["PANTS", "BOOTS"]
+		else:                                       # ~50% completo
+			equip = DEFAULT_OUTFIT.duplicate()
 	return {
 		"weapon": weapon,
 		"tint": ENEMY_TINTS[h % ENEMY_TINTS.size()],
-		"scale": 0.86 + float((h / 13) % 16) * 0.01,   # 0.86 .. 1.01
+		"scale": scale,
 		"equip": equip,
 	}
 
