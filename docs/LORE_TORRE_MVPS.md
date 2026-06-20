@@ -79,3 +79,23 @@ marca e o chão se abre → *Regicide*). Os dois "abrem o portal": a queda do Re
 - **Oren (Xamã)** é a causa; **Arka** é a chave; o **Eco Coroado** é o ensaio; o **Capitão** e o
   **Tesoureiro** são as duas faces do reino que caiu (o que **defendeu** vs o que **só contou ouro**).
 - O **"algo pior" lá embaixo** fica em aberto → gancho pra Season 2.
+
+---
+
+# COMUNS POR ZONA (minilore — 1 linha cada)
+
+> Mesmos nomes que já existem em `TowerFloors`; aqui só a minilore. Tema da zona em cima.
+
+## Zona 1 — Salões Baixos (a guarda caída) · Andares 1–9
+A fenda no piso (maré + terra funda) puxa tudo **pra cima**, rumo ao ritual. Esta zona é a **guarda**:
+uns ficaram no posto, outros desertaram e subiram. Todos amaldiçoados, nenhum dispensado.
+
+- **Gate Sentry** (1) — O primeiro morto da Torre, plantado na porta por onde a maré subterrânea entra. Não te barra por ordem — barra porque **esqueceram de dispensá-lo**.
+- **Hall Sentinel** (2) — A lança ainda **morna** na mão é a dele: largou o posto pra subir, voltou pra buscá-la, e nunca mais desceu.
+- **Pale Watchman** (3) — A tocha não esquenta e a sombra cai pro lado errado — porque a luz dele vem de **baixo**, da mesma fenda. Faz a ronda eterna de um turno que nunca acaba.
+- **Deserter's Husk** (4, ×2) — Largou o dado na mesa e **subiu** quando o chão chamou. O que sobrou é a casca — o homem foi pro topo faz tempo.
+- **Watchman's Husk** (5, ×2) — Apodreceu sob a bandeira da Coroa de Arka, a coroa bordada já preta. Defende um reino que não existe com um corpo que mal existe.
+- **Crawling Dead** (6) — Não anda: **escala**. As marcas de mão na parede (dedos demais em cada) são dele subindo — a maldição puxa até quem já caiu.
+- **Wax-Eaten Priest** (7) — Rezava numa capela sem deus. A cera escorre **pra cima**, rumo às escadas, e o levou junto: meio homem, meio vela viva.
+- **Loyal Unto Death** (8, ×2) — Bate continência com as cores da guarnição… e então saca a lâmina. Ainda obedece a uma ordem que ninguém vivo pra dar.
+- **Gate-Breaker** (9) — O que arrombou o portão de cima **de dentro pra fora**. Grande demais pra ter sido gente; respirava aqui agora há pouco. O último degrau antes da corte.
