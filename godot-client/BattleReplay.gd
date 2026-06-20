@@ -83,9 +83,10 @@ const ENTRY_X := 4.2     # |x| onde os lutadores nascem (a sim os aproxima)
 #   1 = 1v1 (perto) · 2 = até 3×3 · 3 = 5×5 (largo, mais alto).
 # Troque AO VIVO com as teclas 1/2/3. cam_preset=0 (default) escolhe sozinho pela qtde de lutadores.
 const CAM_PRESETS := [
-	{"dist": 4.6,  "height": 2.3,  "look_y": 1.2},   # 1 — 1v1
-	{"dist": 8.2,  "height": 4.4,  "look_y": 1.5},   # 2 — até 3×3
-	{"dist": 12.5, "height": 7.2,  "look_y": 1.9},   # 3 — 5×5
+	# [CAM_LENTE] lente LONGA no 1v1 (FOV ~50 + mais longe) = menos distorção, lutadores mais "pesados".
+	{"dist": 6.9,  "height": 2.4,  "look_y": 1.25, "fov": 50.0},  # 1 — 1v1
+	{"dist": 10.0, "height": 4.4,  "look_y": 1.5,  "fov": 55.0},  # 2 — até 3×3
+	{"dist": 14.0, "height": 7.2,  "look_y": 1.9,  "fov": 60.0},  # 3 — 5×5
 ]
 
 # tipos de evento (idênticos ao battleArena.js 2D)
@@ -207,6 +208,12 @@ var _shake_time := 0.0
 var _hs_gen := 0              # geração do hit-stop/slow-mo (só o último restaura o time_scale)
 var _cam_base_fov := 75.0
 const SHAKE_DECAY := 3.2
+# [CAM_TRACK] tracking 1v1: alvos SUAVIZADOS (lag pesado = sensação de operador). _cam_locked = kill-cam
+# assume a câmera (o tracking pausa pra não brigar). Reset no _apply_camera.
+var _cam_look := Vector3(0, 1.2, 0)
+var _cam_dist := 6.9
+var _cam_lean_x := 0.0
+var _cam_locked := false
 var _env: Environment         # [JUICE] reactivity: glow pulsa no kill; luz-chave pisca no crit
 var _key_light: Light3D
 var _env_base_glow := 0.0
@@ -1225,7 +1232,7 @@ func _process(dt: float) -> void:
 		_shake_time += dt
 		if cam_shake > 0.001:
 			cam_shake = maxf(0.0, cam_shake - dt * SHAKE_DECAY)
-			var a := cam_shake * cam_shake * 0.28
+			var a := cam_shake * cam_shake * 0.20   # [CAM_LENTE] lente longa amplifica o shake → reduzido
 			cam.h_offset = _shake_noise.get_noise_1d(_shake_time * 55.0) * a
 			cam.v_offset = _shake_noise.get_noise_1d(_shake_time * 55.0 + 99.0) * a
 		elif cam.h_offset != 0.0 or cam.v_offset != 0.0:
@@ -1256,6 +1263,7 @@ func _process(dt: float) -> void:
 			else:
 				_move(dt)
 				_advance(dt)
+				_track_camera(dt)     # [CAM_TRACK] câmera 1v1 segue o MEIO da dupla (lag suave)
 
 # Contagem 3,2,1 → Lutar! Os lutadores dançam (warm-up) e encaram o oponente.
 func _countdown(dt: float) -> void:
@@ -1904,7 +1912,7 @@ func _kill(f: Dictionary) -> void:
 	if dir.length() < 0.01: dir = Vector3.RIGHT
 	dir = dir.normalized()
 	var brutal: bool = f.get("last_hit_crit", false)
-	_kill_cam()   # [JUICE] slow-mo + zoom: o ragdoll/gore a seguir voa em câmera lenta
+	_kill_cam(node, dir)   # [JUICE][CAM_KILL] slow-mo + reframe baixo 3/4 sobre a vítima (no 1v1)
 	_env_pulse()  # [JUICE] glow floresce no kill (sangue + emissivos)
 	if f.has("rim") and is_instance_valid(f["rim"]): (f["rim"] as OmniLight3D).queue_free()   # apaga a rim do morto (já pode ter sido liberada → guarda)
 	if f.has("aura") and is_instance_valid(f["aura"]): (f["aura"] as Node).queue_free()   # apaga a aura de raridade
@@ -2451,10 +2459,37 @@ func _frame_camera() -> void:
 func _apply_camera() -> void:
 	if cam == null: return
 	var p: Dictionary = CAM_PRESETS[clampi(cam_view, 1, 3) - 1]
+	cam.fov = p["fov"]            # [CAM_LENTE] lente por preset; punches/kill-cam descansam neste FOV
+	_cam_base_fov = p["fov"]
 	cam.position = Vector3(0.0, p["height"], p["dist"])
 	cam.look_at(Vector3(0.0, p["look_y"], 0.0), Vector3.UP)
+	_cam_look = Vector3(0.0, p["look_y"], 0.0)   # [CAM_TRACK] reseta os alvos suavizados pro preset
+	_cam_dist = p["dist"]
+	_cam_lean_x = 0.0
 	if cam_hint:
 		cam_hint.text = "📷 Cam %d  [1/2/3]" % cam_view
+
+# [CAM_TRACK] 1v1: a câmera segue (com LAG pesado = sensação de operador) o MEIO da dupla — aproxima ao
+# colar, afasta no kite. Move só o CORPO (position) + o alvo do olhar; o shake (h/v_offset) é à parte →
+# não brigam. O lag (k baixo) é a alma: NÃO deixar snappy (vira mira/enjoo). Pausa no kill-cam (_cam_locked).
+func _track_camera(dt: float) -> void:
+	if cam == null or _cam_locked or order.size() < 2: return
+	var na = order[0].get("node")
+	var nb = order[1].get("node")
+	if not (na is Node3D and is_instance_valid(na) and nb is Node3D and is_instance_valid(nb)): return
+	var pa: Vector3 = na.position
+	var pb: Vector3 = nb.position
+	var mid := (pa + pb) * 0.5
+	var sep := pa.distance_to(pb)
+	var p: Dictionary = CAM_PRESETS[clampi(cam_view, 1, 3) - 1]
+	var want_look := Vector3(mid.x * 0.6, p["look_y"], mid.z * 0.4)        # enviesado pro centro (borda não puxa tudo)
+	var want_lean: float = mid.x * 0.18
+	var want_dist: float = float(p["dist"]) + clampf((sep - 3.0) * 0.35, -0.6, 1.4)
+	_cam_look = _cam_look.lerp(want_look, 1.0 - exp(-3.5 * dt))
+	_cam_lean_x = lerpf(_cam_lean_x, want_lean, 1.0 - exp(-2.0 * dt))
+	_cam_dist = lerpf(_cam_dist, want_dist, 1.0 - exp(-1.5 * dt))
+	cam.position = Vector3(_cam_lean_x, p["height"], _cam_dist)
+	cam.look_at(_cam_look, Vector3.UP)
 
 # ── [JUICE] game-feel: impacto (shake+hit-stop+fov), kill-cam slow-mo [Fable] ─────
 func _exit_tree() -> void:
@@ -2570,19 +2605,40 @@ func _fov_punch(target: float) -> void:
 	tw.tween_property(cam, "fov", _cam_base_fov, 0.30).set_trans(Tween.TRANS_SINE)
 
 # KILL-CAM: slow-mo + zoom forte + tremor; o ragdoll/gore voa em câmera lenta. Restaura depois.
-func _kill_cam() -> void:
+func _kill_cam(victim: Node3D = null, dir := Vector3.RIGHT) -> void:
 	if cam == null: return
 	_hs_gen += 1
 	var my := _hs_gen
 	Engine.time_scale = 0.16
 	cam_shake = 1.0
+	# [CAM_KILL] reframe pra ângulo baixo 3/4 só no 1v1 (em guerra/time viraria estroboscópio de cortes).
+	var reframe := victim != null and is_instance_valid(victim) and not team_mode and not war_mode
 	var tw := create_tween().set_ignore_time_scale(true)
-	tw.tween_property(cam, "fov", _cam_base_fov - 16.0, 0.22).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
+	tw.tween_property(cam, "fov", _cam_base_fov - (10.0 if reframe else 16.0), 0.22).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
+	if reframe:
+		_cam_locked = true   # pausa o tracking enquanto o kill-cam dirige a câmera
+		var vp: Vector3 = victim.position
+		var d := dir; d.y = 0.0
+		if d.length() < 0.01: d = Vector3.RIGHT
+		d = d.normalized()
+		var side := 1.0 if d.x >= 0.0 else -1.0
+		var kpos := vp + d * 2.4 + Vector3(side * 1.2, 1.0, 0.0)   # baixo (y~1) + de lado, golpe atravessa o quadro
+		if kpos.z < 2.2: kpos.z = 2.2                              # nunca dentro do chão/atrás do cenário
+		var look := vp + Vector3(0, 1.0, 0)
+		create_tween().set_ignore_time_scale(true).tween_method(
+			_kill_cam_step.bind(cam.position, kpos, look), 0.0, 1.0, 0.18).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
 	await get_tree().create_timer(1.0, true, false, true).timeout
 	if my == _hs_gen:
 		Engine.time_scale = 1.0
-		var tw2 := create_tween().set_ignore_time_scale(true)
-		tw2.tween_property(cam, "fov", _cam_base_fov, 0.45).set_trans(Tween.TRANS_SINE)
+		create_tween().set_ignore_time_scale(true).tween_property(cam, "fov", _cam_base_fov, 0.45).set_trans(Tween.TRANS_SINE)
+		_cam_locked = false   # tracking reassume suave a partir da posição atual
+
+# [CAM_KILL] passo do reframe do kill: interpola a posição e re-mira a vítima a cada passo. [t vem do tween]
+func _kill_cam_step(t: float, from: Vector3, kpos: Vector3, look: Vector3) -> void:
+	if not is_instance_valid(cam): return
+	cam.position = from.lerp(kpos, t)
+	if cam.position.distance_to(look) > 0.05:   # evita look_at degenerado
+		cam.look_at(look, Vector3.UP)
 
 # Cor do impacto pelo elemento: SUPER=dourado, RESIST=azul, normal=branco-quente.
 func _impact_color(elem: String) -> Color:
