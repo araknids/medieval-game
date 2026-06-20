@@ -632,10 +632,10 @@ static func reward_toast(host: Control, title: String, chips: Array) -> void:
 	tw.tween_callback(root.queue_free)
 
 # ── Botões (tudo pedra) ────────────────────────────────────────────────────────────
-static func _btn(text: String, cb: Callable, size: Vector2, font := 15) -> Button:
+static func _btn(text: String, cb: Callable, size: Vector2, font := 15, tier := 1) -> Button:
 	var b := Button.new()
 	_btn_label(b, text)   # [SEM_WEB_EMOJI] emoji-líder vira ÍCONE do projeto; resto sem emoji de web
-	StoneStyle.apply(b)
+	DarkButtonStyle.apply(b, tier)   # [BOTAO_DARK] 0=PRIMARY (CTA c/ borda dourada), 1=SECONDARY (traço bronze)
 	b.add_theme_font_size_override("font_size", font)
 	b.custom_minimum_size = size
 	if cb.is_valid():
@@ -680,7 +680,7 @@ static func action(text: String, cb: Callable) -> Button:
 	return _btn(text, cb, Vector2(130, 40), 15)
 
 static func action_big(text: String, cb: Callable) -> Button:
-	return _btn(text, cb, Vector2(160, 48), 18)
+	return _btn(text, cb, Vector2(160, 48), 18, DarkButtonStyle.PRIMARY)   # [BOTAO_DARK] CTA = borda dourada
 
 static func action_danger(text: String, cb: Callable) -> Button:
 	var b := _btn(text, cb, Vector2(130, 40), 15)

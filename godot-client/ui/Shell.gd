@@ -362,8 +362,8 @@ func _build_nav() -> Control:
 	nav.add_theme_constant_override("separation", 4)
 	nav.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	scroll.add_child(nav)
-	# LUTAR (ação destacada)
-	var fight := _stone_btn("LUTAR", 44)
+	# LUTAR (ação destacada = PRIMARY, a única com borda dourada) [BOTAO_DARK]
+	var fight := _stone_btn("LUTAR", 44, DarkButtonStyle.PRIMARY)
 	Icons.set_icon(fight, "arena")
 	fight.tooltip_text = "Lutar — entra na batalha 3D"   # [MENUBAR_HOVER]
 	fight.add_theme_font_size_override("font_size", 18)
@@ -729,10 +729,10 @@ func _on_quick_heal() -> void:
 		warrior = r["json"]
 		update_topbar(warrior)
 
-func _stone_btn(text: String, h: int) -> Button:
+func _stone_btn(text: String, h: int, tier := 1) -> Button:   # [BOTAO_DARK] tier 0=PRIMARY (CTA), 1=SECONDARY
 	var b := Button.new()
 	b.text = text
-	DarkButtonStyle.apply(b)
+	DarkButtonStyle.apply(b, tier)
 	b.custom_minimum_size = Vector2(0, h)
 	return b
 
