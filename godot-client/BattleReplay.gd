@@ -2179,26 +2179,52 @@ func _quad(w: float, h: float, col: Color, prio: int) -> MeshInstance3D:
 	mi.material_override = mat
 	return mi
 
+# [DANO_CRIT] Número de dano flutuante. CRÍTICO = número AMARELO num BURST vermelho (estilo Ragnarok);
+# normal = número claro com contorno (mesmo estilo/anim → consistente). burst = arte PixelLab.
+const BURST_TEX := "res://assets/ui/dmg_burst.png"
 func _popup(pos: Vector3, text: String, color: Color, big: bool) -> void:
+	var is_crit := big and text.begins_with("-")   # dano crítico (heal/miss/dodge passam big=false)
+	var root := Node3D.new()
+	add_child(root)
+	root.global_position = pos
+	var burst: Sprite3D = null
+	if is_crit and ResourceLoader.exists(BURST_TEX):
+		burst = Sprite3D.new()
+		burst.texture = load(BURST_TEX)
+		burst.billboard = BaseMaterial3D.BILLBOARD_ENABLED
+		burst.no_depth_test = true
+		burst.pixel_size = 0.013
+		burst.render_priority = 1
+		burst.scale = Vector3.ONE * clampf(text.length() * 0.30, 1.05, 2.4)  # cresce com o nº de dígitos
+		root.add_child(burst)
 	var lbl := Label3D.new()
 	lbl.text = text
 	lbl.billboard = BaseMaterial3D.BILLBOARD_ENABLED
 	lbl.no_depth_test = true
-	lbl.modulate = color
-	lbl.outline_modulate = Color(0, 0, 0, 0.9)
-	lbl.outline_size = 10 if big else 6
-	lbl.pixel_size = 0.009 if big else 0.006
-	lbl.font_size = 84 if big else 64
-	add_child(lbl)
-	lbl.global_position = pos
-	# [JUICE] "slam": estoura a escala (overshoot) + arco pra cima + fade; crit ainda mais
-	var pop := 1.9 if big else 1.4
-	lbl.scale = Vector3(pop, pop, pop)
+	lbl.render_priority = 2   # sempre na frente do burst
+	if is_crit:
+		lbl.modulate = Color(1.0, 0.90, 0.16)              # amarelo Ragnarok
+		lbl.outline_modulate = Color(0.32, 0.02, 0.02, 1)  # contorno vermelho-escuro
+		lbl.outline_size = 12
+		lbl.font_size = 96
+		lbl.pixel_size = 0.0092
+	else:
+		lbl.modulate = color
+		lbl.outline_modulate = Color(0, 0, 0, 0.9)
+		lbl.outline_size = 8 if big else 6
+		lbl.font_size = 76 if big else 60
+		lbl.pixel_size = 0.0072 if big else 0.006
+	root.add_child(lbl)
+	# [JUICE] "slam": estoura a escala (overshoot) + arco pra cima + fade. Burst pulsa junto e some antes.
+	var pop := 2.0 if is_crit else (1.5 if big else 1.35)
+	root.scale = Vector3(pop, pop, pop)
 	var tw := create_tween().set_parallel(true)
-	tw.tween_property(lbl, "scale", Vector3.ONE, 0.22).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
-	tw.tween_property(lbl, "global_position", pos + Vector3(0, 0.85, 0), 0.8).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
-	tw.tween_property(lbl, "modulate:a", 0.0, 0.8).set_delay(0.25)
-	get_tree().create_timer(0.95).timeout.connect(lbl.queue_free)
+	tw.tween_property(root, "scale", Vector3.ONE, 0.24 if is_crit else 0.22).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+	tw.tween_property(root, "global_position", pos + Vector3(0, 0.9, 0), 0.85).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+	tw.tween_property(lbl, "modulate:a", 0.0, 0.8).set_delay(0.30)
+	if burst != null:
+		burst.create_tween().tween_property(burst, "modulate:a", 0.0, 0.5).set_delay(0.22)
+	get_tree().create_timer(1.0).timeout.connect(root.queue_free)
 
 # [SKILL_POPUP] Banner de SKILL: ícone (pixel) + nome flutuando acima da cabeça quando uma ATIVA dispara
 # (evento com `ability`). Some sozinho. Vale no 1v1 e na guerra (mesma função). [HABILIDADES]
