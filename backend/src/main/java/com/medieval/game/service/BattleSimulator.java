@@ -294,6 +294,89 @@ public class BattleSimulator {
         return new BattleOutcome(log, events, cWon, Math.max(0, c.hp), Math.max(0, o.hp));
     }
 
+    // ── [TORRE_GRUPO] Combate em GRUPO: 1 jogador vs N inimigos SIMULTÂNEOS ────────
+
+    /** Spec leve de um inimigo do grupo (Torre: andares com vários monstros atacam JUNTOS). [TORRE_GRUPO] */
+    public record GroupFoe(String name, int atk, int def, int hp, int dex, int agi, int luk) {}
+
+    /**
+     * [TORRE_GRUPO] 1 jogador vs N inimigos ao MESMO TEMPO: todos atacam no mesmo round e o jogador foca
+     * o alvo vivo mais ferido (derruba um por vez). Reusa Side/attackRound/tick/applySelfTriggers — mesmo
+     * motor do 1x1. PvE neutro (sem elementos/ativas, igual ao 1x1 da Torre hoje). {@code firstLosesOnTimeout}:
+     * ninguém morre em 40 rounds → o jogador perde. Eventos: 1 spawn do jogador (1º = esquerda no replay) +
+     * 1 spawn por inimigo (direita) → o replay infere os lados pela ordem. {@code firstWon} = o jogador venceu.
+     */
+    public BattleOutcome simulateGroup(
+            String pName, int pAtk, int pDef, int pHp, int pDex, int pAgi, int pLuk,
+            List<GroupFoe> foes, boolean firstLosesOnTimeout, boolean pRanged) {
+
+        List<String> log = new ArrayList<>();
+        List<BattleEvent> events = new ArrayList<>();
+        Random rng = java.util.concurrent.ThreadLocalRandom.current();
+
+        Side p = new Side(pName, pAtk, pDef, pHp, pHp, pDex, pAgi, pLuk, null, null, List.of(), pRanged);
+        List<Side> es = new ArrayList<>(foes.size());
+        for (GroupFoe f : foes)
+            es.add(new Side(f.name(), f.atk(), f.def(), f.hp(), f.hp(), f.dex(), f.agi(), f.luk(),
+                    null, null, List.of(), false));
+
+        List<String> foeNames = new ArrayList<>(es.size());
+        for (Side e : es) foeNames.add(e.name);
+        log.add(Messages.tr("combat.begins", "⚔ {0} vs {1} — The battle begins!", p.name, String.join(", ", foeNames))); // [I18N]
+        log.add("─────────────────────────");
+        events.add(new BattleEvent(0, "spawn", p.name, null, 0, p.hp, p.maxHp, null, null)); // jogador = 1º spawn (esquerda)
+        for (Side e : es)
+            events.add(new BattleEvent(0, "spawn", e.name, null, 0, e.hp, e.maxHp, null, null)); // inimigos (direita)
+
+        for (int round = 1; round <= 40 && p.hp > 0 && anyAlive(es); round++) {
+            log.add(Messages.tr("combat.round", "— Round {0} —", round)); // [I18N]
+
+            applySelfTriggers(p, log, events, round);
+            for (Side e : es) if (e.hp > 0) applySelfTriggers(e, log, events, round);
+
+            // o jogador foca o inimigo vivo mais ferido (derruba um por vez)
+            Side target = focusTarget(es);
+            if (target != null) attackRound(p, target, HIT_TEXTS, log, rng, events, round);
+            if (p.hp <= 0) { tick(p); for (Side e : es) tick(e); break; }
+
+            // cada inimigo VIVO revida no MESMO round → o jogador toma o dano de todos juntos
+            for (Side e : es) {
+                if (e.hp <= 0) continue;
+                attackRound(e, p, ENEMY_HIT_TEXTS, log, rng, events, round);
+                if (p.hp <= 0) break;
+            }
+
+            tick(p);
+            for (Side e : es) tick(e);
+        }
+
+        log.add("─────────────────────────");
+        boolean pWon;
+        if (!anyAlive(es))  pWon = true;              // derrubou todos os inimigos
+        else if (p.hp <= 0) pWon = false;             // o jogador caiu
+        else                pWon = !firstLosesOnTimeout; // timeout (40 rounds): PvE → perde
+        Side survivor = focusTarget(es);              // 1º inimigo vivo (rótulo do vencedor quando o jogador perde)
+        String winner = pWon ? p.name : (survivor != null ? survivor.name : p.name);
+        String loser  = pWon ? (es.isEmpty() ? "" : es.get(0).name) : p.name;
+        log.add(Messages.tr("combat.victoryline", "🏆 {0} {1}", winner, pick(VICTORY_TEXTS, "combat.victory.", rng))); // [I18N]
+        log.add("WINNER:" + winner + "|LOSER:" + loser); // tag de máquina — TowerService remove a última linha
+        events.add(new BattleEvent(0, "victory", winner, loser, 0, 0, 0, null, null)); // [BATALHA_ANIMADA]
+        return new BattleOutcome(log, events, pWon, Math.max(0, p.hp), 0);
+    }
+
+    /** Inimigo vivo com MENOR HP (foco de dano do jogador). null se todos mortos. [TORRE_GRUPO] */
+    private static Side focusTarget(List<Side> es) {
+        Side best = null;
+        for (Side e : es)
+            if (e.hp > 0 && (best == null || e.hp < best.hp)) best = e;
+        return best;
+    }
+
+    private static boolean anyAlive(List<Side> es) {
+        for (Side e : es) if (e.hp > 0) return true;
+        return false;
+    }
+
     /** Gatilhos de auto-buff/cura no início do round (Berserk, Second Wind). [HABILIDADES] */
     private void applySelfTriggers(Side s, List<String> log, List<BattleEvent> events, int round) {
         if (s.hp <= 0) return;

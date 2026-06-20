@@ -48,19 +48,25 @@ public class TowerService {
         return new BossInfo(name, atk, def, Math.max(1, hp), dex, agi, luk);
     }
 
-    /** Gauntlet do andar: 1 MVP, ou N monstros (HP do andar dividido entre eles, atk levemente menor). */
+    /** Andar: 1 MVP, ou N monstros — cada um com STATS CHEIOS (não divide mais o HP). [TORRE_GRUPO]
+     *  Andar com +1 monstro = todos enfrentados ao MESMO TEMPO no climb (ver simulateGroup), não em sequência. */
     // [I18N] nome de combatente localizado (monster.<Nome_Com_Underscore>); EN = o nome do TowerFloors.
     // O nome localizado vira o BossInfo.name → propaga pro battle log (sem tocar o BattleSimulator).
     private String monName(String en) { return messages.getOr("monster." + en.replace(' ', '_'), en); }
+
+    /** Sufixo romano simples (II, III, …) p/ desambiguar monstros iguais no grupo. [TORRE_GRUPO] */
+    private static String roman(int n) {
+        String[] r = {"", "I", "II", "III", "IV", "V", "VI", "VII", "VIII", "IX"};
+        return n >= 0 && n < r.length ? r[n] : String.valueOf(n);
+    }
 
     public List<BossInfo> monstersFor(int floor) {
         TowerFloors.FloorDef d = TowerFloors.forFloor(floor);
         if (d.isMvp()) return List.of(monster(floor,
                 monName(d.mvp()) + messages.getOr("tower.floor_suffix", " (Floor {0})", floor), 1, 1.0, true)); // [I18N]
         String[] ms = d.monsters().length > 0 ? d.monsters() : new String[]{"Tower Horror"};
-        int n = ms.length;
-        List<BossInfo> out = new java.util.ArrayList<>(n);
-        for (String name : ms) out.add(monster(floor, monName(name), n, n > 1 ? 0.85 : 1.0, false)); // [I18N]
+        List<BossInfo> out = new java.util.ArrayList<>(ms.length);
+        for (String name : ms) out.add(monster(floor, monName(name), 1, 1.0, false)); // [TORRE_GRUPO] stats cheios p/ cada um
         return out;
     }
 
@@ -192,24 +198,35 @@ public class TowerService {
         int[] s = statsService.combatStats(player, warrior);
         boolean ranged = statsService.isRangedWeaponEquipped(player); // [KITING] arma ranged (arco), qualquer classe
 
-        // [TORRE_NARRATIVA] Atmosfera do andar + gauntlet sequencial (HP carrega entre os monstros).
+        // [TORRE_NARRATIVA][TORRE_GRUPO] Atmosfera + a luta: 1 monstro = duelo; vários = TODOS ao mesmo tempo.
         List<String> battleLog = new java.util.ArrayList<>();
-        List<BattleSimulator.BattleEvent> allEvents = new java.util.ArrayList<>(); // [BATALHA_ANIMADA] gauntlet
+        List<BattleSimulator.BattleEvent> allEvents = new java.util.ArrayList<>(); // [BATALHA_ANIMADA]
         battleLog.add("🗼 Floor " + floor + " — " + floorAtmosphere(floor)); // [I18N]
-        boolean won = true;
-        int hp = s[2]; // começa o andar com HP cheio; carrega só ENTRE os monstros do gauntlet
-        for (BossInfo m : monsters) {
-            BattleSimulator.BattleOutcome out = battleSimulator.simulateDetailed(
-                warrior.getName(), s[0], s[1], hp, s[3], s[4], s[5],
+        BattleSimulator.BattleOutcome out;
+        if (monsters.size() == 1) {
+            BossInfo m = monsters.get(0);
+            out = battleSimulator.simulateDetailed(
+                warrior.getName(), s[0], s[1], s[2], s[3], s[4], s[5],
                 m.name(), m.attack(), m.defense(), m.health(), m.dex(), m.agi(), m.luk(),
-                true, ranged, false); // PvE: timeout = derrota; chefe melee [KITING]
-            List<String> lg = new java.util.ArrayList<>(out.log());
-            lg.remove(lg.size() - 1); // tira a tag WINNER
-            battleLog.addAll(lg);
-            allEvents.addAll(out.events()); // [BATALHA_ANIMADA] eventos de cada monstro do gauntlet
-            if (!out.firstWon()) { won = false; break; }
-            hp = out.firstHpFinal(); // carrega pro próximo monstro do andar
+                true, ranged, false); // PvE: timeout = derrota; melee [KITING]
+        } else {
+            // [TORRE_GRUPO] vários monstros = combate em grupo (atacam juntos); nomes únicos p/ o replay não colidir
+            List<BattleSimulator.GroupFoe> foes = new java.util.ArrayList<>(monsters.size());
+            java.util.Map<String, Integer> seen = new java.util.HashMap<>();
+            for (BossInfo m : monsters) {
+                int c = seen.merge(m.name(), 1, Integer::sum);
+                String uniq = c == 1 ? m.name() : m.name() + " " + roman(c); // "Altar-Thing", "Altar-Thing II", …
+                foes.add(new BattleSimulator.GroupFoe(uniq, m.attack(), m.defense(), m.health(), m.dex(), m.agi(), m.luk()));
+            }
+            out = battleSimulator.simulateGroup(
+                warrior.getName(), s[0], s[1], s[2], s[3], s[4], s[5],
+                foes, true, ranged); // PvE: timeout = derrota
         }
+        List<String> lg = new java.util.ArrayList<>(out.log());
+        lg.remove(lg.size() - 1); // tira a tag WINNER
+        battleLog.addAll(lg);
+        allEvents.addAll(out.events()); // [BATALHA_ANIMADA]
+        boolean won = out.firstWon();
 
         inventoryService.wearEquippedItems(player); // desgaste de equipamento
 

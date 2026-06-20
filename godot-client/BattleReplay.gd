@@ -268,6 +268,11 @@ func _ready() -> void:
 	if team_mode:
 		_build_team()           # [TEAM_MOCK] 3 contra 3
 	else:
+		var nspawn := events.filter(func(e): return str(e.get("type", "")) == "spawn").size()
+		if nspawn > 2:          # [TORRE_GRUPO] 1 jogador + N inimigos ao MESMO TEMPO
+			_build_group()      # já posiciona, enquadra a câmera e inicia o stepping (fase "war")
+			print("=== BATTLE REPLAY (grupo) === %d eventos · %d spawns" % [events.size(), nspawn])
+			return
 		_build_fighters()
 	_frame_camera()
 	phase = "countdown"   # 3,2,1 antes de soltar a luta
@@ -508,6 +513,79 @@ func _build_fighters() -> void:
 		var mn: Node3D = melee_f["node"]
 		rn.position = Vector3(ranged_f["side"] * 3.0, ranged_f["base_y"], 0)
 		mn.position = Vector3(melee_f["side"] * 3.0, melee_f["base_y"], 0)
+
+# [TORRE_GRUPO] 1 herói (esquerda, gear REAL) vs N inimigos (direita, em lanes) — TODOS ao mesmo tempo.
+# Reusa o desenho de time (billboard de HP, _war_hit, _finish) + o stepping por-evento da guerra (fase "war").
+# Detecção: >2 spawns nos eventos (1 jogador + N inimigos). Eventos vêm do simulateGroup do backend.
+func _build_group() -> void:
+	team_mode = true        # reusa enquadramento/HP de time
+	kiting = false
+	order = []
+	var spawns: Array = events.filter(func(e): return str(e.get("type", "")) == "spawn")
+	# HERÓI = 1º spawn (esquerda) com itens/arma REAIS, igual ao _build_fighters.
+	var lname := str(spawns[0].get("actor", "Hero"))
+	var lweapon := force_weapon if force_weapon != "" else player_weapon
+	var lequip: Array = (player_equip if player_equip.size() > 0 else DEFAULT_OUTFIT).duplicate()
+	if force_shield and not ("SHIELD" in lequip):
+		lequip.append("SHIELD")
+	player_gender = UiKit.current_gender if UiKit.current_gender != "" else "male"
+	var lrar := force_rarity if force_rarity > 0 else player_weapon_rarity
+	var hero := _make_fighter(lname, -1, int(spawns[0].get("targetMaxHp", 100)), lweapon, lequip, {}, lrar, {}, player_items)
+	var hn := hero["node"] as Node3D
+	hn.position = Vector3(-TEAM_X, hero["base_y"], 0.0)
+	hero["home"] = hn.position
+	hero["anchor"] = hn.position
+	hero["team"] = -1
+	hero["lane"] = 1
+	hero["hp"] = clampi(int(spawns[0].get("targetHp", hero["maxhp"])), 1, int(hero["maxhp"]))
+	hero["shown_hp"] = float(hero["hp"])
+	order.append(hero)
+	fighters[lname] = hero
+	_update_hp(hero)
+	# INIMIGOS = spawns restantes (direita, em lanes centralizadas pela contagem). Cara própria pelo NOME.
+	var foes := spawns.slice(1)
+	for i in foes.size():
+		var sp: Dictionary = foes[i]
+		var nm := str(sp.get("actor", "Foe %d" % (i + 1)))
+		if nm == "" or fighters.has(nm):
+			continue
+		var emeta: Dictionary = {}
+		var look: Dictionary = {}
+		var ew := "sword"
+		var pick := mons.pick_for(nm)
+		if pick.get("kind") == "monster":
+			emeta = pick
+		else:
+			look = _enemy_look(nm, false)
+			ew = str(look["weapon"])
+		var maxhp := maxi(1, int(sp.get("targetMaxHp", 100)))
+		var f := _make_fighter(nm, 1, maxhp, ew, look.get("equip", DEFAULT_OUTFIT), emeta, 1, look)
+		var fn := f["node"] as Node3D
+		fn.position = Vector3(TEAM_X, f["base_y"], _group_lane_z(i, foes.size()))
+		f["home"] = fn.position
+		f["anchor"] = fn.position
+		f["team"] = 1
+		f["lane"] = i
+		f["hp"] = clampi(int(sp.get("targetHp", maxhp)), 0, maxhp)
+		f["shown_hp"] = float(f["hp"])
+		order.append(f)
+		fighters[nm] = f
+		_update_hp(f)
+	# câmera fixa enquadrando o campo + stepping por-evento (reusa a fase "war")
+	cam.position = Vector3(0.0, 4.8, 8.4)
+	cam.look_at(Vector3(0, 1.2, 0), Vector3.UP)
+	war_events = events
+	war_i = 0
+	war_t = 0.0
+	phase = "war"
+
+# z da lane de cada inimigo, centralizado pela contagem (1→0; 2→±1.4; 3→TEAM_ROWS). [TORRE_GRUPO]
+func _group_lane_z(idx: int, count: int) -> float:
+	if count <= 1:
+		return 0.0
+	if count == 2:
+		return -1.4 if idx == 0 else 1.4
+	return TEAM_ROWS[clampi(idx, 0, TEAM_ROWS.size() - 1)]
 
 # [GODOT_PAPERDOLL] Veste UM lutador: esconde a base nua, põe a cabeça sempre, roupa no slot
 # equipado e a pele cortada no slot vazio (a roupa cobre o resto → 0 clipping). Se as peças

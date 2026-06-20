@@ -42,22 +42,28 @@ class TowerBalanceProbeTest {
         return new int[]{ atk, def, hp, dex, agi, 0 };
     }
 
-    /** Roda o gauntlet do andar (HP carrega entre monstros) com o player começando cheio. % de clears. */
+    /** Roda o andar: 1 monstro = duelo; vários = TODOS ao mesmo tempo (simulateGroup). % de clears. [TORRE_GRUPO] */
     private double clearRate(int[] player, int floor, int n) {
         List<TowerService.BossInfo> monsters = tower.monstersFor(floor);
         int clears = 0;
         for (int i = 0; i < n; i++) {
-            int hp = player[2];
-            boolean alive = true;
-            for (TowerService.BossInfo m : monsters) {
-                BattleSimulator.BattleOutcome o = sim.simulateDetailed(
-                        "P", player[0], player[1], hp, player[3], player[4], player[5],
+            BattleSimulator.BattleOutcome o;
+            if (monsters.size() == 1) {
+                TowerService.BossInfo m = monsters.get(0);
+                o = sim.simulateDetailed(
+                        "P", player[0], player[1], player[2], player[3], player[4], player[5],
                         m.name(), m.attack(), m.defense(), m.health(), m.dex(), m.agi(), m.luk(),
                         true, false, false);
-                if (!o.firstWon()) { alive = false; break; }
-                hp = o.firstHpFinal();
+            } else {
+                List<BattleSimulator.GroupFoe> foes = new java.util.ArrayList<>(monsters.size());
+                int k = 0;
+                for (TowerService.BossInfo m : monsters)
+                    foes.add(new BattleSimulator.GroupFoe(m.name() + " " + (++k),
+                            m.attack(), m.defense(), m.health(), m.dex(), m.agi(), m.luk()));
+                o = sim.simulateGroup("P", player[0], player[1], player[2], player[3], player[4], player[5],
+                        foes, true, false);
             }
-            if (alive) clears++;
+            if (o.firstWon()) clears++;
         }
         return 100.0 * clears / n;
     }
