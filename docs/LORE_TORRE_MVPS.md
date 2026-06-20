@@ -99,3 +99,17 @@ uns ficaram no posto, outros desertaram e subiram. Todos amaldiçoados, nenhum d
 - **Wax-Eaten Priest** (7) — Rezava numa capela sem deus. A cera escorre **pra cima**, rumo às escadas, e o levou junto: meio homem, meio vela viva.
 - **Loyal Unto Death** (8, ×2) — Bate continência com as cores da guarnição… e então saca a lâmina. Ainda obedece a uma ordem que ninguém vivo pra dar.
 - **Gate-Breaker** (9) — O que arrombou o portão de cima **de dentro pra fora**. Grande demais pra ter sido gente; respirava aqui agora há pouco. O último degrau antes da corte.
+
+## Zona 2 — A Corte (a nobreza podre) · Andares 11–19
+Pra cá a corte **fugiu** da guarda lá embaixo. A maldição os achou cheios dos próprios vícios — vaidade,
+ganância, bajulação — e os fez **mais ainda**: cada um virou a caricatura do que era em vida.
+
+- **Gilded Wretch** (11) — Cortesão tão coberto de ouro que **virou o ouro**: folha dourada descascando da carne, orgulhoso demais pra se abaixar até pelas moedas aos próprios pés.
+- **Mirror-Bound** (12) — Amava o próprio reflexo a ponto da maldição o **prender dentro dele**: ataca sempre **um batimento atrasado**, como se quem o move fosse a imagem no espelho.
+- **Faceless Courtier** (13, ×2) — Usou tantas caras (bajular, trair, sorrir) que a maldição tomou **todas** — sobraram só os **olhos**, que ainda observam de dentro do nada.
+- **Feast-Rotted** (14, ×2) — Empanturrou-se no banquete enquanto o reino passava fome; agora **mastiga pra sempre**, apodrecendo na cadeira que nunca deixou.
+- **Powdered Corpse** (15) — Cobriu de pó e perfume a podridão que já trazia dentro. Sob a maquiagem, o **cadáver ainda se arruma** — perfume doce demais sobre algo muito pior.
+- **The Kneeling** (16, ×2) — Ajoelhou tanto tempo pedindo o favor do Rei que a **pedra o tomou**: ainda de joelhos, ainda implorando, agora golpeando quem passa.
+- **Tally-Keeper** (17) — Escreveu o mesmo nome **mil vezes** num livro-razão até a obsessão o consumir. Te enxerga só como mais uma **entrada** a riscar.
+- **Jewel-Crusted Horror** (18) — Ganância cristalizada: tão incrustado de joias que **virou uma coisa de gemas**, e cada pedra te acompanha como um olho.
+- **Duelist of Lies** (19) — Campeão de armas da corte que **nunca perdeu um duelo — e nunca lutou um de verdade**. Todos eram arranjados. Em morte, encara a primeira luta honesta da existência: a sua.
