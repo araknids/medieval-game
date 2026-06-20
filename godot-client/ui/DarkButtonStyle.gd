@@ -46,11 +46,12 @@ static func _box(tier: int, state: int) -> StyleBoxFlat:
 			1: sb.bg_color = Color8(0x3C, 0x2A, 0x16); sb.border_color = Color8(0xE0, 0xB5, 0x3A)
 			2: sb.bg_color = Color8(0x1E, 0x14, 0x08); sb.border_color = Color8(0x8C, 0x6E, 0x22)
 		sb.set_border_width_all(2)
-	else:  # SECONDARY — couro escuro + SÓ um traço embaixo (bronze, acende dourado no hover)
-		match state:
-			0: sb.bg_color = Color8(0x24, 0x1A, 0x12); sb.border_color = Color8(0x7A, 0x5E, 0x28)
+	else:  # SECONDARY — couro escuro + moldura fina DISCRETA (bronze fosco) + base levemente mais forte;
+		match state:                 # acende (dourado) no hover. Botão "inteiro", mas bem mais quieto que o CTA.
+			0: sb.bg_color = Color8(0x24, 0x1A, 0x12); sb.border_color = Color8(0x6E, 0x56, 0x26)
 			1: sb.bg_color = Color8(0x30, 0x24, 0x18); sb.border_color = Color8(0xC9, 0xA2, 0x27)
-			2: sb.bg_color = Color8(0x19, 0x12, 0x0C); sb.border_color = Color8(0x5A, 0x46, 0x20)
-		sb.border_width_bottom = 2   # só a base = "plaqueta gravada", elegante (não moldura)
+			2: sb.bg_color = Color8(0x19, 0x12, 0x0C); sb.border_color = Color8(0x4A, 0x3A, 0x1C)
+		sb.set_border_width_all(1)   # moldura fina completa (parece botão inteiro, não "pela metade")
+		sb.border_width_bottom = 2   # base 1px mais grossa = leve "plaqueta gravada"
 	_cache[key] = sb
 	return sb
