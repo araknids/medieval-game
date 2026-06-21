@@ -282,6 +282,10 @@ static func _anim_stop(b: Button) -> void:
 	var tw: Tween = b.get_meta("anim_tw", null)
 	if tw != null and tw.is_valid():
 		tw.kill()
+	var rest = b.get_meta("anim_rest", null)   # [HOVER_ICON] ícone de descanso dinâmico (ex.: Correio lido/não-lido)
+	if rest != null:
+		b.icon = rest
+		return
 	var frames: Array = b.get_meta("anim_frames", [])
 	if frames.size() > 0:
 		b.icon = frames[0]

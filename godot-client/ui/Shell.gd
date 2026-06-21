@@ -243,12 +243,8 @@ func _topbar_icon_btn(key: String, tip: String, cb: Callable) -> Button:
 	var empty := StyleBoxEmpty.new()
 	for st in ["normal", "hover", "pressed", "focus"]:
 		b.add_theme_stylebox_override(st, empty)
-	var t := Icons.tex(key)
-	if t != null:
-		b.icon = t
-		b.expand_icon = true
+	if Icons.set_icon(b, key):   # [HOVER_ICON] ícone + hover-pop + FRAME-ANIM (carta abrindo / engrenagem girando / presente)
 		b.add_theme_constant_override("icon_max_width", 30)
-		Icons.add_hover(b)   # [HOVER_ICON] cresce + clareia no hover (igual aos da nav); SEM frame-anim p/ não brigar com a troca de ícone do Correio
 	else:
 		b.text = key.substr(0, 1).to_upper()   # fallback até o PNG importar
 	b.pressed.connect(cb)
@@ -350,7 +346,7 @@ func _tip_row(row: Control, tip: String) -> void:
 # ── Nav lateral (árvore recolhível) ─────────────────────────────────────────────────
 func _build_nav() -> Control:
 	var pc := PanelContainer.new()
-	pc.custom_minimum_size = Vector2(210, 0)
+	pc.custom_minimum_size = Vector2(158, 0)   # [MENUBAR_REORG] mais estreito (labels são curtos)
 	var sb := StyleBoxFlat.new()
 	sb.bg_color = Color(0.07, 0.065, 0.08, 0.96)
 	sb.border_color = Color(0.40, 0.32, 0.20); sb.border_width_right = 2
@@ -374,34 +370,38 @@ func _build_nav() -> Control:
 	home.pressed.connect(_show_dashboard)
 	_nav_buttons["__home__"] = home
 	nav.add_child(home)
-	# seções recolhíveis (1 coluna; cabeçalhos compactos p/ caber sem scroll)
-	for section in SECTIONS:
-		var items := VBoxContainer.new()
-		items.add_theme_constant_override("separation", 2)
-		var head := Button.new()
-		head.flat = true
-		head.alignment = HORIZONTAL_ALIGNMENT_LEFT
-		head.custom_minimum_size = Vector2(0, 20)
-		head.text = "▾  " + Lang.t(str(section[0])).to_upper()
-		head.add_theme_font_size_override("font_size", 12)
-		head.add_theme_color_override("font_color", UiKit.GOLD_SOFT)
-		head.pressed.connect(func() -> void:
-			items.visible = not items.visible
-			head.text = ("▾  " if items.visible else "▸  ") + Lang.t(str(section[0])).to_upper()
-		)
-		nav.add_child(head)
-		nav.add_child(items)
-		for entry in section[1]:
-			items.add_child(_nav_item(str(entry[0]), str(entry[1])))
-	# Personagem + Guilda = itens de TOPO (1 item só não vale header)
+	# [MENUBAR_REORG] ordem: Aventura · Batalha · Personagem · Guilda · Comércio (Personagem/Guilda antes do Comércio)
+	_add_nav_section(nav, SECTIONS[0])   # Aventura
+	_add_nav_section(nav, SECTIONS[1])   # Batalha
 	nav.add_child(_nav_item("Character", "Personagem"))
 	nav.add_child(_nav_item("Guild", "Guilda"))
+	_add_nav_section(nav, SECTIONS[2])   # Comércio
 	nav.add_child(_spacer(8))
 	var out := _stone_btn("Sair", 32)
 	out.tooltip_text = "Sair — desconecta da conta"
 	out.pressed.connect(func() -> void: logout.emit())
 	nav.add_child(out)
 	return pc
+
+# [MENUBAR_REORG] Renderiza uma seção recolhível (header + itens) na nav.
+func _add_nav_section(nav: VBoxContainer, section) -> void:
+	var items := VBoxContainer.new()
+	items.add_theme_constant_override("separation", 2)
+	var head := Button.new()
+	head.flat = true
+	head.alignment = HORIZONTAL_ALIGNMENT_LEFT
+	head.custom_minimum_size = Vector2(0, 20)
+	head.text = "▾  " + Lang.t(str(section[0])).to_upper()
+	head.add_theme_font_size_override("font_size", 12)
+	head.add_theme_color_override("font_color", UiKit.GOLD_SOFT)
+	head.pressed.connect(func() -> void:
+		items.visible = not items.visible
+		head.text = ("▾  " if items.visible else "▸  ") + Lang.t(str(section[0])).to_upper()
+	)
+	nav.add_child(head)
+	nav.add_child(items)
+	for entry in section[1]:
+		items.add_child(_nav_item(str(entry[0]), str(entry[1])))
 
 func _nav_item(scr: String, label: String) -> Button:
 	var b := Button.new()
@@ -624,7 +624,9 @@ func update_topbar(w: Dictionary) -> void:
 	if _mail_btn != null and _mail_btn.icon != null:
 		var unread := int(w.get("unreadMail", 0))
 		var mu := Icons.tex("mail_unread")
-		_mail_btn.icon = (mu if (unread > 0 and mu != null) else Icons.tex("mail"))
+		var rest_tex: Texture2D = (mu if (unread > 0 and mu != null) else Icons.tex("mail"))
+		_mail_btn.icon = rest_tex
+		_mail_btn.set_meta("anim_rest", rest_tex)   # [HOVER_ICON] _anim_stop volta pra cá (mantém o não-lido depois do hover)
 		_mail_btn.tooltip_text = ("Correio — %d não lida(s)" % unread) if unread > 0 else "Correio — mensagens e recompensas"
 	# (Badge do Diário "dá pra resgatar" adiado — precisa de arte/ícone próprio p/ não brigar com o hover-modulate.)
 	_refresh_buffs(w)

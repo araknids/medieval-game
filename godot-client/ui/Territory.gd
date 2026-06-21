@@ -7,6 +7,7 @@ extends Control
 
 signal go_back
 signal request_battle(data)   # [GUERRA_GAUNTLET] pede ao App o replay 3D da última guerra do território
+signal open_screen(name)      # [MENUBAR_REORG] "←" volta pra Guilda (Território é aberto por ela)
 
 const Icons := preload("res://ui/Icons.gd")   # [AUDITORIA_UI_TERRITORIO] tira de info por ícones + botão de assistir
 
@@ -21,6 +22,12 @@ var busy := false
 
 func _ready() -> void:
 	var ui := UiKit.scaffold(self, "🗺 Território", func() -> void: go_back.emit(), func() -> void: await _refresh(), UiKit.TINT_BATTLE)
+	# [MENUBAR_REORG] Território é aberto PELA Guilda (sem item na nav) → botão "←" volta pra Guilda
+	var back := UiKit.icon_btn("←", func() -> void: open_screen.emit("Guild"))
+	back.custom_minimum_size = Vector2(48, 40)
+	back.tooltip_text = "Voltar para a Guilda"
+	ui.header.add_child(back)
+	ui.header.move_child(back, 0)
 	content = ui.content
 	status = ui.status
 	wallet = ui.wallet
