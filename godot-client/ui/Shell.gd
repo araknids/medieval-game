@@ -46,7 +46,7 @@ const NAV_TIPS := {
 # Nav em árvore: [seção, [[tela, rótulo], ...]] — o ícone vem de "<tela em minúsculo>.png".
 const SECTIONS := [
 	["Aventura",   [["World", "Mundo"], ["Work", "Trabalho"], ["Temple", "Templo"]]],
-	["Batalha",    [["Tower", "Torre"], ["Arena", "Arena"], ["Territory", "Território"]]],
+	["Batalha",    [["Tower", "Torre"], ["Arena", "Arena"]]],
 	["Comércio",   [["Shop", "Loja"], ["Forge", "Forja"], ["Auction", "Leilão"], ["Stash", "Baú"], ["Tavern", "Taverna"], ["Vip", "VIP"]]],
 ]
 # [MENUBAR_REORG] Personagem(Character) + Guilda viraram itens de TOPO (header de 1 item só é redundante);
@@ -73,6 +73,7 @@ var _coins: Dictionary = {}     # key -> Label
 # [TOPBAR_REORG] cluster do canto superior direito: Correio · Diário · Config (+ badges)
 var _mail_btn: Button            # ícone troca p/ mail_unread quando há não-lido
 var _daily_btn: Button           # ganha tom dourado quando dá pra resgatar
+var _heal_btn: Control           # botão de cura — só aparece com HP < 100
 var _buffs_box: HFlowContainer    # badges dos buffs ativos (templo/vip/refeição/encanto/novato/taverna) — linha própria que QUEBRA
 var _nav_buttons: Dictionary = {}   # nome da tela -> Button (destaque do ativo)
 var _cache := {}        # nome da tela → node (MANTIDA em memória; alterna visibilidade, não recria)
@@ -180,15 +181,11 @@ func _build_topbar() -> Control:
 	# espaçador empurra moedas + cluster pra direita
 	var spacer := Control.new(); spacer.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	row.add_child(spacer)
-	# moedas
-	var coinbox := VBoxContainer.new(); coinbox.add_theme_constant_override("separation", 2)
+	# [TOPBAR_REORG] moedas numa LINHA só: ouro · prata · bronze · soulstone (VIP)
+	var coinbox := HBoxContainer.new(); coinbox.add_theme_constant_override("separation", 10)
 	coinbox.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	var c1 := HBoxContainer.new(); c1.add_theme_constant_override("separation", 10)
-	c1.add_child(_coin("gold")); c1.add_child(_coin("silver")); c1.add_child(_coin("bronze"))
-	coinbox.add_child(c1)
-	var c2 := HBoxContainer.new(); c2.add_theme_constant_override("separation", 10)
-	c2.add_child(_coin("soulstone"))
-	coinbox.add_child(c2)
+	coinbox.add_child(_coin("gold")); coinbox.add_child(_coin("silver"))
+	coinbox.add_child(_coin("bronze")); coinbox.add_child(_coin("soulstone"))
 	row.add_child(coinbox)
 	# [TOPBAR_REORG] cluster do canto superior direito: Correio · Diário · Config
 	row.add_child(_divider())
@@ -251,9 +248,7 @@ func _topbar_icon_btn(key: String, tip: String, cb: Callable) -> Button:
 		b.icon = t
 		b.expand_icon = true
 		b.add_theme_constant_override("icon_max_width", 30)
-		b.modulate = Color(1, 1, 1, 0.85)
-		b.mouse_entered.connect(func() -> void: b.modulate = Color(1, 1, 1, 1))
-		b.mouse_exited.connect(func() -> void: b.modulate = Color(1, 1, 1, 0.85))
+		Icons.add_hover(b)   # [HOVER_ICON] cresce + clareia no hover (igual aos da nav); SEM frame-anim p/ não brigar com a troca de ícone do Correio
 	else:
 		b.text = key.substr(0, 1).to_upper()   # fallback até o PNG importar
 	b.pressed.connect(cb)
@@ -311,10 +306,12 @@ func _heal_button() -> Control:
 		b.custom_minimum_size = Vector2(74, 30) if is_word else Vector2(36, 36)   # botão da palavra é 2.5:1
 		b.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 		b.modulate = Color(1, 1, 1, 0.9)
-		b.tooltip_text = "Curar agora (Templo) — sem sair da tela"
+		b.tooltip_text = "Pagar ao padre para curar o herói (custa bronze conforme o dano)"
+		b.visible = false                  # [HEAL] só aparece com HP < 100 (ver update_topbar)
 		b.mouse_entered.connect(func() -> void: b.modulate = Color(1, 1, 1, 1))
 		b.mouse_exited.connect(func() -> void: b.modulate = Color(1, 1, 1, 0.9))
 		b.pressed.connect(_on_quick_heal)
+		_heal_btn = b
 		return b
 	var fb := Button.new()
 	fb.text = "❤"
@@ -323,8 +320,10 @@ func _heal_button() -> Control:
 	fb.add_theme_color_override("font_color", Color(0.86, 0.32, 0.30))
 	fb.custom_minimum_size = Vector2(36, 32)
 	fb.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	fb.tooltip_text = "Curar agora (Templo) — sem sair da tela"
+	fb.tooltip_text = "Pagar ao padre para curar o herói (custa bronze conforme o dano)"
+	fb.visible = false                     # [HEAL] só aparece com HP < 100
 	fb.pressed.connect(_on_quick_heal)
+	_heal_btn = fb
 	return fb
 
 # Linha "rótulo  [barra]  valor" — guarda o Label de valor em meta "vlabel".
@@ -359,7 +358,7 @@ func _build_nav() -> Control:
 	pc.add_theme_stylebox_override("panel", sb)
 	# [MENUBAR_REORG] SEM ScrollContainer — a barra cabe inteira em 720p (pedido do dono: sem scroll).
 	var nav := VBoxContainer.new()
-	nav.add_theme_constant_override("separation", 3)
+	nav.add_theme_constant_override("separation", 2)
 	nav.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	pc.add_child(nav)
 	# Início (dashboard) — flat + ícone (mesmo padrão dos itens)
@@ -375,20 +374,14 @@ func _build_nav() -> Control:
 	home.pressed.connect(_show_dashboard)
 	_nav_buttons["__home__"] = home
 	nav.add_child(home)
-	# seções recolhíveis (Comércio em 2 colunas p/ caber sem scroll)
+	# seções recolhíveis (1 coluna; cabeçalhos compactos p/ caber sem scroll)
 	for section in SECTIONS:
-		var two_col := str(section[0]) == "Comércio"
-		var items: Container = (GridContainer.new() if two_col else VBoxContainer.new())
-		if two_col:
-			(items as GridContainer).columns = 2
-			items.add_theme_constant_override("h_separation", 4)
-			items.add_theme_constant_override("v_separation", 3)
-		else:
-			items.add_theme_constant_override("separation", 3)
+		var items := VBoxContainer.new()
+		items.add_theme_constant_override("separation", 2)
 		var head := Button.new()
 		head.flat = true
 		head.alignment = HORIZONTAL_ALIGNMENT_LEFT
-		head.custom_minimum_size = Vector2(0, 22)
+		head.custom_minimum_size = Vector2(0, 20)
 		head.text = "▾  " + Lang.t(str(section[0])).to_upper()
 		head.add_theme_font_size_override("font_size", 12)
 		head.add_theme_color_override("font_color", UiKit.GOLD_SOFT)
@@ -612,6 +605,8 @@ func update_topbar(w: Dictionary) -> void:
 	_xp_bar.tooltip_text = Lang.t("Experiência: %d / %d (faltam %d pro próximo nível)") % [xp, need, maxi(0, need - xp)]
 	var hp := int(w.get("hpPercent", w.get("currentHp", 100)))
 	_hp_bar.value = clampi(hp, 0, 100)
+	if _heal_btn != null:
+		_heal_btn.visible = hp < 100   # [HEAL] botão de cura só aparece quando ferido
 	if _hp_lbl != null:
 		var maxhp := int(w.get("totalHealth", 0))   # HP máximo (base+bônus); atual = max × %/100
 		if maxhp > 0:

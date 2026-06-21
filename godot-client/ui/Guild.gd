@@ -9,6 +9,7 @@ extends Control
 
 signal go_back
 signal request_battle(data)   # [BATALHA_ANIMADA] ataque de guerra → replay 3D (App esconde o shell)
+signal open_screen(name)      # [MENUBAR_REORG] Território saiu da barra lateral → botão aqui abre a tela
 
 const F_LANES := 3   # [GUERRA_FORMACAO] colunas (lanes) do tabuleiro de guerra
 const F_DEPTH := 5   # linhas (profundidade): 0 = frente (luta 1º) … 4 = retaguarda
@@ -110,6 +111,9 @@ func _render_panel() -> void:
 		head_box.add_child(UiKit.bar(Lang.t("Nível"), int(g.get("levelProgressPct", 0)), 100, UiKit.GOLD,
 			Lang.t("Lv.%d → Lv.%d  (faltam %s)") % [int(g.get("level", 1)), int(g.get("level", 1)) + 1, _fmt_bronze(int(g.get("goldToNextLevel", 0)))]))
 	content.add_child(head_res[0])
+
+	# [MENUBAR_REORG] Território (controle de territórios → pré-requisito da guerra) movido pra cá
+	content.add_child(UiKit.action("🏰 Território — conquistar e defender", func() -> void: open_screen.emit("Territory")))
 
 	# ── Membros ── [SEM_SCROLL] grid 2-col (era 1 membro por linha)
 	content.add_child(UiKit.section(Lang.t("Membros (%d)") % members.size()))
