@@ -179,7 +179,13 @@ func _enchant_cell(slot: String, e: Dictionary) -> Control:
 func _enchant(slot: String, element_id: String) -> void:
 	if busy: return
 	busy = true
-	await _do(await (Api.temple_enchant_weapon(element_id) if slot == "weapon" else Api.temple_enchant_armor(element_id)))
+	# [ELEMENTOS] await separado por ramo — coroutine dentro de ternária não satisfaz o await estático do GDScript
+	var r
+	if slot == "weapon":
+		r = await Api.temple_enchant_weapon(element_id)
+	else:
+		r = await Api.temple_enchant_armor(element_id)
+	await _do(r)
 	busy = false
 
 # ── Proteção de itens ──────────────────────────────────────────────────────────
