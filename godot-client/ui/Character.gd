@@ -382,14 +382,50 @@ func _update_slots() -> void:
 			frame.tooltip_text = Lang.t(str(SLOT_LABEL.get(type, type)))
 			icon.texture = Icons.item_tex(type)   # vazio → ícone genérico de volta
 
+# [ITEM_TOOLTIP] Tooltip rico do item: nome, tipo/nível/raridade, todos os stats, afixos, gemas,
+# durabilidade, descrição (lore) e ORIGEM (onde foi obtido) + preço de venda.
+func _item_tooltip(it: Dictionary) -> String:
+	var lines: Array = []
+	lines.append(str(it.get("name", "?")))
+	lines.append("%s · Nv %d · %s" % [Lang.t(str(it.get("typeDisplay", it.get("type", "")))), int(it.get("itemLevel", 1)), Lang.t(str(it.get("rarityName", "")))])
+	var main: Array = []
+	for pair in [["attackBonus", "ATK"], ["defenseBonus", "DEF"], ["healthBonus", "HP"]]:
+		var v := int(it.get(pair[0], 0))
+		if v != 0: main.append("%s %+d" % [pair[1], v])
+	if not main.is_empty(): lines.append("   ".join(main))
+	var attrs: Array = []
+	for pair in [["strBonus", "STR"], ["dexBonus", "DEX"], ["lukBonus", "LUK"]]:
+		var v := int(it.get(pair[0], 0))
+		if v != 0: attrs.append("%s %+d" % [pair[1], v])
+	if not attrs.is_empty(): lines.append("   ".join(attrs))
+	var affixes = it.get("affixes", [])
+	if affixes is Array:
+		for a in affixes:
+			if a is Dictionary:
+				lines.append("• %s (%s %+d)" % [str(a.get("word", "")), str(a.get("stat", "")), int(a.get("magnitude", 0))])
+	var sockets := int(it.get("sockets", 0))
+	if sockets > 0:
+		var gnames: Array = []
+		var gems = it.get("gems", [])
+		if gems is Array:
+			for g in gems:
+				if g is Dictionary: gnames.append(str(g.get("displayName", g.get("type", ""))))
+		var gtxt := ("  " + ", ".join(gnames)) if not gnames.is_empty() else ""
+		lines.append(Lang.t("Soquetes: %d/%d%s") % [gnames.size(), sockets, gtxt])
+	var dur := int(it.get("durability", -1))
+	if dur >= 0: lines.append(Lang.t("Durabilidade: %d") % dur)
+	var desc := str(it.get("description", ""))
+	if desc != "":
+		lines.append("")
+		lines.append("\"%s\"" % desc)
+	var origin := str(it.get("origin", ""))
+	if origin != "": lines.append(Lang.t("Origem: %s") % origin)
+	var price := int(it.get("sellPrice", 0))
+	if price > 0: lines.append(Lang.t("Vende por %s") % UiKit.coin_str(price))
+	return "\n".join(lines)
+
 func _equipped_tooltip(it: Dictionary) -> String:
-	var tip := str(it.get("name", "?"))
-	tip += "\n" + Lang.t("%s · Nv %d · %s") % [Lang.t(str(it.get("typeDisplay", it.get("type", "")))), int(it.get("itemLevel", 1)), Lang.t(str(it.get("rarityName", "")))]
-	var st := _stats_line(it)
-	if st != "":
-		tip += "\n" + st
-	tip += "\n" + Lang.t("(clique para desequipar)")
-	return tip
+	return _item_tooltip(it) + "\n" + Lang.t("(clique para desequipar)")
 
 # [SLOT_WEAPON_IMG] Ícone 2D renderizado do modelo da arma equipada (assets/weapons/icons/<modelo>.png).
 # null se não houver render importado → o slot cai no ícone genérico slot_weapon.
@@ -718,7 +754,8 @@ func _bag_card(it) -> Control:
 	nm.clip_text = true
 	nm.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS   # nome longo → "…"
 	top.add_child(nm)
-	box.add_child(UiKit.item_subline(it, int(w.get("level", 0))))   # [REQ_LEVEL] Nv vermelho se exige nível acima
+	var subline := UiKit.item_subline(it, int(w.get("level", 0)))   # [REQ_LEVEL] Nv vermelho se exige nível acima
+	box.add_child(subline)
 	var sline := UiKit.item_stats_line(it)   # [STATS_CMP] stats únicos coloridos vs equipado (1 linha só)
 	if sline:
 		box.add_child(sline)
@@ -742,6 +779,11 @@ func _bag_card(it) -> Control:
 		pl.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 		btns.add_child(pl)
 		btns.add_child(_action_icon("sell", "💰", _ask_sell.bind(id, str(it.get("name", "?")), rar), Lang.t("Vender (%s)") % UiKit.coin_str(price)))
+	# [ITEM_TOOLTIP] hover no card → descrição + origem + todos os stats. PASS deixa o hover chegar no card (botões ficam STOP).
+	pc.tooltip_text = _item_tooltip(it)
+	for n in [top, nm, subline, sline, ic]:
+		if n != null and n is Control:
+			(n as Control).mouse_filter = Control.MOUSE_FILTER_PASS
 	return pc
 
 # Ação como ÍCONE-BOTÃO: o ícone É o botão (sem moldura). flat + StyleBoxEmpty (zero padding) + brilho no
