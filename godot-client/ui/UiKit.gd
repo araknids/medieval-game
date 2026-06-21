@@ -726,7 +726,11 @@ static func input(placeholder := "") -> LineEdit:
 # ── Cartões / seções / texto ───────────────────────────────────────────────────────
 # Retorna [PanelContainer, VBoxContainer] — adicione o conteúdo no VBox.
 static func card(border := BRONZE, enabled := true) -> Array:
-	var p := PanelContainer.new()
+	return card_styled(PanelContainer.new(), border, enabled)
+
+# [ITEM_TOOLTIP] Aplica o visual de card num PanelContainer JÁ EXISTENTE (ex.: um ItemTooltipCard) +
+# adiciona o VBox de conteúdo. Retorna [pc, vbox]. card() chama isto com um PanelContainer novo.
+static func card_styled(p: PanelContainer, border := BRONZE, enabled := true) -> Array:
 	var sb := StyleBoxFlat.new()
 	sb.bg_color = Color(0.115, 0.10, 0.12, 0.92)
 	sb.set_border_width_all(1)
@@ -744,6 +748,157 @@ static func card(border := BRONZE, enabled := true) -> Array:
 	v.add_theme_constant_override("separation", 4)
 	p.add_child(v)
 	return [p, v]
+
+# [ITEM_TOOLTIP] Painel RICO de um item (hover). opts: {equipped:bool}. Fonte única p/ mochila + slots.
+# Reusa rarity_color/item_icon_for/coin_box/compare_line/Icons. Lazy: chamado só quando o tooltip aparece.
+static func item_tooltip_panel(it: Dictionary, opts := {}) -> PanelContainer:
+	var rar := int(it.get("rarity", 1))
+	var rc := rarity_color(rar)
+	var is_eq := bool(opts.get("equipped", false))
+	var root := PanelContainer.new()
+	root.custom_minimum_size = Vector2(300, 0)
+	var sb := StyleBoxFlat.new()
+	sb.bg_color = Color(0.09, 0.08, 0.10, 0.98)
+	sb.set_border_width_all(2 if rar >= 3 else 1)
+	sb.border_color = Color(rc.r, rc.g, rc.b, 1.0 if rar >= 5 else 0.9)
+	sb.set_corner_radius_all(5)
+	sb.set_content_margin_all(11)
+	sb.shadow_color = Color(rc.r, rc.g, rc.b, 0.30)
+	sb.shadow_size = 10 if rar >= 5 else 8
+	root.add_theme_stylebox_override("panel", sb)
+	var v := VBoxContainer.new(); v.add_theme_constant_override("separation", 5)
+	root.add_child(v)
+	# header: ícone + nome (cor da raridade, com contorno) numa barra escura
+	var hbar := PanelContainer.new()
+	var hsb := StyleBoxFlat.new(); hsb.bg_color = Color(0, 0, 0, 0.28); hsb.set_corner_radius_all(6)
+	hsb.content_margin_left = 5; hsb.content_margin_right = 5; hsb.content_margin_top = 3; hsb.content_margin_bottom = 3
+	hbar.add_theme_stylebox_override("panel", hsb)
+	var hrow := HBoxContainer.new(); hrow.add_theme_constant_override("separation", 8)
+	hbar.add_child(hrow)
+	var icon := item_icon_for(it, 28)
+	if icon != null:
+		hrow.add_child(icon)
+	var nm := Label.new(); nm.text = str(it.get("name", "?"))
+	nm.add_theme_font_size_override("font_size", 17)
+	nm.add_theme_color_override("font_color", rc)
+	nm.add_theme_color_override("font_outline_color", Color(0.12, 0.03, 0.0, 1))
+	nm.add_theme_constant_override("outline_size", 4)
+	nm.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	hrow.add_child(nm)
+	v.add_child(hbar)
+	v.add_child(item_subline(it, 0))
+	# pills (tags) — só as verdadeiras
+	var tags := HFlowContainer.new(); tags.add_theme_constant_override("h_separation", 5); tags.add_theme_constant_override("v_separation", 3)
+	if is_eq: tags.add_child(_tag_pill("Equipado", GOLD, ""))
+	if bool(it.get("selfCrafted", false)): tags.add_child(_tag_pill("Forjado por você", GOLD, "forge"))
+	if bool(it.get("pvpLocked", false)): tags.add_child(_tag_pill("Travado no PvP", ERR, "locked"))
+	if bool(it.get("guarded", false)): tags.add_child(_tag_pill("Protegido", OK, "locked"))
+	if str(it.get("weaponCategory", "")) == "RANGED": tags.add_child(_tag_pill("À distância", TEXT_DIM, ""))
+	if tags.get_child_count() > 0: v.add_child(tags)
+	# stats (ícone pixel + label + valor dourado)
+	var statbox := VBoxContainer.new(); statbox.add_theme_constant_override("separation", 1)
+	for s in [["attackBonus", "ATK", "stat_atk"], ["defenseBonus", "DEF", "slot_shield"], ["healthBonus", "HP", "hp"], ["strBonus", "STR", "attr_strength"], ["dexBonus", "DEX", "attr_dexterity"], ["lukBonus", "LUK", "attr_luck"]]:
+		var val := int(it.get(s[0], 0))
+		if val != 0:
+			statbox.add_child(_stat_row(str(s[2]), str(s[1]), val))
+	if statbox.get_child_count() > 0:
+		v.add_child(_tt_divider(rc))
+		v.add_child(statbox)
+	# afixos
+	var affixes = it.get("affixes", [])
+	if affixes is Array:
+		for a in affixes:
+			if a is Dictionary:
+				var al := Label.new()
+				al.text = "• %s (%s %+d)" % [str(a.get("word", "")), str(a.get("stat", "")), int(a.get("magnitude", 0))]
+				al.add_theme_font_size_override("font_size", 12)
+				al.add_theme_color_override("font_color", GOLD if rar < 4 else rc)
+				v.add_child(al)
+	# soquetes/gemas
+	var sockets := int(it.get("sockets", 0))
+	if sockets > 0:
+		var gnames: Array = []
+		var gems = it.get("gems", [])
+		if gems is Array:
+			for g in gems:
+				if g is Dictionary: gnames.append(str(g.get("gemName", g.get("displayName", g.get("type", "")))))
+		var sr := HBoxContainer.new(); sr.add_theme_constant_override("separation", 5)
+		if Icons.tex("gem") != null: sr.add_child(Icons.rect("gem", 14))
+		var sl := Label.new()
+		sl.text = "%d/%d%s" % [gnames.size(), sockets, ("  " + ", ".join(gnames)) if not gnames.is_empty() else ""]
+		sl.add_theme_font_size_override("font_size", 12); sl.add_theme_color_override("font_color", TEXT_DIM)
+		sr.add_child(sl); v.add_child(sr)
+	# durabilidade (só sub-máxima)
+	var dur := int(it.get("durability", -1))
+	if dur >= 0 and dur < 100:
+		var dl := Label.new(); dl.text = Lang.t("Durabilidade: %d") % dur
+		dl.add_theme_font_size_override("font_size", 11)
+		dl.add_theme_color_override("font_color", ERR if dur < 25 else TEXT_DIM)
+		v.add_child(dl)
+	# resumo de comparação (só p/ item não-equipado e comparável; self-suprime)
+	if not is_eq:
+		var cmp := compare_line(it)
+		if cmp != null: v.add_child(cmp)
+	# lore + origem
+	var desc := str(it.get("description", ""))
+	if desc != "":
+		v.add_child(_tt_divider(rc))
+		if desc.length() > 170: desc = desc.substr(0, 167) + "…"
+		var lore := Label.new(); lore.text = "\"%s\"" % desc
+		lore.add_theme_font_size_override("font_size", 12); lore.add_theme_color_override("font_color", TEXT_DIM)
+		lore.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART; lore.custom_minimum_size = Vector2(276, 0)
+		v.add_child(lore)
+	var origin := str(it.get("origin", ""))
+	if origin != "":
+		var orow := HBoxContainer.new(); orow.add_theme_constant_override("separation", 5)
+		if Icons.tex("world") != null: orow.add_child(Icons.rect("world", 14))
+		var ol := Label.new(); ol.text = Lang.t("Obtido em: %s") % origin
+		ol.add_theme_font_size_override("font_size", 11); ol.add_theme_color_override("font_color", GOLD_SOFT)
+		ol.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART; ol.custom_minimum_size = Vector2(250, 0)
+		ol.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		orow.add_child(ol); v.add_child(orow)
+	# vender (coin_box = ícones reais de moeda)
+	var price := int(it.get("sellPrice", 0))
+	if price > 0:
+		var prow := HBoxContainer.new(); prow.add_theme_constant_override("separation", 5)
+		var pl := Label.new(); pl.text = Lang.t("Vende por")
+		pl.add_theme_font_size_override("font_size", 11); pl.add_theme_color_override("font_color", TEXT_DIM)
+		prow.add_child(pl); prow.add_child(coin_box(price, 14, TEXT_DIM))
+		v.add_child(prow)
+	if is_eq:
+		var fl := Label.new(); fl.text = Lang.t("(clique para desequipar)")
+		fl.add_theme_font_size_override("font_size", 11); fl.add_theme_color_override("font_color", TEXT_DIM)
+		v.add_child(fl)
+	return root
+
+static func _tag_pill(text: String, col: Color, icon_key := "") -> Control:
+	var p := PanelContainer.new()
+	var sb := StyleBoxFlat.new(); sb.bg_color = Color(col.r, col.g, col.b, 0.18); sb.set_corner_radius_all(4)
+	sb.content_margin_left = 5; sb.content_margin_right = 5; sb.content_margin_top = 1; sb.content_margin_bottom = 1
+	p.add_theme_stylebox_override("panel", sb)
+	var h := HBoxContainer.new(); h.add_theme_constant_override("separation", 3)
+	if icon_key != "" and Icons.tex(icon_key) != null:
+		h.add_child(Icons.rect(icon_key, 12))
+	var l := Label.new(); l.text = Lang.t(text); l.add_theme_font_size_override("font_size", 10); l.add_theme_color_override("font_color", col)
+	h.add_child(l); p.add_child(h)
+	return p
+
+static func _tt_divider(col: Color) -> Control:
+	var d := ColorRect.new(); d.color = Color(col.r, col.g, col.b, 0.25); d.custom_minimum_size = Vector2(0, 1)
+	return d
+
+static func _stat_row(icon_key: String, label: String, val: int) -> Control:
+	var h := HBoxContainer.new(); h.add_theme_constant_override("separation", 6)
+	if Icons.tex(icon_key) != null:
+		h.add_child(Icons.rect(icon_key, 16))
+	var nm := Label.new(); nm.text = label
+	nm.add_theme_font_size_override("font_size", 12); nm.add_theme_color_override("font_color", TEXT_DIM)
+	nm.custom_minimum_size = Vector2(48, 0)
+	h.add_child(nm)
+	var vl := Label.new(); vl.text = "%+d" % val
+	vl.add_theme_font_size_override("font_size", 13); vl.add_theme_color_override("font_color", GOLD)
+	h.add_child(vl)
+	return h
 
 # [CARD_BOTAO] Card clicável INTEIRO (o card É o botão — sem botão de texto embaixo). Retorna
 # [PanelContainer, VBoxContainer] como card(): o chamador enche o VBox com o conteúdo. Um Button

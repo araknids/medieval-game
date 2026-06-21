@@ -155,7 +155,8 @@ func _slot_column(types: Array) -> VBoxContainer:
 	return col
 
 func _slot_frame(type: String) -> PanelContainer:
-	var pc := PanelContainer.new()
+	var pc := ItemTooltipCard.new()        # [ITEM_TOOLTIP] tooltip rico quando há item equipado
+	pc.equipped_slot = true
 	pc.custom_minimum_size = Vector2(56, 56)
 	pc.mouse_filter = Control.MOUSE_FILTER_STOP
 	var sb := StyleBoxFlat.new()
@@ -369,7 +370,8 @@ func _update_slots() -> void:
 			icon.modulate = Color(1, 1, 1, 1)
 			sb.border_color = UiKit.rarity_color(int(it.get("rarity", 1)))
 			sb.set_border_width_all(2)
-			frame.tooltip_text = _equipped_tooltip(it)
+			(frame as ItemTooltipCard).item = it   # [ITEM_TOOLTIP] tooltip rico do equipado
+			frame.tooltip_text = " "
 			# [SLOT_WEAPON_IMG][OUTFITS_CLASSE] mostra a IMAGEM do equipado: arma → modelo 3D;
 			# armadura → peça renderizada do TEMA da classe; resto → ícone genérico do slot.
 			var tex := _equip_icon_tex(it, type)
@@ -379,53 +381,9 @@ func _update_slots() -> void:
 			icon.modulate = Color(1, 1, 1, 0.30)
 			sb.border_color = UiKit.BRONZE
 			sb.set_border_width_all(1)
+			(frame as ItemTooltipCard).item = {}   # vazio → cai no tooltip_text (rótulo do slot)
 			frame.tooltip_text = Lang.t(str(SLOT_LABEL.get(type, type)))
 			icon.texture = Icons.item_tex(type)   # vazio → ícone genérico de volta
-
-# [ITEM_TOOLTIP] Tooltip rico do item: nome, tipo/nível/raridade, todos os stats, afixos, gemas,
-# durabilidade, descrição (lore) e ORIGEM (onde foi obtido) + preço de venda.
-func _item_tooltip(it: Dictionary) -> String:
-	var lines: Array = []
-	lines.append(str(it.get("name", "?")))
-	lines.append("%s · Nv %d · %s" % [Lang.t(str(it.get("typeDisplay", it.get("type", "")))), int(it.get("itemLevel", 1)), Lang.t(str(it.get("rarityName", "")))])
-	var main: Array = []
-	for pair in [["attackBonus", "ATK"], ["defenseBonus", "DEF"], ["healthBonus", "HP"]]:
-		var v := int(it.get(pair[0], 0))
-		if v != 0: main.append("%s %+d" % [pair[1], v])
-	if not main.is_empty(): lines.append("   ".join(main))
-	var attrs: Array = []
-	for pair in [["strBonus", "STR"], ["dexBonus", "DEX"], ["lukBonus", "LUK"]]:
-		var v := int(it.get(pair[0], 0))
-		if v != 0: attrs.append("%s %+d" % [pair[1], v])
-	if not attrs.is_empty(): lines.append("   ".join(attrs))
-	var affixes = it.get("affixes", [])
-	if affixes is Array:
-		for a in affixes:
-			if a is Dictionary:
-				lines.append("• %s (%s %+d)" % [str(a.get("word", "")), str(a.get("stat", "")), int(a.get("magnitude", 0))])
-	var sockets := int(it.get("sockets", 0))
-	if sockets > 0:
-		var gnames: Array = []
-		var gems = it.get("gems", [])
-		if gems is Array:
-			for g in gems:
-				if g is Dictionary: gnames.append(str(g.get("displayName", g.get("type", ""))))
-		var gtxt := ("  " + ", ".join(gnames)) if not gnames.is_empty() else ""
-		lines.append(Lang.t("Soquetes: %d/%d%s") % [gnames.size(), sockets, gtxt])
-	var dur := int(it.get("durability", -1))
-	if dur >= 0: lines.append(Lang.t("Durabilidade: %d") % dur)
-	var desc := str(it.get("description", ""))
-	if desc != "":
-		lines.append("")
-		lines.append("\"%s\"" % desc)
-	var origin := str(it.get("origin", ""))
-	if origin != "": lines.append(Lang.t("Origem: %s") % origin)
-	var price := int(it.get("sellPrice", 0))
-	if price > 0: lines.append(Lang.t("Vende por %s") % UiKit.coin_str(price))
-	return "\n".join(lines)
-
-func _equipped_tooltip(it: Dictionary) -> String:
-	return _item_tooltip(it) + "\n" + Lang.t("(clique para desequipar)")
 
 # [SLOT_WEAPON_IMG] Ícone 2D renderizado do modelo da arma equipada (assets/weapons/icons/<modelo>.png).
 # null se não houver render importado → o slot cai no ícone genérico slot_weapon.
@@ -735,7 +693,10 @@ func _bag_card(it) -> Control:
 		return null
 	var id := int(it.get("id", 0))
 	var rar := int(it.get("rarity", 1))
-	var res := UiKit.card(UiKit.rarity_color(rar))
+	var card := ItemTooltipCard.new()       # [ITEM_TOOLTIP] card com tooltip rico no hover
+	card.item = it
+	card.tooltip_text = " "                  # != "" senão o _make_custom_tooltip nem dispara
+	var res := UiKit.card_styled(card, UiKit.rarity_color(rar))
 	var pc: PanelContainer = res[0]
 	var box: VBoxContainer = res[1]
 	box.add_theme_constant_override("separation", 3)
@@ -779,8 +740,7 @@ func _bag_card(it) -> Control:
 		pl.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 		btns.add_child(pl)
 		btns.add_child(_action_icon("sell", "💰", _ask_sell.bind(id, str(it.get("name", "?")), rar), Lang.t("Vender (%s)") % UiKit.coin_str(price)))
-	# [ITEM_TOOLTIP] hover no card → descrição + origem + todos os stats. PASS deixa o hover chegar no card (botões ficam STOP).
-	pc.tooltip_text = _item_tooltip(it)
+	# [ITEM_TOOLTIP] PASS nos filhos → o hover chega no card (que tem o tooltip rico); botões ficam STOP.
 	for n in [top, nm, subline, sline, ic]:
 		if n != null and n is Control:
 			(n as Control).mouse_filter = Control.MOUSE_FILTER_PASS
