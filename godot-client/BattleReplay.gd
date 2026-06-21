@@ -242,6 +242,7 @@ var _resv_ally: Array = []            # reservas (specs ainda não spawnadas) do
 var _resv_foe: Array = []             # reservas do time inimigo
 var _team_wave := 1                   # onda atual
 var war_mode := false                 # [GUERRA_GAUNTLET] replay da guerra REAL (eventos do backend, não sim local)
+var war_winner_name := ""             # [GUERRA_BANNER] nome da GUILD vencedora (banner final mostra a guild, não o último lutador)
 var war_events: Array = []
 var war_i := 0
 var war_t := 0.0
@@ -336,6 +337,7 @@ func _load_events() -> void:
 		events = external_battle["events"]
 		fight_scene = str(external_battle.get("scene", ""))
 		war_mode = bool(external_battle.get("war", false))   # [GUERRA_GAUNTLET] replay da guerra real
+		war_winner_name = str(external_battle.get("war_winner", ""))   # [GUERRA_BANNER] guild vencedora
 		var foe := str(external_battle.get("enemy", ""))
 		_status(Lang.t("Duelo…") if foe == "" else (Lang.t("⚔ vs %s") % foe))   # SEM spoiler — o vencedor só no fim
 		return
@@ -1846,7 +1848,9 @@ func _finish() -> void:
 			f["shown_hp"] = 0.0
 			_apply_hp_bar(f)
 	if not winner.is_empty() and victory_label:
-		victory_label.text = Lang.t("%s venceu!") % winner["name"]
+		# [GUERRA_BANNER] na guerra de guild, o banner mostra a GUILD vencedora — não o último lutador vivo
+		var banner_name: String = war_winner_name if (war_mode and war_winner_name != "") else str(winner["name"])
+		victory_label.text = Lang.t("%s venceu!") % banner_name
 		winner["busy"] = false
 		_victory_flourish(winner)            # [JUICE] luz dourada subindo + brilho do vencedor
 		if not loser.is_empty() and not winner["ranged"]:

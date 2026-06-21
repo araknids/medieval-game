@@ -279,6 +279,7 @@ func _watch_battle(territory: String) -> void:
 			"war": true,
 			"won": str(j.get("winner", "")) == str(j.get("attacker", "")),
 			"enemy": str(j.get("defender", "")),
+			"war_winner": str(j.get("winner", "")),   # [GUERRA_BANNER] guild vencedora no banner final
 		})
 	else:
 		UiKit.flash(status, "Sem batalha pra assistir ainda.", 1)
