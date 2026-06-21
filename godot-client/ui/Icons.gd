@@ -22,7 +22,7 @@ static func set_icon(b: Button, key: String) -> bool:
 	b.icon = t
 	b.expand_icon = true
 	b.add_theme_constant_override("h_separation", 8)
-	add_hover(b, 1.0, HOVER_BRIGHT_BTN)   # [HOVER_ICON] botão: só clareia no hover (sem escala p/ não estourar full-width)
+	add_hover(b, HOVER_GROW_BTN, HOVER_BRIGHT_BTN)   # [HOVER_ICON] botão com ícone: pop (largo só clareia, ver _hover_to)
 	return true
 
 # Button com ícone + texto. label_with_emoji = "🌍 Mundo": com ícone vira ícone + "Mundo";
@@ -176,8 +176,10 @@ static func tip(key: String) -> String:
 # Aplicado automaticamente em rect() (cresce+clareia) e set_icon() (botão: só clareia, p/ não
 # estourar full-width) → todo ícone do jogo ganha o hover sem tocar em nenhuma tela.
 const HOVER_GROW := 1.13          # quanto o ícone (TextureRect) cresce no hover
+const HOVER_GROW_BTN := 1.08      # botão pequeno (nav/ação) cresce; largo/full-width só clareia
 const HOVER_BRIGHT := 1.20        # quanto clareia (multiplica o modulate)
 const HOVER_BRIGHT_BTN := 1.10    # botão clareia menos (já tem hover de cor no StyleBox)
+const HOVER_BTN_MAX_W := 260.0    # acima disso (ou expand-fill) o botão só clareia (não escala)
 
 # Liga o hover-pop num Control. grow=1.0 → sem escala (só brilho). Idempotente. [HOVER_ICON]
 static func add_hover(node: Control, grow := HOVER_GROW, bright := HOVER_BRIGHT) -> void:
@@ -197,6 +199,9 @@ static func _hover_to(node: Control, on: bool) -> void:
 	var base: Color = node.get_meta("hover_base", Color.WHITE)
 	var grow: float = node.get_meta("hover_grow", HOVER_GROW)
 	var bright: float = node.get_meta("hover_bright", HOVER_BRIGHT)
+	# [HOVER_ICON] botão largo/expand-fill não escala (estouraria a largura) — só clareia.
+	if grow > 1.0 and node is Button and ((node.size_flags_horizontal & Control.SIZE_EXPAND) != 0 or node.size.x > HOVER_BTN_MAX_W):
+		grow = 1.0
 	var s := grow if on else 1.0
 	var col := base
 	if on:
