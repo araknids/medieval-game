@@ -693,15 +693,9 @@ public class KingdomService {
             case NECKLACE -> new String[]{"Necklace", "Amulet"};
             case RING     -> new String[]{"Ring", "Signet"};
         };
-        String[] suffixes = switch (rarity) {
-            case 2 -> new String[]{"of Steel", "of Chainmail", "of Silver"};
-            case 3 -> new String[]{"of the Elves", "of the Warrior", "Enchanted"};
-            case 4 -> new String[]{"of the Dragon", "Cursed", "of Valor"};
-            case 5 -> new String[]{"of the Ancients", "Mythic", "of Eternity"}; // Lendário [ITENS_V2]
-            default -> new String[]{"of Iron", "of Leather", "of Wood"};
-        };
-        // [I18N_ITENS] traduz base + sufixo pro locale do request (itemword.* em messages_pt). EN/teste → inglês.
-        return Messages.word(bases[rng.nextInt(bases.length)]) + " " + Messages.word(suffixes[rng.nextInt(suffixes.length)]);
+        // [AFIXOS_NOME] nome = só a BASE; prefixo/sufixo vêm dos AFIXOS reais (rollAffixesFor) p/ o nome BATER
+        // com os bônus (antes havia um sufixo cosmético "of the Dragon" que parecia afixo mas não era).
+        return Messages.word(bases[rng.nextInt(bases.length)]);
     }
 
     // ── Inner types ───────────────────────────────────────────────────────────

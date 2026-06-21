@@ -523,14 +523,17 @@ public class InventoryService {
         }
 
         if (rename) {
-            chosen.stream()
-                    .filter(a -> a.position == Affix.Position.PREFIX)
-                    .findFirst()
-                    .ifPresent(p -> {
-                        // [I18N_ITENS] prefixo do afixo no nome traduz pro locale do request (itemword.*).
-                        item.setName(Messages.word(p.word) + " " + item.getName());
-                        inventoryRepository.save(item);
-                    });
+            // [AFIXOS_NOME] nome = <prefixo> base <sufixo>, AMBOS vindos dos afixos reais → o nome bate com os bônus.
+            // (itemName já entrega só a base; o sufixo cosmético antigo "of the Dragon" — que parecia afixo — foi removido.)
+            String prefix = chosen.stream().filter(a -> a.position == Affix.Position.PREFIX)
+                    .findFirst().map(a -> Messages.word(a.word)).orElse("");
+            String suffix = chosen.stream().filter(a -> a.position == Affix.Position.SUFFIX)
+                    .findFirst().map(a -> Messages.word(a.word)).orElse("");
+            String name = item.getName();
+            if (!prefix.isEmpty()) name = prefix + " " + name;
+            if (!suffix.isEmpty()) name = name + " " + suffix;
+            item.setName(name);
+            inventoryRepository.save(item);
         }
     }
 }
