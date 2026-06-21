@@ -351,14 +351,18 @@ func _build_nav() -> Control:
 	var nav := VBoxContainer.new()
 	nav.add_theme_constant_override("separation", 2)
 	nav.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	# [MENUBAR_REORG2] a nav preenche a ALTURA do painel → os itens (com expand vertical) distribuem a
+	# folga e chegam até embaixo, proporcional (pedido do dono). Expand só reparte o espaço LIVRE → sem scroll.
+	nav.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	pc.add_child(nav)
 	# Início (dashboard) — flat + ícone (mesmo padrão dos itens)
 	var home := Button.new()
 	home.flat = true
 	home.alignment = HORIZONTAL_ALIGNMENT_LEFT
-	home.custom_minimum_size = Vector2(0, 32)
+	home.custom_minimum_size = Vector2(0, 34)
 	home.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	home.add_theme_constant_override("icon_max_width", 26)
+	home.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	home.add_theme_constant_override("icon_max_width", 28)
 	Icons.label_button(home, "home", "Início")
 	home.tooltip_text = "Início — painel inicial com atalhos"
 	home.add_theme_font_size_override("font_size", 14)
@@ -410,10 +414,11 @@ func _nav_item(scr: String, label: String) -> Button:
 	var b := Button.new()
 	b.flat = true
 	b.alignment = HORIZONTAL_ALIGNMENT_LEFT
-	b.custom_minimum_size = Vector2(0, 32)
+	b.custom_minimum_size = Vector2(0, 34)
 	b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	b.add_theme_constant_override("icon_max_width", 26)   # [MENUBAR] ícone 26px (cabe sem scroll)
-	b.clip_text = true                                    # 2-col do Comércio: corta label longo
+	b.size_flags_vertical = Control.SIZE_EXPAND_FILL       # [MENUBAR_REORG2] cresce p/ preencher a barra (proporcional)
+	b.add_theme_constant_override("icon_max_width", 28)
+	b.clip_text = true                                    # corta label longo se preciso
 	Icons.label_button(b, scr.to_lower(), label)
 	b.tooltip_text = str(NAV_TIPS.get(scr, label))   # [MENUBAR_HOVER] hover explica a tela
 	b.add_theme_font_size_override("font_size", 14)
