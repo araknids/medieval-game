@@ -181,6 +181,7 @@ const HOVER_GROW_BTN := 1.08      # botão pequeno (nav/ação) cresce; largo/fu
 const HOVER_BRIGHT := 1.20        # quanto clareia (multiplica o modulate)
 const HOVER_BRIGHT_BTN := 1.10    # botão clareia menos (já tem hover de cor no StyleBox)
 const HOVER_BTN_MAX_W := 260.0    # acima disso (ou expand-fill) o botão só clareia (não escala)
+const HOVER_SPIKE := 1.30         # "estalo" de brilho ao entrar (spike→assenta) = punch [UIUX]
 
 # Liga o hover-pop num Control. grow=1.0 → sem escala (só brilho). Idempotente. [HOVER_ICON]
 static func add_hover(node: Control, grow := HOVER_GROW, bright := HOVER_BRIGHT) -> void:
@@ -204,24 +205,34 @@ static func _hover_to(node: Control, on: bool) -> void:
 	if grow > 1.0 and node is Button and ((node.size_flags_horizontal & Control.SIZE_EXPAND) != 0 or node.size.x > HOVER_BTN_MAX_W):
 		grow = 1.0
 	var s := grow if on else 1.0
-	var col := base
+	_kill_meta_tween(node, "hover_sw")
+	_kill_meta_tween(node, "hover_mw")
+	# escala (overshoot ao entrar, suave ao sair)
+	var sw := node.create_tween().set_trans(Tween.TRANS_BACK if on else Tween.TRANS_SINE).set_ease(Tween.EASE_OUT)
+	sw.tween_property(node, "scale", Vector2(s, s), 0.14)
+	node.set_meta("hover_sw", sw)
+	# brilho: ao ENTRAR dá um "estalo" (spike→assenta) = punch; ao sair volta suave [UIUX]
+	var mw := node.create_tween()
 	if on:
-		col = Color(base.r * bright, base.g * bright, base.b * bright, base.a)
-	var prev: Tween = node.get_meta("hover_tw", null)
-	if prev != null and prev.is_valid():
-		prev.kill()
-	var tw := node.create_tween().set_parallel(true)
-	tw.set_trans(Tween.TRANS_BACK if on else Tween.TRANS_SINE).set_ease(Tween.EASE_OUT)
-	tw.tween_property(node, "scale", Vector2(s, s), 0.14)
-	tw.tween_property(node, "modulate", col, 0.14)
-	node.set_meta("hover_tw", tw)
+		var rest := Color(base.r * bright, base.g * bright, base.b * bright, base.a)
+		var spike := Color(base.r * HOVER_SPIKE, base.g * HOVER_SPIKE, base.b * HOVER_SPIKE, base.a)
+		mw.tween_property(node, "modulate", spike, 0.06).set_ease(Tween.EASE_OUT)
+		mw.tween_property(node, "modulate", rest, 0.18).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_OUT)
+	else:
+		mw.tween_property(node, "modulate", base, 0.12)
+	node.set_meta("hover_mw", mw)
+
+static func _kill_meta_tween(node: Control, key: String) -> void:
+	var t: Tween = node.get_meta(key, null)
+	if t != null and t.is_valid():
+		t.kill()
 
 # ── Ícone ANIMADO no hover [HOVER_ICON_ANIM] ─────────────────────────────────────────
 # Se existir res://assets/ui/icons/anim/<key>/f0..fN.png, o botão CICLA esses quadros
 # enquanto o mouse está em cima (idle temático: forja martelando, globo girando…) e volta
 # ao quadro 0 ao sair. Frames gerados no PixelLab (create_map_object + animate_object).
 const ANIM_DIR := "res://assets/ui/icons/anim/"
-const ANIM_FPS := 0.10            # segundos por quadro (~10 fps)
+const ANIM_FPS := 0.065           # segundos por quadro (~15 fps) — estalo, não câmera lenta [UIUX]
 
 static func _anim_frames(key: String) -> Array:
 	var out: Array = []
@@ -252,10 +263,16 @@ static func _anim_start(b: Button) -> void:
 	var frames: Array = b.get_meta("anim_frames", [])
 	if frames.size() < 2:
 		return
+	# [UIUX] one-shot (não loop): numa barra que se varre, loop cansa. Toca 1x e assenta.
+	# debounce: não re-disparar se acabou de tocar (< 150 ms) — evita "metralhar" passando o mouse.
+	var now := Time.get_ticks_msec()
+	if now - int(b.get_meta("anim_last", -10000)) < 150:
+		return
+	b.set_meta("anim_last", now)
 	var prev: Tween = b.get_meta("anim_tw", null)
 	if prev != null and prev.is_valid():
 		prev.kill()
-	var tw := b.create_tween().set_loops()
+	var tw := b.create_tween()              # sem set_loops → toca a animação UMA vez e segura o fim
 	for fr in frames:
 		tw.tween_callback(_anim_set.bind(b, fr)).set_delay(ANIM_FPS)
 	b.set_meta("anim_tw", tw)
