@@ -362,16 +362,15 @@ func _build_nav() -> Control:
 	nav.add_theme_constant_override("separation", 4)
 	nav.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	scroll.add_child(nav)
-	# LUTAR (ação destacada = PRIMARY, a única com borda dourada) [BOTAO_DARK]
-	var fight := _stone_btn("LUTAR", 44, DarkButtonStyle.PRIMARY)
-	Icons.set_icon(fight, "arena")
-	fight.tooltip_text = "Lutar — entra na batalha 3D"   # [MENUBAR_HOVER]
-	fight.add_theme_font_size_override("font_size", 18)
-	fight.pressed.connect(func() -> void: get_tree().change_scene_to_file("res://BattleReplay.tscn"))
-	nav.add_child(fight)
-	# Início (dashboard)
-	var home := _stone_btn("🏠  Início", 38)
+	# Início (dashboard) — mesmo padrão dos itens de nav abaixo (flat + ícone PixelLab) [MENUBAR]
+	var home := Button.new()
+	home.flat = true
+	home.alignment = HORIZONTAL_ALIGNMENT_LEFT
+	home.custom_minimum_size = Vector2(0, 34)
+	home.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	Icons.label_button(home, "home", "Início")
 	home.tooltip_text = "Início — painel inicial com atalhos"   # [MENUBAR_HOVER]
+	home.add_theme_font_size_override("font_size", 14)
 	home.pressed.connect(_show_dashboard)
 	_nav_buttons["__home__"] = home
 	nav.add_child(home)
