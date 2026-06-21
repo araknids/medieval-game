@@ -76,14 +76,18 @@ public class TempleController {
                 ? Math.max(0, ChronoUnit.SECONDS.between(LocalDateTime.now(), warrior.getWeaponElementUntil())) : 0;
         long aElemSecs = (warrior != null && aElem != null)
                 ? Math.max(0, ChronoUnit.SECONDS.between(LocalDateTime.now(), warrior.getArmorElementUntil())) : 0;
-        var elements = Arrays.stream(Element.values()).map(e -> Map.of(
-            "id",          e.name(),
-            "displayName", com.medieval.game.service.Messages.tr("element." + e.name() + ".name", e.displayName),
-            "icon",        e.icon,
-            "beats",       com.medieval.game.service.Messages.tr("element." + e.beatsTarget().name() + ".name", e.beatsTarget().displayName),
-            "essence",     e.essence().name(),
-            "essenceName", com.medieval.game.service.Messages.tr("resource." + e.essence().name() + ".name", e.essence().displayName),
-            "owned",       gatheringService.resourceQuantity(player, e.essence())
+        var elements = Arrays.stream(Element.values()).map(e -> Map.<String, Object>ofEntries(
+            Map.entry("id",          e.name()),
+            Map.entry("displayName", com.medieval.game.service.Messages.tr("element." + e.name() + ".name", e.displayName)),
+            Map.entry("icon",        e.icon),
+            Map.entry("beats",       com.medieval.game.service.Messages.tr("element." + e.beatsTarget().name() + ".name", e.beatsTarget().displayName)),
+            Map.entry("weakTo",      com.medieval.game.service.Messages.tr("element." + e.losesTo().name() + ".name", e.losesTo().displayName)),
+            // [ELEMENTOS] % de dano da roda (tunável no Element.multiplier; +25% vence / −25% perde)
+            Map.entry("bonusPct",    (int) Math.round((Element.multiplier(e, e.beatsTarget()) - 1.0) * 100)),
+            Map.entry("penaltyPct",  (int) Math.round((1.0 - Element.multiplier(e, e.losesTo())) * 100)),
+            Map.entry("essence",     e.essence().name()),
+            Map.entry("essenceName", com.medieval.game.service.Messages.tr("resource." + e.essence().name() + ".name", e.essence().displayName)),
+            Map.entry("owned",       gatheringService.resourceQuantity(player, e.essence()))
         )).toList();
 
         return ResponseEntity.ok(Map.ofEntries(

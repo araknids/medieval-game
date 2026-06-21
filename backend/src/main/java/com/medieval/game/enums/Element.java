@@ -33,6 +33,16 @@ public enum Element {
 
     public boolean beats(Element other) { return other != null && beatsTarget() == other; }
 
+    /** O elemento que vence ESTE (a fraqueza dele na roda RPS). [ELEMENTOS] */
+    public Element losesTo() {
+        return switch (this) {
+            case FIRE  -> WATER;
+            case AIR   -> FIRE;
+            case EARTH -> AIR;
+            case WATER -> EARTH;
+        };
+    }
+
     /** Essência (ResourceType) usada p/ encantar com este elemento. */
     public ResourceType essence() {
         return switch (this) {

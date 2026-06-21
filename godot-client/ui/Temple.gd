@@ -154,7 +154,10 @@ func _enchant_cell(slot: String, e: Dictionary) -> Control:
 	var owned := int(e.get("owned", 0))
 	var can := owned > 0
 	var elem_id := str(e.get("id", ""))
-	var tip := "%s — vence %s\n%s: %d · custo %d bronze" % [str(e.get("displayName", "")), str(e.get("beats", "")), str(e.get("essenceName", "")), owned, int(data.get("enchantCost", 100))]
+	# [ELEMENTOS] em vez de "vence X", mostra o % de dano da roda: +N% vs quem ele bate, −N% vs a fraqueza
+	var bonus := int(e.get("bonusPct", 25))
+	var penalty := int(e.get("penaltyPct", 25))
+	var tip := "%s — +%d%% de dano vs %s · −%d%% vs %s\n%s: %d · custo %d bronze" % [str(e.get("displayName", "")), bonus, str(e.get("beats", "")), penalty, str(e.get("weakTo", "")), str(e.get("essenceName", "")), owned, int(data.get("enchantCost", 100))]
 	var on_click := func() -> void: _enchant(slot, elem_id)
 	var res := UiKit.clickable_card(UiKit.GOLD_SOFT if can else Color(0.3, 0.3, 0.34, 0.6), on_click, can, tip)
 	var pc: PanelContainer = res[0]
@@ -170,6 +173,13 @@ func _enchant_cell(slot: String, e: Dictionary) -> Control:
 	nm.size_flags_horizontal = Control.SIZE_EXPAND_FILL; nm.clip_text = true
 	top.add_child(nm)
 	box.add_child(top)
+	# [ELEMENTOS] linha visível da vantagem: "+25% vs Água" (o detalhe com a fraqueza fica no tooltip)
+	var adv := Label.new()
+	adv.text = "+%d%% vs %s" % [bonus, str(e.get("beats", ""))]
+	adv.add_theme_font_size_override("font_size", 11)
+	adv.add_theme_color_override("font_color", UiKit.GOLD_SOFT)
+	adv.clip_text = true
+	box.add_child(adv)
 	var own := Label.new(); own.text = "%s: %d" % [str(e.get("essenceName", "")), owned]
 	own.add_theme_font_size_override("font_size", 11)
 	own.add_theme_color_override("font_color", UiKit.OK if can else UiKit.ERR)
