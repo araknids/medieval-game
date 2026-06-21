@@ -26,6 +26,14 @@ var last_id := 0                       # maior id já exibido (p/ ?since=)
 var msg_label: Label                   # mensagem efêmera (hit/miss/erro)
 var buff_box: VBoxContainer            # card do buff (atualizado sem re-render do chat)
 var poll_timer: Timer                  # polling do feed (~4s)
+# [TAVERNA_BUFF_LIVE] countdown VIVO do buff: o status só vem no fetch (timer/stacks ficavam congelados);
+# aqui o _process desconta o tempo e ZERA o contador quando o buff expira (era o bug do contador não resetar).
+var _buff_lbl: Label
+var _buff_secs := 0
+var _buff_pct := 0.0
+var _buff_stacks := 0
+var _buff_acc := 0.0
+var _buff_synced := false
 
 # minigame de timing (mesma ideia do app.js: marker viaja, acerta a zona = success)
 var mini_active := false
@@ -54,6 +62,7 @@ func _ready() -> void:
 	await _refresh()
 
 func _process(delta: float) -> void:
+	_tick_buff(delta)   # [TAVERNA_BUFF_LIVE] countdown do buff (independe do minigame)
 	if not mini_active:
 		return
 	# marker vai e volta de 0 a 100 (igual ao setInterval do app.js, mas em px)
@@ -138,10 +147,33 @@ func _fill_buff(box: VBoxContainer) -> void:
 		var pct := float(st.get("buffPct", 0.0))
 		l.text = Lang.t("🍺 +%.2f%% em todos os stats · %d stacks · %d:%02d") % [pct, stacks, secs / 60, secs % 60]
 		l.add_theme_color_override("font_color", UiKit.GOLD)
+		# [TAVERNA_BUFF_LIVE] guarda o estado p/ o _tick_buff descontar ao vivo e zerar ao expirar
+		_buff_lbl = l; _buff_secs = secs; _buff_pct = pct; _buff_stacks = stacks; _buff_acc = 0.0; _buff_synced = false
 	else:
 		l.text = "Sem buff de bebida ativo."
 		l.add_theme_color_override("font_color", UiKit.TEXT_DIM)
+		_buff_lbl = null; _buff_secs = 0
 	box.add_child(l)
+
+# [TAVERNA_BUFF_LIVE] desconta 1s por vez; ao chegar a 0, ZERA o contador (mostra "sem buff") e
+# re-sincroniza 1x (some o badge 🍺 do topbar). Antes o timer/stacks ficavam congelados no último fetch.
+func _tick_buff(delta: float) -> void:
+	if _buff_lbl == null or not is_instance_valid(_buff_lbl) or _buff_secs <= 0:
+		return
+	_buff_acc += delta
+	if _buff_acc < 1.0:
+		return
+	_buff_acc -= 1.0
+	_buff_secs -= 1
+	if _buff_secs <= 0:
+		_buff_secs = 0
+		_buff_lbl.text = "Sem buff de bebida ativo."
+		_buff_lbl.add_theme_color_override("font_color", UiKit.TEXT_DIM)
+		if not _buff_synced:
+			_buff_synced = true
+			_refresh()   # re-sincroniza estado + topbar (o badge 🍺 some)
+	else:
+		_buff_lbl.text = Lang.t("🍺 +%.2f%% em todos os stats · %d stacks · %d:%02d") % [_buff_pct, _buff_stacks, _buff_secs / 60, _buff_secs % 60]
 
 # ── Minigame (pista visual; clicar Beber para no marker e decide success) ─────────
 func mini_panel_holder() -> void:

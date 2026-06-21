@@ -2644,6 +2644,8 @@ func _fov_punch(target: float) -> void:
 	tw.tween_property(cam, "fov", _cam_base_fov, 0.30).set_trans(Tween.TRANS_SINE)
 
 # KILL-CAM: slow-mo + zoom forte + tremor; o ragdoll/gore voa em câmera lenta. Restaura depois.
+const FLOOR_Y := 0.0              # [CAM_KILL_FIX] piso da arena (humanos spawnam em y=0)
+const KILL_CAM_MIN_Y := 0.55     # a câmera do kill nunca fica abaixo disso (não atravessa o chão)
 func _kill_cam(victim: Node3D = null, dir := Vector3.RIGHT) -> void:
 	if cam == null: return
 	_hs_gen += 1
@@ -2658,14 +2660,17 @@ func _kill_cam(victim: Node3D = null, dir := Vector3.RIGHT) -> void:
 	tw.tween_property(cam, "fov", _cam_base_fov - (10.0 if reframe else 16.0), 0.22).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
 	if reframe:
 		_cam_locked = true   # pausa o tracking enquanto o kill-cam dirige a câmera
+		# [CAM_KILL_FIX] o pé da vítima (vp.y) pode ser ≤0 (auto-fit de monstro / ragdoll caindo) → guarda no piso.
 		var vp: Vector3 = victim.position
+		var feet_y: float = maxf(vp.y, FLOOR_Y)
 		var d := dir; d.y = 0.0
 		if d.length() < 0.01: d = Vector3.RIGHT
 		d = d.normalized()
 		var side := 1.0 if d.x >= 0.0 else -1.0
-		var kpos := vp + d * 2.3 + Vector3(side * 1.5, 0.85, 0.0)  # bem BAIXO (y~0.85) + de lado, golpe cruza o quadro
-		if kpos.z < 2.0: kpos.z = 2.0                              # nunca dentro do chão/atrás do cenário
-		var look := vp + Vector3(0, 0.95, 0)
+		var kpos := Vector3(vp.x, feet_y, vp.z) + d * 2.4 + Vector3(side * 1.6, 1.05, 0.0)  # 3/4 baixo, golpe cruza o quadro
+		kpos.y = maxf(kpos.y, KILL_CAM_MIN_Y)                      # CLAMP de piso — O FIX: a câmera nunca vai abaixo do chão
+		if kpos.z < 2.0: kpos.z = 2.0                              # nunca atrás do cenário
+		var look := Vector3(vp.x, feet_y + 1.05, vp.z)            # mira no PEITO (não no joelho), com o pé guardado
 		create_tween().set_ignore_time_scale(true).tween_method(
 			_kill_cam_step.bind(cam.position, kpos, look), 0.0, 1.0, 0.24).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
 	await get_tree().create_timer(1.0, true, false, true).timeout
@@ -2679,8 +2684,10 @@ func _kill_cam(victim: Node3D = null, dir := Vector3.RIGHT) -> void:
 # [CAM_KILL] passo do reframe do kill: interpola a posição e re-mira a vítima a cada passo. [t vem do tween]
 func _kill_cam_step(t: float, from: Vector3, kpos: Vector3, look: Vector3) -> void:
 	if not is_instance_valid(cam): return
-	cam.position = from.lerp(kpos, t)
-	if cam.position.distance_to(look) > 0.05:   # evita look_at degenerado
+	var p := from.lerp(kpos, t)
+	p.y = maxf(p.y, KILL_CAM_MIN_Y)             # [CAM_KILL_FIX] clampa o caminho todo (o 'from' pode estar baixo)
+	cam.position = p
+	if p.distance_to(look) > 0.05:              # evita look_at degenerado
 		cam.look_at(look, Vector3.UP)
 
 # Cor do impacto pelo elemento: SUPER=dourado, RESIST=azul, normal=branco-quente.
