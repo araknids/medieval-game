@@ -366,8 +366,9 @@ func _build_nav() -> Control:
 	var home := Button.new()
 	home.flat = true
 	home.alignment = HORIZONTAL_ALIGNMENT_LEFT
-	home.custom_minimum_size = Vector2(0, 34)
+	home.custom_minimum_size = Vector2(0, 40)
 	home.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	home.add_theme_constant_override("icon_max_width", 34)   # [MENUBAR] ícone maior na barra (34px)
 	Icons.label_button(home, "home", "Início")
 	home.tooltip_text = "Início — painel inicial com atalhos"   # [MENUBAR_HOVER]
 	home.add_theme_font_size_override("font_size", 14)
@@ -404,8 +405,9 @@ func _nav_item(scr: String, label: String) -> Button:
 	var b := Button.new()
 	b.flat = true
 	b.alignment = HORIZONTAL_ALIGNMENT_LEFT
-	b.custom_minimum_size = Vector2(0, 34)
+	b.custom_minimum_size = Vector2(0, 40)
 	b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	b.add_theme_constant_override("icon_max_width", 34)   # [MENUBAR] ícone maior na barra (34px)
 	Icons.label_button(b, scr.to_lower(), label)
 	b.tooltip_text = str(NAV_TIPS.get(scr, label))   # [MENUBAR_HOVER] hover explica a tela
 	b.add_theme_font_size_override("font_size", 14)

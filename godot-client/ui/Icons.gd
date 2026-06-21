@@ -23,6 +23,7 @@ static func set_icon(b: Button, key: String) -> bool:
 	b.expand_icon = true
 	b.add_theme_constant_override("h_separation", 8)
 	add_hover(b, HOVER_GROW_BTN, HOVER_BRIGHT_BTN)   # [HOVER_ICON] botão com ícone: pop (largo só clareia, ver _hover_to)
+	_anim_hover(b, key)                              # [HOVER_ICON_ANIM] cicla anim/<key>/ no hover (se existir)
 	return true
 
 # Button com ícone + texto. label_with_emoji = "🌍 Mundo": com ícone vira ícone + "Mundo";
@@ -214,6 +215,64 @@ static func _hover_to(node: Control, on: bool) -> void:
 	tw.tween_property(node, "scale", Vector2(s, s), 0.14)
 	tw.tween_property(node, "modulate", col, 0.14)
 	node.set_meta("hover_tw", tw)
+
+# ── Ícone ANIMADO no hover [HOVER_ICON_ANIM] ─────────────────────────────────────────
+# Se existir res://assets/ui/icons/anim/<key>/f0..fN.png, o botão CICLA esses quadros
+# enquanto o mouse está em cima (idle temático: forja martelando, globo girando…) e volta
+# ao quadro 0 ao sair. Frames gerados no PixelLab (create_map_object + animate_object).
+const ANIM_DIR := "res://assets/ui/icons/anim/"
+const ANIM_FPS := 0.10            # segundos por quadro (~10 fps)
+
+static func _anim_frames(key: String) -> Array:
+	var out: Array = []
+	var n := 0
+	while true:
+		var p := ANIM_DIR + key + "/f%d.png" % n
+		if not ResourceLoader.exists(p):
+			break
+		out.append(load(p)); n += 1
+	return out
+
+# Liga o ciclo-no-hover num botão (se houver anim p/ a key). Rest = quadro 0.
+static func _anim_hover(b: Button, key: String) -> void:
+	if b.has_meta("anim_fx"):
+		return
+	var frames := _anim_frames(key)
+	if frames.size() < 2:
+		return
+	b.set_meta("anim_fx", true)
+	b.set_meta("anim_frames", frames)
+	b.icon = frames[0]
+	b.mouse_entered.connect(_anim_start.bind(b))
+	b.mouse_exited.connect(_anim_stop.bind(b))
+
+static func _anim_start(b: Button) -> void:
+	if not is_instance_valid(b):
+		return
+	var frames: Array = b.get_meta("anim_frames", [])
+	if frames.size() < 2:
+		return
+	var prev: Tween = b.get_meta("anim_tw", null)
+	if prev != null and prev.is_valid():
+		prev.kill()
+	var tw := b.create_tween().set_loops()
+	for fr in frames:
+		tw.tween_callback(_anim_set.bind(b, fr)).set_delay(ANIM_FPS)
+	b.set_meta("anim_tw", tw)
+
+static func _anim_set(b: Button, fr: Texture2D) -> void:
+	if is_instance_valid(b):
+		b.icon = fr
+
+static func _anim_stop(b: Button) -> void:
+	if not is_instance_valid(b):
+		return
+	var tw: Tween = b.get_meta("anim_tw", null)
+	if tw != null and tw.is_valid():
+		tw.kill()
+	var frames: Array = b.get_meta("anim_frames", [])
+	if frames.size() > 0:
+		b.icon = frames[0]
 
 # TextureRect pronto pra HUD (recurso/atributo). size em px; null-safe (volta um TextureRect vazio).
 # tooltip: texto explícito; "" → usa a descrição do mapa ICON_TIP (se houver). Sempre MOUSE_FILTER_PASS
