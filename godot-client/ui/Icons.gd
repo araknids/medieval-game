@@ -232,7 +232,7 @@ static func _kill_meta_tween(node: Control, key: String) -> void:
 # enquanto o mouse está em cima (idle temático: forja martelando, globo girando…) e volta
 # ao quadro 0 ao sair. Frames gerados no PixelLab (create_map_object + animate_object).
 const ANIM_DIR := "res://assets/ui/icons/anim/"
-const ANIM_FPS := 0.065           # segundos por quadro (~15 fps) — estalo, não câmera lenta [UIUX]
+const ANIM_FPS := 0.11            # segundos por quadro (~9 fps) — loop ambiente calmo, não frenético [UIUX]
 
 static func _anim_frames(key: String) -> Array:
 	var out: Array = []
