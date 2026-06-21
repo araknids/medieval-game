@@ -43,14 +43,9 @@ const NAV_TIPS := {
 	"Daily": "Diário — recompensa de login (ciclo de 7 dias)",
 }
 
-# Nav em árvore: [seção, [[tela, rótulo], ...]] — o ícone vem de "<tela em minúsculo>.png".
-const SECTIONS := [
-	["Aventura",   [["World", "Mundo"], ["Work", "Trabalho"], ["Temple", "Templo"]]],
-	["Batalha",    [["Tower", "Torre"], ["Arena", "Arena"]]],
-	["Comércio",   [["Shop", "Loja"], ["Forge", "Forja"], ["Auction", "Leilão"], ["Stash", "Baú"], ["Tavern", "Taverna"], ["Vip", "VIP"]]],
-]
-# [MENUBAR_REORG] Personagem(Character) + Guilda viraram itens de TOPO (header de 1 item só é redundante);
-# Conquistas virou sub-aba da Ficha; Correio/Diário/Config foram pro canto superior direito da topbar.
+# [MENUBAR_REORG2] A nav agora é uma LISTA FLAT (sem seções com título) montada direto em _build_nav,
+# na ordem do loop de jogo. Conquistas virou sub-aba da Ficha; Correio/Diário/Config foram pro canto
+# superior direito da topbar.
 
 static var current = null   # ref do shell ativo (untyped p/ evitar edge-case de static var da própria classe)
 
@@ -370,38 +365,46 @@ func _build_nav() -> Control:
 	home.pressed.connect(_show_dashboard)
 	_nav_buttons["__home__"] = home
 	nav.add_child(home)
-	# [MENUBAR_REORG] ordem: Aventura · Batalha · Personagem · Guilda · Comércio (Personagem/Guilda antes do Comércio)
-	_add_nav_section(nav, SECTIONS[0])   # Aventura
-	_add_nav_section(nav, SECTIONS[1])   # Batalha
-	nav.add_child(_nav_item("Character", "Personagem"))
-	nav.add_child(_nav_item("Guild", "Guilda"))
-	_add_nav_section(nav, SECTIONS[2])   # Comércio
-	nav.add_child(_spacer(8))
+	# [MENUBAR_REORG2] lista FLAT, SEM títulos de seção (pedido do dono) — ordem por loop de jogo
+	# (parecer do UX sênior): herói no topo → aventura → combate → cidade/serviços. Separadores finos
+	# (_nav_divider) marcam os grupos no lugar dos antigos headers de texto.
+	nav.add_child(_nav_item("Character", "Personagem"))   # logo abaixo do Início
+	nav.add_child(_nav_divider())
+	nav.add_child(_nav_item("World", "Mundo"))            # coração do loop: aventurar
+	nav.add_child(_nav_item("Work", "Trabalho"))          # idle (planta o timer)
+	nav.add_child(_nav_divider())
+	nav.add_child(_nav_item("Tower", "Torre"))            # combate PvE
+	nav.add_child(_nav_item("Arena", "Arena"))            # combate PvP
+	nav.add_child(_nav_item("Guild", "Guilda"))           # social + guerra de território
+	nav.add_child(_nav_divider())
+	nav.add_child(_nav_item("Temple", "Templo"))          # manutenção do herói
+	nav.add_child(_nav_item("Forge", "Forja"))            # craft/refino/encantar
+	nav.add_child(_nav_item("Shop", "Loja"))
+	nav.add_child(_nav_item("Auction", "Leilão"))
+	nav.add_child(_nav_item("Stash", "Baú"))
+	nav.add_child(_nav_item("Tavern", "Taverna"))
+	nav.add_child(_nav_item("Vip", "VIP"))                # premium por último
+	nav.add_child(_spacer(6))
+	nav.add_child(_nav_divider())
 	var out := _stone_btn("Sair", 32)
 	out.tooltip_text = "Sair — desconecta da conta"
 	out.pressed.connect(func() -> void: logout.emit())
 	nav.add_child(out)
 	return pc
 
-# [MENUBAR_REORG] Renderiza uma seção recolhível (header + itens) na nav.
-func _add_nav_section(nav: VBoxContainer, section) -> void:
-	var items := VBoxContainer.new()
-	items.add_theme_constant_override("separation", 2)
-	var head := Button.new()
-	head.flat = true
-	head.alignment = HORIZONTAL_ALIGNMENT_LEFT
-	head.custom_minimum_size = Vector2(0, 20)
-	head.text = "▾  " + Lang.t(str(section[0])).to_upper()
-	head.add_theme_font_size_override("font_size", 12)
-	head.add_theme_color_override("font_color", UiKit.GOLD_SOFT)
-	head.pressed.connect(func() -> void:
-		items.visible = not items.visible
-		head.text = ("▾  " if items.visible else "▸  ") + Lang.t(str(section[0])).to_upper()
-	)
-	nav.add_child(head)
-	nav.add_child(items)
-	for entry in section[1]:
-		items.add_child(_nav_item(str(entry[0]), str(entry[1])))
+# [MENUBAR_REORG2] separador fino e discreto entre grupos da nav (substitui os títulos de seção).
+# ~7px de altura → 4 deles cabem folgado em 720p sem scroll.
+func _nav_divider() -> Control:
+	var m := MarginContainer.new()
+	m.add_theme_constant_override("margin_top", 3)
+	m.add_theme_constant_override("margin_bottom", 3)
+	m.add_theme_constant_override("margin_left", 4)
+	m.add_theme_constant_override("margin_right", 4)
+	var line := ColorRect.new()
+	line.color = Color(1, 1, 1, 0.07)   # baixíssimo contraste
+	line.custom_minimum_size = Vector2(0, 1)
+	m.add_child(line)
+	return m
 
 func _nav_item(scr: String, label: String) -> Button:
 	var b := Button.new()
