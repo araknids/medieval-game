@@ -208,6 +208,10 @@ func temple_soulstone_heal() -> Dictionary:
 	return await _request(HTTPClient.METHOD_POST, "/api/temple/soulstone-heal", {}, true)
 func temple_apply_buff(buff: String) -> Dictionary:
 	return await _request(HTTPClient.METHOD_POST, "/api/temple/buff/%s" % buff, {}, true)
+func temple_enchant_weapon(element: String) -> Dictionary:   # [ELEMENTOS] encanta arma 1h (essência + bronze)
+	return await _request(HTTPClient.METHOD_POST, "/api/temple/enchant/weapon/%s" % element, {}, true)
+func temple_enchant_armor(element: String) -> Dictionary:
+	return await _request(HTTPClient.METHOD_POST, "/api/temple/enchant/armor/%s" % element, {}, true)
 func temple_protect(id: int) -> Dictionary:
 	return await _request(HTTPClient.METHOD_POST, "/api/temple/protect/%d" % id, {}, true)
 func temple_unprotect(id: int) -> Dictionary:

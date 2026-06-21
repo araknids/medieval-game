@@ -49,6 +49,7 @@ func _render() -> void:
 	# [TEMPLO_UI] HP, bênção ativa e CURA removidos daqui — HP/buff no topbar, cura no botão do header.
 	content.add_child(UiKit.section("🙏 Bênçãos"))
 	_render_buff_options()
+	_render_enchant()   # [ELEMENTOS] encantar arma/armadura com elemento (1h)
 	content.add_child(UiKit.section(Lang.t("Proteção de Itens (%d/%d)") % [int(data.get("protectedCount", 0)), int(data.get("maxProtected", 3))]))
 	_render_protection()
 
@@ -115,6 +116,71 @@ func _buff_cell(b: Dictionary) -> Control:
 	# custo (linha 2, compacta)
 	box.add_child(UiKit.coin_box(int(b.get("bronzeCost", 0)), 12))
 	return res[0]
+
+# ── Encantamento elemental [ELEMENTOS] ──────────────────────────────────────────
+# Encanta arma/armadura com 1 elemento por 1h (buff temporário no Warrior; custa 1 essência + bronze).
+# Backend: POST /api/temple/enchant/{weapon|armor}/{element}; dados em `elements` do GET /api/temple.
+func _render_enchant() -> void:
+	var elements = data.get("elements", [])
+	if not (elements is Array) or elements.is_empty():
+		return
+	content.add_child(UiKit.section(Lang.t("Encantamento Elemental")))
+	content.add_child(UiKit.dim(Lang.t("Encante por 1h (custa 1 essência + %d bronze). Roda: Fogo › Ar › Terra › Água › Fogo.") % int(data.get("enchantCost", 100))))
+	_render_enchant_slot("weapon", Lang.t("Arma"), str(data.get("weaponElement", "")), int(data.get("weaponElementSecondsLeft", 0)), elements)
+	_render_enchant_slot("armor", Lang.t("Armadura"), str(data.get("armorElement", "")), int(data.get("armorElementSecondsLeft", 0)), elements)
+
+func _render_enchant_slot(slot: String, label: String, active: String, secs: int, elements: Array) -> void:
+	var hdr := Label.new()
+	hdr.add_theme_font_size_override("font_size", 13)
+	if active != "":
+		var disp := active
+		for e in elements:
+			if e is Dictionary and str(e.get("id", "")) == active:
+				disp = str(e.get("displayName", active))
+		hdr.text = Lang.t("%s: encantada com %s — %dmin restantes") % [label, disp, int(secs / 60)]
+		hdr.add_theme_color_override("font_color", UiKit.OK)
+	else:
+		hdr.text = Lang.t("%s: sem encanto") % label
+		hdr.add_theme_color_override("font_color", UiKit.TEXT_DIM)
+	content.add_child(hdr)
+	var cells: Array = []
+	for e in elements:
+		if e is Dictionary:
+			cells.append(e)
+	content.add_child(UiKit.grid(self, cells, func(e): return _enchant_cell(slot, e), false, 150, 4))
+
+# Card clicável de um elemento (igual à bênção): ícone pixel + nome + essência possuída. Desabilitado sem essência.
+func _enchant_cell(slot: String, e: Dictionary) -> Control:
+	var owned := int(e.get("owned", 0))
+	var can := owned > 0
+	var elem_id := str(e.get("id", ""))
+	var tip := "%s — vence %s\n%s: %d · custo %d bronze" % [str(e.get("displayName", "")), str(e.get("beats", "")), str(e.get("essenceName", "")), owned, int(data.get("enchantCost", 100))]
+	var on_click := func() -> void: _enchant(slot, elem_id)
+	var res := UiKit.clickable_card(UiKit.GOLD_SOFT if can else Color(0.3, 0.3, 0.34, 0.6), on_click, can, tip)
+	var pc: PanelContainer = res[0]
+	(pc.get_theme_stylebox("panel") as StyleBoxFlat).set_content_margin_all(7)
+	var box: VBoxContainer = res[1]
+	box.add_theme_constant_override("separation", 2)
+	var top := HBoxContainer.new(); top.add_theme_constant_override("separation", 5)
+	var ekey := "elem_" + elem_id.to_lower()
+	if Icons.tex(ekey) != null:
+		top.add_child(Icons.rect(ekey, 18))
+	var nm := Label.new(); nm.text = str(e.get("displayName", ""))
+	nm.add_theme_font_size_override("font_size", 13); nm.add_theme_color_override("font_color", UiKit.TEXT)
+	nm.size_flags_horizontal = Control.SIZE_EXPAND_FILL; nm.clip_text = true
+	top.add_child(nm)
+	box.add_child(top)
+	var own := Label.new(); own.text = "%s: %d" % [str(e.get("essenceName", "")), owned]
+	own.add_theme_font_size_override("font_size", 11)
+	own.add_theme_color_override("font_color", UiKit.OK if can else UiKit.ERR)
+	box.add_child(own)
+	return res[0]
+
+func _enchant(slot: String, element_id: String) -> void:
+	if busy: return
+	busy = true
+	await _do(await (Api.temple_enchant_weapon(element_id) if slot == "weapon" else Api.temple_enchant_armor(element_id)))
+	busy = false
 
 # ── Proteção de itens ──────────────────────────────────────────────────────────
 func _render_protection() -> void:
