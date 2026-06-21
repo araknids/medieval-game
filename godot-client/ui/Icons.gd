@@ -22,6 +22,7 @@ static func set_icon(b: Button, key: String) -> bool:
 	b.icon = t
 	b.expand_icon = true
 	b.add_theme_constant_override("h_separation", 8)
+	add_hover(b, 1.0, HOVER_BRIGHT_BTN)   # [HOVER_ICON] botão: só clareia no hover (sem escala p/ não estourar full-width)
 	return true
 
 # Button com ícone + texto. label_with_emoji = "🌍 Mundo": com ícone vira ícone + "Mundo";
@@ -169,9 +170,49 @@ static func tip(key: String) -> String:
 	var pair: Array = ICON_TIP[key]
 	return str(pair[1]) if Lang.current() == "en" else str(pair[0])
 
+# ── Hover juice [HOVER_ICON] ────────────────────────────────────────────────────────
+# Passar o mouse num ícone → ele cresce + clareia suave (e volta). Frame-rate independent
+# (Tween com overshoot). Mexe SÓ em scale/modulate → não causa reflow nem empurra o layout.
+# Aplicado automaticamente em rect() (cresce+clareia) e set_icon() (botão: só clareia, p/ não
+# estourar full-width) → todo ícone do jogo ganha o hover sem tocar em nenhuma tela.
+const HOVER_GROW := 1.13          # quanto o ícone (TextureRect) cresce no hover
+const HOVER_BRIGHT := 1.20        # quanto clareia (multiplica o modulate)
+const HOVER_BRIGHT_BTN := 1.10    # botão clareia menos (já tem hover de cor no StyleBox)
+
+# Liga o hover-pop num Control. grow=1.0 → sem escala (só brilho). Idempotente. [HOVER_ICON]
+static func add_hover(node: Control, grow := HOVER_GROW, bright := HOVER_BRIGHT) -> void:
+	if node == null or node.has_meta("hover_fx"):
+		return
+	node.set_meta("hover_fx", true)
+	node.set_meta("hover_grow", grow)
+	node.set_meta("hover_bright", bright)
+	node.set_meta("hover_base", node.modulate)
+	node.mouse_entered.connect(_hover_to.bind(node, true))
+	node.mouse_exited.connect(_hover_to.bind(node, false))
+
+static func _hover_to(node: Control, on: bool) -> void:
+	if not is_instance_valid(node):
+		return
+	node.pivot_offset = node.size * 0.5        # cresce a partir do centro
+	var base: Color = node.get_meta("hover_base", Color.WHITE)
+	var grow: float = node.get_meta("hover_grow", HOVER_GROW)
+	var bright: float = node.get_meta("hover_bright", HOVER_BRIGHT)
+	var s := grow if on else 1.0
+	var col := base
+	if on:
+		col = Color(base.r * bright, base.g * bright, base.b * bright, base.a)
+	var prev: Tween = node.get_meta("hover_tw", null)
+	if prev != null and prev.is_valid():
+		prev.kill()
+	var tw := node.create_tween().set_parallel(true)
+	tw.set_trans(Tween.TRANS_BACK if on else Tween.TRANS_SINE).set_ease(Tween.EASE_OUT)
+	tw.tween_property(node, "scale", Vector2(s, s), 0.14)
+	tw.tween_property(node, "modulate", col, 0.14)
+	node.set_meta("hover_tw", tw)
+
 # TextureRect pronto pra HUD (recurso/atributo). size em px; null-safe (volta um TextureRect vazio).
-# tooltip: texto explícito; "" → usa a descrição do mapa ICON_TIP (se houver). Com tooltip → MOUSE_FILTER_PASS
-# (mostra o hover SEM bloquear o clique do card/pai); sem → IGNORE (transparente, como antes). [ICON_TOOLTIP]
+# tooltip: texto explícito; "" → usa a descrição do mapa ICON_TIP (se houver). Sempre MOUSE_FILTER_PASS
+# (recebe o hover-pop SEM bloquear o clique do card/pai). [ICON_TOOLTIP][HOVER_ICON]
 static func rect(key: String, px := 24, tooltip := "") -> TextureRect:
 	var tr := TextureRect.new()
 	tr.texture = tex(key)
@@ -181,7 +222,7 @@ static func rect(key: String, px := 24, tooltip := "") -> TextureRect:
 	var tt := tooltip if tooltip != "" else tip(key)
 	if tt != "":
 		tr.tooltip_text = tt
-		tr.mouse_filter = Control.MOUSE_FILTER_PASS
-	else:
-		tr.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	tr.mouse_filter = Control.MOUSE_FILTER_PASS   # PASS: anima no hover mas deixa o clique passar pro pai
+	if tr.texture != null:
+		add_hover(tr)                              # [HOVER_ICON] cresce + clareia
 	return tr
