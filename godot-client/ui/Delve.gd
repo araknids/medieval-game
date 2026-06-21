@@ -461,8 +461,50 @@ func _show_step_report(j: Dictionary) -> void:
 		var mob := str(j.get("monsterName", "inimigo"))
 		var title := (Lang.t("⚔ %s derrotado!") % mob) if won else (Lang.t("💀 Derrotado por %s!") % mob)
 		UiKit.show_battle_report(self, won, title, _reward_rows(j, ko), log)
+	elif str(j.get("resolvedType", "")) == "TREASURE" and not ko:
+		_show_treasure_chest(j)   # [INCURSAO_BAU] baú animado em vez da dialog de texto
 	else:
 		_show_result(_step_text(j))
+
+# [INCURSAO_BAU] Nó de TESOURO → popup com o baú abrindo (animação PixelLab anim/chest_open/) + as
+# recompensas, no lugar do antigo diálogo de texto. Fallback p/ o PNG estático se não houver frames.
+func _show_treasure_chest(j: Dictionary) -> void:
+	var overlay := ColorRect.new()
+	overlay.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	overlay.color = Color(0, 0, 0, 0.78)
+	overlay.mouse_filter = Control.MOUSE_FILTER_STOP
+	add_child(overlay)
+	var center := CenterContainer.new()
+	center.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	overlay.add_child(center)
+	var res := UiKit.card(UiKit.GOLD)
+	var panel: PanelContainer = res[0]
+	var vb: VBoxContainer = res[1]
+	var sb: StyleBoxFlat = panel.get_theme_stylebox("panel")
+	sb.set_border_width_all(2)
+	sb.border_color = UiKit.GOLD
+	vb.add_theme_constant_override("separation", 8)
+	center.add_child(panel)
+	# baú animado (loop suave do brilho/joias); fallback estático se os frames ainda não importaram
+	var chest := TextureRect.new()
+	chest.custom_minimum_size = Vector2(176, 176)
+	chest.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	chest.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	chest.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	chest.texture = Icons.tex("chest_open")
+	vb.add_child(chest)
+	Icons.play_loop(chest, "chest_open", 0.10)
+	vb.add_child(UiKit.section("🎁 Tesouro!"))
+	var rows := _reward_rows(j)
+	if rows.is_empty():
+		vb.add_child(UiKit.dim(Lang.t("O baú estava vazio…")))
+	else:
+		for row in rows:
+			vb.add_child(row)
+	var ok := UiKit.action(Lang.t("Coletar"), func() -> void: overlay.queue_free())
+	ok.custom_minimum_size = Vector2(280, 40)
+	vb.add_child(ok)
+	ok.call_deferred("grab_focus")
 
 func _reward_rows(j: Dictionary, ko := false) -> Array:
 	var rows: Array = []

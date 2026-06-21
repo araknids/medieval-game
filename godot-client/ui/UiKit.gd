@@ -541,6 +541,7 @@ static func icon_choice_btn(icon_key: String, emoji: String, label: String, cb: 
 		var tr := _tex_rect(ic, icon_px)
 		tr.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 		v.add_child(tr)
+		Icons.anim_rect(b, tr, icon_key)   # [HOVER_ICON_ANIM] o botão-pai dispara o frame-cycle da rect interna
 	else:
 		var el := Label.new(); el.text = emoji
 		el.add_theme_font_size_override("font_size", 20 if compact else 30)

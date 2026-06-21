@@ -9,6 +9,8 @@ extends Control
 
 signal go_back
 
+const Icons := preload("res://ui/Icons.gd")
+
 var content: VBoxContainer
 var status: Label
 var wallet: Label
@@ -179,8 +181,20 @@ func _tick_buff(delta: float) -> void:
 func mini_panel_holder() -> void:
 	var res := UiKit.card()
 	var holder: VBoxContainer = res[1]
-	res[0].custom_minimum_size = Vector2(MINI_W + 24.0, MINI_H + 24.0)
+	holder.alignment = BoxContainer.ALIGNMENT_CENTER
+	holder.add_theme_constant_override("separation", 8)
+	res[0].custom_minimum_size = Vector2(MINI_W + 24.0, MINI_H + 88.0)
 	res[0].size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	# [TAVERNA_CANECA] caneca animada (espuma borbulhando) dá vida ao minigame de beber.
+	# Fallback p/ o PNG estático enquanto os frames não importam.
+	var mug := TextureRect.new()
+	mug.custom_minimum_size = Vector2(64, 64)
+	mug.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	mug.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	mug.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	mug.texture = Icons.tex("drink_mug")
+	holder.add_child(mug)
+	Icons.play_loop(mug, "drink_mug", 0.12)
 	var track := Control.new()
 	track.custom_minimum_size = Vector2(MINI_W, MINI_H)
 	holder.add_child(track)

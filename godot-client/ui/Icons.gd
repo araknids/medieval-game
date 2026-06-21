@@ -290,6 +290,59 @@ static func _anim_stop(b: Button) -> void:
 	if frames.size() > 0:
 		b.icon = frames[0]
 
+# [HOVER_ICON_ANIM] Frame-cycle numa TextureRect, disparado pelo hover de `host` (o Control que captura o
+# mouse — pode ser a própria rect, ou o Button-pai quando o ícone vive dentro dum VBox). No-op se não
+# houver anim/<key>/f0..fN. Espelha _anim_hover (que é só p/ Button.icon).
+static func anim_rect(host: Control, tr: TextureRect, key: String) -> void:
+	if host == null or tr == null or host.has_meta("anim_rect_fx"):
+		return
+	var frames := _anim_frames(key)
+	if frames.size() < 2:
+		return
+	host.set_meta("anim_rect_fx", true)
+	tr.texture = frames[0]
+	host.mouse_entered.connect(_anim_rect_start.bind(host, tr, frames))
+	host.mouse_exited.connect(_anim_rect_stop.bind(host, tr, frames))
+
+static func _anim_rect_start(host: Control, tr: TextureRect, frames: Array) -> void:
+	if not is_instance_valid(tr):
+		return
+	var prev: Tween = host.get_meta("anim_rect_tw", null)
+	if prev != null and prev.is_valid():
+		return                              # já animando neste hover → não reinicia
+	var tw := tr.create_tween().set_loops()
+	for fr in frames:
+		tw.tween_callback(_anim_rect_set.bind(tr, fr)).set_delay(ANIM_FPS)
+	host.set_meta("anim_rect_tw", tw)
+
+static func _anim_rect_set(tr: TextureRect, fr: Texture2D) -> void:
+	if is_instance_valid(tr):
+		tr.texture = fr
+
+# Quadros anim/<key>/f0..fN (público; [] se não existir). Usado por popups que tocam a animação
+# direto (ex.: baú abrindo na Incursão, caneca no minigame da Taverna). [HOVER_ICON_ANIM]
+static func frames(key: String) -> Array:
+	return _anim_frames(key)
+
+# Toca os quadros de anim/<key>/ num TextureRect em LOOP contínuo. Devolve o Tween (kill() p/ parar)
+# ou null se não houver frames. Não mexe na textura inicial se vazio (mantém o fallback do chamador).
+static func play_loop(tr: TextureRect, key: String, fps := ANIM_FPS) -> Tween:
+	var fr := _anim_frames(key)
+	if tr == null or not is_instance_valid(tr) or fr.size() < 2:
+		return null
+	tr.texture = fr[0]
+	var tw := tr.create_tween().set_loops()
+	for f in fr:
+		tw.tween_callback(_anim_rect_set.bind(tr, f)).set_delay(fps)
+	return tw
+
+static func _anim_rect_stop(host: Control, tr: TextureRect, frames: Array) -> void:
+	var tw: Tween = host.get_meta("anim_rect_tw", null)
+	if tw != null and tw.is_valid():
+		tw.kill()
+	if is_instance_valid(tr) and frames.size() > 0:
+		tr.texture = frames[0]
+
 # TextureRect pronto pra HUD (recurso/atributo). size em px; null-safe (volta um TextureRect vazio).
 # tooltip: texto explícito; "" → usa a descrição do mapa ICON_TIP (se houver). Sempre MOUSE_FILTER_PASS
 # (recebe o hover-pop SEM bloquear o clique do card/pai). [ICON_TOOLTIP][HOVER_ICON]
@@ -305,4 +358,5 @@ static func rect(key: String, px := 24, tooltip := "") -> TextureRect:
 	tr.mouse_filter = Control.MOUSE_FILTER_PASS   # PASS: anima no hover mas deixa o clique passar pro pai
 	if tr.texture != null:
 		add_hover(tr)                              # [HOVER_ICON] cresce + clareia
+		anim_rect(tr, tr, key)                     # [HOVER_ICON_ANIM] cicla anim/<key>/ no hover (se existir)
 	return tr

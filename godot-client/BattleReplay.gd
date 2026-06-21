@@ -89,6 +89,19 @@ const CAM_PRESETS := [
 	{"dist": 14.0, "height": 7.2,  "look_y": 1.9,  "fov": 60.0},  # 3 — 5×5
 ]
 
+# [CAM_KILL_VARIEDADE] perfis de enquadramento do KILL-CAM — em vez do mesmo 3/4-baixo toda morte, cicla
+# entre estes p/ "dar uma variada" (pedido do dono). Relativos à VÍTIMA: fwd = à frente (na direção do
+# golpe), sideAmt = lateral (sinal vem de d.x), height = altura da câmera sobre o pé, depth = empurra pra
+# FRENTE (+Z, rumo ao espectador), lookH = altura da mira no corpo, fovDip = quanto fecha a lente (zoom).
+# TODOS passam pelo clamp KILL_CAM_MIN_Y/z≥2 → nenhum atravessa o chão nem entra no cenário. [CAM_KILL_FIX]
+const KILL_SHOTS := [
+	{"fwd": 2.4, "sideAmt": 1.6, "height": 1.05, "depth": 0.0, "lookH": 1.05, "fovDip": 10.0},  # clássico 3/4 baixo
+	{"fwd": 2.0, "sideAmt": 1.3, "height": 2.70, "depth": 0.4, "lookH": 0.85, "fovDip": 8.0},   # 3/4 alto (olha pra baixo)
+	{"fwd": 2.6, "sideAmt": 1.1, "height": 0.50, "depth": 0.2, "lookH": 1.45, "fovDip": 12.0},  # herói baixo (contra-plongée)
+	{"fwd": 1.5, "sideAmt": 1.2, "height": 1.10, "depth": 2.2, "lookH": 1.05, "fovDip": 9.0},   # lateral (dolly de perfil)
+	{"fwd": 3.2, "sideAmt": 2.0, "height": 1.70, "depth": 0.6, "lookH": 1.15, "fovDip": 4.0},   # aberto cinematográfico
+]
+
 # tipos de evento (idênticos ao battleArena.js 2D)
 # [HABILIDADES] id da skill (vem no evento `ability`) → [ícone em assets/ui/icons/, nome exibido, cor].
 # O replay mostra ícone+nome flutuando acima do lutador quando uma ATIVA dispara. [SKILL_POPUP]
@@ -214,6 +227,7 @@ var _cam_look := Vector3(0, 1.2, 0)
 var _cam_dist := 6.9
 var _cam_lean_x := 0.0
 var _cam_locked := false
+var _kill_shot := 0           # [CAM_KILL_VARIEDADE] cicla KILL_SHOTS a cada morte (ângulo diferente)
 var _env: Environment         # [JUICE] reactivity: glow pulsa no kill; luz-chave pisca no crit
 var _key_light: Light3D
 var _env_base_glow := 0.0
@@ -2655,9 +2669,13 @@ func _kill_cam(victim: Node3D = null, dir := Vector3.RIGHT) -> void:
 	# [CAM_KILL] reframe pra ângulo BAIXO 3/4 sobre a vítima no 1v1 E em grupo PEQUENO (≤4: torre 2v1/3v1).
 	# Guerra grande (≥5 em campo) não → viraria estroboscópio. Guarda o estado p/ VOLTAR no fim.
 	var reframe := victim != null and is_instance_valid(victim) and order.size() <= 4
+	# [CAM_KILL_VARIEDADE] escolhe o perfil de enquadramento desta morte (cicla) — varia o ângulo a cada kill.
+	var prof: Dictionary = KILL_SHOTS[_kill_shot % KILL_SHOTS.size()]
+	if reframe: _kill_shot += 1
+	var fov_dip: float = float(prof["fovDip"]) if reframe else 16.0
 	var t0 := cam.global_transform
 	var tw := create_tween().set_ignore_time_scale(true)
-	tw.tween_property(cam, "fov", _cam_base_fov - (10.0 if reframe else 16.0), 0.22).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
+	tw.tween_property(cam, "fov", _cam_base_fov - fov_dip, 0.22).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
 	if reframe:
 		_cam_locked = true   # pausa o tracking enquanto o kill-cam dirige a câmera
 		# [CAM_KILL_FIX] o pé da vítima (vp.y) pode ser ≤0 (auto-fit de monstro / ragdoll caindo) → guarda no piso.
@@ -2667,10 +2685,12 @@ func _kill_cam(victim: Node3D = null, dir := Vector3.RIGHT) -> void:
 		if d.length() < 0.01: d = Vector3.RIGHT
 		d = d.normalized()
 		var side := 1.0 if d.x >= 0.0 else -1.0
-		var kpos := Vector3(vp.x, feet_y, vp.z) + d * 2.4 + Vector3(side * 1.6, 1.05, 0.0)  # 3/4 baixo, golpe cruza o quadro
+		# kpos = pé-da-vítima + frente + (lateral, altura, profundidade) do perfil (ver KILL_SHOTS)
+		var kpos := Vector3(vp.x, feet_y, vp.z) + d * float(prof["fwd"]) \
+			+ Vector3(side * float(prof["sideAmt"]), float(prof["height"]), float(prof["depth"]))
 		kpos.y = maxf(kpos.y, KILL_CAM_MIN_Y)                      # CLAMP de piso — O FIX: a câmera nunca vai abaixo do chão
 		if kpos.z < 2.0: kpos.z = 2.0                              # nunca atrás do cenário
-		var look := Vector3(vp.x, feet_y + 1.05, vp.z)            # mira no PEITO (não no joelho), com o pé guardado
+		var look := Vector3(vp.x, feet_y + float(prof["lookH"]), vp.z)   # mira no corpo (altura do perfil), pé guardado
 		create_tween().set_ignore_time_scale(true).tween_method(
 			_kill_cam_step.bind(cam.position, kpos, look), 0.0, 1.0, 0.24).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
 	await get_tree().create_timer(1.0, true, false, true).timeout
