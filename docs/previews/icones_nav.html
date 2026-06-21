@@ -1,0 +1,29 @@
+<!doctype html><html lang="pt"><head><meta charset="utf-8"><title>Ícones da nav</title>
+<style>
+ body{margin:0;background:#0d0b10;color:#e8e2ef;font-family:system-ui;padding:26px}
+ h1{color:#c9a227;margin:0 0 4px} .sub{color:#9a90a6;margin:0 0 20px;font-size:13px}
+ .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:14px}
+ .card{background:#12101a;border:1px solid #2a2533;border-radius:8px;padding:12px;display:flex;align-items:center;gap:12px}
+ img{image-rendering:pixelated} .nm{font-size:14px;color:#d8d0e0}
+ .big{display:block;margin-top:2px}
+</style></head><body>
+<h1>Ícones da nav — animados no hover</h1>
+<p class="sub">Em loop aqui só pra ver o movimento (no jogo é one-shot ao passar o mouse). Tamanho da barra = 34px.</p>
+<div class="grid" id="g"></div>
+<script>
+const ART="../../godot-client/assets/ui/icons/anim";
+const C={  "home":7,  "world":7,  "work":7,  "temple":7,  "tower":7,  "arena":7,  "territory":7,  "shop":7,  "forge":7,  "auction":7,  "stash":7,  "tavern":7,  "vip":7,  "character":7,  "achievements":7,  "guild":7,  "mail":7,  "daily":7,  "settings":7,};
+const L={home:"Início",world:"Mundo",work:"Trabalho",temple:"Templo",tower:"Torre",arena:"Arena",territory:"Território",shop:"Loja",forge:"Forja",auction:"Leilão",stash:"Baú",tavern:"Taverna",vip:"VIP",character:"Personagem",achievements:"Conquistas",guild:"Guilda",mail:"Correio",daily:"Diário",settings:"Configurações"};
+const ORDER=["home","world","work","temple","tower","arena","territory","shop","forge","auction","stash","tavern","vip","character","achievements","guild","mail","daily","settings"];
+const g=document.getElementById("g");
+for(const k of ORDER){
+ const n=C[k]||7;
+ const card=document.createElement("div");card.className="card";
+ card.innerHTML='<img width="34" height="34"><img class="big" width="64" height="64"><div class="nm">'+L[k]+'</div>';
+ g.appendChild(card);
+ const imgs=card.querySelectorAll("img");
+ const F=[];for(let i=0;i<n;i++)F.push(ART+"/"+k+"/f"+i+".png");
+ let i=0;for(const e of imgs)e.src=F[0];
+ setInterval(()=>{i=(i+1)%n;for(const e of imgs)e.src=F[i];},90);
+}
+</script></body></html>
