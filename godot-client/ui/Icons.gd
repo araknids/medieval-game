@@ -263,16 +263,11 @@ static func _anim_start(b: Button) -> void:
 	var frames: Array = b.get_meta("anim_frames", [])
 	if frames.size() < 2:
 		return
-	# [UIUX] one-shot (não loop): numa barra que se varre, loop cansa. Toca 1x e assenta.
-	# debounce: não re-disparar se acabou de tocar (< 150 ms) — evita "metralhar" passando o mouse.
-	var now := Time.get_ticks_msec()
-	if now - int(b.get_meta("anim_last", -10000)) < 150:
-		return
-	b.set_meta("anim_last", now)
+	# [UIUX] LOOP enquanto o mouse está em cima (o dono quer ficar animado parado); reseta ao sair (_anim_stop).
 	var prev: Tween = b.get_meta("anim_tw", null)
 	if prev != null and prev.is_valid():
-		prev.kill()
-	var tw := b.create_tween()              # sem set_loops → toca a animação UMA vez e segura o fim
+		return                              # já animando neste hover → não reinicia
+	var tw := b.create_tween().set_loops()  # loop contínuo até mouse_exited
 	for fr in frames:
 		tw.tween_callback(_anim_set.bind(b, fr)).set_delay(ANIM_FPS)
 	b.set_meta("anim_tw", tw)
