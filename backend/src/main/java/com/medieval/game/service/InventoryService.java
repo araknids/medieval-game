@@ -52,6 +52,15 @@ public class InventoryService {
             for (InventoryItem i : items) if (i.isPvpLocked()) { i.setPvpLocked(false); any = true; }
             if (any) inventoryRepository.saveAll(items);
         }
+        // [AFIXOS_NOME] auto-corrige nomes ANTIGOS p/ baterem com os afixos (locale do request). Idempotente:
+        // nome já certo → nameFromAffixes devolve igual → não salva. Conserta os itens criados antes do fix.
+        boolean renamed = false;
+        for (InventoryItem i : items) {
+            java.util.List<Affix> aff = affixRepository.findAllByItem(i).stream().map(ItemAffix::getAffix).toList();
+            String fixed = nameFromAffixes(i.getName(), aff);
+            if (!fixed.equals(i.getName())) { i.setName(fixed); renamed = true; }
+        }
+        if (renamed) inventoryRepository.saveAll(items);
         return items.stream().filter(i -> !i.isListed() && !i.isConsigned() && !i.isRunPending()).toList(); // [LEILAO/MERCADO_STEAM/INCURSAO] leilão/consignado/run não aparecem na bag
     }
 
@@ -523,17 +532,49 @@ public class InventoryService {
         }
 
         if (rename) {
-            // [AFIXOS_NOME] nome = <prefixo> base <sufixo>, AMBOS vindos dos afixos reais → o nome bate com os bônus.
-            // (itemName já entrega só a base; o sufixo cosmético antigo "of the Dragon" — que parecia afixo — foi removido.)
-            String prefix = chosen.stream().filter(a -> a.position == Affix.Position.PREFIX)
-                    .findFirst().map(a -> Messages.word(a.word)).orElse("");
-            String suffix = chosen.stream().filter(a -> a.position == Affix.Position.SUFFIX)
-                    .findFirst().map(a -> Messages.word(a.word)).orElse("");
-            String name = item.getName();
-            if (!prefix.isEmpty()) name = prefix + " " + name;
-            if (!suffix.isEmpty()) name = name + " " + suffix;
-            item.setName(name);
+            // [AFIXOS_NOME] nome = <prefixo> base <sufixo> dos afixos reais. nameFromAffixes tira a decoração atual,
+            // então o MESMO método serve p/ criar, reforjar E corrigir os antigos (getInventory). Sempre bate com os bônus.
+            item.setName(nameFromAffixes(item.getName(), chosen));
             inventoryRepository.save(item);
         }
+    }
+
+    // [AFIXOS_NOME] Sufixos COSMÉTICOS antigos (não-afixos) que iam no nome por raridade. Só ficam aqui p/ o
+    // stripDecoration removê-los dos itens LEGADOS ao re-nomear (o itemName novo não os adiciona mais).
+    private static final String[] COSMETIC_SUFFIXES = {
+        "of Steel", "of Chainmail", "of Silver", "of the Elves", "of the Warrior", "Enchanted",
+        "of the Dragon", "Cursed", "of Valor", "of the Ancients", "Mythic", "of Eternity",
+        "of Iron", "of Leather", "of Wood"
+    };
+
+    /** Nome = (1º prefixo) base (1º sufixo) a partir dos afixos reais. Tira a decoração atual antes → idempotente. */
+    public String nameFromAffixes(String currentName, java.util.List<Affix> affixes) {
+        String base = stripDecoration(currentName);
+        String prefix = affixes.stream().filter(a -> a.position == Affix.Position.PREFIX)
+                .findFirst().map(a -> Messages.word(a.word)).orElse("");
+        String suffix = affixes.stream().filter(a -> a.position == Affix.Position.SUFFIX)
+                .findFirst().map(a -> Messages.word(a.word)).orElse("");
+        String name = base;
+        if (!prefix.isEmpty()) name = prefix + " " + name;
+        if (!suffix.isEmpty()) name = name + " " + suffix;
+        return name;
+    }
+
+    /** Tira do nome 1 PREFIXO de afixo (início) + 1 SUFIXO (fim) — de afixo OU cosmético legado. Locale do request. */
+    private String stripDecoration(String name) {
+        String n = name;
+        for (Affix a : Affix.values()) {
+            if (a.position == Affix.Position.PREFIX) {
+                String w = Messages.word(a.word);
+                if (n.startsWith(w + " ")) { n = n.substring(w.length() + 1); break; }
+            }
+        }
+        java.util.List<String> suf = new java.util.ArrayList<>();
+        for (Affix a : Affix.values()) if (a.position == Affix.Position.SUFFIX) suf.add(Messages.word(a.word));
+        for (String cw : COSMETIC_SUFFIXES) suf.add(Messages.word(cw));
+        for (String w : suf) {
+            if (n.endsWith(" " + w)) { n = n.substring(0, n.length() - w.length() - 1); break; }
+        }
+        return n;
     }
 }

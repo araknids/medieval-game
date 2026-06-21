@@ -418,7 +418,7 @@ public class SmithingService {
         item.setDefenseBonus(def);
         item.setHealthBonus(hp);
         InventoryItem saved = inventoryRepository.save(item);
-        inventoryService.rollAffixesFor(saved, false); // Itens V2: reforge re-rola os afixos (mantém o nome)
+        inventoryService.rollAffixesFor(saved, true); // [AFIXOS_NOME] reforge re-rola os afixos E renomeia p/ bater (strip + rebuild)
         log.info("[SmithingService] player={} action=reforgeItem OK itemId={} atk={} def={} hp={} cost={}", player.getId(), itemId, atk, def, hp, cost);
         return saved;
     }
