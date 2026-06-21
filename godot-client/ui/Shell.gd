@@ -48,9 +48,9 @@ const SECTIONS := [
 	["Aventura",   [["World", "Mundo"], ["Work", "Trabalho"], ["Temple", "Templo"]]],
 	["Batalha",    [["Tower", "Torre"], ["Arena", "Arena"], ["Territory", "Território"]]],
 	["Comércio",   [["Shop", "Loja"], ["Forge", "Forja"], ["Auction", "Leilão"], ["Stash", "Baú"], ["Tavern", "Taverna"], ["Vip", "VIP"]]],
-	["Personagem", [["Character", "Personagem"], ["Achievements", "Conquistas"]]],   # [FICHA_PERSONAGEM] Inventário+Habilidades fundidos na ficha
-	["Social",     [["Guild", "Guilda"], ["Mail", "Correio"], ["Daily", "Diário"]]],
 ]
+# [MENUBAR_REORG] Personagem(Character) + Guilda viraram itens de TOPO (header de 1 item só é redundante);
+# Conquistas virou sub-aba da Ficha; Correio/Diário/Config foram pro canto superior direito da topbar.
 
 static var current = null   # ref do shell ativo (untyped p/ evitar edge-case de static var da própria classe)
 
@@ -70,7 +70,9 @@ var _hp_lbl: Label
 var _stam_bar: ProgressBar
 var _stam_lbl: Label
 var _coins: Dictionary = {}     # key -> Label
-var _stat_lbls: Dictionary = {}  # store_key -> Label do valor (ATK/DEF/HP/EVA no topbar) [TOPBAR]
+# [TOPBAR_REORG] cluster do canto superior direito: Correio · Diário · Config (+ badges)
+var _mail_btn: Button            # ícone troca p/ mail_unread quando há não-lido
+var _daily_btn: Button           # ganha tom dourado quando dá pra resgatar
 var _buffs_box: HFlowContainer    # badges dos buffs ativos (templo/vip/refeição/encanto/novato/taverna) — linha própria que QUEBRA
 var _nav_buttons: Dictionary = {}   # nome da tela -> Button (destaque do ativo)
 var _cache := {}        # nome da tela → node (MANTIDA em memória; alterna visibilidade, não recria)
@@ -135,6 +137,7 @@ func _build_topbar() -> Control:
 	_bust.custom_minimum_size = Vector2(56, 56)
 	frame.add_child(_bust)
 	row.add_child(frame)
+	row.add_child(_divider())
 	# identidade: nome + título · classe·nível · XP
 	var idv := VBoxContainer.new()
 	idv.add_theme_constant_override("separation", 1)
@@ -162,22 +165,21 @@ func _build_topbar() -> Control:
 	_xp_lbl.add_theme_font_size_override("font_size", 11)
 	_xp_lbl.add_theme_color_override("font_color", UiKit.TEXT_DIM)
 	idv.add_child(_xp_lbl)
-	# stats de combate preenchendo o espaço vazio entre identidade e vitais [TOPBAR]
-	row.add_child(_build_statbox())
-	# espaçador (mantém vitais/moedas/buffs à direita)
-	var spacer := Control.new(); spacer.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	row.add_child(spacer)
-	# HP + estamina — linhas alinhadas (ícone pixel | barra | valor à direita) + cura ao lado [HEAL]
+	# [TOPBAR_REORG] HP + estamina logo após a identidade (ícone | barra | valor) + cura ao lado [HEAL]
+	row.add_child(_divider())
 	var vit := VBoxContainer.new(); vit.add_theme_constant_override("separation", 5)
 	vit.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	_hp_bar = _mini_bar(Color(0.80, 0.26, 0.24), 150)
 	_hp_lbl = Label.new()
-	vit.add_child(_vital_row("hp", _hp_bar, _hp_lbl, "Vida (HP) — atual/máximo; cure no botão ao lado (❤) ou no Templo"))
+	vit.add_child(_vital_row("hp", _hp_bar, _hp_lbl, "Vida (HP) — atual/máximo; cure no botão ao lado ou no Templo"))
 	_stam_bar = _mini_bar(Color(0.40, 0.68, 0.42), 150)
 	_stam_lbl = Label.new()
 	vit.add_child(_vital_row("stamina", _stam_bar, _stam_lbl, "Estamina — gasta nas ações; enche 100% em 1h (15min com buff de novato)"))
 	row.add_child(vit)
 	row.add_child(_heal_button())   # botão de cura (cruz vermelha pixel) ao lado das barras
+	# espaçador empurra moedas + cluster pra direita
+	var spacer := Control.new(); spacer.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	row.add_child(spacer)
 	# moedas
 	var coinbox := VBoxContainer.new(); coinbox.add_theme_constant_override("separation", 2)
 	coinbox.size_flags_vertical = Control.SIZE_SHRINK_CENTER
@@ -188,6 +190,9 @@ func _build_topbar() -> Control:
 	c2.add_child(_coin("soulstone"))
 	coinbox.add_child(c2)
 	row.add_child(coinbox)
+	# [TOPBAR_REORG] cluster do canto superior direito: Correio · Diário · Config
+	row.add_child(_divider())
+	row.add_child(_topbar_actions())
 	# [TOPBAR_BUFFS] buffs ativos numa LINHA PRÓPRIA abaixo do topbar — sempre visível (não some
 	# no canto direito como antes) e QUEBRA pra próxima linha quando há vários. Populado em update_topbar.
 	_buffs_box = HFlowContainer.new()
@@ -210,51 +215,49 @@ func _coin(key: String) -> HBoxContainer:
 	_coins[key] = l
 	return h
 
-# [TOPBAR] Bloco de stats de combate (preenche o vazio do topbar): ATK/DEF/HP efetivos + esquiva.
-func _build_statbox() -> VBoxContainer:
-	var box := VBoxContainer.new()
-	box.add_theme_constant_override("separation", 2)
-	box.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	var r1 := HBoxContainer.new(); r1.add_theme_constant_override("separation", 14)
-	r1.add_child(_stat_chip("stat_atk", "ATK", "atk", "Ataque efetivo de combate (base + gear + buffs + skills + postura + pet + taverna)"))
-	r1.add_child(_stat_chip("slot_shield", "DEF", "def", "Defesa efetiva — mitiga o dano recebido"))
-	box.add_child(r1)
-	var r2 := HBoxContainer.new(); r2.add_theme_constant_override("separation", 14)
-	r2.add_child(_stat_chip("hp", "HP", "hp", "Vida máxima efetiva de combate (com buffs/pet)"))
-	r2.add_child(_stat_chip("attr_agility", "EVA", "eva", "Esquiva — chance de evitar o golpe (DEX/AGI + buffs)"))
-	box.add_child(r2)
-	# linha 3: ATRIBUTOS (só ícone + valor; nome no hover) [TOPBAR]
-	var r3 := HBoxContainer.new(); r3.add_theme_constant_override("separation", 10)
-	r3.add_child(_stat_chip("attr_strength", "", "str", "Força (STR) — dano corpo-a-corpo"))
-	r3.add_child(_stat_chip("attr_dexterity", "", "dex", "Destreza (DEX) — acerto + dano de arco"))
-	r3.add_child(_stat_chip("attr_constitution", "", "con", "Constituição (CON) — +8 HP por ponto"))
-	r3.add_child(_stat_chip("attr_agility", "", "agi", "Agilidade (AGI) — golpe extra + esquiva"))
-	r3.add_child(_stat_chip("attr_luck", "", "luk", "Sorte (LUK) — crítico"))
-	box.add_child(r3)   # INT removido (Mago não implementado)
-	return box
+# [TOPBAR_REORG] Divisória fina vertical entre grupos da topbar.
+func _divider() -> Control:
+	var d := ColorRect.new()
+	d.color = Color(0.40, 0.32, 0.20, 0.5)
+	d.custom_minimum_size = Vector2(1, 40)
+	d.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	return d
 
-# Chip "[ícone] RÓTULO valor" — guarda o Label de valor em _stat_lbls[store_key] (atualizado em update_topbar).
-func _stat_chip(icon_key: String, label: String, store_key: String, tip: String) -> HBoxContainer:
-	var h := HBoxContainer.new(); h.add_theme_constant_override("separation", 4)
-	h.tooltip_text = tip
-	h.mouse_filter = Control.MOUSE_FILTER_STOP
-	if Icons.tex(icon_key) != null:
-		var ic := Icons.rect(icon_key, 18)
-		h.add_child(ic)
-	if label != "":   # atributos só com ícone (nome no hover) ficam mais compactos
-		var lk := Label.new(); lk.text = label
-		lk.add_theme_font_size_override("font_size", 11)
-		lk.add_theme_color_override("font_color", UiKit.TEXT_DIM)
-		lk.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		h.add_child(lk)
-	var lv := Label.new(); lv.text = "0"
-	lv.add_theme_font_size_override("font_size", 13)
-	lv.add_theme_color_override("font_color", UiKit.TEXT)
-	lv.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	lv.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	h.add_child(lv)
-	_stat_lbls[store_key] = lv
+# [TOPBAR_REORG] Cluster do canto superior direito: Correio · Diário · Config (ícones 36×36 flat).
+func _topbar_actions() -> Control:
+	var h := HBoxContainer.new(); h.add_theme_constant_override("separation", 6)
+	h.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	_mail_btn = _topbar_icon_btn("mail", "Correio — mensagens e recompensas", func() -> void: _open("Mail"))
+	h.add_child(_mail_btn)
+	_daily_btn = _topbar_icon_btn("daily", "Recompensa diária", func() -> void: _open("Daily"))
+	h.add_child(_daily_btn)
+	h.add_child(_topbar_icon_btn("settings", "Configurações", func() -> void: _open("Settings")))
 	return h
+
+# Botão de ícone flat 36×36 (sem fundo de botão). Ícone DIRETO + brilho simples no hover —
+# sem o frame-anim do set_icon (que brigaria com a troca de ícone do badge do Correio).
+func _topbar_icon_btn(key: String, tip: String, cb: Callable) -> Button:
+	var b := Button.new()
+	b.flat = true
+	b.focus_mode = Control.FOCUS_NONE
+	b.custom_minimum_size = Vector2(36, 36)
+	b.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	b.tooltip_text = tip
+	var empty := StyleBoxEmpty.new()
+	for st in ["normal", "hover", "pressed", "focus"]:
+		b.add_theme_stylebox_override(st, empty)
+	var t := Icons.tex(key)
+	if t != null:
+		b.icon = t
+		b.expand_icon = true
+		b.add_theme_constant_override("icon_max_width", 30)
+		b.modulate = Color(1, 1, 1, 0.85)
+		b.mouse_entered.connect(func() -> void: b.modulate = Color(1, 1, 1, 1))
+		b.mouse_exited.connect(func() -> void: b.modulate = Color(1, 1, 1, 0.85))
+	else:
+		b.text = key.substr(0, 1).to_upper()   # fallback até o PNG importar
+	b.pressed.connect(cb)
+	return b
 
 func _mini_bar(fill: Color, w: int) -> ProgressBar:
 	var pb := ProgressBar.new()
@@ -354,35 +357,40 @@ func _build_nav() -> Control:
 	sb.border_color = Color(0.40, 0.32, 0.20); sb.border_width_right = 2
 	sb.set_content_margin_all(8)
 	pc.add_theme_stylebox_override("panel", sb)
-	var scroll := ScrollContainer.new()
-	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
-	scroll.follow_focus = true
-	pc.add_child(scroll)
+	# [MENUBAR_REORG] SEM ScrollContainer — a barra cabe inteira em 720p (pedido do dono: sem scroll).
 	var nav := VBoxContainer.new()
-	nav.add_theme_constant_override("separation", 4)
+	nav.add_theme_constant_override("separation", 3)
 	nav.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	scroll.add_child(nav)
-	# Início (dashboard) — mesmo padrão dos itens de nav abaixo (flat + ícone PixelLab) [MENUBAR]
+	pc.add_child(nav)
+	# Início (dashboard) — flat + ícone (mesmo padrão dos itens)
 	var home := Button.new()
 	home.flat = true
 	home.alignment = HORIZONTAL_ALIGNMENT_LEFT
-	home.custom_minimum_size = Vector2(0, 40)
+	home.custom_minimum_size = Vector2(0, 32)
 	home.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	home.add_theme_constant_override("icon_max_width", 34)   # [MENUBAR] ícone maior na barra (34px)
+	home.add_theme_constant_override("icon_max_width", 26)
 	Icons.label_button(home, "home", "Início")
-	home.tooltip_text = "Início — painel inicial com atalhos"   # [MENUBAR_HOVER]
+	home.tooltip_text = "Início — painel inicial com atalhos"
 	home.add_theme_font_size_override("font_size", 14)
 	home.pressed.connect(_show_dashboard)
 	_nav_buttons["__home__"] = home
 	nav.add_child(home)
-	# seções recolhíveis
+	# seções recolhíveis (Comércio em 2 colunas p/ caber sem scroll)
 	for section in SECTIONS:
-		var items := VBoxContainer.new(); items.add_theme_constant_override("separation", 3)
+		var two_col := str(section[0]) == "Comércio"
+		var items: Container = (GridContainer.new() if two_col else VBoxContainer.new())
+		if two_col:
+			(items as GridContainer).columns = 2
+			items.add_theme_constant_override("h_separation", 4)
+			items.add_theme_constant_override("v_separation", 3)
+		else:
+			items.add_theme_constant_override("separation", 3)
 		var head := Button.new()
 		head.flat = true
 		head.alignment = HORIZONTAL_ALIGNMENT_LEFT
+		head.custom_minimum_size = Vector2(0, 22)
 		head.text = "▾  " + Lang.t(str(section[0])).to_upper()
-		head.add_theme_font_size_override("font_size", 13)
+		head.add_theme_font_size_override("font_size", 12)
 		head.add_theme_color_override("font_color", UiKit.GOLD_SOFT)
 		head.pressed.connect(func() -> void:
 			items.visible = not items.visible
@@ -392,11 +400,12 @@ func _build_nav() -> Control:
 		nav.add_child(items)
 		for entry in section[1]:
 			items.add_child(_nav_item(str(entry[0]), str(entry[1])))
-	nav.add_child(_spacer(6))
-	nav.add_child(_nav_item("Settings", "Configurações"))   # ⚙ idioma PT/EN + opções [I18N]
-	nav.add_child(_spacer(10))
-	var out := _stone_btn("Sair", 36)
-	out.tooltip_text = "Sair — desconecta da conta"   # [MENUBAR_HOVER]
+	# Personagem + Guilda = itens de TOPO (1 item só não vale header)
+	nav.add_child(_nav_item("Character", "Personagem"))
+	nav.add_child(_nav_item("Guild", "Guilda"))
+	nav.add_child(_spacer(8))
+	var out := _stone_btn("Sair", 32)
+	out.tooltip_text = "Sair — desconecta da conta"
 	out.pressed.connect(func() -> void: logout.emit())
 	nav.add_child(out)
 	return pc
@@ -405,9 +414,10 @@ func _nav_item(scr: String, label: String) -> Button:
 	var b := Button.new()
 	b.flat = true
 	b.alignment = HORIZONTAL_ALIGNMENT_LEFT
-	b.custom_minimum_size = Vector2(0, 40)
+	b.custom_minimum_size = Vector2(0, 32)
 	b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	b.add_theme_constant_override("icon_max_width", 34)   # [MENUBAR] ícone maior na barra (34px)
+	b.add_theme_constant_override("icon_max_width", 26)   # [MENUBAR] ícone 26px (cabe sem scroll)
+	b.clip_text = true                                    # 2-col do Comércio: corta label longo
 	Icons.label_button(b, scr.to_lower(), label)
 	b.tooltip_text = str(NAV_TIPS.get(scr, label))   # [MENUBAR_HOVER] hover explica a tela
 	b.add_theme_font_size_override("font_size", 14)
@@ -615,14 +625,13 @@ func update_topbar(w: Dictionary) -> void:
 	for key in _coins:
 		var field: String = "soulStones" if key == "soulstone" else str(key)
 		_coins[key].text = str(int(w.get(field, 0)))
-	# [TOPBAR] stats de combate (efetivos)
-	if _stat_lbls.has("atk"): _stat_lbls["atk"].text = str(int(w.get("combatAttack", w.get("totalAttack", 0))))
-	if _stat_lbls.has("def"): _stat_lbls["def"].text = str(int(w.get("combatDefense", w.get("totalDefense", 0))))
-	if _stat_lbls.has("hp"): _stat_lbls["hp"].text = str(int(w.get("combatHealth", w.get("totalHealth", 0))))
-	if _stat_lbls.has("eva"): _stat_lbls["eva"].text = "%d%%" % int(w.get("evasionChance", 0))
-	# atributos (valores crus alocados)
-	for pair in [["str", "strength"], ["dex", "dexterity"], ["con", "constitution"], ["agi", "agility"], ["luk", "luck"]]:
-		if _stat_lbls.has(pair[0]): _stat_lbls[pair[0]].text = str(int(w.get(pair[1], 0)))
+	# [TOPBAR_REORG][MAIL_BADGE] Correio troca o ícone quando há não-lido (null-safe: 0 até o backend mandar unreadMail)
+	if _mail_btn != null and _mail_btn.icon != null:
+		var unread := int(w.get("unreadMail", 0))
+		var mu := Icons.tex("mail_unread")
+		_mail_btn.icon = (mu if (unread > 0 and mu != null) else Icons.tex("mail"))
+		_mail_btn.tooltip_text = ("Correio — %d não lida(s)" % unread) if unread > 0 else "Correio — mensagens e recompensas"
+	# (Badge do Diário "dá pra resgatar" adiado — precisa de arte/ícone próprio p/ não brigar com o hover-modulate.)
 	_refresh_buffs(w)
 
 # Badges dos buffs ATIVOS na topbar (com tooltip de nome + tempo). Reconstrói a cada update.

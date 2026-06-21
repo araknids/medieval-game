@@ -33,8 +33,10 @@ var w: Dictionary = {}
 var items: Array = []
 var resources: Array = []     # recursos de coleta (GET /api/gathering/resources) → seção na Mochila
 var abilities_data: Dictionary = {}
-var sub_tab := "bag"          # "bag" | "attr" | "abil"
+var sub_tab := "bag"          # "bag" | "attr" | "abil" | "ach"
 var rarity_filter := 0
+var ach_data: Dictionary = {}   # [MENUBAR_REORG] /api/achievements (catálogo + título ativo) — Conquistas virou sub-aba
+var ach_filter := "all"
 var busy := false
 
 var content: VBoxContainer
@@ -205,7 +207,7 @@ func _build_subtab_bar() -> void:
 		c.queue_free()
 	var row := HBoxContainer.new()
 	row.add_theme_constant_override("separation", 6)
-	for t in [["bag", "tab_bag", "Mochila", "🎒"], ["attr", "tab_attributes", "Atributos", "⚔"], ["abil", "tab_abilities", "Habilidades", "✨"]]:
+	for t in [["bag", "tab_bag", "Mochila", "🎒"], ["attr", "tab_attributes", "Atributos", "⚔"], ["abil", "tab_abilities", "Habilidades", "✨"], ["ach", "achievements", "Conquistas", "🏆"]]:
 		row.add_child(_subtab_btn(str(t[0]), str(t[1]), str(t[2]), str(t[3])))
 	_subtab_bar_host.add_child(row)
 
@@ -241,7 +243,7 @@ func _set_tab(t) -> void:
 # ── Dados ────────────────────────────────────────────────────────────────────────────
 func _refresh() -> void:
 	UiKit.show_loading(self)
-	var rs = await Api.batch_get(["/api/warrior", "/api/inventory", "/api/abilities", "/api/gathering/resources"])
+	var rs = await Api.batch_get(["/api/warrior", "/api/inventory", "/api/abilities", "/api/gathering/resources", "/api/achievements"])
 	var wr = rs[0]
 	if not (wr.get("ok") and wr.get("json") is Dictionary):
 		UiKit.show_error(status, wr)
@@ -253,6 +255,8 @@ func _refresh() -> void:
 	abilities_data = ar["json"] if (ar.get("ok") and ar.get("json") is Dictionary) else {}
 	var rr = rs[3]   # recursos de coleta (minério/peixe/essência/núcleo…) p/ a seção na Mochila
 	resources = rr["json"] if (rr.get("ok") and rr.get("json") is Array) else []
+	var achr = rs[4]   # [MENUBAR_REORG] conquistas (sub-aba Conquistas)
+	ach_data = achr["json"] if (achr.get("ok") and achr.get("json") is Dictionary) else {}
 	_apply()
 
 # [AUDIT] Refresh PÓS-AÇÃO enxuto: re-baixa só os endpoints que o `paths` pede, preenchendo os MESMOS
@@ -419,6 +423,8 @@ func _render_panel() -> void:
 			_render_attr_panel()
 		"abil":
 			_render_abil_panel()
+		"ach":
+			_render_ach_panel()
 		_:
 			_render_bag_panel()
 
@@ -444,6 +450,133 @@ func _render_bag_panel() -> void:
 			_panel_host.add_child(UiKit.dim("— nada nessa raridade —"))
 		else:
 			_panel_host.add_child(UiKit.grid(self, shown, _bag_card, true, 200.0, 2))   # 2 itens por linha (cards estreitos)
+
+# 🏆 Conquistas (sub-aba) — portada da antiga tela Achievements [MENUBAR_REORG]. Renderiza no _panel_host
+# (grids em 2 col, mais estreito que a tela cheia). Dados em ach_data (/api/achievements no batch).
+func _render_ach_panel() -> void:
+	var all: Array = ach_data.get("achievements", []) if ach_data.get("achievements") is Array else []
+	var active := str(ach_data.get("activeTitle", ""))
+	var unlocked: Array = []
+	for a in all:
+		if a is Dictionary and bool(a.get("unlocked", false)):
+			unlocked.append(a)
+	_panel_host.add_child(UiKit.section(Lang.t("Conquistas & Títulos   (%d/%d)") % [unlocked.size(), all.size()]))
+	var hint := Label.new()
+	hint.text = Lang.t("Escolha um título para exibir antes do seu nome (todos veem):")
+	hint.add_theme_color_override("font_color", UiKit.GOLD_SOFT)
+	hint.add_theme_font_size_override("font_size", 12)
+	hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_panel_host.add_child(hint)
+	if unlocked.is_empty():
+		_panel_host.add_child(UiKit.empty("Nenhum título ainda", "Desbloqueie conquistas abaixo para ganhar títulos."))
+	else:
+		var pickers: Array = [{"label": Lang.t("Nenhum"), "id": "", "on": active == ""}]
+		for a in unlocked:
+			var t := str(a.get("title", ""))
+			pickers.append({"label": t, "id": str(a.get("id", "")), "on": t == active})
+		_panel_host.add_child(UiKit.grid(self, pickers, func(p): return _title_card(str(p["label"]), str(p["id"]), bool(p["on"])), true, 200, 2))
+	_panel_host.add_child(UiKit.section("Catálogo"))
+	_panel_host.add_child(UiKit.filter_row([
+		{"label": "Todas", "value": "all", "color": UiKit.GOLD},
+		{"label": "Desbloqueadas", "value": "unlocked", "color": UiKit.OK},
+		{"label": "Bloqueadas", "value": "locked", "color": UiKit.TEXT_DIM},
+	], ach_filter, _set_ach_filter))
+	var cats: Array = []
+	var by_cat: Dictionary = {}
+	for a in all:
+		if not (a is Dictionary): continue
+		if not _passes_ach_filter(a): continue
+		var cat := str(a.get("category", "—"))
+		if not by_cat.has(cat):
+			by_cat[cat] = []; cats.append(cat)
+		by_cat[cat].append(a)
+	if cats.is_empty():
+		_panel_host.add_child(UiKit.dim("— nenhuma conquista neste filtro —"))
+	for cat in cats:
+		_panel_host.add_child(UiKit.section(cat))
+		_panel_host.add_child(UiKit.grid(self, by_cat[cat], _ach_card, true, 200.0, 2))
+
+func _passes_ach_filter(a: Dictionary) -> bool:
+	if ach_filter == "unlocked":
+		return bool(a.get("unlocked", false))
+	if ach_filter == "locked":
+		return not bool(a.get("unlocked", false))
+	return true
+
+func _set_ach_filter(v) -> void:
+	ach_filter = str(v)
+	_render_panel()
+
+func _ach_card(a: Dictionary) -> PanelContainer:
+	var unlocked := bool(a.get("unlocked", false))
+	var res := UiKit.card(UiKit.GOLD_SOFT if unlocked else Color(0.3, 0.3, 0.34, 0.6), unlocked)
+	var pc: PanelContainer = res[0]
+	var box: VBoxContainer = res[1]
+	var hb := HBoxContainer.new(); hb.add_theme_constant_override("separation", 10)
+	box.add_child(hb)
+	var icon := Label.new()
+	icon.text = "🏆" if unlocked else "🔒"
+	icon.custom_minimum_size = Vector2(28, 0)
+	icon.add_theme_font_size_override("font_size", 18)
+	hb.add_child(icon)
+	var mid := VBoxContainer.new(); mid.add_theme_constant_override("separation", 2)
+	mid.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	var nm := Label.new()
+	nm.text = "%s  “%s”" % [str(a.get("displayName", "?")), str(a.get("title", ""))]
+	nm.add_theme_font_size_override("font_size", 14)
+	nm.add_theme_color_override("font_color", UiKit.TEXT)
+	mid.add_child(nm)
+	mid.add_child(UiKit.dim(str(a.get("description", ""))))
+	hb.add_child(mid)
+	var val := Label.new()
+	if unlocked:
+		val.text = "✔"; val.add_theme_color_override("font_color", UiKit.GOLD)
+	else:
+		val.text = "%d/%d" % [int(a.get("current", 0)), int(a.get("threshold", 0))]
+		val.add_theme_color_override("font_color", UiKit.TEXT_DIM)
+	val.add_theme_font_size_override("font_size", 13)
+	val.custom_minimum_size = Vector2(60, 0)
+	val.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	hb.add_child(val)
+	if not unlocked:
+		var threshold := int(a.get("threshold", 0))
+		if threshold > 0:
+			box.add_child(UiKit.bar("Progresso", int(a.get("current", 0)), threshold, UiKit.GOLD_SOFT))
+	return pc
+
+func _title_card(label: String, id: String, on: bool) -> PanelContainer:
+	var res := UiKit.card(UiKit.GOLD if on else UiKit.BRONZE)
+	var pc: PanelContainer = res[0]
+	var box: VBoxContainer = res[1]
+	var hb := HBoxContainer.new(); hb.add_theme_constant_override("separation", 8)
+	box.add_child(hb)
+	var nm := Label.new(); nm.text = label
+	nm.add_theme_font_size_override("font_size", 14)
+	nm.add_theme_color_override("font_color", UiKit.GOLD if on else UiKit.TEXT)
+	nm.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	nm.clip_text = true
+	hb.add_child(nm)
+	if on:
+		if id != "":
+			hb.add_child(UiKit.small_btn("Remover", _select_title.bind(""), true))
+		else:
+			var act := Label.new(); act.text = "✔"; act.add_theme_color_override("font_color", UiKit.OK)
+			hb.add_child(act)
+	else:
+		hb.add_child(UiKit.small_btn("Usar", _select_title.bind(id)))
+	return pc
+
+func _select_title(id: String) -> void:
+	if busy: return
+	busy = true
+	var r = await Api.select_title(id)
+	busy = false
+	if r.get("ok") and r.get("json") is Dictionary:
+		ach_data["activeTitle"] = str(r["json"].get("activeTitle", ""))
+		UiKit.flash(status, Lang.t("Título atualizado."), 1)
+		_render_panel()
+	else:
+		UiKit.show_error(status, r)
 
 # "Poder" do item = soma dos stats (HP pesa menos por ser número grande). Empate por raridade no _bag_sort.
 func _item_power(it: Dictionary) -> int:

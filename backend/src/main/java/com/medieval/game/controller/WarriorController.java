@@ -27,6 +27,7 @@ public class WarriorController {
     private final MountRepository    mountRepository;
     private final com.medieval.game.repository.PetRepository petRepository; // [PETS]
     private final com.medieval.game.service.Messages messages; // [I18N] nome/efeito dos atributos
+    private final com.medieval.game.service.MailService mailService; // [MENUBAR_REORG] correio não-lido (topbar)
 
     @GetMapping
     public ResponseEntity<WarriorResponse> getMyWarrior(Authentication auth) {
@@ -229,7 +230,8 @@ public class WarriorController {
                 cstats[0], cstats[1], cstats[2], // [POSTURE] ATK/DEF/HP efetivo de combate
                 abilityService.selfCraftedStatBonusPct(player), // [MERCADOR]
                 srcs[0], srcs[1], srcs[2], // [FICHA_BONUS] fontes do bônus (ATK/DEF/HP)
-                player.getGender() != null ? player.getGender().name() : "MALE" // [OUTFITS_FEMALE] base/peças Male/Female
+                player.getGender() != null ? player.getGender().name() : "MALE", // [OUTFITS_FEMALE] base/peças Male/Female
+                mailService.unreadCount(player) // [MENUBAR_REORG] não-lidos → ícone do Correio na topbar
         );
     }
 
@@ -274,5 +276,6 @@ public class WarriorController {
                            WarriorStatsService.StatSources atkSources, // [FICHA_BONUS] de onde vem o bônus de ATK
                            WarriorStatsService.StatSources defSources, // … DEF
                            WarriorStatsService.StatSources hpSources, // … HP
-                           String gender) {} // [OUTFITS_FEMALE] MALE/FEMALE → base/peças do paper-doll
+                           String gender, // [OUTFITS_FEMALE] MALE/FEMALE → base/peças do paper-doll
+                           long unreadMail) {} // [MENUBAR_REORG] correio não-lido → ícone do Correio troca na topbar
 }
