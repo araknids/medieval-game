@@ -1,12 +1,16 @@
 extends Node3D
-# ── Viewer de CENÁRIOS 3D ────────────────────────────────────────────────────────
-# Monta um cenário (via Scenery.gd) e orbita a câmera pra você inspecionar.
+# ── Navegador de CENÁRIOS 3D ──────────────────────────────────────────────────────
+# Monta um cenário (via Scenery.gd) e orbita a câmera. Use ← / → (ou ↑ / ↓) pra TROCAR
+# de mapa AO VIVO — sem mexer no Inspector nem re-rodar. O nome do mapa aparece na tela.
 # Rode World.tscn com F6. Plano: docs/PLANO_GODOT_3D.md (Fase 4 — cenários)
 
 const CHAR := preload("res://addons/quaternius_ik_rigged/Models_with_rigging/Male_rigged.tscn")
 const Scenery := preload("res://Scenery.gd")
 
-## Cenário a montar. Por ora: "mining". Outros virão.
+# TODOS os cenários, na ordem do ciclo (← anterior / → próximo).
+const SCENARIOS := ["mining", "garimpa", "beach", "dungeon", "arena", "city", "castle"]
+
+## Cenário INICIAL (o ciclo começa nele). Troque ao vivo com as setas.
 @export var scenario := "mining"
 ## Velocidade de órbita da câmera (graus/s). 0 = parada.
 @export var orbit_speed := 12.0
@@ -16,19 +20,48 @@ const Scenery := preload("res://Scenery.gd")
 var cam: Camera3D
 var cam_angle := 0.0
 var rng := RandomNumberGenerator.new()
+var idx := 0
+var scenery_root: Node3D   # container do cenário atual (free + rebuild a cada troca)
+var label: Label
 
 func _ready() -> void:
-	rng.seed = 20260611
-	var sc := Scenery.new()
-	sc.build(self, scenario, rng, 6.0, grimdark)   # "mining" | "beach" …
+	idx = maxi(0, SCENARIOS.find(scenario))
+	scenario = SCENARIOS[idx]
+	_build_scenery()
 	_add_scale_char()
 	cam = Camera3D.new()
 	add_child(cam)
 	_update_cam()
+	_build_hud()
 
 func _process(dt: float) -> void:
 	cam_angle += orbit_speed * dt
 	_update_cam()
+
+# ← / ↑ = anterior; → / ↓ = próximo. (echo ignorado → segurar a tecla não dispara em rajada.)
+func _input(event: InputEvent) -> void:
+	if event.is_action_pressed("ui_right") or event.is_action_pressed("ui_down"):
+		_switch(1)
+	elif event.is_action_pressed("ui_left") or event.is_action_pressed("ui_up"):
+		_switch(-1)
+
+func _switch(step: int) -> void:
+	idx = (idx + step + SCENARIOS.size()) % SCENARIOS.size()
+	scenario = SCENARIOS[idx]
+	_build_scenery()
+	_update_cam()
+	_update_hud()
+
+# (re)monta o cenário atual num container próprio — free do anterior garante troca limpa
+# (mata o WorldEnvironment/luzes/partículas/overlay antigos antes de criar os novos).
+func _build_scenery() -> void:
+	if scenery_root and is_instance_valid(scenery_root):
+		scenery_root.free()
+	scenery_root = Node3D.new()
+	add_child(scenery_root)
+	rng.seed = 20260611   # determinístico → cada mapa fica igual a cada visita
+	var sc := Scenery.new()
+	sc.build(scenery_root, scenario, rng, 6.0, grimdark)
 
 func _update_cam() -> void:
 	var a := deg_to_rad(cam_angle)
@@ -43,7 +76,25 @@ func _update_cam() -> void:
 	cam.position = Vector3(sin(a) * radius, height, cos(a) * radius)
 	cam.look_at(Vector3(0, look_y, 0), Vector3.UP)
 
-# personagem (idle) na beira da clareira, p/ referência de ESCALA
+# HUD: nome do mapa + dica das setas (CanvasLayer ACIMA do overlay grimdark, layer 0).
+func _build_hud() -> void:
+	var layer := CanvasLayer.new()
+	layer.layer = 10
+	add_child(layer)
+	label = Label.new()
+	label.position = Vector2(20, 16)
+	label.add_theme_font_size_override("font_size", 30)
+	label.add_theme_color_override("font_color", Color(1, 1, 1))
+	label.add_theme_color_override("font_outline_color", Color(0, 0, 0))
+	label.add_theme_constant_override("outline_size", 6)
+	layer.add_child(label)
+	_update_hud()
+
+func _update_hud() -> void:
+	if label:
+		label.text = "%s   (%d/%d)   ← →" % [scenario.to_upper(), idx + 1, SCENARIOS.size()]
+
+# personagem (idle) na beira da clareira, p/ referência de ESCALA (persiste entre os mapas)
 func _add_scale_char() -> void:
 	var ch := CHAR.instantiate()
 	add_child(ch)
