@@ -211,6 +211,9 @@ func mining(host: Node3D, rng: RandomNumberGenerator, combat_r: float) -> void:
 	for i in 150:
 		var g: String = ["Grass_Common_Short", "Grass_Common_Tall", "Grass_Wispy_Short", "Grass_Wispy_Tall", "Clover_1", "Clover_2", "Bush_Common", "Fern_1"][i % 8]
 		_place(host, rng, NAT + g + ".gltf", _scatter(rng, combat_r + 0.6, 37.0), rng.randf_range(0, 360), rng.randf_range(0.7, 1.3))
+	# wildflowers esparsas — cor no chão escuro da clareira [realismo]
+	for i in 14:
+		_place(host, rng, NAT + ["Flower_3_Group", "Flower_4_Group", "Flower_3_Single"][i % 3] + ".gltf", _scatter(rng, combat_r + 1.0, 34.0), rng.randf_range(0, 360), rng.randf_range(0.7, 1.2))
 
 	# BRASEIROS ao redor da clareira (luz quente nos lutadores)
 	for i in 5:
@@ -490,6 +493,9 @@ func garimpa(host: Node3D, rng: RandomNumberGenerator, combat_r: float) -> void:
 	for i in 80:
 		var g: String = ["Fern_1", "Bush_Common", "Grass_Common_Tall", "Grass_Wispy_Tall", "Grass_Wispy_Short", "Mushroom_Common"][i % 6]
 		_place(host, rng, NAT + g + ".gltf", _scatter(rng, combat_r + 0.6, 34.0), rng.randf_range(0, 360), rng.randf_range(0.8, 1.5))
+	# wildflowers + arbustos floridos na margem [realismo]
+	for i in 16:
+		_place(host, rng, NAT + ["Flower_3_Group", "Flower_4_Group", "Bush_Common_Flowers"][i % 3] + ".gltf", _scatter(rng, combat_r + 1.0, 30.0), rng.randf_range(0, 360), rng.randf_range(0.7, 1.2))
 	# CALHA (sluice) de garimpo na margem + baldes + carroça [Fable]
 	var sx := BANK - 1.2
 	_box(host, Vector3(0.7, 0.15, 2.4), Vector3(sx, 0.55, 5.0), Color(0.4, 0.28, 0.15), 8.0)   # calha inclinada
@@ -579,10 +585,16 @@ func dungeon(host: Node3D, rng: RandomNumberGenerator, _combat_r: float) -> void
 		_place(host, rng, NAT + "Rock_Medium_%d.gltf" % (1 + i % 3), Vector3(rng.randf_range(-RX + 1, RX - 1), 0, rng.randf_range(-RZ + 1, -RZ + 3)), rng.randf_range(0, 360), rng.randf_range(0.4, 0.7))
 	for i in 6:
 		_place(host, rng, VIL + "Prop_Brick%d.gltf" % (1 + i % 4), Vector3(rng.randf_range(-RX + 1, RX - 1), 0, rng.randf_range(-RZ + 1, RZ - 1)), rng.randf_range(0, 360), 1.0)
+	# UMIDADE: poças escuras fora do centro + musgo nas frestas (masmorra viva, não tabuleiro liso)
+	_flat(host, Color(0.04, 0.05, 0.06), Vector3(-4.5, 0.03, 3.0), Vector2(3.2, 2.2))
+	_flat(host, Color(0.04, 0.05, 0.06), Vector3(5.0, 0.03, -2.5), Vector2(2.4, 3.0))
+	for i in 12:
+		_place(host, rng, NAT + ["Grass_Wispy_Short", "Clover_1", "Fern_1"][i % 3] + ".gltf", Vector3(rng.randf_range(-RX + 1, RX - 1), 0.03, rng.randf_range(-RZ + 1, RZ - 1)), rng.randf_range(0, 360), rng.randf_range(0.3, 0.55))
 
 # ── cenário: ARENA de duelo — coliseu de pedra (kit Village), de dia ─────────────
 func arena(host: Node3D, rng: RandomNumberGenerator, _combat_r: float) -> void:
-	_ground(host, Color(0.60, 0.50, 0.33), 20.0)        # base
+	_ground(host, Color(0.32, 0.35, 0.23), 52.0)        # campo gramado em volta (largo p/ a mata pousar)
+	_disc(host, Color(0.58, 0.49, 0.33), 14.5, 0.0)     # terra batida sob as muralhas (plataforma do coliseu)
 	_disc(host, Color(0.72, 0.61, 0.41), 10.0, 0.02)    # pit de AREIA (clareira de combate)
 	# colisão do chão
 	var fb := StaticBody3D.new()
@@ -613,13 +625,18 @@ func arena(host: Node3D, rng: RandomNumberGenerator, _combat_r: float) -> void:
 		if arch: arch.look_at(Vector3(0, 0, 0), Vector3.UP)
 	# PLATEIA fake no topo do anel externo
 	_crowd(host, rng, 13.4, 6.3, 40)
+	# CAMPO + MATA atrás do coliseu (antes o horizonte ficava vazio além da muralha)
+	_meadow(host, rng, 16.0, 26.0, 110)
+	_tree_ring(host, rng, ["CommonTree_1", "CommonTree_2", "CommonTree_4", "Pine_1", "Pine_2", "Pine_3"], 28.0, 40.0, 40, 1.3, 2.1)
 
 # ── cenário: CASTELO — pátio cercado de muralhas (ameias) + torres de canto ─────
 func castle(host: Node3D, rng: RandomNumberGenerator, _combat_r: float) -> void:
 	var RX := 10.0   # meia-largura (X = eixo dos lutadores); FRENTE (+Z) aberta p/ a câmera
 	var RZ := 8.0
-	_ground(host, Color(0.42, 0.40, 0.33), 46.0)
-	_tile_circle(host, rng, "Floor_Brick", 10.0)   # pátio de pedra
+	_ground(host, Color(0.33, 0.36, 0.24), 60.0)   # campo gramado em volta (some o disco marrom chapado)
+	# PÁTIO de pedra cobrindo TODO o chão: de muralha a muralha (X) e do fundo até SAIR pelo
+	# portão da frente (Z). Antes era um disco r=10 que deixava cantos/beiras na terra crua.
+	_tile_rect(host, rng, "Floor_Brick", -RX, RX, -RZ - 2.0, RZ + 4.0)
 	var fb := StaticBody3D.new()
 	var fc := CollisionShape3D.new()
 	fc.shape = WorldBoundaryShape3D.new()
@@ -644,7 +661,13 @@ func castle(host: Node3D, rng: RandomNumberGenerator, _combat_r: float) -> void:
 	_crates(host, rng, Vector3(-RX + 1.5, 0, -RZ + 1.5))
 	_crates(host, rng, Vector3(RX - 2.0, 0, -RZ + 1.5))
 	_dummy(host, Vector3(-RX + 1.5, 0, 2.0))
-	# mata densa no fundo (atrás do castelo)
+	# ERVA DANINHA nas frestas das lajes junto às muralhas (pátio "vivido", não estéril)
+	for i in 26:
+		var wa := TAU * i / 26.0
+		var wr: float = (RX - 0.4) if absf(cos(wa)) > absf(sin(wa)) else (RZ - 0.4)
+		_place(host, rng, NAT + ["Grass_Wispy_Short", "Grass_Common_Short", "Clover_1"][i % 3] + ".gltf", Vector3(cos(wa) * wr, 0.04, sin(wa) * wr), rng.randf_range(0, 360), rng.randf_range(0.35, 0.6))
+	# CAMPO gramado entre as muralhas e a mata + mata densa no fundo (enche o horizonte)
+	_meadow(host, rng, 13.0, 28.0, 130)
 	_tree_ring(host, rng, ["CommonTree_1", "CommonTree_4", "Pine_1", "Pine_2", "Pine_3"], 30.0, 42.0, 42, 1.3, 2.0)
 
 # Torre redonda: anel de paredes (2 fileiras = 6m) + pináculo cônico no topo.
@@ -691,7 +714,7 @@ func _merlon(host: Node3D, pos: Vector3, rot: float) -> void:
 
 # ── cenário: CIDADE/VILA — praça de pedra cercada de casas, de dia ──────────────
 func city(host: Node3D, rng: RandomNumberGenerator, _combat_r: float) -> void:
-	_ground(host, Color(0.40, 0.36, 0.27), 44.0)        # terra/rua
+	_ground(host, Color(0.34, 0.34, 0.23), 48.0)        # chão de terra/grama da vila (some o marrom chapado)
 	_tile_circle(host, rng, "Floor_Brick", 8.0)          # PRAÇA de pedra (onde rola a luta)
 	# colisão do chão
 	var fb := StaticBody3D.new()
@@ -705,6 +728,15 @@ func city(host: Node3D, rng: RandomNumberGenerator, _combat_r: float) -> void:
 		var pos := Vector3(cos(a) * 12.0, 0, sin(a) * 12.0)
 		var face := rad_to_deg(atan2(-cos(a), -sin(a)))  # porta virada pro centro
 		_house(host, rng, pos, face)
+	# CAMINHOS de pedra ligando a praça às portas (a terra crua entre praça e casas sumiu)
+	for i in 7:
+		var pa := deg_to_rad(130.0 + i * 40.0)
+		var pz := 8.0
+		while pz <= 11.5:
+			_place(host, rng, VIL + "Floor_Brick.gltf", Vector3(cos(pa) * pz, 0.02, sin(pa) * pz), rng.randi_range(0, 3) * 90.0, 1.0)
+			pz += 1.8
+	# tufos de grama entre os caminhos (jardim da vila), antes da fileira de casas
+	_meadow(host, rng, 9.0, 11.5, 36)
 	# árvores e luminárias entre as casas
 	for i in 8:
 		var a2 := deg_to_rad(140.0 + i * 30.0)
@@ -720,7 +752,8 @@ func city(host: Node3D, rng: RandomNumberGenerator, _combat_r: float) -> void:
 		for sxr in [-2.0, 0.0, 2.0]:
 			_place(host, rng, VIL + "Floor_Brick.gltf", Vector3(sxr, 0.01, zz), 0, 1.0)
 		zz += 2.0
-	# MATA densa no fundo (atrás das casas) — enche o horizonte
+	# CAMPO gramado entre as casas e a mata + MATA densa no fundo — enche o horizonte
+	_meadow(host, rng, 14.0, 22.0, 80)
 	var pool := ["CommonTree_1", "CommonTree_2", "CommonTree_4", "CommonTree_5", "Pine_1", "Pine_2", "Pine_3"]
 	_tree_ring(host, rng, pool, 24.0, 31.0, 30, 1.0, 1.7)
 	_tree_ring(host, rng, pool, 33.0, 42.0, 42, 1.2, 2.0)
@@ -771,6 +804,25 @@ func _tile_circle(host: Node3D, rng: RandomNumberGenerator, piece: String, radiu
 				_place(host, rng, VIL + piece + ".gltf", Vector3(x, 0.01, z), rng.randi_range(0, 3) * 90.0, 1.0)
 			z += 2.0
 		x += 2.0
+
+# Ladrilha um RETÂNGULO [x0..x1]×[z0..z1] (grade de 2m): cobre TODO o chão de um pátio
+# até as muralhas — sem deixar o buraco de terra que o pátio CIRCULAR deixava nos cantos.
+func _tile_rect(host: Node3D, rng: RandomNumberGenerator, piece: String, x0: float, x1: float, z0: float, z1: float, y := 0.01) -> void:
+	var x := x0
+	while x <= x1 + 0.1:
+		var z := z0
+		while z <= z1 + 0.1:
+			_place(host, rng, VIL + piece + ".gltf", Vector3(x, y, z), rng.randi_range(0, 3) * 90.0, 1.0)
+			z += 2.0
+		x += 2.0
+
+# Tapete de CAMPO (grama/trevo/flores/arbustos) num anel — dá "chão de verdade" ao terreno
+# em volta de um cenário, no lugar do disco de cor chapada. Sempre fora do círculo de combate.
+func _meadow(host: Node3D, rng: RandomNumberGenerator, r_in: float, r_out: float, n: int) -> void:
+	var pool := ["Grass_Common_Short", "Grass_Common_Tall", "Grass_Wispy_Short", "Grass_Wispy_Tall", "Clover_1", "Clover_2", "Bush_Common", "Fern_1", "Flower_3_Group", "Flower_4_Group", "Flower_3_Single", "Flower_4_Single"]
+	for i in n:
+		var g: String = pool[rng.randi() % pool.size()]
+		_place(host, rng, NAT + g + ".gltf", _scatter(rng, r_in, r_out), rng.randf_range(0, 360), rng.randf_range(0.7, 1.4))
 
 # Anel de peças do kit (paredes) viradas pro CENTRO (look_at), com pouco overlap.
 func _ring(host: Node3D, rng: RandomNumberGenerator, piece: String, r: float, y: float, n: int, scl: float) -> void:
