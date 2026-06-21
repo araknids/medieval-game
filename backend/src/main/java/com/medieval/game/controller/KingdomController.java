@@ -121,6 +121,7 @@ public class KingdomController {
                 "intro", messages.getOr(base + ".intro", d.intro()),
                 "options", d.options().stream().map(o -> Map.of(
                     "id", o.id(),
+                    "kind", com.medieval.game.quest.QuestOutcome.kind(o.outcome()),  // [QUESTS_ICONE] combate/roll/peaceful
                     "label", messages.getOr(base + ".opt." + o.id() + ".label", o.label()),
                     "hint",  messages.getOr(base + ".opt." + o.id() + ".hint",  o.hint()))).toList()
             ));
@@ -271,6 +272,7 @@ public class KingdomController {
                 "intro", messages.getOr(base + ".intro", d.intro()),
                 "options", d.options().stream().map(o -> Map.of(
                     "id", o.id(),
+                    "kind", com.medieval.game.quest.QuestOutcome.kind(o.outcome()),  // [QUESTS_ICONE] combate/roll/peaceful
                     "label", messages.getOr(base + ".opt." + o.id() + ".label", o.label()),
                     "hint",  messages.getOr(base + ".opt." + o.id() + ".hint",  o.hint()))).toList()
             ));

@@ -751,12 +751,41 @@ func _on_battle_over() -> void:
 
 # Diálogo de quest interativa: intro + um botão por opção (coleta com o optionId escolhido).
 func _show_quest_dialog(kingdom: String, quest_id: int, dialog: Dictionary) -> void:
+	# [QUESTS_ICONE] cada opção carrega o "kind" (fight/check/peaceful) → selo de tipo no botão
 	var opts: Array = []
 	for o in dialog.get("options", []):
 		if o is Dictionary:
-			opts.append([str(o.get("label", "?")), str(o.get("id", ""))])
-	_choice_dialog(str(dialog.get("intro", "")), opts, func(opt_id) -> void:
+			opts.append([str(o.get("kind", "")), str(o.get("hint", "")), str(o.get("label", "?")), str(o.get("id", ""))])
+	_kind_choice_dialog(str(dialog.get("intro", "")), opts, func(opt_id) -> void:
 		await _collect_quest(kingdom, quest_id, str(opt_id)))
+
+# [QUESTS_ICONE] Diálogo de quest com SELO DE TIPO por opção (combate/roll/pacífico). Espelha
+# _choice_dialog mas usa UiKit.quest_option_button. options = [[kind, hint, label, value], …].
+func _kind_choice_dialog(title_text: String, options: Array, cb: Callable) -> void:
+	var overlay := ColorRect.new()
+	overlay.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	overlay.color = Color(0, 0, 0, 0.72)
+	overlay.mouse_filter = Control.MOUSE_FILTER_STOP
+	add_child(overlay)
+	var center := CenterContainer.new()
+	center.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	overlay.add_child(center)
+	var res := UiKit.card(UiKit.GOLD_SOFT)
+	var panel: PanelContainer = res[0]
+	var vb: VBoxContainer = res[1]
+	var sb: StyleBoxFlat = panel.get_theme_stylebox("panel")
+	sb.set_border_width_all(2)
+	vb.add_theme_constant_override("separation", 10)
+	center.add_child(panel)
+	var lbl := UiKit.body(title_text)
+	lbl.custom_minimum_size = Vector2(460, 0)
+	vb.add_child(lbl)
+	for opt in options:
+		var val = opt[3]
+		var b := UiKit.quest_option_button(str(opt[0]), str(opt[1]), str(opt[2]), func() -> void:
+			overlay.queue_free()
+			cb.call(val))
+		vb.add_child(b)
 
 # A Luna apareceu: ajudar (abre mão da recompensa) ou terminar a missão. [CARD_BOTAO] botões de ícone.
 func _show_luna_dialog(kingdom: String, quest_id: int) -> void:

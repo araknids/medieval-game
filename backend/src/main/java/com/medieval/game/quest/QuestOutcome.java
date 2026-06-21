@@ -9,6 +9,17 @@ import com.medieval.game.enums.Attribute;
 public sealed interface QuestOutcome
         permits QuestOutcome.Peaceful, QuestOutcome.Fight, QuestOutcome.Check {
 
+    /**
+     * [QUESTS_ICONE] Tipo da escolha para a UI marcar com ícone — SEM vazar recompensa/narrativa:
+     * "fight" (vai pra combate), "check" (teste de atributo / roll) ou "peaceful" (resolve sem risco).
+     * Um Check é fundamentalmente um roll mesmo que o galho de falha caia numa luta.
+     */
+    static String kind(QuestOutcome o) {
+        if (o instanceof Fight) return "fight";
+        if (o instanceof Check) return "check";
+        return "peaceful";
+    }
+
     /** Resolve em paz (sem combate) e paga a recompensa. */
     record Peaceful(double bronzeMult, double xpMult, int dropChance, String narrative)
             implements QuestOutcome {}

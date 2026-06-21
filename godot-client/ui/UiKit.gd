@@ -557,6 +557,60 @@ static func icon_choice_btn(icon_key: String, emoji: String, label: String, cb: 
 		v.add_child(ll)
 	return b
 
+# [QUESTS_ICONE] Mapa do TIPO de opção (vindo do backend) → selo visual: ícone + cor da dica.
+#   fight = combate (espadas, já animado) · check = roll/teste (dado) · peaceful = sem combate (pomba).
+# Ícone faz LOOP contínuo (o "gif" que o dono pediu p/ indicar o tipo de cara). Tooltip = Icons.tip (bilíngue).
+const QUEST_KIND_ICON := {"fight": "node_combat", "check": "opt_roll", "peaceful": "opt_peace"}
+const QUEST_KIND_COL := {
+	"fight": Color(0.93, 0.44, 0.40), "check": Color(0.96, 0.80, 0.38), "peaceful": Color(0.55, 0.82, 0.60),
+}
+
+# Botão de uma opção de quest interativa: [selo do tipo animado] + label (+ dica embaixo, ex.: "DEX 14").
+# kind = "fight"/"check"/"peaceful" (ou "" → sem selo). hint = dica curta do backend.
+static func quest_option_button(kind: String, hint: String, label: String, cb: Callable) -> Button:
+	var icon_key := str(QUEST_KIND_ICON.get(kind, ""))
+	var accent: Color = QUEST_KIND_COL.get(kind, GOLD_SOFT)
+	# dica embaixo: no roll mostra o atributo+DC (ex.: "DEX 14"); senão o hint cru (geralmente "")
+	var sub := hint.strip_edges()
+	var b := Button.new()
+	DarkButtonStyle.apply(b)
+	b.custom_minimum_size = Vector2(430, 48)
+	b.focus_mode = Control.FOCUS_NONE
+	if cb.is_valid():
+		b.pressed.connect(_debounce.bind(b))
+		b.pressed.connect(cb)
+	if icon_key != "":
+		b.tooltip_text = Icons.tip(icon_key)   # bilíngue (ICON_TIP), explica o tipo no hover
+	var h := HBoxContainer.new()
+	h.add_theme_constant_override("separation", 12)
+	h.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	h.offset_left = 12; h.offset_right = -12; h.offset_top = 4; h.offset_bottom = -4
+	h.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	b.add_child(h)
+	var ic := Icons.tex(icon_key) if icon_key != "" else null
+	if ic != null:
+		var tr := _tex_rect(ic, 30)
+		tr.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+		h.add_child(tr)
+		Icons.play_loop(tr, icon_key, 0.12)   # loop contínuo = selo "vivo" do tipo
+	var col := VBoxContainer.new()
+	col.add_theme_constant_override("separation", 0)
+	col.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	col.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	col.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	h.add_child(col)
+	var ll := Label.new(); ll.text = label
+	ll.add_theme_font_size_override("font_size", 14)
+	ll.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	col.add_child(ll)
+	if sub != "":
+		var sl := Label.new(); sl.text = sub
+		sl.add_theme_font_size_override("font_size", 11)
+		sl.add_theme_color_override("font_color", accent)
+		sl.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		col.add_child(sl)
+	return b
+
 # [INCURSAO] Botão "sem moldura" p/ os nós sobre o mapa: fundo transparente + hover/press suaves.
 static func _apply_flat_node(b: Button) -> void:
 	b.add_theme_stylebox_override("normal", StyleBoxEmpty.new())

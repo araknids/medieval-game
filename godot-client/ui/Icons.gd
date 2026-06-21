@@ -122,6 +122,9 @@ const ICON_TIP := {
 	"node_event": ["Evento — uma escolha", "Event — a choice"],
 	"node_camp": ["Acampamento — garante o loot coletado", "Camp — bank your loot"],
 	"node_boss": ["Chefe — fim da incursão", "Boss — end of the delve"],
+	# [QUESTS_ICONE] selos de TIPO de opção de quest
+	"opt_roll": ["Teste de atributo — rolagem de dado", "Skill check — a dice roll"],
+	"opt_peace": ["Sem combate — escolha pacífica", "No combat — a peaceful choice"],
 	# Marcadores
 	"carried": ["Carregado — em risco se você cair", "Carried — at risk if you fall"],
 	"locked": ["Travado / protegido", "Locked / protected"],
