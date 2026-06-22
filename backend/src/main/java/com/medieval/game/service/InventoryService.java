@@ -65,7 +65,9 @@ public class InventoryService {
             if (!fixed.equals(i.getName())) { i.setName(fixed); renamed = true; }
         }
         if (renamed) inventoryRepository.saveAll(items);
-        return items.stream().filter(i -> !i.isListed() && !i.isConsigned() && !i.isRunPending()).toList(); // [LEILAO/MERCADO_STEAM/INCURSAO] leilão/consignado/run não aparecem na bag
+        // [STASH_FIX] guardado no baú (stashed) também SAI da bag — senão o item aparecia no inventário E no
+        // baú, e o 2º "guardar" batia em "already in the stash". Espelha listed/consigned/runPending.
+        return items.stream().filter(i -> !i.isStashed() && !i.isListed() && !i.isConsigned() && !i.isRunPending()).toList(); // [LEILAO/MERCADO_STEAM/INCURSAO][STASH_FIX]
     }
 
     /**
