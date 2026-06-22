@@ -1,16 +1,17 @@
 extends Control
 # ── Tela GUILDA ───────────────────────────────────────────────────────────────────
-# Espelha loadGuild/renderGuildPanel/renderNoGuildPanel do app.js.
-# GET /api/guild + /api/warrior (carteira) → se inGuild: painel (info + membros + doação +
-#   ranking + sair/dissolver, e p/ líder: expulsar/transferir). Se não: criar guilda + lista
-#   p/ entrar (GET /api/guild/list, só buscada quando sem guilda).
+# [GUILD_TABS] Reformulada (2026-06): 3 sub-abas (Visão Geral / Membros / Guerra) p/ caber SEM
+# scroll de página; listas de tamanho livre vão em capped_scroll (rolam internas, a página fica
+# fixa). Botões grandes viraram ícones-botão compactos (icon_choice_btn/small_btn_icon) que animam/
+# brilham no hover; emojis de web inline viraram ícones PixelLab (Icons.rect). Sem guilda = painel
+# único (criar/entrar), sem abas. Espelha o padrão de sub-aba do Character.gd. [PADRAO_UI_GODOT]
 # Inclui guerra de guilda + a FORMAÇÃO 3×5 (líder posiciona os membros). Territórios = tela à parte.
-# Padrão visual: UiKit [PADRAO_UI_GODOT]. [MIGRACAO_GODOT]
 
 signal go_back
 signal request_battle(data)   # [BATALHA_ANIMADA] ataque de guerra → replay 3D (App esconde o shell)
 signal open_screen(name)      # [MENUBAR_REORG] Território saiu da barra lateral → botão aqui abre a tela
 
+const Icons := preload("res://ui/Icons.gd")
 const F_LANES := 3   # [GUERRA_FORMACAO] colunas (lanes) do tabuleiro de guerra
 const F_DEPTH := 5   # linhas (profundidade): 0 = frente (luta 1º) … 4 = retaguarda
 
@@ -23,9 +24,12 @@ var busy := false
 var data: Dictionary = {}      # detalhe da guilda (quando inGuild)
 var warrior: Dictionary = {}   # /api/warrior (carteira do header)
 var guild_list: Array = []     # lista de guildas (quando sem guilda)
-var war: Dictionary = {}       # /api/guild/war (status da guerra; atWar:false se sem guilda) [GUERRA_GUILDA]
+var war: Dictionary = {}       # /api/guild/war (status da guerra; atWar:false se sem guilda)
 var targets: Array = []        # guildas rivais elegíveis (carregadas ao escolher declarar)
 var picking := false           # estado de UI: escolhendo alvo de guerra
+var sub_tab := "overview"      # [GUILD_TABS] overview | members | war
+var _subtab_bar_host: VBoxContainer
+var _panel_host: VBoxContainer
 # campos de input (criar guilda / doar) — guardados p/ ler no submit
 var name_edit: LineEdit
 var desc_edit: LineEdit
@@ -38,11 +42,18 @@ func _ready() -> void:
 	content = ui.content
 	status = ui.status
 	wallet = ui.wallet
+	# estrutura montada UMA vez: barra de sub-abas + painel da aba (Character.gd)
+	_subtab_bar_host = VBoxContainer.new()
+	content.add_child(_subtab_bar_host)
+	_panel_host = VBoxContainer.new()
+	_panel_host.add_theme_constant_override("separation", 7)
+	_panel_host.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	content.add_child(_panel_host)
 	await _refresh()
 
 func _refresh() -> void:
 	UiKit.show_loading(self)
-	# [AUDIT] /api/guild/war entrou no batch (paralelo) — antes era um await sequencial extra a cada refresh
+	# [AUDIT] /api/guild/war entrou no batch (paralelo)
 	var rs = await Api.batch_get(["/api/guild", "/api/warrior", "/api/guild/war"])
 	var r = rs[0]
 	if not (r.get("ok") and r.get("json") is Dictionary):
@@ -51,31 +62,82 @@ func _refresh() -> void:
 	data = r["json"]
 	var wr = rs[1]
 	warrior = wr["json"] if (wr.get("ok") and wr.get("json") is Dictionary) else {}
-	# status da guerra (seguro mesmo sem guilda → atWar:false) [GUERRA_GUILDA]
 	picking = false
 	targets = []
 	var wsr = rs[2]
 	war = wsr["json"] if (wsr.get("ok") and wsr.get("json") is Dictionary) else {}
+	UiKit.hide_loading()
+	UiKit.set_wallet(wallet, warrior)
 	if bool(data.get("inGuild", false)):
 		guild_list = []
-		_render_panel()
+		_render_guild()
 	else:
 		# sem guilda → busca a lista pra entrar, depois renderiza o painel de criação
 		var lr = await Api.guild_list()
 		guild_list = lr["json"] if (lr.get("ok") and lr.get("json") is Array) else []
 		_render_no_guild()
 
-func _clear() -> void:
-	for c in content.get_children():
+# Limpa SÓ o painel da sub-aba (não a barra). Zera os refs de input (apontariam p/ nós liberados).
+func _clear_panel() -> void:
+	for c in _panel_host.get_children():
 		c.queue_free()
 	name_edit = null; desc_edit = null
 	donate_gold = null; donate_silver = null; donate_bronze = null
-	UiKit.hide_loading()
-	UiKit.set_wallet(wallet, warrior)
 
-# ── Painel COM guilda ──────────────────────────────────────────────────────────────
-func _render_panel() -> void:
-	_clear()
+# ── COM guilda: barra de sub-abas + painel ──────────────────────────────────────────
+func _render_guild() -> void:
+	_subtab_bar_host.visible = true
+	_build_subtab_bar()
+	_render_subtab()
+
+func _build_subtab_bar() -> void:
+	for c in _subtab_bar_host.get_children():
+		c.queue_free()
+	var row := HBoxContainer.new()
+	row.add_theme_constant_override("separation", 6)
+	for t in [["overview", "guild", "Visão Geral", "🛡"], ["members", "members", "Membros", "👥"], ["war", "declare_war", "Guerra", "⚔"]]:
+		row.add_child(_subtab_btn(str(t[0]), str(t[1]), str(t[2]), str(t[3])))
+	_subtab_bar_host.add_child(row)
+
+# Botão de sub-aba com ícone PixelLab + texto (fallback no emoji) e destaque do ativo. [Character.gd]
+func _subtab_btn(value: String, icon_key: String, label: String, emoji: String) -> Button:
+	var b := UiKit.small_btn("%s %s" % [emoji, Lang.t(label)], func() -> void: _set_tab(value))
+	if Icons.set_icon(b, icon_key):
+		b.add_theme_constant_override("icon_max_width", 22)
+		b.text = Lang.t(label)
+	b.custom_minimum_size = Vector2(0, 36)
+	b.add_theme_font_size_override("font_size", 13)
+	b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	if sub_tab == value:
+		var col := UiKit.GOLD
+		var sb := StyleBoxFlat.new()
+		sb.bg_color = Color(col.r, col.g, col.b, 0.22)
+		sb.set_border_width_all(2); sb.border_color = col; sb.set_corner_radius_all(6)
+		sb.content_margin_left = 10; sb.content_margin_right = 10
+		sb.content_margin_top = 4; sb.content_margin_bottom = 4
+		b.add_theme_stylebox_override("normal", sb)
+		b.add_theme_stylebox_override("hover", sb)
+		b.add_theme_stylebox_override("pressed", sb)
+		b.add_theme_stylebox_override("focus", sb)
+	else:
+		b.modulate = Color(1, 1, 1, 0.6)
+	return b
+
+func _set_tab(t) -> void:
+	sub_tab = str(t)
+	picking = false   # trocar de aba sai do modo "escolher alvo"
+	_build_subtab_bar()
+	_render_subtab()
+
+func _render_subtab() -> void:
+	_clear_panel()
+	match sub_tab:
+		"members": _tab_members()
+		"war": _tab_war()
+		_: _tab_overview()
+
+# ── Aba "Visão Geral" ───────────────────────────────────────────────────────────────
+func _tab_overview() -> void:
 	var g := data
 	var is_leader := bool(g.get("isLeader", false))
 	# cabeçalho da guilda (card)
@@ -89,9 +151,10 @@ func _render_panel() -> void:
 	var dtxt := str(g.get("description", ""))
 	head_box.add_child(UiKit.dim(dtxt if dtxt != "" else "Sem descrição."))
 	var members: Array = g.get("members", []) if g.get("members") is Array else []
-	head_box.add_child(UiKit.kv("🏦 Tesouro", _fmt_bronze(int(g.get("treasuryBronze", 0)))))
-	head_box.add_child(UiKit.kv("👥 Membros", "%d/%d" % [members.size(), int(g.get("maxMembers", 0))]))   # nº não traduz
-	# bônus
+	head_box.add_child(_info_row("treasury", "Tesouro", UiKit.coin_box(int(g.get("treasuryBronze", 0)))))
+	var mlbl := Label.new(); mlbl.text = "%d/%d" % [members.size(), int(g.get("maxMembers", 0))]
+	mlbl.add_theme_font_size_override("font_size", 14); mlbl.add_theme_color_override("font_color", UiKit.TEXT)
+	head_box.add_child(_info_row("members", "Membros", mlbl))
 	var xpb := int(g.get("xpBonus", 0)); var dropb := int(g.get("dropBonus", 0)); var brb := int(g.get("bronzeBonus", 0))
 	if xpb != 0 or dropb != 0 or brb != 0:
 		var bl := Label.new()
@@ -99,114 +162,105 @@ func _render_panel() -> void:
 		bl.add_theme_color_override("font_color", UiKit.OK)
 		bl.add_theme_font_size_override("font_size", 12)
 		head_box.add_child(bl)
-	# progresso de nível [GUILD_LEVEL_GOLD]
 	var maxed := int(g.get("level", 1)) >= int(g.get("maxLevel", 10))
 	if maxed:
-		var ml := Label.new()
-		ml.text = Lang.t("⭐ Nível máximo (Lv.%d) — total contribuído: %s") % [int(g.get("maxLevel", 10)), _fmt_bronze(int(g.get("lifetimeGold", 0)))]
-		ml.add_theme_color_override("font_color", UiKit.GOLD)
-		ml.add_theme_font_size_override("font_size", 12)
-		head_box.add_child(ml)
+		head_box.add_child(_icon_text("star", Lang.t("Nível máximo (Lv.%d) — total: %s") % [int(g.get("maxLevel", 10)), _fmt_bronze(int(g.get("lifetimeGold", 0)))], UiKit.GOLD))
 	else:
 		head_box.add_child(UiKit.bar(Lang.t("Nível"), int(g.get("levelProgressPct", 0)), 100, UiKit.GOLD,
 			Lang.t("Lv.%d → Lv.%d  (faltam %s)") % [int(g.get("level", 1)), int(g.get("level", 1)) + 1, _fmt_bronze(int(g.get("goldToNextLevel", 0)))]))
-	content.add_child(head_res[0])
-
-	# [MENUBAR_REORG] Território (controle de territórios → pré-requisito da guerra) movido pra cá
-	content.add_child(UiKit.action("🏰 Território — conquistar e defender", func() -> void: open_screen.emit("Territory")))
-
-	# ── Membros ── [SEM_SCROLL] grid 2-col (era 1 membro por linha)
-	content.add_child(UiKit.section(Lang.t("Membros (%d)") % members.size()))
-	content.add_child(UiKit.grid(self, members, func(mm): return _member_row(mm, is_leader) if mm is Dictionary else null, false, 260, 2))
-
-	# ── Doar ──
-	content.add_child(UiKit.section("Doar para o tesouro"))
-	var donate_row := HBoxContainer.new(); donate_row.add_theme_constant_override("separation", 6)
-	donate_gold = _spin()
-	donate_silver = _spin()
-	donate_bronze = _spin()
-	donate_row.add_child(_labeled("🥇 Ouro", donate_gold))
-	donate_row.add_child(_labeled("🥈 Prata", donate_silver))
-	donate_row.add_child(_labeled("🥉 Bronze", donate_bronze))
-	content.add_child(donate_row)
-	content.add_child(UiKit.action("💰 Doar", _donate))
-
-	# ── Sair / Dissolver ──
-	content.add_child(UiKit.section("Liderança"))
-	if is_leader:
-		content.add_child(UiKit.action_danger("💀 Dissolver Guilda", _confirm_disband))
-	else:
-		content.add_child(UiKit.action_danger("🚪 Sair da Guilda", _confirm_leave))
-
-	# ── Top Doadores ──
+	_panel_host.add_child(head_res[0])
+	# linha de ícones-botão: Território + Doar + os 3 campos de doação (inline)
+	var actions := HBoxContainer.new(); actions.add_theme_constant_override("separation", 10)
+	actions.add_child(UiKit.icon_choice_btn("map_fortress", "🏰", Lang.t("Território"), func() -> void: open_screen.emit("Territory"), UiKit.GOLD_SOFT, true))
+	actions.add_child(UiKit.icon_choice_btn("gold", "💰", Lang.t("Doar"), _donate, UiKit.GOLD_SOFT, true))
+	donate_gold = _spin(); donate_silver = _spin(); donate_bronze = _spin()
+	actions.add_child(_coin_spin("gold", donate_gold))
+	actions.add_child(_coin_spin("silver", donate_silver))
+	actions.add_child(_coin_spin("bronze", donate_bronze))
+	_panel_host.add_child(actions)
+	# Top Doadores (lista travada — não estica a página)
 	var rank: Array = g.get("donationRank", []) if g.get("donationRank") is Array else []
-	content.add_child(UiKit.section("🏆 Top Doadores"))
+	_panel_host.add_child(UiKit.section("🏆 Top Doadores"))
 	if rank.is_empty():
-		content.add_child(UiKit.dim("— sem doações ainda —"))
+		_panel_host.add_child(UiKit.dim("— sem doações ainda —"))
 	else:
+		var box := VBoxContainer.new(); box.add_theme_constant_override("separation", 2)
+		box.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		var i := 0
 		for d in rank:
 			if d is Dictionary:
-				var medal := "🥇" if i == 0 else ("🥈" if i == 1 else ("🥉" if i == 2 else "%d." % (i + 1)))
-				var me := bool(d.get("isMe", false))
-				var row := UiKit.kv("%s %s%s" % [medal, str(d.get("warriorName", "?")), (Lang.t(" (você)") if me else "")], _fmt_bronze(int(d.get("donatedBronze", 0))), UiKit.GOLD if me else UiKit.TEXT)
-				content.add_child(row)
+				box.add_child(_donor_row(i, d))
 			i += 1
+		_panel_host.add_child(UiKit.capped_scroll(box, 110.0))
+	# Sair / Dissolver — discreto, alinhado à direita
+	var lead := HBoxContainer.new(); lead.add_theme_constant_override("separation", 8)
+	lead.alignment = BoxContainer.ALIGNMENT_END
+	if is_leader:
+		lead.add_child(UiKit.small_btn_icon(Lang.t("Dissolver"), "skull", _confirm_disband, true))
+	else:
+		lead.add_child(UiKit.small_btn_icon(Lang.t("Sair"), "act_flee", _confirm_leave, true))
+	_panel_host.add_child(lead)
 
-	# ── Guerra de Guilda [GUERRA_GUILDA] ──
-	_render_war()
-
-	# ── Formação 3×5 da guerra [GUERRA_FORMACAO] ──
-	_render_formation(members, is_leader)
+# ── Aba "Membros" ───────────────────────────────────────────────────────────────────
+func _tab_members() -> void:
+	var members: Array = data.get("members", []) if data.get("members") is Array else []
+	var is_leader := bool(data.get("isLeader", false))
+	_panel_host.add_child(UiKit.section(Lang.t("Membros (%d)") % members.size()))
+	var grid := UiKit.grid(self, members, func(mm): return _member_row(mm, is_leader) if mm is Dictionary else null, false, 260, 2)
+	_panel_host.add_child(UiKit.capped_scroll(grid, 440.0))
 
 func _member_row(mm: Dictionary, is_leader: bool) -> PanelContainer:
 	var me := bool(mm.get("isMe", false))
 	var ml := bool(mm.get("isLeader", false))
 	var res := UiKit.card()
 	var box: VBoxContainer = res[1]
-	var hb := HBoxContainer.new(); hb.add_theme_constant_override("separation", 8)
+	var hb := HBoxContainer.new(); hb.add_theme_constant_override("separation", 6)
 	box.add_child(hb)
+	if ml and Icons.tex("crown") != null:   # coroa do líder (era 👑)
+		var cr := Icons.rect("crown", 16); cr.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+		hb.add_child(cr)
 	var title := str(mm.get("title", ""))
 	var nm := Label.new()
-	nm.text = (title + " " if title != "" else "") + str(mm.get("warriorName", "?")) + (" 👑" if ml else "") + (Lang.t(" (você)") if me else "")
+	nm.text = (title + " " if title != "" else "") + str(mm.get("warriorName", "?")) + (Lang.t(" (você)") if me else "")
 	nm.add_theme_font_size_override("font_size", 15)
 	nm.add_theme_color_override("font_color", UiKit.GOLD if me else UiKit.TEXT)
 	nm.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	nm.clip_text = true
 	hb.add_child(nm)
 	var fat := int(mm.get("fatiguePct", 0))
-	if fat > 0:
-		var fl := Label.new(); fl.text = "😓 -%d%%" % fat
+	if fat > 0:   # fadiga de guerra (era 😓)
+		if Icons.tex("fatigue") != null:
+			var fi := Icons.rect("fatigue", 14); fi.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+			hb.add_child(fi)
+		var fl := Label.new(); fl.text = "-%d%%" % fat
 		fl.add_theme_color_override("font_color", UiKit.ERR)
 		fl.add_theme_font_size_override("font_size", 11)
+		fl.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 		hb.add_child(fl)
 	# botões do líder (não em si mesmo / kick não no líder)
 	if is_leader and not me:
 		var pid := int(mm.get("playerId", 0))
 		var who := str(mm.get("warriorName", "?"))
 		if not ml:
-			hb.add_child(UiKit.small_btn("Expulsar", _confirm_kick.bind(pid, who), true))
-		hb.add_child(UiKit.small_btn("Transferir", _confirm_transfer.bind(pid, who)))
+			hb.add_child(UiKit.small_btn_icon(Lang.t("Expulsar"), "act_flee", _confirm_kick.bind(pid, who), true))
+		hb.add_child(UiKit.small_btn_icon(Lang.t("Transferir"), "crown", _confirm_transfer.bind(pid, who)))
 	return res[0]
 
-# ── Guerra de Guilda [GUERRA_GUILDA] ────────────────────────────────────────────────
-# Renderiza a seção de guerra a partir do cache `war` (carregado no _refresh).
-func _render_war() -> void:
-	content.add_child(UiKit.section("⚔ Guerra de Guilda"))
-	content.add_child(UiKit.dim("Guerra de 7 dias contra uma guilda rival. Quem fizer mais kills leva 25% do ouro. Ambas precisam ter controlado um território."))
+# ── Aba "Guerra" ────────────────────────────────────────────────────────────────────
+func _tab_war() -> void:
 	if bool(war.get("atWar", false)):
-		_render_war_active()
+		_war_active()
 	else:
-		_render_war_idle()
+		_war_idle()
+	_render_formation()
 
-func _render_war_active() -> void:
+func _war_active() -> void:
 	var my_kills := int(war.get("myKills", 0))
 	var enemy_kills := int(war.get("enemyKills", 0))
-	# placar
 	var res := UiKit.card(UiKit.ERR)
 	var pc: PanelContainer = res[0]
 	var box: VBoxContainer = res[1]
-	var sb: StyleBoxFlat = pc.get_theme_stylebox("panel")
-	sb.set_border_width_all(2)
+	(pc.get_theme_stylebox("panel") as StyleBoxFlat).set_border_width_all(2)
 	var head := Label.new()
 	head.text = Lang.t("Em guerra com %s") % str(war.get("enemyGuildName", "?"))
 	head.add_theme_font_size_override("font_size", 18)
@@ -214,25 +268,23 @@ func _render_war_active() -> void:
 	box.add_child(head)
 	box.add_child(UiKit.kv("Placar", Lang.t("%d × %d (você × inimigo)") % [my_kills, enemy_kills]))
 	box.add_child(UiKit.kv("Termina em", _fmt_time(int(war.get("secondsLeft", 0)))))
-	content.add_child(pc)
-	# inimigos
+	_panel_host.add_child(pc)
 	var enemies: Array = war.get("enemies", []) if war.get("enemies") is Array else []
-	content.add_child(UiKit.section("Inimigos"))
+	_panel_host.add_child(UiKit.section(Lang.t("Inimigos")))
 	if enemies.is_empty():
-		content.add_child(UiKit.dim("— nenhum inimigo disponível para atacar agora —"))
+		_panel_host.add_child(UiKit.dim("— nenhum inimigo disponível para atacar agora —"))
 	else:
-		content.add_child(UiKit.grid(self, enemies, _enemy_card))
+		var grid := UiKit.grid(self, enemies, _enemy_card)
+		_panel_host.add_child(UiKit.capped_scroll(grid, 180.0))
 
 func _enemy_card(e: Variant) -> Control:
 	var en: Dictionary = e if e is Dictionary else {}
 	var res := UiKit.card()
 	var pc: PanelContainer = res[0]
 	var box: VBoxContainer = res[1]
-	var row := HBoxContainer.new()
-	row.add_theme_constant_override("separation", 10)
+	var row := HBoxContainer.new(); row.add_theme_constant_override("separation", 10)
 	box.add_child(row)
-	var left := VBoxContainer.new()
-	left.add_theme_constant_override("separation", 2)
+	var left := VBoxContainer.new(); left.add_theme_constant_override("separation", 2)
 	left.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	row.add_child(left)
 	var ko := bool(en.get("knockedOut", false))
@@ -244,54 +296,42 @@ func _enemy_card(e: Variant) -> Control:
 	nm.add_theme_color_override("font_color", UiKit.TEXT)
 	left.add_child(nm)
 	var hp := int(en.get("hpPercent", 100))
-	var hl := Label.new()
-	hl.text = Lang.t("Nv %d · ❤ %d%%") % [int(en.get("level", 1)), hp]
-	hl.add_theme_font_size_override("font_size", 12)
-	hl.add_theme_color_override("font_color", UiKit.ERR if ko else UiKit.TEXT_DIM)
-	left.add_child(hl)
+	left.add_child(_icon_text("hp", Lang.t("Nv %d · %d%%") % [int(en.get("level", 1)), hp], UiKit.ERR if ko else UiKit.TEXT_DIM))
 	var rcol := VBoxContainer.new()
 	rcol.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	rcol.size_flags_horizontal = Control.SIZE_SHRINK_END
 	row.add_child(rcol)
 	var pid := int(en.get("playerId", 0))
 	if ko:
-		rcol.add_child(_war_status("💀 KO"))          # 1 linha (UiKit.dim quebrava em K/O na coluna estreita)
+		rcol.add_child(_icon_text("skull", Lang.t("KO"), UiKit.TEXT_DIM))
 	elif shielded:
-		rcol.add_child(_war_status("🛡 Protegido"))
+		rcol.add_child(_icon_text("slot_shield", Lang.t("Protegido"), UiKit.TEXT_DIM))
 	else:
-		rcol.add_child(UiKit.small_btn("⚔ Atacar", _attack.bind(pid), true))
+		rcol.add_child(UiKit.small_btn_icon(Lang.t("Atacar"), "node_combat", _attack.bind(pid), true))
 	return pc
 
-# Status do inimigo (KO/Protegido) numa LINHA só — autowrap OFF (UiKit.dim quebrava + inflava o card).
-func _war_status(text: String) -> Label:
-	var l := Label.new()
-	l.text = text
-	l.add_theme_font_size_override("font_size", 12)
-	l.add_theme_color_override("font_color", UiKit.TEXT_DIM)
-	l.autowrap_mode = TextServer.AUTOWRAP_OFF
-	l.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	return l
-
-func _render_war_idle() -> void:
+func _war_idle() -> void:
 	if not bool(data.get("isLeader", false)):
-		content.add_child(UiKit.dim("Só o líder pode declarar guerra."))
+		_panel_host.add_child(UiKit.dim("Guerra de 7 dias contra uma rival. Só o líder pode declarar."))
 		return
 	if picking:
-		content.add_child(UiKit.section("Escolha uma guilda rival"))
+		_panel_host.add_child(UiKit.section(Lang.t("Escolha uma guilda rival")))
 		if targets.is_empty():
-			content.add_child(UiKit.empty("Nenhuma guilda elegível.", "Rivais precisam ter controlado um território."))
+			_panel_host.add_child(UiKit.empty("Nenhuma guilda elegível.", "Rivais precisam ter controlado um território."))
 		else:
-			content.add_child(UiKit.grid(self, targets, func(t): return _target_row(t) if t is Dictionary else null, false, 260, 2))   # [SEM_SCROLL]
-		content.add_child(UiKit.action("Cancelar", _cancel_picking))
+			var grid := UiKit.grid(self, targets, func(t): return _target_row(t) if t is Dictionary else null, false, 260, 2)
+			_panel_host.add_child(UiKit.capped_scroll(grid, 220.0))
+		_panel_host.add_child(UiKit.small_btn(Lang.t("Cancelar"), _cancel_picking))
 	else:
-		content.add_child(UiKit.action("⚔ Declarar Guerra", _open_targets))
+		_panel_host.add_child(UiKit.dim("Guerra de 7 dias: quem fizer mais kills leva 25% do ouro. Ambas precisam ter controlado um território."))
+		var dr := HBoxContainer.new()
+		dr.add_child(UiKit.icon_choice_btn("declare_war", "⚔", Lang.t("Declarar Guerra"), _open_targets, UiKit.ERR, true))
+		_panel_host.add_child(dr)
 
 func _target_row(t: Dictionary) -> PanelContainer:
 	var res := UiKit.card()
-	var pc: PanelContainer = res[0]
 	var box: VBoxContainer = res[1]
-	var row := HBoxContainer.new()
-	row.add_theme_constant_override("separation", 10)
+	var row := HBoxContainer.new(); row.add_theme_constant_override("separation", 10)
 	box.add_child(row)
 	var nm := Label.new()
 	nm.text = Lang.t("%s   Nv.%d") % [str(t.get("name", "?")), int(t.get("level", 1))]
@@ -300,27 +340,24 @@ func _target_row(t: Dictionary) -> PanelContainer:
 	nm.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	row.add_child(nm)
 	var gid := int(t.get("id", 0))
-	row.add_child(UiKit.small_btn("⚔ Declarar", _confirm_declare.bind(gid), true))
-	return pc
+	row.add_child(UiKit.small_btn_icon(Lang.t("Declarar"), "declare_war", _confirm_declare.bind(gid), true))
+	return res[0]
 
 # ── Formação 3×5 da guerra [GUERRA_FORMACAO] ────────────────────────────────────────
-# Tabuleiro de 3 lanes (colunas) × 5 de profundidade (linhas). A FRENTE (linha 1) luta primeiro
-# e leva o HP restante pro próximo da coluna; vence quem ganha 2 das 3 lanes. Só o LÍDER edita
-# (um OptionButton por célula); membros veem só leitura. Salvar posiciona + define o roster.
-func _render_formation(members: Array, is_leader: bool) -> void:
-	content.add_child(UiKit.section("⚔ Formação de Guerra (3 lanes × 5)"))
-	content.add_child(UiKit.dim("Cada coluna é um gauntlet: a FRENTE luta primeiro e leva o HP restante pro próximo. Vence quem ganha 2 das 3 lanes. Células vazias = auto-preenchidas pelos membros mais descansados."))
+func _render_formation() -> void:
+	var members: Array = data.get("members", []) if data.get("members") is Array else []
+	var is_leader := bool(data.get("isLeader", false))
+	_panel_host.add_child(UiKit.section("⚔ Formação de Guerra (3 × 5)"))
+	_panel_host.add_child(UiKit.dim("A frente luta 1º e leva o HP restante pro próximo; vence quem ganha 2 das 3 lanes. Vazias = auto-preenchidas."))
 	_formation_cells = {}
-	# formação atual: "lane:depth" -> membro
 	var placed := {}
 	for m in members:
 		if m is Dictionary and int(m.get("warLane", -1)) >= 0 and int(m.get("warDepth", -1)) >= 0:
 			placed["%d:%d" % [int(m.get("warLane", 0)), int(m.get("warDepth", 0))]] = m
 	var grid := GridContainer.new()
-	grid.columns = F_LANES + 1   # 1 coluna de rótulo de profundidade + 3 lanes
+	grid.columns = F_LANES + 1
 	grid.add_theme_constant_override("h_separation", 6)
 	grid.add_theme_constant_override("v_separation", 6)
-	# cabeçalho: célula vazia + Lane 1/2/3
 	grid.add_child(_f_label("", 11, UiKit.TEXT_DIM))
 	for l in F_LANES:
 		grid.add_child(_f_label("Lane %d" % (l + 1), 12, UiKit.GOLD))
@@ -337,13 +374,14 @@ func _render_formation(members: Array, is_leader: bool) -> void:
 				grid.add_child(ob)
 			else:
 				grid.add_child(_f_readonly_cell(cur))
-	content.add_child(grid)
+	_panel_host.add_child(grid)
 	if is_leader:
-		content.add_child(UiKit.action("💾 Salvar formação", _save_formation))
+		var sr := HBoxContainer.new()
+		sr.add_child(UiKit.icon_choice_btn("territory", "💾", Lang.t("Salvar"), _save_formation, UiKit.GOLD_SOFT, true))
+		_panel_host.add_child(sr)
 	else:
-		content.add_child(UiKit.dim("Só o líder pode posicionar a formação."))
+		_panel_host.add_child(UiKit.dim("Só o líder pode posicionar a formação."))
 
-# Rótulo simples (cabeçalho / profundidade) do tabuleiro.
 func _f_label(text: String, size: int, col: Color) -> Label:
 	var l := Label.new()
 	l.text = text
@@ -353,11 +391,10 @@ func _f_label(text: String, size: int, col: Color) -> Label:
 	l.custom_minimum_size = Vector2(64, 0)
 	return l
 
-# Dropdown de uma célula (líder): "—" (vazia) + cada membro. Pré-seleciona quem já está na célula.
 func _f_option(members: Array, current: Dictionary) -> OptionButton:
 	var ob := OptionButton.new()
 	ob.custom_minimum_size = Vector2(112, 30)
-	ob.add_item("—", 0)   # vazio
+	ob.add_item("—", 0)
 	var sel_idx := 0
 	var idx := 1
 	for m in members:
@@ -370,7 +407,6 @@ func _f_option(members: Array, current: Dictionary) -> OptionButton:
 	ob.select(sel_idx)
 	return ob
 
-# Célula só-leitura (membro não-líder): nome de quem está, ou vazio.
 func _f_readonly_cell(current: Dictionary) -> PanelContainer:
 	var pc := PanelContainer.new()
 	pc.custom_minimum_size = Vector2(112, 30)
@@ -389,7 +425,6 @@ func _f_readonly_cell(current: Dictionary) -> PanelContainer:
 	pc.add_child(l)
 	return pc
 
-# Coleta as células preenchidas → valida duplicata → POST /war-formation.
 func _save_formation() -> void:
 	if busy: return
 	var slots := []
@@ -414,13 +449,12 @@ func _save_formation() -> void:
 	else:
 		UiKit.show_error(status, r)
 
-# ── Painel SEM guilda ──────────────────────────────────────────────────────────────
+# ── Painel SEM guilda (sem abas) ────────────────────────────────────────────────────
 func _render_no_guild() -> void:
-	_clear()
-	content.add_child(UiKit.empty("Você não pertence a nenhuma guilda.", "Crie a sua ou entre numa existente abaixo"))
-
-	# criar
-	content.add_child(UiKit.section("Criar nova guilda  (custa 100 bronze)"))
+	_subtab_bar_host.visible = false
+	_clear_panel()
+	_panel_host.add_child(UiKit.empty("Você não pertence a nenhuma guilda.", "Crie a sua ou entre numa existente abaixo"))
+	_panel_host.add_child(UiKit.section("Criar nova guilda  (custa 100 bronze)"))
 	var res := UiKit.card()
 	var box: VBoxContainer = res[1]
 	name_edit = UiKit.input("Nome (3-30 chars)"); name_edit.max_length = 30
@@ -429,15 +463,16 @@ func _render_no_guild() -> void:
 	desc_edit = UiKit.input("Descrição (opcional)"); desc_edit.max_length = 120
 	desc_edit.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	box.add_child(desc_edit)
-	box.add_child(UiKit.action("🛡 Criar Guilda", _create))
-	content.add_child(res[0])
-
-	# lista p/ entrar
-	content.add_child(UiKit.section("Guildas existentes"))
+	var cr := HBoxContainer.new(); cr.alignment = BoxContainer.ALIGNMENT_END
+	cr.add_child(UiKit.icon_choice_btn("guild", "🛡", Lang.t("Criar Guilda"), _create, UiKit.GOLD_SOFT, true))
+	box.add_child(cr)
+	_panel_host.add_child(res[0])
+	_panel_host.add_child(UiKit.section("Guildas existentes"))
 	if guild_list.is_empty():
-		content.add_child(UiKit.empty("Nenhuma guilda criada ainda.", "Seja o primeiro a fundar uma!"))
+		_panel_host.add_child(UiKit.empty("Nenhuma guilda criada ainda.", "Seja o primeiro a fundar uma!"))
 	else:
-		content.add_child(UiKit.grid(self, guild_list, func(g): return _guild_list_row(g) if g is Dictionary else null, false, 260, 2))   # [SEM_SCROLL]
+		var grid := UiKit.grid(self, guild_list, func(g): return _guild_list_row(g) if g is Dictionary else null, false, 260, 2)
+		_panel_host.add_child(UiKit.capped_scroll(grid, 320.0))
 
 func _guild_list_row(g: Dictionary) -> PanelContainer:
 	var res := UiKit.card()
@@ -455,26 +490,88 @@ func _guild_list_row(g: Dictionary) -> PanelContainer:
 	if d != "":
 		left.add_child(UiKit.dim(d))
 	var members := int(g.get("members", 0)); var maxm := int(g.get("maxMembers", 0))
-	var cl := Label.new(); cl.text = "👥 %d/%d" % [members, maxm]
-	cl.add_theme_font_size_override("font_size", 12)
-	cl.add_theme_color_override("font_color", UiKit.TEXT_DIM)
-	left.add_child(cl)
+	left.add_child(_icon_text("members", "%d/%d" % [members, maxm], UiKit.TEXT_DIM))
 	hb.add_child(left)
 	var rcol := VBoxContainer.new()
 	rcol.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	var full := members >= maxm
-	var join := UiKit.small_btn("Cheia" if full else "Entrar", _join.bind(int(g.get("id", 0))) if not full else Callable())
+	var join := UiKit.small_btn_icon(Lang.t("Cheia") if full else Lang.t("Entrar"), "guild", _join.bind(int(g.get("id", 0))) if not full else Callable())
 	join.disabled = full
 	rcol.add_child(join)
 	hb.add_child(rcol)
 	return res[0]
 
+# ── Helpers de linha com ícone (substituem os emojis inline) ────────────────────────
+# Linha "[ícone] rótulo ............ valor" (header da guilda). Ícone só se existir (sem caixa vazia).
+func _info_row(icon_key: String, label: String, value_node: Control) -> HBoxContainer:
+	var h := HBoxContainer.new(); h.add_theme_constant_override("separation", 6)
+	if Icons.tex(icon_key) != null:
+		var ic := Icons.rect(icon_key, 18); ic.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+		h.add_child(ic)
+	var k := Label.new(); k.text = Lang.t(label)
+	k.add_theme_font_size_override("font_size", 14); k.add_theme_color_override("font_color", UiKit.TEXT_DIM)
+	k.custom_minimum_size = Vector2(110, 0)
+	h.add_child(k)
+	value_node.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	value_node.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	h.add_child(value_node)
+	return h
+
+# "[ícone] texto" — pra badges/linhas curtas (status do inimigo, nível máx, contagem de membros).
+func _icon_text(icon_key: String, text: String, color: Color) -> HBoxContainer:
+	var h := HBoxContainer.new(); h.add_theme_constant_override("separation", 5)
+	h.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	if Icons.tex(icon_key) != null:
+		var ic := Icons.rect(icon_key, 14); ic.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+		h.add_child(ic)
+	var l := Label.new(); l.text = text
+	l.add_theme_font_size_override("font_size", 12); l.add_theme_color_override("font_color", color)
+	l.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	h.add_child(l)
+	return h
+
+# Coluna [ícone-moeda em cima] [SpinBox] — campo de doação (substitui o 🥇/🥈/🥉 de texto).
+func _coin_spin(coin_key: String, spin: SpinBox) -> VBoxContainer:
+	var box := VBoxContainer.new(); box.add_theme_constant_override("separation", 1)
+	box.alignment = BoxContainer.ALIGNMENT_CENTER
+	if Icons.tex(coin_key) != null:
+		var ic := Icons.rect(coin_key, 16); ic.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+		box.add_child(ic)
+	spin.custom_minimum_size = Vector2(78, 0)
+	box.add_child(spin)
+	return box
+
+# Linha do ranking de doadores: medalha (ouro/prata/bronze) p/ top 3, "N." depois.
+func _donor_row(i: int, d: Dictionary) -> HBoxContainer:
+	var h := HBoxContainer.new(); h.add_theme_constant_override("separation", 8)
+	h.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	var me := bool(d.get("isMe", false))
+	var medal_key := ["gold", "silver", "bronze"][i] if i < 3 else ""
+	if medal_key != "" and Icons.tex(medal_key) != null:
+		var mi := Icons.rect(medal_key, 16); mi.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+		h.add_child(mi)
+	else:
+		var num := Label.new(); num.text = "%d." % (i + 1)
+		num.custom_minimum_size = Vector2(22, 0); num.add_theme_font_size_override("font_size", 13)
+		num.add_theme_color_override("font_color", UiKit.TEXT_DIM)
+		h.add_child(num)
+	var nm := Label.new()
+	nm.text = str(d.get("warriorName", "?")) + (Lang.t(" (você)") if me else "")
+	nm.add_theme_font_size_override("font_size", 13)
+	nm.add_theme_color_override("font_color", UiKit.GOLD if me else UiKit.TEXT)
+	nm.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	h.add_child(nm)
+	var val := Label.new(); val.text = _fmt_bronze(int(d.get("donatedBronze", 0)))
+	val.add_theme_font_size_override("font_size", 13); val.add_theme_color_override("font_color", UiKit.TEXT_DIM)
+	h.add_child(val)
+	return h
+
 # ── Confirmações de ações destrutivas ──────────────────────────────────────────────
 func _confirm_leave() -> void:
-	UiKit.confirm(self, "Sair da guilda? Você perde os bônus e a contribuição.", "🚪 Sair", func() -> void: await _leave())
+	UiKit.confirm(self, "Sair da guilda? Você perde os bônus e a contribuição.", "Sair", func() -> void: await _leave())
 
 func _confirm_disband() -> void:
-	UiKit.confirm(self, "Dissolver a guilda PERMANENTEMENTE? Todos os membros são expulsos.", "💀 Dissolver", func() -> void: await _disband())
+	UiKit.confirm(self, "Dissolver a guilda PERMANENTEMENTE? Todos os membros são expulsos.", "Dissolver", func() -> void: await _disband())
 
 func _confirm_kick(pid: int, who: String) -> void:
 	UiKit.confirm(self, Lang.t("Expulsar %s da guilda?") % who, "Expulsar", func() -> void: await _kick(pid))
@@ -569,7 +666,7 @@ func _donate() -> void:
 		var j: Dictionary = r["json"]
 		var msg := ""
 		if bool(j.get("leveledUp", false)):
-			msg = Lang.t("🎉 A doação subiu a guilda para o nível %d!") % int(j.get("level", 0))
+			msg = Lang.t("A doação subiu a guilda para o nível %d!") % int(j.get("level", 0))
 		else:
 			msg = Lang.t("Doado! Tesouro: %s") % _fmt_bronze(int(j.get("guildGold", 0)))
 		await _refresh()
@@ -578,7 +675,6 @@ func _donate() -> void:
 		UiKit.show_error(status, r)
 
 # ── Ações de Guerra de Guilda [GUERRA_GUILDA] ───────────────────────────────────────
-# Carrega as guildas rivais e entra no modo de escolha de alvo (re-render puro de UI).
 func _open_targets() -> void:
 	if busy: return
 	busy = true
@@ -587,14 +683,16 @@ func _open_targets() -> void:
 	if r.get("ok") and r.get("json") is Array:
 		targets = r["json"]
 		picking = true
-		_render_panel()
+		sub_tab = "war"
+		_build_subtab_bar()
+		_render_subtab()
 	else:
 		UiKit.show_error(status, r)
 
 func _cancel_picking() -> void:
 	picking = false
 	targets = []
-	_render_panel()
+	_render_subtab()
 
 func _do_declare(guild_id: int) -> void:
 	if busy: return
@@ -621,7 +719,7 @@ func _attack(player_id: int) -> void:
 	var j: Dictionary = r["json"]
 	var be = j.get("battleEvents")
 	if be is Array and be.size() >= 2:
-		# [BATALHA_ANIMADA] replay 3D por cima; _on_battle_over volta e mostra o relatório (padrão Arena/Torre)
+		# [BATALHA_ANIMADA] replay 3D por cima; _on_battle_over volta e mostra o relatório
 		_pending_after = j
 		request_battle.emit({"events": be, "scene": str(j.get("scene", "fortress")), "won": bool(j.get("won", false)), "enemy": str(j.get("opponentName", ""))})
 	else:
@@ -632,11 +730,11 @@ func _attack(player_id: int) -> void:
 func _on_battle_over() -> void:
 	var j: Dictionary = _pending_after if _pending_after is Dictionary else {}
 	_pending_after = {}
+	sub_tab = "war"   # volta pra aba Guerra depois do replay
 	await _refresh()
 	if not j.is_empty():
 		_show_attack_report(j)
 
-# Relatório do ataque no MESMO padrão das outras batalhas (card win/loss + placar + loot + log).
 func _show_attack_report(j: Dictionary) -> void:
 	var won := bool(j.get("won", false))
 	var opp := str(j.get("opponentName", "?"))
@@ -645,7 +743,7 @@ func _show_attack_report(j: Dictionary) -> void:
 	rows.append(UiKit.kv("Placar", "%d × %d" % [int(j.get("myKills", 0)), int(j.get("enemyKills", 0))]))
 	var loot := str(j.get("loot", ""))
 	if loot != "":
-		rows.append(UiKit.dim("🎁 " + loot))
+		rows.append(_icon_text("gift", loot, UiKit.GOLD_SOFT))
 	var log: Array = j.get("battleLog", []) if j.get("battleLog") is Array else []
 	UiKit.show_battle_report(self, won, title, rows, log)
 
@@ -664,16 +762,10 @@ func _fmt_time(secs: int) -> String:
 	return "%d s" % s
 
 func _fmt_bronze(total: int) -> String:
-	return UiKit.coin_str(total)   # [MOEDA] ouro/prata/bronze por extenso (distinguível em texto)
+	return UiKit.coin_str(total)
 
 func _spin() -> SpinBox:
 	var s := SpinBox.new()
 	s.min_value = 0; s.max_value = 999999; s.step = 1; s.value = 0
-	s.custom_minimum_size = Vector2(90, 0)
+	s.custom_minimum_size = Vector2(78, 0)
 	return s
-
-func _labeled(text: String, node: Control) -> VBoxContainer:
-	var box := VBoxContainer.new()
-	box.add_child(UiKit.dim(text))
-	box.add_child(node)
-	return box

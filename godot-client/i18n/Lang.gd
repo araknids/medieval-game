@@ -39,6 +39,10 @@ const EN := {
 	"Proteger": "Protect", "Refinar": "Refine", "Reforjar": "Reforge", "♻ Reforjar": "♻ Reforge",
 	"Craftar": "Craft", "Beber": "Drink", "Escolher": "Choose", "Transferir": "Transfer", "Expulsar": "Kick",
 	"Guardar": "Store",   # [INV_COMPACTO] popup de ações do slot
+	# [GUILD_TABS] rótulos da tela de Guilda reformulada
+	"Visão Geral": "Overview", "Membros": "Members", "Guerra": "War", "Doar": "Donate",
+	"Dissolver": "Disband", "Atacar": "Attack", "Declarar Guerra": "Declare War", "Salvar": "Save",
+	"Criar Guilda": "Create Guild", "Protegido": "Protected",
 	# [INV_COMPACTO] chips de ordenação da mochila
 	"Raridade": "Rarity", "Tipo": "Type", "Melhoria": "Upgrade", "Valor": "Value",
 	"Deletar": "Delete", "🗑 Deletar": "🗑 Delete", "Declarar": "Declare", "Entrar": "Enter", "Sair": "Exit",

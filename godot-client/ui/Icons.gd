@@ -54,6 +54,7 @@ const EMOJI_ICON := {
 	"❤": "hp", "⚡": "stamina", "🏅": "achievements", "🎯": "tower",
 	"📬": "mail", "📭": "mail", "📩": "mail", "📨": "mail", "✉": "mail",
 	"❗": "quest_alert", "❕": "quest_alert",   # [QUEST_BADGE] "!" de daily disponível
+	"🏦": "treasury", "👥": "members", "😓": "fatigue", "💾": "territory",   # [GUILD_TABS] tira emoji de web da Guilda
 }
 
 # Separa um emoji-ícone do INÍCIO do texto. Retorna [icon_key, resto] — ["", texto] se não houver.
@@ -115,6 +116,11 @@ const ICON_TIP := {
 	"slot_boots": ["Botas", "Boots"], "slot_gloves": ["Luvas", "Gloves"],
 	"slot_shield": ["Escudo", "Shield"], "slot_ring": ["Anel", "Ring"],
 	"slot_necklace": ["Colar", "Necklace"],
+	# Guilda [GUILD_TABS]
+	"treasury": ["Tesouro da guilda", "Guild treasury"],
+	"members": ["Membros", "Members"],
+	"crown": ["Líder da guilda", "Guild leader"],
+	"fatigue": ["Fadiga de guerra (debuff)", "War fatigue (debuff)"],
 	# Nós da Incursão
 	"node_combat": ["Combate — luta contra um inimigo", "Combat — fight an enemy"],
 	"node_elite": ["Elite — inimigo mais forte", "Elite — tougher enemy"],
