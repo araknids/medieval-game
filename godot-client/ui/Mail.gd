@@ -29,6 +29,7 @@ var tab := "received"           # aba ativa
 var opened_id := -1             # carta no modal (-1 = nenhuma)
 var opened: Dictionary = {}     # resposta do /read (conteúdo do modal)
 var _modal: Control = null      # overlay do modal aberto (1 por vez)
+var _compose_overlay: Control = null   # [MAIL_COMPOSE] overlay do compositor (separado do modal de leitura)
 
 func _ready() -> void:
 	var ui := UiKit.scaffold(self, "Correio", func() -> void: go_back.emit(), func() -> void: await _refresh(), UiKit.TINT_SOCIAL)
@@ -72,6 +73,9 @@ func _render() -> void:
 	UiKit.hide_loading()
 	UiKit.set_wallet(wallet, warrior)
 	content.add_child(_tab_bar())
+	var wbtn := UiKit.action(Lang.t("Escrever carta"), func() -> void: _compose_modal(""))
+	wbtn.custom_minimum_size = Vector2(0, 38)
+	content.add_child(wbtn)
 	match tab:
 		"system":  _render_inbox(_system())
 		"sent":    _render_sent()
@@ -237,6 +241,88 @@ func _close_modal() -> void:
 	if _modal != null and is_instance_valid(_modal):
 		_modal.queue_free()
 	_modal = null
+
+# ── [MAIL_COMPOSE] Compositor de carta (modal central) ────────────────────────────────
+# recipient != "" vem PREENCHIDO (ex.: "Enviar mensagem" da tela de Amigos / Classificação → Shell).
+func request_compose(recipient: String) -> void:
+	_compose_modal(recipient)
+
+func _compose_modal(recipient: String) -> void:
+	_close_compose()
+	var overlay := ColorRect.new()
+	overlay.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	overlay.color = Color(0, 0, 0, 0.72)
+	overlay.mouse_filter = Control.MOUSE_FILTER_STOP
+	overlay.gui_input.connect(func(ev: InputEvent) -> void:
+		if ev is InputEventMouseButton and ev.pressed:
+			_close_compose())
+	add_child(overlay)
+	_compose_overlay = overlay
+	var center := CenterContainer.new()
+	center.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	center.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	overlay.add_child(center)
+	var res := UiKit.card(UiKit.GOLD_SOFT)
+	var pc: PanelContainer = res[0]
+	var vb: VBoxContainer = res[1]
+	pc.custom_minimum_size = Vector2(440, 0)
+	pc.mouse_filter = Control.MOUSE_FILTER_STOP
+	vb.add_theme_constant_override("separation", 6)
+	vb.add_child(UiKit.section("Escrever carta"))
+	var to := UiKit.input(Lang.t("Nick do destinatário"))
+	to.text = recipient
+	vb.add_child(_compose_field(Lang.t("Para"), to))
+	var msg := TextEdit.new()
+	msg.placeholder_text = Lang.t("Escreva sua mensagem...")
+	msg.custom_minimum_size = Vector2(0, 120)
+	msg.add_theme_color_override("font_color", UiKit.TEXT)
+	vb.add_child(msg)
+	var row := HBoxContainer.new(); row.add_theme_constant_override("separation", 8)
+	row.add_child(UiKit.small_btn(Lang.t("Cancelar"), _close_compose))
+	var send := UiKit.action(Lang.t("Enviar"), func() -> void: await _do_send(to, msg))
+	send.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	row.add_child(send)
+	vb.add_child(row)
+	center.add_child(pc)
+	if recipient == "":
+		to.grab_focus()
+	else:
+		msg.grab_focus()
+
+func _compose_field(label: String, node: Control) -> HBoxContainer:
+	var h := HBoxContainer.new(); h.add_theme_constant_override("separation", 8)
+	var k := Label.new(); k.text = label; k.custom_minimum_size = Vector2(54, 0)
+	k.add_theme_color_override("font_color", UiKit.TEXT_DIM)
+	k.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	h.add_child(k)
+	node.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	h.add_child(node)
+	return h
+
+func _close_compose() -> void:
+	if _compose_overlay != null and is_instance_valid(_compose_overlay):
+		_compose_overlay.queue_free()
+	_compose_overlay = null
+
+func _do_send(to: LineEdit, msg: TextEdit) -> void:
+	if busy: return
+	var recipient := to.text.strip_edges()
+	var message := msg.text.strip_edges()
+	if recipient == "":
+		UiKit.flash(status, Lang.t("Informe o destinatário."), 2)
+		return
+	if message == "":
+		UiKit.flash(status, Lang.t("A mensagem está vazia."), 2)
+		return
+	busy = true
+	var r = await Api.mail_send(recipient, message, 0)
+	busy = false
+	if r.get("ok"):
+		_close_compose()
+		await _refresh()
+		UiKit.flash(status, Lang.t("Carta enviada para %s") % recipient, 1)
+	else:
+		UiKit.show_error(status, r)
 
 # painel (card) com o conteúdo da carta aberta — hospedado no modal central
 func _open_panel() -> PanelContainer:

@@ -69,7 +69,10 @@ var _coins: Dictionary = {}     # key -> Label
 # [TOPBAR_REORG] cluster do canto superior direito: Correio · Diário · Config (+ badges)
 var _mail_btn: Button            # Correio — ícone fixo (mail.png), sem frame-anim; não-lido vira exclamação
 var _mail_badge: Control         # [MAIL_BADGE] exclamação vermelha no canto quando há não-lido
+var _friends_btn: Button         # [LEADERBOARDS] Amigos — gerenciar amigos/pedidos/convites
+var _friends_badge: Control      # exclamação quando há pedido de amizade / convite de guilda pendente
 var _daily_btn: Button           # ganha tom dourado quando dá pra resgatar
+var _daily_badge: Control        # [DAILY] exclamação quando a recompensa diária está disponível
 var _heal_btn: Control           # botão de cura — só aparece com HP < 100
 var _buffs_box: GridContainer     # badges dos buffs ativos — GRID compacta ao lado da cura [TOPBAR_BUFFS]
 var _nav_buttons: Dictionary = {}   # nome da tela -> Button (destaque do ativo)
@@ -235,7 +238,14 @@ func _topbar_actions() -> Control:
 	_mail_badge = _make_alert_badge()
 	_mail_btn.add_child(_mail_badge)
 	h.add_child(_mail_btn)
+	# [LEADERBOARDS] Amigos — gerenciar amigos + pedidos + convites de guilda (badge quando há pendência)
+	_friends_btn = _topbar_icon_btn("members", "Amigos — lista, pedidos e convites de guilda", func() -> void: _open("Friends"))
+	_friends_badge = _make_alert_badge()
+	_friends_btn.add_child(_friends_badge)
+	h.add_child(_friends_btn)
 	_daily_btn = _topbar_icon_btn("daily", "Recompensa diária", func() -> void: _open("Daily"))
+	_daily_badge = _make_alert_badge()   # [DAILY] exclamação quando dá pra resgatar
+	_daily_btn.add_child(_daily_badge)
 	h.add_child(_daily_btn)
 	h.add_child(_topbar_icon_btn("settings", "Configurações", func() -> void: _open("Settings")))
 	return h
@@ -523,6 +533,13 @@ func _mutation_count() -> int:
 	var api = get_node_or_null("/root/Api")
 	return int(api.mutation_count) if api != null else 0
 
+# [MAIL_COMPOSE] Abre o Correio já no compositor com o nick preenchido ("Enviar mensagem" de Amigos/Classificação).
+func _open_mail_compose(recipient: String) -> void:
+	_open("Mail")
+	var m = _cache.get("Mail")
+	if m != null and is_instance_valid(m) and m.has_method("request_compose"):
+		m.request_compose(recipient)
+
 # [INCURSAO] Abre o Mundo já expandido no reino dado (vitória da Incursão volta pro território de origem).
 func _open_world_at(kingdom: String) -> void:
 	var w = _cache.get("World")
@@ -550,6 +567,8 @@ func _wire_screen(c: Control) -> void:
 		c.open_world_at.connect(_open_world_at)   # [INCURSAO] vitória → abre o Mundo já no reino de onde saiu
 	if c.has_signal("go_inventory"):
 		c.go_inventory.connect(func() -> void: _open("Character"))   # [FICHA_PERSONAGEM] inventário vive na ficha
+	if c.has_signal("open_mail_to"):                                 # [MAIL_COMPOSE] "Enviar mensagem" → Correio com nick preenchido
+		c.open_mail_to.connect(_open_mail_compose)
 	if c.has_signal("go_battle"):
 		c.go_battle.connect(func() -> void: get_tree().change_scene_to_file("res://BattleReplay.tscn"))
 	if c.has_signal("request_battle"):
@@ -686,7 +705,15 @@ func update_topbar(w: Dictionary) -> void:
 		if _mail_badge != null:
 			_mail_badge.visible = unread > 0
 		_mail_btn.tooltip_text = ("Correio — %d não lida(s)" % unread) if unread > 0 else "Correio — mensagens e recompensas"
-	# (Badge do Diário "dá pra resgatar" adiado — precisa de arte/ícone próprio p/ não brigar com o hover-modulate.)
+	# [LEADERBOARDS] badge de Amigos: pedidos de amizade + convites de guilda pendentes
+	if _friends_badge != null:
+		var social := int(w.get("pendingSocial", 0))
+		_friends_badge.visible = social > 0
+		if _friends_btn != null:
+			_friends_btn.tooltip_text = ("Amigos — %d pendência(s)" % social) if social > 0 else "Amigos — lista, pedidos e convites de guilda"
+	# [DAILY] exclamação no ícone da diária quando dá pra resgatar (igual ao Correio)
+	if _daily_badge != null:
+		_daily_badge.visible = bool(w.get("dailyClaimable", false))
 	_refresh_buffs(w)
 
 # Badges dos buffs ATIVOS na topbar (com tooltip de nome + tempo). Reconstrói a cada update.
