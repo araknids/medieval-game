@@ -51,6 +51,15 @@ const VALUE_LABEL := {
 	"slayer": "kills", "wealth": "", "territory": "inc",
 }
 const CLASS_NAMES := {"recruit": "Recruta", "warrior": "Guerreiro", "archer": "Arqueiro", "merchant": "Mercador"}
+# [INSPECIONAR] paper-doll igual à Ficha: slots à esquerda/direita do boneco 3D.
+const Icons := preload("res://ui/Icons.gd")
+const LEFT_SLOTS := ["HELMET", "ARMOR", "GLOVES", "PANTS", "BOOTS"]
+const RIGHT_SLOTS := ["WEAPON", "SHIELD", "SHOULDER", "RING", "NECKLACE"]
+const SLOT_LABEL := {
+	"WEAPON": "Arma", "SHIELD": "Escudo", "HELMET": "Elmo", "ARMOR": "Peito",
+	"PANTS": "Pernas", "BOOTS": "Botas", "GLOVES": "Luvas", "SHOULDER": "Ombros",
+	"RING": "Anel", "NECKLACE": "Colar",
+}
 
 func _ready() -> void:
 	var ui := UiKit.scaffold(self, "Classificação",
@@ -237,7 +246,7 @@ func _player_dialog(r: Dictionary) -> void:
 	vb.add_child(UiKit.small_btn(Lang.t("Voltar"), _close_dim.bind(dim)))
 	_center_in_dim(dim, pc)
 
-# ── Inspeção (perfil read-only) ──
+# ── Inspeção (perfil read-only) — boneco 3D + paper-doll à esquerda, atributos à direita ──
 func _inspect_dialog(pid: int, pname: String) -> void:
 	var dim := _make_dim()
 	var r = await Api.player_profile(pid)
@@ -246,71 +255,132 @@ func _inspect_dialog(pid: int, pname: String) -> void:
 		UiKit.toast(self, Lang.t("Não foi possível carregar o perfil."), "", 2)
 		return
 	var p: Dictionary = r["json"]
+	var eq: Array = p.get("equipped", [])
+	var eq_by_type := {}
+	for it in eq:
+		if it is Dictionary:
+			eq_by_type[str(it.get("type", ""))] = it
+
 	var card := UiKit.card(UiKit.GOLD_SOFT)
 	var pc: PanelContainer = card[0]
 	var vb: VBoxContainer = card[1]
-	pc.custom_minimum_size = Vector2(420, 0)
+	pc.custom_minimum_size = Vector2(540, 0)
+	vb.add_theme_constant_override("separation", 4)
 	var head := Label.new()
 	head.text = _named(p)
 	head.add_theme_font_size_override("font_size", 18)
 	head.add_theme_color_override("font_color", UiKit.GOLD)
 	head.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	vb.add_child(head)
-	vb.add_child(UiKit.dim("%s · Lv%d" % [_class_name(str(p.get("classId", ""))), int(p.get("level", 1))]))
-	var cb: Dictionary = p.get("combat", {})
-	vb.add_child(UiKit.section("Combate"))
-	vb.add_child(_stat_grid([
-		["ATK", int(cb.get("atk", 0)), true], ["DEF", int(cb.get("def", 0)), true], ["HP", int(cb.get("hp", 0)), true],
-		["DEX", int(cb.get("dex", 0)), false], ["AGI", int(cb.get("agi", 0)), false], ["LUK", int(cb.get("luk", 0)), false],
+	var sub := UiKit.dim("%s · Lv%d" % [_class_name(str(p.get("classId", ""))), int(p.get("level", 1))])
+	sub.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	vb.add_child(sub)
+
+	var main := HBoxContainer.new()
+	main.add_theme_constant_override("separation", 14)
+	# ESQUERDA: coluna de slots · boneco 3D · coluna de slots (igual à Ficha)
+	var doll_row := HBoxContainer.new()
+	doll_row.add_theme_constant_override("separation", 5)
+	doll_row.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	doll_row.add_child(_slot_col(LEFT_SLOTS, eq_by_type))
+	var doll := DollView.new()
+	doll.spin = true
+	doll.custom_minimum_size = Vector2(180, 270)
+	doll.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	doll.tooltip_text = Lang.t("Arraste para girar")
+	doll_row.add_child(doll)
+	doll_row.add_child(_slot_col(RIGHT_SLOTS, eq_by_type))
+	main.add_child(doll_row)
+	# DIREITA: combate + atributos (compacto, label | valor)
+	var stats := VBoxContainer.new()
+	stats.add_theme_constant_override("separation", 4)
+	stats.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	stats.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	var cbd: Dictionary = p.get("combat", {})
+	stats.add_child(UiKit.section("Combate"))
+	stats.add_child(_stat_list([
+		["ATK", int(cbd.get("atk", 0)), true], ["DEF", int(cbd.get("def", 0)), true], ["HP", int(cbd.get("hp", 0)), true],
+		["DEX", int(cbd.get("dex", 0)), false], ["AGI", int(cbd.get("agi", 0)), false], ["LUK", int(cbd.get("luk", 0)), false],
 	]))
 	var at: Dictionary = p.get("attributes", {})
-	vb.add_child(UiKit.section("Atributos"))
-	vb.add_child(_stat_grid([
+	stats.add_child(UiKit.section("Atributos"))
+	stats.add_child(_stat_list([
 		["STR", int(at.get("str", 0)), false], ["DEX", int(at.get("dex", 0)), false], ["CON", int(at.get("con", 0)), false],
 		["AGI", int(at.get("agi", 0)), false], ["LUK", int(at.get("luk", 0)), false],
 	]))
-	var eq: Array = p.get("equipped", [])
-	vb.add_child(UiKit.section("Equipados"))
-	if eq.is_empty():
-		vb.add_child(UiKit.dim(Lang.t("Nada equipado.")))
-	else:
-		var flow := HFlowContainer.new()
-		flow.add_theme_constant_override("h_separation", 6)
-		flow.add_theme_constant_override("v_separation", 6)
-		for it in eq:
-			flow.add_child(_inspect_item_slot(it))
-		vb.add_child(flow)
-	vb.add_child(UiKit.spacer(4))
+	main.add_child(stats)
+	vb.add_child(main)
+	vb.add_child(UiKit.spacer(2))
 	vb.add_child(UiKit.small_btn(Lang.t("Voltar"), _close_dim.bind(dim)))
 	_center_in_dim(dim, pc)
+	await get_tree().process_frame
+	if is_instance_valid(doll):
+		doll.apply(eq, str(p.get("classId", "")), str(p.get("gender", "male")))
 
-func _stat_grid(stats: Array) -> GridContainer:
-	var g := GridContainer.new()
-	g.columns = 3
-	g.add_theme_constant_override("h_separation", 16)
-	g.add_theme_constant_override("v_separation", 3)
-	for s in stats:
-		var col: Color = UiKit.GOLD if bool(s[2]) else UiKit.TEXT
-		g.add_child(UiKit.kv(str(s[0]), str(int(s[1])), col))
-	return g
+# Coluna vertical de slots de equipamento, preenchida com os itens do inspecionado.
+func _slot_col(types: Array, eq_by_type: Dictionary) -> VBoxContainer:
+	var col := VBoxContainer.new()
+	col.add_theme_constant_override("separation", 5)
+	col.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	for t in types:
+		col.add_child(_doll_slot(str(t), eq_by_type))
+	return col
 
-func _inspect_item_slot(it: Dictionary) -> Control:
-	var slot := ItemTooltipCard.new()
-	slot.item = it
-	slot.tooltip_text = " "   # precisa != "" p/ o tooltip rico disparar
-	slot.custom_minimum_size = Vector2(52, 52)
+# Slot estilo inventário: item com borda de raridade + hover rico, ou ícone do slot apagado se vazio.
+func _doll_slot(type: String, eq_by_type: Dictionary) -> Control:
+	var pc := ItemTooltipCard.new()
+	pc.custom_minimum_size = Vector2(50, 50)
+	pc.mouse_filter = Control.MOUSE_FILTER_STOP
 	var sb := StyleBoxFlat.new()
-	sb.bg_color = Color(0.05, 0.045, 0.06)
-	sb.set_corner_radius_all(3)
+	sb.bg_color = Color(0.06, 0.055, 0.07, 0.95)
 	sb.set_border_width_all(2)
-	sb.border_color = UiKit.rarity_color(int(it.get("rarity", 1)))
-	slot.add_theme_stylebox_override("panel", sb)
-	var icon := UiKit.item_icon_for(it, 40)
-	if icon != null:
-		icon.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
-		icon.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-		slot.add_child(icon)
-	return slot
+	sb.set_corner_radius_all(4)
+	sb.set_content_margin_all(3)
+	var it = eq_by_type.get(type, null)
+	if it != null:
+		pc.item = it
+		pc.tooltip_text = " "
+		sb.border_color = UiKit.rarity_color(int(it.get("rarity", 1)))
+		var icon := UiKit.item_icon_for(it, 40)
+		if icon != null:
+			icon.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+			icon.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+			pc.add_child(icon)
+	else:
+		sb.border_color = UiKit.BRONZE
+		pc.tooltip_text = Lang.t(str(SLOT_LABEL.get(type, type)))
+		var icon := TextureRect.new()
+		icon.texture = Icons.item_tex(type)
+		icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+		icon.custom_minimum_size = Vector2(40, 40)
+		icon.modulate = Color(1, 1, 1, 0.28)
+		icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		pc.add_child(icon)
+	pc.add_theme_stylebox_override("panel", sb)
+	return pc
+
+# Lista compacta de stats (label | valor em 2 colunas) — não espalha pela largura.
+func _stat_list(stats: Array) -> GridContainer:
+	var g := GridContainer.new()
+	g.columns = 2
+	g.add_theme_constant_override("h_separation", 16)
+	g.add_theme_constant_override("v_separation", 2)
+	for s in stats:
+		var k := Label.new()
+		k.text = str(s[0])
+		k.add_theme_font_size_override("font_size", 13)
+		k.add_theme_color_override("font_color", UiKit.TEXT_DIM)
+		k.custom_minimum_size = Vector2(40, 0)
+		g.add_child(k)
+		var v := Label.new()
+		v.text = str(int(s[1]))
+		v.add_theme_font_size_override("font_size", 14)
+		v.add_theme_color_override("font_color", UiKit.GOLD if bool(s[2]) else UiKit.TEXT)
+		v.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+		v.custom_minimum_size = Vector2(52, 0)
+		g.add_child(v)
+	return g
 
 # ── Ações do dialog ──
 func _open_inspect(pid: int, pname: String, dim) -> void:
