@@ -1,0 +1,46 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>GIFs de recurso — set completo (37)</title>
+<style>
+  body { background:#15110f; color:#e9d9b8; font:14px/1.5 system-ui,sans-serif; margin:0; padding:28px; }
+  h1 { font-size:18px; color:#d8b86a; font-weight:600; }
+  h2 { font-size:14px; color:#b89a5a; font-weight:600; margin:26px 0 4px; border-bottom:1px solid #3a2e1c; padding-bottom:4px; }
+  p.sub { color:#9a8c70; margin-top:-6px; }
+  .grid { display:flex; flex-wrap:wrap; gap:16px; margin-top:12px; }
+  .card { background:#1d1713; border:1px solid #4a3a22; border-radius:8px; padding:12px; width:132px; text-align:center; }
+  .stage { width:108px; height:108px; margin:0 auto; display:flex; align-items:center; justify-content:center;
+           background:repeating-conic-gradient(#0e0b09 0 25%, #14100d 0 50%) 0 0/20px 20px; border-radius:6px; }
+  .stage img { width:88px; height:88px; image-rendering:pixelated; }
+  .name { margin-top:8px; font-size:12px; font-weight:600; color:#e9d9b8; }
+</style>
+<h1>GIFs de recurso — set completo (37) · passa o mouse nada, elas tocam sozinhas aqui</h1>
+<p class="sub">No jogo a animação dispara no hover do recurso; o estático (frame 0) aparece parado.</p>
+<div id="root"></div>
+<script>
+const ROOT = "../../godot-client/assets/ui/icons/anim/";
+const GROUPS = [
+  ["Minérios", [["copper_ore","Cobre"],["iron_ore","Ferro"],["silver_ore","Prata"],["gold_ore","Ouro"],["mithril_ore","Mithril"]]],
+  ["Barras", [["copper_bar","Cobre"],["iron_bar","Ferro"],["silver_bar","Prata"],["gold_bar","Ouro"],["mithril_bar","Mithril"]]],
+  ["Gemas", [["ruby","Rubi"],["sapphire","Safira"],["emerald","Esmeralda"],["diamond","Diamante"],["amethyst","Ametista"]]],
+  ["Fragmentos", [["ruby_fragment","Rubi"],["sapphire_fragment","Safira"],["emerald_fragment","Esmeralda"],["diamond_fragment","Diamante"],["amethyst_fragment","Ametista"]]],
+  ["Peixes — estamina", [["small_fish","Pequeno"],["salmon","Salmão"],["tuna","Atum"],["shark","Tubarão"],["legendary_fish","Lendário"]]],
+  ["Peixes — vida", [["coral_fish","Coral"],["angel_fish","Anjo"],["spirit_fish","Espírito"],["sacred_fish","Sagrado"],["phoenix_fish","Fênix"]]],
+  ["Materiais", [["leather","Couro"],["monster_core","Núcleo"],["beast_hide","Pele de Besta"]]],
+  ["Essências", [["fire_essence","Fogo"],["water_essence","Água"],["earth_essence","Terra"],["air_essence","Ar"]]],
+];
+const root = document.getElementById("root");
+for (const [title, items] of GROUPS) {
+  const h = document.createElement("h2"); h.textContent = title; root.appendChild(h);
+  const grid = document.createElement("div"); grid.className = "grid"; root.appendChild(grid);
+  for (const [key, name] of items) {
+    const frames = [0,1,2,3,4].map(i => `${ROOT}res_${key}/f${i}.png`);
+    const card = document.createElement("div"); card.className = "card";
+    const stage = document.createElement("div"); stage.className = "stage";
+    const img = document.createElement("img"); img.src = frames[0]; stage.appendChild(img);
+    const nm = document.createElement("div"); nm.className = "name"; nm.textContent = name;
+    card.append(stage, nm); grid.appendChild(card);
+    let i = 0;
+    setInterval(() => { i = (i + 1) % frames.length; img.src = frames[i]; }, 130);
+  }
+}
+</script>

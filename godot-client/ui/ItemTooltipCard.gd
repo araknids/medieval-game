@@ -7,8 +7,9 @@ class_name ItemTooltipCard
 
 var item: Dictionary = {}
 var equipped_slot := false   # slot equipado → rodapé "(clique p/ desequipar)" + sem comparação
+var player_level := 0        # [REQ_LEVEL] nível do jogador → "Nv X" vermelho se o item exige acima
 
 func _make_custom_tooltip(_for_text: String) -> Object:
 	if item.is_empty():
 		return null
-	return UiKit.item_tooltip_panel(item, {"equipped": equipped_slot})
+	return UiKit.item_tooltip_panel(item, {"equipped": equipped_slot, "player_level": player_level})

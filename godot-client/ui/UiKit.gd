@@ -849,7 +849,7 @@ static func item_tooltip_panel(it: Dictionary, opts := {}) -> PanelContainer:
 	nm.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	hrow.add_child(nm)
 	v.add_child(hbar)
-	v.add_child(item_subline(it, 0))
+	v.add_child(item_subline(it, int(opts.get("player_level", 0))))   # [REQ_LEVEL] Nv vermelho se exige nível acima
 	# pills (tags) — só as verdadeiras
 	var tags := HFlowContainer.new(); tags.add_theme_constant_override("h_separation", 5); tags.add_theme_constant_override("v_separation", 3)
 	if is_eq: tags.add_child(_tag_pill("Equipado", GOLD, ""))

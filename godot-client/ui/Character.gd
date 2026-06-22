@@ -771,6 +771,7 @@ func _bag_card(it) -> Control:
 	var rar := int(it.get("rarity", 1))
 	var card := ItemTooltipCard.new()       # [ITEM_TOOLTIP] card com tooltip rico no hover
 	card.item = it
+	card.player_level = int(w.get("level", 0))   # [REQ_LEVEL] "Nv X" vermelho no tooltip se exige nível acima
 	card.tooltip_text = " "                  # != "" senão o _make_custom_tooltip nem dispara
 	card.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
 	var res := UiKit.card_styled(card, UiKit.rarity_color(rar))
@@ -826,7 +827,7 @@ func _open_item_actions(it: Dictionary) -> void:
 	var col := VBoxContainer.new()
 	col.add_theme_constant_override("separation", 8)
 	center.add_child(col)
-	col.add_child(UiKit.item_tooltip_panel(it, {"equipped": false}))   # card rico (detalhe completo)
+	col.add_child(UiKit.item_tooltip_panel(it, {"equipped": false, "player_level": int(w.get("level", 0))}))   # card rico (detalhe completo)
 	var row := HBoxContainer.new()
 	row.add_theme_constant_override("separation", 8)
 	row.alignment = BoxContainer.ALIGNMENT_CENTER
