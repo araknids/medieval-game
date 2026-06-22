@@ -76,6 +76,7 @@ func _render() -> void:
 		c.queue_free()
 	UiKit.hide_loading()
 	UiKit.set_wallet(wallet, warrior)
+	UiKit.set_equipped(inventory)   # [FORJA_HOVER] alimenta o compare (triângulo + tooltip rico) com o equipado
 	# ── Seus materiais ──
 	content.add_child(UiKit.section("📦 Seus materiais"))
 	var mats := _materials_text()
@@ -128,7 +129,7 @@ func _render() -> void:
 	else:
 		var maint := inventory.duplicate()
 		maint.sort_custom(func(a, b): return int(a.get("durability", 100)) < int(b.get("durability", 100)))
-		_grid_section(maint, _maint_card)
+		_grid_section(maint, _maint_card, true, 190.0, 3)   # [FORJA_COMPACTO] grid denso (3 col)
 
 # Monta o grid de cards via UiKit.grid (responsivo — colunas pela largura real, não da janela).
 # builder = func(Dictionary) -> Control; filtra não-dicionários antes (o builder assume Dictionary).
@@ -254,6 +255,37 @@ func _compact_card(col: Color, can: bool, icon: Control, title: String, badge: S
 		vb.add_child(action)
 	return pc
 
+# [FORJA_GIF] Botão de AÇÃO = ícone que ANIMA no hover (set_icon), SEM texto; tooltip diz a ação.
+# Substitui os botões de texto (Craftar/Refinar/Criar Joia/Reparar/Reforjar) por um gif (estilo da nav).
+func _gif_btn(icon_key: String, tip: String, on_click: Callable, px := 30) -> Button:
+	var b := Button.new()
+	b.flat = true
+	b.focus_mode = Control.FOCUS_NONE
+	b.custom_minimum_size = Vector2(px + 10, px + 10)
+	b.tooltip_text = tip
+	b.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
+	var empty := StyleBoxEmpty.new()
+	for s in ["normal", "hover", "pressed", "focus"]:
+		b.add_theme_stylebox_override(s, empty)
+	if Icons.set_icon(b, icon_key):
+		b.expand_icon = true
+		b.add_theme_constant_override("icon_max_width", px)
+	else:
+		b.text = tip
+	b.pressed.connect(on_click)
+	return b
+
+# Fecha o dialog de manutenção ANTES de disparar a ação.
+func _do_repair(id: int, dim: Control) -> void:
+	if is_instance_valid(dim):
+		dim.queue_free()
+	_repair(id)
+
+func _do_reforge(id: int, item_name: String, dim: Control) -> void:
+	if is_instance_valid(dim):
+		dim.queue_free()
+	_confirm_reforge(id, item_name)
+
 func _refine_card(r: Dictionary) -> PanelContainer:
 	var ore := str(r.get("ore", ""))
 	var ore_qty := maxi(1, int(r.get("oreQty", 1)))
@@ -272,34 +304,61 @@ func _refine_card(r: Dictionary) -> PanelContainer:
 		qty.custom_minimum_size = Vector2(66, 0)
 		qty.value_changed.connect(func(v): refine_qty[ore] = int(v))
 		hb.add_child(qty)
-		hb.add_child(UiKit.small_btn("Refinar", _refine.bind(ore)))
+		hb.add_child(_gif_btn("forge", Lang.t("Refinar"), _refine.bind(ore)))   # [FORJA_GIF] gif no lugar do botão
 		action = hb
 	return _compact_card(UiKit.BRONZE, can, icon, str(r.get("barName", "?")), "%d/%d" % [have, ore_qty], UiKit.OK if enough else UiKit.ERR, tip, action)
 
-func _craft_card(r: Dictionary) -> PanelContainer:
+func _craft_card(r: Dictionary) -> Control:
 	var rarity := int(r.get("rarity", 1))
 	var col := UiKit.rarity_color(rarity)
 	var can := bool(r.get("canCraft", false))
 	var sockets := int(r.get("sockets", 0))
-	var icon := UiKit.item_icon_for({"type": str(r.get("slot", "")), "name": str(r.get("name", "")), "outfitTheme": str(r.get("outfitTheme", ""))}, 28)
-	# tooltip: ingredientes (tem/precisa) + stats + nível + sucesso + custo + comparação textual vs equipado
-	var lines: Array = []
+	# [FORJA_HOVER] item SINTÉTICO com os stats da receita → tooltip RICO + comparação IGUAIS à Mochila
+	# (mesmo ItemTooltipCard). A receita (ingredientes/sucesso/custo) entra como "description" (vira a lore).
+	var ing: Array = []
 	for i in r.get("ingredients", []):
 		if i is Dictionary:
 			var need := int(i.get("qty", 1))
-			var have := _resource_qty(str(i.get("type", "")))
-			lines.append("%s %d/%d" % [str(i.get("name", "?")), have, need])
-	var st := _craft_stats(r)
-	if st != "":
-		lines.append(st)
+			var hv := _resource_qty(str(i.get("type", "")))
+			ing.append("%s %d/%d" % [str(i.get("name", "?")), hv, need])
+	var desc := Lang.t("Receita: %s · Forja Lv.%d · Sucesso %d%% · Custo %d bronze") % ["  ".join(ing), int(r.get("levelRequired", 1)), int(r.get("successPct", 0)), int(r.get("bronzeCost", 0))]
+	var item := {
+		"type": str(r.get("slot", "")), "name": str(r.get("name", "")), "rarity": rarity,
+		"attackBonus": int(r.get("atk", 0)), "defenseBonus": int(r.get("def", 0)), "healthBonus": int(r.get("hp", 0)),
+		"strBonus": int(r.get("str", 0)), "dexBonus": int(r.get("dex", 0)), "lukBonus": int(r.get("luk", 0)),
+		"sockets": sockets, "itemLevel": int(r.get("levelRequired", 1)),
+		"outfitTheme": str(r.get("outfitTheme", "")), "description": desc,
+	}
+	var card := ItemTooltipCard.new()   # mesmo card do Inventário → hover idêntico
+	card.item = item
+	card.player_level = int(warrior.get("level", 0))
+	card.tooltip_text = " "
+	var res := UiKit.card_styled(card, col, can)
+	var pc: PanelContainer = res[0]
+	var vb: VBoxContainer = res[1]
+	(pc.get_theme_stylebox("panel") as StyleBoxFlat).set_content_margin_all(7)
+	vb.add_theme_constant_override("separation", 4)
+	var row := HBoxContainer.new(); row.add_theme_constant_override("separation", 8)
+	var ic := UiKit.item_icon_for(item, 28)
+	if ic:
+		row.add_child(ic)
+	var nm := Label.new(); nm.text = str(r.get("name", "?"))
+	nm.add_theme_font_size_override("font_size", 13); nm.add_theme_color_override("font_color", col)
+	nm.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	nm.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	nm.clip_text = true; nm.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+	row.add_child(nm)
+	var arrow := UiKit.compare_arrow(item)   # ▲/▼/= vs equipado (o triângulo verde/vermelho) [FORJA_HOVER]
+	if arrow != null:
+		arrow.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+		row.add_child(arrow)
+	vb.add_child(row)
+	for n in [vb, row, nm, ic]:   # hover na info sobe pro card → tooltip rico; o gif fica clicável
+		if n != null and n is Control:
+			(n as Control).mouse_filter = Control.MOUSE_FILTER_PASS
 	if can:
-		lines.append(Lang.t("Sucesso: %d%% · Custo: %d bronze") % [int(r.get("successPct", 0)), int(r.get("bronzeCost", 0))])
-	lines.append(Lang.t("Forja Lv.%d") % int(r.get("levelRequired", 1)) + ("" if can else Lang.t(" (trava de nível)")))
-	var nm := "%s (%d socket%s)" % [str(r.get("name", "?")), sockets, "" if sockets == 1 else "s"]
-	var action: Control = null
-	if can:
-		action = UiKit.small_btn("Craftar", _craft.bind(str(r.get("id", ""))))
-	return _compact_card(col, can, icon, nm, "" if can else Lang.t("Lv.%d") % int(r.get("levelRequired", 1)), UiKit.ERR, "\n".join(lines), action)
+		vb.add_child(_gif_btn("forge", Lang.t("Craftar"), _craft.bind(str(r.get("id", "")))))   # [FORJA_GIF]
+	return pc
 
 func _gem_card(r: Dictionary) -> PanelContainer:
 	var frag := str(r.get("fragment", ""))
@@ -309,46 +368,95 @@ func _gem_card(r: Dictionary) -> PanelContainer:
 	var tip := Lang.t("%s ×3 → %s\nVocê tem: %d fragmentos") % [str(r.get("fragmentName", frag)), str(r.get("gemName", "")), have]
 	var action: Control = null
 	if can:
-		action = UiKit.small_btn("Criar Joia", _craft_gem.bind(frag))
+		action = _gif_btn("forge", Lang.t("Criar Joia"), _craft_gem.bind(frag))   # [FORJA_GIF]
 	return _compact_card(UiKit.BRONZE, can, icon, str(r.get("gemName", "?")), "%d/3" % have, UiKit.OK if can else UiKit.ERR, tip, action)
 
-func _maint_card(it: Dictionary) -> PanelContainer:
+func _maint_card(it: Dictionary) -> Control:
 	var col := UiKit.rarity_color(int(it.get("rarity", 1)))
-	var res := UiKit.card(col)
+	var card := ItemTooltipCard.new()   # [FORJA_HOVER] mesmo card da Mochila → hover idêntico
+	card.item = it
+	card.player_level = int(warrior.get("level", 0))
+	card.tooltip_text = " "
+	card.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
+	var res := UiKit.card_styled(card, col)
 	var pc: PanelContainer = res[0]
 	var vb: VBoxContainer = res[1]
-	var nm := Label.new()
-	nm.text = str(it.get("name", "?")) + (Lang.t(" · ⚔ equipado") if it.get("equipped", false) else "")
-	nm.add_theme_font_size_override("font_size", 15)
-	nm.add_theme_color_override("font_color", col)
-	nm.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	vb.add_child(nm)
+	(pc.get_theme_stylebox("panel") as StyleBoxFlat).set_content_margin_all(7)
+	vb.add_theme_constant_override("separation", 0)
+	var row := HBoxContainer.new(); row.add_theme_constant_override("separation", 8)
+	var ic := UiKit.item_icon_for(it, 28)
+	if ic:
+		row.add_child(ic)
+	var nm := Label.new(); nm.text = str(it.get("name", "?"))
+	nm.add_theme_font_size_override("font_size", 13); nm.add_theme_color_override("font_color", col)
+	nm.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	nm.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	nm.clip_text = true; nm.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+	row.add_child(nm)
+	var dur := int(it.get("durability", 100))
+	var dl := Label.new(); dl.text = "%d%%" % dur
+	dl.add_theme_font_size_override("font_size", 11)
+	dl.add_theme_color_override("font_color", UiKit.WARN if dur < 100 else UiKit.TEXT_DIM)
+	dl.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	row.add_child(dl)
+	vb.add_child(row)
+	for n in [vb, row, nm, ic]:
+		if n != null and n is Control:
+			(n as Control).mouse_filter = Control.MOUSE_FILTER_PASS
+	card.gui_input.connect(func(e: InputEvent) -> void:
+		if e is InputEventMouseButton and e.pressed and e.button_index == MOUSE_BUTTON_LEFT:
+			_maint_dialog(it))
+	return pc
+
+# [FORJA_MANUT] Clique no item → dialog com o card RICO (igual à Mochila) + Reparar/Reforjar como GIF
+# único que anima no hover (forge / temple), cada um com o custo embaixo. [FORGE_REPAIR_COST] reparo =
+# (100 − durabilidade) × raridade × 5 · reforja = raridade³ × 500.
+func _maint_dialog(it: Dictionary) -> void:
 	var dur := int(it.get("durability", 100))
 	var rarity := int(it.get("rarity", 1))
-	var db := Label.new(); db.text = Lang.t("Durabilidade: %d%%") % dur
-	db.add_theme_font_size_override("font_size", 12)
-	db.add_theme_color_override("font_color", UiKit.WARN if dur < 100 else UiKit.TEXT_DIM)
-	vb.add_child(db)
-	# [FORGE_REPAIR_COST] custo de cada manutenção (espelha SmithingService), SEM emoji:
-	#   reparo  = (100 − durabilidade) × raridade × 5   ·   reforja = raridade³ × 500
-	# Cada ação numa linha: botão (com tooltip explicando) + custo em moedas ao lado.
+	var id := int(it.get("id", 0))
 	var rep_cost := (100 - dur) * rarity * 5
 	var ref_cost := rarity * rarity * rarity * 500
-	var id := int(it.get("id", 0))
+	var dim := ColorRect.new()
+	dim.color = Color(0, 0, 0, 0.62)
+	dim.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	dim.mouse_filter = Control.MOUSE_FILTER_STOP
+	add_child(dim)
+	dim.gui_input.connect(func(e: InputEvent) -> void:
+		if e is InputEventMouseButton and e.pressed:
+			dim.queue_free())
+	var center := CenterContainer.new()
+	center.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	center.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	dim.add_child(center)
+	var vb := VBoxContainer.new(); vb.add_theme_constant_override("separation", 10)
+	center.add_child(vb)
+	var panel := UiKit.item_tooltip_panel(it, {"equipped": bool(it.get("equipped", false)), "player_level": int(warrior.get("level", 0))})
+	panel.mouse_filter = Control.MOUSE_FILTER_STOP   # clique no card não fecha o dialog
+	vb.add_child(panel)
+	var arow := HBoxContainer.new(); arow.add_theme_constant_override("separation", 24)
+	arow.alignment = BoxContainer.ALIGNMENT_CENTER
+	arow.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	if dur < 100:
-		var rrow := HBoxContainer.new(); rrow.add_theme_constant_override("separation", 8)
-		var rb := UiKit.small_btn(Lang.t("Reparar"), _repair.bind(id))
-		rb.tooltip_text = Lang.t("Restaura a durabilidade para 100%")
-		rrow.add_child(rb)
-		rrow.add_child(UiKit.coin_box(rep_cost, 13))
-		vb.add_child(rrow)
-	var frow := HBoxContainer.new(); frow.add_theme_constant_override("separation", 8)
-	var fb := UiKit.small_btn(Lang.t("Reforjar"), _confirm_reforge.bind(id, str(it.get("name", "este item"))), true)
-	fb.tooltip_text = Lang.t("Re-rola os stats do item (irreversível)")
-	frow.add_child(fb)
-	frow.add_child(UiKit.coin_box(ref_cost, 13))
-	vb.add_child(frow)
-	return pc
+		arow.add_child(_maint_action("forge", Lang.t("Reparar"), rep_cost, _do_repair.bind(id, dim)))
+	arow.add_child(_maint_action("temple", Lang.t("Reforjar"), ref_cost, _do_reforge.bind(id, str(it.get("name", "este item")), dim)))
+	vb.add_child(arow)
+
+# Coluna de ação no dialog: GIF que anima no hover (sem botão de texto) + custo + legenda curta.
+func _maint_action(icon_key: String, tip: String, cost: int, on_click: Callable) -> VBoxContainer:
+	var box := VBoxContainer.new(); box.add_theme_constant_override("separation", 3)
+	box.alignment = BoxContainer.ALIGNMENT_CENTER
+	var b := _gif_btn(icon_key, tip, on_click, 44)
+	b.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	box.add_child(b)
+	var cc := UiKit.coin_box(cost, 13)
+	cc.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	box.add_child(cc)
+	var lb := Label.new(); lb.text = tip
+	lb.add_theme_font_size_override("font_size", 11); lb.add_theme_color_override("font_color", UiKit.TEXT_DIM)
+	lb.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	box.add_child(lb)
+	return box
 
 # ── Ações async ───────────────────────────────────────────────────────────────────
 func _refine(ore: String) -> void:
@@ -436,11 +544,3 @@ func _materials_text() -> String:
 			if r is Dictionary and str(r.get("category", "")) == cat and int(r.get("quantity", 0)) > 0:
 				parts.append("%s ×%d" % [str(r.get("displayName", r.get("type", "?"))), int(r.get("quantity", 0))])
 	return "    ".join(parts)
-
-func _craft_stats(r: Dictionary) -> String:
-	var parts: Array = []
-	for pair in [["atk", "ATK"], ["def", "DEF"], ["hp", "HP"], ["str", "STR"], ["dex", "DEX"], ["luk", "LUK"]]:
-		var v := int(r.get(pair[0], 0))
-		if v > 0:
-			parts.append("+%d %s" % [v, pair[1]])
-	return "   ".join(parts)
