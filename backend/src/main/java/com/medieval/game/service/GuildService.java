@@ -79,7 +79,10 @@ public class GuildService {
             throw new IllegalStateException("You already belong to a guild. Saia primeiro.");
         }
 
-        Guild guild = guildRepository.findById(guildId)
+        // [VARREDURA] Lock pessimista: serializa joins concorrentes na MESMA guild (count + entrar é
+        // check-then-act fora do alcance do @Version — o INSERT é na linha do player). A 2ª entrada
+        // bloqueia, conta DEPOIS da 1ª commitar, e respeita o cap.
+        Guild guild = guildRepository.findByIdForUpdate(guildId)
                 .orElseThrow(() -> new IllegalArgumentException("Guild not found."));
 
         int memberCount = playerRepository.countByGuild(guild);
