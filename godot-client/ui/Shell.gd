@@ -66,10 +66,11 @@ var _stam_bar: ProgressBar
 var _stam_lbl: Label
 var _coins: Dictionary = {}     # key -> Label
 # [TOPBAR_REORG] cluster do canto superior direito: Correio · Diário · Config (+ badges)
-var _mail_btn: Button            # ícone troca p/ mail_unread quando há não-lido
+var _mail_btn: Button            # Correio — ícone fixo (mail.png), sem frame-anim; não-lido vira exclamação
+var _mail_badge: Control         # [MAIL_BADGE] exclamação vermelha no canto quando há não-lido
 var _daily_btn: Button           # ganha tom dourado quando dá pra resgatar
 var _heal_btn: Control           # botão de cura — só aparece com HP < 100
-var _buffs_box: HFlowContainer    # badges dos buffs ativos (templo/vip/refeição/encanto/novato/taverna) — linha própria que QUEBRA
+var _buffs_box: GridContainer     # badges dos buffs ativos — GRID compacta ao lado da cura [TOPBAR_BUFFS]
 var _nav_buttons: Dictionary = {}   # nome da tela -> Button (destaque do ativo)
 var _cache := {}        # nome da tela → node (MANTIDA em memória; alterna visibilidade, não recria)
 var _cache_ver := {}    # nome → mutation_count na última atualização (revisita só refaz request se algo mudou)
@@ -115,7 +116,7 @@ func _build_topbar() -> Control:
 	sb.border_width_bottom = 2
 	sb.set_content_margin_all(8)
 	pc.add_theme_stylebox_override("panel", sb)
-	var col := VBoxContainer.new()   # [TOPBAR_BUFFS] coluna: linha principal + linha de buffs abaixo
+	var col := VBoxContainer.new()   # coluna do topbar (linha principal; buffs agora moram NA linha, ao lado da cura)
 	col.add_theme_constant_override("separation", 6)
 	pc.add_child(col)
 	var row := HBoxContainer.new()
@@ -173,6 +174,13 @@ func _build_topbar() -> Control:
 	vit.add_child(_vital_row("stamina", _stam_bar, _stam_lbl, "Estamina — gasta nas ações; enche 100% em 1h (15min com buff de novato)"))
 	row.add_child(vit)
 	row.add_child(_heal_button())   # botão de cura (cruz vermelha pixel) ao lado das barras
+	# [TOPBAR_BUFFS] buffs ao LADO da cura, em GRID compacta (antes era uma linha cheia abaixo do personagem)
+	_buffs_box = GridContainer.new()
+	_buffs_box.columns = 2   # grid compacta (2 col) ao lado da cura, em vez de uma linha cheia
+	_buffs_box.add_theme_constant_override("h_separation", 5)
+	_buffs_box.add_theme_constant_override("v_separation", 4)
+	_buffs_box.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	row.add_child(_buffs_box)
 	# espaçador empurra moedas + cluster pra direita
 	var spacer := Control.new(); spacer.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	row.add_child(spacer)
@@ -185,13 +193,6 @@ func _build_topbar() -> Control:
 	# [TOPBAR_REORG] cluster do canto superior direito: Correio · Diário · Config
 	row.add_child(_divider())
 	row.add_child(_topbar_actions())
-	# [TOPBAR_BUFFS] buffs ativos numa LINHA PRÓPRIA abaixo do topbar — sempre visível (não some
-	# no canto direito como antes) e QUEBRA pra próxima linha quando há vários. Populado em update_topbar.
-	_buffs_box = HFlowContainer.new()
-	_buffs_box.add_theme_constant_override("h_separation", 6)
-	_buffs_box.add_theme_constant_override("v_separation", 4)
-	_buffs_box.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	col.add_child(_buffs_box)
 	return pc
 
 func _coin(key: String) -> HBoxContainer:
@@ -219,16 +220,21 @@ func _divider() -> Control:
 func _topbar_actions() -> Control:
 	var h := HBoxContainer.new(); h.add_theme_constant_override("separation", 6)
 	h.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	_mail_btn = _topbar_icon_btn("mail", "Correio — mensagens e recompensas", func() -> void: _open("Mail"))
+	# [MAIL_BADGE] carta SEM frame-anim (a anim abria a carta e o miolo ficava laranja → "outra cor",
+	# estranho). Fica o ícone fixo + hover-pop; o não-lido vira uma exclamação vermelha no canto.
+	_mail_btn = _topbar_icon_btn("mail", "Correio — mensagens e recompensas", func() -> void: _open("Mail"), false)
+	_mail_badge = _make_alert_badge()
+	_mail_btn.add_child(_mail_badge)
 	h.add_child(_mail_btn)
 	_daily_btn = _topbar_icon_btn("daily", "Recompensa diária", func() -> void: _open("Daily"))
 	h.add_child(_daily_btn)
 	h.add_child(_topbar_icon_btn("settings", "Configurações", func() -> void: _open("Settings")))
 	return h
 
-# Botão de ícone flat 36×36 (sem fundo de botão). Ícone DIRETO + brilho simples no hover —
-# sem o frame-anim do set_icon (que brigaria com a troca de ícone do badge do Correio).
-func _topbar_icon_btn(key: String, tip: String, cb: Callable) -> Button:
+# Botão de ícone flat 36×36 (sem fundo de botão). animate=true → ícone + hover-pop + FRAME-ANIM
+# (engrenagem girando / presente abrindo); animate=false → ícone fixo + só hover-pop (carta, p/ não
+# trocar de cor no hover).
+func _topbar_icon_btn(key: String, tip: String, cb: Callable, animate := true) -> Button:
 	var b := Button.new()
 	b.flat = true
 	b.focus_mode = Control.FOCUS_NONE
@@ -238,12 +244,48 @@ func _topbar_icon_btn(key: String, tip: String, cb: Callable) -> Button:
 	var empty := StyleBoxEmpty.new()
 	for st in ["normal", "hover", "pressed", "focus"]:
 		b.add_theme_stylebox_override(st, empty)
-	if Icons.set_icon(b, key):   # [HOVER_ICON] ícone + hover-pop + FRAME-ANIM (carta abrindo / engrenagem girando / presente)
+	var ok := Icons.set_icon(b, key) if animate else _icon_static_hover(b, key)
+	if ok:
 		b.add_theme_constant_override("icon_max_width", 30)
 	else:
 		b.text = key.substr(0, 1).to_upper()   # fallback até o PNG importar
 	b.pressed.connect(cb)
 	return b
+
+# Ícone estático no botão + só o hover-pop (cresce/clareia), SEM o frame-anim que troca os quadros.
+func _icon_static_hover(b: Button, key: String) -> bool:
+	var t := Icons.tex(key)
+	if t == null:
+		return false
+	b.icon = t
+	b.expand_icon = true
+	Icons.add_hover(b, Icons.HOVER_GROW_BTN, Icons.HOVER_BRIGHT_BTN)
+	return true
+
+# [MAIL_BADGE] Selo de alerta: exclamação vermelha no canto superior direito do ícone. Começa oculto.
+func _make_alert_badge() -> Control:
+	var badge := PanelContainer.new()
+	badge.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	# canto superior direito do botão 36×36, estourando levemente pra fora
+	badge.anchor_left = 1.0; badge.anchor_right = 1.0
+	badge.anchor_top = 0.0; badge.anchor_bottom = 0.0
+	badge.offset_left = -15; badge.offset_top = -3
+	badge.offset_right = 2;  badge.offset_bottom = 14
+	var sb := StyleBoxFlat.new()
+	sb.bg_color = Color(0.86, 0.14, 0.11)
+	sb.set_corner_radius_all(9)
+	sb.border_color = Color(1, 1, 1, 0.9); sb.set_border_width_all(1)
+	badge.add_theme_stylebox_override("panel", sb)
+	var l := Label.new()
+	l.text = "!"
+	l.add_theme_font_size_override("font_size", 11)
+	l.add_theme_color_override("font_color", Color(1, 1, 1))
+	l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	l.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	l.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	badge.add_child(l)
+	badge.visible = false
+	return badge
 
 func _mini_bar(fill: Color, w: int) -> ProgressBar:
 	var pb := ProgressBar.new()
@@ -628,13 +670,11 @@ func update_topbar(w: Dictionary) -> void:
 	for key in _coins:
 		var field: String = "soulStones" if key == "soulstone" else str(key)
 		_coins[key].text = str(int(w.get(field, 0)))
-	# [TOPBAR_REORG][MAIL_BADGE] Correio troca o ícone quando há não-lido (null-safe: 0 até o backend mandar unreadMail)
-	if _mail_btn != null and _mail_btn.icon != null:
+	# [MAIL_BADGE] não-lido vira EXCLAMAÇÃO vermelha no canto (ícone da carta fica fixo, sem trocar de cor)
+	if _mail_btn != null:
 		var unread := int(w.get("unreadMail", 0))
-		var mu := Icons.tex("mail_unread")
-		var rest_tex: Texture2D = (mu if (unread > 0 and mu != null) else Icons.tex("mail"))
-		_mail_btn.icon = rest_tex
-		_mail_btn.set_meta("anim_rest", rest_tex)   # [HOVER_ICON] _anim_stop volta pra cá (mantém o não-lido depois do hover)
+		if _mail_badge != null:
+			_mail_badge.visible = unread > 0
 		_mail_btn.tooltip_text = ("Correio — %d não lida(s)" % unread) if unread > 0 else "Correio — mensagens e recompensas"
 	# (Badge do Diário "dá pra resgatar" adiado — precisa de arte/ícone próprio p/ não brigar com o hover-modulate.)
 	_refresh_buffs(w)
@@ -665,18 +705,8 @@ func _refresh_buffs(w: Dictionary) -> void:
 	var tav := float(w.get("tavernBuffPct", 0.0))
 	if tav > 0.0:
 		_buffs_box.add_child(_buff_badge_icon("tavern", "+%.2f%%" % tav, Lang.t("Buff da Taverna: +%.2f%% em TODOS os stats — %s") % [tav, _fmt_left(int(w.get("tavernBuffSecondsLeft", 0)))]))
-	# [TOPBAR_BUFFS] prefixo "Buffs:" só quando há algum; esconde a linha inteira se não há nenhum
-	if _buffs_box.get_child_count() > 0:
-		var lbl := Label.new()
-		lbl.text = Lang.t("Buffs:")
-		lbl.add_theme_font_size_override("font_size", 12)
-		lbl.add_theme_color_override("font_color", UiKit.TEXT_DIM)
-		lbl.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-		_buffs_box.add_child(lbl)
-		_buffs_box.move_child(lbl, 0)
-		_buffs_box.visible = true
-	else:
-		_buffs_box.visible = false
+	# [TOPBAR_BUFFS] grid de badges ao lado da cura; some quando não há nenhum buff (sem prefixo de texto)
+	_buffs_box.visible = _buffs_box.get_child_count() > 0
 
 func _buff_badge(text: String, tip: String) -> Control:
 	var pc := PanelContainer.new()
