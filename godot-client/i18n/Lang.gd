@@ -38,6 +38,9 @@ const EN := {
 	"Fechar": "Close", "Abrir": "Open", "Enviar": "Send", "Remover": "Remove", "Resetar": "Reset",
 	"Proteger": "Protect", "Refinar": "Refine", "Reforjar": "Reforge", "♻ Reforjar": "♻ Reforge",
 	"Craftar": "Craft", "Beber": "Drink", "Escolher": "Choose", "Transferir": "Transfer", "Expulsar": "Kick",
+	"Guardar": "Store",   # [INV_COMPACTO] popup de ações do slot
+	# [INV_COMPACTO] chips de ordenação da mochila
+	"Raridade": "Rarity", "Tipo": "Type", "Melhoria": "Upgrade", "Valor": "Value",
 	"Deletar": "Delete", "🗑 Deletar": "🗑 Delete", "Declarar": "Declare", "Entrar": "Enter", "Sair": "Exit",
 	"senha": "password", "Conectando…": "Connecting…",
 	"🚪 Sair": "🚪 Leave", "Usar título": "Use title", "+ Aprender": "+ Learn", "Iniciar Quest": "Start Quest",
@@ -280,8 +283,8 @@ const EN := {
 	"%s contra %s%s · placar %d×%d": "%s vs %s%s · score %d×%d",
 	"Buff de Novato: estamina e HP regeneram 4× mais rápido — %dh restantes": "Newbie Buff: stamina and HP regenerate 4× faster — %dh left",
 	"Buff da Taverna: +%.2f%% em TODOS os stats — %s": "Tavern Buff: +%.2f%% to ALL stats — %s",
-	"Arma encantada (%s): ±25%% por elemento — %s": "Enchanted weapon (%s): ±25%% per element — %s",
-	"Armadura encantada (%s): ±25%% por elemento — %s": "Enchanted armor (%s): ±25%% per element — %s",
+	"Arma encantada — %s\n%s": "Enchanted weapon — %s\n%s",
+	"Armadura encantada — %s\n%s": "Enchanted armor — %s\n%s",
 	"Bem Alimentado: %s — %s": "Well Fed: %s — %s",
 	"Bênção do Templo: %s — %s": "Temple Blessing: %s — %s",
 	"Bênção VIP (2º slot): %s — %s": "VIP Blessing (2nd slot): %s — %s",

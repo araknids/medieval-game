@@ -96,6 +96,8 @@ func _render() -> void:
 		if craft_category != "all" and str(r.get("category", "")) != craft_category: continue   # [FORJA_FILTRO] armas/armadura/acessórios
 		if craft_filter > 0 and int(r.get("rarity", 1)) != craft_filter: continue
 		filtered.append(r)
+	if craft_category == "all":
+		filtered = _interleave_by_category(filtered)   # [FORJA_FILTRO_TODAS] senão a 1ª página vira "só armas"
 	var total_pages := maxi(1, (filtered.size() + CRAFT_PER_PAGE - 1) / CRAFT_PER_PAGE)
 	craft_page = clampi(craft_page, 0, total_pages - 1)
 	var has_next := (craft_page + 1) * CRAFT_PER_PAGE < filtered.size()
@@ -165,6 +167,27 @@ func _set_category(cat: String) -> void:
 	craft_category = cat
 	craft_page = 0   # troca de categoria volta pra 1ª página
 	_render()
+
+# [FORJA_FILTRO_TODAS] As receitas vêm ordenadas por nível e as ARMAS (nível-base do tier) ficam todas
+# na frente das de armadura (+5) → em "Todas" a 1ª página parecia "só armas". Intercala em rodízio
+# arma → armadura → acessório (cada bucket já em ordem de nível) p/ cada página mostrar um mix.
+func _interleave_by_category(rows: Array) -> Array:
+	var weapon: Array = []
+	var armor: Array = []
+	var accessory: Array = []
+	for r in rows:
+		match str(r.get("category", "armor")):
+			"weapon": weapon.append(r)
+			"accessory": accessory.append(r)
+			_: armor.append(r)
+	var out: Array = []
+	var i := 0
+	while i < weapon.size() or i < armor.size() or i < accessory.size():
+		if i < weapon.size(): out.append(weapon[i])
+		if i < armor.size(): out.append(armor[i])
+		if i < accessory.size(): out.append(accessory[i])
+		i += 1
+	return out
 
 func _rarity_chip(label: String, rar: int) -> Button:
 	var b := UiKit.small_btn(label, _set_filter.bind(rar))

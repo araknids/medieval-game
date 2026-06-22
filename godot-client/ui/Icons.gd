@@ -104,11 +104,11 @@ const ICON_TIP := {
 	"attr_luck": ["Sorte — chance de crítico", "Luck — critical hit chance"],
 	"attr_intellect": ["Intelecto — reservado p/ o Mago", "Intellect — reserved for the Mage"],
 	"stat_atk": ["Ataque — dano por golpe", "Attack — damage per hit"],
-	# Elementos (roda: Fogo→Ar→Terra→Água→Fogo)
-	"elem_fire": ["Fogo — vence Ar, perde p/ Água", "Fire — beats Air, loses to Water"],
-	"elem_water": ["Água — vence Fogo, perde p/ Terra", "Water — beats Fire, loses to Earth"],
-	"elem_earth": ["Terra — vence Água, perde p/ Ar", "Earth — beats Water, loses to Air"],
-	"elem_air": ["Ar — vence Terra, perde p/ Fogo", "Air — beats Earth, loses to Fire"],
+	# Elementos (roda: Fogo→Ar→Terra→Água→Fogo) — texto igual ao do Templo [ELEMENTOS]
+	"elem_fire": ["Fogo — +25% de dano vs Ar · −25% vs Água", "Fire — +25% damage vs Air · −25% vs Water"],
+	"elem_water": ["Água — +25% de dano vs Fogo · −25% vs Terra", "Water — +25% damage vs Fire · −25% vs Earth"],
+	"elem_earth": ["Terra — +25% de dano vs Água · −25% vs Ar", "Earth — +25% damage vs Water · −25% vs Air"],
+	"elem_air": ["Ar — +25% de dano vs Terra · −25% vs Fogo", "Air — +25% damage vs Earth · −25% vs Fire"],
 	# Slots de equipamento
 	"slot_weapon": ["Arma", "Weapon"], "slot_helmet": ["Elmo", "Helmet"],
 	"slot_chest": ["Peitoral", "Chest armor"], "slot_legs": ["Calças", "Leggings"],
