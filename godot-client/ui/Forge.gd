@@ -348,17 +348,119 @@ func _craft_card(r: Dictionary) -> Control:
 	nm.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	nm.clip_text = true; nm.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 	row.add_child(nm)
+	var lvl := Label.new(); lvl.text = Lang.t("Lv.%d") % int(r.get("levelRequired", 1))   # igual ao "Nv X" da mochila
+	lvl.add_theme_font_size_override("font_size", 11)
+	lvl.add_theme_color_override("font_color", UiKit.TEXT_DIM if can else UiKit.ERR)   # vermelho se nível trava
+	lvl.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	lvl.mouse_filter = Control.MOUSE_FILTER_PASS
+	row.add_child(lvl)
 	var arrow := UiKit.compare_arrow(item)   # ▲/▼/= vs equipado (o triângulo verde/vermelho) [FORJA_HOVER]
 	if arrow != null:
 		arrow.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 		row.add_child(arrow)
 	vb.add_child(row)
-	for n in [vb, row, nm, ic]:   # hover na info sobe pro card → tooltip rico; o gif fica clicável
+	for n in [vb, row, nm, ic]:   # hover na info sobe pro card → tooltip rico (igual à mochila)
 		if n != null and n is Control:
 			(n as Control).mouse_filter = Control.MOUSE_FILTER_PASS
-	if can:
-		vb.add_child(_gif_btn("forge", Lang.t("Craftar"), _craft.bind(str(r.get("id", "")))))   # [FORJA_GIF]
+	# clique → dialog de craft (igual ao item da mochila: clica e abre as opções) [FORJA_CRAFT_DIALOG]
+	card.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
+	card.gui_input.connect(func(e: InputEvent) -> void:
+		if e is InputEventMouseButton and e.pressed and e.button_index == MOUSE_BUTTON_LEFT:
+			_craft_dialog(r))
 	return pc
+
+# [FORJA_CRAFT_DIALOG] Clique no item de craft → dialog (1 card só) com o painel RICO + ingredientes +
+# QUANTIDADE pelos insumos do player + o GIF de craftar (anima no hover). Backend crafta 1 por vez → loop.
+func _craft_dialog(r: Dictionary) -> void:
+	var rarity := int(r.get("rarity", 1))
+	var can := bool(r.get("canCraft", false))
+	var item := {
+		"type": str(r.get("slot", "")), "name": str(r.get("name", "")), "rarity": rarity,
+		"attackBonus": int(r.get("atk", 0)), "defenseBonus": int(r.get("def", 0)), "healthBonus": int(r.get("hp", 0)),
+		"strBonus": int(r.get("str", 0)), "dexBonus": int(r.get("dex", 0)), "lukBonus": int(r.get("luk", 0)),
+		"sockets": int(r.get("sockets", 0)), "itemLevel": int(r.get("levelRequired", 1)),
+		"outfitTheme": str(r.get("outfitTheme", "")),
+	}
+	# quantos dá p/ craftar pelos INSUMOS (mín entre os ingredientes); cap p/ não fazer loop gigante
+	var maxc := 99
+	for i in r.get("ingredients", []):
+		if i is Dictionary:
+			var need := maxi(1, int(i.get("qty", 1)))
+			maxc = mini(maxc, _resource_qty(str(i.get("type", ""))) / need)
+	maxc = clampi(maxc, 0, 50)
+	var dim := ColorRect.new()
+	dim.color = Color(0, 0, 0, 0.62)
+	dim.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	dim.mouse_filter = Control.MOUSE_FILTER_STOP
+	add_child(dim)
+	dim.gui_input.connect(func(e: InputEvent) -> void:
+		if e is InputEventMouseButton and e.pressed:
+			dim.queue_free())
+	var center := CenterContainer.new()
+	center.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	center.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	dim.add_child(center)
+	var res := UiKit.card(UiKit.rarity_color(rarity))
+	var card_pc: PanelContainer = res[0]
+	var dvb: VBoxContainer = res[1]
+	card_pc.mouse_filter = Control.MOUSE_FILTER_STOP
+	dvb.add_theme_constant_override("separation", 8)
+	center.add_child(card_pc)
+	var panel := UiKit.item_tooltip_panel(item, {"equipped": false, "player_level": int(warrior.get("level", 0))})
+	panel.add_theme_stylebox_override("panel", StyleBoxEmpty.new())   # sem borda interna → parte do dialog
+	dvb.add_child(panel)
+	for i in r.get("ingredients", []):   # ingredientes (verde/vermelho)
+		if i is Dictionary:
+			var need := int(i.get("qty", 1))
+			var hv := _resource_qty(str(i.get("type", "")))
+			var il := Label.new(); il.text = "%s  %d/%d" % [str(i.get("name", "?")), hv, need]
+			il.add_theme_font_size_override("font_size", 12)
+			il.add_theme_color_override("font_color", UiKit.OK if hv >= need else UiKit.ERR)
+			il.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+			dvb.add_child(il)
+	if not can:
+		dvb.add_child(UiKit.dim(Lang.t("Forja Lv.%d — nível insuficiente") % int(r.get("levelRequired", 1))))
+		return
+	if maxc < 1:
+		dvb.add_child(UiKit.dim(Lang.t("Sem materiais suficientes.")))
+		return
+	var info := HBoxContainer.new(); info.add_theme_constant_override("separation", 6)
+	info.alignment = BoxContainer.ALIGNMENT_CENTER
+	var ia := Label.new(); ia.text = Lang.t("Sucesso %d%% · cada:") % int(r.get("successPct", 0))
+	ia.add_theme_font_size_override("font_size", 12); ia.add_theme_color_override("font_color", UiKit.TEXT_DIM)
+	ia.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	info.add_child(ia)
+	info.add_child(UiKit.coin_box(int(r.get("bronzeCost", 0)), 13))
+	dvb.add_child(info)
+	var qrow := HBoxContainer.new(); qrow.add_theme_constant_override("separation", 10)
+	qrow.alignment = BoxContainer.ALIGNMENT_CENTER
+	qrow.add_child(UiKit.dim(Lang.t("Qtd (máx %d):") % maxc))
+	var qty := SpinBox.new(); qty.min_value = 1; qty.max_value = maxc; qty.value = 1
+	qty.custom_minimum_size = Vector2(80, 0)
+	qrow.add_child(qty)
+	var cbtn := _gif_btn("forge", Lang.t("Craftar"), func() -> void: _craft_n(str(r.get("id", "")), int(qty.value), dim))
+	cbtn.add_theme_constant_override("icon_max_width", 40)   # gif maior no dialog
+	cbtn.custom_minimum_size = Vector2(50, 50)
+	qrow.add_child(cbtn)
+	dvb.add_child(qrow)
+
+# Crafta a receita N vezes (backend é 1 por vez); para num erro (sem material/bag cheia). [FORJA_CRAFT_DIALOG]
+func _craft_n(recipe_id: String, n: int, dim: Control) -> void:
+	if busy:
+		return
+	if is_instance_valid(dim):
+		dim.queue_free()
+	busy = true
+	var ok_count := 0
+	for i in n:
+		var r = await Api.smithing_craft(recipe_id)
+		if not (r.get("ok") and r.get("json") is Dictionary):
+			break   # erro (sem material / bag cheia) → para o lote
+		if bool(r["json"].get("success", false)):
+			ok_count += 1
+	busy = false
+	await _refresh()
+	UiKit.toast(self, Lang.t("Craftado: %d de %d") % [ok_count, n], "forge", 1)
 
 func _gem_card(r: Dictionary) -> PanelContainer:
 	var frag := str(r.get("fragment", ""))
@@ -429,18 +531,23 @@ func _maint_dialog(it: Dictionary) -> void:
 	center.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	center.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	dim.add_child(center)
-	var vb := VBoxContainer.new(); vb.add_theme_constant_override("separation", 10)
-	center.add_child(vb)
+	# UM card de dialog: detalhe do item (painel SEM borda própria) + ações DENTRO dele. [FORJA_MANUT]
+	var res := UiKit.card(UiKit.rarity_color(rarity))
+	var card_pc: PanelContainer = res[0]
+	var dvb: VBoxContainer = res[1]
+	card_pc.mouse_filter = Control.MOUSE_FILTER_STOP   # clique no card não fecha
+	dvb.add_theme_constant_override("separation", 10)
+	center.add_child(card_pc)
 	var panel := UiKit.item_tooltip_panel(it, {"equipped": bool(it.get("equipped", false)), "player_level": int(warrior.get("level", 0))})
-	panel.mouse_filter = Control.MOUSE_FILTER_STOP   # clique no card não fecha o dialog
-	vb.add_child(panel)
+	panel.add_theme_stylebox_override("panel", StyleBoxEmpty.new())   # tira a borda interna → vira parte do dialog
+	dvb.add_child(panel)
 	var arow := HBoxContainer.new(); arow.add_theme_constant_override("separation", 24)
 	arow.alignment = BoxContainer.ALIGNMENT_CENTER
 	arow.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	if dur < 100:
 		arow.add_child(_maint_action("forge", Lang.t("Reparar"), rep_cost, _do_repair.bind(id, dim)))
 	arow.add_child(_maint_action("temple", Lang.t("Reforjar"), ref_cost, _do_reforge.bind(id, str(it.get("name", "este item")), dim)))
-	vb.add_child(arow)
+	dvb.add_child(arow)
 
 # Coluna de ação no dialog: GIF que anima no hover (sem botão de texto) + custo + legenda curta.
 func _maint_action(icon_key: String, tip: String, cost: int, on_click: Callable) -> VBoxContainer:
@@ -483,20 +590,6 @@ func _refine(ore: String) -> void:
 	else:
 		await _refresh_after_action()
 	UiKit.toast(self, msg, icon, 1)     # modal central com o ícone da barra + XP, fecha sozinho
-
-func _craft(recipe_id: String) -> void:
-	if busy: return
-	busy = true
-	var r = await Api.smithing_craft(recipe_id)
-	# craft pode falhar (200 com success=false) — mostra a mensagem do servidor
-	if r.get("ok") and r.get("json") is Dictionary:
-		var j: Dictionary = r["json"]
-		var ok := bool(j.get("success", false))
-		busy = false
-		await _refresh_after_action()
-		UiKit.flash(status, str(j.get("message", "")), 1 if ok else 2)
-	else:
-		UiKit.show_error(status, r); busy = false
 
 func _craft_gem(frag: String) -> void:
 	if busy: return

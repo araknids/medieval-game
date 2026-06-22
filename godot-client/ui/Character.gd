@@ -178,9 +178,7 @@ func _slot_frame(type: String) -> PanelContainer:
 	icon.modulate = Color(1, 1, 1, 0.30)   # vazio = apagado
 	pc.add_child(icon)
 	pc.tooltip_text = Lang.t(str(SLOT_LABEL.get(type, type)))
-	pc.gui_input.connect(func(e: InputEvent) -> void:
-		if e is InputEventMouseButton and e.pressed and e.button_index == MOUSE_BUTTON_LEFT:
-			_slot_clicked(type))
+	# [SEM_UNEQUIP_CLICK] clicar no slot NÃO desequipa mais (a pedido) — troca-se equipando outro item.
 	_slots[type] = {"frame": pc, "icon": icon, "item_id": 0}
 	return pc
 
