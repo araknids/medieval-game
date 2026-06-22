@@ -282,9 +282,12 @@ public class InventoryService {
             log.warn("[InventoryService] player={} REJECTED: item {} is PvP-locked (exposed)", player.getId(), itemId);
             throw new IllegalStateException("Item exposto no PvP — não pode vender enquanto você está flagged.");
         }
+        // [SELL_PRICE_FIX] itens antigos vindos de mail tinham sellPrice=0 (bug corrigido no MailService).
+        // Fallback: preço 0 = não-setado → usa o padrão por raridade, p/ não vender por 0 bronze.
+        long base = item.getSellPrice() > 0 ? item.getSellPrice() : dropSellPrice(item.getRarity());
         // Preço efetivo escala com a durabilidade (piso 30%) — evita "lavar" o desgaste
         // vendendo um item surrado pelo preço cheio em vez de reparar. [AUDITORIA M1]
-        long effectivePrice = Math.round(item.getSellPrice() * Math.max(0.30, item.getDurability() / 100.0));
+        long effectivePrice = Math.round(base * Math.max(0.30, item.getDurability() / 100.0));
         int sellBonus = abilityService.sellPriceBonusPct(player); // [MERCADOR] Haggler
         if (sellBonus > 0) effectivePrice = Math.round(effectivePrice * (1 + sellBonus / 100.0));
         player.addBronzeAmount(effectivePrice); // sell price é em bronze
@@ -504,6 +507,14 @@ public class InventoryService {
      *  difícil no nível dele — só o ITEM que ele larga é capado perto do nível do jogador. [BALANCE_ECON] */
     public static int cappedItemLevel(int rawLevel, int playerLevel) {
         return Math.max(1, Math.min(rawLevel, playerLevel + ITEM_LEVEL_LEAD));
+    }
+
+    /** [SELL_PRICE_FIX] Preço de venda por raridade — mesma tabela dos drops (quest/zona/chefe).
+     *  Centralizado p/ o claim de mail, que antes passava sellPrice=0 → item vendia por 0 bronze. */
+    public static long dropSellPrice(int rarity) {
+        return switch (rarity) {
+            case 5 -> 2500L; case 4 -> 1000L; case 3 -> 400L; case 2 -> 150L; default -> 25L;
+        };
     }
 
     /** Tabela de raridade do drop comum (Kingdom + Delve) — menos Épico/Lendário p/ não inundar o mercado.

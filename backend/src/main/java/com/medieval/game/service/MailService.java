@@ -209,7 +209,7 @@ public class MailService {
         InventoryItem item = inventoryService.make(
                 player, mail.getItemName(), type,
                 mail.getItemAtk(), mail.getItemDef(), mail.getItemHp(),
-                mail.getItemRarity(), 0L,
+                mail.getItemRarity(), InventoryService.dropSellPrice(mail.getItemRarity()),   // [SELL_PRICE_FIX] era 0L
                 mail.getItemLevel(), mail.getItemDescription(), mail.getItemOrigin());
 
         mail.setItemCollected(true);
@@ -296,7 +296,7 @@ public class MailService {
                     ItemType type = ItemType.valueOf(mail.getItemType());
                     inventoryService.make(player, mail.getItemName(), type,
                             mail.getItemAtk(), mail.getItemDef(), mail.getItemHp(),
-                            mail.getItemRarity(), 0L, mail.getItemLevel(),
+                            mail.getItemRarity(), InventoryService.dropSellPrice(mail.getItemRarity()), mail.getItemLevel(),   // [SELL_PRICE_FIX] era 0L
                             mail.getItemDescription(), mail.getItemOrigin());
                     mail.setItemCollected(true);
                     items++; changed = true;
