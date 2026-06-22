@@ -209,7 +209,12 @@ public class GuildWarService {
 
     @Transactional
     public void resolve(GuildWar war) {
-        if (war.getStatus() != GuildWar.Status.ACTIVE) return;
+        // [VARREDURA] Claim ATÔMICO (ACTIVE→RESOLVED via UPDATE guardado): só a tx que ganha (rowcount==1)
+        // aplica a recompensa. Substitui o `if status != ACTIVE` (check-then-act não-atômico) que deixava
+        // 2 requests concorrentes / 2 instâncias resolverem a MESMA guerra e roubarem o gold 2×. O UPDATE
+        // serializa via lock de linha: o perdedor bloqueia, re-lê RESOLVED e sai com rowcount 0.
+        if (warRepo.claimForResolution(war.getId(), GuildWar.Status.ACTIVE, GuildWar.Status.RESOLVED) == 0) return;
+        war.setStatus(GuildWar.Status.RESOLVED); // alinha a entidade em memória com o que o claim já persistiu
         Guild gA = guildRepository.findById(war.getGuildA().getId()).orElseThrow();
         Guild gB = guildRepository.findById(war.getGuildB().getId()).orElseThrow();
 

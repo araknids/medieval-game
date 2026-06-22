@@ -147,12 +147,12 @@ public class AuctionService {
     // ── Expiração ────────────────────────────────────────────────────────────────
     @Transactional
     public void expire(AuctionListing l) {
-        if (l.getStatus() != Status.ACTIVE) return;
+        // [VARREDURA] Claim atômico (ACTIVE→EXPIRED): substitui o check-then-act `if status != ACTIVE`.
+        // O perdedor sai com rowcount 0 (sem lançar) → não envenena o batch de expiração.
+        if (listingRepo.claimStatus(l.getId(), Status.ACTIVE, Status.EXPIRED) == 0) return;
         InventoryItem item = l.getItem();
         item.setListed(false); // volta pro vendedor (permitido mesmo com a bag cheia — é item dele)
         inventoryRepository.save(item);
-        l.setStatus(Status.EXPIRED);
-        listingRepo.save(l);
         playerRepository.findById(l.getSeller().getId()).ifPresent(s ->
                 mailService.sendSystemMail(s, "🏪 Your '" + item.getName() + "' didn't sell in 2 days and was returned to your bag."));
         log.info("[AuctionService] listing={} EXPIRED (returned to seller)", l.getId());

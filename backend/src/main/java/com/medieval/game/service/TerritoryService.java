@@ -170,13 +170,13 @@ public class TerritoryService {
     public void resolveDueCyclesForTerritory(Kingdom territory, long current) {
         TerritoryControl control = getTerritory(territory);
         long last = control.getLastResolvedCycleId();
-        if (last <= 0) {
-            // Primeira execução / pós-migração: marca o ponto atual sem reprocessar histórico.
-            control.setLastResolvedCycleId(current);
-            controlRepo.save(control);
-            return;
-        }
-        if (last >= current) return; // nada novo
+        if (last >= current) return; // nada novo (já resolvido)
+
+        // [VARREDURA] Claim ATÔMICO do avanço last→current: serializa instâncias concorrentes (scheduler em
+        // multi-instância / deploy rolling). Só a que vence (rowcount==1) resolve; as outras saem sem
+        // reaplicar upkeep/reward. Substitui o check-then-act (ler last → resolver → set+save).
+        if (controlRepo.claimCycle(territory, last, current) == 0) return;
+        if (last <= 0) return; // primeira execução/pós-migração: o claim só marcou o ponto, sem reprocessar histórico
 
         long from = Math.max(last + 1, current - MAX_CATCHUP_CYCLES + 1);
         if (from > last + 1) {
@@ -186,10 +186,7 @@ public class TerritoryService {
         for (long cycle = from; cycle <= current; cycle++) {
             resolveTerritory(territory, cycle);
         }
-        // Re-busca: resolveTerritory pode ter trocado o controle/streak
-        TerritoryControl after = getTerritory(territory);
-        after.setLastResolvedCycleId(current);
-        controlRepo.save(after);
+        // lastResolvedCycleId já = current (claim); resolveTerritory persiste controle/streak à parte.
     }
 
     @Transactional
