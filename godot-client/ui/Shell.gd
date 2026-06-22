@@ -156,12 +156,20 @@ func _build_topbar() -> Control:
 	_sub_lbl.add_theme_color_override("font_color", UiKit.TEXT_DIM)
 	idv.add_child(_sub_lbl)
 	_xp_bar = _mini_bar(Color(0.42, 0.50, 0.85), 150)
-	_xp_bar.tooltip_text = "Experiência — enche e sobe de nível"
+	_xp_bar.mouse_filter = Control.MOUSE_FILTER_STOP   # [XP_INLINE] recebe o hover → tooltip com o "faltam X"
 	idv.add_child(_xp_bar)
-	_xp_lbl = Label.new()   # exp atual / limiar do nível + quanto falta pro próximo
-	_xp_lbl.add_theme_font_size_override("font_size", 11)
-	_xp_lbl.add_theme_color_override("font_color", UiKit.TEXT_DIM)
-	idv.add_child(_xp_lbl)
+	# [XP_INLINE] valor X/Y DENTRO da barra (a label "Faltam..." de baixo saiu → coluna de identidade
+	# mais baixa, encosta na altura do busto). O "quanto falta" agora é o tooltip da própria barra.
+	_xp_lbl = Label.new()
+	_xp_lbl.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	_xp_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_xp_lbl.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	_xp_lbl.add_theme_font_size_override("font_size", 10)
+	_xp_lbl.add_theme_color_override("font_color", Color(1, 1, 1, 0.94))
+	_xp_lbl.add_theme_color_override("font_outline_color", Color(0, 0, 0, 0.85))
+	_xp_lbl.add_theme_constant_override("outline_size", 2)
+	_xp_lbl.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_xp_bar.add_child(_xp_lbl)
 	# [TOPBAR_REORG] HP + estamina logo após a identidade (ícone | barra | valor) + cura ao lado [HEAL]
 	row.add_child(_divider())
 	var vit := VBoxContainer.new(); vit.add_theme_constant_override("separation", 5)
@@ -651,8 +659,8 @@ func update_topbar(w: Dictionary) -> void:
 	_xp_bar.max_value = maxi(1, need)
 	_xp_bar.value = clampi(xp, 0, need)
 	if _xp_lbl != null:
-		_xp_lbl.text = Lang.t("Faltam %d de exp pro próximo nível") % maxi(0, need - xp)
-	_xp_bar.tooltip_text = Lang.t("Experiência: %d / %d (faltam %d pro próximo nível)") % [xp, need, maxi(0, need - xp)]
+		_xp_lbl.text = "%d/%d" % [clampi(xp, 0, need), maxi(1, need)]   # [XP_INLINE] valor dentro da barra
+	_xp_bar.tooltip_text = Lang.t("Experiência: %d / %d — faltam %d pro próximo nível") % [xp, need, maxi(0, need - xp)]
 	var hp := int(w.get("hpPercent", w.get("currentHp", 100)))
 	_hp_bar.value = clampi(hp, 0, 100)
 	if _heal_btn != null:
@@ -696,10 +704,13 @@ func _refresh_buffs(w: Dictionary) -> void:
 		_buffs_box.add_child(_buff_badge(meal, Lang.t("Bem Alimentado: %s — %s") % [meal, _fmt_left(int(w.get("mealBuffSecondsLeft", 0)))]))
 	var we := str(w.get("weaponElement", ""))
 	if we != "":
-		_buffs_box.add_child(_buff_badge_icon("elem_" + we.to_lower(), "⚔", Lang.t("Arma encantada (%s): ±25%% por elemento — %s") % [we, _fmt_left(int(w.get("weaponElementSecondsLeft", 0)))]))
+		# [ELEMENTOS] tooltip estilo Templo: linha do que é + tempo, depois a roda (+25% vs X · −25% vs Y) via Icons.tip
+		var wk := "elem_" + we.to_lower()
+		_buffs_box.add_child(_buff_badge_icon(wk, "⚔", Lang.t("Arma encantada — %s\n%s") % [_fmt_left(int(w.get("weaponElementSecondsLeft", 0))), Icons.tip(wk)]))
 	var ae := str(w.get("armorElement", ""))
 	if ae != "":
-		_buffs_box.add_child(_buff_badge_icon("elem_" + ae.to_lower(), "🛡", Lang.t("Armadura encantada (%s): ±25%% por elemento — %s") % [ae, _fmt_left(int(w.get("armorElementSecondsLeft", 0)))]))
+		var ak := "elem_" + ae.to_lower()
+		_buffs_box.add_child(_buff_badge_icon(ak, "🛡", Lang.t("Armadura encantada — %s\n%s") % [_fmt_left(int(w.get("armorElementSecondsLeft", 0))), Icons.tip(ak)]))
 	if bool(w.get("newbieBuffActive", false)):
 		_buffs_box.add_child(_buff_badge("🐣", Lang.t("Buff de Novato: estamina e HP regeneram 4× mais rápido — %dh restantes") % int(w.get("newbieBuffHoursLeft", 0))))
 	var tav := float(w.get("tavernBuffPct", 0.0))
@@ -738,7 +749,9 @@ func _buff_badge_icon(key: String, text: String, tip: String) -> Control:
 	var h := HBoxContainer.new(); h.add_theme_constant_override("separation", 3)
 	h.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	if Icons.tex(key) != null:
-		h.add_child(Icons.rect(key, 16))
+		var ic := Icons.rect(key, 16)
+		ic.tooltip_text = ""   # [TOPBAR_BUFFS] tooltip ÚNICA no badge — sem a tip do ícone duplicando (sobe pro painel via PASS)
+		h.add_child(ic)
 	if text != "":
 		var l := Label.new(); l.text = text
 		l.add_theme_font_size_override("font_size", 12)
