@@ -2,6 +2,7 @@ package com.medieval.game.config;
 
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.dao.OptimisticLockingFailureException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -66,6 +67,18 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(OptimisticLockingFailureException.class)
     public ResponseEntity<?> handleOptimisticLock(OptimisticLockingFailureException ex) {
         log.warn("[GlobalExceptionHandler] Concurrent modification: {}", ex.getMessage());
+        return ResponseEntity.status(409).body(Map.of(
+            "error", com.medieval.game.service.Messages.tr("error.concurrent", "Concurrent action detected. Please try again.")));
+    }
+
+    // [VARREDURA] Violação de constraint do banco — na prática, corrida de unique parcial (1 sessão
+    // IN_PROGRESS por player: work/quest/training) ou nome de guild duplicado, que escapou do guard de app.
+    // É conflito concorrente → 409 "tente de novo" (mesma UX do optimistic-lock). Log em WARN p/ não
+    // mascarar uma eventual violação genuína (FK/not-null) — que ainda aparece no log.
+    @ExceptionHandler(DataIntegrityViolationException.class)
+    public ResponseEntity<?> handleDataIntegrity(DataIntegrityViolationException ex) {
+        log.warn("[GlobalExceptionHandler] Data integrity / concurrent insert: {}",
+                ex.getMostSpecificCause() != null ? ex.getMostSpecificCause().getMessage() : ex.getMessage());
         return ResponseEntity.status(409).body(Map.of(
             "error", com.medieval.game.service.Messages.tr("error.concurrent", "Concurrent action detected. Please try again.")));
     }

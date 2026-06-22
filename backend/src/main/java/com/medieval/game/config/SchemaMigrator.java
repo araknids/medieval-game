@@ -33,6 +33,7 @@ public class SchemaMigrator {
         patchWarriorTavernBuffColumns();
         patchInventoryItemDurabilityColumn();
         patchOptimisticLockVersionColumns();
+        patchSingleSessionUniqueIndexes();
         patchTerritoryLastResolvedCycleColumn();
         patchWarFatigueAndRosterColumns();
         patchGuildLifetimeGoldColumn();
@@ -572,6 +573,30 @@ public class SchemaMigrator {
             }
         }
         log.info("[SchemaMigrator] optimistic-lock version columns ensured");
+    }
+
+    /**
+     * [VARREDURA] Índice único PARCIAL (Postgres): no máx UMA sessão IN_PROGRESS por player. Fecha a corrida
+     * de double-start (work/quest/training) que o @Version NÃO pega — são INSERTs concorrentes, não UPDATEs
+     * da mesma linha. O guard de app (existsByPlayerAndStatus) cobre o caso sequencial; este índice cobre a
+     * corrida real. H2 não suporta WHERE em índice → cada try-catch ignora (a violação vira 409 no
+     * GlobalExceptionHandler). Um try por tabela: duplicatas pré-existentes numa não bloqueiam as outras.
+     */
+    private void patchSingleSessionUniqueIndexes() {
+        String[][] idx = {
+            {"uk_work_one_active",     "work_sessions"},
+            {"uk_quest_one_active",    "kingdom_active_quests"},
+            {"uk_training_one_active", "training_sessions"},
+        };
+        for (String[] i : idx) {
+            try {
+                jdbc.execute("CREATE UNIQUE INDEX IF NOT EXISTS " + i[0] + " ON " + i[1]
+                        + "(player_id) WHERE status = 'IN_PROGRESS'");
+            } catch (Exception e) {
+                log.warn("[SchemaMigrator] partial unique index {} skipped (H2 ou duplicatas): {}", i[0], e.getMessage());
+            }
+        }
+        log.info("[SchemaMigrator] single-active-session partial unique indexes ensured (Postgres)");
     }
 
     // inventory_items: add durability column (economic sink — items wear down in combat)
