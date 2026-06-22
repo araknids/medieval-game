@@ -72,10 +72,21 @@ pronto. O mesmo script também serve pra rodar como cron no próprio host depois
 ## 6. ✅ O que VOCÊ precisa fazer (setup único)
 
 1. **Criar um bucket S3-compatível privado** (qualquer um serve — o script é agnóstico):
-   - **Cloudflare R2** (10 GB grátis, sem egress) ou **Backblaze B2** (10 GB grátis), ou um **object
-     storage BR** (ex.: Magalu Cloud) se quiser tudo no Brasil. Os dumps são pequenos (MB).
-   - Gerar **Access Key ID + Secret** com acesso só a esse bucket; anotar o **endpoint** S3.
-   - Criar uma **lifecycle rule**: expirar objetos com mais de ~30 dias.
+   - ⭐ **Backblaze B2 — recomendado por NÃO pedir cartão de crédito** (bucket **privado** é grátis sem
+     cartão; só bucket público exigiria). 10 GB grátis que não expiram. *(Cloudflare R2 também é ótimo —
+     10 GB, sem egress — mas **exige cartão** pra ativar, mesmo no grátis.)*
+   - **Passo a passo B2:**
+     1. Criar conta em backblaze.com → **B2 Cloud Storage** (sem cartão).
+     2. **Create a Bucket** → tipo **Private**. Anotar o nome.
+     3. **App Keys** → *Add a New Application Key* restrita a esse bucket → guardar o **keyID** e a
+        **applicationKey** (a key só aparece 1 vez).
+     4. Anotar o **endpoint S3** do bucket (ex.: `https://s3.us-west-004.backblazeb2.com`) e a **região**
+        embutida nele (ex.: `us-west-004`).
+   - **Mapa B2 → secrets:** `keyID`→`BACKUP_S3_ACCESS_KEY_ID` · `applicationKey`→`BACKUP_S3_SECRET_ACCESS_KEY`
+     · endpoint→`BACKUP_S3_ENDPOINT` · região→`BACKUP_S3_REGION` · nome do bucket→`BACKUP_S3_BUCKET`.
+   - Criar uma **lifecycle rule** no bucket: manter só versões dos últimos ~30 dias.
+   - *(Quando quiser tudo no Brasil, um object storage BR S3-compatível — ex.: Magalu Cloud — entra no
+     mesmo esquema, só trocando endpoint/região/chaves.)*
 2. **Setar os secrets** no GitHub (repo → Settings → Secrets and variables → Actions):
    | Secret | Valor |
    |--------|-------|
