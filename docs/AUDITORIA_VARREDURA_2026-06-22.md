@@ -229,3 +229,23 @@ _(preenchido conforme aplico — ver git log com tag [VARREDURA])_
   guild** → lock pessimista (`findByIdForUpdate`) no join. **Bag** (count, hot path de todo drop) →
   documentado como baixo-risco (lock por drop tem trade-off de perf; 1-2 itens extras numa corrida exata).
   **Nome de guild** → coberto por `@Column(unique=true)` + o 409 global. 662 verdes.
+- **[2026-06-22] Perf (N+1 + índices, SAFE-FIX):** índices `players(guild_id)` + `players(pvp_flagged_zone,
+  pvp_flagged_until)` (matchmaking de raid não escaneia mais a tabela toda); N+1 do ranking da Torre →
+  `findByPlayerIn` batch; N+1 dos afixos no `getInventory` → `findAllByItemIn` batch; browse/mine do leilão
+  → `@EntityGraph(item,seller)` (corta ~400 lazy SELECTs/página). 662 verdes.
+
+## ⏸️ DELIBERADAMENTE NÃO APLICADO (precisa de você / da outra aba parar)
+
+Não dá pra fazer "às cegas" — são behavior-touching, exigem revisão + teste, e alguns conflitam com a aba
+que ainda edita o Godot:
+- **Dedup do raid PvP** entre `ZoneService` e `ExpeditionService` (twins de ~900–1170 linhas): maior dedup
+  de valor, mas refactor grande de god-service com lógica sutil de flag/escudo. Fazer com você junto.
+- **Refactors de complexidade** (resolveTerritory CC~28, BattleSimulator.attack, ZoneService.collect…):
+  extrações behavior-touching, sob tema de teste. Lista no corpo.
+- **Reorganização de pacotes** (`service/` por domínio, DTOs num `dto/`): move repo-wide, reescreve imports
+  → altíssimo conflito com a outra aba. Esperar ela parar.
+- **Limpeza de comentários do Godot:** quase inútil (binário tira comentário; repo público; 0 tells de
+  Claude) — ver reframing. Decisão sua (repo privado / trailer Co-Authored-By / exclude_filter no export).
+- **Bag overfill** (corrida exata, mesmo player): baixo-risco; lock por drop tem trade-off de perf.
+- **Comentários desatualizados restantes** (slot-4 `strBonus`→`agi` em 2 docs, AC em `Warrior`): cosméticos,
+  catalogados pra um pass futuro.
