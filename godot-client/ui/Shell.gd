@@ -683,6 +683,7 @@ func update_topbar(w: Dictionary) -> void:
 		var unread := int(w.get("unreadMail", 0))
 		if _mail_badge != null:
 			_mail_badge.visible = unread > 0
+		Icons.play_loop_btn(_mail_btn, "mail", unread > 0)   # [MAIL_ANIM] anima a carta enquanto ha nao-lido; a exclamacao (badge) fica por cima
 		_mail_btn.tooltip_text = ("Correio — %d não lida(s)" % unread) if unread > 0 else "Correio — mensagens e recompensas"
 	# (Badge do Diário "dá pra resgatar" adiado — precisa de arte/ícone próprio p/ não brigar com o hover-modulate.)
 	_refresh_buffs(w)
