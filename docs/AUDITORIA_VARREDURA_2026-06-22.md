@@ -19,7 +19,7 @@ código morto, comentários desatualizados, N+1 em telas de ranking, e complexid
 
 ## 🔴 TOP PRIORIDADES (NEEDS-REVIEW — não aplicadas, exigem teste do dono em prod)
 
-### 1. `Warrior` não tem `@Version` → double-spend de ponto de atributo + lost-update de XP/HP
+### 1. ✅ FEITO — `Warrior` não tinha `@Version` → double-spend de ponto + lost-update de XP/HP
 `model/Warrior.java`. `Player` tem `@Version`, `Warrior` não. `WarriorService.spendPoint` (`:80-102`),
 `addExperience` (`:40-56`), heal de HP (`GatheringService:189`) são read-modify-write sem trava. Dois
 `POST /spend-point` simultâneos passam o guard e gastam 2 pontos de 1. **Risco da correção:** o `Warrior`
@@ -27,7 +27,7 @@ código morto, comentários desatualizados, N+1 em telas de ranking, e complexid
 fluxos que re-salvam Warrior detached (foi o que aconteceu com `Player` no `TowerService`). Aplicar +
 testar em prod. Coluna via `SchemaMigrator`.
 
-### 2. Schedulers `@Scheduled` sem lock distribuído → wars/território/leilão resolvidos 2× ao escalar
+### 2. ✅ FEITO — Schedulers + lazy-resolve sem lock → wars/território/leilão resolvidos 2× (claim atômico)
 `GuildWarScheduler:19`, `TerritoryScheduler:24`, `AuctionScheduler:18`. Sem ShedLock/lock de DB, cada
 instância roda o mesmo cron. Hoje é 1 instância, mas num deploy rolling (old+new sobrepostos) ou scale
 horizontal, dobra o roubo de 25% de gold de guild, upkeep de território, e mails. **Fix:** ShedLock ou
@@ -217,3 +217,9 @@ _(preenchido conforme aplico — ver git log com tag [VARREDURA])_
 - Comentários desatualizados corrigidos (AC, trava de arma, timers, slot agi).
 - Bugs corrigidos: HP de território (basis), VIP UTC, gauntlet tiebreak.
 - Frontend: comentários que vazam lógica/autoria removidos/neutralizados (ver seção front no fim).
+- **[2026-06-22 manhã] Os 2 TOP de concorrência:** `@Version` no `Warrior` (fecha double-spend de
+  ponto/atributo + lost-update XP/HP); **claim atômico** (UPDATE guardado por status) em GuildWar.resolve /
+  Auction.expire / Territory.resolveDueCycles — fecha resolução 2× (scheduler multi-instância + lazy-resolve
+  concorrente do GuildWar, este exploitável já em 1 instância). 662 testes verdes. **Resíduo:** o
+  `OptimisticLock` do perdedor concorrente do spend-point vira 500 cru (raro) — polir com catch→"tente de
+  novo" é follow-up menor. Check-then-act de bag/membros/sessão-única (itens 4 e 5) seguem abertos.
