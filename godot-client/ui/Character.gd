@@ -240,6 +240,7 @@ func _set_tab(t) -> void:
 	sub_tab = str(t)
 	_build_subtab_bar()
 	_render_panel()
+	_render_resources()   # [RECURSOS] atualiza a seção na troca de aba (só aparece na Mochila)
 
 # ── Dados ────────────────────────────────────────────────────────────────────────────
 func _refresh() -> void:
@@ -633,6 +634,10 @@ func _render_resources() -> void:
 		return
 	for c in _resources_host.get_children():
 		c.queue_free()
+	# [RECURSOS] Recursos SÓ na Mochila — nas outras sub-abas (Atributos/Habilidades/Conquistas) a seção
+	# fica vazia, pra não esticar a página e criar scroll geral.
+	if sub_tab != "bag":
+		return
 	var res: Array = []
 	for r in resources:
 		if r is Dictionary and int(r.get("quantity", 0)) > 0:
