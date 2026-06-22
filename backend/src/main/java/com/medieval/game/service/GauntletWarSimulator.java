@@ -178,10 +178,12 @@ public class GauntletWarSimulator {
             fieldB.removeIf(f -> f.hp <= 0);
         }
         // Cap estourou com os dois lados vivos → morte súbita: o lado com MENOS HP total cai.
+        // [VARREDURA] Empate EXATO → lado A (atacante) NÃO vence: a regra de empate da guerra dá a vitória
+        // ao defensor (lado B). Antes `>=` premiava o atacante no empate, contradizendo attackersWon.
         if (!fieldA.isEmpty() && !fieldB.isEmpty()) {
             int hpA = fieldA.stream().mapToInt(f -> f.hp).sum();
             int hpB = fieldB.stream().mapToInt(f -> f.hp).sum();
-            boolean aWins = hpA >= hpB;
+            boolean aWins = hpA > hpB;
             List<F> winners = aWins ? fieldA : fieldB;
             List<F> losers  = aWins ? fieldB : fieldA;
             String killer = winners.get(0).name;

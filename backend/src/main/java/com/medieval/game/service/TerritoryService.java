@@ -501,6 +501,7 @@ public class TerritoryService {
                 c.warrior.getActiveWeaponElement(), c.warrior.getActiveArmorElement(),
                 abilityService.activeLoadout(c.warrior));
         f.ranged = statsService.isRangedWeaponEquipped(c.player); // [KITING] arma ranged (arco), qualquer classe
+        f.maxHp  = cs[2]; // [VARREDURA] guarda o max de combate p/ persistHpChanges usar a MESMA base que c.hp foi escalado
         return f;
     }
 
@@ -606,7 +607,11 @@ public class TerritoryService {
     private void persistHpChanges(List<Fighter> fighters) {
         for (Fighter f : fighters) {
             if (f.warrior == null) continue;
-            int maxHp = f.warrior.getHealth();
+            // [VARREDURA] usa o MESMO max de combate (base+gear+buff) contra o qual f.hp foi escalado em
+            // eligibleCandidates — antes dividia pela base getHealth() → % estourava (dano não persistia) e
+            // getHealth()==0 dava divisão por zero. Espelha GuildWarService.persistHp.
+            int maxHp = f.maxHp > 0 ? f.maxHp : f.warrior.getHealth();
+            if (maxHp <= 0) continue;
             int pct   = Math.max(0, Math.min(100, f.hp * 100 / maxHp));
             f.warrior.setCurrentHpSnapshot(pct);
             f.warrior.setHpUpdatedAt(LocalDateTime.now());
@@ -673,6 +678,7 @@ public class TerritoryService {
         public final com.medieval.game.enums.Element weaponElement, armorElement;
         public final java.util.List<BattleSimulator.ActiveAbility> abilities;
         public boolean ranged = false; // [KITING] arma ranged (arco) — setado na construção (toFighter); NPC = false
+        public int maxHp = 0; // [VARREDURA] HP máx de COMBATE (cs[2]=base+gear+buff) p/ persistir % correto; NPC não usa
 
         public Fighter(Long playerId, String name, int atk, int def, int hp, int dex, int agi, int luk, Warrior warrior) {
             this(playerId, name, atk, def, hp, dex, agi, luk, warrior, null, null, java.util.List.of());

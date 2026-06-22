@@ -114,7 +114,7 @@ public class VipService {
                 + "). Resets at midnight UTC.");
         }
         player.setArenaFightsToday(player.getArenaFightsToday() + 1);
-        player.setLastArenaFightDate(LocalDate.now());
+        player.setLastArenaFightDate(LocalDate.now(java.time.ZoneOffset.UTC)); // [VARREDURA] UTC (msg promete "midnight UTC")
         playerRepository.save(player);
     }
 
@@ -124,7 +124,7 @@ public class VipService {
 
     /** Zera counters se a data mudou (meia-noite UTC). Chamado antes de qualquer validação diária. */
     public void resetDailyCountersIfNeeded(Player player) {
-        LocalDate today = LocalDate.now();
+        LocalDate today = LocalDate.now(java.time.ZoneOffset.UTC); // [VARREDURA] reset em meia-noite UTC (consistente com a msg)
         if (!today.equals(player.getLastArenaFightDate())) {
             player.setArenaFightsToday(0);
             player.setLastArenaFightDate(today);
