@@ -49,6 +49,15 @@ public class ZoneService {
     private static final int PVP_SHIELD_MINUTES  = 60; // imune por 1h após ser saqueado (1x por ciclo)
     private static final int PVP_LEVEL_BAND      = 10; // só ataca/é atacado dentro de ±10 níveis
 
+    // [ECON_EXPLOIT] Recompensa da caçada COMBAT, POR RODADA (= por 10min de duração, igual à coleta).
+    // ANTES era um valor fixo por collect, ignorando a duração — mas a estamina escalava com a duração
+    // (staminaCostFor ~dur/2), então o ótimo era mandar duração=5 e levar a recompensa cheia por 5 de
+    // estamina (eficiência ~6× a do uso honesto). Agora bronze/XP/drops escalam por `rounds` → a
+    // eficiência por estamina fica CONSTANTE (duração vira neutra). Números são placeholders de tuning;
+    // bronze por-kill caiu 10→5 p/ não dominar o income (knob: ajuste aqui). [SEM_TIMER][FORTALEZA_ZONAS]
+    private static final int COMBAT_BRONZE_PER_KILL = 5;  // bronze ~= level * 5 * tierMult por rodada
+    private static final int COMBAT_XP_PER_KILL     = 12; // XP    ~= level * 12 * tierMult por rodada
+
     // ── Entrar na zona ──
 
     @Transactional
@@ -269,19 +278,24 @@ public class ZoneService {
         double mult  = activity.getZone().multiplier;
         Random rng   = java.util.concurrent.ThreadLocalRandom.current();
 
+        // [ECON_EXPLOIT] Escala por rodada (= por 10min de duração), igual à coleta (resolveGathering):
+        // bronze/XP/materiais ficam proporcionais à estamina paga (staminaCostFor ~dur/2), então mandar
+        // duração curta não rende mais por estamina — a eficiência vira constante e a duração, neutra.
+        int rounds = Math.max(1, activity.getDurationMinutes() / 10);
+
         List<GatheringService.ResourceDrop> drops = new ArrayList<>();
-        long cores = Math.max(1, Math.round((1 + level / 25.0) * mult)); // Núcleo de Fera sempre
+        long cores = Math.max(1, Math.round((1 + level / 25.0) * mult)) * rounds; // Núcleo de Fera sempre
         drops.add(new GatheringService.ResourceDrop(com.medieval.game.enums.ResourceType.MONSTER_CORE, cores));
         if (rng.nextDouble() < Math.min(0.9, 0.25 * mult)) {            // Pele de Fera: chance sobe com o tier
             drops.add(new GatheringService.ResourceDrop(
-                    com.medieval.game.enums.ResourceType.BEAST_HIDE, Math.max(1, Math.round(mult))));
+                    com.medieval.game.enums.ResourceType.BEAST_HIDE, Math.max(1, Math.round(mult)) * rounds));
         }
         if (activity.getElement() != null) {                            // Essência do elemento (igual à coleta)
             drops.add(new GatheringService.ResourceDrop(
-                    activity.getElement().essence(), Math.max(1, (int) Math.round(mult))));
+                    activity.getElement().essence(), Math.max(1, (int) Math.round(mult)) * rounds));
         }
-        activity.setXpGained(Math.round(level * 12 * mult));            // recompensa por-kill
-        activity.setBronzeGained(Math.round(level * 10 * mult));
+        activity.setXpGained(Math.round(level * COMBAT_XP_PER_KILL * mult) * rounds);         // recompensa por-kill × rodadas
+        activity.setBronzeGained(Math.round(level * COMBAT_BRONZE_PER_KILL * mult) * rounds);
         return drops;
     }
 
