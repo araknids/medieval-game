@@ -482,11 +482,16 @@ func _render_ach_panel() -> void:
 	if unlocked.is_empty():
 		_panel_host.add_child(UiKit.empty("Nenhum título ainda", "Desbloqueie conquistas abaixo para ganhar títulos."))
 	else:
-		var pickers: Array = [{"label": Lang.t("Nenhum"), "id": "", "on": active == ""}]
+		# [TITULOS] radio compacto: escolhe UM título ativo (Nenhum + os desbloqueados). active vem como
+		# TEXTO do título → mapeio p/ o id (enum) que o _select_title espera.
+		var opts: Array = [{"label": Lang.t("Nenhum"), "value": ""}]
+		var active_id := ""
 		for a in unlocked:
-			var t := str(a.get("title", ""))
-			pickers.append({"label": t, "id": str(a.get("id", "")), "on": t == active})
-		_panel_host.add_child(UiKit.grid(self, pickers, func(p): return _title_card(str(p["label"]), str(p["id"]), bool(p["on"])), true, 200, 2))
+			var aid := str(a.get("id", ""))
+			opts.append({"label": str(a.get("title", "")), "value": aid})
+			if str(a.get("title", "")) == active:
+				active_id = aid
+		_panel_host.add_child(UiKit.filter_row(opts, active_id, _select_title))
 	_panel_host.add_child(UiKit.section("Catálogo"))
 	_panel_host.add_child(UiKit.filter_row([
 		{"label": "Todas", "value": "all", "color": UiKit.GOLD},
@@ -519,63 +524,44 @@ func _set_ach_filter(v) -> void:
 	ach_filter = str(v)
 	_render_panel()
 
+# [TITULOS] Linha COMPACTA (1 linha): ícone + nome "título" + X/Y; descrição + progresso vão pro
+# HOVER (tooltip). Antes era um card alto (ícone+nome+descrição+barra) que estourava a tela.
 func _ach_card(a: Dictionary) -> PanelContainer:
 	var unlocked := bool(a.get("unlocked", false))
 	var res := UiKit.card(UiKit.GOLD_SOFT if unlocked else Color(0.3, 0.3, 0.34, 0.6), unlocked)
 	var pc: PanelContainer = res[0]
 	var box: VBoxContainer = res[1]
-	var hb := HBoxContainer.new(); hb.add_theme_constant_override("separation", 10)
-	box.add_child(hb)
-	var icon := Label.new()
-	icon.text = "🏆" if unlocked else "🔒"
-	icon.custom_minimum_size = Vector2(28, 0)
-	icon.add_theme_font_size_override("font_size", 18)
-	hb.add_child(icon)
-	var mid := VBoxContainer.new(); mid.add_theme_constant_override("separation", 2)
-	mid.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	var nm := Label.new()
-	nm.text = "%s  “%s”" % [str(a.get("displayName", "?")), str(a.get("title", ""))]
-	nm.add_theme_font_size_override("font_size", 14)
-	nm.add_theme_color_override("font_color", UiKit.TEXT)
-	mid.add_child(nm)
-	mid.add_child(UiKit.dim(str(a.get("description", ""))))
-	hb.add_child(mid)
-	var val := Label.new()
-	if unlocked:
-		val.text = "✔"; val.add_theme_color_override("font_color", UiKit.GOLD)
-	else:
-		val.text = "%d/%d" % [int(a.get("current", 0)), int(a.get("threshold", 0))]
-		val.add_theme_color_override("font_color", UiKit.TEXT_DIM)
-	val.add_theme_font_size_override("font_size", 13)
-	val.custom_minimum_size = Vector2(60, 0)
-	val.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
-	hb.add_child(val)
-	if not unlocked:
-		var threshold := int(a.get("threshold", 0))
-		if threshold > 0:
-			box.add_child(UiKit.bar("Progresso", int(a.get("current", 0)), threshold, UiKit.GOLD_SOFT))
-	return pc
-
-func _title_card(label: String, id: String, on: bool) -> PanelContainer:
-	var res := UiKit.card(UiKit.GOLD if on else UiKit.BRONZE)
-	var pc: PanelContainer = res[0]
-	var box: VBoxContainer = res[1]
+	(pc.get_theme_stylebox("panel") as StyleBoxFlat).set_content_margin_all(7)
+	# hover = detalhe completo (descrição + progresso) — fora da linha
+	var desc := str(a.get("description", ""))
+	var threshold := int(a.get("threshold", 0))
+	var cur := int(a.get("current", 0))
+	var tip := str(a.get("displayName", "?"))
+	if desc != "": tip += "\n" + desc
+	if not unlocked and threshold > 0: tip += "\n" + Lang.t("Progresso: %d/%d") % [cur, threshold]
+	pc.tooltip_text = tip
 	var hb := HBoxContainer.new(); hb.add_theme_constant_override("separation", 8)
 	box.add_child(hb)
-	var nm := Label.new(); nm.text = label
-	nm.add_theme_font_size_override("font_size", 14)
-	nm.add_theme_color_override("font_color", UiKit.GOLD if on else UiKit.TEXT)
+	var ikey := "achievements" if unlocked else "locked"
+	if Icons.tex(ikey) != null:
+		hb.add_child(Icons.rect(ikey, 18))
+	var nm := Label.new()
+	nm.text = "%s  “%s”" % [str(a.get("displayName", "?")), str(a.get("title", ""))]
+	nm.add_theme_font_size_override("font_size", 13)
+	nm.add_theme_color_override("font_color", UiKit.TEXT if unlocked else UiKit.TEXT_DIM)
 	nm.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	nm.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	nm.clip_text = true
+	nm.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 	hb.add_child(nm)
-	if on:
-		if id != "":
-			hb.add_child(UiKit.small_btn("Remover", _select_title.bind(""), true))
-		else:
-			var act := Label.new(); act.text = "✔"; act.add_theme_color_override("font_color", UiKit.OK)
-			hb.add_child(act)
-	else:
-		hb.add_child(UiKit.small_btn("Usar", _select_title.bind(id)))
+	# desbloqueada: o ícone/cor dourada já marca; bloqueada: mostra X/Y (detalhe no hover)
+	if not unlocked:
+		var val := Label.new()
+		val.text = "%d/%d" % [cur, threshold]
+		val.add_theme_font_size_override("font_size", 12)
+		val.add_theme_color_override("font_color", UiKit.TEXT_DIM)
+		val.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+		hb.add_child(val)
 	return pc
 
 func _select_title(id: String) -> void:
@@ -795,6 +781,16 @@ func _bag_card(it) -> Control:
 	nm.clip_text = true
 	nm.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS   # nome longo → "…"
 	row.add_child(nm)
+	# [REQ_LEVEL] nível exigido NO slot (sem precisar do hover): vermelho se acima do nível do jogador
+	var ilvl := int(it.get("itemLevel", 1))
+	var plvl := int(w.get("level", 0))
+	var lv := Label.new()
+	lv.text = Lang.t("Nv %d") % ilvl
+	lv.add_theme_font_size_override("font_size", 11)
+	lv.add_theme_color_override("font_color", UiKit.ERR if (plvl > 0 and ilvl > plvl) else UiKit.TEXT_DIM)
+	lv.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	lv.mouse_filter = Control.MOUSE_FILTER_PASS
+	row.add_child(lv)
 	var arrow := UiKit.compare_arrow(it)     # ▲/▼/= vs equipado (null se nada p/ comparar)
 	if arrow != null:
 		arrow.size_flags_vertical = Control.SIZE_SHRINK_CENTER

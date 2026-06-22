@@ -9,6 +9,8 @@ extends Control
 
 signal go_back
 
+const Icons := preload("res://ui/Icons.gd")   # [INV_COMPACTO] ícone do item + GIF de recurso no hover
+
 var content: VBoxContainer
 var status: Label
 var wallet: Label
@@ -108,39 +110,97 @@ func _filter_rarity(arr: Array) -> Array:
 			out.append(it)
 	return out
 
-# in_bag=true → botão "→ Baú" (depositar); false → "→ Mochila" (sacar)
+# [INV_COMPACTO] Slot compacto (igual à Mochila da Ficha): ícone + nome + Nv (vermelho se exige acima)
+# + botão de mover. Detalhe completo no HOVER (tooltip rico). in_bag=true → "→ Baú", false → "→ Mochila".
 func _item_row(it: Dictionary, in_bag: bool) -> PanelContainer:
-	var name_text := str(it.get("name", "?"))
-	var sub := Lang.t("Nv %d") % int(it.get("itemLevel", 1))
-	var stats := _stats_line(it)
-	var id := int(it.get("id", 0))
-	var action: Array
-	if in_bag:
-		action = [["→ Baú", _deposit_item.bind(id)]]
-	else:
-		action = [["→ Mochila", _withdraw_item.bind(id)]]
-	return UiKit.item_row(it, name_text, sub, stats, action, int(warrior.get("level", 0)))   # [REQ_LEVEL] Nv vermelho se exige nível acima
-
-func _res_row(r: Dictionary, in_bag: bool) -> PanelContainer:
-	var res := UiKit.card(UiKit.BRONZE)
+	var rar := int(it.get("rarity", 1))
+	var card := ItemTooltipCard.new()
+	card.item = it
+	card.player_level = int(warrior.get("level", 0))
+	card.tooltip_text = " "                  # != "" senão o _make_custom_tooltip nem dispara
+	var res := UiKit.card_styled(card, UiKit.rarity_color(rar))
 	var pc: PanelContainer = res[0]
 	var box: VBoxContainer = res[1]
-	var hb := HBoxContainer.new(); hb.add_theme_constant_override("separation", 10)
-	box.add_child(hb)
+	(pc.get_theme_stylebox("panel") as StyleBoxFlat).set_content_margin_all(7)
+	var row := HBoxContainer.new(); row.add_theme_constant_override("separation", 8)
+	box.add_child(row)
+	var ic := UiKit.item_icon_for(it, 28)
+	if ic: row.add_child(ic)
+	var nm := Label.new()
+	nm.text = str(it.get("name", "?"))
+	nm.add_theme_font_size_override("font_size", 13)
+	nm.add_theme_color_override("font_color", UiKit.rarity_color(rar))
+	nm.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	nm.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	nm.clip_text = true
+	nm.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+	row.add_child(nm)
+	var ilvl := int(it.get("itemLevel", 1))
+	var plvl := int(warrior.get("level", 0))
+	var lv := Label.new()
+	lv.text = Lang.t("Nv %d") % ilvl
+	lv.add_theme_font_size_override("font_size", 11)
+	lv.add_theme_color_override("font_color", UiKit.ERR if (plvl > 0 and ilvl > plvl) else UiKit.TEXT_DIM)
+	lv.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	row.add_child(lv)
+	var id := int(it.get("id", 0))
+	if in_bag:
+		row.add_child(UiKit.small_btn("→ Baú", _deposit_item.bind(id)))
+	else:
+		row.add_child(UiKit.small_btn("→ Mochila", _withdraw_item.bind(id)))
+	# filhos PASS → o hover sobe pro card (tooltip rico); o botão de mover fica STOP (clica)
+	for n in [box, row, nm, ic, lv]:
+		if n != null and n is Control:
+			(n as Control).mouse_filter = Control.MOUSE_FILTER_PASS
+	return pc
+
+func _res_row(r: Dictionary, in_bag: bool) -> PanelContainer:
+	var rtype := str(r.get("type", ""))
+	var pc := PanelContainer.new()
+	pc.tooltip_text = str(r.get("displayName", rtype))
+	var sb := StyleBoxFlat.new()
+	sb.bg_color = Color(0.08, 0.07, 0.09, 0.95)
+	sb.set_border_width_all(1); sb.border_color = UiKit.BRONZE
+	sb.set_corner_radius_all(4); sb.set_content_margin_all(6)
+	pc.add_theme_stylebox_override("panel", sb)
+	var hb := HBoxContainer.new(); hb.add_theme_constant_override("separation", 6)
+	hb.mouse_filter = Control.MOUSE_FILTER_IGNORE   # hover cai no pc (tooltip + anima a GIF); botão ainda clica
+	pc.add_child(hb)
 	var qty := int(r.get("quantity", 0))
+	# [RECURSOS_GIF] ícone próprio que anima no hover (res_<tipo>); senão cai no genérico `package`
+	var key := "res_" + rtype.to_lower()
+	var icon := _res_icon(key)
+	if icon != null:
+		Icons.anim_rect(pc, icon, key)
+		hb.add_child(icon)
 	var name_lbl := Label.new()
-	name_lbl.text = "📦 %s ×%d" % [str(r.get("displayName", r.get("type", "?"))), qty]
+	name_lbl.text = "%s ×%d" % [str(r.get("displayName", rtype)), qty]
 	name_lbl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	name_lbl.add_theme_font_size_override("font_size", 15)
+	name_lbl.add_theme_font_size_override("font_size", 13)
 	name_lbl.add_theme_color_override("font_color", UiKit.TEXT)
 	name_lbl.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	hb.add_child(name_lbl)
-	var rtype := str(r.get("type", ""))
 	if in_bag:
 		hb.add_child(UiKit.small_btn("→ Baú", _deposit_resource.bind(rtype, qty)))
 	else:
 		hb.add_child(UiKit.small_btn("→ Mochila", _withdraw_resource.bind(rtype, qty)))
 	return pc
+
+# [RECURSOS_GIF] TextureRect do recurso: ícone próprio (res_<tipo>) se importado, senão o genérico de
+# pacote. mouse IGNORE → o hover (e a anim) ficam no chip-pai. null se nem o pacote existir.
+func _res_icon(key: String) -> TextureRect:
+	var tex := Icons.tex(key)
+	if tex == null:
+		tex = Icons.tex("package")
+	if tex == null:
+		return null
+	var tr := TextureRect.new()
+	tr.texture = tex
+	tr.custom_minimum_size = Vector2(24, 24)
+	tr.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	tr.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	tr.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	return tr
 
 # ── Ações async (cada move re-baixa o estado: a taxa muda moeda e o lado afetado) ──
 # [AUDIT] mover ITEM mexe em InventoryItem + bronze (StashService.deposit/withdrawItem) → NÃO toca
@@ -220,11 +280,3 @@ func _refresh_resource_move() -> void:
 	if wr.get("ok") and wr.get("json") is Dictionary:
 		warrior = wr["json"]
 	_render()
-
-func _stats_line(it: Dictionary) -> String:
-	var parts: Array = []
-	for pair in [["attackBonus", "ATK"], ["defenseBonus", "DEF"], ["healthBonus", "HP"], ["strBonus", "STR"], ["dexBonus", "DEX"], ["lukBonus", "LUK"]]:
-		var v := int(it.get(pair[0], 0))
-		if v != 0:
-			parts.append("%s %+d" % [pair[1], v])
-	return "  ".join(parts)
