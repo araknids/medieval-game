@@ -560,7 +560,9 @@ public class SchemaMigrator {
             "active_quests", "work_sessions", "gathering_sessions",
             "arena_matches", "zone_activities", "mail", "players",
             // [AUDITORIA_DUPE] fluxos de item: serializa sell/list/buy/cancel/stash concorrentes.
-            "inventory_items", "auction_listings", "resource_inventory"
+            "inventory_items", "auction_listings", "resource_inventory",
+            // [VARREDURA] warriors: serializa spend-point / XP / HP (read-modify-write concorrente).
+            "warriors"
         };
         for (String table : tables) {
             try {

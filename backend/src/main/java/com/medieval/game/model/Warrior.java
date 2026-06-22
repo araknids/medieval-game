@@ -21,6 +21,13 @@ public class Warrior {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
+    // [VARREDURA] Optimistic locking: o Warrior é a entidade mais salva (XP/HP/atributos). Sem isso, dois
+    // POST /spend-point simultâneos gastavam 2 pontos de 1 (read-modify-write sem trava); heal de peixe
+    // concorrente com dano de combate apagava um. Mesmo padrão do Player.version. [AUDITORIA C3]
+    @Version
+    @Column(columnDefinition = "bigint default 0")
+    private long version;
+
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "player_id", nullable = false)
     private Player player;
