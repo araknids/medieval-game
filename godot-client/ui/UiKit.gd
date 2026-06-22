@@ -754,6 +754,14 @@ static func small_btn(text: String, cb: Callable, danger := false) -> Button:
 		b.add_theme_color_override("font_hover_color", Color(1.0, 0.62, 0.50))
 	return b
 
+# small_btn + ícone PixelLab `key` à esquerda do texto (mantém o texto como veio). [ICON_BTN]
+# key vazio ou sem arquivo → fallback p/ só texto (set_icon devolve false).
+static func small_btn_icon(text: String, key: String, cb: Callable, danger := false) -> Button:
+	var b := small_btn(text, cb, danger)
+	if key != "" and Icons.set_icon(b, key):
+		b.add_theme_constant_override("icon_max_width", 18)
+	return b
+
 # Campo de texto no estilo do kit (fundo escuro + borda bronze; foco = borda dourada).
 static func input(placeholder := "") -> LineEdit:
 	var le := LineEdit.new()
@@ -1257,6 +1265,33 @@ static func compare_line(it: Dictionary) -> Control:
 		row.add_child(l)
 	return row
 
+# [INV_COMPACTO] Seta compacta de comparação vs o equipado do MESMO slot: ▲ verde (melhor) / ▼ vermelho
+# (pior) / = âmbar (equivalente). Soma os deltas (mesma noção do compare_line). Retorna null quando não
+# há o que comparar (item equipado, sem peça equipada no slot, ou é o próprio equipado). Sem tooltip
+# próprio (o detalhe mora no tooltip rico do card) e MOUSE_FILTER_PASS → não rouba o hover do card.
+static func compare_arrow(it: Dictionary) -> Label:
+	if bool(it.get("equipped", false)):
+		return null
+	var t := str(it.get("type", ""))
+	if not equipped.has(t):
+		return null
+	var cur: Dictionary = equipped[t]
+	if int(cur.get("id", -1)) == int(it.get("id", -2)):
+		return null
+	var total := 0
+	for pair in _CMP_STATS:
+		total += int(it.get(pair[0], 0)) - int(cur.get(pair[0], 0))
+	var lbl := Label.new()
+	lbl.add_theme_font_size_override("font_size", 15)
+	lbl.mouse_filter = Control.MOUSE_FILTER_PASS
+	if total > 0:
+		lbl.text = "▲"; lbl.add_theme_color_override("font_color", OK)
+	elif total < 0:
+		lbl.text = "▼"; lbl.add_theme_color_override("font_color", ERR)
+	else:
+		lbl.text = "="; lbl.add_theme_color_override("font_color", WARN)
+	return lbl
+
 # Comparação a partir de stats AVULSOS + slot (ItemType). P/ fontes que não são item de inventário
 # completo — ex.: receita da Forja (slot + atk/def/hp/str/dex/luk). Monta um item sintético e reusa
 # compare_line (id impossível → nunca casa com o equipado). [PLANO_UI_SHELL_GODOT]
@@ -1421,6 +1456,22 @@ static func grid(host: Control, items: Array, builder: Callable, compact := fals
 	g.resized.connect(relayout)
 	relayout.call()
 	return g
+
+# [INNER_SCROLL] Envolve `inner` num ScrollContainer que cresce com o conteúdo ATÉ max_h e então rola
+# na vertical. Conteúdo curto → fica do tamanho do conteúdo (sem barra nem espaço morto); conteúdo alto
+# → trava em max_h e mostra a barra. Reaplica quando o min do conteúdo muda (filtro, relayout de grid).
+static func capped_scroll(inner: Control, max_h: float) -> ScrollContainer:
+	var sc := ScrollContainer.new()
+	sc.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	sc.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	sc.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
+	inner.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	sc.add_child(inner)
+	var fit := func() -> void:
+		sc.custom_minimum_size = Vector2(0, minf(inner.get_combined_minimum_size().y, max_h))
+	inner.minimum_size_changed.connect(fit)
+	fit.call()
+	return sc
 
 # Linha de chips de filtro (HFlow → quebra em telas estreitas). options = Array de
 # {label, value, color?}. active = valor selecionado. on_pick = func(value) -> void (re-renderiza).

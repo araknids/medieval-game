@@ -26,6 +26,8 @@ const ATTRS := [
 	["strength", "STR"], ["constitution", "CON"], ["dexterity", "DEX"],
 	["agility", "AGI"], ["luck", "LUK"],
 ]   # INT removido do front (Mago não implementado)
+const BAG_ROWS_MAX_H := 156.0    # altura de ~3 linhas de card compacto (≈42px) → trava o inner scroll da Mochila
+const RES_ROWS_MAX_H := 104.0    # altura de ~3 linhas de chip de recurso → trava o inner scroll dos Recursos
 # Ganho EXATO por ponto (números do backend committado = prod). CON tem soft-cap (8→4→2) por faixa,
 # então é calculado em _attr_gain a partir da CON atual. [REBALANCE v2]
 
@@ -35,6 +37,7 @@ var resources: Array = []     # recursos de coleta (GET /api/gathering/resources
 var abilities_data: Dictionary = {}
 var sub_tab := "bag"          # "bag" | "attr" | "abil" | "ach"
 var rarity_filter := 0
+var bag_sort := "level"       # [INV_COMPACTO] ordenação da mochila: level|rarity|type|upgrade|value
 var ach_data: Dictionary = {}   # [MENUBAR_REORG] /api/achievements (catálogo + título ativo) — Conquistas virou sub-aba
 var ach_filter := "all"
 var busy := false
@@ -72,7 +75,7 @@ func _build_layout() -> void:
 func _build_left() -> Control:
 	var outer := VBoxContainer.new()
 	outer.add_theme_constant_override("separation", 8)
-	outer.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	outer.size_flags_vertical = Control.SIZE_SHRINK_BEGIN   # alinha o topo (boneco) ao nível das sub-abas
 	var row := HBoxContainer.new()
 	row.add_theme_constant_override("separation", 8)
 	outer.add_child(row)
@@ -187,16 +190,13 @@ func _build_right() -> Control:
 	col.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_subtab_bar_host = VBoxContainer.new()
 	col.add_child(_subtab_bar_host)
-	var scroll := ScrollContainer.new()      # ÚNICO scroll da tela (painel da sub-aba)
-	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
-	scroll.custom_minimum_size = Vector2(0, 330)
-	scroll.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	col.add_child(scroll)
+	# Painel da sub-aba: cresce com o conteúdo até ~360 e então rola (capped_scroll). Assim a Mochila
+	# (com a grid já travada em 3 linhas) NÃO reserva 330 fixos → os Recursos sobem logo abaixo.
 	_panel_host = VBoxContainer.new()
 	_panel_host.add_theme_constant_override("separation", 8)
 	_panel_host.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	scroll.add_child(_panel_host)
-	# [RECURSOS] seção FIXA embaixo da lista (fora do scroll) → fica na altura da Montaria/Pet, sem alongar a tela
+	col.add_child(UiKit.capped_scroll(_panel_host, 360.0))
+	# [RECURSOS] seção embaixo da lista → fica na altura da Montaria/Pet, sem alongar a tela
 	_resources_host = VBoxContainer.new()
 	_resources_host.add_theme_constant_override("separation", 6)
 	_resources_host.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -428,9 +428,10 @@ func _render_bag_panel() -> void:
 	for it in items:
 		if it is Dictionary and not bool(it.get("equipped", false)):
 			bag.append(it)
-	bag.sort_custom(_bag_sort)   # nível do item ↓, depois poder ↓ (melhor gear no topo)
+	bag.sort_custom(_bag_sort)   # honra `bag_sort` (level/rarity/type/upgrade/value)
 	_panel_host.add_child(UiKit.section(Lang.t("Mochila (%d)") % bag.size()))
 	_panel_host.add_child(UiKit.rarity_filter(rarity_filter, _set_rarity))
+	_panel_host.add_child(_sort_row())   # [INV_COMPACTO] chips de ordenação
 	if bag.is_empty():
 		_panel_host.add_child(UiKit.empty("Mochila vazia", "Vença missões no 🌍 Mundo para conseguir itens"))
 	else:
@@ -443,7 +444,24 @@ func _render_bag_panel() -> void:
 		if shown.is_empty():
 			_panel_host.add_child(UiKit.dim("— nada nessa raridade —"))
 		else:
-			_panel_host.add_child(UiKit.grid(self, shown, _bag_card, true, 200.0, 2))   # 2 itens por linha (cards estreitos)
+			# [INV_COMPACTO] slots enxutos (1 linha) → cabem 3 por linha; detalhe vai pro hover/popup
+			# Trava em ~3 linhas: passou disso, rola SÓ a grid (inner scroll), sem alongar a aba.
+			var grid := UiKit.grid(self, shown, _bag_card, true, 188.0, 3)
+			_panel_host.add_child(UiKit.capped_scroll(grid, BAG_ROWS_MAX_H))
+
+# [INV_COMPACTO] Linha de chips de ordenação da mochila (reusa filter_row).
+func _sort_row() -> Control:
+	return UiKit.filter_row([
+		{"label": Lang.t("Nível"), "value": "level"},
+		{"label": Lang.t("Raridade"), "value": "rarity"},
+		{"label": Lang.t("Tipo"), "value": "type"},
+		{"label": Lang.t("Melhoria"), "value": "upgrade"},
+		{"label": Lang.t("Valor"), "value": "value"},
+	], bag_sort, _set_sort)
+
+func _set_sort(mode) -> void:
+	bag_sort = str(mode)
+	_render_panel()
 
 # 🏆 Conquistas (sub-aba) — portada da antiga tela Achievements [MENUBAR_REORG]. Renderiza no _panel_host
 # (grids em 2 col, mais estreito que a tela cheia). Dados em ach_data (/api/achievements no batch).
@@ -579,9 +597,26 @@ func _item_power(it: Dictionary) -> int:
 		+ int(round(int(it.get("healthBonus", 0)) * 0.3))
 
 # Ordena a bag: nível do item ↓, depois poder ↓, depois raridade ↓ (melhor gear no topo).
+# [INV_COMPACTO] Comparador da mochila — honra `bag_sort`. Cada modo cai no desempate por nível↓+poder↓
+# (ordem estável e útil) quando a chave primária empata.
 func _bag_sort(a, b) -> bool:
 	if not (a is Dictionary) or not (b is Dictionary):
 		return false
+	match bag_sort:
+		"rarity":
+			var ra := int(a.get("rarity", 1)); var rb := int(b.get("rarity", 1))
+			if ra != rb: return ra > rb
+		"type":
+			var ta := str(a.get("type", "")); var tb := str(b.get("type", ""))
+			if ta != tb: return ta < tb
+		"value":
+			var va := int(a.get("sellPrice", 0)); var vb := int(b.get("sellPrice", 0))
+			if va != vb: return va > vb
+		"upgrade":
+			var ua := _upgrade_score(a); var ub := _upgrade_score(b)
+			if ua != ub: return ua > ub
+		_:   # "level" (padrão)
+			pass
 	var la := int(a.get("itemLevel", 1))
 	var lb := int(b.get("itemLevel", 1))
 	if la != lb:
@@ -591,6 +626,20 @@ func _bag_sort(a, b) -> bool:
 	if pa != pb:
 		return pa > pb
 	return int(a.get("rarity", 1)) > int(b.get("rarity", 1))
+
+# [INV_COMPACTO] "Quão melhor que o equipado" (soma dos deltas vs a peça do mesmo slot). 0 quando não há
+# o que comparar (sem peça equipada no slot) → fica no meio, entre upgrades (+) e downgrades (−).
+func _upgrade_score(it: Dictionary) -> int:
+	var t := str(it.get("type", ""))
+	if not UiKit.equipped.has(t):
+		return 0
+	var cur: Dictionary = UiKit.equipped[t]
+	if int(cur.get("id", -1)) == int(it.get("id", -2)):
+		return 0
+	var total := 0
+	for k in ["attackBonus", "defenseBonus", "healthBonus", "strBonus", "dexBonus", "lukBonus"]:
+		total += int(it.get(k, 0)) - int(cur.get(k, 0))
+	return total
 
 # [RECURSOS] Seção PRÓPRIA, fixa abaixo de tudo (não rola com os itens) — chips [📦 nome ×qtd] em flow.
 func _render_resources() -> void:
@@ -612,7 +661,8 @@ func _render_resources() -> void:
 	flow.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	for r in res:
 		flow.add_child(_res_chip(r))
-	_resources_host.add_child(flow)
+	# Muitos recursos → rola SÓ os chips (inner scroll), sem empurrar a aba pra baixo.
+	_resources_host.add_child(UiKit.capped_scroll(flow, RES_ROWS_MAX_H))
 
 func _res_chip(r: Dictionary) -> Control:
 	var rtype := str(r.get("type", ""))
@@ -632,8 +682,16 @@ func _res_chip(r: Dictionary) -> Control:
 	hb.mouse_filter = Control.MOUSE_FILTER_IGNORE   # hover cai no pc (mostra o tooltip); botões ainda clicam
 	pc.add_child(hb)
 	var qty := int(r.get("quantity", 0))
+	# [RECURSOS_GIF] ícone próprio do recurso (res_<tipo>), que ANIMA no hover do chip se houver
+	# anim/res_<tipo>/ (ex.: minério na picareta, peixe nadando, gema brilhando). Sem ícone próprio →
+	# cai no genérico `package`. O 📦 de texto saiu (sem emoji de web). [piloto: minério/peixe/gema]
+	var key := "res_" + rtype.to_lower()
+	var icon := _res_icon(key)
+	if icon != null:
+		Icons.anim_rect(pc, icon, key)   # hover no chip TODO → cicla a GIF (no-op se não houver anim/)
+		hb.add_child(icon)
 	var lbl := Label.new()
-	lbl.text = "📦 %s ×%d" % [str(r.get("displayName", rtype)), qty]
+	lbl.text = "%s ×%d" % [str(r.get("displayName", rtype)), qty]
 	lbl.add_theme_font_size_override("font_size", 13)
 	lbl.add_theme_color_override("font_color", UiKit.TEXT)
 	lbl.size_flags_vertical = Control.SIZE_SHRINK_CENTER
@@ -645,6 +703,23 @@ func _res_chip(r: Dictionary) -> Control:
 		hb.add_child(_action_icon("fish", "🐟", _consume_resource.bind(rtype), ctip))
 	hb.add_child(_action_icon("stash", "🧰", _stash_resource.bind(rtype, qty), Lang.t("Guardar no baú")))
 	return pc
+
+# [RECURSOS_GIF] TextureRect do recurso: ícone próprio (res_<tipo>) se já gerado/importado, senão o
+# genérico de pacote. mouse IGNORE → o hover (e a anim) ficam no chip-pai (pc). null se nem o pacote
+# existir. A anim de hover é ligada pelo chamador via Icons.anim_rect(pc, icon, key).
+func _res_icon(key: String) -> TextureRect:
+	var tex := Icons.tex(key)
+	if tex == null:
+		tex = Icons.tex("package")
+	if tex == null:
+		return null
+	var tr := TextureRect.new()
+	tr.texture = tex
+	tr.custom_minimum_size = Vector2(24, 24)
+	tr.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	tr.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	tr.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	return tr
 
 # [RECURSOS] Texto de hover: p/ que cada categoria de recurso serve (peixe mostra o valor exato).
 func _res_use_text(r: Dictionary) -> String:
@@ -686,26 +761,30 @@ func _set_rarity(r) -> void:
 	rarity_filter = int(r)
 	_render_panel()
 
-# Card COMPACTO (2 por linha): ícone+nome em cima, nível/stats no meio, botões de ÍCONE embaixo
-# (equipar à esq, vender à dir com o preço). [GRID_COLS]
+# [INV_COMPACTO] Slot ENXUTO: só ícone + nome + seta ▲/▼/= (melhor/pior/equivalente vs equipado).
+# TODO detalhe (stats, comparação, lore, preço) mora no tooltip rico (hover do card) e no popup de
+# ações (clique). O card É clicável: `card.gui_input` pega o clique; os filhos ficam PASS → o hover
+# sobe pro card (que mostra o tooltip). Sem botão sobreposto (bloquearia o tooltip).
 func _bag_card(it) -> Control:
 	if not (it is Dictionary):
 		return null
-	var id := int(it.get("id", 0))
 	var rar := int(it.get("rarity", 1))
 	var card := ItemTooltipCard.new()       # [ITEM_TOOLTIP] card com tooltip rico no hover
 	card.item = it
 	card.tooltip_text = " "                  # != "" senão o _make_custom_tooltip nem dispara
+	card.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
 	var res := UiKit.card_styled(card, UiKit.rarity_color(rar))
 	var pc: PanelContainer = res[0]
 	var box: VBoxContainer = res[1]
-	box.add_theme_constant_override("separation", 3)
-	var top := HBoxContainer.new()
-	top.add_theme_constant_override("separation", 8)
-	box.add_child(top)
-	var ic := UiKit.item_icon_for(it, 36)   # arma → render do modelo (igual ao slot) [SLOT_WEAPON_IMG]
+	# slot apertado: menos respiro que o card padrão (margem 12 → 7)
+	(pc.get_theme_stylebox("panel") as StyleBoxFlat).set_content_margin_all(7)
+	box.add_theme_constant_override("separation", 0)
+	var row := HBoxContainer.new()
+	row.add_theme_constant_override("separation", 8)
+	box.add_child(row)
+	var ic := UiKit.item_icon_for(it, 28)   # arma → render do modelo (igual ao slot) [SLOT_WEAPON_IMG]
 	if ic:
-		top.add_child(ic)
+		row.add_child(ic)
 	var nm := Label.new()
 	nm.text = str(it.get("name", "?"))
 	nm.add_theme_font_size_override("font_size", 13)
@@ -714,37 +793,67 @@ func _bag_card(it) -> Control:
 	nm.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	nm.clip_text = true
 	nm.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS   # nome longo → "…"
-	top.add_child(nm)
-	var subline := UiKit.item_subline(it, int(w.get("level", 0)))   # [REQ_LEVEL] Nv vermelho se exige nível acima
-	box.add_child(subline)
-	var sline := UiKit.item_stats_line(it)   # [STATS_CMP] stats únicos coloridos vs equipado (1 linha só)
-	if sline:
-		box.add_child(sline)
-	var btns := HBoxContainer.new()
-	btns.add_theme_constant_override("separation", 6)
-	box.add_child(btns)
-	btns.add_child(_action_icon("equip", "⚔", _equip.bind(id), Lang.t("Equipar")))
-	btns.add_child(_action_icon("stash", "🧰", _stash_item.bind(id), Lang.t("Guardar no baú")))
-	var spacer := Control.new()
-	spacer.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	spacer.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	btns.add_child(spacer)
-	if bool(it.get("pvpLocked", false)):
-		btns.add_child(_action_icon("locked", "🔒", func() -> void: UiKit.flash(status, Lang.t("Item travado no PvP — não dá pra vender enquanto exposto."), 2), Lang.t("Travado no PvP")))
-	else:
-		var price := int(it.get("sellPrice", 0))
-		var pl := Label.new()
-		pl.text = UiKit.coin_str(price)
-		pl.add_theme_font_size_override("font_size", 12)
-		pl.add_theme_color_override("font_color", UiKit.TEXT_DIM)
-		pl.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-		btns.add_child(pl)
-		btns.add_child(_action_icon("sell", "💰", _ask_sell.bind(id, str(it.get("name", "?")), rar), Lang.t("Vender (%s)") % UiKit.coin_str(price)))
-	# [ITEM_TOOLTIP] PASS nos filhos → o hover chega no card (que tem o tooltip rico); botões ficam STOP.
-	for n in [top, nm, subline, sline, ic]:
+	row.add_child(nm)
+	var arrow := UiKit.compare_arrow(it)     # ▲/▼/= vs equipado (null se nada p/ comparar)
+	if arrow != null:
+		arrow.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+		row.add_child(arrow)
+	# [ITEM_TOOLTIP] PASS nos filhos (incl. o box do card_styled) → o hover E o clique sobem pro card;
+	# o card (STOP) mostra o tooltip rico e trata o clique. Um container STOP no meio comeria o clique.
+	for n in [box, row, nm, ic]:
 		if n != null and n is Control:
 			(n as Control).mouse_filter = Control.MOUSE_FILTER_PASS
+	card.gui_input.connect(func(e: InputEvent) -> void:
+		if e is InputEventMouseButton and e.pressed and e.button_index == MOUSE_BUTTON_LEFT:
+			_open_item_actions(it))
 	return pc
+
+# [INV_COMPACTO] Clique no slot → popup com o card RICO do item (detalhe completo) + ações:
+# Equipar / Guardar no baú / Vender (preço). Reusa item_tooltip_panel e o padrão de modal (dim + clique
+# fora fecha). Item travado no PvP mostra o aviso no lugar do Vender.
+func _open_item_actions(it: Dictionary) -> void:
+	var id := int(it.get("id", 0))
+	var rar := int(it.get("rarity", 1))
+	var dim_rect := ColorRect.new()
+	dim_rect.color = Color(0, 0, 0, 0.62)
+	dim_rect.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	dim_rect.mouse_filter = Control.MOUSE_FILTER_STOP
+	add_child(dim_rect)
+	var center := CenterContainer.new()
+	center.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	center.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	dim_rect.add_child(center)
+	var col := VBoxContainer.new()
+	col.add_theme_constant_override("separation", 8)
+	center.add_child(col)
+	col.add_child(UiKit.item_tooltip_panel(it, {"equipped": false}))   # card rico (detalhe completo)
+	var row := HBoxContainer.new()
+	row.add_theme_constant_override("separation", 8)
+	row.alignment = BoxContainer.ALIGNMENT_CENTER
+	col.add_child(row)
+	var eq_btn := UiKit.small_btn_icon(Lang.t("Equipar"), "equip", func() -> void:
+		dim_rect.queue_free()
+		await _equip(id))
+	row.add_child(eq_btn)
+	var st_btn := UiKit.small_btn_icon(Lang.t("Guardar"), "stash", func() -> void:
+		dim_rect.queue_free()
+		await _stash_item(id))
+	row.add_child(st_btn)
+	if bool(it.get("pvpLocked", false)):
+		var lk := UiKit.small_btn(Lang.t("🔒 PvP"), func() -> void:   # 🔒 vira ícone "locked" no _btn_label
+			UiKit.flash(status, Lang.t("Item travado no PvP — não dá pra vender enquanto exposto."), 2))
+		row.add_child(lk)
+	else:
+		var sell_btn := UiKit.small_btn_icon(Lang.t("Vender (%s)") % UiKit.coin_str(int(it.get("sellPrice", 0))), "sell", func() -> void:
+			dim_rect.queue_free()
+			await _ask_sell(id, str(it.get("name", "?")), rar))
+		row.add_child(sell_btn)
+	var close_btn := UiKit.small_btn(Lang.t("Fechar"), func() -> void:
+		dim_rect.queue_free())
+	col.add_child(close_btn)
+	dim_rect.gui_input.connect(func(e: InputEvent) -> void:
+		if e is InputEventMouseButton and e.pressed:
+			dim_rect.queue_free())
 
 # Ação como ÍCONE-BOTÃO: o ícone É o botão (sem moldura). flat + StyleBoxEmpty (zero padding) + brilho no
 # hover. Usa o ícone PixelLab `key` se importado; senão cai no emoji. [GRID_COLS]
