@@ -68,6 +68,12 @@ public class FriendService {
         repo.findBetween(me.getId(), friendId).ifPresent(repo::delete);
     }
 
+    /** [LEADERBOARDS] Nº de pedidos de amizade pendentes recebidos — alimenta o badge do ícone de Amigos. */
+    @Transactional(readOnly = true)
+    public int countIncoming(Player me) {
+        return repo.countByAddresseeIdAndStatus(me.getId(), PENDING);
+    }
+
     @Transactional(readOnly = true)
     public FriendList list(Player me) {
         long meId = me.getId();

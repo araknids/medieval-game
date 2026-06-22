@@ -22,4 +22,5 @@ public interface FriendshipRepository extends JpaRepository<Friendship, Long> {
 
     List<Friendship> findByAddresseeIdAndStatus(Long addresseeId, String status); // pedidos recebidos
     List<Friendship> findByRequesterIdAndStatus(Long requesterId, String status); // pedidos enviados
+    int countByAddresseeIdAndStatus(Long addresseeId, String status);             // [LEADERBOARDS] badge social
 }

@@ -9,5 +9,6 @@ import java.util.Optional;
 public interface GuildInviteRepository extends JpaRepository<GuildInvite, Long> {
 
     List<GuildInvite> findByInviteeIdAndStatus(Long inviteeId, String status);           // recebidos
+    int countByInviteeIdAndStatus(Long inviteeId, String status);                        // [LEADERBOARDS] badge social
     Optional<GuildInvite> findByGuildIdAndInviteeIdAndStatus(Long guildId, Long inviteeId, String status); // dup check
 }

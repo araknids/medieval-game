@@ -28,6 +28,9 @@ public class WarriorController {
     private final com.medieval.game.repository.PetRepository petRepository; // [PETS]
     private final com.medieval.game.service.Messages messages; // [I18N] nome/efeito dos atributos
     private final com.medieval.game.service.MailService mailService; // [MENUBAR_REORG] correio não-lido (topbar)
+    private final com.medieval.game.service.FriendService friendService; // [LEADERBOARDS] badge do ícone de Amigos
+    private final com.medieval.game.service.GuildInviteService guildInviteService;
+    private final com.medieval.game.service.DailyRewardService dailyRewardService; // [DAILY] badge "dá pra resgatar"
 
     @GetMapping
     public ResponseEntity<WarriorResponse> getMyWarrior(Authentication auth) {
@@ -231,7 +234,9 @@ public class WarriorController {
                 abilityService.selfCraftedStatBonusPct(player), // [MERCADOR]
                 srcs[0], srcs[1], srcs[2], // [FICHA_BONUS] fontes do bônus (ATK/DEF/HP)
                 player.getGender() != null ? player.getGender().name() : "MALE", // [OUTFITS_FEMALE] base/peças Male/Female
-                mailService.unreadCount(player) // [MENUBAR_REORG] não-lidos → ícone do Correio na topbar
+                mailService.unreadCount(player), // [MENUBAR_REORG] não-lidos → ícone do Correio na topbar
+                friendService.countIncoming(player) + guildInviteService.countIncoming(player), // [LEADERBOARDS] badge de Amigos
+                dailyRewardService.canClaim(player) // [DAILY] exclamação no ícone da diária quando dá pra resgatar
         );
     }
 
@@ -277,5 +282,7 @@ public class WarriorController {
                            WarriorStatsService.StatSources defSources, // … DEF
                            WarriorStatsService.StatSources hpSources, // … HP
                            String gender, // [OUTFITS_FEMALE] MALE/FEMALE → base/peças do paper-doll
-                           long unreadMail) {} // [MENUBAR_REORG] correio não-lido → ícone do Correio troca na topbar
+                           long unreadMail, // [MENUBAR_REORG] correio não-lido → ícone do Correio troca na topbar
+                           int pendingSocial, // [LEADERBOARDS] pedidos de amizade + convites de guilda pendentes → badge de Amigos
+                           boolean dailyClaimable) {} // [DAILY] recompensa diária disponível → exclamação no ícone
 }

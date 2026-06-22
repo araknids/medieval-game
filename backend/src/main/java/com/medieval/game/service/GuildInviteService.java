@@ -68,6 +68,12 @@ public class GuildInviteService {
         });
     }
 
+    /** [LEADERBOARDS] Nº de convites de guilda pendentes — alimenta o badge do ícone de Amigos. */
+    @Transactional(readOnly = true)
+    public int countIncoming(Player me) {
+        return repo.countByInviteeIdAndStatus(me.getId(), PENDING);
+    }
+
     /** Convites PENDING recebidos por mim: {inviteId, guildId, guildName, inviterName}. */
     @Transactional(readOnly = true)
     public List<Map<String, Object>> incoming(Player me) {
