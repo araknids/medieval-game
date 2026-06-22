@@ -163,6 +163,51 @@ Fortune Save). **Recomendação:** extrair `PvpRaidService` compartilhado e `Com
 
 ---
 
+## 🎮 FRONTEND GODOT — comentários que vazam lógica / autoria (REFRAMING IMPORTANTE)
+
+> ⚠️ **A premissa "comentários vazam pra quem faz engenharia reversa" é em grande parte FALSA hoje, por 3
+> motivos — por isso eu NÃO fiz as edições espalhadas no Godot (e ainda tinha conflito com a outra aba):**
+>
+> 1. **O .exe NÃO leva comentários.** O export usa `script_export_mode=2` (GDScript tokenizado/binário) →
+>    **comentários são removidos do binário**. Quem abrir o .exe com gdsdecomp vê nomes/strings/fórmulas,
+>    **mas não os comentários**. Então remover comentário do .gd não muda o que vaza pelo binário.
+> 2. **O repo é PÚBLICO no GitHub (de propósito, p/ CI grátis).** TODO o código-fonte + comentários +
+>    fórmulas + senhas já são world-readable lá, independente de export. **Remover comentário não esconde
+>    nada enquanto o repo for público.** Se esconder implementação importa, a alavanca real é **tornar o
+>    repo privado**, não limpar comentário.
+> 3. **"Feito pelo Claude": ZERO tells no cliente.** 0 ocorrências de "Claude/Anthropic/Co-Authored/GPT-
+>    authored/Opus/Sonnet" em qualquer `.gd`. O sinal de autoria mais forte que existe é o **trailer
+>    `Co-Authored-By: Claude Opus 4.8` nas MENSAGENS DE COMMIT** (no histórico git público) — esse sim
+>    grita "IA". Se isso te incomoda, a decisão é parar de adicionar o trailer e/ou repo privado.
+
+**Achados do cliente (read-only; edições adiadas — a outra aba está nesses arquivos):**
+- **[HIGH] Trust boundary da Taverna** — `Tavern.gd:239` decide `success` do minigame no CLIENTE e manda
+  pro servidor (buff auto-concedido). Já é decisão conhecida (CLAUDE.md "o gate real é o bronze"), mas o
+  código deixa o exploit óbvio. **Fix real é no BACKEND** (validar/baratear o buff), não no comentário.
+- **[MED] Fórmulas de economia/combate em comentários** — `Forge.gd:360-361` (reparo/reforja verbatim),
+  `Character.gd:1009-1010` ("Fórmulas do backend committado = prod"). Neutralizar o texto (não a exibição,
+  que é player-facing). ⚠️ ambos em arquivos que a OUTRA ABA edita.
+- **[MED] `adm123` hardcoded** em cenas DEV — `PaperDollLive.gd:14`, `BattleReplay.gd:146`. Confirmar que
+  `adm/adm123` não existe no Postgres de prod; excluir cenas de teste do export.
+- **[MED] Cenas dev/test NÃO excluídas do export Steam** — `export_presets.cfg` (`exclude_filter=""`):
+  `*Test*`, viewers, `ci_check.gd`, `PaperDoll*`, `Battle` vão no .exe (carregam o `adm123`). **Fix:** add
+  `exclude_filter`. (Alta valia, baixo conflito — mas mexe no que é shippado; recomendo você aplicar/testar
+  o export.)
+- **[LOW] "Fable"** usado 20× como codinome de direção de arte (6 arquivos) — ambíguo (Fable é nome de
+  modelo Anthropic). E **1 menção explícita a "GPT"**: `Delve.gd:25` "gere no GPT". Se quiser zero
+  ambiguidade, renomear "Fable" → "Art Direction" e tirar o "GPT".
+- **766 TAGs internas** de design (`[ZONA_CHEFE]`, `[PVP_FLAG]`...) em 47 arquivos — só importam via repo
+  público (binário não leva).
+- **[LOW] Código morto Godot:** `Battle.gd`/`Battle.tscn` (superado por `BattleReplay.gd`), viewers/test
+  scenes não usados pelo fluxo do jogo — manter no repo, excluir do export.
+
+**Recomendação (precisa de decisão sua, não de edição cega):**
+1. Repo **privado** se esconder implementação importa (é a única alavanca real — comentário/binário é ruído).
+2. Decidir sobre o trailer `Co-Authored-By: Claude` (é o maior tell de IA, está no histórico público).
+3. `exclude_filter` no export (tira `adm123` + dev scenes do .exe) — você aplica e testa o export.
+4. Fix do trust boundary da Taverna no BACKEND (não no front).
+5. Se ainda quiser a limpeza de comentários do `.gd`: eu faço quando a outra aba parar (me confirma).
+
 ## ✅ APLICADO nesta varredura (commits desta noite)
 
 _(preenchido conforme aplico — ver git log com tag [VARREDURA])_
