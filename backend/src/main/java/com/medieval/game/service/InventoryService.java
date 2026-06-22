@@ -54,10 +54,14 @@ public class InventoryService {
         }
         // [AFIXOS_NOME] auto-corrige nomes ANTIGOS p/ baterem com os afixos (locale do request). Idempotente:
         // nome já certo → nameFromAffixes devolve igual → não salva. Conserta os itens criados antes do fix.
+        // [VARREDURA] afixos de TODOS os itens em 1 query (findAllByItemIn) em vez de 1 por item (N+1).
+        java.util.Map<Long, java.util.List<Affix>> affByItem = items.isEmpty() ? java.util.Map.of()
+                : affixRepository.findAllByItemIn(items).stream()
+                    .collect(java.util.stream.Collectors.groupingBy(a -> a.getItem().getId(),
+                            java.util.stream.Collectors.mapping(ItemAffix::getAffix, java.util.stream.Collectors.toList())));
         boolean renamed = false;
         for (InventoryItem i : items) {
-            java.util.List<Affix> aff = affixRepository.findAllByItem(i).stream().map(ItemAffix::getAffix).toList();
-            String fixed = nameFromAffixes(i.getName(), aff);
+            String fixed = nameFromAffixes(i.getName(), affByItem.getOrDefault(i.getId(), java.util.List.of()));
             if (!fixed.equals(i.getName())) { i.setName(fixed); renamed = true; }
         }
         if (renamed) inventoryRepository.saveAll(items);

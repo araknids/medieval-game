@@ -96,6 +96,8 @@ public class SchemaMigrator {
             "CREATE INDEX IF NOT EXISTS idx_guild_wars_status       ON guild_wars(status)",
             "CREATE INDEX IF NOT EXISTS idx_players_rank_points     ON players(rank_points)",      // matchmaking/leaderboard [A6]
             "CREATE INDEX IF NOT EXISTS idx_players_tower_floor     ON players(tower_best_floor)", // leaderboard da torre [A6]
+            "CREATE INDEX IF NOT EXISTS idx_players_guild           ON players(guild_id)",         // [VARREDURA] roster/count/join de guild
+            "CREATE INDEX IF NOT EXISTS idx_players_pvp_flag        ON players(pvp_flagged_zone, pvp_flagged_until)", // [VARREDURA] matchmaking de raid (findFlaggedInZone, todo collect flagado)
         };
         int ok = 0;
         for (String sql : idx) {

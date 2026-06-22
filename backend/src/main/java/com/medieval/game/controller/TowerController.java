@@ -65,13 +65,15 @@ public class TowerController {
 
     @GetMapping("/ranking")
     public ResponseEntity<List<?>> getRanking(@RequestParam(defaultValue = "0") int page) {
-        var ranking = towerService.getRanking(page, 20).stream().map(p -> {   // [PAGINACAO] página de 20 (offset no DB)
-            String warriorName = warriorRepository.findByPlayer(p)
-                    .map(w -> w.getName()).orElse(p.getUsername());
-            return Map.of("warriorName", warriorName,
-                    "title", com.medieval.game.service.AchievementService.titleString(p), // [TITULOS]
-                    "bestFloor", p.getTowerBestFloor());
-        }).toList();
+        var top = towerService.getRanking(page, 20); // [PAGINACAO] página de 20 (offset no DB)
+        // [VARREDURA] 1 query batch p/ os nomes em vez de findByPlayer por linha (N+1) — espelha ArenaController.
+        Map<Long, String> names = warriorRepository.findByPlayerIn(top).stream()
+                .collect(java.util.stream.Collectors.toMap(w -> w.getPlayer().getId(),
+                        com.medieval.game.model.Warrior::getName, (a, b) -> a));
+        var ranking = top.stream().map(p -> Map.of(
+                "warriorName", names.getOrDefault(p.getId(), p.getUsername()),
+                "title", com.medieval.game.service.AchievementService.titleString(p), // [TITULOS]
+                "bestFloor", p.getTowerBestFloor())).toList();
         return ResponseEntity.ok(ranking);
     }
 

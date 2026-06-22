@@ -3,6 +3,7 @@ package com.medieval.game.repository;
 import com.medieval.game.model.AuctionListing;
 import com.medieval.game.model.InventoryItem;
 import com.medieval.game.model.Player;
+import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
@@ -14,7 +15,10 @@ import java.util.List;
 public interface AuctionListingRepository extends JpaRepository<AuctionListing, Long> {
 
     // [AUDITORIA_2 A5] browse capado (evita serializar o livro inteiro). Paginação = futuro (PLANO_LEILAO).
+    // [VARREDURA] item+seller eager (@EntityGraph) — antes cada linha lazy-carregava os 2 (~400 SELECTs/página).
+    @EntityGraph(attributePaths = {"item", "seller"})
     List<AuctionListing> findTop200ByStatusOrderByListedAtDesc(AuctionListing.Status status);
+    @EntityGraph(attributePaths = {"item", "seller"})
     List<AuctionListing> findBySellerAndStatus(Player seller, AuctionListing.Status status);
     long countBySellerAndStatus(Player seller, AuctionListing.Status status);
     List<AuctionListing> findByStatusAndEndsAtBefore(AuctionListing.Status status, LocalDateTime now);
