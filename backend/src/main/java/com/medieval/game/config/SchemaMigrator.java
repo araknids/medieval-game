@@ -48,6 +48,7 @@ public class SchemaMigrator {
         patchAbilityPointsColumn();
         patchStashColumns();
         patchKingdomQuestWindowColumn();
+        patchLeaderboardCounterColumns();
         patchPlayerGenderColumn();
         patchTerritoryBattleEventsColumn();
         dropWarriorOnMissionColumn();
@@ -396,6 +397,20 @@ public class SchemaMigrator {
             log.info("[SchemaMigrator] warriors.on_mission column dropped");
         } catch (Exception e) {
             log.warn("[SchemaMigrator] warriors.on_mission drop failed: {}", e.getMessage());
+        }
+    }
+
+    // [LEADERBOARDS] contadores de ranking: mobs abatidos (warriors), players abatidos (players),
+    // war kills da guilda (guilds). Tabelas novas (territory_contributions/friendships/guild_invites)
+    // são auto-criadas pelo ddl-auto — só estas colunas em tabelas existentes precisam de patch.
+    private void patchLeaderboardCounterColumns() {
+        try {
+            jdbc.execute("ALTER TABLE warriors ADD COLUMN IF NOT EXISTS mob_kills    integer NOT NULL DEFAULT 0");
+            jdbc.execute("ALTER TABLE players  ADD COLUMN IF NOT EXISTS player_kills integer NOT NULL DEFAULT 0");
+            jdbc.execute("ALTER TABLE guilds   ADD COLUMN IF NOT EXISTS war_kills    bigint  NOT NULL DEFAULT 0");
+            log.info("[SchemaMigrator] leaderboard counter columns ensured");
+        } catch (Exception e) {
+            log.warn("[SchemaMigrator] leaderboard counter columns patch failed: {}", e.getMessage());
         }
     }
 

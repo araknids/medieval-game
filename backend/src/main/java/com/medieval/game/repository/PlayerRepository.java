@@ -38,6 +38,17 @@ public interface PlayerRepository extends JpaRepository<Player, Long> {
     // [PAGINACAO] Ranking da Torre paginado (só quem subiu: bestFloor > floor), limite/offset no banco.
     List<Player> findByTowerBestFloorGreaterThanOrderByTowerBestFloorDesc(int floor, Pageable pageable);
 
+    // [LEADERBOARDS] Rankings paginados (índice/limit no DB, payload pequeno).
+    @Query("SELECT p FROM Player p ORDER BY p.rankPoints DESC")
+    List<Player> findTopByRankPoints(Pageable pageable);
+
+    @Query("SELECT p FROM Player p ORDER BY p.playerKills DESC")
+    List<Player> findTopByPlayerKills(Pageable pageable);
+
+    // Riqueza = total em bronze (bronze + prata×100 + ouro×10000). Ordena pela expressão no DB.
+    @Query("SELECT p FROM Player p ORDER BY (p.bronze + p.silver * 100 + p.gold * 10000) DESC")
+    List<Player> findTopByWealth(Pageable pageable);
+
     // PvP por flag: players atualmente expostos numa zona (vítimas potenciais de raid). [PVP_FLAG]
     @Query("SELECT p FROM Player p WHERE p.pvpFlaggedZone = :zone AND p.pvpFlaggedUntil > :now AND p.id <> :excludeId")
     List<Player> findFlaggedInZone(@Param("zone") com.medieval.game.enums.Zone zone,

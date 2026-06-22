@@ -39,6 +39,10 @@ public class Guild {
     @Column(columnDefinition = "boolean default false")
     private boolean everControlledTerritory = false;
 
+    // [LEADERBOARDS] Kills acumulados em guerras de guilda — alimenta o ranking de guildas "War kills".
+    @Column(columnDefinition = "bigint default 0")
+    private long warKills = 0;
+
     @Column(nullable = false)
     private Long leaderId;
 

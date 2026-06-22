@@ -62,6 +62,10 @@ public class Warrior {
     @Column(columnDefinition = "integer default 0")
     private int abilityPoints = 0;
 
+    // [LEADERBOARDS] Mobs (PvE) abatidos — acumulado, alimenta o ranking "Hunter". +1 por vitória PvE.
+    @Column(columnDefinition = "integer default 0")
+    private int mobKills = 0;
+
     // ── HP com regen passiva (% 0-100, regenera 100% em 1 hora) ──
     @Column(columnDefinition = "integer default 100")
     private int currentHpSnapshot = 100;

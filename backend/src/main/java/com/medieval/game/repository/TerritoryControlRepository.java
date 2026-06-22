@@ -3,6 +3,7 @@ package com.medieval.game.repository;
 import com.medieval.game.enums.Kingdom;
 import com.medieval.game.model.Guild;
 import com.medieval.game.model.TerritoryControl;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Modifying;
@@ -29,4 +30,9 @@ public interface TerritoryControlRepository extends JpaRepository<TerritoryContr
 
     @EntityGraph(attributePaths = "controllingGuild")
     List<TerritoryControl> findAll();
+
+    // [LEADERBOARDS] Guildas por nº de territórios dominados: projeção [guildId, name, level, count].
+    @Query("SELECT g.id, g.name, g.level, COUNT(tc) FROM TerritoryControl tc JOIN tc.controllingGuild g " +
+           "GROUP BY g.id, g.name, g.level ORDER BY COUNT(tc) DESC")
+    List<Object[]> topGuildsByTerritoryCount(Pageable pageable);
 }
