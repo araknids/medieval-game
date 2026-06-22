@@ -34,19 +34,20 @@ horizontal, dobra o roubo de 25% de gold de guild, upkeep de território, e mail
 UPDATE atômico guardado (`UPDATE guild_war SET status='RESOLVED' WHERE id=? AND status='ACTIVE'`, age só
 se rowcount==1).
 
-### 3. Resolução de guerra lazy-on-read corre com o scheduler (roubo de gold duplicado)
+### 3. ✅ FEITO (via #2) — Resolução de guerra lazy-on-read corre com o scheduler (roubo de gold duplicado)
 `GuildWarService.currentWar()` (`:201`) resolve lazy em todo `attack`/`statusFor` E o scheduler também —
 check-then-update de status não-atômico. Sob READ_COMMITTED dois resolvem e aplicam os deltas de gold 2×.
 Bônus ruim: um GET (`statusFor`) muta gold (write num read path). **Fix:** lock pessimista no fetch da war
 ou UPDATE atômico guardado; separar o lazy-resolve dos endpoints de leitura.
 
-### 4. `make()`/`addResource`/`join()`/`create()` — check-then-act fora do alcance do `@Version`
+### 4. 🟡 PARCIAL — `make()`/`addResource`/`join()`/`create()` — check-then-act fora do `@Version`
+**Feito:** `join()` (lock pessimista), `create()`/nome (unique + 409). **Documentado (aberto):** bag (`make`/`addResource`) — baixo-risco no hot path.
 Capacidade de bag e cap de membros de guild são contados por linhas; inserir uma linha nova **não** bumpa
 `Player.version`, então o `@Version` não serializa. Dois drops/crafts/joins simultâneos furam o cap.
 `InventoryService:337`, `GatheringService:64`, `GuildService:85` (membros), `:42` (nome duplicado de guild).
 **Fix:** `SELECT ... FOR UPDATE` na linha do player/guild antes de contar, ou índice único parcial no DB.
 
-### 5. Sessão única (work/quest/training) por check-then-insert → duas sessões IN_PROGRESS
+### 5. ✅ FEITO — Sessão única (work/quest/training) por check-then-insert → duas sessões IN_PROGRESS
 `WorkService:81`, `KingdomService:181` (quest), `:548` (training). `findByPlayerAndStatus(IN_PROGRESS)` +
 `save(new)` — `@Version` só guarda UPDATE de 1 linha, não INSERT duplicado. Resultado: gold/XP idle dobrado
 e `getCurrentSession` (Optional single-result) pode lançar `IncorrectResultSizeDataAccessException`.
@@ -220,6 +221,11 @@ _(preenchido conforme aplico — ver git log com tag [VARREDURA])_
 - **[2026-06-22 manhã] Os 2 TOP de concorrência:** `@Version` no `Warrior` (fecha double-spend de
   ponto/atributo + lost-update XP/HP); **claim atômico** (UPDATE guardado por status) em GuildWar.resolve /
   Auction.expire / Territory.resolveDueCycles — fecha resolução 2× (scheduler multi-instância + lazy-resolve
-  concorrente do GuildWar, este exploitável já em 1 instância). 662 testes verdes. **Resíduo:** o
-  `OptimisticLock` do perdedor concorrente do spend-point vira 500 cru (raro) — polir com catch→"tente de
-  novo" é follow-up menor. Check-then-act de bag/membros/sessão-única (itens 4 e 5) seguem abertos.
+  concorrente do GuildWar, este exploitável já em 1 instância). 662 testes verdes. (Correção: o
+  `OptimisticLock` do perdedor concorrente JÁ vira **409 "tente de novo"** no `GlobalExceptionHandler:66` —
+  não era 500.)
+- **[2026-06-22] Item #3 (check-then-act):** **sessão única** (work/quest/training) → índice único PARCIAL
+  no Postgres (`WHERE status='IN_PROGRESS'`) + `DataIntegrityViolationException`→409 global. **Membros de
+  guild** → lock pessimista (`findByIdForUpdate`) no join. **Bag** (count, hot path de todo drop) →
+  documentado como baixo-risco (lock por drop tem trade-off de perf; 1-2 itens extras numa corrida exata).
+  **Nome de guild** → coberto por `@Column(unique=true)` + o 409 global. 662 verdes.
