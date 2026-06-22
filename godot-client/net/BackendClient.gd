@@ -350,6 +350,47 @@ func territory_history(territory: String) -> Dictionary:
 func territory_replay(territory: String) -> Dictionary:
 	return await _request(HTTPClient.METHOD_GET, "/api/territory/%s/replay" % territory, null, true)
 
+# ── [LEADERBOARDS] Rankings + perfil/inspeção + social ─────────────────────────────
+## GET /api/leaderboard/{category}?page= — category: level|arena|tower|hunter|slayer|wealth.
+func leaderboard(category: String, page := 0) -> Dictionary:
+	return await _request(HTTPClient.METHOD_GET, "/api/leaderboard/%s?page=%d" % [category, page], null, true)
+## GET /api/leaderboard/guild/{subcat}?page= — subcat: power|territory|warkills|members.
+func leaderboard_guild(subcat: String, page := 0) -> Dictionary:
+	return await _request(HTTPClient.METHOD_GET, "/api/leaderboard/guild/%s?page=%d" % [subcat, page], null, true)
+## GET /api/leaderboard/territory/{kingdom}?page= — top contribuintes de um reino.
+func leaderboard_territory(kingdom: String, page := 0) -> Dictionary:
+	return await _request(HTTPClient.METHOD_GET, "/api/leaderboard/territory/%s?page=%d" % [kingdom, page], null, true)
+## GET /api/leaderboard/territories — lista de reinos p/ o picker.
+func leaderboard_territories() -> Dictionary:
+	return await _request(HTTPClient.METHOD_GET, "/api/leaderboard/territories", null, true)
+## GET /api/players/{id}/profile — perfil read-only (atributos + combate + equipados).
+func player_profile(player_id: int) -> Dictionary:
+	return await _request(HTTPClient.METHOD_GET, "/api/players/%d/profile" % player_id, null, true)
+## POST /api/mail/send {recipientWarriorName, message, goldAmount} — envia carta a outro jogador.
+func mail_send(recipient: String, message: String, gold := 0) -> Dictionary:
+	return await _request(HTTPClient.METHOD_POST, "/api/mail/send",
+			{"recipientWarriorName": recipient, "message": message, "goldAmount": gold}, true)
+# Amizade
+func friends_list() -> Dictionary:
+	return await _request(HTTPClient.METHOD_GET, "/api/friends", null, true)
+func friend_request(player_id: int) -> Dictionary:
+	return await _request(HTTPClient.METHOD_POST, "/api/friends/request/%d" % player_id, {}, true)
+func friend_accept(req_id: int) -> Dictionary:
+	return await _request(HTTPClient.METHOD_POST, "/api/friends/accept/%d" % req_id, {}, true)
+func friend_decline(req_id: int) -> Dictionary:
+	return await _request(HTTPClient.METHOD_POST, "/api/friends/decline/%d" % req_id, {}, true)
+func friend_remove(player_id: int) -> Dictionary:
+	return await _request(HTTPClient.METHOD_DELETE, "/api/friends/%d" % player_id, null, true)
+# Convite de guilda (só líder convida; aceitar entra via GuildService.join)
+func guild_invites() -> Dictionary:
+	return await _request(HTTPClient.METHOD_GET, "/api/guild-invites", null, true)
+func guild_invite(player_id: int) -> Dictionary:
+	return await _request(HTTPClient.METHOD_POST, "/api/guild-invites/invite/%d" % player_id, {}, true)
+func guild_invite_accept(invite_id: int) -> Dictionary:
+	return await _request(HTTPClient.METHOD_POST, "/api/guild-invites/%d/accept" % invite_id, {}, true)
+func guild_invite_decline(invite_id: int) -> Dictionary:
+	return await _request(HTTPClient.METHOD_POST, "/api/guild-invites/%d/decline" % invite_id, {}, true)
+
 ## Chamada genérica. method = HTTPClient.METHOD_*; body = Dictionary ou null; authed = manda o Bearer.
 ## Reusa uma conexão keep-alive do pool; conexões diferentes rodam em paralelo. Mesmo contrato
 ## de retorno de antes: {ok, status, json, raw} ou {ok:false, status, error}.

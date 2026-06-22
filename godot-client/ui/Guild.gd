@@ -546,7 +546,7 @@ func _donor_row(i: int, d: Dictionary) -> HBoxContainer:
 	var h := HBoxContainer.new(); h.add_theme_constant_override("separation", 8)
 	h.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	var me := bool(d.get("isMe", false))
-	var medal_key := ["gold", "silver", "bronze"][i] if i < 3 else ""
+	var medal_key: String = ["gold", "silver", "bronze"][i] if i < 3 else ""
 	if medal_key != "" and Icons.tex(medal_key) != null:
 		var mi := Icons.rect(medal_key, 16); mi.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 		h.add_child(mi)

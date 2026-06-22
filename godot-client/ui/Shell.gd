@@ -39,6 +39,7 @@ const NAV_TIPS := {
 	"Abilities": "Habilidades — árvore de talentos da classe",
 	"Achievements": "Conquistas — marcos e títulos",
 	"Guild": "Guilda — membros, tesouro e guerra",
+	"Leaderboards": "Classificação — ranking de jogadores e guildas + perfil e social",
 	"Mail": "Correio — mensagens, itens e recompensas",
 	"Daily": "Diário — recompensa de login (ciclo de 7 dias)",
 }
@@ -430,6 +431,7 @@ func _build_nav() -> Control:
 	nav.add_child(_nav_item("Tower", "Torre"))            # combate PvE
 	nav.add_child(_nav_item("Arena", "Arena"))            # combate PvP
 	nav.add_child(_nav_item("Guild", "Guilda"))           # social + guerra de território
+	nav.add_child(_nav_item("Leaderboards", "Classificação"))  # [LEADERBOARDS] ranking + perfil + social
 	nav.add_child(_nav_divider())
 	nav.add_child(_nav_item("Temple", "Templo"))          # manutenção do herói
 	nav.add_child(_nav_item("Forge", "Forja"))            # craft/refino/encantar
