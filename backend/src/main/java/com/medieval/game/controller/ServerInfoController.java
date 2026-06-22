@@ -20,8 +20,21 @@ public class ServerInfoController {
     @Value("${app.server.name:Local Dev}") private String name;
     @Value("${app.server.env:dev}")    private String env;
 
+    // [DISTRIB_UPDATE] trava de versão do cliente:
+    //   minClientVersion    = versão MÍNIMA que ainda consegue jogar (abaixo disso o cliente BLOQUEIA)
+    //   latestClientVersion = última versão publicada (cliente mais novo só avisa "tem update")
+    //   clientDownloadUrl   = onde baixar/atualizar (launcher/itch/Steam) — exibido no aviso
+    @Value("${app.client.min-version:0.0.0}")    private String minClientVersion;
+    @Value("${app.client.latest-version:0.0.0}") private String latestClientVersion;
+    @Value("${app.client.download-url:}")        private String clientDownloadUrl;
+
     @GetMapping
     public ResponseEntity<?> info() {
-        return ResponseEntity.ok(Map.of("id", id, "name", name, "env", env));
+        return ResponseEntity.ok(Map.of(
+            "id", id, "name", name, "env", env,
+            "minClientVersion", minClientVersion,
+            "latestClientVersion", latestClientVersion,
+            "clientDownloadUrl", clientDownloadUrl
+        ));
     }
 }

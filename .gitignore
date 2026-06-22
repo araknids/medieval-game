@@ -8,6 +8,12 @@
 godot-client/.godot/
 godot-client/*.import
 godot-client/export_presets.cfg
+godot-client/dist/
+# Launcher (projeto Godot separado) — cache/import/export local
+launcher/.godot/
+launcher/*.import
+launcher/export_presets.cfg
+launcher/dist/
 
 # Editor atomic-write temp artifacts
 *.java.tmp.*

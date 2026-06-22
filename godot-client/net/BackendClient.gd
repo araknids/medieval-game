@@ -53,6 +53,11 @@ func register(username: String, warrior_name: String, email: String, password: S
 		token = str(r["json"]["token"])
 	return r
 
+## GET /api/server-info (PÚBLICO, sem token). Identidade do servidor + trava de versão do cliente
+## (minClientVersion/latestClientVersion/clientDownloadUrl). [SERVIDORES][DISTRIB_UPDATE]
+func server_info() -> Dictionary:
+	return await _request(HTTPClient.METHOD_GET, "/api/server-info", null, false)
+
 ## GET /api/warrior (autenticado). Retorna {ok, status, json, raw, error}.
 func get_warrior() -> Dictionary:
 	return await _request(HTTPClient.METHOD_GET, "/api/warrior", null, true)

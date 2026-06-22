@@ -30,7 +30,67 @@ func _ready() -> void:
 	_menu_bg = MenuFx.new().bg_3d(self, scenario)   # 1 fundo 3D p/ TODAS as telas (montado 1x; persiste)
 	UiKit.duel_refresh_sink = _refresh_duel          # trocar de equip → o duelo do fundo re-veste com seu gear novo
 	_route()
+	_check_version()   # [DISTRIB_UPDATE] confere a versão contra o servidor (bloqueia cliente velho demais)
 	# [UI] engrenagem flutuante REMOVIDA — Settings já vive na nav do Shell (Shell.gd _nav_item "Settings").
+
+# [DISTRIB_UPDATE] Trava de versão: bate CLIENT_VERSION (project.godot) contra o /api/server-info.
+# < minClientVersion → overlay BLOQUEANTE (a API mudou, o cliente velho quebraria). Entre min e latest →
+# aviso suave dispensável. Falha de rede / 0.0.0 → não faz nada (não trava o jogo offline/dev).
+func _check_version() -> void:
+	var api = get_node_or_null("/root/Api")
+	if api == null:
+		return
+	var r = await api.server_info()
+	if not (r.get("ok") and r.get("json") is Dictionary):
+		return
+	var j: Dictionary = r["json"]
+	var mine := str(ProjectSettings.get_setting("application/config/version", "0.0.0"))
+	var minv := str(j.get("minClientVersion", "0.0.0"))
+	var latest := str(j.get("latestClientVersion", "0.0.0"))
+	var url := str(j.get("clientDownloadUrl", ""))
+	if _ver_cmp(mine, minv) < 0:
+		_show_update_gate(true, mine, latest, url)          # obrigatório (bloqueia)
+	elif _ver_cmp(mine, latest) < 0:
+		_show_update_gate(false, mine, latest, url)         # opcional (avisa)
+
+# Compara versões "x.y.z" → -1 / 0 / 1. Tolerante a campos a menos e a sufixos não-numéricos.
+func _ver_cmp(a: String, b: String) -> int:
+	var pa := a.split("."); var pb := b.split(".")
+	for i in range(maxi(pa.size(), pb.size())):
+		var na := int(pa[i]) if i < pa.size() else 0
+		var nb := int(pb[i]) if i < pb.size() else 0
+		if na != nb:
+			return -1 if na < nb else 1
+	return 0
+
+func _show_update_gate(required: bool, mine: String, latest: String, url: String) -> void:
+	var layer := CanvasLayer.new(); layer.layer = 200
+	add_child(layer)
+	if required:
+		var block := ColorRect.new()
+		block.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+		block.color = Color(0, 0, 0, 0.82)
+		block.mouse_filter = Control.MOUSE_FILTER_STOP   # trava a tela embaixo
+		layer.add_child(block)
+	var center := CenterContainer.new()
+	center.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	center.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	layer.add_child(center)
+	var res := UiKit.card(UiKit.GOLD if required else UiKit.GOLD_SOFT)
+	var panel: PanelContainer = res[0]
+	var vb: VBoxContainer = res[1]
+	vb.add_theme_constant_override("separation", 10)
+	center.add_child(panel)
+	var title := UiKit.body(Lang.t("Atualização necessária") if required else Lang.t("Há uma nova versão"))
+	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	vb.add_child(title)
+	var msg := UiKit.dim(Lang.t("Sua versão: %s · disponível: %s") % [mine, latest])
+	msg.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	vb.add_child(msg)
+	if url != "":
+		vb.add_child(UiKit.action(Lang.t("Baixar atualização"), func() -> void: OS.shell_open(url)))
+	if not required:
+		vb.add_child(UiKit.action(Lang.t("Continuar mesmo assim"), func() -> void: layer.queue_free()))
 
 # Engrenagem flutuante no canto: abre Settings (idioma PT/EN) de qualquer tela, sem depender da nav.
 func _add_settings_gear() -> void:
