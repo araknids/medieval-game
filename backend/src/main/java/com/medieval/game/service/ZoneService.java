@@ -303,7 +303,7 @@ public class ZoneService {
         String name = Messages.tr("item.beast_trophy", "Beast Trophy {0}", typeName);
         long price = switch (rarity) { case 3 -> 200L; case 2 -> 80L; default -> 30L; };
         String desc = Messages.tr("item.beast_trophy.desc", "Taken from a slain beast of the Cursed Fortress."),
-               origin = Messages.tr("item.combat_zone", "Combat Zone");
+               origin = Messages.tr("itemorigin.hunt", "Hunted in {0}.", Messages.word("the Cursed Fortress")); // [ITEM_PROV]
         if (inventoryService.bagSpaceLeft(player) >= 1) {
             var it = inventoryService.make(player, name, type, 0, 0, 0, rarity, price, itemLevel, desc, origin);
             return new LootRoll(it.getName(), it.getId());
@@ -464,7 +464,7 @@ public class ZoneService {
 
         if (out.firstWon()) {
             persistAttackerHp(w, out.firstHpFinal(), maxHp);
-            LootRoll loot = rollBossLoot(player, lvl); // item garantido no nível do chefe
+            LootRoll loot = rollBossLoot(player, lvl, activity.getBossName()); // item garantido no nível do chefe [ITEM_PROV]
             long bonusXp = lvl * 30L, bonusBronze = lvl * 20L;
             warriorService.addExperience(w, bonusXp); warriorRepository.save(w);
             player.addBronzeAmount(bonusBronze); playerRepository.save(player);
@@ -494,7 +494,7 @@ public class ZoneService {
     }
 
     /** 1 item garantido de chefe (Raro+); [BALANCE_ECON] Lendário bem mais raro + nível do item capado. */
-    private LootRoll rollBossLoot(Player player, int bossLevel) {
+    private LootRoll rollBossLoot(Player player, int bossLevel, String bossName) {
         Random rng = java.util.concurrent.ThreadLocalRandom.current();
         int rarity = InventoryService.rollBossRarity(rng); // [BALANCE_ECON] 8% Leg / 32% Épico / 60% Raro
         Warrior w = warriorRepository.findByPlayer(player).orElse(null);
@@ -506,7 +506,7 @@ public class ZoneService {
         String name = Messages.tr("item.tower_warden", "Tower Warden''s {0}", typeName);
         long price = switch (rarity) { case 5 -> 2500L; case 4 -> 1000L; default -> 400L; };
         String desc = Messages.tr("item.tower_warden.desc", "Spoils from the escaped Tower boss."),
-               origin = Messages.tr("item.roaming_boss", "Roaming Boss");
+               origin = Messages.tr("itemorigin.drop", "Obtained after defeating {0}.", bossName); // [ITEM_PROV] nome real do chefe
         if (inventoryService.bagSpaceLeft(player) >= 1) {
             var it = inventoryService.make(player, name, type, 0, 0, 0, rarity, price, itemLevel, desc, origin);
             return new LootRoll(it.getName(), it.getId());

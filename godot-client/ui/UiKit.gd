@@ -846,6 +846,7 @@ static func item_tooltip_panel(it: Dictionary, opts := {}) -> PanelContainer:
 	var tags := HFlowContainer.new(); tags.add_theme_constant_override("h_separation", 5); tags.add_theme_constant_override("v_separation", 3)
 	if is_eq: tags.add_child(_tag_pill("Equipado", GOLD, ""))
 	if bool(it.get("selfCrafted", false)): tags.add_child(_tag_pill("Forjado por você", GOLD, "forge"))
+	elif str(it.get("craftedByName", "")) != "": tags.add_child(_tag_pill("Forjado por %s" % str(it.get("craftedByName", "")), GOLD, "forge")) # [ITEM_PROV]
 	if bool(it.get("pvpLocked", false)): tags.add_child(_tag_pill("Travado no PvP", ERR, "locked"))
 	if bool(it.get("guarded", false)): tags.add_child(_tag_pill("Protegido", OK, "locked"))
 	if str(it.get("weaponCategory", "")) == "RANGED": tags.add_child(_tag_pill("À distância", TEXT_DIM, ""))
@@ -907,7 +908,7 @@ static func item_tooltip_panel(it: Dictionary, opts := {}) -> PanelContainer:
 	if origin != "":
 		var orow := HBoxContainer.new(); orow.add_theme_constant_override("separation", 5)
 		if Icons.tex("world") != null: orow.add_child(Icons.rect("world", 14))
-		var ol := Label.new(); ol.text = Lang.t("Obtido em: %s") % origin
+		var ol := Label.new(); ol.text = origin # [ITEM_PROV] backend já manda a frase completa (ex.: "Obtido ao derrotar X")
 		ol.add_theme_font_size_override("font_size", 11); ol.add_theme_color_override("font_color", GOLD_SOFT)
 		ol.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART; ol.custom_minimum_size = Vector2(250, 0)
 		ol.size_flags_horizontal = Control.SIZE_EXPAND_FILL

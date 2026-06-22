@@ -20,4 +20,8 @@ public interface WarriorRepository extends JpaRepository<Warrior, Long> {
     // p/ poder mapear por player.id fora de @Transactional.
     @EntityGraph(attributePaths = "player")
     List<Warrior> findByPlayerIn(Collection<Player> players);
+
+    // [ITEM_PROV] Batch por playerId p/ resolver o nome do forjador (craftedBy) sem N+1. player eager.
+    @EntityGraph(attributePaths = "player")
+    List<Warrior> findByPlayer_IdIn(Collection<Long> playerIds);
 }

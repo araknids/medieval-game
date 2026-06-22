@@ -302,7 +302,11 @@ public class KingdomService {
             int guildDrop = guild != null ? guild.dropBonus() : 0;
             // [ITEM_DROP_LEVEL] item sai no nível do monstro morto; sem combate (quest interativa) → nível do jogador.
             int dropLevel = res.monsterLevel > 0 ? res.monsterLevel : warrior.getLevel();
-            drop = rollDrop(player, res.dropChance, guildDrop, dropLevel);
+            // [ITEM_PROV] Proveniência: combate com monstro nomeado → "derrotou X"; sem luta → "baú em {Reino}".
+            String dropOrigin = (res.monsterLevel > 0 && res.monsterName != null && !res.monsterName.isBlank())
+                    ? loreGenerator.originDrop(res.monsterName)
+                    : loreGenerator.originChest(Messages.word(quest.getKingdom().displayName));
+            drop = rollDrop(player, res.dropChance, guildDrop, dropLevel, dropOrigin);
         }
 
         warriorRepo.save(warrior); // persiste HP/desgaste do combate da quest
@@ -640,7 +644,7 @@ public class KingdomService {
 
     // ── Drop helper ───────────────────────────────────────────────────────────
 
-    private InventoryItem rollDrop(Player player, int dropChance, int guildBonus, int dropLevel) {
+    private InventoryItem rollDrop(Player player, int dropChance, int guildBonus, int dropLevel, String origin) {
         var rng = new java.util.Random();
         Warrior warrior = warriorRepo.findByPlayer(player).orElse(null);
         int luck  = warrior != null ? warrior.getLuck() : 0;
@@ -664,7 +668,7 @@ public class KingdomService {
         boolean isArcher = warrior != null && warrior.getWarriorClass() == com.medieval.game.enums.WarriorClass.ARCHER;
         String name   = itemName(type, rarity, isArcher, rng);
         String lore   = loreGenerator.generateLore(rarity, type, rng);
-        String origin = loreGenerator.originFromQuest(Messages.word("Kingdom Quest"));
+        // [ITEM_PROV] origin agora vem do call site (qual monstro / baú em qual reino).
 
         if (inventoryService.bagSize(player) < player.getMaxInventorySlots()) {
             return inventoryService.make(player, name, type, atk, def, hp, rarity, price, itemLevel, lore, origin);

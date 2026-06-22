@@ -97,4 +97,14 @@ public class ItemLoreGenerator {
     public String originDrop(String bossOrEnemyName) {
         return Messages.tr("itemorigin.drop", "Obtained after defeating {0}.", bossOrEnemyName);
     }
+
+    /** [ITEM_PROV] Item achado num baú (ex.: missão sem combate) em um local/reino. */
+    public String originChest(String place) {
+        return Messages.tr("itemorigin.chest", "Found in a chest at {0}.", place);
+    }
+
+    /** [ITEM_PROV] Item caçado (kill procedural sem nome específico) numa região. */
+    public String originHunt(String place) {
+        return Messages.tr("itemorigin.hunt", "Hunted in {0}.", place);
+    }
 }
