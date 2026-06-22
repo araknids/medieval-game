@@ -87,7 +87,7 @@ func _render() -> void:
 	if refine.is_empty():
 		content.add_child(UiKit.dim("— sem receitas —"))
 	else:
-		_grid_section(refine, _refine_card)
+		_grid_section(refine, _refine_card, true, 190.0, 3)   # [FORJA_COMPACTO] grid denso (3 col), card estilo mochila
 	# ── Craftar equipamento (filtro de CATEGORIA + raridade + PAGINAÇÃO no cabeçalho) ──
 	var craft: Array = recipes.get("craft", [])
 	var filtered: Array = []
@@ -111,14 +111,14 @@ func _render() -> void:
 			content.add_child(UiKit.dim("— nenhuma receita com esse filtro —"))
 		else:
 			var slice := filtered.slice(craft_page * CRAFT_PER_PAGE, mini(filtered.size(), (craft_page + 1) * CRAFT_PER_PAGE))
-			_grid_section(slice, _craft_card)
+			_grid_section(slice, _craft_card, true, 190.0, 3)   # [FORJA_COMPACTO] grid denso (3 col)
 	# ── Joias ── (cards compactos → mais colunas)
 	content.add_child(UiKit.section("Criar Joias"))
 	var gems: Array = recipes.get("gems", [])
 	if gems.is_empty():
 		content.add_child(UiKit.dim("— sem fragmentos —"))
 	else:
-		_grid_section(gems, _gem_card, true)
+		_grid_section(gems, _gem_card, true, 190.0, 3)   # [FORJA_COMPACTO] grid denso (3 col)
 	# ── Manutenção (ordenada pelo item mais QUEBRADO primeiro: menor durabilidade no topo) ──
 	content.add_child(UiKit.section("🔧 Manutenção (Reparar / Reforjar)"))
 	if inventory.is_empty():
@@ -130,12 +130,12 @@ func _render() -> void:
 
 # Monta o grid de cards via UiKit.grid (responsivo — colunas pela largura real, não da janela).
 # builder = func(Dictionary) -> Control; filtra não-dicionários antes (o builder assume Dictionary).
-func _grid_section(items: Array, builder: Callable, compact := false) -> void:
+func _grid_section(items: Array, builder: Callable, compact := false, cell_w := 0.0, cols_cap := 0) -> void:
 	var rows: Array = []
 	for it in items:
 		if it is Dictionary:
 			rows.append(it)
-	content.add_child(UiKit.grid(self, rows, builder, compact))
+	content.add_child(UiKit.grid(self, rows, builder, compact, cell_w, cols_cap))
 
 # ── Filtro de raridade (seção Craftar) ──────────────────────────────────────────────
 # Linha de chips (HFlow → quebra em telas estreitas): Todas + as 5 raridades. O ativo fica
@@ -217,6 +217,41 @@ func _craft_next() -> void:
 	_render()
 
 # ── Cards ─────────────────────────────────────────────────────────────────────────
+# [FORJA_COMPACTO] Card no estilo do Inventário: ícone + nome + selo numa linha, DETALHE no tooltip
+# (hover), ação compacta embaixo só quando dá. Encurta a Forja (era card alto com tudo inline).
+func _compact_card(col: Color, can: bool, icon: Control, name: String, badge: String, badge_col: Color, tip: String, action: Control) -> PanelContainer:
+	var res := UiKit.card(col, can)
+	var pc: PanelContainer = res[0]
+	var vb: VBoxContainer = res[1]
+	(pc.get_theme_stylebox("panel") as StyleBoxFlat).set_content_margin_all(7)   # apertado, igual à mochila
+	vb.add_theme_constant_override("separation", 4)
+	if tip != "":
+		pc.tooltip_text = tip
+	var row := HBoxContainer.new(); row.add_theme_constant_override("separation", 8)
+	if icon != null:
+		row.add_child(icon)
+	var nm := Label.new(); nm.text = name
+	nm.add_theme_font_size_override("font_size", 13); nm.add_theme_color_override("font_color", col)
+	nm.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	nm.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	nm.clip_text = true; nm.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+	row.add_child(nm)
+	if badge != "":
+		var bl := Label.new(); bl.text = badge
+		bl.add_theme_font_size_override("font_size", 11); bl.add_theme_color_override("font_color", badge_col)
+		bl.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+		bl.mouse_filter = Control.MOUSE_FILTER_PASS
+		row.add_child(bl)
+	vb.add_child(row)
+	# hover na faixa de info (ícone+nome) sobe pro card → mostra o tooltip; a ação (botão/spin) fica clicável.
+	# vb tb PASS senão ele intercepta o hover antes do pc (igual ao _bag_card da mochila).
+	for n in [vb, row, nm, icon]:
+		if n != null and n is Control:
+			(n as Control).mouse_filter = Control.MOUSE_FILTER_PASS
+	if action != null:
+		vb.add_child(action)
+	return pc
+
 func _refine_card(r: Dictionary) -> PanelContainer:
 	var ore := str(r.get("ore", ""))
 	var ore_qty := maxi(1, int(r.get("oreQty", 1)))
@@ -224,121 +259,56 @@ func _refine_card(r: Dictionary) -> PanelContainer:
 	var level_ok := bool(r.get("canCraft", false))       # canCraft = só o nível da Forja
 	var enough := have >= ore_qty
 	var can := level_ok and enough
-	var res := UiKit.card(UiKit.BRONZE, can)
-	var pc: PanelContainer = res[0]
-	var vb: VBoxContainer = res[1]
-	# [MOEDA] custo de bronze em ícone pixel-art no meio da receita
-	var rcp := HBoxContainer.new(); rcp.add_theme_constant_override("separation", 4)
-	var rcp_a := Label.new(); rcp_a.text = "%s ×%d +" % [str(r.get("oreName", ore)), ore_qty]
-	rcp_a.add_theme_font_size_override("font_size", 14); rcp_a.add_theme_color_override("font_color", UiKit.TEXT)
-	rcp_a.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	rcp.add_child(rcp_a)
-	rcp.add_child(UiKit.coin_box(int(r.get("bronzeCost", 0)), 16))
-	var rcp_b := Label.new(); rcp_b.text = "→ %s" % str(r.get("barName", ""))
-	rcp_b.add_theme_font_size_override("font_size", 14); rcp_b.add_theme_color_override("font_color", UiKit.TEXT)
-	rcp_b.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	rcp.add_child(rcp_b)
-	vb.add_child(rcp)
-	# tem/precisa colorido + requisito de nível (labels SEM autowrap → não quebram vertical no grid)
-	var info := HBoxContainer.new(); info.add_theme_constant_override("separation", 12)
-	var hv := Label.new()
-	hv.text = Lang.t("Você tem: %d") % have
-	hv.add_theme_font_size_override("font_size", 12)
-	hv.add_theme_color_override("font_color", UiKit.OK if enough else UiKit.ERR)
-	info.add_child(hv)
-	var lv := Label.new()
-	lv.text = Lang.t("Forja Lv.%d %s") % [int(r.get("levelRequired", 1)), "" if level_ok else "🔒"]
-	lv.add_theme_font_size_override("font_size", 12)
-	lv.add_theme_color_override("font_color", UiKit.TEXT_DIM)
-	info.add_child(lv)
-	vb.add_child(info)
+	var icon := Icons.rect("res_" + str(r.get("bar", "")).to_lower(), 28)   # ícone da barra resultante
+	var tip := Lang.t("%s ×%d + %d bronze → %s\nForja Lv.%d%s · Você tem: %d") % [str(r.get("oreName", ore)), ore_qty, int(r.get("bronzeCost", 0)), str(r.get("barName", "")), int(r.get("levelRequired", 1)), "" if level_ok else Lang.t(" (trava de nível)"), have]
+	var action: Control = null
 	if can:
-		var row := HBoxContainer.new(); row.add_theme_constant_override("separation", 8)
+		var hb := HBoxContainer.new(); hb.add_theme_constant_override("separation", 6)
 		var max_ref := maxi(1, have / ore_qty)           # não deixa pedir mais do que dá
 		var qty := SpinBox.new(); qty.min_value = 1; qty.max_value = max_ref
 		qty.value = clampi(int(refine_qty.get(ore, 1)), 1, max_ref)
-		qty.custom_minimum_size = Vector2(80, 0)
+		qty.custom_minimum_size = Vector2(66, 0)
 		qty.value_changed.connect(func(v): refine_qty[ore] = int(v))
-		row.add_child(qty)
-		row.add_child(UiKit.small_btn("Refinar", _refine.bind(ore)))
-		vb.add_child(row)
-	elif not enough and level_ok:
-		var nob := UiKit.small_btn("Sem minério", Callable())
-		nob.disabled = true
-		vb.add_child(nob)
-	return pc
+		hb.add_child(qty)
+		hb.add_child(UiKit.small_btn("Refinar", _refine.bind(ore)))
+		action = hb
+	return _compact_card(UiKit.BRONZE, can, icon, str(r.get("barName", "?")), "%d/%d" % [have, ore_qty], UiKit.OK if enough else UiKit.ERR, tip, action)
 
 func _craft_card(r: Dictionary) -> PanelContainer:
 	var rarity := int(r.get("rarity", 1))
 	var col := UiKit.rarity_color(rarity)
 	var can := bool(r.get("canCraft", false))
-	var res := UiKit.card(col, can)
-	var pc: PanelContainer = res[0]
-	var vb: VBoxContainer = res[1]
 	var sockets := int(r.get("sockets", 0))
-	# nome com ÍCONE do item à esquerda (arma → render do modelo; resto → slot) [SLOT_WEAPON_IMG]
-	var nrow := HBoxContainer.new(); nrow.add_theme_constant_override("separation", 10)
-	var ic := UiKit.item_icon_for({"type": str(r.get("slot", "")), "name": str(r.get("name", "")), "outfitTheme": str(r.get("outfitTheme", ""))}, 36)
-	if ic:
-		nrow.add_child(ic)
-	var nm := Label.new()
-	nm.text = "%s (%d socket%s)" % [str(r.get("name", "?")), sockets, "" if sockets == 1 else "s"]
-	nm.add_theme_font_size_override("font_size", 15)
-	nm.add_theme_color_override("font_color", col)
-	nm.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	nm.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	nrow.add_child(nm)
-	vb.add_child(nrow)
-	# ingredientes — P1: cor verde se tem o bastante, vermelho se falta.
+	var icon := UiKit.item_icon_for({"type": str(r.get("slot", "")), "name": str(r.get("name", "")), "outfitTheme": str(r.get("outfitTheme", ""))}, 28)
+	# tooltip: ingredientes (tem/precisa) + stats + nível + sucesso + custo + comparação textual vs equipado
+	var lines: Array = []
 	for i in r.get("ingredients", []):
 		if i is Dictionary:
 			var need := int(i.get("qty", 1))
 			var have := _resource_qty(str(i.get("type", "")))
-			var ing := Label.new()
-			ing.text = "%s  %d/%d" % [str(i.get("name", "?")), have, need]
-			ing.add_theme_font_size_override("font_size", 12)
-			ing.add_theme_color_override("font_color", UiKit.OK if have >= need else UiKit.ERR)
-			vb.add_child(ing)
-	# stats
+			lines.append("%s %d/%d" % [str(i.get("name", "?")), have, need])
 	var st := _craft_stats(r)
 	if st != "":
-		var sl := Label.new(); sl.text = st; sl.add_theme_font_size_override("font_size", 12)
-		sl.add_theme_color_override("font_color", Color(0.62, 0.75, 0.58))
-		vb.add_child(sl)
-	# [COMPARA] vs item equipado no mesmo slot (▲Melhor/▼Pior/◆Lateral + deltas)
-	var cmp := UiKit.compare_line_raw(str(r.get("slot", "")), int(r.get("atk", 0)), int(r.get("def", 0)), int(r.get("hp", 0)), int(r.get("str", 0)), int(r.get("dex", 0)), int(r.get("luk", 0)))
-	if cmp != null:
-		vb.add_child(cmp)
-	vb.add_child(UiKit.dim(Lang.t("Forja Lv.%d %s") % [int(r.get("levelRequired", 1)), "" if can else "🔒"]))
+		lines.append(st)
 	if can:
-		var pct := int(r.get("successPct", 0))
-		var pct_col := UiKit.OK if pct >= 80 else (UiKit.WARN if pct >= 50 else UiKit.ERR)
-		# [MOEDA] taxa de refino em ícone pixel-art
-		var info := HBoxContainer.new(); info.add_theme_constant_override("separation", 4)
-		var info_a := Label.new(); info_a.text = Lang.t("🎲 Sucesso: %d%% · Taxa:") % pct
-		info_a.add_theme_font_size_override("font_size", 12); info_a.add_theme_color_override("font_color", pct_col)
-		info_a.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-		info.add_child(info_a)
-		info.add_child(UiKit.coin_box(int(r.get("bronzeCost", 0)), 14))
-		vb.add_child(info)
-		vb.add_child(UiKit.small_btn("Craftar", _craft.bind(str(r.get("id", "")))))
-	return pc
+		lines.append(Lang.t("Sucesso: %d%% · Custo: %d bronze") % [int(r.get("successPct", 0)), int(r.get("bronzeCost", 0))])
+	lines.append(Lang.t("Forja Lv.%d") % int(r.get("levelRequired", 1)) + ("" if can else Lang.t(" (trava de nível)")))
+	var nm := "%s (%d socket%s)" % [str(r.get("name", "?")), sockets, "" if sockets == 1 else "s"]
+	var action: Control = null
+	if can:
+		action = UiKit.small_btn("Craftar", _craft.bind(str(r.get("id", ""))))
+	return _compact_card(col, can, icon, nm, "" if can else Lang.t("Lv.%d") % int(r.get("levelRequired", 1)), UiKit.ERR, "\n".join(lines), action)
 
 func _gem_card(r: Dictionary) -> PanelContainer:
 	var frag := str(r.get("fragment", ""))
 	var have := _resource_qty(frag)
 	var can := have >= 3
-	var res := UiKit.card(UiKit.BRONZE, can)
-	var pc: PanelContainer = res[0]
-	var vb: VBoxContainer = res[1]
-	vb.add_child(UiKit.body("%s ×3 → %s" % [str(r.get("fragmentName", frag)), str(r.get("gemName", ""))]))
-	var hv := Label.new(); hv.text = Lang.t("Você tem: %d fragmentos") % have
-	hv.add_theme_font_size_override("font_size", 12)
-	hv.add_theme_color_override("font_color", UiKit.OK if can else UiKit.ERR)
-	vb.add_child(hv)
+	var icon := Icons.rect("res_" + frag.to_lower(), 28)   # ícone do fragmento
+	var tip := Lang.t("%s ×3 → %s\nVocê tem: %d fragmentos") % [str(r.get("fragmentName", frag)), str(r.get("gemName", "")), have]
+	var action: Control = null
 	if can:
-		vb.add_child(UiKit.small_btn("Criar Joia", _craft_gem.bind(frag)))
-	return pc
+		action = UiKit.small_btn("Criar Joia", _craft_gem.bind(frag))
+	return _compact_card(UiKit.BRONZE, can, icon, str(r.get("gemName", "?")), "%d/3" % have, UiKit.OK if can else UiKit.ERR, tip, action)
 
 func _maint_card(it: Dictionary) -> PanelContainer:
 	var col := UiKit.rarity_color(int(it.get("rarity", 1)))
