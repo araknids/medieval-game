@@ -228,9 +228,9 @@ func _divider() -> Control:
 func _topbar_actions() -> Control:
 	var h := HBoxContainer.new(); h.add_theme_constant_override("separation", 6)
 	h.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	# [MAIL_BADGE] carta SEM frame-anim (a anim abria a carta e o miolo ficava laranja → "outra cor",
-	# estranho). Fica o ícone fixo + hover-pop; o não-lido vira uma exclamação vermelha no canto.
-	_mail_btn = _topbar_icon_btn("mail", "Correio — mensagens e recompensas", func() -> void: _open("Mail"), false)
+	# [MAIL_BADGE] carta com frame-anim PADRÃO: anima no HOVER (igual aos outros ícones do topo); o
+	# não-lido vira uma exclamação vermelha no canto, por cima do ícone.
+	_mail_btn = _topbar_icon_btn("mail", "Correio — mensagens e recompensas", func() -> void: _open("Mail"))
 	_mail_badge = _make_alert_badge()
 	_mail_btn.add_child(_mail_badge)
 	h.add_child(_mail_btn)
@@ -683,7 +683,6 @@ func update_topbar(w: Dictionary) -> void:
 		var unread := int(w.get("unreadMail", 0))
 		if _mail_badge != null:
 			_mail_badge.visible = unread > 0
-		Icons.play_loop_btn(_mail_btn, "mail", true)   # [MAIL_ANIM] carta ANIMA SEMPRE (loop continuo, NAO depende de hover); a exclamacao (badge) fica por cima quando ha nao-lido
 		_mail_btn.tooltip_text = ("Correio — %d não lida(s)" % unread) if unread > 0 else "Correio — mensagens e recompensas"
 	# (Badge do Diário "dá pra resgatar" adiado — precisa de arte/ícone próprio p/ não brigar com o hover-modulate.)
 	_refresh_buffs(w)

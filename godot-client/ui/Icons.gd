@@ -293,33 +293,6 @@ static func _anim_stop(b: Button) -> void:
 	if frames.size() > 0:
 		b.icon = frames[0]
 
-# [MAIL_ANIM] Loop CONTÍNUO dos frames anim/<key>/ no Button.icon, INDEPENDENTE de hover — p/ chamar
-# atenção (ex.: Correio com não-lido). on=false para o loop e volta ao ícone estático tex(key). Coexiste
-# com o hover-pop (escala/brilho, que não troca o ícone). 1 loop por botão (meta loop_tw). [nome _btn p/
-# não colidir com play_loop(TextureRect) abaixo — GDScript não tem overload.]
-static func play_loop_btn(b: Button, key: String, on: bool) -> void:
-	if not is_instance_valid(b):
-		return
-	var prev: Tween = b.get_meta("loop_tw", null)
-	var running: bool = prev != null and prev.is_valid()
-	if on:
-		if running:
-			return                       # IDEMPOTENTE: já animando → não reinicia (o _update chama isto a cada refresh)
-		var frames := _anim_frames(key)
-		if frames.size() < 2:
-			return
-		var tw := b.create_tween().set_loops()
-		for fr in frames:
-			tw.tween_callback(_anim_set.bind(b, fr)).set_delay(ANIM_FPS)
-		b.set_meta("loop_tw", tw)
-	else:
-		if running:
-			prev.kill()
-		b.set_meta("loop_tw", null)
-		var t := tex(key)
-		if t != null:
-			b.icon = t
-
 # [HOVER_ICON_ANIM] Frame-cycle numa TextureRect, disparado pelo hover de `host` (o Control que captura o
 # mouse — pode ser a própria rect, ou o Button-pai quando o ícone vive dentro dum VBox). No-op se não
 # houver anim/<key>/f0..fN. Espelha _anim_hover (que é só p/ Button.icon).
