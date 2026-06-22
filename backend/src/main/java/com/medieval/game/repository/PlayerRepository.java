@@ -35,8 +35,6 @@ public interface PlayerRepository extends JpaRepository<Player, Long> {
     @Query("SELECT p FROM Player p WHERE p.id <> :id AND p.rankPoints >= :rank ORDER BY p.rankPoints ASC")
     List<Player> findOpponentsAbove(@Param("id") Long id, @Param("rank") int rank, Pageable pageable);
 
-    // Ranking da Torre, limitado no banco. [AUDITORIA M14]
-    List<Player> findTop20ByOrderByTowerBestFloorDesc();
     // [PAGINACAO] Ranking da Torre paginado (só quem subiu: bestFloor > floor), limite/offset no banco.
     List<Player> findByTowerBestFloorGreaterThanOrderByTowerBestFloorDesc(int floor, Pageable pageable);
 

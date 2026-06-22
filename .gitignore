@@ -18,6 +18,9 @@ launcher/dist/
 # Editor atomic-write temp artifacts
 *.java.tmp.*
 
+# Cygwin/MSYS crash dumps
+*.stackdump
+
 # Raw downloaded asset packs (source). Game-used copies live in backend/.../static/assets/.
 /assets/
 

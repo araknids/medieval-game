@@ -15,9 +15,6 @@ public interface GuildWarRepository extends JpaRepository<GuildWar, Long> {
     @Query("SELECT w FROM GuildWar w WHERE (w.guildA = :g OR w.guildB = :g) AND w.status = :status")
     List<GuildWar> findByGuildAndStatus(@Param("g") Guild g, @Param("status") GuildWar.Status status);
 
-    @Query("SELECT w FROM GuildWar w WHERE (w.guildA = :g OR w.guildB = :g) ORDER BY w.startedAt DESC")
-    List<GuildWar> findByGuildOrderByStartedAtDesc(@Param("g") Guild g);
-
     List<GuildWar> findByStatusAndEndsAtBefore(GuildWar.Status status, LocalDateTime now);
 
     default List<GuildWar> findActiveDue(LocalDateTime now) {

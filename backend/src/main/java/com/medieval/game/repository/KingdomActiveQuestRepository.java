@@ -11,7 +11,6 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 import java.util.List;
-import java.util.Optional;
 
 public interface KingdomActiveQuestRepository extends JpaRepository<KingdomActiveQuest, Long> {
 
@@ -22,9 +21,6 @@ public interface KingdomActiveQuestRepository extends JpaRepository<KingdomActiv
     @EntityGraph(attributePaths = {"warrior"})
     List<KingdomActiveQuest> findByPlayerAndKingdomAndStatusNot(
             Player player, Kingdom kingdom, QuestStatus status);
-
-    Optional<KingdomActiveQuest> findByPlayerAndStatusIn(
-            Player player, List<QuestStatus> statuses);
 
     // [DAILY_QUESTS] Quantas vezes o player completou esta quest na janela de 12h (limite 1× / 2× VIP).
     long countByPlayerAndQuestTypeAndStatusAndCompletedWindowId(

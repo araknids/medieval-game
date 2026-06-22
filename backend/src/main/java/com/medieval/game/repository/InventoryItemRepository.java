@@ -10,6 +10,5 @@ import java.util.Optional;
 
 public interface InventoryItemRepository extends JpaRepository<InventoryItem, Long> {
     List<InventoryItem> findAllByPlayer(Player player);
-    List<InventoryItem> findAllByPlayerAndListedFalse(Player player); // [LEILAO] inventário "anunciável"
     Optional<InventoryItem> findByPlayerAndTypeAndEquippedTrue(Player player, ItemType type);
 }

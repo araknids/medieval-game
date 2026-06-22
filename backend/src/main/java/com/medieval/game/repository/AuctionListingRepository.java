@@ -10,7 +10,6 @@ import java.util.List;
 
 public interface AuctionListingRepository extends JpaRepository<AuctionListing, Long> {
 
-    List<AuctionListing> findByStatus(AuctionListing.Status status);
     // [AUDITORIA_2 A5] browse capado (evita serializar o livro inteiro). Paginação = futuro (PLANO_LEILAO).
     List<AuctionListing> findTop200ByStatusOrderByListedAtDesc(AuctionListing.Status status);
     List<AuctionListing> findBySellerAndStatus(Player seller, AuctionListing.Status status);

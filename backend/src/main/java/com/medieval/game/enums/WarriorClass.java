@@ -58,30 +58,9 @@ public enum WarriorClass {
     public boolean isSpecialized() { return this != RECRUIT; }
 
     /**
-     * @deprecated [CLASSES_ARMAS] O atributo de dano agora segue a ARMA equipada (arco→DEX, melee→STR),
-     * não a classe — ver {@code WarriorStatsService.isRangedWeaponEquipped} + {@code Warrior.getTotalBaseAttack(boolean)}.
-     * Mantido só por referência.
-     */
-    @Deprecated
-    public Attribute damageAttribute() { return this == ARCHER ? Attribute.DEXTERITY : Attribute.STRENGTH; }
-
-    /**
-     * @deprecated [KITING][CLASSES_ARMAS] O kiting agora segue a ARMA equipada (arco→ranged), não a
-     * classe — ver {@code WarriorStatsService.isRangedWeaponEquipped}. Mantido só por referência.
-     */
-    @Deprecated
-    public boolean isRanged() { return this == ARCHER; }
-
-    /** Categoria de arma que a classe pode equipar: Archer = RANGED, resto = MELEE. [CLASSES_ARMAS] */
-    public WeaponCategory weaponCategory() {
-        return this == ARCHER ? WeaponCategory.RANGED : WeaponCategory.MELEE;
-    }
-
-    /**
      * Pode equipar este TIPO de arma? [CLASSES_ARMAS] Restrição REMOVIDA — qualquer classe equipa
-     * qualquer arma (o tradeoff vira só o perfil de stats da arma vs o atributo de dano da classe:
-     * Archer escala em DEX, melee em STR — ver {@link #damageAttribute()}). Mantido como hook caso
-     * se queira reintroduzir alguma trava no futuro.
+     * qualquer arma (o tradeoff vira só o perfil de stats da arma vs o atributo de dano, que segue a
+     * ARMA equipada: arco→DEX, melee→STR). Mantido como hook caso se queira reintroduzir trava no futuro.
      */
     public boolean canEquip(WeaponType type) {
         return true;

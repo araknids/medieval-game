@@ -171,22 +171,8 @@ public class InventoryService {
             log.warn("[InventoryService] player={} REJECTED: item {} requires level {} (have {})", player.getId(), itemId, item.getItemLevel(), level);
             throw new com.medieval.game.config.LocalizedException("error.equip_level", "Requires level {0} to equip.", item.getItemLevel());
         }
-        // [CLASSES_ARMAS/MERCADOR] Trava por TIPO: Archer só arco; Merchant só machado/marreta;
-        // Warrior/Recruit qualquer corpo-a-corpo.
-        if (item.getType() == ItemType.WEAPON && warrior != null) {
-            com.medieval.game.enums.WarriorClass cls = warrior.getWarriorClass();
-            WeaponType wt = WeaponType.fromName(item.getName());
-            if (!cls.canEquip(wt)) {
-                log.warn("[InventoryService] player={} REJECTED: weapon {} type {} not usable by class {}",
-                        player.getId(), itemId, wt, cls);
-                String msg = switch (cls) {
-                    case ARCHER   -> "Archers can only wield ranged weapons (bows).";
-                    case MERCHANT -> "Merchants can only wield axes and maces.";
-                    default       -> "This class can only wield melee weapons (swords, axes…).";
-                };
-                throw new IllegalStateException(msg);
-            }
-        }
+        // [CLASSES_ARMAS] Trava de arma por classe REMOVIDA — qualquer classe equipa qualquer arma
+        // (o "sabor" de classe vira só o atributo de dano da arma: arco→DEX, melee→STR). Sem check aqui.
 
         // [ARCO_SEM_ESCUDO] Arco (arma RANGED) e escudo são mutuamente exclusivos (precisa das 2 mãos pro arco),
         // mas em vez de BARRAR, equipar um AUTO-DESEQUIPA o outro (qualquer classe usa escudo; só não junto do arco).
