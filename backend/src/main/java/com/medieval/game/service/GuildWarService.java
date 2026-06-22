@@ -145,6 +145,15 @@ public class GuildWarService {
         Player loser  = attackerWon ? target   : attacker;
         String loot   = zoneService.applyGuildWarRaid(winner, loser);
 
+        // [LEADERBOARDS] kill de guerra: +1 playerKill no vencedor (Slayer) + warKills na guild vencedora.
+        winner.setPlayerKills(winner.getPlayerKills() + 1);
+        playerRepository.save(winner);
+        Guild winnerGuild = attackerWon ? myGuild : guildRepository.findById(enemyGuildId).orElse(null);
+        if (winnerGuild != null) {
+            winnerGuild.setWarKills(winnerGuild.getWarKills() + 1);
+            guildRepository.save(winnerGuild);
+        }
+
         List<String> battleLog = stripWinnerTag(out.log());
         log.info("[GuildWarService] war={} attacker={} won={} loot={}", war.getId(), attacker.getId(), attackerWon, loot);
         return new AttackResult(attackerWon, tw.getName(), loot,

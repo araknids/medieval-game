@@ -47,6 +47,7 @@ public class KingdomService {
     private final PetService                   petService; // quest rara da Luna. [PETS]
     private final AbilityService               abilityService; // +drop do Mercador (Treasure Hunter) [MERCADOR]
     private final Messages                     messages;       // [I18N] desfechos de quest interativa por idioma
+    private final TerritoryContributionService territoryContributionService; // [LEADERBOARDS] incursões por território
 
     // ── Luna (pet): interrompe missões normais + chance de pity escalante. [PETS][LUNA_INTERRUPT] ──
     private static final int  LUNA_INTERRUPT_PER_MILLE = 80;      // ~8% por missão (placeholder), só sem a Luna
@@ -309,12 +310,15 @@ public class KingdomService {
             drop = rollDrop(player, res.dropChance, guildDrop, dropLevel, dropOrigin);
         }
 
+        if (res.won) warrior.setMobKills(warrior.getMobKills() + 1); // [LEADERBOARDS] monstro de quest abatido (Hunter)
         warriorRepo.save(warrior); // persiste HP/desgaste do combate da quest
 
         quest.setStatus(QuestStatus.COLLECTED);
         // [DAILY_QUESTS] coletar = consumir a daily (conta pro limite da janela: 1× normal, 2× VIP).
         quest.setCompletedWindowId(currentQuestWindowId());
         questRepo.save(quest);
+        // [LEADERBOARDS] completar a quest = +1 incursão no território (ajuda a cidade). Futuro: run de Incursão idem.
+        territoryContributionService.recordIncursion(player, quest.getKingdom());
 
         log.info("[KingdomService] player={} action=collectQuest OK interactive={} encountered={} won={} bronze={} xp={} drop={} roll={}",
                 player.getId(), InteractiveQuests.isInteractive(qt), res.encountered, res.won, totalBronze, totalXp,

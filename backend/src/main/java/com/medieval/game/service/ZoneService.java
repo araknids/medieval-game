@@ -339,8 +339,10 @@ public class ZoneService {
         }
         if (activity.getRole() == ActivityRole.COMBAT) {
             // [FORTALEZA_ZONAS] recompensa por-kill já calculada em resolveCombatHunt (xp/bronzeGained).
+            int huntKills = Math.max(1, activity.getDurationMinutes() / 10); // mesma contagem de "rodadas"/kills da caça
             warriorRepository.findByPlayer(player).ifPresent(w -> {
                 warriorService.addExperience(w, activity.getXpGained());
+                w.setMobKills(w.getMobKills() + huntKills); // [LEADERBOARDS] caça da Fortaleza (Hunter)
                 warriorRepository.save(w);
                 player.addBronzeAmount(activity.getBronzeGained());
                 playerRepository.save(player);
@@ -655,6 +657,8 @@ public class ZoneService {
 
                 if (out.firstWon()) {
                     raidVictim(player, attacker.getName(), victim, victimW, zone, log); // loot + escudo + mail
+                    player.setPlayerKills(player.getPlayerKills() + 1); // [LEADERBOARDS] saque PvP vencido (Slayer)
+                    playerRepository.save(player);
                     persistAttackerHp(attacker, out.firstHpFinal(), atkMaxHp);
                     return new PvpResult(true, true, 0, foe, log, 0, out.events()); // venceu e saqueou (PvP → sem Monster Core)
                 } else {
@@ -697,6 +701,7 @@ public class ZoneService {
             persistAttackerHp(attacker, 0, atkMaxHp);
             return new PvpResult(true, false, lost, npcName, log, 0, out.events());
         }
+        attacker.setMobKills(attacker.getMobKills() + 1); // [LEADERBOARDS] NPC PvE abatido (Hunter)
         persistAttackerHp(attacker, out.firstHpFinal(), atkMaxHp);
         // [MONSTER_CORE_BATALHA] toda batalha PvE vencida (inclusive durante coleta/mineração) dropa Monster Core.
         long core = Math.max(1, Math.round((1 + npcLevel / 15.0) * zone.multiplier));

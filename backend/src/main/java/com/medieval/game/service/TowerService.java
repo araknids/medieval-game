@@ -280,6 +280,7 @@ public class TowerService {
                 warrior.setExperience(warrior.getExperience() - warrior.expNeededForNextLevel());
                 warrior.levelUp();
             }
+            warrior.setMobKills(warrior.getMobKills() + 1); // [LEADERBOARDS] andar limpo = mob abatido (Hunter)
             warriorRepository.save(warrior);
 
             long got = gatheringService.addResource(player, com.medieval.game.enums.ResourceType.MONSTER_CORE, 1 + floor / 5);

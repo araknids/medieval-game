@@ -136,6 +136,11 @@ public class ArenaService {
         challenger.setRankPoints(Math.max(0, challenger.getRankPoints() + rankChange));
         if (challengerWon) challenger.setArenaWins(challenger.getArenaWins() + 1);
         else               challenger.setArenaLosses(challenger.getArenaLosses() + 1);
+        // [LEADERBOARDS] Vitória: vs jogador real → playerKills (Slayer); vs NPC → mobKills (Hunter, no warrior).
+        if (challengerWon) {
+            if (opponent != null) challenger.setPlayerKills(challenger.getPlayerKills() + 1);
+            else                  cWarrior.setMobKills(cWarrior.getMobKills() + 1);
+        }
         playerRepository.save(challenger);
 
         // [MONSTER_CORE_BATALHA] toda batalha de arena vencida rende Monster Core (cap pela bag).
