@@ -14,6 +14,8 @@ static var equip_changed_sink := Callable()
 
 # [LOADING] overlay central de carregamento (1 por vez) — substitui a mensagem "Carregando…" do topo
 static var _loading_overlay: Control = null
+# [TOAST] aviso padrão auto-fechável (1 por vez) — usado por todas as telas (flash() delega aqui)
+static var _toast_overlay: Control = null
 # [MENU_FUNDO] App liga isto → ao trocar de equip, o duelo do fundo re-monta com o seu gear novo.
 static var duel_refresh_sink := Callable()
 # ── Kit de UI "Stone & Ember" — padrão único das telas internas [PADRAO_UI_GODOT] ──
@@ -257,6 +259,9 @@ static func set_wallet(wallet, w: Dictionary) -> void:
 # ── Feedback de status ─────────────────────────────────────────────────────────────
 static func flash(status: Label, text: String, kind := 0) -> void:
 	hide_loading()   # [LOADING] qualquer mensagem de status encerra o dialog de carregamento (unificado)
+	# [TOAST] aviso PADRONIZADO em todas as telas: além do status inline, mostra o card central auto-fechável.
+	if status != null and status.is_inside_tree():
+		toast(status.get_window(), text, "", kind)
 	if status == null:
 		return
 	var col := Color(0.78, 0.74, 0.66)
@@ -386,6 +391,59 @@ static func notify(host: Control, text: String, is_error := false) -> void:
 		if ev is InputEventMouseButton and ev.pressed:
 			overlay.queue_free())
 	ok.call_deferred("grab_focus")
+
+# [TOAST] Aviso PADRÃO auto-fechável de TODAS as telas: card no topo com ícone opcional + texto, some
+# sozinho em ~1.5s e NÃO bloqueia cliques. kind: 0=neutro / 1=sucesso(verde) / 2=erro(vermelho). O flash()
+# delega aqui (padroniza o aviso em todo o app); telas podem chamar direto p/ passar um ícone (ex.: a barra
+# feita na Forja). host = a tela (Control) OU a janela (flash passa status.get_window()).
+static func toast(host, text: String, icon_key := "", kind := 1) -> void:
+	if host == null or strip_web_emoji(text).strip_edges() == "":
+		return
+	if _toast_overlay != null and is_instance_valid(_toast_overlay):
+		_toast_overlay.queue_free()
+	var layer := Control.new()
+	layer.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	layer.mouse_filter = Control.MOUSE_FILTER_IGNORE   # toast não rouba clique da tela
+	host.add_child(layer)
+	var holder := CenterContainer.new()                # faixa no topo: centraliza o card em H, perto do topo
+	holder.set_anchors_and_offsets_preset(Control.PRESET_TOP_WIDE)
+	holder.offset_top = 64
+	holder.offset_bottom = 64 + 168
+	holder.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	layer.add_child(holder)
+	var rc := OK if kind == 1 else (ERR if kind == 2 else GOLD_SOFT)
+	var res := card(rc)
+	var panel: PanelContainer = res[0]
+	var vb: VBoxContainer = res[1]
+	var sb: StyleBoxFlat = panel.get_theme_stylebox("panel")
+	sb.set_border_width_all(2); sb.border_color = rc
+	vb.alignment = BoxContainer.ALIGNMENT_CENTER
+	vb.add_theme_constant_override("separation", 8)
+	if icon_key != "" and Icons.tex(icon_key) != null:
+		var ic := Icons.rect(icon_key, 48)
+		ic.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+		vb.add_child(ic)
+	var lbl := Label.new()
+	lbl.text = strip_web_emoji(text)
+	lbl.add_theme_font_size_override("font_size", 16)
+	lbl.add_theme_color_override("font_color", rc)
+	lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	lbl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	lbl.custom_minimum_size = Vector2(260, 0)
+	vb.add_child(lbl)
+	holder.add_child(panel)
+	_toast_overlay = layer
+	# fade-in → segura → fade-out → free (auto-close)
+	panel.modulate.a = 0.0
+	var tw := layer.create_tween()
+	tw.tween_property(panel, "modulate:a", 1.0, 0.15)
+	tw.tween_interval(1.5)
+	tw.tween_property(panel, "modulate:a", 0.0, 0.35)
+	tw.tween_callback(func() -> void:
+		if is_instance_valid(layer):
+			layer.queue_free()
+		if _toast_overlay == layer:
+			_toast_overlay = null)
 
 # ── Modal de confirmação (procedural) ──────────────────────────────────────────────
 static func confirm(host: Control, text: String, confirm_label: String, on_yes: Callable, danger := true) -> void:

@@ -168,7 +168,10 @@ public class SmithingService {
 
     // ── Refinar ore → bar ──
     @Transactional
-    public void refineOre(Player player, ResourceType oreType, int quantity) {
+    /** [REFINE_FEEDBACK] Resultado do refino p/ a UI mostrar o XP ganho e o level-up de Forja. */
+    public record RefineResult(String barType, int batches, int xpGained, int smithingLevel, boolean leveledUp) {}
+
+    public RefineResult refineOre(Player player, ResourceType oreType, int quantity) {
         log.info("[SmithingService] player={} action=refineOre oreType={} quantity={}", player.getId(), oreType, quantity);
         // SEGURANÇA: quantidade negativa/zero faria spendBronze e removeResource creditarem
         // recurso/dinheiro (guardas "saldo < negativo" são sempre falsas). [AUDITORIA C2]
@@ -193,8 +196,11 @@ public class SmithingService {
         gatheringService.addResource(player, recipe.bar(), batches);
 
         int xp = batches * (recipe.smithingLevelRequired() * 8 + 50); // [BALANCE] mais XP/refino → menos farm
+        int levelBefore = smithing.getLevel();
         gatheringService.addSkillXp(smithing, xp);
-        log.info("[SmithingService] player={} action=refineOre OK oreType={} batches={} bar={}", player.getId(), oreType, batches, recipe.bar());
+        log.info("[SmithingService] player={} action=refineOre OK oreType={} batches={} bar={} xp={} level={}",
+                player.getId(), oreType, batches, recipe.bar(), xp, smithing.getLevel());
+        return new RefineResult(recipe.bar().name(), batches, xp, smithing.getLevel(), smithing.getLevel() > levelBefore);
     }
 
     // ── Craftar equipamento (com chance de falha que melhora com o nível). [PROFISSAO_SUCCESS] ──

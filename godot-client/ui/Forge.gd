@@ -384,7 +384,25 @@ func _refine(ore: String) -> void:
 	busy = true
 	var qty := int(refine_qty.get(ore, 1))
 	var r = await Api.smithing_refine(ore, qty)
-	await _after_action(r, Lang.t("Refinado!"))
+	if not (r.get("ok") and r.get("json") is Dictionary):
+		UiKit.show_error(status, r); busy = false
+		return
+	# [REFINE_FEEDBACK] XP/level-up de Forja agora aparecem (antes o backend dava XP mas a UI não mostrava).
+	var j: Dictionary = r["json"]
+	var xp := int(j.get("xpGained", 0))
+	var leveled := bool(j.get("leveledUp", false))
+	var icon := "res_" + str(j.get("barType", "")).to_lower()   # ícone da barra feita (res_<tipo>)
+	var msg := str(j.get("message", Lang.t("Refinado!")))
+	if xp > 0:
+		msg += "  +%d XP" % xp
+	if leveled:
+		msg += "  ·  " + (Lang.t("Forja Nv %d!") % int(j.get("smithingLevel", 0)))
+	busy = false
+	if leveled:
+		await _refresh()                # level-up pode liberar novas receitas → re-busca recipes
+	else:
+		await _refresh_after_action()
+	UiKit.toast(self, msg, icon, 1)     # modal central com o ícone da barra + XP, fecha sozinho
 
 func _craft(recipe_id: String) -> void:
 	if busy: return

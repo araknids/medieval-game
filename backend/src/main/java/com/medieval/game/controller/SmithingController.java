@@ -116,9 +116,14 @@ public class SmithingController {
     @PostMapping("/refine")
     public ResponseEntity<?> refine(@Valid @RequestBody RefineRequest req, Authentication auth) {
         Player player = getPlayer(auth);
-        smithingService.refineOre(player, req.oreType(), req.quantity());
-        return ResponseEntity.ok(Map.of("message",
-            com.medieval.game.service.Messages.tr("toast.bars_created", "{0} {1} bar(s) created!", req.quantity(), com.medieval.game.service.Messages.tr("resource." + req.oreType().name() + ".name", req.oreType().displayName))));
+        SmithingService.RefineResult res = smithingService.refineOre(player, req.oreType(), req.quantity());
+        return ResponseEntity.ok(Map.of(
+            "message", com.medieval.game.service.Messages.tr("toast.bars_created", "{0} {1} bar(s) created!", req.quantity(), com.medieval.game.service.Messages.tr("resource." + req.oreType().name() + ".name", req.oreType().displayName)),
+            "barType",       res.barType(),       // [REFINE_FEEDBACK] p/ o ícone res_<tipo> no toast
+            "batches",       res.batches(),
+            "xpGained",      res.xpGained(),
+            "smithingLevel", res.smithingLevel(),
+            "leveledUp",     res.leveledUp()));
     }
 
     // Craftar equipamento (pode falhar — success rate cresce com o nível de Forja). [PROFISSAO_SUCCESS]
