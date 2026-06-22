@@ -575,7 +575,7 @@ func _element_btn(code: String, label: String) -> Control:
 	for s in ["normal", "hover", "pressed", "focus"]:
 		b.add_theme_stylebox_override(s, empty)
 	b.tooltip_text = _element_tooltip(code)
-	if Icons.set_icon(b, "elem_" + code.to_lower()):
+	if Icons.set_icon(b, Icons.elem_anim_key(code)):   # [ELEMENTOS] GIF da essência (anima no hover), padronizado
 		b.expand_icon = true
 		b.icon_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		b.add_theme_constant_override("icon_max_width", 52)   # ícone bem maior (era 30)

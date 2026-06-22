@@ -363,3 +363,9 @@ static func rect(key: String, px := 24, tooltip := "") -> TextureRect:
 		add_hover(tr)                              # [HOVER_ICON] cresce + clareia
 		anim_rect(tr, tr, key)                     # [HOVER_ICON_ANIM] cicla anim/<key>/ no hover (se existir)
 	return tr
+
+# [ELEMENTOS] O ícone de um elemento (FIRE/WATER/EARTH/AIR) usa o GIF da ESSÊNCIA correspondente
+# (res_<x>_essence, que tem anim/ e anima no hover) — padroniza buffs/Temple/World. O tooltip da RODA
+# (+25% vs X) continua sob a key "elem_<x>" no ICON_TIP, então passe Icons.tip("elem_"+code) à parte.
+static func elem_anim_key(code: String) -> String:
+	return "res_" + code.to_lower() + "_essence"

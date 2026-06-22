@@ -706,11 +706,11 @@ func _refresh_buffs(w: Dictionary) -> void:
 	if we != "":
 		# [ELEMENTOS] tooltip estilo Templo: linha do que é + tempo, depois a roda (+25% vs X · −25% vs Y) via Icons.tip
 		var wk := "elem_" + we.to_lower()
-		_buffs_box.add_child(_buff_badge_icon(wk, "⚔", Lang.t("Arma encantada — %s\n%s") % [_fmt_left(int(w.get("weaponElementSecondsLeft", 0))), Icons.tip(wk)]))
+		_buffs_box.add_child(_buff_badge_icon(Icons.elem_anim_key(we), "⚔", Lang.t("Arma encantada — %s\n%s") % [_fmt_left(int(w.get("weaponElementSecondsLeft", 0))), Icons.tip(wk)]))
 	var ae := str(w.get("armorElement", ""))
 	if ae != "":
 		var ak := "elem_" + ae.to_lower()
-		_buffs_box.add_child(_buff_badge_icon(ak, "🛡", Lang.t("Armadura encantada — %s\n%s") % [_fmt_left(int(w.get("armorElementSecondsLeft", 0))), Icons.tip(ak)]))
+		_buffs_box.add_child(_buff_badge_icon(Icons.elem_anim_key(ae), "🛡", Lang.t("Armadura encantada — %s\n%s") % [_fmt_left(int(w.get("armorElementSecondsLeft", 0))), Icons.tip(ak)]))
 	if bool(w.get("newbieBuffActive", false)):
 		_buffs_box.add_child(_buff_badge("🐣", Lang.t("Buff de Novato: estamina e HP regeneram 4× mais rápido — %dh restantes") % int(w.get("newbieBuffHoursLeft", 0))))
 	var tav := float(w.get("tavernBuffPct", 0.0))

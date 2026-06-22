@@ -165,7 +165,7 @@ func _enchant_cell(slot: String, e: Dictionary) -> Control:
 	var box: VBoxContainer = res[1]
 	box.add_theme_constant_override("separation", 2)
 	var top := HBoxContainer.new(); top.add_theme_constant_override("separation", 5)
-	var ekey := "elem_" + elem_id.to_lower()
+	var ekey := Icons.elem_anim_key(elem_id)   # [ELEMENTOS] GIF da essência (anima no hover), padronizado
 	if Icons.tex(ekey) != null:
 		top.add_child(Icons.rect(ekey, 18))
 	var nm := Label.new(); nm.text = str(e.get("displayName", ""))
