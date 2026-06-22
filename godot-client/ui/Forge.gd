@@ -6,6 +6,8 @@ extends Control
 # Endpoints: GET /api/smithing/recipes, GET /api/gathering/resources, GET /api/inventory,
 # GET /api/warrior, POST /api/smithing/{refine|craft|gem|repair/{id}|reforge/{id}}. [MIGRACAO_GODOT]
 
+const Icons := preload("res://ui/Icons.gd")   # [FORJA_COMPACTO] ícone do resultado (barra/fragmento) no card
+
 signal go_back
 
 var content: VBoxContainer
@@ -219,7 +221,7 @@ func _craft_next() -> void:
 # ── Cards ─────────────────────────────────────────────────────────────────────────
 # [FORJA_COMPACTO] Card no estilo do Inventário: ícone + nome + selo numa linha, DETALHE no tooltip
 # (hover), ação compacta embaixo só quando dá. Encurta a Forja (era card alto com tudo inline).
-func _compact_card(col: Color, can: bool, icon: Control, name: String, badge: String, badge_col: Color, tip: String, action: Control) -> PanelContainer:
+func _compact_card(col: Color, can: bool, icon: Control, title: String, badge: String, badge_col: Color, tip: String, action: Control) -> PanelContainer:
 	var res := UiKit.card(col, can)
 	var pc: PanelContainer = res[0]
 	var vb: VBoxContainer = res[1]
@@ -230,7 +232,7 @@ func _compact_card(col: Color, can: bool, icon: Control, name: String, badge: St
 	var row := HBoxContainer.new(); row.add_theme_constant_override("separation", 8)
 	if icon != null:
 		row.add_child(icon)
-	var nm := Label.new(); nm.text = name
+	var nm := Label.new(); nm.text = title
 	nm.add_theme_font_size_override("font_size", 13); nm.add_theme_color_override("font_color", col)
 	nm.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	nm.size_flags_vertical = Control.SIZE_SHRINK_CENTER
