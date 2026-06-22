@@ -48,7 +48,13 @@ class AuctionTest extends BaseIntegrationTest {
     private Player reload(Player p) { return playerRepository.findById(p.getId()).orElseThrow(); }
 
     private InventoryItem makeItem(Player p) {
-        return inventoryService.make(p, "Test Sword", ItemType.WEAPON, 10, 0, 0, 1, 500, 1, "d", "o");
+        // [BALANCE_ECON] Raridade 3 (Raro): só Raro+ é negociável no Leilão.
+        return inventoryService.make(p, "Test Sword", ItemType.WEAPON, 10, 0, 0, 3, 500, 1, "d", "o");
+    }
+
+    /** Item comum (raridade 1) p/ exercitar a trava de soulbound de mercado. [BALANCE_ECON] */
+    private InventoryItem makeCommon(Player p) {
+        return inventoryService.make(p, "Common Sword", ItemType.WEAPON, 10, 0, 0, 1, 500, 1, "d", "o");
     }
 
     private Player rich(String prefix) {
@@ -155,6 +161,16 @@ class AuctionTest extends BaseIntegrationTest {
         InventoryItem eq = makeItem(reload(p));
         inventoryService.equip(reload(p), eq.getId());
         assertThatThrownBy(() -> auctionService.list(reload(p), eq.getId(), 100))
+                .isInstanceOf(IllegalStateException.class);
+    }
+
+    // ── [BALANCE_ECON] Só Raro+ é negociável (Comum/Incomum = soulbound de mercado) ──
+    @Test
+    @DisplayName("Não dá pra postar item Comum/Incomum (só Raro+)")
+    void list_rejectsLowRarity() {
+        Player p = rich("aucs");
+        InventoryItem common = makeCommon(reload(p));
+        assertThatThrownBy(() -> auctionService.list(reload(p), common.getId(), 100))
                 .isInstanceOf(IllegalStateException.class);
     }
 

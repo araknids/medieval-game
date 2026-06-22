@@ -292,7 +292,8 @@ public class ZoneService {
         Random rng = java.util.concurrent.ThreadLocalRandom.current();
         int chance = switch (activity.getZone()) { case HIGH_RISK -> 10; case PVP -> 6; default -> 3; };
         if (rng.nextInt(100) >= chance) return null;
-        int itemLevel = monsterLevelFor(activity.getZone(), w.getLevel(), rng); // [ITEM_DROP_LEVEL]
+        int itemLevel = InventoryService.cappedItemLevel(
+                monsterLevelFor(activity.getZone(), w.getLevel(), rng), w.getLevel()); // [ITEM_DROP_LEVEL][BALANCE_ECON]
         int r = rng.nextInt(100);
         int rarity = r < 10 ? 3 : r < 40 ? 2 : 1; // 60% Comum / 30% Incomum / 10% Raro
         com.medieval.game.enums.ItemType type =
@@ -492,11 +493,12 @@ public class ZoneService {
         return a;
     }
 
-    /** 1 item garantido no nível do chefe, raridade alta: 25% Lendário / 40% Épico / 35% Raro. */
+    /** 1 item garantido de chefe (Raro+); [BALANCE_ECON] Lendário bem mais raro + nível do item capado. */
     private LootRoll rollBossLoot(Player player, int bossLevel) {
         Random rng = java.util.concurrent.ThreadLocalRandom.current();
-        int r = rng.nextInt(100);
-        int rarity = r < 25 ? 5 : r < 65 ? 4 : 3;
+        int rarity = InventoryService.rollBossRarity(rng); // [BALANCE_ECON] 8% Leg / 32% Épico / 60% Raro
+        Warrior w = warriorRepository.findByPlayer(player).orElse(null);
+        int itemLevel = InventoryService.cappedItemLevel(bossLevel, w != null ? w.getLevel() : bossLevel); // chefe segue duro; só o ITEM é capado
         com.medieval.game.enums.ItemType type =
                 com.medieval.game.enums.ItemType.values()[rng.nextInt(com.medieval.game.enums.ItemType.values().length)];
         // [I18N_ITENS] nome/desc/origem no idioma do request
@@ -506,10 +508,10 @@ public class ZoneService {
         String desc = Messages.tr("item.tower_warden.desc", "Spoils from the escaped Tower boss."),
                origin = Messages.tr("item.roaming_boss", "Roaming Boss");
         if (inventoryService.bagSpaceLeft(player) >= 1) {
-            var it = inventoryService.make(player, name, type, 0, 0, 0, rarity, price, bossLevel, desc, origin);
+            var it = inventoryService.make(player, name, type, 0, 0, 0, rarity, price, itemLevel, desc, origin);
             return new LootRoll(it.getName(), it.getId());
         }
-        mailService.sendItemMail(player, "Roaming boss loot.", name, type, 0, 0, 0, rarity, bossLevel, 0, desc, origin);
+        mailService.sendItemMail(player, "Roaming boss loot.", name, type, 0, 0, 0, rarity, itemLevel, 0, desc, origin);
         return new LootRoll(name + " (mailed — bag full)", null);
     }
 

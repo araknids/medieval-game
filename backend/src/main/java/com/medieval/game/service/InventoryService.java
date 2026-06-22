@@ -497,6 +497,38 @@ public class InventoryService {
         return new int[]{atk, def, hp};
     }
 
+    // ── [BALANCE_ECON] Economia & progressão (knobs centrais) ───────────────────
+    // O poder de combate vinha ~80% do gear e o nível do item dropado descolava do nível do
+    // personagem (loot de chefe = player+20), gerando gear "endgame" cedo (ex.: lv16 limpando o
+    // andar 40 da torre). Estas constantes/tabelas re-acoplam progressão e enxugam a oferta de item.
+    // Números são placeholders p/ tuning. Desenho: docs/PLANO_BALANCE_ECONOMIA.md
+
+    /** Quantos níveis acima do jogador o item dropado pode chegar. */
+    public static final int ITEM_LEVEL_LEAD = 5;
+    /** Raridade mínima negociável (Auction/Mercador Azul): Raro+. Comum/Incomum = soulbound de mercado. */
+    public static final int MIN_TRADE_RARITY = 3;
+
+    /** Teto do nível do item dropado: no máx {@code playerLevel + ITEM_LEVEL_LEAD} (≥1). O chefe segue
+     *  difícil no nível dele — só o ITEM que ele larga é capado perto do nível do jogador. [BALANCE_ECON] */
+    public static int cappedItemLevel(int rawLevel, int playerLevel) {
+        return Math.max(1, Math.min(rawLevel, playerLevel + ITEM_LEVEL_LEAD));
+    }
+
+    /** Tabela de raridade do drop comum (Kingdom + Delve) — menos Épico/Lendário p/ não inundar o mercado.
+     *  Knob único da economia (antes duplicada em KingdomService/ExpeditionService). [BALANCE_ECON] */
+    public static int rollDropRarity(int dropChance, java.util.Random rng) {
+        if (dropChance >= 60) { int r = rng.nextInt(100); return r < 2 ? 5 : r < 20 ? 4 : r < 70 ? 3 : 2; } // 2% Leg / 18% Épico / 50% Raro / 30% Incomum
+        if (dropChance >= 40) { int r = rng.nextInt(100); return r < 25 ? 3 : r < 70 ? 2 : 1; }            // 25% Raro / 45% Incomum / 30% Comum
+        if (dropChance >= 25) return rng.nextInt(100) < 40 ? 2 : 1;                                        // 40% Incomum / 60% Comum
+        return 1;
+    }
+
+    /** Loot garantido de chefe (errante/Delve): Raro+ sempre, mas Lendário bem mais raro que antes. [BALANCE_ECON] */
+    public static int rollBossRarity(java.util.Random rng) {
+        int r = rng.nextInt(100);
+        return r < 8 ? 5 : r < 40 ? 4 : 3; // 8% Lendário / 32% Épico / 60% Raro
+    }
+
     // ── Afixos (Itens V2) ───────────────────────────────────────────────────────
 
     /**

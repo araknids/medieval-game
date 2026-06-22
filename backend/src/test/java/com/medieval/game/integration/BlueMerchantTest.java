@@ -36,7 +36,7 @@ class BlueMerchantTest extends BaseIntegrationTest {
     @DisplayName("Consignar tira o item da bag e cria consignação HELD (Steam off)")
     void consign_movesToEscrow() {
         Player p = newPlayer();
-        InventoryItem item = inventoryService.make(p, "Old Ring", ItemType.RING, 5, 0, 0, 1, 100);
+        InventoryItem item = inventoryService.make(p, "Old Ring", ItemType.RING, 5, 0, 0, 3, 100); // [BALANCE_ECON] Raro+ (só Raro+ é consignável)
         Long id = item.getId();
 
         Consignment c = blueMerchant.consign(p, id);
@@ -51,7 +51,7 @@ class BlueMerchantTest extends BaseIntegrationTest {
     @DisplayName("Cancelar devolve o item pra bag (RETURNED)")
     void cancel_returnsItem() {
         Player p = newPlayer();
-        InventoryItem item = inventoryService.make(p, "Old Ring", ItemType.RING, 5, 0, 0, 1, 100);
+        InventoryItem item = inventoryService.make(p, "Old Ring", ItemType.RING, 5, 0, 0, 3, 100); // [BALANCE_ECON] Raro+ (só Raro+ é consignável)
         Long id = item.getId();
         Consignment c = blueMerchant.consign(p, id);
 
@@ -65,7 +65,7 @@ class BlueMerchantTest extends BaseIntegrationTest {
     @DisplayName("Item consignado não pode ser equipado/vendido")
     void consigned_isLocked() {
         Player p = newPlayer();
-        InventoryItem item = inventoryService.make(p, "Old Ring", ItemType.RING, 5, 0, 0, 1, 100);
+        InventoryItem item = inventoryService.make(p, "Old Ring", ItemType.RING, 5, 0, 0, 3, 100); // [BALANCE_ECON] Raro+ (só Raro+ é consignável)
         Long id = item.getId();
         blueMerchant.consign(p, id);
 
@@ -77,7 +77,7 @@ class BlueMerchantTest extends BaseIntegrationTest {
     @DisplayName("Consignar → cancelar → vender NÃO quebra na FK de consignments [CONSIGN_FK_FIX]")
     void cancel_thenSell_succeeds() {
         Player p = newPlayer();
-        InventoryItem item = inventoryService.make(p, "Old Ring", ItemType.RING, 5, 0, 0, 1, 100);
+        InventoryItem item = inventoryService.make(p, "Old Ring", ItemType.RING, 5, 0, 0, 3, 100); // [BALANCE_ECON] Raro+ (só Raro+ é consignável)
         Long id = item.getId();
         Consignment c = blueMerchant.consign(p, id);
         blueMerchant.cancel(p, c.getId());   // devolve (RETURNED) — a linha de consignação fica

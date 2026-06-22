@@ -34,7 +34,7 @@ class BlueMerchantSteamOnTest extends BaseIntegrationTest {
         blueMerchant.linkSteam(p, "76561198000000001");
         p = playerRepository.findById(p.getId()).orElseThrow();
 
-        InventoryItem item = inventoryService.make(p, "Trade Ring", ItemType.RING, 5, 0, 0, 1, 100);
+        InventoryItem item = inventoryService.make(p, "Trade Ring", ItemType.RING, 5, 0, 0, 3, 100); // [BALANCE_ECON] Raro+ (só Raro+ é consignável)
         Consignment c = blueMerchant.consign(p, item.getId());
 
         assertThat(c.getStatus()).isEqualTo(Consignment.Status.LINKED);

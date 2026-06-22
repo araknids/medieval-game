@@ -647,18 +647,16 @@ public class KingdomService {
         int total = dropChance + luck + guildBonus + abilityService.dropChanceBonus(player); // [MERCADOR] Treasure Hunter
         if (rng.nextInt(100) >= total) return null;
 
-        // Top tier (dropChance>=60) tem ~5% de chance de Lendário (5). [ITENS_V2]
-        int rarity = dropChance >= 60 ? (rng.nextInt(100) < 5 ? 5 : (rng.nextBoolean() ? 3 : 4))
-                   : dropChance >= 40 ? (rng.nextBoolean() ? 2 : 3)
-                   : dropChance >= 25 ? (rng.nextBoolean() ? 1 : 2)
-                   : 1;
+        // [BALANCE_ECON] Tabela de raridade centralizada (menos Épico/Lendário). Knob: InventoryService.rollDropRarity.
+        int rarity = InventoryService.rollDropRarity(dropChance, rng);
 
         com.medieval.game.enums.ItemType type =
                 com.medieval.game.enums.ItemType.values()[rng.nextInt(
                 com.medieval.game.enums.ItemType.values().length)];
 
-        // [ITEM_DROP_LEVEL] nível do item = nível do MONSTRO morto (não mais do jogador); stats escalam por nível×raridade.
-        int itemLevel = Math.max(1, dropLevel);
+        // [ITEM_DROP_LEVEL] nível do item = nível do MONSTRO morto; [BALANCE_ECON] capado a player+ITEM_LEVEL_LEAD
+        // p/ não gerar gear "endgame" cedo (o que desacoplava poder de combate do nível).
+        int itemLevel = InventoryService.cappedItemLevel(dropLevel, warrior != null ? warrior.getLevel() : dropLevel);
         int[] s = inventoryService.rollItemStats(itemLevel, rarity);
         int atk = s[0], def = s[1], hp = s[2];
 

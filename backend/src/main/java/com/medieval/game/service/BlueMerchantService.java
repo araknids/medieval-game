@@ -49,7 +49,10 @@ public class BlueMerchantService {
         if (item.isPvpLocked() && player.isPvpFlagged())
             throw new IllegalStateException("Item is PvP-locked right now.");
         if (item.isBroken())    throw new IllegalStateException("Repair the item first.");
-        // TODO(decisão): porta de elegibilidade (ex.: só raridade alta) — placeholder: aceita qualquer gear.
+        // [BALANCE_ECON] Só Raro+ é negociável no mercado (Comum/Incomum = soulbound). Mesma regra do Leilão.
+        if (item.getRarity() < InventoryService.MIN_TRADE_RARITY)
+            throw new com.medieval.game.config.LocalizedException("error.item_soulbound",
+                    "Only Rare or better items can be traded on the market.");
 
         item.setConsigned(true); // sai da bag (igual ao `listed` do Leilão)
         inventoryRepository.save(item);

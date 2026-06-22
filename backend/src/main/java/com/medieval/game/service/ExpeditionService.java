@@ -532,15 +532,13 @@ public class ExpeditionService {
         int luck = warrior.getLuck();
         if (!guaranteed && rng.nextInt(100) >= dropChance + luck) return null;
 
+        // [BALANCE_ECON] Mesma curva de raridade do resto do jogo (knob central em InventoryService).
         int rarity = guaranteed
-                ? (rng.nextInt(100) < 25 ? 5 : rng.nextInt(100) < 67 ? 4 : 3) // boss: ~25% Lendário/40% Épico/35% Raro
-                : dropChance >= 60 ? (rng.nextInt(100) < 5 ? 5 : (rng.nextBoolean() ? 3 : 4))
-                : dropChance >= 40 ? (rng.nextBoolean() ? 2 : 3)
-                : dropChance >= 25 ? (rng.nextBoolean() ? 1 : 2)
-                : 1;
+                ? InventoryService.rollBossRarity(rng)
+                : InventoryService.rollDropRarity(dropChance, rng);
 
         ItemType type = ItemType.values()[rng.nextInt(ItemType.values().length)];
-        int itemLevel = Math.max(1, dropLevel);
+        int itemLevel = InventoryService.cappedItemLevel(dropLevel, warrior.getLevel()); // [BALANCE_ECON] teto perto do nível
         int[] s = inventoryService.rollItemStats(itemLevel, rarity);
         long price = switch (rarity) { case 2 -> 150L; case 3 -> 400L; case 4 -> 1000L; case 5 -> 2500L; default -> 25L; };
         boolean isArcher = warrior.getWarriorClass() == WarriorClass.ARCHER;

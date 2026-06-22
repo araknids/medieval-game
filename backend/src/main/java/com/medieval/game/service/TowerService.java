@@ -34,6 +34,11 @@ public class TowerService {
 
     private static final int STAMINA_COST = 25;
 
+    // [BALANCE_ECON] Trava de nível: o gear não pode mais "carregar" o personagem dezenas de andares acima
+    // do seu nível (era assim que um lv16 limpava o andar 40). Subir a torre exige subir de nível.
+    // Número é placeholder p/ tuning. Desenho: docs/PLANO_BALANCE_ECONOMIA.md
+    private static final int TOWER_LEVEL_LEAD = 10;
+
     // ── [TORRE_NARRATIVA][TORRE_CURVA] Stats por andar. Calibrado pela sonda (TowerBalanceProbeTest) p/ a
     // dificuldade SUBIR a cada andar com um build geared no nível recomendado (~1 andar por nível). Andar
     // de 1 monstro = budget cheio; andar multi escala POR monstro (ver monstersFor) p/ a SOMA virar um
@@ -205,6 +210,18 @@ public class TowerService {
                 : (monsters.size() > 1 ? messages.getOr("tower.n_monsters", monsters.size() + " monsters", monsters.size())
                                        : monsters.get(0).name()); // get(0).name() já localizado
 
+        Warrior warrior = warriorRepository.findByPlayer(player)
+                .orElseThrow(() -> new IllegalStateException("Warrior not found"));
+
+        // [BALANCE_ECON] Trava de nível: não dá p/ encarar um andar muito acima do seu nível só com gear.
+        int maxReachableFloor = warrior.getLevel() + TOWER_LEVEL_LEAD;
+        if (floor > maxReachableFloor) {
+            log.warn("[TowerService] player={} REJECTED: floor {} beyond level lead (level={} lead={})",
+                    player.getId(), floor, warrior.getLevel(), TOWER_LEVEL_LEAD);
+            throw new com.medieval.game.config.LocalizedException("error.tower_level",
+                    "Floor {0} is beyond your reach — reach level {1} to climb here.", floor, floor - TOWER_LEVEL_LEAD);
+        }
+
         // Climb fee (scalable sink) — the Tower stops being pure income. [AUDITORIA A3]
         long climbCost = (long) floor * 15;
         if (player.totalBronze() < climbCost) {
@@ -214,8 +231,6 @@ public class TowerService {
         }
         playerService.spendBronze(player, climbCost);
 
-        Warrior warrior = warriorRepository.findByPlayer(player)
-                .orElseThrow(() -> new IllegalStateException("Warrior not found"));
         int[] s = statsService.combatStats(player, warrior);
         boolean ranged = statsService.isRangedWeaponEquipped(player); // [KITING] arma ranged (arco), qualquer classe
 
