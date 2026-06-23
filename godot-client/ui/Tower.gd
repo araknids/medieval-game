@@ -48,15 +48,16 @@ func _render() -> void:
 		c.queue_free()
 	UiKit.hide_loading()
 	UiKit.set_wallet(wallet, warrior)
-	# resultado da última luta (se houver) sempre no topo
-	if not last_result.is_empty():
-		_render_result()
+	# estado da torre (andar/lobby/arka) primeiro — o resultado da luta vem como POPUP por cima
 	if arka_pending:
 		_render_arka()
 	elif bool(state.get("active", false)):
 		_render_floor()
 	else:
 		_render_lobby()
+	# [TORRE_POPUP] resultado da última luta = popup padrão (igual Arena/World/Delve/Guild), uma vez
+	if not last_result.is_empty():
+		_show_result_popup()
 
 # ── LOBBY (sem run ativa) ────────────────────────────────────────────────────────
 func _render_lobby() -> void:
@@ -296,42 +297,31 @@ func _render_arka() -> void:
 	content.add_child(res[0])
 
 # ── Resultado da última luta (texto) ─────────────────────────────────────────────
-func _render_result() -> void:
+# [TORRE_POPUP] Resultado da última luta como POPUP padrão (UiKit.show_battle_report), igual
+# Arena/World/Delve/Guild — antes era um card inline empilhado no topo da tela. Limpa last_result
+# ANTES de abrir p/ que re-renders (resync, navegação) não re-disparem o popup.
+func _show_result_popup() -> void:
 	var won := bool(last_result.get("won", false))
 	var floor_num := int(last_result.get("floor", 0))
-	var border := Color(UiKit.OK) if won else Color(UiKit.ERR)
-	var res := UiKit.card(border)
-	var vb: VBoxContainer = res[1]
-	var sb: StyleBoxFlat = res[0].get_theme_stylebox("panel")
-	sb.set_border_width_all(2)
-	var h := Label.new()
-	h.text = (Lang.t("🏆 Andar %d vencido!") % floor_num) if won else (Lang.t("💀 Derrotado no andar %d") % floor_num)
-	h.add_theme_font_size_override("font_size", 18); h.add_theme_color_override("font_color", border)
-	vb.add_child(h)
+	var title := (Lang.t("🏆 Andar %d vencido!") % floor_num) if won else (Lang.t("💀 Derrotado no andar %d") % floor_num)
+	var rows: Array = []
 	if won:
-		vb.add_child(UiKit.kv_node("Recompensa", UiKit.coin_box(int(last_result.get("bronzeEarned", 0)), 18)))   # [MOEDA] ícones pixel-art
-		vb.add_child(UiKit.kv("⭐ Experiência", "+%d XP" % int(last_result.get("expEarned", 0))))
+		rows.append(UiKit.kv_node("Recompensa", UiKit.coin_box(int(last_result.get("bronzeEarned", 0)), 18)))   # [MOEDA] ícones pixel-art
+		rows.append(UiKit.kv("⭐ Experiência", "+%d XP" % int(last_result.get("expEarned", 0))))
 	else:
 		var d := Label.new(); d.text = "☠ Derrotado — cure-se no Templo"
-		d.add_theme_color_override("font_color", UiKit.ERR); vb.add_child(d)
+		d.add_theme_color_override("font_color", UiKit.ERR)
+		rows.append(d)
 	# [TORRE_DESFECHO] vitória mostra o desfecho do andar; derrota mostra o texto de derrota do andar
 	var note := str(last_result.get("aftermath", "")) if won else str(last_result.get("defeat", ""))
 	if note == "" and won and not bool(last_result.get("runOver", false)):
 		note = "Chefe derrotado! Suba para o próximo andar quando quiser."
 	if note != "":
-		vb.add_child(UiKit.dim(note))
-	# log da batalha (colapsável — pode ter muitas linhas e empurrar o ranking)
+		rows.append(UiKit.dim(note))
 	var log: Array = last_result.get("log", []) if last_result.get("log") is Array else []
-	if not log.is_empty():
-		vb.add_child(UiKit.spacer(4))
-		vb.add_child(UiKit.small_btn("📜 Ocultar log" if log_open else "📜 Ver log", func() -> void: log_open = not log_open; _render()))
-		if log_open:
-			for line in log:
-				vb.add_child(UiKit.dim(str(line)))
-	vb.add_child(UiKit.spacer(4))
-	vb.add_child(UiKit.small_btn("Fechar", func() -> void: last_result = {}; log_open = false; _render()))
-	content.add_child(res[0])
-	content.add_child(UiKit.spacer(8))
+	last_result = {}   # limpa antes de abrir → resync/re-render não re-dispara o popup
+	log_open = false
+	UiKit.show_battle_report(self, won, title, rows, log)
 
 # [LEADERBOARDS] Ranking removido da Torre — agora vive na aba Classificação (Torre).
 
