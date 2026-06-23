@@ -155,10 +155,16 @@ func _job_card(job: Dictionary) -> PanelContainer:
 # [TRAINING] Training Hall (movido do Mundo). Duas vias: IDLE grátis (timer real, ocupa o guerreiro, XP
 # modesto) e PAGO instantâneo (bronze → XP na hora). [TREINO_IDLE]
 func _build_training_section() -> void:
-	content.add_child(UiKit.section("🏋 Training Hall"))
+	# [SEM_SCROLL] título DENTRO do card (era uma seção externa, que adicionava spacer+régua acima e
+	# empurrava tudo pra baixo gerando o scroll). Sem ela, o card cola na régua do "Trabalho".
 	var res := UiKit.card(UiKit.GOLD_SOFT)
 	var box: VBoxContainer = res[1]
-	box.add_theme_constant_override("separation", 7)
+	box.add_theme_constant_override("separation", 5)
+	var ttl := Label.new()
+	ttl.text = "Training Hall"
+	ttl.add_theme_font_size_override("font_size", 16)
+	ttl.add_theme_color_override("font_color", UiKit.GOLD)
+	box.add_child(ttl)
 	# [WORK_GIF] layout: retrato animado GRANDE à esquerda + coluna de treino (botões mais estreitos) à direita.
 	var outer := HBoxContainer.new(); outer.add_theme_constant_override("separation", 14)
 	box.add_child(outer)
@@ -180,26 +186,26 @@ func _build_training_section() -> void:
 		_train_active(col)
 	else:
 		var total_bronze := int(warrior.get("gold", 0)) * 10000 + int(warrior.get("silver", 0)) * 100 + int(warrior.get("bronze", 0))
-		# ── IDLE: paga com TEMPO (ocupa o guerreiro), grátis. Botão 2 linhas: ganho em cima, custo (tempo) embaixo. ──
-		col.add_child(UiKit.icon_text("⏳ Idle — paga com TEMPO (ocupa o guerreiro), de graça", 12, UiKit.TEXT_DIM, 16))
+		# ── IDLE: paga com TEMPO (ocupa o guerreiro), grátis. Texto TEMÁTICO; o custo (horas) está no botão. ──
+		col.add_child(UiKit.dim("Fique treinando no boneco ao seu ritmo"))
 		var idle_row := HBoxContainer.new(); idle_row.add_theme_constant_override("separation", 5)
 		for h: int in [1, 4, 8]:
 			var fxp := warrior_level * 10 * h
 			var fb := UiKit.small_btn("+%d XP\n%dh" % [fxp, h], _train_start.bind(h, true))
-			fb.custom_minimum_size = Vector2(0, 46); fb.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+			fb.custom_minimum_size = Vector2(0, 44); fb.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 			fb.add_theme_font_size_override("font_size", 12)
 			fb.tooltip_text = Lang.t("Treina %dh de graça → +%d XP. Enquanto treina, não pode aventurar.") % [h, fxp]
 			idle_row.add_child(fb)
 		col.add_child(idle_row)
 		col.add_child(UiKit.spacer(3))
-		# ── PAGO: paga com BRONZE, XP na hora. Botão 2 linhas: ganho em cima, custo (bronze) embaixo. ──
-		col.add_child(UiKit.icon_text("🥇 Pago — paga com BRONZE, XP na hora (instantâneo)", 12, UiKit.TEXT_DIM, 16))
+		# ── PAGO: paga com BRONZE, XP na hora. Texto TEMÁTICO; o custo (bronze) está no botão. ──
+		col.add_child(UiKit.dim("Ou contrate um mestre de armas pela lição"))
 		var paid_row := HBoxContainer.new(); paid_row.add_theme_constant_override("separation", 5)
 		for tier: int in [1, 4, 12]:
 			var cost := warrior_level * 10 * tier
 			var pxp := warrior_level * 25 * tier
 			var pb := UiKit.small_btn("+%d XP\n%s" % [pxp, UiKit.coin_str(cost)], _train_start.bind(tier, false))
-			pb.custom_minimum_size = Vector2(0, 46); pb.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+			pb.custom_minimum_size = Vector2(0, 44); pb.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 			pb.add_theme_font_size_override("font_size", 12)
 			pb.disabled = total_bronze < cost
 			pb.tooltip_text = Lang.t("Compra +%d XP por %s (na hora)") % [pxp, UiKit.coin_str(cost)]
