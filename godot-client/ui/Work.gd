@@ -137,7 +137,34 @@ func _job_card(job: Dictionary) -> PanelContainer:
 			b.tooltip_text = Lang.t("Trabalhar %dh · ganha %s · +%d XP de profissão") % [h, UiKit.coin_str(gph * h), xph * h]
 			hrs.add_child(b)
 		box.add_child(hrs)
+	# [WORK_GIF] hover no card → mostra o GIF grande do trabalho (frames anim/work_<id>/, se existirem)
+	var anim_key := "work_" + str(job.get("id", "")).to_lower()
+	if not Icons.anim_frames(anim_key).is_empty():
+		pc.mouse_entered.connect(_show_work_gif.bind(pc, anim_key))
+		pc.mouse_exited.connect(_hide_work_gif)
 	return pc
+
+# [WORK_GIF] Popup flutuante com o GIF do trabalho ACIMA do card (no hover). top_level = coords globais.
+var _work_gif: Control = null
+func _show_work_gif(card: Control, key: String) -> void:
+	_hide_work_gif()
+	var tex := TextureRect.new()
+	tex.top_level = true
+	tex.custom_minimum_size = Vector2(200, 200); tex.size = Vector2(200, 200)
+	tex.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	tex.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	tex.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+	tex.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	tex.z_index = 100
+	add_child(tex)
+	tex.global_position = card.global_position + Vector2(card.size.x / 2.0 - 100.0, -206.0)
+	Icons.play_loop(tex, key, 0.10)
+	_work_gif = tex
+
+func _hide_work_gif() -> void:
+	if is_instance_valid(_work_gif):
+		_work_gif.queue_free()
+	_work_gif = null
 
 # [TRAINING] Training Hall (movido do Mundo). Duas vias: IDLE grátis (timer real, ocupa o guerreiro, XP
 # modesto) e PAGO instantâneo (bronze → XP na hora). [TREINO_IDLE]
