@@ -992,7 +992,16 @@ func _resolve_boss(activity_id: int, choice: String) -> void:
 		if open_kingdom != "":
 			await _open(open_kingdom)
 		return
-	await _handle_zone_result(activity_id, r["json"])
+	var j: Dictionary = r["json"]
+	# [ZONA_CHEFE] Feedback do roll de FUGA antes de prosseguir: sucesso (escapou) vs falha (caiu na
+	# luta). Antes ia direto pro replay/relatório sem dizer o resultado do dado. Inferência: se a resposta
+	# da fuga traz battleEvents, a fuga FALHOU (combate forçado); senão, escapou.
+	if choice == "flee":
+		var be = j.get("battleEvents")
+		var failed: bool = be is Array and be.size() >= 2
+		UiKit.flash(status, Lang.t("🏃 Falhou a fuga — o chefe te alcançou!") if failed else Lang.t("🏃 Fuga bem-sucedida!"), 1 if failed else 0)
+		await get_tree().create_timer(0.9).timeout   # deixa a mensagem aparecer antes do replay/relatório
+	await _handle_zone_result(activity_id, j)
 
 func _cancel_zone(activity_id: int) -> void:
 	if busy: return

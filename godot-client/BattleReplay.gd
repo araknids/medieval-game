@@ -297,6 +297,11 @@ func _ready() -> void:
 			return
 		_build_fighters()
 	_frame_camera()
+	# [COUNTDOWN_FIX] Zera a contagem por batalha. O BattleReplay é reusado entre lutas e countdown_t só
+	# acumulava (nunca resetava) → da 2ª luta em diante já entrava com t > duração total e PULAVA o
+	# 3,2,1/LUTAR. Reset (+ clamp de dt no _countdown) garante a contagem em TODA batalha.
+	countdown_t = 0.0
+	_cd_beat = -1
 	phase = "countdown"   # 3,2,1 antes de soltar a luta
 	print("=== BATTLE REPLAY (sim-driven) === %d eventos · kiting=%s" % [events.size(), kiting])
 
@@ -1321,7 +1326,7 @@ func _process(dt: float) -> void:
 
 # Contagem 3,2,1 → Lutar! Os lutadores dançam (warm-up) e encaram o oponente.
 func _countdown(dt: float) -> void:
-	countdown_t += dt
+	countdown_t += minf(dt, CD_STEP)   # [COUNTDOWN_FIX] clampa dt: hitch de load (1º frame após a cena 3D) não pula o 3,2,1
 	for f in order:
 		if not f["dead"] and f["anim"]: _play_loop(f, _clip(f, "dance"))
 	var t := countdown_t
