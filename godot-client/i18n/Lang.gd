@@ -589,6 +589,7 @@ const PT_OVERRIDE := {
 	"Shallow Vein": "Veio Raso", "Deep Grottoes": "Grutas Profundas", "Forbidden Cavern": "Caverna Proibida",
 	"Haunted Courtyard": "Pátio Assombrado", "Battlefield": "Campo de Batalha", "War Zone": "Zona de Guerra",
 	"🔥 Fire": "🔥 Fogo", "💧 Water": "💧 Água", "🪨 Earth": "🪨 Terra", "💨 Air": "💨 Ar",
+	"Training Hall": "Salão de Treino",
 }
 
 # Registra as traduções (1x). Idempotente.

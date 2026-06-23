@@ -159,26 +159,30 @@ func _build_training_section() -> void:
 	# empurrava tudo pra baixo gerando o scroll). Sem ela, o card cola na régua do "Trabalho".
 	var res := UiKit.card(UiKit.GOLD_SOFT)
 	var box: VBoxContainer = res[1]
-	box.add_theme_constant_override("separation", 5)
-	var ttl := Label.new()
-	ttl.text = "Training Hall"
-	ttl.add_theme_font_size_override("font_size", 16)
-	ttl.add_theme_color_override("font_color", UiKit.GOLD)
-	box.add_child(ttl)
-	# [WORK_GIF] layout: retrato animado GRANDE à esquerda + coluna de treino (botões mais estreitos) à direita.
+	box.add_theme_constant_override("separation", 0)
+	# [SEM_SCROLL] card em 2 colunas de MESMA altura: ESQ = título + GIF (o gif estica p/ a altura da DIR);
+	# DIR = textos temáticos + botões. Sem título full-width em cima → card bem mais curto.
 	var outer := HBoxContainer.new(); outer.add_theme_constant_override("separation", 14)
 	box.add_child(outer)
+	var left := VBoxContainer.new(); left.add_theme_constant_override("separation", 4)
+	left.size_flags_vertical = Control.SIZE_FILL
+	outer.add_child(left)
+	var ttl := Label.new()
+	ttl.text = "Training Hall"   # pt: "Salão de Treino" via Lang PT_OVERRIDE (auto_translate do Label)
+	ttl.add_theme_font_size_override("font_size", 16)
+	ttl.add_theme_color_override("font_color", UiKit.GOLD)
+	left.add_child(ttl)
 	if not Icons.frames("training_hall").is_empty():
 		var ic := TextureRect.new()
-		ic.custom_minimum_size = Vector2(122, 92)   # cena composta guerreiro+dummy levando o hit (95x73)
+		ic.custom_minimum_size = Vector2(128, 56)   # largura fixa; a ALTURA preenche (= coluna direita)
 		ic.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 		ic.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 		ic.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
-		ic.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+		ic.size_flags_vertical = Control.SIZE_EXPAND_FILL   # gif estica p/ casar a altura dos botões+textos
 		ic.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		Icons.anim_rect(res[0], ic, "training_hall")   # frame 0 parado; cicla no hover do card
-		outer.add_child(ic)
-	var col := VBoxContainer.new(); col.add_theme_constant_override("separation", 6)
+		left.add_child(ic)
+	var col := VBoxContainer.new(); col.add_theme_constant_override("separation", 4)
 	col.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	col.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	outer.add_child(col)
@@ -192,12 +196,11 @@ func _build_training_section() -> void:
 		for h: int in [1, 4, 8]:
 			var fxp := warrior_level * 10 * h
 			var fb := UiKit.small_btn("+%d XP\n%dh" % [fxp, h], _train_start.bind(h, true))
-			fb.custom_minimum_size = Vector2(0, 44); fb.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+			fb.custom_minimum_size = Vector2(0, 40); fb.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 			fb.add_theme_font_size_override("font_size", 12)
 			fb.tooltip_text = Lang.t("Treina %dh de graça → +%d XP. Enquanto treina, não pode aventurar.") % [h, fxp]
 			idle_row.add_child(fb)
 		col.add_child(idle_row)
-		col.add_child(UiKit.spacer(3))
 		# ── PAGO: paga com BRONZE, XP na hora. Texto TEMÁTICO; o custo (bronze) está no botão. ──
 		col.add_child(UiKit.dim("Ou contrate um mestre de armas pela lição"))
 		var paid_row := HBoxContainer.new(); paid_row.add_theme_constant_override("separation", 5)
@@ -205,7 +208,7 @@ func _build_training_section() -> void:
 			var cost := warrior_level * 10 * tier
 			var pxp := warrior_level * 25 * tier
 			var pb := UiKit.small_btn("+%d XP\n%s" % [pxp, UiKit.coin_str(cost)], _train_start.bind(tier, false))
-			pb.custom_minimum_size = Vector2(0, 44); pb.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+			pb.custom_minimum_size = Vector2(0, 40); pb.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 			pb.add_theme_font_size_override("font_size", 12)
 			pb.disabled = total_bronze < cost
 			pb.tooltip_text = Lang.t("Compra +%d XP por %s (na hora)") % [pxp, UiKit.coin_str(cost)]
