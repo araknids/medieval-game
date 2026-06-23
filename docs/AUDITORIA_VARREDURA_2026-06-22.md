@@ -307,3 +307,29 @@ Olhei cada um na 2ª leva e **NÃO fiz** — não são "safe by tests" como pare
 - **Dedup PvP raid / `CombatMath`** (Zone × Expedition near-twins, `BattleSimulator.attack` × `GauntletWarSimulator.
   strike`): maior dedup de valor, mas god-services com lógica sutil de flag/escudo/kiting **que já divergiu**
   (Incursão usa mob mais fraco — ver `npcStats`). Unificar mistura tunings → precisa de decisão + teste lado a lado.
+
+### [2026-06-23] Refactors GRANDES feitos nesta sessão (commits [VARREDURA], 663 verdes cada)
+
+O dono mandou "vai todos". Feitos + testados + pushados:
+1. **rename gold→bronze** (`8c57398`): `Guild.gold`→`treasuryBronze` (com `@Column(name="gold")` → zero migração;
+   JSON já era `treasuryBronze`); `PlayerService.addGold/spendGold` (wrappers) removidos → callers usam
+   `addBronze/spendBronze`; `Player.gold` (moeda real) intocado; derived-query `findAllByOrderByLevelDescGoldDesc`→
+   `...TreasuryBronzeDesc` (só falha em runtime, não no compile).
+2. **int[] → record `CombatStats`** (`50d406c`): `combatStats` devolve `CombatStats(atk,def,hp,dex,agi,luk)`; índice
+   individual (`s[2]`/`cs[4]`) → acesso nomeado; passa-inteiro/array-math → `.toArray()` (NPC/Combatant/Fighter intocados).
+3. **enums write-dead** (`3d93964`): removidos `Location.COMMERCE/ARENA`, `MatchStatus.FINISHED`,
+   `QuestStatus.READY_TO_COLLECT` (todos @Enumerated STRING) + `SchemaMigrator.remapRemovedEnumValues` (UPDATE
+   defensivo de linha antiga, roda 1º no boot). ⚠️ **`ExpeditionSource.KINGDOM` NÃO removido — a auditoria ERROU:
+   é deserializado do `StartRequest` (Incursão da tela de Reino), pego pelo `ExpeditionIntegrationTest`.** + `readOnly`
+   pontual (Daily/Tavern status, feed).
+
+**`CombatMath` — JÁ ESTAVA FEITO** (auditoria desatualizada): o `GauntletWarSimulator` já chama
+`BattleSimulator.hitChance/critChance/mitigatedDamage`. A divergência (guerra sem kiting/Fortune Save) é
+**intencional** (3v3 em ondas ≠ duelo 1v1). Nada a fazer.
+
+**Dedup do RAID PvP (Zone↔Expedition) — NÃO feito, de propósito.** São twins que divergiram de verdade
+(retorno `PvpResult`×`NodeResolution`; contexto `ZoneActivity`×`ExpeditionRun`; `raidVictim` da Expedição manda
+mail+replay e a da Zona incrementa `playerKills`; HP-spawn `withCurrentHp` × `mine[2]=`; penalidade `%` fixa × por
+tier). Unificar exige DECIDIR quais divergências são intencionais — errar = saque/economia quebrada em prod, e os
+testes passam pros DOIS comportamentos (não pegam um merge ruim). **Decisão de design do dono.** É o único item
+que sobra da varredura, e é o que a auditoria já marcava "fazer com você junto".
