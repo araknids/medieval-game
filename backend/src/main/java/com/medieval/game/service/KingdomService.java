@@ -460,7 +460,7 @@ public class KingdomService {
 
         boolean won = out.firstWon();
         List<String> lg = new ArrayList<>(out.log());
-        if (!lg.isEmpty()) lg.remove(lg.size() - 1); // remove tag WINNER
+        BattleSimulator.dropWinnerTag(lg); // [VARREDURA] strip da tag WINNER
 
         inventoryService.wearEquippedItems(player); // lutar desgasta equipamento
         int finalPct = maxHp > 0 ? Math.max(0, out.firstHpFinal() * 100 / maxHp) : 0;

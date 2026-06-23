@@ -77,9 +77,15 @@ public class DailyRewardService {
                 "bronze",   dr.bronze()
             ));
         }
+        // [VARREDURA] streak EFETIVO (consistente com claimDay): o streak guardado pode estar obsoleto se o
+        // jogador perdeu um dia (ex.: guardado=5 mas pending=1 → exibia "streak 5" destacando o dia 1). Vale
+        // só se a última coleta foi hoje ou ontem; senão o streak já está quebrado (0).
+        LocalDate last = player.getLastDailyClaimDate();
+        int effectiveStreak = (last != null && (last.equals(today) || last.equals(today.minusDays(1))))
+                ? player.getDailyStreak() : 0;
         return Map.of(
             "canClaim", canClaim(player),
-            "streak",   player.getDailyStreak(),
+            "streak",   effectiveStreak,
             "claimDay", cycleDay,   // dia-no-ciclo (1..7) que a coleta de hoje cai → a UI destaca
             "days",     days
         );

@@ -127,7 +127,7 @@ public class ArenaService {
 
         boolean challengerWon = outcome.firstWon(); // vencedor explícito do simulador [AUDITORIA M13]
         List<String> battleLog = new java.util.ArrayList<>(outcome.log());
-        battleLog.remove(battleLog.size() - 1); // remove a tag interna WINNER
+        BattleSimulator.dropWinnerTag(battleLog); // [VARREDURA] strip da tag interna WINNER
         long goldReward = challengerWon ? 200 : 50; // bronze
         int  rankChange = challengerWon ? (opponent != null ? 25 : 15) : (opponent != null ? -15 : -5);
 

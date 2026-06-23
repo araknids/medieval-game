@@ -181,14 +181,17 @@ public class WorkService {
             throw new IllegalStateException("Work already finished");
         }
 
-        long hoursCompleted = Math.min(
-            java.time.Duration.between(session.getStartedAt(), LocalDateTime.now()).toHours(),
-            session.getHours()
+        // [VARREDURA] prorateia por MINUTOS (antes `toHours()` truncava → cancelar antes de 1h pagava 0,
+        // perdendo todo o progresso parcial). Fração = minutos decorridos / minutos totais (cap em 1.0).
+        long totalMinutes    = (long) session.getHours() * 60;
+        long minutesElapsed  = Math.min(
+            java.time.Duration.between(session.getStartedAt(), LocalDateTime.now()).toMinutes(),
+            totalMinutes
         );
 
-        if (hoursCompleted > 0) {
-            long goldEarned = Math.round(session.getGoldReward() * hoursCompleted / (double) session.getHours());
-            int  xpEarned   = (int)(session.getXpReward()        * hoursCompleted / (double) session.getHours());
+        if (minutesElapsed > 0) {
+            long goldEarned = Math.round(session.getGoldReward() * minutesElapsed / (double) totalMinutes);
+            int  xpEarned   = (int) Math.round(session.getXpReward() * minutesElapsed / (double) totalMinutes);
 
             player.addBronzeAmount(goldEarned);
             playerRepository.save(player);
@@ -210,7 +213,7 @@ public class WorkService {
 
         session.setStatus(WorkStatus.CANCELLED);
         WorkSession cancelled = workRepository.save(session);
-        log.info("[WorkService] player={} action=cancelWork OK sessionId={} hoursCompleted={}", player.getId(), sessionId, hoursCompleted);
+        log.info("[WorkService] player={} action=cancelWork OK sessionId={} minutesElapsed={}", player.getId(), sessionId, minutesElapsed);
         return cancelled;
     }
 }

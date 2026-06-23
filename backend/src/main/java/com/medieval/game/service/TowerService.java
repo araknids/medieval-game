@@ -261,7 +261,7 @@ public class TowerService {
                 foes, true, ranged); // PvE: timeout = derrota
         }
         List<String> lg = new java.util.ArrayList<>(out.log());
-        lg.remove(lg.size() - 1); // tira a tag WINNER
+        BattleSimulator.dropWinnerTag(lg); // [VARREDURA] strip da tag WINNER
         battleLog.addAll(lg);
         allEvents.addAll(out.events()); // [BATALHA_ANIMADA]
         boolean won = out.firstWon();

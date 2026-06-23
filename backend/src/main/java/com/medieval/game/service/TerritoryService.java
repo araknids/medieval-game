@@ -389,6 +389,13 @@ public class TerritoryService {
      * Batalha por FORMAÇÃO 3×5: cada lane (coluna) é um gauntlet — frente vs frente, o vencedor
      * segue com o HP REAL restante contra o próximo fresco da coluna inimiga. Vence quem leva ≥2
      * das 3 lanes. Combate completo (elementos + ativas). [GUERRA_FORMACAO]
+     *
+     * ⚠️ [VARREDURA] NÃO está fiado no fluxo vivo: {@link #resolveTerritory}/desafio usam o
+     * {@link #guildGauntlet} (15v15 em ondas de 3v3, Modelo B). Este 3×5 (Modelo A) é mantido +
+     * testado ({@code TerritoryWarTest}, 50 casos) como modelo ALTERNATIVO. A CLAUDE.md [GUERRA_FORMACAO]
+     * descreve ESTE modelo, mas o que roda é o gauntlet — divergência doc×código a decidir pelo dono
+     * (fiar o 3×5, ou remover + adotar de vez o 15v15). Não removi p/ não apagar o modelo + os testes
+     * sem essa decisão.
      */
     public BrawlResult guildBrawl(Fighter[][] attackers, Fighter[][] defenders, Kingdom territory) {
         List<String> fullLog = new ArrayList<>();
@@ -409,7 +416,7 @@ public class TerritoryService {
             while (a != null && d != null) {
                 BattleSimulator.BattleOutcome round = battleSimulator.simulate(a.toCombatant(), d.toCombatant(), false);
                 List<String> rl = round.log();
-                fullLog.addAll(rl.subList(0, rl.size() - 1)); // tira a tag WINNER
+                fullLog.addAll(BattleSimulator.withoutWinnerTag(rl)); // [VARREDURA] strip da tag WINNER
                 if (round.firstWon()) {
                     a.hp = round.firstHpFinal();  // vencedor segue com o HP REAL restante
                     d.hp = 0;

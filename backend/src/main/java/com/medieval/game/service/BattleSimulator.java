@@ -372,6 +372,19 @@ public class BattleSimulator {
         return best;
     }
 
+    // [VARREDURA] Strip da tag de máquina WINNER:...|LOSER:... (sempre a última linha do log) p/ exibição.
+    // Centraliza o que estava espalhado/divergente em ~9 sites (alguns sem guard de lista vazia).
+    /** Remove a tag WINNER (última linha) IN-PLACE, se houver. Drop-in p/ {@code log.remove(log.size()-1)}. */
+    public static void dropWinnerTag(List<String> log) {
+        if (log != null && !log.isEmpty()) log.remove(log.size() - 1);
+    }
+    /** Devolve uma CÓPIA do log sem a tag WINNER (não muta o original). */
+    public static List<String> withoutWinnerTag(List<String> log) {
+        List<String> copy = new ArrayList<>(log == null ? List.of() : log);
+        dropWinnerTag(copy);
+        return copy;
+    }
+
     private static boolean anyAlive(List<Side> es) {
         for (Side e : es) if (e.hp > 0) return true;
         return false;

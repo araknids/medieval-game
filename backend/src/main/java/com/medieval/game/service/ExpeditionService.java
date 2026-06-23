@@ -439,7 +439,7 @@ public class ExpeditionService {
         BattleSimulator.BattleOutcome out = battleSimulator.simulate(me, foe, true); // PvE: timeout = derrota
 
         List<String> lg = new ArrayList<>(out.log());
-        if (!lg.isEmpty()) lg.remove(lg.size() - 1); // remove a tag WINNER
+        BattleSimulator.dropWinnerTag(lg); // [VARREDURA] strip da tag WINNER
 
         // persiste HP/desgaste
         int finalPct = maxHp > 0 ? Math.max(0, out.firstHpFinal() * 100 / maxHp) : 0;
@@ -795,7 +795,7 @@ public class ExpeditionService {
         BattleSimulator.BattleOutcome out = battleSimulator.simulate(me, foe, false); // PvP: desempate por %HP
 
         List<String> lg = new ArrayList<>(out.log());
-        if (!lg.isEmpty()) lg.remove(lg.size() - 1);
+        BattleSimulator.dropWinnerTag(lg); // [VARREDURA] strip da tag WINNER
         res.log = lg; res.events = out.events(); res.monsterName = victimW.getName() + " (player)";
         run.setBattleLog(String.join("\n", lg));
 

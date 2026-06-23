@@ -280,8 +280,7 @@ public class GuildWarService {
     }
 
     private List<String> stripWinnerTag(List<String> log) {
-        if (log.isEmpty()) return log;
-        return log.subList(0, log.size() - 1); // remove a tag WINNER interna
+        return BattleSimulator.withoutWinnerTag(log); // [VARREDURA] centralizado no BattleSimulator
     }
 
     private Guild requireGuild(Player player) {

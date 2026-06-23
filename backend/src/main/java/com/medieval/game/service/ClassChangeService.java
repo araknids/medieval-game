@@ -134,7 +134,7 @@ public class ClassChangeService {
         inventoryService.wearEquippedItems(player); // desgaste de durabilidade, como nos outros combates
 
         List<String> battleLog = new ArrayList<>(outcome.log());
-        battleLog.remove(battleLog.size() - 1); // remove a tag interna WINNER
+        BattleSimulator.dropWinnerTag(battleLog); // [VARREDURA] strip da tag interna WINNER
         boolean won = outcome.firstWon();
 
         // [TRIAL_NARRATIVA][I18N] desfecho narrado (flavor no modal), no idioma do request

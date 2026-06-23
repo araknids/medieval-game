@@ -853,12 +853,9 @@ public class ZoneService {
         warriorRepository.save(attacker);
     }
 
-    /** Remove a tag interna WINNER: do final do log (cópia, não muta o original). */
+    /** Remove a tag interna WINNER: do final do log (cópia, não muta o original). [VARREDURA] centralizado. */
     private List<String> stripWinnerTag(List<String> log) {
-        if (log.isEmpty()) return new ArrayList<>();
-        List<String> copy = new ArrayList<>(log);
-        copy.remove(copy.size() - 1);
-        return copy;
+        return BattleSimulator.withoutWinnerTag(log);
     }
 
     /** Penalidade de derrota padrão (15% bronze). */
