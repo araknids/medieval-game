@@ -55,13 +55,28 @@ func _ready() -> void:
 	content = ui.content
 	status = ui.status
 	wallet = ui.wallet
-	# Timer de polling do feed (~4s) — morre junto com a tela.
+	# Timer de polling do feed (~4s).
 	poll_timer = Timer.new()
 	poll_timer.wait_time = 4.0
 	poll_timer.autostart = true
 	poll_timer.timeout.connect(func() -> void: await _poll_feed())
 	add_child(poll_timer)
+	# [REDE] O Shell mantém a tela VIVA em cache (alterna visibilidade, não recria), então sem isto o
+	# timer continuaria pingando /api/tavern/feed a cada 4s pra SEMPRE, mesmo fora da Taverna (~900
+	# chamadas/h à toa → carga e custo no backend). Pausa o polling quando a Taverna não está visível.
+	visibility_changed.connect(_on_tavern_visibility)
 	await _refresh()
+
+# [REDE] Pausa/retoma o polling do feed conforme a Taverna está visível (economiza chamadas + custo).
+func _on_tavern_visibility() -> void:
+	if not is_instance_valid(poll_timer):
+		return
+	if is_visible_in_tree():
+		if poll_timer.is_stopped():
+			poll_timer.start()
+		await _poll_feed()              # atualiza na hora ao reabrir
+	else:
+		poll_timer.stop()
 
 func _process(delta: float) -> void:
 	_tick_buff(delta)   # [TAVERNA_BUFF_LIVE] countdown do buff (independe do minigame)
