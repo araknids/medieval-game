@@ -34,7 +34,7 @@ public class ArenaController {
                 .collect(java.util.stream.Collectors.toMap(w -> w.getPlayer().getId(),
                         com.medieval.game.model.Warrior::getName, (a, b) -> a));
         List<RankEntry> rank = top.stream()
-                .map(p -> new RankEntry(names.getOrDefault(p.getId(), "?"),
+                .map(p -> new RankEntry(p.getId(), names.getOrDefault(p.getId(), "?"),
                         com.medieval.game.service.AchievementService.titleString(p), // [TITULOS]
                         p.getRankPoints(), p.getArenaWins(), p.getArenaLosses()))
                 .toList();
@@ -106,7 +106,7 @@ public class ArenaController {
         }
     }
 
-    record RankEntry(String warriorName, String title, int rankPoints, int wins, int losses) {}
+    record RankEntry(long playerId, String warriorName, String title, int rankPoints, int wins, int losses) {}
 
     record FightRequest(long opponentId) {}   // [ARENA_ESCOLHA] id do oponente escolhido (0 = matchmaking)
 }

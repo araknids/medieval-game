@@ -19,10 +19,7 @@ config/icon="res://icon.svg"
 [autoload]
 
 Api="*res://net/BackendClient.gd"
-
-[gui]
-
-timers/tooltip_delay_sec=0.2
+ProfileInspect="*res://ui/ProfileInspect.gd"
 
 [debug]
 
@@ -35,6 +32,10 @@ window/size/viewport_width=1280
 window/size/viewport_height=720
 window/stretch/mode="canvas_items"
 window/stretch/aspect="expand"
+
+[gui]
+
+timers/tooltip_delay_sec=0.2
 
 [physics]
 

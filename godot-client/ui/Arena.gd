@@ -297,6 +297,10 @@ func _rank_row(pos: int, r: Dictionary, is_me: bool) -> PanelContainer:
 	var wl := Label.new(); wl.text = "%d/%d" % [int(r.get("wins", 0)), int(r.get("losses", 0))]
 	wl.custom_minimum_size = Vector2(60, 0); wl.add_theme_color_override("font_color", UiKit.TEXT_DIM)
 	hb.add_child(wl)
+	# [PROFILE_INSPECT] botão de ver o perfil (mesmo dialog da Classificação: boneco 3D + atributos)
+	var pid := int(r.get("playerId", 0))
+	if pid > 0:
+		hb.add_child(UiKit.small_btn_icon(Lang.t("Ver"), "character", func() -> void: await ProfileInspect.open(self, pid)))
 	return panel
 
 # ── Ação: duelo contra o oponente escolhido → guarda o resultado e lança o replay. ──
