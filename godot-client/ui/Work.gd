@@ -9,6 +9,7 @@ extends Control
 signal go_back
 
 const HOURS := [1, 2, 6, 12]
+const Icons := preload("res://ui/Icons.gd")  # [WORK_GIF] GIF de trabalho no hover
 
 var content: VBoxContainer
 var status: Label
@@ -139,7 +140,7 @@ func _job_card(job: Dictionary) -> PanelContainer:
 		box.add_child(hrs)
 	# [WORK_GIF] hover no card → mostra o GIF grande do trabalho (frames anim/work_<id>/, se existirem)
 	var anim_key := "work_" + str(job.get("id", "")).to_lower()
-	if not Icons.anim_frames(anim_key).is_empty():
+	if not Icons.frames(anim_key).is_empty():
 		pc.mouse_entered.connect(_show_work_gif.bind(pc, anim_key))
 		pc.mouse_exited.connect(_hide_work_gif)
 	return pc
