@@ -39,7 +39,7 @@ class TerritoryCatchUpIntegrationTest extends BaseIntegrationTest {
         Guild g = new Guild();
         g.setName("CatchUpGuild-" + System.nanoTime());
         g.setLeaderId(player().getId());
-        g.setGold(gold);
+        g.setTreasuryBronze(gold);
         return guildRepository.save(g);
     }
 
@@ -62,13 +62,13 @@ class TerritoryCatchUpIntegrationTest extends BaseIntegrationTest {
         setupControl(terr, g, 0, current - 1); // um ciclo devido
 
         territoryService.resolveDueCyclesForTerritory(terr, current);
-        long goldAfter1 = guildRepository.findById(g.getId()).orElseThrow().getGold();
+        long goldAfter1 = guildRepository.findById(g.getId()).orElseThrow().getTreasuryBronze();
         assertThat(goldAfter1).isLessThan(10_000);               // cobrou 1×
         assertThat(controlRepo.findByTerritory(terr).orElseThrow().getLastResolvedCycleId())
                 .isEqualTo(current);
 
         territoryService.resolveDueCyclesForTerritory(terr, current); // de novo
-        long goldAfter2 = guildRepository.findById(g.getId()).orElseThrow().getGold();
+        long goldAfter2 = guildRepository.findById(g.getId()).orElseThrow().getTreasuryBronze();
         assertThat(goldAfter2).isEqualTo(goldAfter1);             // NÃO recobrou
     }
 
@@ -86,7 +86,7 @@ class TerritoryCatchUpIntegrationTest extends BaseIntegrationTest {
         TerritoryControl after = controlRepo.findByTerritory(terr).orElseThrow();
         assertThat(after.getLastResolvedCycleId()).isEqualTo(current);
         assertThat(after.getDefenseStreak()).isEqualTo(3);       // +1 por ciclo sem ataque
-        assertThat(guildRepository.findById(g.getId()).orElseThrow().getGold())
+        assertThat(guildRepository.findById(g.getId()).orElseThrow().getTreasuryBronze())
                 .isLessThan(100_000);                            // 3 upkeeps cobrados
     }
 
@@ -103,7 +103,7 @@ class TerritoryCatchUpIntegrationTest extends BaseIntegrationTest {
 
         TerritoryControl after = controlRepo.findByTerritory(terr).orElseThrow();
         assertThat(after.getLastResolvedCycleId()).isEqualTo(current); // só inicializou
-        assertThat(guildRepository.findById(g.getId()).orElseThrow().getGold())
+        assertThat(guildRepository.findById(g.getId()).orElseThrow().getTreasuryBronze())
                 .isEqualTo(10_000);                              // upkeep NÃO cobrado
         assertThat(after.getDefenseStreak()).isEqualTo(5);       // inalterado
     }

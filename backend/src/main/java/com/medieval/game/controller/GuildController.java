@@ -52,7 +52,7 @@ public class GuildController {
                 "name",        g.getName(),
                 "description", g.getDescription() != null ? g.getDescription() : "",
                 "level",       g.getLevel(),
-                "gold",        g.getGold(),
+                "gold",        g.getTreasuryBronze(),
                 "members",     members,
                 "maxMembers",  g.maxMembers(),
                 "isMine",      g.getId().equals(myGuildId)
@@ -108,7 +108,7 @@ public class GuildController {
         Guild guild = res.guild();
         return ResponseEntity.ok(Map.of(
             "message",   com.medieval.game.service.Messages.tr("msg.donation_ok", "Donation successful!"),
-            "guildGold", guild.getGold(),
+            "guildGold", guild.getTreasuryBronze(),
             "level",     res.newLevel(),
             "leveledUp", res.leveledUp()
         ));
@@ -180,7 +180,7 @@ public class GuildController {
         boolean isLeader = guild.getLeaderId().equals(player.getId());
 
         // Decompose treasury (stored in bronze) into bronze/silver/gold for display
-        long rawBronze   = guild.getGold();
+        long rawBronze   = guild.getTreasuryBronze();
         long tGold       = rawBronze / 10000;
         long tSilver     = (rawBronze % 10000) / 100;
         long tBronze     = rawBronze % 100;

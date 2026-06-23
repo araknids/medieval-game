@@ -256,7 +256,7 @@ public class ShopService {
             throw new IllegalStateException("You already purchased this item in this rotation");
         }
 
-        playerService.spendGold(player, item.price());
+        playerService.spendBronze(player, item.price());
 
         // Registra a compra
         ShopPurchase purchase = new ShopPurchase();

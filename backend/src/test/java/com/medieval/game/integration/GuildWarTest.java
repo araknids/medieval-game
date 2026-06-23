@@ -35,7 +35,7 @@ class GuildWarTest extends BaseIntegrationTest {
         g.setLeaderId(-1L);
         g.setEverControlledTerritory(everControlled);
         g.setLifetimeGold(lifetimeGold);
-        g.setGold(lifetimeGold);
+        g.setTreasuryBronze(lifetimeGold);
         g.recomputeLevel();
         return guildRepository.save(g);
     }

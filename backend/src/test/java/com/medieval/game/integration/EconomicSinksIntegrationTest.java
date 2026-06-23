@@ -264,7 +264,7 @@ class EconomicSinksIntegrationTest extends BaseIntegrationTest {
 
         Guild after = guildRepository.findById(guild.getId()).orElseThrow();
         TerritoryControl ctrlAfter = controlRepo.findByTerritory(terr).orElseThrow();
-        assertThat(after.getGold()).isEqualTo(5000 - 650);
+        assertThat(after.getTreasuryBronze()).isEqualTo(5000 - 650);
         assertThat(ctrlAfter.getControllingGuild()).isNotNull();
         assertThat(ctrlAfter.getControllingGuild().getId()).isEqualTo(guild.getId());
     }
@@ -285,14 +285,14 @@ class EconomicSinksIntegrationTest extends BaseIntegrationTest {
         assertThat(ctrlAfter.getControllingGuild()).isNull(); // neutro
         assertThat(ctrlAfter.getDefenseStreak()).isZero();
         // tesouro intacto (não pôde pagar)
-        assertThat(guildRepository.findById(guild.getId()).orElseThrow().getGold()).isEqualTo(100);
+        assertThat(guildRepository.findById(guild.getId()).orElseThrow().getTreasuryBronze()).isEqualTo(100);
     }
 
     private Guild newGuild(Player leader, String name, long gold) {
         Guild g = new Guild();
         g.setName(name);
         g.setLeaderId(leader.getId());
-        g.setGold(gold);
+        g.setTreasuryBronze(gold);
         return guildRepository.save(g);
     }
 

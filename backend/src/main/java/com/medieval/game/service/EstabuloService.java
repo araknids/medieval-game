@@ -64,7 +64,7 @@ public class EstabuloService {
             player.setSoulStones(player.getSoulStones() - type.priceSoulStones);
             playerRepository.save(player);
         } else {
-            playerService.spendGold(player, type.priceGold * GOLD_TO_BRONZE); // gold → bronze
+            playerService.spendBronze(player, type.priceGold * GOLD_TO_BRONZE); // gold → bronze
         }
 
         Mount mount = new Mount();

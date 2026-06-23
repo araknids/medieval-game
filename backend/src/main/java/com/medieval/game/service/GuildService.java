@@ -267,7 +267,7 @@ public class GuildService {
 
         playerService.spendBronze(player, bronzeAmount);
 
-        guild.setGold(guild.getGold() + bronzeAmount);                       // tesouro gastável
+        guild.setTreasuryBronze(guild.getTreasuryBronze() + bronzeAmount);   // tesouro gastável
         guild.setLifetimeGold(guild.getLifetimeGold() + bronzeAmount);       // acumulado (só cresce)
         guild.recomputeLevel();                                              // nível derivado do acumulado
         guildRepository.save(guild);
@@ -328,7 +328,7 @@ public class GuildService {
     }
 
     public List<Guild> listAll() {
-        return guildRepository.findAllByOrderByLevelDescGoldDesc();
+        return guildRepository.findAllByOrderByLevelDescTreasuryBronzeDesc();
     }
 
     public List<Player> members(Guild guild) {

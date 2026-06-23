@@ -638,7 +638,7 @@ public class ExpeditionService {
 
         long bronze = run.getCarriedBronze();
         long xp     = run.getCarriedXp();
-        if (bronze > 0) { playerService.addGold(player, bronze); playerRepository.save(player); }
+        if (bronze > 0) { playerService.addBronze(player, bronze); playerRepository.save(player); }
         if (xp > 0)     warriorService.addExperience(warrior, xp);
 
         // move carregado → garantido (ledger informativo p/ a UI)

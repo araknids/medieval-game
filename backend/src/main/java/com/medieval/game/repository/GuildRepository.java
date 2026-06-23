@@ -14,7 +14,7 @@ import java.util.Optional;
 public interface GuildRepository extends JpaRepository<Guild, Long> {
     Optional<Guild> findByName(String name);
     boolean existsByName(String name);
-    List<Guild> findAllByOrderByLevelDescGoldDesc();
+    List<Guild> findAllByOrderByLevelDescTreasuryBronzeDesc();
 
     // [VARREDURA] Lock pessimista da guild p/ serializar a seção crítica do join (contar membros + entrar).
     // O cap de membros é check-then-act que o @Version não cobre (o INSERT é na linha do PLAYER, não da

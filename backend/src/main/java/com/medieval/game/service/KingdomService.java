@@ -298,7 +298,7 @@ public class KingdomService {
         if (res.rewarded) {
             totalBronze = Math.round(qt.bronzeReward * res.bronzeMult * (1 + bronzePct / 100.0));
             totalXp     = Math.round(qt.expReward    * res.xpMult     * (1 + xpPct     / 100.0));
-            playerService.addGold(player, totalBronze);
+            playerService.addBronze(player, totalBronze);
             warriorService.addExperience(warrior, totalXp);
             int guildDrop = guild != null ? guild.dropBonus() : 0;
             // [ITEM_DROP_LEVEL] item sai no nível do monstro morto; sem combate (quest interativa) → nível do jogador.

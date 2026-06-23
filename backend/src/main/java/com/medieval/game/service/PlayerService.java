@@ -123,16 +123,7 @@ public class PlayerService {
         playerRepository.save(player);
     }
 
-    // Mantidos por compatibilidade (usam bronze internamente)
-    @Transactional
-    public void addGold(Player player, long bronzeAmount) {
-        addBronze(player, bronzeAmount);
-    }
-
-    @Transactional
-    public void spendGold(Player player, long bronzeAmount) {
-        spendBronze(player, bronzeAmount);
-    }
+    // [VARREDURA] removidos os wrappers addGold/spendGold (eram bronze mal-nomeados) — callers usam addBronze/spendBronze.
 
     @Transactional
     public void consumeStamina(Player player, int cost) {

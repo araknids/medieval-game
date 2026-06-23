@@ -37,7 +37,7 @@ class TerritoryWarCycleIntegrationTest extends BaseIntegrationTest {
         TerritoryControl ctrl = territoryService.getTerritory(t);
         Guild guild = ctrl.getControllingGuild();
         if (guild != null) {
-            guild.setGold(bronze);
+            guild.setTreasuryBronze(bronze);
             guildRepository.save(guild);
         }
     }

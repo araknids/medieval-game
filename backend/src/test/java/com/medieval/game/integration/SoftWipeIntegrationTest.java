@@ -54,7 +54,7 @@ class SoftWipeIntegrationTest extends BaseIntegrationTest {
         Guild g = new Guild();
         g.setName("WipeGuild-" + System.nanoTime());
         g.setLeaderId(playerId);
-        g.setGold(5000);
+        g.setTreasuryBronze(5000);
         g = guildRepository.save(g);
         p.setGuild(g);
         playerRepository.save(p);

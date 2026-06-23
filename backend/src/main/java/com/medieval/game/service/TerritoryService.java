@@ -363,15 +363,15 @@ public class TerritoryService {
         if (holder == null) return; // território neutro não paga manutenção
 
         long cost = upkeepCost(control);
-        if (holder.getGold() >= cost) {
-            holder.setGold(holder.getGold() - cost);
+        if (holder.getTreasuryBronze() >= cost) {
+            holder.setTreasuryBronze(holder.getTreasuryBronze() - cost);
             guildRepository.save(holder);
             log.info("[TerritoryService] territory={} upkeep paid guild={} cost={} treasuryLeft={}",
-                    territory, holder.getName(), cost, holder.getGold());
+                    territory, holder.getName(), cost, holder.getTreasuryBronze());
         } else {
             // Não consegue pagar — abandona o território
             log.info("[TerritoryService] territory={} upkeep UNPAID guild={} cost={} treasury={} → neutral",
-                    territory, holder.getName(), cost, holder.getGold());
+                    territory, holder.getName(), cost, holder.getTreasuryBronze());
             saveBattleLog(territory, holder.getName(), territory.npcName + "s",
                     territory.npcName + "s",
                     List.of("💰 " + holder.getName() + " could not pay upkeep (" + cost

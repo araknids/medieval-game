@@ -103,7 +103,7 @@ public class MailService {
         if (mail.getGoldAmount() <= 0)
             throw new IllegalStateException("This letter has no gold attached.");
 
-        playerService.addGold(player, mail.getGoldAmount()); // goldAmount is already in bronze
+        playerService.addBronze(player, mail.getGoldAmount()); // goldAmount is already in bronze
         mail.setCollectedAt(LocalDateTime.now());
         if (!mail.isRead()) mail.setReadAt(LocalDateTime.now());
         return mailRepository.save(mail);
@@ -285,7 +285,7 @@ public class MailService {
             boolean changed = false;
             // Ouro (sem limite de bag)
             if (mail.getGoldAmount() > 0 && !mail.isCollected()) {
-                playerService.addGold(player, mail.getGoldAmount());
+                playerService.addBronze(player, mail.getGoldAmount());
                 mail.setCollectedAt(LocalDateTime.now());
                 gold += mail.getGoldAmount();
                 changed = true;

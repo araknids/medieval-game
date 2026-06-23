@@ -235,11 +235,11 @@ public class GuildWarService {
             long stolen = Math.round(loser.getLifetimeGold() * REWARD_PCT);
             // Perdedor: tira do acumulado E do tesouro; nível pode CAIR (set direto). [GUERRA_GUILDA]
             loser.setLifetimeGold(Math.max(0, loser.getLifetimeGold() - stolen));
-            loser.setGold(Math.max(0, loser.getGold() - stolen));
+            loser.setTreasuryBronze(Math.max(0, loser.getTreasuryBronze() - stolen));
             loser.setLevel(Guild.levelForGold(loser.getLifetimeGold()));
             // Vencedor: ganha nos dois; nível pode SUBIR (monotônico).
             winner.setLifetimeGold(winner.getLifetimeGold() + stolen);
-            winner.setGold(winner.getGold() + stolen);
+            winner.setTreasuryBronze(winner.getTreasuryBronze() + stolen);
             winner.recomputeLevel();
             guildRepository.save(loser);
             guildRepository.save(winner);

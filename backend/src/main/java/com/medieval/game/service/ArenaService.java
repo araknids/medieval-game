@@ -132,7 +132,7 @@ public class ArenaService {
         int  rankChange = challengerWon ? (opponent != null ? 25 : 15) : (opponent != null ? -15 : -5);
 
         // ── Aplica o resultado na hora ──
-        playerService.addGold(challenger, goldReward);
+        playerService.addBronze(challenger, goldReward);
         challenger.setRankPoints(Math.max(0, challenger.getRankPoints() + rankChange));
         if (challengerWon) challenger.setArenaWins(challenger.getArenaWins() + 1);
         else               challenger.setArenaLosses(challenger.getArenaLosses() + 1);

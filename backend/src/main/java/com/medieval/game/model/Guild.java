@@ -24,8 +24,10 @@ public class Guild {
     private String description;
 
     // Treasury stored in bronze (same unit as player currency) — spendable (territory upkeep).
-    @Column(columnDefinition = "bigint default 0")
-    private long gold = 0;
+    // [VARREDURA] renomeado gold→treasuryBronze (era bronze mal-nomeado); @Column(name="gold") preserva a
+    // coluna do Postgres (zero migração) e o JSON já expunha "treasuryBronze" (GuildController/app.js).
+    @Column(name = "gold", columnDefinition = "bigint default 0")
+    private long treasuryBronze = 0;
 
     // [GUILD_LEVEL_GOLD] Total gold ever contributed to the guild (donations). Only grows — never
     // decreases (spending the treasury does NOT lower it). Drives the guild level.
