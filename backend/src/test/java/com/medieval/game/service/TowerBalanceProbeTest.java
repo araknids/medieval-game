@@ -18,8 +18,7 @@ class TowerBalanceProbeTest {
     private final BattleSimulator sim = new BattleSimulator();
     private final TowerService tower = new TowerService(null, null, null, sim, null, null, null, null, null,
             new Messages(new org.springframework.context.support.StaticMessageSource()), // [I18N] Messages real (defaults EN)
-            null,  // [WORK_IDLE] WorkSessionRepository — probe só usa cálculo de stats, não a trava
-            null); // [TORRE_TRAVA] TowerRunCleanup — probe não chama enter()
+            null); // [WORK_IDLE] WorkSessionRepository — probe só usa cálculo de stats, não a trava
     private static final int N = 3000;
 
     /**
