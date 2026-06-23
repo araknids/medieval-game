@@ -1058,13 +1058,15 @@ static func section(text: String) -> Control:
 	v.add_child(spacer(4))   # [SEM_SCROLL] respiro menor antes do cabeçalho de seção
 	var row := HBoxContainer.new()
 	row.add_theme_constant_override("separation", 10)
-	# [ICONES_MARCADOR] emoji no início do título → ícone PixelLab (fallback: mantém o texto/emoji)
+	# [ICONES_MARCADOR] emoji no início do título → ícone PixelLab; [SEM_WEB_EMOJI] sem ícone mapeado → TIRA o emoji.
 	var split := Icons.split_emoji(text)
 	if split[0] != "":
 		var ic := Icons.rect(split[0], 20)
 		ic.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 		row.add_child(ic)
 		text = split[1]
+	else:
+		text = strip_web_emoji(text)
 	var lbl := Label.new()
 	lbl.text = text.to_upper()
 	lbl.add_theme_font_size_override("font_size", 15)
@@ -1133,7 +1135,7 @@ static func icon_text(text: String, font := 14, col := TEXT, px := 18) -> Contro
 	lbl.add_theme_color_override("font_color", col)
 	lbl.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	if split[0] == "":
-		lbl.text = text
+		lbl.text = strip_web_emoji(text)   # [SEM_WEB_EMOJI] sem ícone mapeado → tira o emoji em vez de exibi-lo
 		return lbl
 	lbl.text = split[1]
 	var h := HBoxContainer.new()
@@ -1146,7 +1148,7 @@ static func icon_text(text: String, font := 14, col := TEXT, px := 18) -> Contro
 
 static func body(text: String) -> Label:
 	var l := Label.new()
-	l.text = text
+	l.text = strip_web_emoji(text)   # [SEM_WEB_EMOJI] Label puro nunca renderiza emoji de web
 	l.add_theme_font_size_override("font_size", 14)
 	l.add_theme_color_override("font_color", TEXT)
 	l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
@@ -1168,7 +1170,7 @@ static func kv_node(key: String, value_node: Control) -> HBoxContainer:
 
 static func dim(text: String) -> Label:
 	var l := Label.new()
-	l.text = text
+	l.text = strip_web_emoji(text)   # [SEM_WEB_EMOJI] Label puro nunca renderiza emoji de web
 	l.add_theme_font_size_override("font_size", 12)
 	l.add_theme_color_override("font_color", TEXT_DIM)
 	l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART

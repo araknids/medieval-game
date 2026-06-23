@@ -54,6 +54,7 @@ const EMOJI_ICON := {
 	"❤": "hp", "⚡": "stamina", "🏅": "achievements", "🎯": "tower",
 	"📬": "mail", "📭": "mail", "📩": "mail", "📨": "mail", "✉": "mail",
 	"❗": "quest_alert", "❕": "quest_alert",   # [QUEST_BADGE] "!" de daily disponível
+	"🗓": "daily", "📅": "daily", "📆": "daily",   # [SEM_WEB_EMOJI] cabeçalho Daily Quests
 	"🏦": "treasury", "👥": "members", "😓": "fatigue", "💾": "territory",   # [GUILD_TABS] tira emoji de web da Guilda
 }
 
