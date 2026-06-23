@@ -152,7 +152,7 @@ func _build_training_section() -> void:
 		# ── IDLE GRÁTIS: timer real, ocupa o guerreiro (não aventura), XP modesto (level×10/h) ──
 		box.add_child(UiKit.icon_text("⏳ Treino idle (grátis) — ocupa o guerreiro por horas, sem custo", 13, UiKit.TEXT_DIM, 16))
 		var free_row := HBoxContainer.new(); free_row.add_theme_constant_override("separation", 8); free_row.alignment = BoxContainer.ALIGNMENT_CENTER
-		for h in [1, 4, 8]:
+		for h: int in [1, 4, 8]:
 			var fxp := warrior_level * 10 * h
 			var fb := UiKit.small_btn("%dh  ⭐+%d" % [h, fxp], _train_start.bind(h, true))
 			fb.tooltip_text = Lang.t("Treina %dh de graça → +%d XP. Enquanto treina, o guerreiro fica ocupado (não pode aventurar).") % [h, fxp]
