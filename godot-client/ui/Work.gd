@@ -89,6 +89,18 @@ func _job_card(job: Dictionary) -> PanelContainer:
 		pc.tooltip_text = desc   # hover no card = o que o trabalho faz
 	# linha 1: nome + nível (+bônus)
 	var head := HBoxContainer.new(); head.add_theme_constant_override("separation", 8)
+	# [WORK_GIF] ícone do trabalho à esquerda do nome — para parado no frame 0, anima no hover do card (anim/work_<id>/)
+	var anim_key := "work_" + str(job.get("id", "")).to_lower()
+	if not Icons.frames(anim_key).is_empty():
+		var icon := TextureRect.new()
+		icon.custom_minimum_size = Vector2(46, 46)
+		icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+		icon.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+		icon.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+		icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		Icons.anim_rect(pc, icon, anim_key)   # hover no card → cicla os frames in-place
+		head.add_child(icon)
 	var nm := Label.new()
 	nm.text = str(job.get("displayName", job.get("id", "?")))
 	nm.add_theme_font_size_override("font_size", 15)
@@ -138,34 +150,7 @@ func _job_card(job: Dictionary) -> PanelContainer:
 			b.tooltip_text = Lang.t("Trabalhar %dh · ganha %s · +%d XP de profissão") % [h, UiKit.coin_str(gph * h), xph * h]
 			hrs.add_child(b)
 		box.add_child(hrs)
-	# [WORK_GIF] hover no card → mostra o GIF grande do trabalho (frames anim/work_<id>/, se existirem)
-	var anim_key := "work_" + str(job.get("id", "")).to_lower()
-	if not Icons.frames(anim_key).is_empty():
-		pc.mouse_entered.connect(_show_work_gif.bind(pc, anim_key))
-		pc.mouse_exited.connect(_hide_work_gif)
 	return pc
-
-# [WORK_GIF] Popup flutuante com o GIF do trabalho ACIMA do card (no hover). top_level = coords globais.
-var _work_gif: Control = null
-func _show_work_gif(card: Control, key: String) -> void:
-	_hide_work_gif()
-	var tex := TextureRect.new()
-	tex.top_level = true
-	tex.custom_minimum_size = Vector2(200, 200); tex.size = Vector2(200, 200)
-	tex.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-	tex.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-	tex.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
-	tex.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	tex.z_index = 100
-	add_child(tex)
-	tex.global_position = card.global_position + Vector2(card.size.x / 2.0 - 100.0, -206.0)
-	Icons.play_loop(tex, key, 0.10)
-	_work_gif = tex
-
-func _hide_work_gif() -> void:
-	if is_instance_valid(_work_gif):
-		_work_gif.queue_free()
-	_work_gif = null
 
 # [TRAINING] Training Hall (movido do Mundo). Duas vias: IDLE grátis (timer real, ocupa o guerreiro, XP
 # modesto) e PAGO instantâneo (bronze → XP na hora). [TREINO_IDLE]
