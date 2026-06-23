@@ -115,8 +115,7 @@ func _render_map() -> void:
 			map_vb.add_child(_layer_row(map_layers[i], cur, status_str))
 	map_panel.add_child(map_vb)
 	left.add_child(map_panel)
-	# Só "Abandonar": o garantido vai pro inventário; o carregado (em risco) é perdido.
-	left.add_child(UiKit.action_danger("Abandonar", _confirm_abandon))
+	# [INCURSAO_ABANDONO] "Abandonar" saiu daqui → agora mora na coluna DIREITA, abaixo do "Garantido".
 	# EVENTO pendente → botão pra (re)abrir o diálogo (caso saia e volte no meio do evento).
 	if status_str == "NODE_PENDING" and run.get("dialog") is Dictionary:
 		left.add_child(UiKit.action("📜 Continuar evento", func() -> void: _show_event_dialog(run["dialog"])))
@@ -125,6 +124,10 @@ func _render_map() -> void:
 	right.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	right.add_child(_bag_card("🎒 Carregado (em risco)", run.get("carried", {}), UiKit.WARN))
 	right.add_child(_bag_card("🔒 Garantido", run.get("secured", {}), UiKit.OK))
+	# [INCURSAO_ABANDONO] Abandonar abaixo do "Garantido": salva 25–50% do carregado (sorteado). Ícone = bandeira branca.
+	var ab := UiKit.action_danger("Abandonar", _confirm_abandon)
+	Icons.set_icon(ab, "flag_white")   # GIF da bandeira branca (anima no hover); no-op se o ícone faltar
+	right.add_child(ab)
 	cols.add_child(right)
 	content.add_child(cols)
 
@@ -391,7 +394,7 @@ func _extract() -> void:
 	_show_extract_report(j, on_close)
 
 func _confirm_abandon() -> void:
-	_choice_dialog("Abandonar a incursão? Você fica só com o que já foi garantido (descansos/extração) — o loot não-sacado é perdido.",
+	_choice_dialog("Abandonar a incursão? Você foge salvando 25–50% do loot carregado (sorteado) — o resto é perdido. O que já foi garantido você mantém.",
 		[["Abandonar", "yes"], ["Voltar", "no"]],
 		func(choice) -> void:
 			if str(choice) != "yes":
@@ -403,8 +406,14 @@ func _confirm_abandon() -> void:
 			if not r.get("ok"):
 				_show_error(r)   # [AUDIT] não mostra "abandonada" se o request falhou
 				return
+			var j: Dictionary = r["json"] if r.get("json") is Dictionary else {}
 			await _refresh()
-			UiKit.flash(status, "Incursão abandonada.", 0))
+			# [INCURSAO_ABANDONO] mostra o que foi SALVO na fuga (mesmo relatório do extract, título próprio)
+			var got := int(j.get("bronzeBanked", 0)) > 0 or int(j.get("xpBanked", 0)) > 0 or int(j.get("keptItems", 0)) > 0 or int(j.get("mailedItems", 0)) > 0 or (j.get("bankedResources") is Array and not (j["bankedResources"] as Array).is_empty())
+			if got:
+				_show_extract_report(j, Callable(), Lang.t("🏳 Você salvou parte do loot"))
+			else:
+				UiKit.flash(status, Lang.t("Incursão abandonada — nada foi salvo."), 0))
 
 func _reload_warrior() -> void:
 	var r = await Api.get_warrior()
@@ -496,7 +505,7 @@ func _show_step_rows(j: Dictionary) -> void:
 	var title := Lang.t("Descanso") if str(j.get("resolvedType", "")) == "CAMP" else Lang.t("Você avança")
 	UiKit.show_battle_report(self, not ko, title, rows, [])
 
-func _show_extract_report(j: Dictionary, on_close := Callable()) -> void:
+func _show_extract_report(j: Dictionary, on_close := Callable(), title := "") -> void:
 	var rows: Array = []
 	if int(j.get("bronzeBanked", 0)) > 0:
 		rows.append(UiKit.kv_node("Bronze", UiKit.coin_box(int(j.get("bronzeBanked", 0)), 18)))
@@ -510,7 +519,7 @@ func _show_extract_report(j: Dictionary, on_close := Callable()) -> void:
 		rows.append(UiKit.icon_text(Lang.t("🛡 %d item(ns) na mochila") % int(j.get("keptItems", 0)), 12, UiKit.TEXT_DIM, 16))
 	if int(j.get("mailedItems", 0)) > 0:
 		rows.append(UiKit.icon_text(Lang.t("📬 %d item(ns) no correio (mochila cheia)") % int(j.get("mailedItems", 0)), 12, UiKit.TEXT_DIM, 16))
-	UiKit.show_battle_report(self, true, Lang.t("🔒 Loot garantido!"), rows, [], on_close)
+	UiKit.show_battle_report(self, true, (title if title != "" else Lang.t("🔒 Loot garantido!")), rows, [], on_close)
 
 # Diálogo do nó EVENTO: intro + um botão por opção (resolve com o optionId). Espelha World._show_quest_dialog.
 # [QUESTS_ICONE] cada opção mostra o SELO do tipo (combate/roll/pacífico). Eventos inline da Incursão

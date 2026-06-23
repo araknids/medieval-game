@@ -50,6 +50,9 @@ public class ExpeditionService {
     private static final int PVP_FLAG_MINUTES   = 60; // [PVP_FLAG] exposto ao entrar/extrair de zona 🟡/🔴
     private static final int PVP_SHIELD_MINUTES = 60; // imune por 1h após ser saqueado
     private static final int PVP_LEVEL_BAND     = 10; // só cruza com flagged dentro de ±10 níveis
+    // [INCURSAO_ABANDONO] abandonar não é mais "mãos vazias": salva uma FRAÇÃO ALEATÓRIA do carregado.
+    private static final double ABANDON_SALVAGE_MIN = 0.25; // 25%
+    private static final double ABANDON_SALVAGE_MAX = 0.50; // 50%
 
     private final ExpeditionRunRepository expeditionRepo;
     private final PlayerRepository        playerRepository;
@@ -680,24 +683,66 @@ public class ExpeditionService {
                 banked.keptItems(), banked.mailedItems(), messages.getOr("delve.extract", "You extract from the Delve, loot in hand."));
     }
 
+    /**
+     * [INCURSAO_ABANDONO] Salva uma FRAÇÃO (keepRate) do carregado e DESCARTA o resto — usado no abandono.
+     * Espelha o bankCarried, mas: cada item carregado tem chance keepRate de ser salvo; recursos/bronze/xp
+     * salvam round(valor × keepRate). O que sobra é perdido. NÃO mexe no status (quem chama encerra a run).
+     */
+    private ExtractResult salvageCarried(ExpeditionRun run, Player player, Warrior warrior, double keepRate, String reason) {
+        ThreadLocalRandom rng = ThreadLocalRandom.current();
+        int kept = 0, mailed = 0;
+        for (InventoryItem it : inventoryService.runPendingItems(player)) {
+            if (rng.nextDouble() < keepRate) {              // salvou este item
+                if (inventoryService.bagSpaceLeft(player) >= 1) {
+                    inventoryService.clearRunPending(it);
+                    kept++;
+                } else {
+                    mailService.sendItemMail(player, reason + " (bag full)", it.getName(), it.getType(),
+                            it.getAttackBonus(), it.getDefenseBonus(), it.getHealthBonus(),
+                            it.getRarity(), it.getItemLevel(), it.getSockets(), it.getDescription(), it.getOrigin());
+                    inventoryService.discardRunItem(it);
+                    mailed++;
+                }
+            } else {
+                inventoryService.discardRunItem(it);        // perdido na fuga
+            }
+        }
+        List<ResourceDrop> savedRes = new ArrayList<>();
+        Map<ResourceType, Long> bag = parseResources(run.getCarriedResources());
+        for (Map.Entry<ResourceType, Long> e : bag.entrySet()) {
+            long save = Math.round(e.getValue() * keepRate);
+            if (save <= 0) continue;
+            long added = gatheringService.addResource(player, e.getKey(), save);
+            if (added < save) mailService.sendResourceMail(player, reason + " (bag full)", e.getKey(), (int) (save - added));
+            savedRes.add(new ResourceDrop(e.getKey(), save));
+        }
+        long bronze = Math.round(run.getCarriedBronze() * keepRate);
+        long xp     = Math.round(run.getCarriedXp() * keepRate);
+        if (bronze > 0) { playerService.addBronze(player, bronze); playerRepository.save(player); }
+        if (xp > 0)     warriorService.addExperience(warrior, xp);
+        run.setCarriedBronze(0); run.setCarriedXp(0); run.setCarriedResources(null);
+        return new ExtractResult(run, bronze, xp, savedRes, kept, mailed, null);
+    }
+
     @Transactional
     public ExtractResult abandon(Player playerArg, Long runId) {
         final Player player = playerRepository.findById(playerArg.getId()).orElse(playerArg);
         ExpeditionRun run = requireOwnedRun(player, runId);
-        // [STUCK_FIX] abandono é a SAÍDA DE EMERGÊNCIA: funciona em QUALQUER estado ativo,
-        // inclusive NODE_PENDING. Antes rejeitava NODE_PENDING ("can't abandon mid-event") —
-        // mas extract também rejeita NODE_PENDING, e o modal de evento só abre se o /current
-        // devolve um diálogo válido (pendingEventQuest != null E mapeia p/ KingdomQuestType com
-        // InteractiveQuests). Se esse elo quebrava, a run ficava PRESA pra sempre (sem resolver,
-        // sem extrair, sem abandonar). Abandonar daqui sempre encerra a run; forfeita a bolsa
-        // não-travada, sem KO.
-        for (InventoryItem it : inventoryService.runPendingItems(player)) inventoryService.discardRunItem(it);
-        run.setCarriedBronze(0); run.setCarriedXp(0); run.setCarriedResources(null);
+        Warrior warrior = warriorRepo.findByPlayer(player).orElseThrow();
+        // [INCURSAO_ABANDONO] abandono é a SAÍDA: funciona em QUALQUER estado ativo (inclusive NODE_PENDING).
+        // Não é mais "mãos vazias" — SALVA uma fração ALEATÓRIA (25–50%) do carregado; o resto é perdido. Sem KO.
+        double keepRate = ABANDON_SALVAGE_MIN
+                + ThreadLocalRandom.current().nextDouble() * (ABANDON_SALVAGE_MAX - ABANDON_SALVAGE_MIN);
+        ExtractResult salvaged = salvageCarried(run, player, warrior, keepRate, "Delve salvage");
         run.setStatus(ExpeditionStatus.ABANDONED);
         run.setResolvedAt(LocalDateTime.now());
         expeditionRepo.save(run);
-        log.info("[ExpeditionService] player={} ABANDON runId={}", player.getId(), runId);
-        return new ExtractResult(run, 0, 0, List.of(), 0, 0, messages.getOr("delve.abandon", "You leave the Delve empty-handed."));
+        log.info("[ExpeditionService] player={} ABANDON runId={} keepRate={} bronze={} xp={} kept={} mailed={}",
+                player.getId(), runId, String.format("%.2f", keepRate),
+                salvaged.bronzeBanked(), salvaged.xpBanked(), salvaged.keptItems(), salvaged.mailedItems());
+        return new ExtractResult(run, salvaged.bronzeBanked(), salvaged.xpBanked(), salvaged.bankedResources(),
+                salvaged.keptItems(), salvaged.mailedItems(),
+                messages.getOr("delve.abandon", "You flee the Delve, salvaging part of your haul."));
     }
 
     /** KO no meio da run: perde a bolsa não-travada + KO (HP já zerado na batalha). */
