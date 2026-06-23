@@ -68,6 +68,7 @@ public class ExpeditionService {
     private final WorkGuard               workGuard; // [WORK_IDLE][VARREDURA] trava enquanto trabalha
     private final ObjectMapper            objectMapper;
     private final Messages                messages;       // [I18N] narrativas da run por idioma
+    private final PvpRaidService          pvpRaidService; // [VARREDURA] raid PvP compartilhado (Zona/Incursão/Guerra)
 
     @Value("${app.dev.instant-complete:false}")
     private boolean instantComplete;
@@ -247,7 +248,7 @@ public class ExpeditionService {
         // PvE (monstro) ou PvP (saquear a vítima); pausa em NODE_PENDING e devolve o oponente. O atacante decide.
         if (pvpRaidEnabled && (node.type() == ExpeditionNodeType.COMBAT || node.type() == ExpeditionNodeType.ELITE)
                 && run.getSource() == ExpeditionSource.ZONE && isPvpZone(run.getZone())) {
-            Player victim = findFlaggedOpponent(run.getZone(), player, warrior.getLevel());
+            Player victim = pvpRaidService.findFlaggedOpponent(run.getZone(), player, warrior.getLevel());
             Warrior vw = victim != null ? warriorRepo.findByPlayer(victim).orElse(null) : null;
             if (vw != null) {
                 run.setStatus(ExpeditionStatus.NODE_PENDING);
@@ -766,18 +767,6 @@ public class ExpeditionService {
 
     private static boolean isPvpZone(Zone z) { return z == Zone.PVP || z == Zone.HIGH_RISK; }
 
-    /** Sorteia um player FLAGGED (exposto, sem escudo) na zona, dentro de ±PVP_LEVEL_BAND níveis. */
-    private Player findFlaggedOpponent(Zone zone, Player exclude, int attackerLevel) {
-        List<Player> pool = playerRepository.findFlaggedInZone(zone, LocalDateTime.now(), exclude.getId())
-                .stream()
-                .filter(p -> !p.isPvpShielded())
-                .filter(p -> Math.abs(attackerLevel
-                        - warriorRepo.findByPlayer(p).map(Warrior::getLevel).orElse(1)) <= PVP_LEVEL_BAND)
-                .toList();
-        if (pool.isEmpty()) return null;
-        return pool.get(ThreadLocalRandom.current().nextInt(pool.size()));
-    }
-
     /** Combate PvP contra um flagged: vitória → saqueia (loot imediato); derrota → KO (run encerra). */
     private NodeResolution resolvePvpRaid(ExpeditionRun run, Player player, Warrior warrior,
                                           int[] mine, int maxHp, Player victim) {
@@ -808,7 +797,7 @@ public class ExpeditionService {
         victimW.setHpUpdatedAt(LocalDateTime.now());
 
         if (out.firstWon() && !warrior.isKnockedOut()) {
-            res.narrative = raidVictim(run, player, warrior, victim, victimW, run.getZone(), lg, out.events());
+            res.narrative = pvpRaidService.raidVictim(player, warrior, victim, victimW, run.getZone(), lg, out.events(), pvpSceneFor(run));
         } else {
             res.ko = true;
             res.narrative = "You were beaten by " + victimW.getName() + " (player).";
@@ -823,62 +812,7 @@ public class ExpeditionService {
         return res;
     }
 
-    /** Saqueia a vítima por TIER (🟡 bronze+XP; 🔴 +recursos+1 item travado). Loot imediato p/ o atacante.
-     *  Manda à vítima um mail de RAID com o LOG + os eventos (replay 3D) da luta que ela perdeu. [INCURSAO_PVP] */
-    private String raidVictim(ExpeditionRun run, Player attacker, Warrior attackerW, Player victim, Warrior victimW,
-                              Zone zone, List<String> log, List<BattleSimulator.BattleEvent> events) {
-        boolean red = zone == Zone.HIGH_RISK;
-        long bronze = applyDefeatPenaltyTo(victim, attacker, red ? 0.15 : 0.10);
-        long stolenRes = red ? stealResources(attacker, victim) : 0;
-        String stolenItem = red ? inventoryService.stealOnePvpLockedItem(victim, attacker) : null;
-        long xpLost = stealXp(victimW, attackerW);
-        victimW.clearBuff();
-        victim.setPvpShieldUntil(LocalDateTime.now().plusMinutes(PVP_SHIELD_MINUTES)); // saqueado 1x por ciclo
-        victim.clearPvpFlag();
-        inventoryService.unlockAllItems(victim);
-        playerRepository.save(victim);
-        String loot = bronze + " bronze"
-                + (stolenItem != null ? ", " + stolenItem : "")
-                + (stolenRes > 0 ? ", " + stolenRes + " resources" : "")
-                + (xpLost > 0 ? ", " + xpLost + " XP" : "");
-        log.add("You raided " + victimW.getName() + "! Stole " + loot + ".");
-        String msg = "You were raided by " + attackerW.getName() + " in the " + zone.displayName
-                + "! Lost " + loot + ". Shielded for " + PVP_SHIELD_MINUTES + " min.";
-        String eventsJson;
-        try { eventsJson = objectMapper.writeValueAsString(events); } catch (Exception e) { eventsJson = null; }
-        mailService.sendRaidMail(victim, attackerW.getName(), msg, String.join("\n", log), eventsJson, pvpSceneFor(run));
-        return "You raided " + victimW.getName() + "! Stole " + loot + ".";
-    }
-
-    private long applyDefeatPenaltyTo(Player loser, Player winner, double pct) {
-        long lost = Math.round(loser.totalBronze() * pct);
-        if (lost > 0) {
-            loser.addBronzeAmount(-lost);
-            playerRepository.save(loser);
-            if (winner != null) { winner.addBronzeAmount(lost / 2); playerRepository.save(winner); }
-        }
-        return lost;
-    }
-
-    private long stealResources(Player attacker, Player victim) {
-        long total = 0;
-        for (com.medieval.game.model.ResourceInventory r : resourceRepo.findAllByPlayerAndStashed(victim, false)) {
-            if (r.getQuantity() <= 0) continue;
-            if (inventoryService.resourceSpaceLeft(attacker) <= 0) break;
-            long take = Math.max(1, r.getQuantity() / 2);
-            long added = gatheringService.addResource(attacker, r.getResourceType(), take);
-            if (added > 0) { r.setQuantity(r.getQuantity() - added); resourceRepo.save(r); total += added; }
-        }
-        return total;
-    }
-
-    private long stealXp(Warrior victimW, Warrior attackerW) {
-        long xpLost = Math.max(1, victimW.expNeededForNextLevel() / 20);
-        warriorService.loseXp(victimW, xpLost);
-        long gain = Math.min(xpLost / 2, Math.max(1, attackerW.expNeededForNextLevel() / 10));
-        if (gain > 0) warriorService.addExperience(attackerW, gain);
-        return xpLost;
-    }
+    // [VARREDURA] raidVictim/applyDefeatPenalty/stealResources/stealXp migraram p/ PvpRaidService (compartilhado).
 
     /** Cena/fundo do replay a partir do reino/skill da run (espelha ExpeditionController.sceneFor). [INCURSAO_PVP] */
     private static String pvpSceneFor(ExpeditionRun run) {
@@ -907,7 +841,7 @@ public class ExpeditionService {
         Player victim   = playerRepository.findById(victimId).orElseThrow();
         Warrior aw = warriorRepo.findByPlayer(attacker).orElseThrow();
         Warrior vw = warriorRepo.findByPlayer(victim).orElseThrow();
-        String loot = raidVictim(null, attacker, aw, victim, vw, zone, new ArrayList<>(), List.of());
+        String loot = pvpRaidService.raidVictim(attacker, aw, victim, vw, zone, new ArrayList<>(), List.of(), pvpSceneFor(null));
         warriorRepo.save(vw); warriorRepo.save(aw);
         return loot;
     }
