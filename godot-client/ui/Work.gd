@@ -164,7 +164,7 @@ func _build_training_section() -> void:
 	box.add_child(outer)
 	if not Icons.frames("training_hall").is_empty():
 		var ic := TextureRect.new()
-		ic.custom_minimum_size = Vector2(138, 92)   # cena composta guerreiro+dummy levando o hit (108x73)
+		ic.custom_minimum_size = Vector2(122, 92)   # cena composta guerreiro+dummy levando o hit (95x73)
 		ic.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 		ic.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 		ic.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
