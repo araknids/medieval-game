@@ -327,9 +327,8 @@ O dono mandou "vai todos". Feitos + testados + pushados:
 `BattleSimulator.hitChance/critChance/mitigatedDamage`. A divergência (guerra sem kiting/Fortune Save) é
 **intencional** (3v3 em ondas ≠ duelo 1v1). Nada a fazer.
 
-**Dedup do RAID PvP (Zone↔Expedition) — NÃO feito, de propósito.** São twins que divergiram de verdade
-(retorno `PvpResult`×`NodeResolution`; contexto `ZoneActivity`×`ExpeditionRun`; `raidVictim` da Expedição manda
-mail+replay e a da Zona incrementa `playerKills`; HP-spawn `withCurrentHp` × `mine[2]=`; penalidade `%` fixa × por
-tier). Unificar exige DECIDIR quais divergências são intencionais — errar = saque/economia quebrada em prod, e os
-testes passam pros DOIS comportamentos (não pegam um merge ruim). **Decisão de design do dono.** É o único item
-que sobra da varredura, e é o que a auditoria já marcava "fazer com você junto".
+**Dedup do RAID PvP (Zone↔Expedition) — FEITO** (`5135a39`, após o dono decidir as divergências em 2026-06-23):
+extraído `PvpRaidService` (findFlaggedOpponent/raidVictim/applyDefeatPenalty/stealResources/stealXp) usado por
+Zona, Incursão e Guerra de Guilda. **Decisões do dono:** mail RICO com replay 3D nos DOIS + conta player-kill
+(Slayer) nos DOIS. Loot por tier inalterado. 663 testes verdes (mecanismos de loot cobertos por
+`ZoneAmbushIntegrationTest`/`GuildWarTest`). **A varredura está 100% endereçada** — nada aberto.
