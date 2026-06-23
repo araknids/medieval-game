@@ -33,6 +33,8 @@ public class TavernService {
     private static final int  NAME_MAX_LEN     = 60;
     private static final int  HISTORY_KEEP     = 200;     // mantém ~200 mensagens recentes
     private static final long CHAT_COOLDOWN_MS = 2500;    // anti-spam simples (~1 msg / 2.5s)
+    private static final int  COOLDOWN_PRUNE_AT = 256;    // [VARREDURA] poda o map de cooldown qd passar disto
+    private static final long COOLDOWN_STALE_MS = 60_000; // entrada > 1min é lixo (cooldown é 2.5s)
     private static final int[] BOTTLE_MILESTONES = {10, 25, 50, 100, 250, 500, 1000};
 
     private final PlayerService           playerService;
@@ -96,6 +98,12 @@ public class TavernService {
             throw new com.medieval.game.config.LocalizedException(
                     "error.chat_cooldown", "Slow down — wait a moment before posting again.");
         lastChatAt.put(player.getId(), now);
+        // [VARREDURA] anti-leak: o map guardava 1 entrada por player p/ sempre. Poda as obsoletas quando
+        // crescer (cooldown=2.5s → qualquer entrada >1min já não importa). Custo O(n) só além do limiar.
+        if (lastChatAt.size() > COOLDOWN_PRUNE_AT) {
+            long cutoff = now - COOLDOWN_STALE_MS;
+            lastChatAt.entrySet().removeIf(e -> e.getValue() < cutoff);
+        }
 
         return save("CHAT", player.getId(), senderDisplay(player), text);
     }
