@@ -25,6 +25,8 @@ var data: Dictionary = {}      # detalhe da guilda (quando inGuild)
 var warrior: Dictionary = {}   # /api/warrior (carteira do header)
 var guild_list: Array = []     # lista de guildas (quando sem guilda)
 var war: Dictionary = {}       # /api/guild/war (status da guerra; atWar:false se sem guilda)
+var territory_list: Array = []   # [GUILD_TERRITORIO] /api/territory (aba Território embutida)
+var my_territory: Dictionary = {} # /api/territory/my
 var targets: Array = []        # guildas rivais elegíveis (carregadas ao escolher declarar)
 var picking := false           # estado de UI: escolhendo alvo de guerra
 var editing_desc := false      # [GUILD_DESC] líder editando a descrição (inline na Visão Geral)
@@ -329,34 +331,178 @@ func _tab_war() -> void:
 	_render_formation()
 
 # ── Aba "Território" [GUILD_TERRITORIO] ──────────────────────────────────────────────
-# Promovido de botão (escondido na Visão Geral) p/ aba de topo. Mostra o resumo do território da
-# própria guilda inline + entrada pras ações (declarar/atacar/assistir) na tela completa de Território.
+# Embutida na aba (portada do Territory.gd): banner do território da guilda + lista de territórios
+# com declarar/cancelar ataque + assistir replay. Não abre mais outra tela.
 func _tab_territory() -> void:
-	_panel_host.add_child(UiKit.dim("Guerra de território: a batalha roda a cada 6h com a formação da guilda. Vencer dá o território + bônus pra guilda inteira."))
-	var loading := UiKit.dim("Carregando território…")
+	_panel_host.add_child(UiKit.dim("Declare ataque a um território. A batalha roda a cada 6h com a formação da guilda. Vencer dá o território + bônus pra guilda inteira. Só o líder declara."))
+	var loading := UiKit.dim("Carregando territórios…")
 	_panel_host.add_child(loading)
-	var rs = await Api.batch_get(["/api/territory/my"])
+	var rs = await Api.batch_get(["/api/territory", "/api/territory/my"])
 	if sub_tab != "territory" or not is_instance_valid(loading):   # trocou de aba durante o await
 		return
 	loading.queue_free()
-	var rm = rs[0]
-	var myt: Dictionary = rm["json"] if (rm.get("ok") and rm.get("json") is Dictionary) else {}
-	if bool(myt.get("hasTerritory", false)):
-		var res := UiKit.card(UiKit.GOLD)
-		var box: VBoxContainer = res[1]
-		(res[0].get_theme_stylebox("panel") as StyleBoxFlat).set_border_width_all(2)
-		var h := Label.new()
-		h.text = Lang.t("🏰 Sua guilda controla: %s") % str(myt.get("displayName", "?"))
-		h.add_theme_font_size_override("font_size", 18); h.add_theme_color_override("font_color", UiKit.GOLD)
-		box.add_child(h)
-		box.add_child(_icon_text("star", Lang.t("XP +%d%% · Bronze +%d%%") % [int(myt.get("xpBonus", 0)), int(myt.get("bronzeBonus", 0))], UiKit.OK))
-		box.add_child(_icon_text("slot_shield", Lang.t("Defesas seguidas: %d") % int(myt.get("defenseStreak", 0)), UiKit.TEXT))
-		_panel_host.add_child(res[0])
+	var rt = rs[0]
+	territory_list = rt["json"] if (rt.get("ok") and rt.get("json") is Array) else []
+	var rm = rs[1]
+	my_territory = rm["json"] if (rm.get("ok") and rm.get("json") is Dictionary) else {}
+	if bool(my_territory.get("hasTerritory", false)):
+		_panel_host.add_child(_my_territory_banner())
+	_panel_host.add_child(UiKit.section("Territórios"))
+	if territory_list.is_empty():
+		_panel_host.add_child(UiKit.empty("Nenhum território de guerra", "Volte mais tarde — aparecem quando a guerra está ativa."))
+		return
+	var grid := UiKit.grid(self, territory_list, _territory_card)
+	_panel_host.add_child(UiKit.capped_scroll(grid, 360.0))
+
+# Banner dourado do território que a guilda controla + bônus em chips. [GUILD_TERRITORIO]
+func _my_territory_banner() -> PanelContainer:
+	var res := UiKit.card(UiKit.GOLD)
+	var pc: PanelContainer = res[0]
+	var box: VBoxContainer = res[1]
+	var sb: StyleBoxFlat = pc.get_theme_stylebox("panel")
+	sb.set_border_width_all(2); sb.shadow_color = Color(1.0, 0.8, 0.35, 0.28); sb.shadow_size = 8
+	var head := Label.new()
+	head.text = Lang.t("🏰 Sua guilda controla: %s") % str(my_territory.get("displayName", "?"))
+	head.add_theme_font_size_override("font_size", 18); head.add_theme_color_override("font_color", UiKit.GOLD)
+	box.add_child(head)
+	var flow := HFlowContainer.new()
+	flow.add_theme_constant_override("h_separation", 12); flow.add_theme_constant_override("v_separation", 6)
+	box.add_child(flow)
+	var bonuses := [
+		["star",        Lang.t("XP +%d%%") % int(my_territory.get("xpBonus", 0)),            int(my_territory.get("xpBonus", 0)),       Lang.t("Bônus de XP de toda fonte")],
+		["bronze",      Lang.t("Bronze +%d%%") % int(my_territory.get("bronzeBonus", 0)),      int(my_territory.get("bronzeBonus", 0)),   Lang.t("Bônus de bronze de toda fonte")],
+		["map_mines",   Lang.t("Mineração +%d%%") % int(my_territory.get("miningBonus", 0)),   int(my_territory.get("miningBonus", 0)),   Lang.t("Bônus exclusivo de mineração")],
+		["map_fishing", Lang.t("Pesca +%d%%") % int(my_territory.get("fishingBonus", 0)),      int(my_territory.get("fishingBonus", 0)),  Lang.t("Bônus exclusivo de pesca")],
+		["world",       Lang.t("XP de quest +%d%%") % int(my_territory.get("questXpBonus", 0)), int(my_territory.get("questXpBonus", 0)), Lang.t("Bônus exclusivo de XP de quest")],
+	]
+	for b in bonuses:
+		if int(b[2]) > 0:
+			flow.add_child(_terr_chip(str(b[0]), str(b[1]), UiKit.OK, str(b[3])))
+	flow.add_child(_terr_chip("slot_shield", Lang.t("Defesas: %d") % int(my_territory.get("defenseStreak", 0)), UiKit.TEXT, Lang.t("Batalhas defendidas em sequência")))
+	var debuff := int(my_territory.get("debuffPercent", 0))
+	if debuff > 0:
+		flow.add_child(_terr_chip("warning", "-%d%%" % debuff, UiKit.WARN, Lang.t("Debuff de defesa por streak")))
+	return pc
+
+# Card de um território (nome + lore + info + declarar/cancelar). [GUILD_TERRITORIO]
+func _territory_card(t) -> Control:
+	if not (t is Dictionary):
+		return null
+	var is_mine := bool(t.get("isMine", false))
+	var res := UiKit.card(UiKit.GOLD if is_mine else UiKit.BRONZE)
+	var pc: PanelContainer = res[0]
+	var box: VBoxContainer = res[1]
+	var header := HBoxContainer.new(); header.add_theme_constant_override("separation", 8)
+	box.add_child(header)
+	var nm := Label.new()
+	nm.text = str(t.get("displayName", "?"))
+	nm.add_theme_font_size_override("font_size", 16); nm.add_theme_color_override("font_color", UiKit.GOLD)
+	nm.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	header.add_child(nm)
+	if bool(t.get("hasLastBattle", false)):
+		header.add_child(_terr_watch_btn(str(t.get("territory", ""))))
+	var lore := str(t.get("lore", ""))
+	if lore != "":
+		box.add_child(UiKit.dim(lore))
+	box.add_child(_terr_info_strip(t))
+	var declaring = t.get("declaringGuilds", [])
+	if declaring is Array and not declaring.is_empty():
+		var names: Array = []
+		for g in declaring:
+			names.append(str(g))
+		box.add_child(_terr_chip("node_combat", Lang.t("Declarando:") + " " + ", ".join(names), UiKit.TEXT_DIM, Lang.t("Guildas que vão atacar no próximo ciclo")))
+	var is_leader := bool(data.get("isLeader", false))
+	if is_leader:
+		var territory_id := str(t.get("territory", ""))
+		box.add_child(UiKit.spacer(2))
+		var arow := HBoxContainer.new(); arow.alignment = BoxContainer.ALIGNMENT_END
+		if bool(t.get("myGuildDeclared", false)):
+			arow.add_child(UiKit.action_danger(Lang.t("Cancelar ataque"), _terr_confirm_cancel))
+		else:
+			arow.add_child(UiKit.action(Lang.t("Declarar ataque"), _terr_declare.bind(territory_id)))
+		box.add_child(arow)
 	else:
-		_panel_host.add_child(UiKit.dim("Sua guilda ainda não controla nenhum território."))
-	var br := HBoxContainer.new(); br.alignment = BoxContainer.ALIGNMENT_CENTER
-	br.add_child(UiKit.action_big(Lang.t("Abrir guerra de território"), func() -> void: open_screen.emit("Territory")))
-	_panel_host.add_child(br)
+		box.add_child(UiKit.dim("Só o líder da guilda pode declarar."))
+	return pc
+
+# Tira compacta: controlador · próxima batalha · streak. [GUILD_TERRITORIO]
+func _terr_info_strip(t: Dictionary) -> Control:
+	var row := HFlowContainer.new()
+	row.add_theme_constant_override("h_separation", 14); row.add_theme_constant_override("v_separation", 4)
+	var is_neutral := bool(t.get("isNeutral", false))
+	var ctrl_guild := str(t.get("controllingGuild", ""))
+	if is_neutral or ctrl_guild == "":
+		row.add_child(_terr_chip("node_boss", Lang.t("Neutro"), UiKit.TEXT_DIM, Lang.t("Nenhuma guilda controla — ataque para tomar")))
+	else:
+		row.add_child(_terr_chip("node_boss", ctrl_guild, UiKit.OK, Lang.t("Guilda que controla este território")))
+	row.add_child(_terr_chip("hourglass", _fmt_time(int(t.get("secsUntilBattle", 0))), UiKit.TEXT, Lang.t("Quando a próxima batalha é resolvida")))
+	var streak := int(t.get("defenseStreak", 0))
+	if streak > 0:
+		row.add_child(_terr_chip("slot_shield", "%d (-%d%%)" % [streak, int(t.get("debuffPercent", 0))], UiKit.WARN, Lang.t("Defesas seguidas — o defensor ganha debuff")))
+	return row
+
+# Chip "[ícone] valor" com tooltip. [GUILD_TERRITORIO]
+func _terr_chip(icon_key: String, text: String, col: Color, tip := "") -> Control:
+	var h := HBoxContainer.new(); h.add_theme_constant_override("separation", 5)
+	if tip != "":
+		h.tooltip_text = tip; h.mouse_filter = Control.MOUSE_FILTER_STOP
+	h.add_child(Icons.rect(icon_key, 18))
+	var l := Label.new(); l.text = text
+	l.add_theme_font_size_override("font_size", 13); l.add_theme_color_override("font_color", col)
+	l.size_flags_vertical = Control.SIZE_SHRINK_CENTER; l.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	h.add_child(l)
+	return h
+
+func _terr_watch_btn(territory: String) -> Button:
+	var b := Button.new(); b.flat = true
+	b.tooltip_text = Lang.t("Assistir a última batalha (replay 3D)")
+	b.custom_minimum_size = Vector2(32, 32); b.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	if Icons.set_icon(b, "watch"):
+		b.add_theme_constant_override("icon_max_width", 24)
+	else:
+		b.text = "▶"; b.add_theme_font_size_override("font_size", 16)
+	b.pressed.connect(_terr_watch_battle.bind(territory))
+	return b
+
+func _terr_watch_battle(territory: String) -> void:
+	if busy: return
+	busy = true
+	UiKit.show_loading(self)
+	var r = await Api.territory_replay(territory)
+	busy = false
+	UiKit.hide_loading()
+	if r is Dictionary and r.get("ok") and r.get("json") is Dictionary and bool(r["json"].get("hasReplay", false)):
+		var j: Dictionary = r["json"]
+		request_battle.emit({"events": j.get("events", []), "scene": str(j.get("scene", "castle")), "war": true,
+			"won": str(j.get("winner", "")) == str(j.get("attacker", "")), "enemy": str(j.get("defender", "")),
+			"war_winner": str(j.get("winner", ""))})
+	else:
+		UiKit.flash(status, "Sem batalha pra assistir ainda.", 1)
+
+func _terr_declare(territory: String) -> void:
+	if busy: return
+	busy = true
+	var r = await Api.territory_declare(territory)
+	busy = false
+	if r is Dictionary and r.get("ok") and r.get("json") is Dictionary:
+		UiKit.flash(status, str(r["json"].get("message", Lang.t("Ataque declarado!"))), 1)
+		_render_subtab()   # re-renderiza a aba (re-fetch dos territórios)
+	else:
+		UiKit.show_error(status, r)
+
+func _terr_confirm_cancel() -> void:
+	UiKit.confirm(self, "Cancelar o ataque declarado?", "Cancelar ataque", func() -> void: await _terr_do_cancel())
+
+func _terr_do_cancel() -> void:
+	if busy: return
+	busy = true
+	var r = await Api.territory_cancel()
+	busy = false
+	if r is Dictionary and r.get("ok") and r.get("json") is Dictionary:
+		UiKit.flash(status, str(r["json"].get("message", Lang.t("Ataque cancelado."))), 1)
+		_render_subtab()
+	else:
+		UiKit.show_error(status, r)
 
 func _war_active() -> void:
 	var my_kills := int(war.get("myKills", 0))
