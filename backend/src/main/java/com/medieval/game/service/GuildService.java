@@ -151,6 +151,19 @@ public class GuildService {
         log.info("[GuildService] player={} action=kickMember OK targetPlayerId={} guildId={}", leader.getId(), targetPlayerId, guild.getId());
     }
 
+    // ── Editar descrição (líder, GRÁTIS) ──────────────────────────────────────
+    @Transactional
+    public void setDescription(Player leader, String description) {
+        log.info("[GuildService] player={} action=setDescription", leader.getId());
+        Guild guild = requireGuild(leader);
+        requireLeader(leader, guild);
+        String d = description != null ? description.trim() : "";
+        if (d.length() > 120) d = d.substring(0, 120); // espelha o max_length do input do cliente
+        guild.setDescription(d);
+        guildRepository.save(guild);
+        log.info("[GuildService] player={} action=setDescription OK guildId={}", leader.getId(), guild.getId());
+    }
+
     // ── Transferir liderança ──────────────────────────────────────────────────
     @Transactional
     public Guild transfer(Player leader, Long targetPlayerId) {

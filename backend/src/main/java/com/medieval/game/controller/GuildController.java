@@ -92,6 +92,14 @@ public class GuildController {
         return ResponseEntity.ok(Map.of("message", com.medieval.game.service.Messages.tr("msg.member_kicked", "Member kicked.")));
     }
 
+    // ── Editar descrição (líder, GRÁTIS) ──────────────────────────────────────
+    @PostMapping("/description")
+    public ResponseEntity<?> setDescription(@Valid @RequestBody DescriptionRequest req, Authentication auth) {
+        Player player = getPlayer(auth);
+        guildService.setDescription(player, req.description());
+        return ResponseEntity.ok(toDetail(player, guildService.loadGuild(player)));
+    }
+
     // ── Transferir liderança ──────────────────────────────────────────────────
     @PostMapping("/transfer/{playerId}")
     public ResponseEntity<?> transfer(@PathVariable Long playerId, Authentication auth) {
@@ -216,6 +224,7 @@ public class GuildController {
             @Pattern(regexp = "[\\p{L}\\p{N} ._'-]+", message = "Guild name has invalid characters")
             String name,
             @Size(max = 200) String description) {}
+    record DescriptionRequest(@Size(max = 120) String description) {}   // editar descrição (líder, grátis)
     record DonateRequest(@Min(1) long amount) {}
     // Roster de guerra: lista de playerIds escolhidos (≤15 validado no service). [GUERRA_ROSTER]
     record RosterRequest(@Size(max = 15) List<Long> memberIds) {}

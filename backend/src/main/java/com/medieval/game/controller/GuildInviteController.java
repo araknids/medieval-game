@@ -33,6 +33,13 @@ public class GuildInviteController {
         return ResponseEntity.ok(Map.of("ok", true));
     }
 
+    // Convidar pelo NOME do guerreiro (o líder digita o nick na aba Membros).
+    @PostMapping("/invite-by-name")
+    public ResponseEntity<?> inviteByName(@RequestBody Map<String, String> body, Authentication auth) {
+        guildInviteService.inviteByName(me(auth), body.getOrDefault("name", ""));
+        return ResponseEntity.ok(Map.of("ok", true));
+    }
+
     @PostMapping("/{id}/accept")
     public ResponseEntity<?> accept(@PathVariable Long id, Authentication auth) {
         guildInviteService.accept(me(auth), id);

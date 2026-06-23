@@ -311,6 +311,10 @@ func guild_transfer(id: int) -> Dictionary:
 	return await _request(HTTPClient.METHOD_POST, "/api/guild/transfer/%d" % id, {}, true)
 func guild_donate(amount: int) -> Dictionary:
 	return await _request(HTTPClient.METHOD_POST, "/api/guild/donate", {"amount": amount}, true)
+func guild_set_description(desc: String) -> Dictionary:   # editar descrição (líder, grátis)
+	return await _request(HTTPClient.METHOD_POST, "/api/guild/description", {"description": desc}, true)
+func guild_invite_by_name(warrior_name: String) -> Dictionary:   # convidar membro pelo nick (líder)
+	return await _request(HTTPClient.METHOD_POST, "/api/guild-invites/invite-by-name", {"name": warrior_name}, true)
 
 # ── Guerra de Guilda (guild-vs-guild) [GUERRA_GUILDA] ──────────────────────────────
 ## GET /api/guild/war → {atWar, warId, enemyGuildName, myKills, enemyKills, secondsLeft, enemies:[{playerId,warriorName,title,level,hpPercent,knockedOut,shielded}]}

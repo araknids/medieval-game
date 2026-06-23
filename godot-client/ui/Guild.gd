@@ -27,12 +27,14 @@ var guild_list: Array = []     # lista de guildas (quando sem guilda)
 var war: Dictionary = {}       # /api/guild/war (status da guerra; atWar:false se sem guilda)
 var targets: Array = []        # guildas rivais elegíveis (carregadas ao escolher declarar)
 var picking := false           # estado de UI: escolhendo alvo de guerra
-var sub_tab := "overview"      # [GUILD_TABS] overview | members | war
+var editing_desc := false      # [GUILD_DESC] líder editando a descrição (inline na Visão Geral)
+var sub_tab := "overview"      # [GUILD_TABS] overview | members | war | territory
 var _subtab_bar_host: VBoxContainer
 var _panel_host: VBoxContainer
 # campos de input (criar guilda / doar) — guardados p/ ler no submit
 var name_edit: LineEdit
 var desc_edit: LineEdit
+var invite_edit: LineEdit   # [GUILD_CONVIDAR] input do nick a convidar (aba Membros)
 var donate_gold: SpinBox
 var donate_silver: SpinBox
 var donate_bronze: SpinBox
@@ -81,7 +83,7 @@ func _refresh() -> void:
 func _clear_panel() -> void:
 	for c in _panel_host.get_children():
 		c.queue_free()
-	name_edit = null; desc_edit = null
+	name_edit = null; desc_edit = null; invite_edit = null
 	donate_gold = null; donate_silver = null; donate_bronze = null
 
 # ── COM guilda: barra de sub-abas + painel ──────────────────────────────────────────
@@ -95,7 +97,7 @@ func _build_subtab_bar() -> void:
 		c.queue_free()
 	var row := HBoxContainer.new()
 	row.add_theme_constant_override("separation", 6)
-	for t in [["overview", "guild", "Visão Geral", "🛡"], ["members", "members", "Membros", "👥"], ["war", "declare_war", "Guerra", "⚔"]]:
+	for t in [["overview", "guild", "Geral", "🛡"], ["members", "members", "Membros", "👥"], ["war", "declare_war", "Guerra", "⚔"], ["territory", "territory", "Território", "🏰"]]:
 		row.add_child(_subtab_btn(str(t[0]), str(t[1]), str(t[2]), str(t[3])))
 	_subtab_bar_host.add_child(row)
 
@@ -125,8 +127,25 @@ func _subtab_btn(value: String, icon_key: String, label: String, emoji: String) 
 
 func _set_tab(t) -> void:
 	sub_tab = str(t)
-	picking = false   # trocar de aba sai do modo "escolher alvo"
+	picking = false        # trocar de aba sai do modo "escolher alvo"
+	editing_desc = false   # ...e do modo "editar descrição"
 	_build_subtab_bar()
+	_render_subtab()
+
+# [GUILD_DESC] Salva a descrição (líder, grátis). O endpoint devolve o detalhe atualizado da guilda.
+func _save_description() -> void:
+	if busy or desc_edit == null:
+		return
+	var txt := desc_edit.text.strip_edges()
+	busy = true
+	var r = await Api.guild_set_description(txt)
+	busy = false
+	editing_desc = false
+	if r.get("ok") and r.get("json") is Dictionary:
+		data = r["json"]
+		UiKit.flash(status, Lang.t("Descrição atualizada!"), 0)
+	else:
+		UiKit.show_error(status, r)
 	_render_subtab()
 
 func _render_subtab() -> void:
@@ -134,6 +153,7 @@ func _render_subtab() -> void:
 	match sub_tab:
 		"members": _tab_members()
 		"war": _tab_war()
+		"territory": _tab_territory()
 		_: _tab_overview()
 
 # ── Aba "Visão Geral" ───────────────────────────────────────────────────────────────
@@ -148,8 +168,25 @@ func _tab_overview() -> void:
 	head.add_theme_font_size_override("font_size", 22)
 	head.add_theme_color_override("font_color", UiKit.GOLD)
 	head_box.add_child(head)
+	# [GUILD_DESC] Descrição: o líder pode editar (grátis) inline. Os outros só veem o texto.
 	var dtxt := str(g.get("description", ""))
-	head_box.add_child(UiKit.dim(dtxt if dtxt != "" else "Sem descrição."))
+	if is_leader and editing_desc:
+		desc_edit = UiKit.input("Descrição (até 120)"); desc_edit.max_length = 120; desc_edit.text = dtxt
+		desc_edit.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		head_box.add_child(desc_edit)
+		var er := HBoxContainer.new(); er.alignment = BoxContainer.ALIGNMENT_END; er.add_theme_constant_override("separation", 6)
+		er.add_child(UiKit.small_btn(Lang.t("Cancelar"), func() -> void: editing_desc = false; _render_subtab()))
+		er.add_child(UiKit.small_btn_icon(Lang.t("Salvar"), "guild", _save_description))
+		head_box.add_child(er)
+	elif is_leader:
+		var drow := HBoxContainer.new(); drow.add_theme_constant_override("separation", 6)
+		var dl := UiKit.dim(dtxt if dtxt != "" else "Sem descrição.")
+		dl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		drow.add_child(dl)
+		drow.add_child(UiKit.small_btn_icon(Lang.t("Editar"), "guild", func() -> void: editing_desc = true; _render_subtab()))
+		head_box.add_child(drow)
+	else:
+		head_box.add_child(UiKit.dim(dtxt if dtxt != "" else "Sem descrição."))
 	var members: Array = g.get("members", []) if g.get("members") is Array else []
 	head_box.add_child(_info_row("treasury", "Tesouro", UiKit.coin_box(int(g.get("treasuryBronze", 0)))))
 	var mlbl := Label.new(); mlbl.text = "%d/%d" % [members.size(), int(g.get("maxMembers", 0))]
@@ -169,15 +206,21 @@ func _tab_overview() -> void:
 		head_box.add_child(UiKit.bar(Lang.t("Nível"), int(g.get("levelProgressPct", 0)), 100, UiKit.GOLD,
 			Lang.t("Lv.%d → Lv.%d  (faltam %s)") % [int(g.get("level", 1)), int(g.get("level", 1)) + 1, _fmt_bronze(int(g.get("goldToNextLevel", 0)))]))
 	_panel_host.add_child(head_res[0])
-	# linha de ícones-botão: Território + Doar + os 3 campos de doação (inline)
-	var actions := HBoxContainer.new(); actions.add_theme_constant_override("separation", 10)
-	actions.add_child(UiKit.icon_choice_btn("map_fortress", "🏰", Lang.t("Território"), func() -> void: open_screen.emit("Territory"), UiKit.GOLD_SOFT, true))
-	actions.add_child(UiKit.icon_choice_btn("gold", "💰", Lang.t("Doar"), _donate, UiKit.GOLD_SOFT, true))
+	# [UX] Doação num card próprio: inputs primeiro, botão Doar depois (ordem "quanto → confirmar").
+	# Território SAIU daqui — virou aba de topo (não fica mais escondido nesta linha).
+	var dcard := UiKit.card()
+	var dbox: VBoxContainer = dcard[1]
+	dbox.add_child(UiKit.section("💰 Doar ao tesouro"))
 	donate_gold = _spin(); donate_silver = _spin(); donate_bronze = _spin()
-	actions.add_child(_coin_spin("gold", donate_gold))
-	actions.add_child(_coin_spin("silver", donate_silver))
-	actions.add_child(_coin_spin("bronze", donate_bronze))
-	_panel_host.add_child(actions)
+	var spins := HBoxContainer.new(); spins.add_theme_constant_override("separation", 10)
+	spins.add_child(_coin_spin("gold", donate_gold))
+	spins.add_child(_coin_spin("silver", donate_silver))
+	spins.add_child(_coin_spin("bronze", donate_bronze))
+	dbox.add_child(spins)
+	var db := HBoxContainer.new(); db.alignment = BoxContainer.ALIGNMENT_END
+	db.add_child(UiKit.small_btn_icon(Lang.t("Doar"), "gold", _donate, true))
+	dbox.add_child(db)
+	_panel_host.add_child(dcard[0])
 	# Top Doadores (lista travada — não estica a página)
 	var rank: Array = g.get("donationRank", []) if g.get("donationRank") is Array else []
 	_panel_host.add_child(UiKit.section("🏆 Top Doadores"))
@@ -205,9 +248,37 @@ func _tab_overview() -> void:
 func _tab_members() -> void:
 	var members: Array = data.get("members", []) if data.get("members") is Array else []
 	var is_leader := bool(data.get("isLeader", false))
+	# [GUILD_CONVIDAR] Líder convida por nick: input + botão acima da lista (backend GuildInvite já existia).
+	if is_leader:
+		var ic := UiKit.card()
+		var ibox: VBoxContainer = ic[1]
+		var ir := HBoxContainer.new(); ir.add_theme_constant_override("separation", 6)
+		invite_edit = UiKit.input("Nome do guerreiro a convidar"); invite_edit.max_length = 20
+		invite_edit.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		ir.add_child(invite_edit)
+		ir.add_child(UiKit.small_btn_icon(Lang.t("Convidar"), "members", _invite))
+		ibox.add_child(ir)
+		_panel_host.add_child(ic[0])
 	_panel_host.add_child(UiKit.section(Lang.t("Membros (%d)") % members.size()))
 	var grid := UiKit.grid(self, members, func(mm): return _member_row(mm, is_leader) if mm is Dictionary else null, false, 260, 2)
-	_panel_host.add_child(UiKit.capped_scroll(grid, 440.0))
+	_panel_host.add_child(UiKit.capped_scroll(grid, 400.0))
+
+# [GUILD_CONVIDAR] Envia convite pelo nick digitado. O convidado aceita na aba de convites (Amigos).
+func _invite() -> void:
+	if busy or invite_edit == null:
+		return
+	var nm := invite_edit.text.strip_edges()
+	if nm == "":
+		UiKit.flash(status, Lang.t("Digite o nome do guerreiro."), 1)
+		return
+	busy = true
+	var r = await Api.guild_invite_by_name(nm)
+	busy = false
+	if r.get("ok"):
+		UiKit.flash(status, Lang.t("Convite enviado para %s!") % nm, 0)
+		await _refresh()
+	else:
+		UiKit.show_error(status, r)
 
 func _member_row(mm: Dictionary, is_leader: bool) -> PanelContainer:
 	var me := bool(mm.get("isMe", false))
@@ -237,13 +308,16 @@ func _member_row(mm: Dictionary, is_leader: bool) -> PanelContainer:
 		fl.add_theme_font_size_override("font_size", 11)
 		fl.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 		hb.add_child(fl)
-	# botões do líder (não em si mesmo / kick não no líder)
+	# [UX] Botões do líder numa 2ª LINHA (alinhada à direita) — não espremem mais o nome (clip) na linha 1.
 	if is_leader and not me:
 		var pid := int(mm.get("playerId", 0))
 		var who := str(mm.get("warriorName", "?"))
+		var act := HBoxContainer.new(); act.alignment = BoxContainer.ALIGNMENT_END
+		act.add_theme_constant_override("separation", 6)
 		if not ml:
-			hb.add_child(UiKit.small_btn_icon(Lang.t("Expulsar"), "act_flee", _confirm_kick.bind(pid, who), true))
-		hb.add_child(UiKit.small_btn_icon(Lang.t("Transferir"), "crown", _confirm_transfer.bind(pid, who)))
+			act.add_child(UiKit.small_btn_icon(Lang.t("Expulsar"), "act_flee", _confirm_kick.bind(pid, who), true))
+		act.add_child(UiKit.small_btn_icon(Lang.t("Transferir"), "crown", _confirm_transfer.bind(pid, who)))
+		box.add_child(act)
 	return res[0]
 
 # ── Aba "Guerra" ────────────────────────────────────────────────────────────────────
@@ -253,6 +327,36 @@ func _tab_war() -> void:
 	else:
 		_war_idle()
 	_render_formation()
+
+# ── Aba "Território" [GUILD_TERRITORIO] ──────────────────────────────────────────────
+# Promovido de botão (escondido na Visão Geral) p/ aba de topo. Mostra o resumo do território da
+# própria guilda inline + entrada pras ações (declarar/atacar/assistir) na tela completa de Território.
+func _tab_territory() -> void:
+	_panel_host.add_child(UiKit.dim("Guerra de território: a batalha roda a cada 6h com a formação da guilda. Vencer dá o território + bônus pra guilda inteira."))
+	var loading := UiKit.dim("Carregando território…")
+	_panel_host.add_child(loading)
+	var rs = await Api.batch_get(["/api/territory/my"])
+	if sub_tab != "territory" or not is_instance_valid(loading):   # trocou de aba durante o await
+		return
+	loading.queue_free()
+	var rm = rs[0]
+	var myt: Dictionary = rm["json"] if (rm.get("ok") and rm.get("json") is Dictionary) else {}
+	if bool(myt.get("hasTerritory", false)):
+		var res := UiKit.card(UiKit.GOLD)
+		var box: VBoxContainer = res[1]
+		(res[0].get_theme_stylebox("panel") as StyleBoxFlat).set_border_width_all(2)
+		var h := Label.new()
+		h.text = Lang.t("🏰 Sua guilda controla: %s") % str(myt.get("displayName", "?"))
+		h.add_theme_font_size_override("font_size", 18); h.add_theme_color_override("font_color", UiKit.GOLD)
+		box.add_child(h)
+		box.add_child(_icon_text("star", Lang.t("XP +%d%% · Bronze +%d%%") % [int(myt.get("xpBonus", 0)), int(myt.get("bronzeBonus", 0))], UiKit.OK))
+		box.add_child(_icon_text("slot_shield", Lang.t("Defesas seguidas: %d") % int(myt.get("defenseStreak", 0)), UiKit.TEXT))
+		_panel_host.add_child(res[0])
+	else:
+		_panel_host.add_child(UiKit.dim("Sua guilda ainda não controla nenhum território."))
+	var br := HBoxContainer.new(); br.alignment = BoxContainer.ALIGNMENT_CENTER
+	br.add_child(UiKit.action_big(Lang.t("Abrir guerra de território"), func() -> void: open_screen.emit("Territory")))
+	_panel_host.add_child(br)
 
 func _war_active() -> void:
 	var my_kills := int(war.get("myKills", 0))
@@ -300,6 +404,8 @@ func _enemy_card(e: Variant) -> Control:
 	var rcol := VBoxContainer.new()
 	rcol.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	rcol.size_flags_horizontal = Control.SIZE_SHRINK_END
+	rcol.custom_minimum_size = Vector2(118, 0)   # [UX] largura fixa: KO/Protegido/Atacar não "pulam" entre cards
+	rcol.alignment = BoxContainer.ALIGNMENT_CENTER
 	row.add_child(rcol)
 	var pid := int(en.get("playerId", 0))
 	if ko:
@@ -323,10 +429,14 @@ func _war_idle() -> void:
 			_panel_host.add_child(UiKit.capped_scroll(grid, 220.0))
 		_panel_host.add_child(UiKit.small_btn(Lang.t("Cancelar"), _cancel_picking))
 	else:
-		_panel_host.add_child(UiKit.dim("Guerra de 7 dias: quem fizer mais kills leva 25% do ouro. Ambas precisam ter controlado um território."))
-		var dr := HBoxContainer.new()
-		dr.add_child(UiKit.icon_choice_btn("declare_war", "⚔", Lang.t("Declarar Guerra"), _open_targets, UiKit.ERR, true))
-		_panel_host.add_child(dr)
+		# [UX] explicação + CTA único num card vermelho, botão centralizado (era um icon_choice_btn solto/torto).
+		var res := UiKit.card(UiKit.ERR)
+		var box: VBoxContainer = res[1]
+		box.add_child(UiKit.dim("Guerra de 7 dias: quem fizer mais kills leva 25% do ouro. Ambas precisam ter controlado um território."))
+		var dr := HBoxContainer.new(); dr.alignment = BoxContainer.ALIGNMENT_CENTER
+		dr.add_child(UiKit.action_danger(Lang.t("Declarar Guerra"), _open_targets))
+		box.add_child(dr)
+		_panel_host.add_child(res[0])
 
 func _target_row(t: Dictionary) -> PanelContainer:
 	var res := UiKit.card()
@@ -374,10 +484,10 @@ func _render_formation() -> void:
 				grid.add_child(ob)
 			else:
 				grid.add_child(_f_readonly_cell(cur))
-	_panel_host.add_child(grid)
+	_panel_host.add_child(UiKit.capped_scroll(grid, 260.0))   # [UX] formação 3×5 em capped_scroll — não estoura mais a página
 	if is_leader:
-		var sr := HBoxContainer.new()
-		sr.add_child(UiKit.icon_choice_btn("territory", "💾", Lang.t("Salvar"), _save_formation, UiKit.GOLD_SOFT, true))
+		var sr := HBoxContainer.new(); sr.alignment = BoxContainer.ALIGNMENT_CENTER
+		sr.add_child(UiKit.action(Lang.t("Salvar formação"), _save_formation))   # [UX] botão de texto padrão (o ícone 'territory'/💾 era enganoso)
 		_panel_host.add_child(sr)
 	else:
 		_panel_host.add_child(UiKit.dim("Só o líder pode posicionar a formação."))

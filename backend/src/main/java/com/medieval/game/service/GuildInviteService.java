@@ -50,6 +50,16 @@ public class GuildInviteService {
         repo.save(new GuildInvite(myGuild.getId(), me.getId(), targetId, PENDING));
     }
 
+    /** Convidar pelo NOME do guerreiro (o líder digita o nick). Resolve nome→player e reusa invite(). */
+    @Transactional
+    public void inviteByName(Player me, String warriorName) {
+        if (warriorName == null || warriorName.isBlank())
+            throw new IllegalArgumentException("Enter a warrior name.");
+        Warrior w = warriorRepository.findByName(warriorName.trim())
+                .orElseThrow(() -> new IllegalArgumentException("Warrior '" + warriorName.trim() + "' not found."));
+        invite(me, w.getPlayer().getId());
+    }
+
     @Transactional
     public void accept(Player me, Long inviteId) {
         GuildInvite inv = repo.findById(inviteId)
