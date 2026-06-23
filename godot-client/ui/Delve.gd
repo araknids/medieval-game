@@ -24,13 +24,6 @@ const NODE := {
 }
 # [INCURSAO] Fundo do mapa (gere no GPT e salve aqui). Ausente → painel escuro suave (fallback).
 const MAP_BG_PATH := "res://assets/ui/delve_map_bg.png"
-const KINGDOMS := [
-	["COMBAT", "⚔ Fortaleza Maldita"], ["FISHING", "🎣 Garganta dos Ossos"], ["MINING", "⛏ Minas de Ferro Negro"],
-	["GRUTAS_DE_CRISTAL", "🔮 Grutas de Cristal"], ["MAR_ABENCOADO", "🌊 Mar Abençoado"],
-]
-const SKILLS := [["FISHING", "🎣 Pesca"], ["MINING", "⛏ Mineração"], ["GARIMPO", "🔎 Garimpo"]]
-const ELEMENTS := [["", "∅"], ["FIRE", "🔥"], ["WATER", "💧"], ["EARTH", "🪨"], ["AIR", "💨"]]
-const TIERS := [[1, "Fácil"], [2, "Normal"], [3, "Difícil"]]
 
 var content: VBoxContainer
 var status: Label
@@ -38,8 +31,6 @@ var wallet
 var warrior: Dictionary = {}
 var run: Dictionary = {}          # run ativa (/api/expedition/current) ou {} (launcher)
 var busy := false
-var sel_tier := 1
-var sel_element := ""
 var _pending_after := {}          # resultado guardado durante o replay 3D [BATTLE_REPORT]
 
 func _ready() -> void:
@@ -72,42 +63,10 @@ func _render() -> void:
 # ── Sem run ativa: a aba saiu da nav; oriente a entrar por uma ZONA do reino no Mundo ──────────────
 func _render_launcher() -> void:
 	content.add_child(UiKit.dim("Você não está em nenhuma Incursão."))
-	content.add_child(UiKit.dim("Entre numa zona (🟢/🟡/🔴) de um reino no Mundo para começar — a cor define a dificuldade e o loot."))
+	content.add_child(UiKit.dim("Entre numa zona de um reino no Mundo para começar — a cor (verde, amarela ou vermelha) define a dificuldade e o loot."))
 	var b := UiKit.action("🌍 Ir ao Mundo", func() -> void: open_screen.emit("World"))
 	b.custom_minimum_size = Vector2(200, 40)
 	content.add_child(b)
-
-func _set_tier(t: int) -> void:
-	sel_tier = t
-	_render()
-
-func _set_element(e: String) -> void:
-	sel_element = e
-	_render()
-
-func _start_kingdom(kingdom: String) -> void:
-	if busy: return
-	busy = true
-	var r = await Api.expedition_start("KINGDOM", kingdom, null, null, sel_element, sel_tier)
-	busy = false
-	await _after_start(r)
-
-func _start_zone(skill: String) -> void:
-	if busy: return
-	var zone := "HIGH_RISK" if sel_tier >= 3 else ("PVP" if sel_tier == 2 else "SAFE")
-	var kingdom := "FISHING" if skill == "FISHING" else ("MINING" if skill == "MINING" else "GRUTAS_DE_CRISTAL")
-	busy = true
-	var r = await Api.expedition_start("ZONE", kingdom, zone, skill, sel_element, sel_tier)
-	busy = false
-	await _after_start(r)
-
-func _after_start(r) -> void:
-	if r.get("ok") and r.get("json") is Dictionary:
-		run = r["json"]
-		await _reload_warrior()   # estamina mudou
-		_render()
-	else:
-		_show_error(r)
 
 # ── Mapa da run ─────────────────────────────────────────────────────────────────────
 # [INCURSAO] Fundo da área dos nós: textura do mapa (MAP_BG_PATH) se existir; senão painel escuro suave.
@@ -133,7 +92,7 @@ func _render_map() -> void:
 
 	# [INCURSAO_AUTO_EXTRACT] Vencida (chefe derrotado) → saca AUTOMÁTICO, loot direto pro inventário.
 	if cur >= depth:
-		content.add_child(UiKit.dim(Lang.t("✅ Incursão vencida! Recolhendo o loot…")))
+		content.add_child(UiKit.dim(Lang.t("Incursão vencida! Recolhendo o loot…")))
 		if not busy:
 			_extract()
 		return
@@ -464,7 +423,7 @@ func _show_step_report(j: Dictionary) -> void:
 	elif str(j.get("resolvedType", "")) == "TREASURE" and not ko:
 		_show_treasure_chest(j)   # [INCURSAO_BAU] baú animado em vez da dialog de texto
 	else:
-		_show_result(_step_text(j))
+		_show_step_rows(j)   # [SEM_WEB_EMOJI] relatório de passo com ÍCONES (não texto com emoji)
 
 # [INCURSAO_BAU] Nó de TESOURO → popup com o baú abrindo (animação PixelLab anim/chest_open/) + as
 # recompensas, no lugar do antigo diálogo de texto. Fallback p/ o PNG estático se não houver frames.
@@ -485,7 +444,7 @@ func _show_treasure_chest(j: Dictionary) -> void:
 	sb.border_color = UiKit.GOLD
 	vb.add_theme_constant_override("separation", 8)
 	center.add_child(panel)
-	# baú animado (loop suave do brilho/joias); fallback estático se os frames ainda não importaram
+	# baú que ABRE uma vez (devagar) e fica aberto; fallback estático se os frames ainda não importaram
 	var chest := TextureRect.new()
 	chest.custom_minimum_size = Vector2(176, 176)
 	chest.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
@@ -493,7 +452,7 @@ func _show_treasure_chest(j: Dictionary) -> void:
 	chest.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	chest.texture = Icons.tex("chest_open")
 	vb.add_child(chest)
-	Icons.play_loop(chest, "chest_open", 0.10)
+	Icons.play_once(chest, "chest_open", 0.14)   # abre 1x, mais devagar, e segura no baú aberto (sem loop)
 	vb.add_child(UiKit.section("🎁 Tesouro!"))
 	var rows := _reward_rows(j)
 	if rows.is_empty():
@@ -511,7 +470,7 @@ func _reward_rows(j: Dictionary, ko := false) -> Array:
 	if int(j.get("bronzeGained", 0)) > 0:
 		rows.append(UiKit.kv_node("Bronze", UiKit.coin_box(int(j.get("bronzeGained", 0)), 18)))
 	if int(j.get("xpGained", 0)) > 0:
-		rows.append(UiKit.kv("⭐ Experiência", "+%d XP" % int(j.get("xpGained", 0))))
+		rows.append(UiKit.kv(Lang.t("Experiência"), "+%d XP" % int(j.get("xpGained", 0))))
 	if j.get("drops") is Array:
 		for d in j["drops"]:
 			if d is Dictionary:
@@ -522,27 +481,27 @@ func _reward_rows(j: Dictionary, ko := false) -> Array:
 		rows.append(UiKit.icon_text(Lang.t("☠ Você caiu — o loot não-sacado foi perdido. Cure-se no Templo."), 12, UiKit.ERR, 16))
 	return rows
 
-func _step_text(j: Dictionary) -> String:
-	var parts: Array = []
+# [SEM_WEB_EMOJI] Passo sem batalha nem tesouro (descanso/evento/coleta) → relatório com ÍCONES
+# (reusa as reward rows + show_battle_report), no lugar do antigo texto com emoji (_step_text).
+func _show_step_rows(j: Dictionary) -> void:
+	var ko := bool(j.get("ko", false))
+	var rows: Array = []
 	if str(j.get("resolvedType", "")) == "CAMP":
-		parts.append(Lang.t("🔥 Descanso: vida recuperada e loot garantido."))
+		rows.append(_chip("node_camp", Lang.t("Descanso: vida recuperada e loot garantido.")))
 	elif str(j.get("narrative", "")) != "":
-		parts.append(str(j.get("narrative")))
-	if int(j.get("bronzeGained", 0)) > 0: parts.append("🥉 +%d bronze" % int(j.get("bronzeGained", 0)))
-	if int(j.get("xpGained", 0)) > 0: parts.append("⭐ +%d XP" % int(j.get("xpGained", 0)))
-	if j.get("drops") is Array:
-		for d in j["drops"]:
-			if d is Dictionary:
-				parts.append("📦 %s x%d" % [str(d.get("displayName", "?")), int(d.get("quantity", 0))])
-	if str(j.get("lootItemName", "")) != "": parts.append("🎁 " + str(j.get("lootItemName")))
-	return "   ".join(parts) if not parts.is_empty() else Lang.t("Você segue em frente.")
+		rows.append(UiKit.body(str(j.get("narrative"))))
+	rows.append_array(_reward_rows(j, ko))
+	if rows.is_empty():
+		rows.append(UiKit.dim(Lang.t("Você segue em frente.")))
+	var title := Lang.t("Descanso") if str(j.get("resolvedType", "")) == "CAMP" else Lang.t("Você avança")
+	UiKit.show_battle_report(self, not ko, title, rows, [])
 
 func _show_extract_report(j: Dictionary, on_close := Callable()) -> void:
 	var rows: Array = []
 	if int(j.get("bronzeBanked", 0)) > 0:
 		rows.append(UiKit.kv_node("Bronze", UiKit.coin_box(int(j.get("bronzeBanked", 0)), 18)))
 	if int(j.get("xpBanked", 0)) > 0:
-		rows.append(UiKit.kv("⭐ Experiência", "+%d XP" % int(j.get("xpBanked", 0))))
+		rows.append(UiKit.kv(Lang.t("Experiência"), "+%d XP" % int(j.get("xpBanked", 0))))
 	if j.get("bankedResources") is Array:
 		for d in j["bankedResources"]:
 			if d is Dictionary:
@@ -649,4 +608,4 @@ func _show_result(text: String) -> void:
 
 func _show_error(r) -> void:
 	UiKit.show_error(status, r)
-	_show_result("⚠ " + UiKit.err_text(r))
+	_show_result(UiKit.err_text(r))

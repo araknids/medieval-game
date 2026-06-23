@@ -346,6 +346,18 @@ static func play_loop(tr: TextureRect, key: String, fps := ANIM_FPS) -> Tween:
 		tw.tween_callback(_anim_rect_set.bind(tr, f)).set_delay(fps)
 	return tw
 
+# Toca os quadros de anim/<key>/ UMA vez (SEM loop) e PARA no último (ex.: baú que abre e fica aberto).
+# Igual ao play_loop mas sem set_loops → ao terminar, a textura fica no último quadro.
+static func play_once(tr: TextureRect, key: String, fps := ANIM_FPS) -> Tween:
+	var fr := _anim_frames(key)
+	if tr == null or not is_instance_valid(tr) or fr.size() < 2:
+		return null
+	tr.texture = fr[0]
+	var tw := tr.create_tween()   # sem set_loops → roda 1x e segura no fr[-1]
+	for f in fr:
+		tw.tween_callback(_anim_rect_set.bind(tr, f)).set_delay(fps)
+	return tw
+
 static func _anim_rect_stop(host: Control, tr: TextureRect, frames: Array) -> void:
 	var tw: Tween = host.get_meta("anim_rect_tw", null)
 	if tw != null and tw.is_valid():
