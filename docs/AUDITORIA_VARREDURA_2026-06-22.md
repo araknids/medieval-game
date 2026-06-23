@@ -234,6 +234,46 @@ _(preenchido conforme aplico — ver git log com tag [VARREDURA])_
   `findByPlayerIn` batch; N+1 dos afixos no `getInventory` → `findAllByItemIn` batch; browse/mine do leilão
   → `@EntityGraph(item,seller)` (corta ~400 lazy SELECTs/página). 662 verdes.
 
+### [2026-06-23 madrugada] 2ª leva de fixes seguros (commits [VARREDURA], na main)
+
+Aplicados + testados (663 verdes, clean build) enquanto o dono dormia. Só itens verificáveis por teste/compilador:
+
+- **Bug `cancelWork` (prorate):** trocou `Duration.toHours()` (truncava → cancelar antes de 1h pagava **0**) por
+  prorate em **minutos**. `WorkService.cancelWork`.
+- **Bug `DailyReward.status()` (streak):** exibia o streak guardado (obsoleto se perdeu um dia) destacando o dia 1
+  → agora **streak EFETIVO** (0 se quebrado), consistente com o `claimDay`. `DailyRewardService.status`.
+- **Bug `itemName` (crossbow):** `KingdomService` dropava **"Crossbow"** (sem modelo 3D no cliente) — alinhado ao
+  `[NO_CROSSBOW]` que o `ExpeditionService` já tinha (só Short/Long Bow). Quest não dropa mais besta sem modelo.
+- **Dedup tag `WINNER:`** (9 sites ad-hoc, alguns sem guard de vazio) → `BattleSimulator.dropWinnerTag` (in-place) /
+  `withoutWinnerTag` (cópia). Helpers locais de GuildWar/Zone passam a delegar.
+- **Refactor `WorkGuard` @Service** (o `[SAFE-FIX]` da seção arquitetura): `WorkService.assertNotBusy` era
+  **static-com-repo** (gambiarra anti-ciclo); virou bean. **7 serviços** (Arena/ClassChange/Expedition/GuildWar/
+  Kingdom/Tower/Zone) deixam de carregar `WorkSessionRepository` só de conduíte e injetam `WorkGuard`.
+- **Leak da Taverna:** `lastChatAt` (cooldown in-memory) crescia 1 entrada/player p/ sempre → **poda** entradas
+  obsoletas (>1min; cooldown é 2.5s) quando o map passa de 256. `TavernService.postMessage`.
+
+**Verificados como FALSO-POSITIVO (sem fix, com motivo no código):**
+- **`refineOre`/`craftGem` perder material com bag cheia:** não acontece — ambos **removem antes de adicionar** e a
+  saída (recurso, 0.2 slot) é ≤ ao consumido → net de peso ≤ 0, sempre cabe. (Diferente do `craftEquipment`, que
+  produz item de 1 slot inteiro → daí o mail.)
+- **`guildBrawl` "morto":** tem **50 testes** (`TerritoryWarTest`) e a CLAUDE.md [GUERRA_FORMACAO] descreve ESTE
+  modelo 3×5 — mas o vivo é o `guildGauntlet` (15v15). Não removi (apagaria modelo + testes); **documentei a
+  divergência doc×código** no método. → **decisão do dono** (fiar o 3×5 ou adotar de vez o 15v15 e remover).
+
+### 🧭 DECISÕES DE COMPORTAMENTO/BALANCE pendentes do dono (não dá p/ decidir sozinho)
+
+Achados que NÃO são bug claro — são escolha de design. Documentados no código onde aplicável:
+
+- **Torre não persiste HP no WIN** (`TowerService`): só salva HP na derrota; entre andares o HP "regenera de graça".
+  Pode ser intencional (alívio) ou não (queremos que subir gaste HP). **Decidir.** Agora que a Torre é
+  difficulty-as-gate (sem cap [TORRE_SEM_TRAVA]), persistir HP no win deixaria a subida mais punitiva.
+- **Boss COMBAT paga 2×** (`ZoneService`): vitória de chefe na Fortaleza dá bônus do chefe **+** a recompensa
+  por-kill da caça. Decidir a semântica (manter o duplo como "prêmio de chefe" ou cortar).
+- **`startTraining`/`startQuest` sem alguns guards do irmão:** training sem `assertNotBusy`(`workGuard`); quest sem
+  `isKnockedOut()`. Decidir se é intencional (e alinhar).
+- **`npcStats` Zona × Incursão divergiram:** mobs da Incursão são mais fracos de propósito. Documentei como tuning
+  intencional (não mesclar). Confirmar que é desejado.
+
 ## ⏸️ DELIBERADAMENTE NÃO APLICADO (precisa de você / da outra aba parar)
 
 Não dá pra fazer "às cegas" — são behavior-touching, exigem revisão + teste, e alguns conflitam com a aba
@@ -249,3 +289,21 @@ que ainda edita o Godot:
 - **Bag overfill** (corrida exata, mesmo player): baixo-risco; lock por drop tem trade-off de perf.
 - **Comentários desatualizados restantes** (slot-4 `strBonus`→`agi` em 2 docs, AC em `Warrior`): cosméticos,
   catalogados pra um pass futuro.
+
+### [2026-06-23] Refactors grandes AVALIADOS e segurados (com o motivo)
+
+Olhei cada um na 2ª leva e **NÃO fiz** — não são "safe by tests" como pareciam:
+
+- **Rename `gold`→`bronze` (`Guild.gold`, `PlayerService.addGold`):** parecia rename puro, mas **`Guild.gold` é
+  campo JPA → coluna `gold` no Postgres.** Renomear o campo Java muda a coluna p/ `treasury_bronze` (a menos de
+  `@Column(name="gold")`) → **quebra o schema em prod** se não tratar + migração. Precisa do dono testando em prod.
+- **`int[]` de stats → `record CombatStats`:** toca TODOS os services de combate + o `BattleSimulator`; behavior-
+  adjacente (ordem dos slots), blast radius enorme. Refactor sob tema de teste, com você junto.
+- **`@Transactional(readOnly=true)` em massa:** micro-perf (Hibernate pula dirty-check). Risco real: marcar um
+  método que escreve condicionalmente (ex.: `getInventory` faz self-heal lazy) vira **falha em runtime**. Valor
+  baixo × risco de varredura ampla → pulei. Fazer pontual e verificado, não em bloco.
+- **Remover enums DB write-dead** (`QuestStatus.READY_TO_COLLECT`, etc.): exige migração de check-constraint no
+  Postgres (mesmo padrão das migrações recorrentes). Risco de DB em prod → com o dono.
+- **Dedup PvP raid / `CombatMath`** (Zone × Expedition near-twins, `BattleSimulator.attack` × `GauntletWarSimulator.
+  strike`): maior dedup de valor, mas god-services com lógica sutil de flag/escudo/kiting **que já divergiu**
+  (Incursão usa mob mais fraco — ver `npcStats`). Unificar mistura tunings → precisa de decisão + teste lado a lado.
