@@ -63,6 +63,19 @@ const NAME_MAP := [
 	["aranha", "Hywirl"], ["aberração", "Hywirl"], ["aberracao", "Hywirl"], ["prismático", "Hywirl"], ["prismatico", "Hywirl"],
 	["morcego", "Armabee"], ["morcegos", "Armabee"], ["verme", "Cactoro"], ["ogro", "Goleling Evolved"],
 	["espectro", "Ghost"], ["fantasma", "Ghost"], ["gema", "Green Spiky Blob"], ["lodo", "Green Blob"], ["gosma", "Green Blob"],
+	# — PT: gaps de monstro de VERDADE que vinham humano (o jogo roda em PT → backend manda nome PT). [I18N]
+	# Os HUMANOIDES (bandido/cavaleiro/guarda/carrasco/sacerdote/cultista/pirata…) NÃO entram aqui de
+	# propósito — continuam humano (mesmo rig do player), que é o certo pro tema da Fortaleza/quests.
+	["demônio", "Demon"], ["demonio", "Demon"],                       # Demônio Menor, Campeão Infernal (+ "infernal" EN já casa Blue Demon)
+	["dragão", "Dragon"], ["dragao", "Dragon"],                       # Dragão Jovem
+	["esqueleto", "Ghost Skull"], ["caveira", "Ghost Skull"],         # Guerreiro Esqueleto
+	["casca", "Ghost"], ["morto", "Ghost"], ["cadáver", "Ghost"], ["cadaver", "Ghost"], ["zumbi", "Ghost"], ["apodrecido", "Ghost"], # mortos-vivos: Casca do Desertor/Vigia, Morto Rastejante, Cadáver Empoado
+	["fera", "Monkroose"], ["besta", "Monkroose"], ["lobo", "Monkroose"], ["macaco", "Monkroose"], # Fera/Lobo Selvagem, Besta de Cristal
+	["javali", "Dino"], ["urso", "Dino"], ["lagarto", "Dino"],        # Javali Gigante, Urso Enfurecido
+	["maré", "Glub"], ["mare", "Glub"],                               # Servo da Maré, A Maré Ávida
+	["coisa", "Hywirl"], ["horror", "Hywirl"],                        # Coisa-da-Vertigem/Altar, Horror Dragado/da Torre
+	["cristal", "Green Spiky Blob"], ["joias", "Green Spiky Blob"], ["joia", "Green Spiky Blob"], # Coração/Besta de Cristal, Horror Incrustado de Joias
+	["cogumelo", "Mushroom King"], ["sereia", "Glub"],               # (sereia já existe; reforço) Sereia das Sombras
 ]
 
 # palavras que indicam BOSS → aumenta a altura ×1.25

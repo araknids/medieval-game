@@ -454,9 +454,17 @@ func _render_no_guild() -> void:
 	_subtab_bar_host.visible = false
 	_clear_panel()
 	_panel_host.add_child(UiKit.empty("Você não pertence a nenhuma guilda.", "Crie a sua ou entre numa existente abaixo"))
-	_panel_host.add_child(UiKit.section("Criar nova guilda  (custa 10 prata)"))
+	_panel_host.add_child(UiKit.section("Criar nova guilda"))
 	var res := UiKit.card()
 	var box: VBoxContainer = res[1]
+	# [GUILD_CUSTO] Custo CLARO com ícone de moeda (igual aos outros custos do jogo), no topo do card —
+	# antes só aparecia como texto sutil no título da seção. coin_box(1000) → 🪙 "10 prata".
+	var cost_row := HBoxContainer.new(); cost_row.alignment = BoxContainer.ALIGNMENT_CENTER
+	cost_row.add_theme_constant_override("separation", 6)
+	cost_row.add_child(UiKit.dim(Lang.t("Custo para fundar:")))
+	cost_row.add_child(UiKit.coin_box(1000, 20))   # 1000 bronze = 10 prata (espelha GuildService.CREATE_COST_BRONZE)
+	box.add_child(cost_row)
+	box.add_child(UiKit.spacer(4))
 	name_edit = UiKit.input("Nome (3-30 chars)"); name_edit.max_length = 30
 	name_edit.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	box.add_child(name_edit)
