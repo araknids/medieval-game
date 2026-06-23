@@ -64,6 +64,39 @@ class TowerIntegrationTest extends BaseIntegrationTest {
     com.medieval.game.repository.PlayerRepository playerRepository;
     @org.springframework.beans.factory.annotation.Autowired
     com.medieval.game.service.AchievementService achievementService;
+    @org.springframework.beans.factory.annotation.Autowired
+    com.medieval.game.repository.TowerRunRepository towerRunRepository;
+
+    // ── [TORRE_TRAVA] checkpoint acima do alcance (nível+10): enter rejeita SEM criar run; run presa (legado) é abandonada ──
+    @Test
+    @DisplayName("[TORRE_TRAVA] checkpoint fora do alcance → enter rejeita sem trancar; run presa é abandonada")
+    void enter_beyondLevelLead_rejectsAndUnsticks() throws Exception {
+        var p = playerRepository.findAll().stream()
+                .filter(x -> x.getUsername().startsWith("tower"))
+                .reduce((a, b) -> b.getId() > a.getId() ? b : a).orElseThrow();
+        // recém-criado ~Lv1 → alcance ~andar 11; checkpoint no 30 → startFloor 31 está fora do alcance
+        p.setTowerBestFloor(30);
+        playerRepository.save(p);
+
+        // enter rejeita (400) e NÃO cria run
+        mockMvc.perform(post("/api/tower/enter").header("Authorization", bearer(token)))
+                .andExpect(status().isBadRequest());
+        mockMvc.perform(get("/api/tower/current").header("Authorization", bearer(token)))
+                .andExpect(jsonPath("$.active").value(false));
+
+        // simula uma run PRESA (legado: criada antes da trava migrar pro enter) num andar fora do alcance
+        var stuck = new com.medieval.game.model.TowerRun();
+        stuck.setPlayer(p);
+        stuck.setCurrentFloor(31);
+        stuck.setHighestFloor(30);
+        towerRunRepository.save(stuck);
+        // antes do fix isto trancaria pra sempre ("already inside"); agora o enter abandona a run presa e rejeita pela trava de nível
+        mockMvc.perform(post("/api/tower/enter").header("Authorization", bearer(token)))
+                .andExpect(status().isBadRequest());
+        // a run presa foi abandonada → segue sem run ativa (destravado)
+        mockMvc.perform(get("/api/tower/current").header("Authorization", bearer(token)))
+                .andExpect(jsonPath("$.active").value(false));
+    }
 
     @Test
     @DisplayName("Arka: só depois do andar 50; matar concede Regicide (oculto); só uma vez")

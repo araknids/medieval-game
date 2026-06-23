@@ -28,6 +28,7 @@ public class TowerService {
     private final GatheringService        gatheringService;   // [MONSTER_CORE_BATALHA]
     private final Messages                messages;           // [I18N] atmosfera dos andares + escolha do Arka
     private final WorkSessionRepository   workSessionRepository; // [WORK_IDLE] trava enquanto trabalha
+    private final TowerRunCleanup         towerRunCleanup;     // [TORRE_TRAVA] abandona run presa em tx própria
 
     @Value("${app.dev.instant-complete:false}")
     private boolean instantComplete;
@@ -153,13 +154,27 @@ public class TowerService {
     @Transactional
     public TowerRun enter(Player player) {
         log.info("[TowerService] player={} action=enter", player.getId());
-        if (towerRunRepository.findByPlayerAndStatus(player, TowerStatus.IN_PROGRESS).isPresent()) {
-            log.warn("[TowerService] player={} REJECTED: already inside the tower", player.getId());
-            throw new IllegalStateException("You are already inside the tower");
-        }
 
         Warrior warrior = warriorRepository.findByPlayer(player)
                 .orElseThrow(() -> new IllegalStateException("Warrior not found"));
+        int reach = warrior.getLevel() + TOWER_LEVEL_LEAD; // [BALANCE_ECON] andar máximo alcançável
+
+        // [TORRE_TRAVA] Run já em andamento: se é jogável (dentro do alcance) é uma run legítima → rejeita.
+        // Se está num andar ACIMA do alcance, está PRESA (legado: o enter criava a run e o fight rejeitava pela
+        // trava de nível, deixando o jogador "already inside" pra sempre) → abandona pra destravar.
+        Optional<TowerRun> existing = towerRunRepository.findByPlayerAndStatus(player, TowerStatus.IN_PROGRESS);
+        if (existing.isPresent()) {
+            TowerRun run = existing.get();
+            if (run.getCurrentFloor() <= reach) {
+                log.warn("[TowerService] player={} REJECTED: already inside the tower", player.getId());
+                throw new IllegalStateException("You are already inside the tower");
+            }
+            // [TORRE_TRAVA] commita o abandono em tx PRÓPRIA — se rodasse aqui, o throw da trava de nível
+            // abaixo faria rollback e re-prenderia o jogador.
+            towerRunCleanup.abandon(run.getId());
+            log.info("[TowerService] player={} auto-abandoned stuck run runId={} floor={} (beyond reach {})",
+                    player.getId(), run.getId(), run.getCurrentFloor(), reach);
+        }
 
         if (warrior.isKnockedOut()) {
             log.warn("[TowerService] player={} REJECTED: warrior is unconscious", player.getId());
@@ -168,7 +183,24 @@ public class TowerService {
 
         WorkService.assertNotBusy(workSessionRepository, player); // [WORK_IDLE] não sobe a torre enquanto trabalha
 
-        // Estamina ignorada quando instant-complete (modo de teste). [TESTE]
+        // Começa do andar seguinte ao melhor já completado (checkpoint)
+        int startFloor = player.getTowerBestFloor() > 0
+                ? player.getTowerBestFloor() + 1
+                : 1;
+        // [TORRE_NARRATIVA] A Torre tem 50 andares (S1). Quem já chegou ao topo a conquistou.
+        if (startFloor > TowerFloors.maxFloor()) {
+            throw new IllegalStateException("You stand atop the Tower. There is nothing above — only what waits below.");
+        }
+        // [BALANCE_ECON] Trava de nível AGORA no enter (antes só no fight, o que criava run condenada e prendia
+        // o jogador). Sem run criada: mensagem clara "suba de nível", sem trava de estado.
+        if (startFloor > reach) {
+            log.warn("[TowerService] player={} REJECTED at enter: floor {} beyond level lead (level={} lead={})",
+                    player.getId(), startFloor, warrior.getLevel(), TOWER_LEVEL_LEAD);
+            throw new com.medieval.game.config.LocalizedException("error.tower_level",
+                    "Floor {0} is beyond your reach — reach level {1} to climb here.", startFloor, startFloor - TOWER_LEVEL_LEAD);
+        }
+
+        // Estamina ignorada quando instant-complete (modo de teste). [TESTE] — cobrada só APÓS validar a entrada.
         if (!instantComplete) {
             int cost = playerService.discountStamina(player, STAMINA_COST); // [ESTABULO] desconto da montaria
             int stamina = player.getCalculatedStamina();
@@ -179,15 +211,6 @@ public class TowerService {
             player.setCurrentStamina(stamina - cost);
             player.setStaminaUpdatedAt(java.time.LocalDateTime.now());
             playerRepository.save(player);
-        }
-
-        // Começa do andar seguinte ao melhor já completado (checkpoint)
-        int startFloor = player.getTowerBestFloor() > 0
-                ? player.getTowerBestFloor() + 1
-                : 1;
-        // [TORRE_NARRATIVA] A Torre tem 50 andares (S1). Quem já chegou ao topo a conquistou.
-        if (startFloor > TowerFloors.maxFloor()) {
-            throw new IllegalStateException("You stand atop the Tower. There is nothing above — only what waits below.");
         }
 
         TowerRun run = new TowerRun();
