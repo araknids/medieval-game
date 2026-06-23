@@ -1,9 +1,7 @@
 package com.medieval.game.enums;
 
 public enum Location {
-    TAVERN  ("Tavern"),
-    COMMERCE("Commerce"),
-    ARENA   ("Arena");
+    TAVERN  ("Tavern"); // [VARREDURA] COMMERCE/ARENA removidos (write-dead; remap no SchemaMigrator)
 
     public final String displayName;
 

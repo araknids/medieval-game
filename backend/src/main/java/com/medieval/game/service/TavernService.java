@@ -68,6 +68,7 @@ public class TavernService {
     }
 
     // ── Status (buff + garrafas + custo) ─────────────────────────────────────────
+    @Transactional(readOnly = true)   // [VARREDURA] leitura pura
     public Map<String, Object> status(Player playerArg) {
         Player player = playerRepository.findById(playerArg.getId()).orElse(playerArg);
         Warrior w = warriorRepository.findByPlayer(player)
@@ -115,6 +116,7 @@ public class TavernService {
     }
 
     // ── Feed (polling) ───────────────────────────────────────────────────────────
+    @Transactional(readOnly = true)   // [VARREDURA] leitura pura
     public List<TavernMessage> feed(Long sinceId) {
         if (sinceId == null || sinceId <= 0) {
             List<TavernMessage> last = messageRepository.findTop50ByOrderByIdDesc();

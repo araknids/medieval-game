@@ -61,6 +61,7 @@ public class DailyRewardService {
     }
 
     /** Status p/ a UI: pode coletar?, streak atual, dia-no-ciclo de hoje, e a tabela dos 7 dias. */
+    @Transactional(readOnly = true)   // [VARREDURA] leitura pura
     public Map<String, Object> status(Player player) {
         LocalDate today = LocalDate.now();
         int pending  = pendingStreak(player, today);

@@ -23,6 +23,7 @@ public class SchemaMigrator {
 
     @EventListener(ApplicationReadyEvent.class)
     public void migrate() {
+        remapRemovedEnumValues();   // [VARREDURA] roda 1º: salva linhas com valor de enum removido
         patchZoneActivityKingdomColumn();
         patchPlayerLanguageColumn();
         patchPlayerSoulStoneColumns();
@@ -167,6 +168,26 @@ public class SchemaMigrator {
         String validQuestTypes = inList(java.util.Arrays.stream(com.medieval.game.enums.KingdomQuestType.values())
                 .map(Enum::name).toList());
         purgeWhereNotIn("kingdom_active_quests",  "quest_type", validQuestTypes);
+    }
+
+    // [VARREDURA] Valores de enum REMOVIDOS do código (write-dead): Location.COMMERCE/ARENA,
+    // MatchStatus.FINISHED, QuestStatus.READY_TO_COLLECT, ExpeditionSource.KINGDOM. Linha antiga com esse
+    // valor faria o Hibernate ESTOURAR ao desserializar o nome inexistente. Aqui REMAPEAMOS (UPDATE, não
+    // DELETE — não apagar um player só porque location='COMMERCE') p/ um valor válido, ANTES de qualquer
+    // leitura. Todos @Enumerated(STRING) → seguro por nome. Idempotente (0 linhas no caso normal, pois
+    // nenhum desses valores é mais escrito pelo código).
+    private void remapRemovedEnumValues() {
+        remap("players",               "location", "TAVERN",    "'COMMERCE','ARENA'");
+        remap("arena_matches",         "status",   "COLLECTED", "'FINISHED'");
+        remap("kingdom_active_quests", "status",   "COLLECTED", "'READY_TO_COLLECT'");
+    }
+    private void remap(String table, String col, String to, String fromCsv) {
+        try {
+            int n = jdbc.update("UPDATE " + table + " SET " + col + " = '" + to + "' WHERE " + col + " IN (" + fromCsv + ")");
+            if (n > 0) log.warn("[SchemaMigrator] remapped {} stale-enum row(s) in {}.{} → {}", n, table, col, to);
+        } catch (Exception e) {
+            log.warn("[SchemaMigrator] enum remap on {}.{} skipped — {}", table, col, e.getMessage());
+        }
     }
 
     // Monta "'A','B','C'" a partir dos nomes do enum (alfanumérico + underscore → seguro p/ SQL).

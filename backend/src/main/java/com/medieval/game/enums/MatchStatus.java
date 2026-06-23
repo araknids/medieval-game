@@ -2,6 +2,5 @@ package com.medieval.game.enums;
 
 public enum MatchStatus {
     FIGHTING,
-    FINISHED,
-    COLLECTED
+    COLLECTED // [VARREDURA] FINISHED removido (write-dead; remap no SchemaMigrator)
 }
