@@ -60,6 +60,14 @@ public class TowerController {
         m.put("highestFloor", player.getTowerBestFloor());
         m.put("isMvp", fv.isMvp());
         m.put("bossName", fv.primary().name());
+        // [TORRE] lobby também mostra a lore/descrição + stats do PRÓXIMO andar (mesmo painel do andar ativo)
+        m.put("atmosphere", fv.atmosphere());
+        m.put("monsters", fv.monsters());
+        m.put("bossHp", fv.primary().health());
+        m.put("bossAtk", fv.primary().attack());
+        m.put("bossDef", fv.primary().defense());
+        m.put("bossAc", 10 + fv.primary().dex());
+        m.put("recommendedLevel", fv.recommendedLevel());
         return ResponseEntity.ok(m);
     }
 

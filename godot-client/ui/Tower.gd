@@ -62,29 +62,26 @@ func _render() -> void:
 func _render_lobby() -> void:
 	var stamina := int(warrior.get("stamina", 0))
 	var no_stamina := stamina < STAMINA_COST
+	var nf := int(state.get("nextFloor", 1))
+	var is_mvp := bool(state.get("isMvp", false))
+	var border := Color(UiKit.GOLD) if is_mvp else Color(0.33, 0.33, 0.4)
 	var res := UiKit.card(UiKit.GOLD_SOFT)
 	var vb: VBoxContainer = res[1]
-	# [TORRE_PREVIEW] 2 colunas: texto à esquerda + retrato de QUEM te espera no próximo andar à direita.
-	var bodyrow := HBoxContainer.new(); bodyrow.add_theme_constant_override("separation", 14)
-	vb.add_child(bodyrow)
-	var col := VBoxContainer.new(); col.add_theme_constant_override("separation", 4)
-	col.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	bodyrow.add_child(col)
-	var h := Label.new(); h.text = "⚔ Entrar na Torre"; h.add_theme_font_size_override("font_size", 19)
+	vb.add_theme_constant_override("separation", 8)
+	var h := Label.new(); h.text = Lang.t("⚔ Entrar na Torre"); h.add_theme_font_size_override("font_size", 20)
 	h.add_theme_color_override("font_color", UiKit.GOLD)
-	col.add_child(h)
-	col.add_child(UiKit.dim(Lang.t("Custo: ⚡ %d estamina   ·   Sua estamina: %d/100") % [STAMINA_COST, stamina]))
-	col.add_child(UiKit.dim("Lute andar por andar. Se perder, é expulso. Vá o mais longe que conseguir!"))
-	# quem te espera no próximo andar (towerBestFloor+1) — vem do payload do lobby [TORRE_PREVIEW]
-	var nf := int(state.get("nextFloor", 1))
-	var next_mvp := bool(state.get("isMvp", false))
-	var next_name := str(state.get("bossName", ""))
-	if next_name != "":
-		col.add_child(UiKit.dim(Lang.t("A seguir — Andar %d: %s") % [nf, next_name]))
-	bodyrow.add_child(_enemy_portrait(_tower_art_key(nf, next_mvp), next_mvp, UiKit.GOLD if next_mvp else Color(0.33, 0.33, 0.4)))
-	# P0: "Entrar" já dispara a primeira luta — deixa explícito no rótulo (+ custo). CTA full-width abaixo.
+	vb.add_child(h)
+	vb.add_child(UiKit.dim(Lang.t("Custo: ⚡ %d estamina   ·   Sua estamina: %d/100") % [STAMINA_COST, stamina]))
+	vb.add_child(UiKit.dim(Lang.t("Lute andar por andar. Se perder, é expulso. Vá o mais longe que conseguir!")))
+	# PRÓXIMO andar: descrição/lore + painel do inimigo (mesmo do andar ativo)
+	vb.add_child(UiKit.section(Lang.t("A seguir — Andar %d") % nf))
+	var atmo := str(state.get("atmosphere", ""))
+	if atmo != "":
+		vb.add_child(_lore_block(atmo, is_mvp))
+	vb.add_child(_enemy_panel(nf, is_mvp, border))
+	# CTA — "Entrar" já dispara a primeira luta (explícito no rótulo + custo)
 	if no_stamina:
-		var b := UiKit.action_big("Sem estamina", Callable())
+		var b := UiKit.action_big(Lang.t("Sem estamina"), Callable())
 		b.disabled = true
 		vb.add_child(b)
 	else:
@@ -118,10 +115,27 @@ func _render_floor() -> void:
 	var atmo := str(state.get("atmosphere", ""))
 	if atmo != "":
 		vb.add_child(_lore_block(atmo, is_mvp))
-	# O INIMIGO: nome/perigo/comparação (esquerda) + retrato (direita)
+	# O INIMIGO: nome/perigo/comparação + retrato (mesmo painel reusado no lobby)
 	vb.add_child(UiKit.section("O inimigo"))
+	vb.add_child(_enemy_panel(cur, is_mvp, border))
+	# recompensa
+	var rew := HBoxContainer.new(); rew.add_theme_constant_override("separation", 6)
+	var rew_lbl := Label.new(); rew_lbl.text = Lang.t("Recompensa:")
+	rew_lbl.add_theme_color_override("font_color", UiKit.GOLD_SOFT); rew_lbl.add_theme_font_size_override("font_size", 12)
+	rew_lbl.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	rew.add_child(rew_lbl)
+	rew.add_child(UiKit.coin_box(cur * 40, 16))
+	var rew_xp := Label.new(); rew_xp.text = "· ⭐ %d exp" % (cur * 20)
+	rew_xp.add_theme_color_override("font_color", UiKit.GOLD_SOFT); rew_xp.add_theme_font_size_override("font_size", 12)
+	rew_xp.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	rew.add_child(rew_xp)
+	vb.add_child(rew)
+	vb.add_child(UiKit.action_big("⚔ Lutar", _fight))
+	content.add_child(res[0])
+
+# Painel do inimigo (reusado no andar ativo E no lobby): nome + perigo + Você×Inimigo + gauntlet + retrato.
+func _enemy_panel(floor_num: int, is_mvp: bool, border: Color) -> Control:
 	var bodyrow := HBoxContainer.new(); bodyrow.add_theme_constant_override("separation", 14)
-	vb.add_child(bodyrow)
 	var col := VBoxContainer.new(); col.add_theme_constant_override("separation", 5)
 	col.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	bodyrow.add_child(col)
@@ -145,21 +159,8 @@ func _render_floor() -> void:
 		gl.add_theme_color_override("font_color", Color(0.8, 0.4, 0.6)); gl.add_theme_font_size_override("font_size", 12)
 		gl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		col.add_child(gl)
-	bodyrow.add_child(_enemy_portrait(_tower_art_key(cur, is_mvp), is_mvp, border))
-	# recompensa
-	var rew := HBoxContainer.new(); rew.add_theme_constant_override("separation", 6)
-	var rew_lbl := Label.new(); rew_lbl.text = Lang.t("Recompensa:")
-	rew_lbl.add_theme_color_override("font_color", UiKit.GOLD_SOFT); rew_lbl.add_theme_font_size_override("font_size", 12)
-	rew_lbl.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	rew.add_child(rew_lbl)
-	rew.add_child(UiKit.coin_box(cur * 40, 16))
-	var rew_xp := Label.new(); rew_xp.text = "· ⭐ %d exp" % (cur * 20)
-	rew_xp.add_theme_color_override("font_color", UiKit.GOLD_SOFT); rew_xp.add_theme_font_size_override("font_size", 12)
-	rew_xp.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	rew.add_child(rew_xp)
-	vb.add_child(rew)
-	vb.add_child(UiKit.action_big("⚔ Lutar", _fight))
-	content.add_child(res[0])
+	bodyrow.add_child(_enemy_portrait(_tower_art_key(floor_num, is_mvp), is_mvp, border))
+	return bodyrow
 
 # Bloco de narrativa (descrição do andar / lore do chefe): inset legível, autowrap.
 func _lore_block(text: String, is_mvp: bool) -> Control:
