@@ -454,7 +454,7 @@ func _render_no_guild() -> void:
 	_subtab_bar_host.visible = false
 	_clear_panel()
 	_panel_host.add_child(UiKit.empty("Você não pertence a nenhuma guilda.", "Crie a sua ou entre numa existente abaixo"))
-	_panel_host.add_child(UiKit.section("Criar nova guilda  (custa 100 bronze)"))
+	_panel_host.add_child(UiKit.section("Criar nova guilda  (custa 10 prata)"))
 	var res := UiKit.card()
 	var box: VBoxContainer = res[1]
 	name_edit = UiKit.input("Nome (3-30 chars)"); name_edit.max_length = 30
@@ -463,7 +463,7 @@ func _render_no_guild() -> void:
 	desc_edit = UiKit.input("Descrição (opcional)"); desc_edit.max_length = 120
 	desc_edit.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	box.add_child(desc_edit)
-	var cr := HBoxContainer.new(); cr.alignment = BoxContainer.ALIGNMENT_END
+	var cr := HBoxContainer.new(); cr.alignment = BoxContainer.ALIGNMENT_CENTER
 	cr.add_child(UiKit.icon_choice_btn("guild", "🛡", Lang.t("Criar Guilda"), _create, UiKit.GOLD_SOFT, true))
 	box.add_child(cr)
 	_panel_host.add_child(res[0])

@@ -20,7 +20,7 @@ import java.util.List;
 @RequiredArgsConstructor
 public class GuildService {
 
-    private static final long CREATE_COST_BRONZE = 100L;
+    private static final long CREATE_COST_BRONZE = 1_000L; // 10 prata (10 silver) — criar guilda não é de graça
     private static final int  WAR_ROSTER_MAX     = 15; // espelha TerritoryService.ROSTER_MAX. [GUERRA_ROSTER]
 
     private final GuildRepository              guildRepository;
