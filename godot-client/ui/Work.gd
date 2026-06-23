@@ -149,33 +149,38 @@ func _build_training_section() -> void:
 	if bool(training.get("active", false)):
 		_train_active(box)
 	else:
-		# ── IDLE GRÁTIS: timer real, ocupa o guerreiro (não aventura), XP modesto (level×10/h) ──
-		box.add_child(UiKit.icon_text("⏳ Treino idle (grátis) — ocupa o guerreiro por horas, sem custo", 13, UiKit.TEXT_DIM, 16))
-		var free_row := HBoxContainer.new(); free_row.add_theme_constant_override("separation", 8); free_row.alignment = BoxContainer.ALIGNMENT_CENTER
+		var total_bronze := int(warrior.get("gold", 0)) * 10000 + int(warrior.get("silver", 0)) * 100 + int(warrior.get("bronze", 0))
+		# ── IDLE GRÁTIS: rate + linha de botões 1h/4h/8h (mesmo layout dos empregos abaixo) ──
+		var idle_rate := Label.new()
+		idle_rate.text = Lang.t("Idle grátis · ⭐%d/h · ocupa o guerreiro (não aventura)") % (warrior_level * 10)
+		idle_rate.add_theme_font_size_override("font_size", 12); idle_rate.add_theme_color_override("font_color", UiKit.TEXT_DIM)
+		box.add_child(idle_rate)
+		var idle_row := HBoxContainer.new(); idle_row.add_theme_constant_override("separation", 5)
 		for h: int in [1, 4, 8]:
 			var fxp := warrior_level * 10 * h
-			var fb := UiKit.small_btn("%dh  ⭐+%d" % [h, fxp], _train_start.bind(h, true))
-			fb.tooltip_text = Lang.t("Treina %dh de graça → +%d XP. Enquanto treina, o guerreiro fica ocupado (não pode aventurar).") % [h, fxp]
-			free_row.add_child(fb)
-		box.add_child(free_row)
+			var fb := UiKit.small_btn("%dh" % h, _train_start.bind(h, true))
+			fb.custom_minimum_size = Vector2(0, 34); fb.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+			fb.tooltip_text = Lang.t("Treina %dh de graça → +%d XP. Ocupa o guerreiro (não pode aventurar enquanto treina).") % [h, fxp]
+			idle_row.add_child(fb)
+		box.add_child(idle_row)
 		box.add_child(UiKit.spacer(2))
-		# ── PAGO INSTANTÂNEO: bronze → XP na hora (level×25/h por level×10/h bronze) ──
-		box.add_child(UiKit.icon_text("🥇 Treino pago — XP na hora, por bronze", 13, UiKit.TEXT_DIM, 16))
-		var hours := 2
-		var cost := warrior_level * 10 * hours
-		var xp := warrior_level * 25 * hours
-		var total_bronze := int(warrior.get("gold", 0)) * 10000 + int(warrior.get("silver", 0)) * 100 + int(warrior.get("bronze", 0))
-		var afford := total_bronze >= cost
-		var paid_row := HBoxContainer.new(); paid_row.add_theme_constant_override("separation", 8); paid_row.alignment = BoxContainer.ALIGNMENT_CENTER
-		paid_row.add_child(UiKit.coin_box(cost, 14, UiKit.ERR if not afford else UiKit.TEXT))
-		var xpl := Label.new(); xpl.text = "⭐+%d" % xp
-		xpl.add_theme_color_override("font_color", UiKit.GOLD_SOFT); xpl.add_theme_font_size_override("font_size", 13)
-		xpl.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-		paid_row.add_child(xpl)
-		var b := UiKit.small_btn("🏋 Treinar", _train_start.bind(hours, false))
-		b.disabled = not afford
-		b.tooltip_text = Lang.t("Gasta %s e ganha +%d XP na hora (instantâneo)") % [UiKit.coin_str(cost), xp]
-		paid_row.add_child(b)
+		# ── PAGO INSTANTÂNEO: rate (bronze/h) + linha de botões 1h/2h/6h/12h ──
+		var paid_rate := HBoxContainer.new(); paid_rate.add_theme_constant_override("separation", 5)
+		paid_rate.add_child(UiKit.coin_box(warrior_level * 10, 14))
+		var prx := Label.new(); prx.text = Lang.t("/h pago · ⭐%d/h na hora") % (warrior_level * 25)
+		prx.add_theme_font_size_override("font_size", 12); prx.add_theme_color_override("font_color", UiKit.TEXT_DIM)
+		prx.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+		paid_rate.add_child(prx)
+		box.add_child(paid_rate)
+		var paid_row := HBoxContainer.new(); paid_row.add_theme_constant_override("separation", 5)
+		for h: int in [1, 2, 6, 12]:
+			var cost := warrior_level * 10 * h
+			var pxp := warrior_level * 25 * h
+			var pb := UiKit.small_btn("%dh" % h, _train_start.bind(h, false))
+			pb.custom_minimum_size = Vector2(0, 34); pb.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+			pb.disabled = total_bronze < cost
+			pb.tooltip_text = Lang.t("Gasta %s → +%d XP na hora (instantâneo)") % [UiKit.coin_str(cost), pxp]
+			paid_row.add_child(pb)
 		box.add_child(paid_row)
 	content.add_child(res[0])
 
