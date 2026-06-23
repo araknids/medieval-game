@@ -367,9 +367,28 @@ static func rect(key: String, px := 24, tooltip := "") -> TextureRect:
 		tr.tooltip_text = tt
 	tr.mouse_filter = Control.MOUSE_FILTER_PASS   # PASS: anima no hover mas deixa o clique passar pro pai
 	if tr.texture != null:
-		add_hover(tr)                              # [HOVER_ICON] cresce + clareia
-		anim_rect(tr, tr, key)                     # [HOVER_ICON_ANIM] cicla anim/<key>/ no hover (se existir)
+		if key == "star":
+			_pulse_ambient(tr, px)                 # [XP_PULSE] o ícone de XP brilha/pulsa SEMPRE (em vez do hover-pop, que conflitaria com o tween)
+		else:
+			add_hover(tr)                          # [HOVER_ICON] cresce + clareia
+			anim_rect(tr, tr, key)                 # [HOVER_ICON_ANIM] cicla anim/<key>/ no hover (se existir)
 	return tr
+
+# [XP_PULSE] Pulso ambiente (brilho dourado + leve escala) em loop suave — o ícone de XP "brilha/pulsa"
+# em TODO lugar que o representa (quest, kv rows). Começa só quando o nó entra na árvore (create_tween
+# exige estar na cena). One-shot: cada rect() cria um TextureRect novo, então não re-conecta.
+static func _pulse_ambient(node: Control, px: int) -> void:
+	node.tree_entered.connect(_start_pulse.bind(node, px), CONNECT_ONE_SHOT)
+
+static func _start_pulse(node: Control, px: int) -> void:
+	if not is_instance_valid(node):
+		return
+	node.pivot_offset = Vector2(px, px) / 2.0                # escala a partir do centro
+	var tw := node.create_tween().set_loops().set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
+	tw.tween_property(node, "modulate", Color(1.30, 1.20, 0.80, 1.0), 0.7)   # clareia/dourado
+	tw.parallel().tween_property(node, "scale", Vector2(1.08, 1.08), 0.7)
+	tw.tween_property(node, "modulate", Color(1, 1, 1, 1), 0.7)
+	tw.parallel().tween_property(node, "scale", Vector2.ONE, 0.7)
 
 # [ELEMENTOS] O ícone de um elemento (FIRE/WATER/EARTH/AIR) usa o GIF da ESSÊNCIA correspondente
 # (res_<x>_essence, que tem anim/ e anima no hover) — padroniza buffs/Temple/World. O tooltip da RODA
