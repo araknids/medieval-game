@@ -204,10 +204,15 @@ public class MailService {
         if (mail.isExpired())
             throw new IllegalStateException("This letter has expired. The item was lost.");
 
+        // [HARDENING P2-3] Lock pessimista do player: serializa claims concorrentes da mesma conta antes
+        // do check-then-act da bag (make → bagSize). Sem isto, 2 claims paralelos passam o guard "bag
+        // cheia" e estouram o cap. Opera-se sobre o player travado (managed) daqui pra frente.
+        Player locked = playerRepository.findByIdForUpdate(player.getId()).orElse(player);
+
         ItemType type = ItemType.valueOf(mail.getItemType());
         // Passa o itemLevel preservado: armas recalculam os stats pelo perfil do tipo no make(). [CLASSES_ARMAS]
         InventoryItem item = inventoryService.make(
-                player, mail.getItemName(), type,
+                locked, mail.getItemName(), type,
                 mail.getItemAtk(), mail.getItemDef(), mail.getItemHp(),
                 mail.getItemRarity(), InventoryService.dropSellPrice(mail.getItemRarity()),   // [SELL_PRICE_FIX] era 0L
                 mail.getItemLevel(), mail.getItemDescription(), mail.getItemOrigin());
@@ -281,20 +286,22 @@ public class MailService {
     @Transactional
     public ClaimAllResult claimAll(Player player, InventoryService inventoryService, GatheringService gatheringService) {
         long gold = 0; int items = 0; long resources = 0; int leftItems = 0; long leftResources = 0;
+        // [HARDENING P2-3] Lock pessimista do player: serializa o claim-all concorrente (bag cap dos itens).
+        Player locked = playerRepository.findByIdForUpdate(player.getId()).orElse(player);
         for (Mail mail : mailRepository.findByRecipientPlayerIdOrderBySentAtDesc(player.getId())) {
             boolean changed = false;
             // Ouro (sem limite de bag)
             if (mail.getGoldAmount() > 0 && !mail.isCollected()) {
-                playerService.addBronze(player, mail.getGoldAmount());
+                playerService.addBronze(locked, mail.getGoldAmount());
                 mail.setCollectedAt(LocalDateTime.now());
                 gold += mail.getGoldAmount();
                 changed = true;
             }
             // Item (1 slot) — só se houver espaço; senão fica na carta
             if (mail.hasItem() && !mail.isItemCollected() && !mail.isExpired()) {
-                if (inventoryService.bagSpaceLeft(player) > 0) {
+                if (inventoryService.bagSpaceLeft(locked) > 0) {
                     ItemType type = ItemType.valueOf(mail.getItemType());
-                    inventoryService.make(player, mail.getItemName(), type,
+                    inventoryService.make(locked, mail.getItemName(), type,
                             mail.getItemAtk(), mail.getItemDef(), mail.getItemHp(),
                             mail.getItemRarity(), InventoryService.dropSellPrice(mail.getItemRarity()), mail.getItemLevel(),   // [SELL_PRICE_FIX] era 0L
                             mail.getItemDescription(), mail.getItemOrigin());
@@ -307,7 +314,7 @@ public class MailService {
             // Recurso — adiciona o que couber; o resto fica na carta
             if (mail.hasResource() && !mail.isResourceCollected() && !mail.isExpired()) {
                 var type = com.medieval.game.enums.ResourceType.valueOf(mail.getResourceType());
-                long added = gatheringService.addResource(player, type, mail.getResourceQty());
+                long added = gatheringService.addResource(locked, type, mail.getResourceQty());
                 if (added > 0) {
                     int remaining = mail.getResourceQty() - (int) added;
                     if (remaining > 0) { mail.setResourceQty(remaining); leftResources += remaining; }

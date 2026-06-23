@@ -59,6 +59,18 @@ public class ZoneService {
     private static final int COMBAT_BRONZE_PER_KILL = 5;  // bronze ~= level * 5 * tierMult por rodada
     private static final int COMBAT_XP_PER_KILL     = 12; // XP    ~= level * 12 * tierMult por rodada
 
+    // [ECON_EXPLOIT] Teto de rodadas de recompensa. O fix acima assume que a estamina cresce ~dur/2 e
+    // mantém a eficiência (reward∝rounds) constante — MAS `staminaCostFor` faz Math.min(100, …): a
+    // estamina SATURA em 100 já aos 200min, enquanto rounds=dur/10 continuaria até 72 em 720min. Sem
+    // teto, a eficiência/estamina dispararia ~3.6× na duração máxima (auditoria de hardening, P1). Capar
+    // rounds no ponto de saturação (100 estamina ÷ 5 de estamina-por-rodada = 20) re-trava a eficiência.
+    static final int MAX_REWARD_ROUNDS = 20;
+
+    /** Rodadas de recompensa por duração, CAPADAS no ponto em que a estamina satura (100). [ECON_EXPLOIT] */
+    static int rewardRounds(int durationMinutes) {
+        return Math.min(MAX_REWARD_ROUNDS, Math.max(1, durationMinutes / 10));
+    }
+
     // ── Entrar na zona ──
 
     @Transactional
@@ -282,7 +294,7 @@ public class ZoneService {
         // [ECON_EXPLOIT] Escala por rodada (= por 10min de duração), igual à coleta (resolveGathering):
         // bronze/XP/materiais ficam proporcionais à estamina paga (staminaCostFor ~dur/2), então mandar
         // duração curta não rende mais por estamina — a eficiência vira constante e a duração, neutra.
-        int rounds = Math.max(1, activity.getDurationMinutes() / 10);
+        int rounds = rewardRounds(activity.getDurationMinutes()); // [ECON_EXPLOIT] capado no teto de estamina
 
         List<GatheringService.ResourceDrop> drops = new ArrayList<>();
         long cores = Math.max(1, Math.round((1 + level / 25.0) * mult)) * rounds; // Núcleo de Fera sempre
@@ -582,7 +594,7 @@ public class ZoneService {
 
         // Simula múltiplas rodadas de coleta
         List<GatheringService.ResourceDrop> allDrops = new ArrayList<>();
-        int rounds = Math.max(1, durationMin / 10); // 1 rodada a cada 10 min
+        int rounds = rewardRounds(durationMin); // 1 rodada/10min, capado no teto de estamina [ECON_EXPLOIT]
         for (int i = 0; i < rounds; i++) {
             allDrops.addAll(gatheringService.collectGatheringDropsOnly(activity.getSkillType(),
                     skill.getLevel(), 10, activity.getKingdom())); // [UNIFICAÇÃO_ZONA] drops por reino

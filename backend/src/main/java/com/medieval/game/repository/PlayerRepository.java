@@ -2,8 +2,10 @@ package com.medieval.game.repository;
 
 import com.medieval.game.model.Guild;
 import com.medieval.game.model.Player;
+import jakarta.persistence.LockModeType;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
@@ -12,6 +14,14 @@ import java.util.Optional;
 
 public interface PlayerRepository extends JpaRepository<Player, Long> {
     Optional<Player> findByUsername(String username);
+
+    // [HARDENING P2-3] Lock pessimista do player p/ serializar concessões de item concorrentes (mail
+    // claim) — o cap da bag é check-then-act que o @Version NÃO cobre (o INSERT é na linha do ITEM, não
+    // do player, e o claim não suja o player). Duas reivindicações concorrentes da mesma conta bloqueiam
+    // aqui → a 2ª conta a bag DEPOIS da 1ª e respeita o cap. Claim é infrequente → custo do lock irrelevante.
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("SELECT p FROM Player p WHERE p.id = :id")
+    Optional<Player> findByIdForUpdate(@Param("id") Long id);
     Optional<Player> findByEmail(String email);
     boolean existsByUsername(String username);
     boolean existsByEmail(String email);

@@ -2,8 +2,7 @@ package com.medieval.game.config;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.boot.context.event.ApplicationReadyEvent;
-import org.springframework.context.event.EventListener;
+import org.springframework.beans.factory.SmartInitializingSingleton;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Component;
 
@@ -17,11 +16,21 @@ import org.springframework.stereotype.Component;
 @Slf4j
 @Component
 @RequiredArgsConstructor
-public class SchemaMigrator {
+public class SchemaMigrator implements SmartInitializingSingleton {
 
     private final JdbcTemplate jdbc;
 
-    @EventListener(ApplicationReadyEvent.class)
+    // [HARDENING P2-4] Roda no fim da instanciação dos singletons (afterSingletonsInstantiated) — DEPOIS
+    // do schema-gen do Hibernate (o EntityManagerFactory é singleton, já criado aqui) e ANTES do start do
+    // servidor web (finishRefresh). Antes era @EventListener(ApplicationReadyEvent.class), que dispara
+    // DEPOIS de o Tomcat aceitar tráfego: havia uma janela de boot servindo requests com um check de enum
+    // defasado ainda no ar (dropStaleEnumCheckConstraints só rodava depois). Roda antes do DataSeeder
+    // (que continua no ApplicationReadyEvent) → ordem correta: migra schema, depois popula.
+    @Override
+    public void afterSingletonsInstantiated() {
+        migrate();
+    }
+
     public void migrate() {
         remapRemovedEnumValues();   // [VARREDURA] roda 1º: salva linhas com valor de enum removido
         patchZoneActivityKingdomColumn();
@@ -35,6 +44,7 @@ public class SchemaMigrator {
         patchInventoryItemDurabilityColumn();
         patchOptimisticLockVersionColumns();
         patchSingleSessionUniqueIndexes();
+        patchEquippedUniqueIndex();
         patchTerritoryLastResolvedCycleColumn();
         patchWarFatigueAndRosterColumns();
         patchGuildLifetimeGoldColumn();
@@ -216,7 +226,7 @@ public class SchemaMigrator {
     // conter "ARRAY[" — um range/negócio (ex.: "x >= 0") não conteria. Roda no ApplicationReadyEvent
     // (depois do schema-gen do Hibernate); o update-mode não recria check em coluna existente, então
     // o drop persiste entre restarts. [REINOS_V2][CLASSES]
-    private void dropStaleEnumCheckConstraints() {
+    public void dropStaleEnumCheckConstraints() { // [HARDENING P2-5] público p/ o teste de regressão do sweep
         try {
             jdbc.execute("""
                 DO $$
@@ -635,6 +645,25 @@ public class SchemaMigrator {
             }
         }
         log.info("[SchemaMigrator] single-active-session partial unique indexes ensured (Postgres)");
+    }
+
+    /**
+     * [HARDENING P2-2] Índice único PARCIAL (Postgres): no máx UM item equipado por (player, ItemType).
+     * Fecha a corrida de equip concorrente (2 abas equipando itens diferentes do mesmo slot) que o
+     * @Version do InventoryItem NÃO pega — são UPDATEs em LINHAS distintas, não na mesma. Sem isto, os
+     * dois ficam equipped=true e os stats empilham (e fura o arco-sem-escudo). O guard de app desequipa o
+     * atual no caso sequencial; este índice cobre a corrida real (a 2ª transação colide → 409). H2 não
+     * suporta WHERE em índice → o try-catch ignora (a defesa-em-profundidade no equippedGear cobre o H2).
+     * Se já houver dados corrompidos (2 equipados do mesmo tipo), a criação falha e é logada (sem travar).
+     */
+    private void patchEquippedUniqueIndex() {
+        try {
+            jdbc.execute("CREATE UNIQUE INDEX IF NOT EXISTS uk_inventory_one_equipped_per_slot "
+                    + "ON inventory_items(player_id, type) WHERE equipped = true");
+            log.info("[SchemaMigrator] one-equipped-per-slot partial unique index ensured (Postgres)");
+        } catch (Exception e) {
+            log.warn("[SchemaMigrator] equipped unique index skipped (H2 ou duplicatas pré-existentes): {}", e.getMessage());
+        }
     }
 
     // inventory_items: add durability column (economic sink — items wear down in combat)

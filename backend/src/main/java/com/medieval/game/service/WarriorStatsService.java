@@ -59,10 +59,18 @@ public class WarriorStatsService {
         int mdef = mount != null ? mount.getMountType().defenseBonus : 0;
         int mhp  = mount != null ? mount.getMountType().healthBonus  : 0;
 
+        // [HARDENING P2-2] Dedup por slot (ItemType): defesa em profundidade. Se uma corrida de equip
+        // concorrente deixou 2 itens do mesmo tipo equipados, os stats NUNCA empilham os dois — fica só
+        // um por slot (o de id maior). A trava primária é o índice único parcial (player_id,type) WHERE
+        // equipped no SchemaMigrator; isto garante o invariante mesmo se dados corrompidos escaparem.
         List<InventoryItem> equipped = inventoryRepository.findAllByPlayer(player).stream()
                 .filter(InventoryItem::isEquipped)
                 .filter(i -> !i.isBroken())
-                .toList();
+                .collect(Collectors.toMap(
+                        InventoryItem::getType, i -> i,
+                        (a, b) -> a.getId() >= b.getId() ? a : b,
+                        java.util.LinkedHashMap::new))
+                .values().stream().toList();
         if (equipped.isEmpty()) return new GearBonus(matk, mdef, mhp, 0, 0, 0); // só a montaria (se houver)
 
         // [MERCADOR] Bônus de self-crafted: stats do item forjado pelo próprio Mercador × (1 + pct%).
