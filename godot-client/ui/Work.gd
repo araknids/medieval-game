@@ -164,22 +164,19 @@ func _build_training_section() -> void:
 			idle_row.add_child(fb)
 		box.add_child(idle_row)
 		box.add_child(UiKit.spacer(2))
-		# ── PAGO INSTANTÂNEO: rate (bronze/h) + linha de botões 1h/2h/6h/12h ──
-		var paid_rate := HBoxContainer.new(); paid_rate.add_theme_constant_override("separation", 5)
-		paid_rate.add_child(UiKit.coin_box(warrior_level * 10, 14))
-		var prx := Label.new(); prx.text = Lang.t("/h pago · ⭐%d/h na hora") % (warrior_level * 25)
-		prx.add_theme_font_size_override("font_size", 12); prx.add_theme_color_override("font_color", UiKit.TEXT_DIM)
-		prx.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-		paid_rate.add_child(prx)
+		# ── PAGO INSTANTÂNEO: COMPRAR XP com bronze (sem tempo — paga com dinheiro). Botões pelo XP comprado. ──
+		var paid_rate := Label.new()
+		paid_rate.text = Lang.t("Pago · compra XP na hora com bronze (instantâneo)")
+		paid_rate.add_theme_font_size_override("font_size", 12); paid_rate.add_theme_color_override("font_color", UiKit.TEXT_DIM)
 		box.add_child(paid_rate)
 		var paid_row := HBoxContainer.new(); paid_row.add_theme_constant_override("separation", 5)
-		for h: int in [1, 2, 6, 12]:
-			var cost := warrior_level * 10 * h
-			var pxp := warrior_level * 25 * h
-			var pb := UiKit.small_btn("%dh" % h, _train_start.bind(h, false))
+		for tier: int in [1, 2, 6, 12]:
+			var cost := warrior_level * 10 * tier
+			var pxp := warrior_level * 25 * tier
+			var pb := UiKit.small_btn("⭐+%d" % pxp, _train_start.bind(tier, false))
 			pb.custom_minimum_size = Vector2(0, 34); pb.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 			pb.disabled = total_bronze < cost
-			pb.tooltip_text = Lang.t("Gasta %s → +%d XP na hora (instantâneo)") % [UiKit.coin_str(cost), pxp]
+			pb.tooltip_text = Lang.t("Compra +%d XP por %s (na hora)") % [pxp, UiKit.coin_str(cost)]
 			paid_row.add_child(pb)
 		box.add_child(paid_row)
 	content.add_child(res[0])
