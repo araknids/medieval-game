@@ -185,8 +185,7 @@ func _build_topbar() -> Control:
 	_stam_lbl = Label.new()
 	vit.add_child(_vital_row("stamina", _stam_bar, _stam_lbl, "Estamina — gasta nas ações; enche 100% em 1h (15min com buff de novato)"))
 	row.add_child(vit)
-	row.add_child(_heal_button())   # botão de cura (cruz vermelha pixel) ao lado das barras
-	# [TOPBAR_BUFFS] buffs ao LADO da cura, em GRID compacta (antes era uma linha cheia abaixo do personagem)
+	# [TOPBAR_BUFFS] buffs ao lado das barras de vital, em GRID compacta (antes era uma linha cheia abaixo do personagem)
 	_buffs_box = GridContainer.new()
 	_buffs_box.columns = 2   # grid compacta (2 col) ao lado da cura, em vez de uma linha cheia
 	_buffs_box.add_theme_constant_override("h_separation", 5)
@@ -196,6 +195,8 @@ func _build_topbar() -> Control:
 	# espaçador empurra moedas + cluster pra direita
 	var spacer := Control.new(); spacer.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	row.add_child(spacer)
+	# [HEAL] botão de cura à ESQUERDA das moedas (movido da posição antiga ao lado das barras de vital)
+	row.add_child(_heal_button())
 	# [TOPBAR_REORG] moedas numa LINHA só: ouro · prata · bronze · soulstone (VIP)
 	var coinbox := HBoxContainer.new(); coinbox.add_theme_constant_override("separation", 10)
 	coinbox.size_flags_vertical = Control.SIZE_SHRINK_CENTER
