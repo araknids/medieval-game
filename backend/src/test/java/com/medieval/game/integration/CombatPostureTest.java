@@ -47,7 +47,7 @@ class CombatPostureTest extends BaseIntegrationTest {
         Warrior w = warriorRepository.findByPlayer(p).orElseThrow();
         w.setCombatPosture(posture);
         warriorRepository.save(w);
-        return statsService.combatStats(p, warriorRepository.findByPlayer(p).orElseThrow());
+        return statsService.combatStats(p, warriorRepository.findByPlayer(p).orElseThrow()).toArray();
     }
 
     @Test

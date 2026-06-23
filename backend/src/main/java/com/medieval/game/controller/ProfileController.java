@@ -45,7 +45,7 @@ public class ProfileController {
         Warrior w = warriorRepository.findByPlayer(target).orElse(null);
         if (w == null) return ResponseEntity.notFound().build();
 
-        int[] cs = statsService.combatStats(target, w); // [atk, def, hp, dex, agi, luk]
+        com.medieval.game.service.CombatStats cs = statsService.combatStats(target, w);
 
         List<Map<String, Object>> equipped = new ArrayList<>();
         for (InventoryItem i : inventoryRepository.findAllByPlayer(target)) {
@@ -61,8 +61,8 @@ public class ProfileController {
                 "gender",      target.getGender() != null ? target.getGender().name().toLowerCase() : "male",
                 "attributes",  Map.of("str", w.getStrength(), "dex", w.getDexterity(),
                                       "con", w.getConstitution(), "agi", w.getAgility(), "luk", w.getLuck()),
-                "combat",      Map.of("atk", cs[0], "def", cs[1], "hp", cs[2],
-                                      "dex", cs[3], "agi", cs[4], "luk", cs[5]),
+                "combat",      Map.of("atk", cs.atk(), "def", cs.def(), "hp", cs.hp(),
+                                      "dex", cs.dex(), "agi", cs.agi(), "luk", cs.luk()),
                 "equipped",    equipped
         ));
     }

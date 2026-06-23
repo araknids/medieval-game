@@ -482,7 +482,7 @@ public class TerritoryService {
         List<Candidate> candidates = new ArrayList<>();
         for (Player member : members) {
             warriorRepository.findByPlayer(member).ifPresent(w -> {
-                int[] cs = statsService.combatStats(member, w);
+                int[] cs = statsService.combatStats(member, w).toArray();
                 int hp = w.getCalculatedHpPercent() * cs[2] / 100; // cs[2] = HP total (base+gear+buff)
                 if (hp > 0) candidates.add(new Candidate(member, w, cs, hp));
             });

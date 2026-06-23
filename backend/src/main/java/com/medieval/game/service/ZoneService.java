@@ -897,7 +897,7 @@ public class ZoneService {
 
     /** Returns [atk, def, hp, dex, strBonus, luk] for d20 simulate(). [AUDITORIA A1/A9] */
     private int[] getWarriorStats(Warrior w, Player player) {
-        return statsService.combatStats(player, w);
+        return statsService.combatStats(player, w).toArray();
     }
 
     private String maybeDropEquippedItem(Player player) {

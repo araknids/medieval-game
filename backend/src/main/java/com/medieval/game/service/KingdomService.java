@@ -446,7 +446,7 @@ public class KingdomService {
     /** Roda uma luta contra o monstro temático da quest; aplica HP/desgaste. */
     private MonsterFight fightQuestMonster(Player player, Warrior warrior, KingdomQuestType qt, ThreadLocalRandom rng) {
         String monsterName = narrator.pickMonster(qt.kingdom, rng);
-        int[] s   = statsService.combatStats(player, warrior);
+        int[] s   = statsService.combatStats(player, warrior).toArray();
         int maxHp = s[2];
         int curHp = warrior.getCalculatedHpPercent() * maxHp / 100;
         int monsterLevel = questMobLevel(warrior.getLevel(), qt); // [ITEM_DROP_LEVEL]

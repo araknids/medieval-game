@@ -118,8 +118,8 @@ public class GuildWarService {
         playerService.consumeStamina(attacker, ATTACK_STAMINA);
 
         // Combate PvP (stats completos dos dois)
-        int[] a = statsService.combatStats(attacker, aw);
-        int[] d = statsService.combatStats(target, tw);
+        int[] a = statsService.combatStats(attacker, aw).toArray();
+        int[] d = statsService.combatStats(target, tw).toArray();
         int aMax = a[2], dMax = d[2];
         int aHp = aw.getCalculatedHpPercent() * aMax / 100;
         int dHp = tw.getCalculatedHpPercent() * dMax / 100;

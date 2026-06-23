@@ -308,7 +308,7 @@ public class ExpeditionService {
 
     /** Preview da vítima oferecida (nome/nível/poder/hp%) em JSON → guardado no pendingEventData. */
     private String pvpOpponentJson(Player victim, Warrior vw) {
-        int[] s = statsService.combatStats(victim, vw);
+        int[] s = statsService.combatStats(victim, vw).toArray();
         int power = s[0] * 2 + s[1] * 2 + s[2] + s[3] + s[4] + s[5];
         Map<String, Object> m = new java.util.HashMap<>();
         m.put("name", vw.getName());
@@ -362,7 +362,7 @@ public class ExpeditionService {
     /** Prepara os stats do atacante (cura cheia na ZONA, igual ao combate normal) e dispara o raid PvP. */
     private NodeResolution resolvePvpRaidNode(ExpeditionRun run, Player player, Warrior warrior, Player victim) {
         if (run.getSource() == ExpeditionSource.ZONE) { warrior.healFull(); warriorRepo.save(warrior); }
-        int[] stats = statsService.combatStats(player, warrior);
+        int[] stats = statsService.combatStats(player, warrior).toArray();
         applyRunMods(run, stats);
         int maxHp = stats[2];
         int[] mine = stats.clone();
@@ -417,7 +417,7 @@ public class ExpeditionService {
             warriorRepo.save(warrior);
         }
 
-        int[] stats = statsService.combatStats(player, warrior);
+        int[] stats = statsService.combatStats(player, warrior).toArray();
         applyRunMods(run, stats);   // [INCURSAO_EVENTOS] pactos/bênçãos da run modificam o combate
         int maxHp = stats[2];
         int curHp = Math.max(1, warrior.getCalculatedHpPercent() * maxHp / 100);
@@ -785,7 +785,7 @@ public class ExpeditionService {
         Warrior victimW = warriorRepo.findByPlayer(victim).orElse(null);
         if (victimW == null) { res.narrative = "Your quarry slipped away."; return res; }
 
-        int[] vStats = statsService.combatStats(victim, victimW);
+        int[] vStats = statsService.combatStats(victim, victimW).toArray();
         int vMaxHp = vStats[2];
         int[] vMine = vStats.clone();
         vMine[2] = Math.max(1, victimW.getCalculatedHpPercent() * vMaxHp / 100);

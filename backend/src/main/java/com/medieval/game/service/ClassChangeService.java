@@ -123,11 +123,11 @@ public class ClassChangeService {
         if (cores < TRIAL_MONSTER_CORE_COST)
             throw new com.medieval.game.config.LocalizedException("error.trial_cores", "You need {0} Monster Core to face the Guardian (you have {1}). Hunt in the Cursed Fortress to gather them.", TRIAL_MONSTER_CORE_COST, cores);
 
-        int[]    c = statsService.combatStats(player, w);
+        CombatStats c = statsService.combatStats(player, w);
         Guardian g = guardianFor(path);
         // PvE: firstLosesOnTimeout=true → o jogador PRECISA matar o guardião (não basta sobreviver).
         BattleSimulator.BattleOutcome outcome = battleSimulator.simulateDetailed(
-                w.getName(), c[0], c[1], c[2], c[3], c[4], c[5],
+                w.getName(), c.atk(), c.def(), c.hp(), c.dex(), c.agi(), c.luk(),
                 g.name(),    g.atk(), g.def(), g.hp(), g.dex(), g.agi(), g.luk(),
                 true);
 

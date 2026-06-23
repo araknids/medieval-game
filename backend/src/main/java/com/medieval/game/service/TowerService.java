@@ -233,7 +233,7 @@ public class TowerService {
         }
         playerService.spendBronze(player, climbCost);
 
-        int[] s = statsService.combatStats(player, warrior);
+        CombatStats s = statsService.combatStats(player, warrior);
         boolean ranged = statsService.isRangedWeaponEquipped(player); // [KITING] arma ranged (arco), qualquer classe
 
         // [TORRE_NARRATIVA][TORRE_GRUPO] Atmosfera + a luta: 1 monstro = duelo; vários = TODOS ao mesmo tempo.
@@ -244,7 +244,7 @@ public class TowerService {
         if (monsters.size() == 1) {
             BossInfo m = monsters.get(0);
             out = battleSimulator.simulateDetailed(
-                warrior.getName(), s[0], s[1], s[2], s[3], s[4], s[5],
+                warrior.getName(), s.atk(), s.def(), s.hp(), s.dex(), s.agi(), s.luk(),
                 m.name(), m.attack(), m.defense(), m.health(), m.dex(), m.agi(), m.luk(),
                 true, ranged, false); // PvE: timeout = derrota; melee [KITING]
         } else {
@@ -257,7 +257,7 @@ public class TowerService {
                 foes.add(new BattleSimulator.GroupFoe(uniq, m.attack(), m.defense(), m.health(), m.dex(), m.agi(), m.luk()));
             }
             out = battleSimulator.simulateGroup(
-                warrior.getName(), s[0], s[1], s[2], s[3], s[4], s[5],
+                warrior.getName(), s.atk(), s.def(), s.hp(), s.dex(), s.agi(), s.luk(),
                 foes, true, ranged); // PvE: timeout = derrota
         }
         List<String> lg = new java.util.ArrayList<>(out.log());

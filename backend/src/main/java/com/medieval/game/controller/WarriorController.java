@@ -101,7 +101,7 @@ public class WarriorController {
         int bonusDef = ib.def();
         int bonusHp  = ib.hp();
         // [POSTURE] ATK/DEF/HP EFETIVO de combate (inclui postura + buffs + abilities + pet + taverna) → a ficha reflete o stance
-        int[] cstats = statsService.combatStats(player, warrior);
+        com.medieval.game.service.CombatStats cstats = statsService.combatStats(player, warrior);
         WarriorStatsService.StatSources[] srcs = statsService.combatBreakdown(player, warrior); // [FICHA_BONUS] de onde vem cada bônus
 
         // Buff ativo
@@ -230,7 +230,7 @@ public class WarriorController {
                 com.medieval.game.service.AchievementService.titleString(player), // [TITULOS]
                 player.isNewbieBuffActive(), player.getNewbieBuffHoursLeft(), // [BUFF_NOVATO]
                 tavernBuffPct, tavernBuffSecondsLeft, // [TAVERNA]
-                cstats[0], cstats[1], cstats[2], // [POSTURE] ATK/DEF/HP efetivo de combate
+                cstats.atk(), cstats.def(), cstats.hp(), // [POSTURE] ATK/DEF/HP efetivo de combate
                 abilityService.selfCraftedStatBonusPct(player), // [MERCADOR]
                 srcs[0], srcs[1], srcs[2], // [FICHA_BONUS] fontes do bônus (ATK/DEF/HP)
                 player.getGender() != null ? player.getGender().name() : "MALE", // [OUTFITS_FEMALE] base/peças Male/Female

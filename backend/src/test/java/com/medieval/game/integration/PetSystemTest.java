@@ -63,9 +63,9 @@ class PetSystemTest extends BaseIntegrationTest {
         w.setHealth(1000); w.setConstitution(0);
         warriorRepository.save(w);
 
-        int hpBefore = statsService.combatStats(p, warriorRepository.findByPlayer(p).orElseThrow())[2];
+        int hpBefore = statsService.combatStats(p, warriorRepository.findByPlayer(p).orElseThrow()).toArray()[2];
         petService.grant(p, PetType.LUNA); // auto-equipa
-        int hpAfter  = statsService.combatStats(player(), warriorRepository.findByPlayer(player()).orElseThrow())[2];
+        int hpAfter  = statsService.combatStats(player(), warriorRepository.findByPlayer(player()).orElseThrow()).toArray()[2];
 
         assertThat(hpBefore).isEqualTo(1000);
         assertThat(hpAfter).isEqualTo(1100); // 1000 × 1.10
@@ -78,7 +78,7 @@ class PetSystemTest extends BaseIntegrationTest {
         Player p = player();
         petService.grant(p, PetType.LUNA);
         petService.unequip(player());
-        assertThat(statsService.combatStats(player(), warriorRepository.findByPlayer(player()).orElseThrow())[2])
+        assertThat(statsService.combatStats(player(), warriorRepository.findByPlayer(player()).orElseThrow()).toArray()[2])
                 .isEqualTo(warriorRepository.findByPlayer(player()).orElseThrow().getTotalBaseHealth()); // sem bônus
         petService.equip(player(), PetType.LUNA);
         assertThat(petService.list(player()).stream().anyMatch(v -> v.type() == PetType.LUNA && v.equipped())).isTrue();
@@ -122,9 +122,9 @@ class PetSystemTest extends BaseIntegrationTest {
         w.setAgility(10); warriorRepository.save(w);
 
         // [REBALANCE] o bônus do pet (PetType.dexBonus) alimenta a AGI → slot 4 do combatStats.
-        int agiBefore = statsService.combatStats(p, warriorRepository.findByPlayer(p).orElseThrow())[4];
+        int agiBefore = statsService.combatStats(p, warriorRepository.findByPlayer(p).orElseThrow()).toArray()[4];
         petService.grant(p, PetType.BANDIT_CAT); // auto-equipa
-        int agiAfter  = statsService.combatStats(player(), warriorRepository.findByPlayer(player()).orElseThrow())[4];
+        int agiAfter  = statsService.combatStats(player(), warriorRepository.findByPlayer(player()).orElseThrow()).toArray()[4];
         assertThat(agiAfter - agiBefore).isEqualTo(PetType.BANDIT_CAT.dexBonus); // +6
     }
 

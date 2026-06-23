@@ -75,14 +75,14 @@ class CookingIntegrationTest extends BaseIntegrationTest {
     @DisplayName("O buff de refeição entra no combatStats (ATK/DEF)")
     void mealBuff_appliesInCombat() {
         Warrior w = warriorRepository.findByPlayer(player).orElseThrow();
-        int[] before = statsService.combatStats(player, w);
+        int[] before = statsService.combatStats(player, w).toArray();
 
         w.setMealBuff(Meal.SALMON_FILLET); // +10 ATK, +5 DEF
         w.setMealBuffExpiresAt(LocalDateTime.now().plusHours(1));
         warriorRepository.save(w);
 
         Warrior fresh = warriorRepository.findByPlayer(player).orElseThrow();
-        int[] after = statsService.combatStats(player, fresh);
+        int[] after = statsService.combatStats(player, fresh).toArray();
 
         assertThat(after[0] - before[0]).isEqualTo(10); // ATK
         assertThat(after[1] - before[1]).isEqualTo(5);  // DEF

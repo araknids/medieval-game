@@ -132,7 +132,7 @@ public class WarriorStatsService {
                 .orElse(false);
     }
 
-    public int[] combatStats(Player player, Warrior warrior) {
+    public CombatStats combatStats(Player player, Warrior warrior) {
         GearBonus g = equippedGear(player);          // planos + atributos de afixo [ITENS_V2]
         int[] buff = activeBuffBonuses(warrior);     // {atk, def, hp, eva}
         // Postura: tradeoff ATK/DEF aplicado por ÚLTIMO, sobre o total (base+gear+buff). [POSTURE]
@@ -163,7 +163,7 @@ public class WarriorStatsService {
         // [TAVERNA] Buff da Taverna: multiplica TODOS os stats por (1 + stacks×0.01%), cap 100%. Renova no gole.
         double tavernMult = warrior.tavernBuffMultiplier();
         if (tavernMult != 1.0) for (int i = 0; i < stats.length; i++) stats[i] = (int) Math.round(stats[i] * tavernMult);
-        return stats;
+        return CombatStats.of(stats); // [VARREDURA] int[6] interno → record nomeado
     }
 
     /** Fontes do bônus de um stat (aditivas; a soma == combatStats). P/ a ficha detalhar de onde vem. [FICHA_BONUS] */

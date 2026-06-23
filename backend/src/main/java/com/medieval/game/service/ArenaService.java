@@ -232,7 +232,7 @@ public class ArenaService {
 
     private int[] totalStats(Player player, Warrior warrior) {
         // base + atributos + itens equipados + joias (fonte única) [AUDITORIA A1/A9]
-        return statsService.combatStats(player, warrior);
+        return statsService.combatStats(player, warrior).toArray();
     }
 
     private int[] npcStats() {

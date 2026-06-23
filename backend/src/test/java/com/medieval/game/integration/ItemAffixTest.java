@@ -72,7 +72,7 @@ class ItemAffixTest extends BaseIntegrationTest {
     @DisplayName("Afixos do item equipado entram no combatStats (planos + atributos)")
     void affixes_affectCombatStats() {
         Warrior w = warriorRepository.findByPlayer(player).orElseThrow();
-        int[] before = statsService.combatStats(player, w);
+        int[] before = statsService.combatStats(player, w).toArray();
 
         // ARMOR (não-arma) p/ honrar os stats base passados — armas auto-perfilam pelo tipo. [CLASSES_ARMAS]
         InventoryItem it = inventoryService.make(player, "Legendary Plate", ItemType.ARMOR, 10, 5, 20, 5, 2500);
@@ -91,7 +91,7 @@ class ItemAffixTest extends BaseIntegrationTest {
             }
         }
 
-        int[] after = statsService.combatStats(player, w);
+        int[] after = statsService.combatStats(player, w).toArray();
         assertThat(after[0]).as("ATK").isEqualTo(before[0] + 10 + aAtk + aStr); // base + afixo ATK + afixo STR(+1/pt)
         assertThat(after[1]).as("DEF").isEqualTo(before[1] + 5  + aDef);
         assertThat(after[2]).as("HP").isEqualTo(before[2] + 20 + aHp);
