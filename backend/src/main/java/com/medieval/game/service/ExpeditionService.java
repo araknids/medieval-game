@@ -14,7 +14,6 @@ import com.medieval.game.repository.ExpeditionRunRepository;
 import com.medieval.game.repository.PlayerRepository;
 import com.medieval.game.repository.ResourceInventoryRepository;
 import com.medieval.game.repository.WarriorRepository;
-import com.medieval.game.repository.WorkSessionRepository;
 import com.medieval.game.service.ExpeditionMapGenerator.Layer;
 import com.medieval.game.service.ExpeditionMapGenerator.Node;
 import com.medieval.game.service.GatheringService.ResourceDrop;
@@ -66,7 +65,7 @@ public class ExpeditionService {
     private final MailService             mailService;
     private final ItemLoreGenerator       loreGenerator;
     private final KingdomQuestNarrator    narrator;
-    private final WorkSessionRepository   workSessionRepository;
+    private final WorkGuard               workGuard; // [WORK_IDLE][VARREDURA] trava enquanto trabalha
     private final ObjectMapper            objectMapper;
     private final Messages                messages;       // [I18N] narrativas da run por idioma
 
@@ -108,7 +107,7 @@ public class ExpeditionService {
         if (warrior.isKnockedOut())
             throw new com.medieval.game.config.LocalizedException("error.knocked_out",
                     "Your warrior is knocked out. Heal before delving.");
-        WorkService.assertNotBusy(workSessionRepository, player); // [WORK_IDLE] não incursiona trabalhando
+        workGuard.assertNotBusy(player); // [WORK_IDLE] não incursiona trabalhando
         if (expeditionRepo.existsByPlayerAndStatusIn(player, ACTIVE))
             throw new com.medieval.game.config.LocalizedException("error.expedition_in_progress",
                     "You already have a Delve in progress.");
@@ -744,7 +743,12 @@ public class ExpeditionService {
 
     private double tierMult(int tier) { return 1.0 + (tier - 1) * 0.6; } // 1.0/1.6/2.2
 
-    /** Stats do NPC por nível (replica ZoneService.npcStatsByLevel; private lá). [REBALANCE] */
+    /**
+     * Stats do NPC por nível da Incursão. [REBALANCE]
+     * ⚠️ [VARREDURA] DIVERGIU do ZoneService.npcStatsByLevel — NÃO é mais cópia: a Incursão (push-your-luck)
+     * usa mobs mais FRACOS de propósito (menos ATK/HP/acerto) que a zona normal. Unificar mudaria o
+     * balanceamento de um dos modos → decisão de tuning do dono, não dedup. Mantidos separados.
+     */
     private int[] npcStats(int level, java.util.Random rng) {
         // [TUNING] nerf da dificuldade (mobs estavam duros): menos ATK/HP e bem menos ACERTO (dex → erra mais).
         int atk = 2 + (level * 3) / 2 + rng.nextInt(2);

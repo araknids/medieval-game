@@ -34,7 +34,7 @@ public class KingdomService {
     private final TrainingSessionRepository    trainingRepo;
     private final WarriorRepository            warriorRepo;
     private final PlayerRepository             playerRepository;
-    private final WorkSessionRepository        workSessionRepository; // [WORK_IDLE] trava enquanto trabalha
+    private final WorkGuard                    workGuard; // [WORK_IDLE][VARREDURA] trava enquanto trabalha
     private final PlayerService                playerService;
     private final WarriorService               warriorService;
     private final InventoryService             inventoryService;
@@ -190,7 +190,7 @@ public class KingdomService {
             throw new IllegalStateException("You already did this daily quest. Comes back on the next reset.");
         }
 
-        WorkService.assertNotBusy(workSessionRepository, player); // [WORK_IDLE] não faz missão enquanto trabalha
+        workGuard.assertNotBusy(player); // [WORK_IDLE] não faz missão enquanto trabalha
         if (!instantComplete) playerService.consumeStamina(player, questType.staminaCost); // estamina ignorada no modo de teste [TESTE]
 
         KingdomActiveQuest quest = new KingdomActiveQuest();
@@ -689,7 +689,7 @@ public class KingdomService {
             case HELMET   -> new String[]{"Helm", "Helmet"};
             case ARMOR    -> new String[]{"Armor", "Breastplate"};
             // [CLASSES_ARMAS] Varia o TIPO dentro da categoria da classe (o nome → WeaponType no make()).
-            case WEAPON   -> isArcher ? new String[]{"Short Bow", "Long Bow", "Crossbow"}
+            case WEAPON   -> isArcher ? new String[]{"Short Bow", "Long Bow"}   // [NO_CROSSBOW] besta removida (sem modelo 3D) — alinha com ExpeditionService
                                       : new String[]{"Sword", "Greatsword", "Axe", "Spear"};
             case SHIELD   -> new String[]{"Shield", "Buckler"};
             case BOOTS    -> new String[]{"Boots", "Greaves"};

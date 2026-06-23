@@ -34,7 +34,7 @@ public class ArenaService {
     private final AbilityService       abilityService; // ativas no combate [HABILIDADES]
     private final AchievementService   achievementService; // [TITULOS]
     private final GatheringService     gatheringService;   // [MONSTER_CORE_BATALHA]
-    private final com.medieval.game.repository.WorkSessionRepository workSessionRepository; // [WORK_IDLE]
+    private final WorkGuard workGuard; // [WORK_IDLE][VARREDURA] trava enquanto trabalha
 
     @Value("${app.dev.instant-complete:false}")
     private boolean instantComplete;
@@ -78,7 +78,7 @@ public class ArenaService {
             throw new IllegalStateException("Your warrior is unconscious. Visit the Temple to heal!");
         }
 
-        WorkService.assertNotBusy(workSessionRepository, challenger); // [WORK_IDLE] não duela enquanto trabalha
+        workGuard.assertNotBusy(challenger); // [WORK_IDLE] não duela enquanto trabalha
 
         // Daily fight limit (5 free / 10 VIP) + estamina (gate, pulado no modo de teste)
         vipService.consumeArenaFight(challenger);

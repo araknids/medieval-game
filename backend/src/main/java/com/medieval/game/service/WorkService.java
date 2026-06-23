@@ -55,17 +55,7 @@ public class WorkService {
                 .isPresent();
     }
 
-    /**
-     * [WORK_IDLE] Trava cruzada: enquanto o timer do trabalho roda, o jogador não pode aventurar
-     * (zona/arena/torre/missão/guerra/trial). Estático recebendo o repo p/ NÃO criar dependência
-     * circular entre os serviços de aventura e o WorkService.
-     */
-    public static void assertNotBusy(WorkSessionRepository repo, Player player) {
-        repo.findByPlayerAndStatus(player, WorkStatus.IN_PROGRESS)
-            .filter(s -> !s.isReadyToCollect())
-            .ifPresent(s -> { throw new com.medieval.game.config.LocalizedException(
-                    "error.busy_working", "You are working — finish or cancel your job first."); });
-    }
+    // [VARREDURA] assertNotBusy migrou p/ o bean WorkGuard (era static-com-repo só p/ evitar ciclo).
 
     @Transactional
     public WorkSession startWork(Player player, WorkType workType, int hours) {

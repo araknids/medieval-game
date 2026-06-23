@@ -35,7 +35,7 @@ public class ZoneService {
     private final WarriorStatsService      statsService;
     private final ResourceInventoryRepository resourceRepo; // raid de recursos [PVP_FLAG]
     private final AbilityService           abilityService; // ativas no combate [HABILIDADES]
-    private final WorkSessionRepository    workSessionRepository; // [WORK_IDLE] trava enquanto trabalha
+    private final WorkGuard                workGuard; // [WORK_IDLE][VARREDURA] trava enquanto trabalha
     private final KingdomQuestNarrator     narrator;        // [ENEMY_NAMES] nome do inimigo por bioma + tier (localizado)
 
     @Value("${app.dev.instant-complete:false}")
@@ -86,7 +86,7 @@ public class ZoneService {
             throw new IllegalStateException("Your warrior is unconscious. Visit the Temple to heal!");
         }
 
-        WorkService.assertNotBusy(workSessionRepository, player); // [WORK_IDLE] não aventura enquanto trabalha
+        workGuard.assertNotBusy(player); // [WORK_IDLE] não aventura enquanto trabalha
 
         // [SEM_TIMER] Auto-cancela expedição pendurada (IN_PROGRESS não coletada): tudo é instantâneo,
         // então uma atividade antiga é só lixo — cancela e segue pra nova (uma expedição ativa por vez).
