@@ -15,19 +15,19 @@ const Icons := preload("res://ui/Icons.gd")
 # [name, tier, skillType("" p/ COMBAT), minLevel, role]
 const ZONES := {
 	"FISHING": [
-		["🏖 Safe Shore", "SAFE", "FISHING", 1], ["🌊 Wild Coast", "PVP", "FISHING", 10], ["🦈 Deep Sea", "HIGH_RISK", "FISHING", 20],
+		["Safe Shore", "SAFE", "FISHING", 1], ["Wild Coast", "PVP", "FISHING", 10], ["Deep Sea", "HIGH_RISK", "FISHING", 20],
 	],
 	"MAR_ABENCOADO": [
-		["🌅 Sacred Cove", "SAFE", "FISHING", 1], ["🐠 Deep Reef", "PVP", "FISHING", 10], ["🔱 Blessed Abyss", "HIGH_RISK", "FISHING", 20],
+		["Sacred Cove", "SAFE", "FISHING", 1], ["Deep Reef", "PVP", "FISHING", 10], ["Blessed Abyss", "HIGH_RISK", "FISHING", 20],
 	],
 	"MINING": [
-		["⛏ Open Mine", "SAFE", "MINING", 1], ["🪨 Deep Tunnels", "PVP", "MINING", 10], ["💎 Forbidden Mines", "HIGH_RISK", "MINING", 20],
+		["Open Mine", "SAFE", "MINING", 1], ["Deep Tunnels", "PVP", "MINING", 10], ["Forbidden Mines", "HIGH_RISK", "MINING", 20],
 	],
 	"GRUTAS_DE_CRISTAL": [
-		["🔎 Shallow Vein", "SAFE", "GARIMPO", 1], ["💠 Deep Grottoes", "PVP", "GARIMPO", 10], ["💎 Forbidden Cavern", "HIGH_RISK", "GARIMPO", 20],
+		["Shallow Vein", "SAFE", "GARIMPO", 1], ["Deep Grottoes", "PVP", "GARIMPO", 10], ["Forbidden Cavern", "HIGH_RISK", "GARIMPO", 20],
 	],
 	"COMBAT": [
-		["🏰 Haunted Courtyard", "SAFE", "", 1], ["⚔ Battlefield", "PVP", "", 10], ["🔥 War Zone", "HIGH_RISK", "", 20],
+		["Haunted Courtyard", "SAFE", "", 1], ["Battlefield", "PVP", "", 10], ["War Zone", "HIGH_RISK", "", 20],
 	],
 }
 const TIER_COL := {"SAFE": Color(0.30, 0.80, 0.30), "PVP": Color(1.0, 0.76, 0.0), "HIGH_RISK": Color(0.94, 0.33, 0.33)}
@@ -339,12 +339,10 @@ func _make_pin(k: Dictionary) -> Control:
 	nm.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	row.add_child(nm)
 	var cg := str(k.get("controllingGuild", ""))
-	if cg != "":
-		var g := Label.new()
-		g.text = "🛡"
-		g.add_theme_font_size_override("font_size", 12)
-		g.add_theme_color_override("font_color", UiKit.OK)
+	if cg != "" and Icons.tex("guild") != null:   # [SEM_WEB_EMOJI] selo de guilda controladora = ícone, não 🛡
+		var g := Icons.rect("guild", 14)
 		g.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		g.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 		row.add_child(g)
 	pin.add_child(name_box)
 	pin.gui_input.connect(func(ev: InputEvent) -> void:
@@ -406,11 +404,19 @@ func _layout_map() -> void:
 func _render_detail(kingdom: String) -> void:
 	var k := _kingdom_data(kingdom)
 	# [SEM_SCROLL] "voltar ao mapa" virou um botão pequeno no HEADER (ver _ready) — não ocupa mais o corpo.
+	# [SEM_WEB_EMOJI] título = ícone pixel-art do território (KINGDOM_ICON) + nome — nunca o emoji do backend.
+	var head_row := HBoxContainer.new(); head_row.add_theme_constant_override("separation", 9)
+	var ikey: String = KINGDOM_ICON.get(kingdom, "")
+	if ikey != "" and Icons.tex(ikey) != null:
+		var hic := Icons.rect(ikey, 28); hic.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+		head_row.add_child(hic)
 	var head := Label.new()
-	head.text = "%s %s" % [str(k.get("icon", "")), str(k.get("displayName", kingdom))]
+	head.text = str(k.get("displayName", kingdom))
 	head.add_theme_font_size_override("font_size", 20)
 	head.add_theme_color_override("font_color", UiKit.GOLD)
-	content.add_child(head)
+	head.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	head_row.add_child(head)
+	content.add_child(head_row)
 	var cg := str(k.get("controllingGuild", ""))
 	content.add_child(UiKit.dim(("🛡 " + cg) if cg != "" else "Neutro"))
 	if bool(k.get("isMine", false)):
@@ -519,7 +525,7 @@ func _quest_card(kingdom: String, q: Dictionary) -> PanelContainer:
 	vb.add_child(top)
 	# [QUESTS_ICONE] rótulo de tipo (cor) — deixa claro combate vs exploração ANTES de clicar
 	var tag := Label.new()
-	tag.text = "%s %s" % [t_emoji, Lang.t(t_label)]
+	tag.text = Lang.t(t_label)   # [SEM_WEB_EMOJI] sem emoji — o ícone de tipo já está no cabeçalho
 	tag.add_theme_font_size_override("font_size", 11)
 	tag.add_theme_color_override("font_color", t_col)
 	vb.add_child(tag)
@@ -655,7 +661,7 @@ func _zone_card(kingdom: String, z: Array) -> PanelContainer:
 	nm.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	top.add_child(nm)
 	var tag := Label.new()
-	tag.text = ("⚔ PvP" if tier != "SAFE" else "✔ Seguro")
+	tag.text = ("PvP" if tier != "SAFE" else Lang.t("Seguro"))   # [SEM_WEB_EMOJI] tier já vem pela cor do nome
 	tag.add_theme_color_override("font_color", UiKit.TEXT_DIM); tag.add_theme_font_size_override("font_size", 11)
 	top.add_child(tag)
 	if enabled:

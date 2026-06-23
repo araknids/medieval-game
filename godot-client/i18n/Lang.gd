@@ -583,11 +583,11 @@ const EN := {
 
 # Literais que JÁ estão em inglês no código (nomes de zona etc.) → tradução PT p/ o locale "pt".
 const PT_OVERRIDE := {
-	"🏖 Safe Shore": "🏖 Praia Segura", "🌊 Wild Coast": "🌊 Costa Selvagem", "🦈 Deep Sea": "🦈 Mar Profundo",
-	"🌅 Sacred Cove": "🌅 Enseada Sagrada", "🐠 Deep Reef": "🐠 Recife Profundo", "🔱 Blessed Abyss": "🔱 Abismo Abençoado",
-	"⛏ Open Mine": "⛏ Mina Aberta", "🪨 Deep Tunnels": "🪨 Túneis Profundos", "💎 Forbidden Mines": "💎 Minas Proibidas",
-	"🔎 Shallow Vein": "🔎 Veio Raso", "💠 Deep Grottoes": "💠 Grutas Profundas", "💎 Forbidden Cavern": "💎 Caverna Proibida",
-	"🏰 Haunted Courtyard": "🏰 Pátio Assombrado", "⚔ Battlefield": "⚔ Campo de Batalha", "🔥 War Zone": "🔥 Zona de Guerra",
+	"Safe Shore": "Praia Segura", "Wild Coast": "Costa Selvagem", "Deep Sea": "Mar Profundo",
+	"Sacred Cove": "Enseada Sagrada", "Deep Reef": "Recife Profundo", "Blessed Abyss": "Abismo Abençoado",
+	"Open Mine": "Mina Aberta", "Deep Tunnels": "Túneis Profundos", "Forbidden Mines": "Minas Proibidas",
+	"Shallow Vein": "Veio Raso", "Deep Grottoes": "Grutas Profundas", "Forbidden Cavern": "Caverna Proibida",
+	"Haunted Courtyard": "Pátio Assombrado", "Battlefield": "Campo de Batalha", "War Zone": "Zona de Guerra",
 	"🔥 Fire": "🔥 Fogo", "💧 Water": "💧 Água", "🪨 Earth": "🪨 Terra", "💨 Air": "💨 Ar",
 }
 
