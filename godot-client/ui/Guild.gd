@@ -461,7 +461,9 @@ func _render_no_guild() -> void:
 	# antes só aparecia como texto sutil no título da seção. coin_box(1000) → 🪙 "10 prata".
 	var cost_row := HBoxContainer.new(); cost_row.alignment = BoxContainer.ALIGNMENT_CENTER
 	cost_row.add_theme_constant_override("separation", 6)
-	cost_row.add_child(UiKit.dim(Lang.t("Custo para fundar:")))
+	var cost_lbl := UiKit.dim(Lang.t("Custo para fundar:"))
+	cost_lbl.autowrap_mode = TextServer.AUTOWRAP_OFF   # [FIX] sem isto o dim (AUTOWRAP_WORD_SMART) colapsa 1 letra/linha no HBox apertado
+	cost_row.add_child(cost_lbl)
 	cost_row.add_child(UiKit.coin_box(1000, 20))   # 1000 bronze = 10 prata (espelha GuildService.CREATE_COST_BRONZE)
 	box.add_child(cost_row)
 	box.add_child(UiKit.spacer(4))
