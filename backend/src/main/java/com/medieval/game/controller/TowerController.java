@@ -115,7 +115,8 @@ public class TowerController {
         m.put("won", result.won());
         m.put("floor", result.floor());
         m.put("bossName", result.bossName());
-        m.put("atmosphere", result.atmosphere());           // [TORRE_NARRATIVA]
+        m.put("aftermath", result.aftermath());             // [TORRE_DESFECHO] narrativa ao vencer
+        m.put("defeat", result.defeat());                   // [TORRE_DESFECHO] narrativa ao perder
         m.put("bronzeEarned", result.bronzeEarned());
         m.put("expEarned", result.expEarned());
         m.put("log", result.log());

@@ -314,7 +314,8 @@ func _render_result() -> void:
 	else:
 		var d := Label.new(); d.text = "☠ Derrotado — cure-se no Templo"
 		d.add_theme_color_override("font_color", UiKit.ERR); vb.add_child(d)
-	var note := str(last_result.get("atmosphere", ""))
+	# [TORRE_DESFECHO] vitória mostra o desfecho do andar; derrota mostra o texto de derrota do andar
+	var note := str(last_result.get("aftermath", "")) if won else str(last_result.get("defeat", ""))
 	if note == "" and won and not bool(last_result.get("runOver", false)):
 		note = "Chefe derrotado! Suba para o próximo andar quando quiser."
 	if note != "":
@@ -401,7 +402,7 @@ func _arka(spare: bool) -> void:
 		"bronzeEarned": 0,
 		"expEarned": 0,
 		"runOver": true,
-		"atmosphere": str(r["json"].get("message", "")),
+		"aftermath": str(r["json"].get("message", "")),
 		"log": [(Lang.t("🏆 Título desbloqueado: %s") % (Lang.t("O Misericordioso") if spare else Lang.t("Regicida")))],
 	}
 	_render()

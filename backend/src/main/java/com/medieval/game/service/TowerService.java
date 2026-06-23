@@ -105,6 +105,13 @@ public class TowerService {
     public String  floorAtmosphere(int floor) {
         return messages.getOr("tower.floor." + floor + ".atmosphere", TowerFloors.forFloor(floor).atmosphere());
     }
+    // [TORRE_DESFECHO] Desfecho (mostrado ao VENCER) e derrota (ao PERDER) — i18n com fallback EN do TowerFloors.
+    public String  floorAftermath(int floor) {
+        return messages.getOr("tower.floor." + floor + ".aftermath", TowerFloors.forFloor(floor).aftermath());
+    }
+    public String  floorDefeat(int floor) {
+        return messages.getOr("tower.floor." + floor + ".defeat", TowerFloors.forFloor(floor).defeat());
+    }
     public boolean isMvpFloor(int floor)       { return TowerFloors.forFloor(floor).isMvp(); }
 
     /** Preview do andar pra UI: atmosfera + nomes dos monstros + stats do representante + nível recomendado. */
@@ -123,9 +130,10 @@ public class TowerService {
     }
 
     // ── Resultado de um combate ──
+    // [TORRE_DESFECHO] aftermath = narrativa ao vencer; defeat = narrativa ao perder (só um vem preenchido).
     public record FightResult(boolean won, int floor, long bronzeEarned, long expEarned,
                               List<String> log, String bossName, boolean runOver,
-                              String atmosphere, boolean arkaChoicePending,
+                              String aftermath, String defeat, boolean arkaChoicePending,
                               List<BattleSimulator.BattleEvent> events) {} // [BATALHA_ANIMADA]
 
     public Optional<TowerRun> getCurrentRun(Player player) {
@@ -311,8 +319,10 @@ public class TowerService {
         log.info("[TowerService] player={} action=climb OK floor={} won={} mvp={} bronze={} xp={}",
                 player.getId(), floor, won, fdef.isMvp(), bronzeEarned, expEarned);
         boolean runOver = run.getStatus() == TowerStatus.DEFEATED || run.getStatus() == TowerStatus.EXITED;
+        // [TORRE_DESFECHO] vitória → desfecho do andar; derrota → texto de derrota do andar.
         return new FightResult(won, floor, bronzeEarned, expEarned, battleLog, headline,
-                runOver, floorAtmosphere(floor), arkaChoicePending, allEvents); // [I18N][BATALHA_ANIMADA]
+                runOver, won ? floorAftermath(floor) : "", won ? "" : floorDefeat(floor),
+                arkaChoicePending, allEvents); // [I18N][BATALHA_ANIMADA]
     }
 
     /**
