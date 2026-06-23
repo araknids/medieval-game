@@ -159,6 +159,26 @@ func _build_training_section() -> void:
 	var res := UiKit.card(UiKit.GOLD_SOFT)
 	var box: VBoxContainer = res[1]
 	box.add_theme_constant_override("separation", 7)
+	# [WORK_GIF] retrato animado do Training Hall (frame 0 parado; cicla os frames no hover do card)
+	if not Icons.frames("training_hall").is_empty():
+		var hrow := HBoxContainer.new(); hrow.add_theme_constant_override("separation", 10)
+		var ic := TextureRect.new()
+		ic.custom_minimum_size = Vector2(52, 52)
+		ic.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		ic.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+		ic.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+		ic.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+		ic.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		Icons.anim_rect(res[0], ic, "training_hall")
+		hrow.add_child(ic)
+		var sub := Label.new()
+		sub.text = Lang.t("Aprimore seu guerreiro treinando")
+		sub.add_theme_font_size_override("font_size", 12)
+		sub.add_theme_color_override("font_color", UiKit.TEXT_DIM)
+		sub.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+		sub.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		hrow.add_child(sub)
+		box.add_child(hrow)
 	if bool(training.get("active", false)):
 		_train_active(box)
 	else:
