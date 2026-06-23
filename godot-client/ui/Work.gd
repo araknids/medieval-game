@@ -139,52 +139,75 @@ func _job_card(job: Dictionary) -> PanelContainer:
 		box.add_child(hrs)
 	return pc
 
-# [TRAINING] Training Hall (movido do Mundo): treina por bronze → XP instantâneo. Card compacto no topo.
+# [TRAINING] Training Hall (movido do Mundo). Duas vias: IDLE grátis (timer real, ocupa o guerreiro, XP
+# modesto) e PAGO instantâneo (bronze → XP na hora). [TREINO_IDLE]
 func _build_training_section() -> void:
 	content.add_child(UiKit.section("🏋 Training Hall"))
 	var res := UiKit.card(UiKit.GOLD_SOFT)
-	var pc: PanelContainer = res[0]
 	var box: VBoxContainer = res[1]
-	var row := HBoxContainer.new(); row.add_theme_constant_override("separation", 8)
-	box.add_child(row)
+	box.add_theme_constant_override("separation", 7)
 	if bool(training.get("active", false)):
-		var info := Label.new()
-		info.text = Lang.t("Treinando: +%d XP") % int(training.get("xpReward", 0))
-		info.add_theme_color_override("font_color", UiKit.GOLD_SOFT)
-		info.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		info.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-		row.add_child(info)
-		var sid := int(training.get("id", 0))
-		if bool(training.get("readyToCollect", false)):
-			var cb := UiKit.small_btn("⭐ Coletar XP", _train_collect.bind(sid))
-			cb.tooltip_text = Lang.t("Receber o XP do treino")
-			row.add_child(cb)
-		var xb := UiKit.small_btn("✖", _train_cancel.bind(sid), true)
-		xb.tooltip_text = Lang.t("Cancelar o treino")
-		row.add_child(xb)
+		_train_active(box)
 	else:
+		# ── IDLE GRÁTIS: timer real, ocupa o guerreiro (não aventura), XP modesto (level×10/h) ──
+		box.add_child(UiKit.icon_text("⏳ Treino idle (grátis) — ocupa o guerreiro por horas, sem custo", 13, UiKit.TEXT_DIM, 16))
+		var free_row := HBoxContainer.new(); free_row.add_theme_constant_override("separation", 8); free_row.alignment = BoxContainer.ALIGNMENT_CENTER
+		for h in [1, 4, 8]:
+			var fxp := warrior_level * 10 * h
+			var fb := UiKit.small_btn("%dh  ⭐+%d" % [h, fxp], _train_start.bind(h, true))
+			fb.tooltip_text = Lang.t("Treina %dh de graça → +%d XP. Enquanto treina, o guerreiro fica ocupado (não pode aventurar).") % [h, fxp]
+			free_row.add_child(fb)
+		box.add_child(free_row)
+		box.add_child(UiKit.spacer(2))
+		# ── PAGO INSTANTÂNEO: bronze → XP na hora (level×25/h por level×10/h bronze) ──
+		box.add_child(UiKit.icon_text("🥇 Treino pago — XP na hora, por bronze", 13, UiKit.TEXT_DIM, 16))
 		var hours := 2
-		var cost := warrior_level * 10 * hours   # custo (nível×10×h) — espelha KingdomService
-		var xp := warrior_level * 25 * hours      # XP (nível×25×h)
+		var cost := warrior_level * 10 * hours
+		var xp := warrior_level * 25 * hours
 		var total_bronze := int(warrior.get("gold", 0)) * 10000 + int(warrior.get("silver", 0)) * 100 + int(warrior.get("bronze", 0))
 		var afford := total_bronze >= cost
-		var info := Label.new()
-		info.text = Lang.t("XP instantâneo por bronze")
-		info.add_theme_font_size_override("font_size", 13)
-		info.add_theme_color_override("font_color", UiKit.TEXT_DIM)
-		info.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		info.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-		row.add_child(info)
-		row.add_child(UiKit.coin_box(cost, 14, UiKit.ERR if not afford else UiKit.TEXT))
+		var paid_row := HBoxContainer.new(); paid_row.add_theme_constant_override("separation", 8); paid_row.alignment = BoxContainer.ALIGNMENT_CENTER
+		paid_row.add_child(UiKit.coin_box(cost, 14, UiKit.ERR if not afford else UiKit.TEXT))
 		var xpl := Label.new(); xpl.text = "⭐+%d" % xp
 		xpl.add_theme_color_override("font_color", UiKit.GOLD_SOFT); xpl.add_theme_font_size_override("font_size", 13)
 		xpl.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-		row.add_child(xpl)
-		var b := UiKit.small_btn("🏋 Treinar", _train_start.bind(hours))
+		paid_row.add_child(xpl)
+		var b := UiKit.small_btn("🏋 Treinar", _train_start.bind(hours, false))
 		b.disabled = not afford
 		b.tooltip_text = Lang.t("Gasta %s e ganha +%d XP na hora (instantâneo)") % [UiKit.coin_str(cost), xp]
-		row.add_child(b)
-	content.add_child(pc)
+		paid_row.add_child(b)
+		box.add_child(paid_row)
+	content.add_child(res[0])
+
+# [TREINO_IDLE] Treino EM ANDAMENTO: idle mostra timer + barra; pronto/pago mostra coletar. Cancelar sempre.
+func _train_active(box: VBoxContainer) -> void:
+	var is_free := bool(training.get("free", false))
+	var ready := bool(training.get("readyToCollect", false))
+	var sid := int(training.get("id", 0))
+	var secs := int(training.get("secondsRemaining", 0))
+	var info := Label.new()
+	if is_free and not ready:
+		info.text = Lang.t("Treinando (idle): +%d XP · faltam %s") % [int(training.get("xpReward", 0)), _fmt_train_time(secs)]
+	else:
+		info.text = Lang.t("Treino pronto: +%d XP") % int(training.get("xpReward", 0))
+	info.add_theme_color_override("font_color", UiKit.GOLD_SOFT)
+	box.add_child(info)
+	if is_free and not ready:
+		var total := maxi(1, int(training.get("hours", 0)) * 3600)
+		box.add_child(_thin_bar(total - secs, total, UiKit.GOLD))
+	var row := HBoxContainer.new(); row.add_theme_constant_override("separation", 8); row.alignment = BoxContainer.ALIGNMENT_END
+	if ready:
+		row.add_child(UiKit.small_btn("⭐ Coletar XP", _train_collect.bind(sid)))
+	var xb := UiKit.small_btn("✖", _train_cancel.bind(sid), true)
+	xb.tooltip_text = Lang.t("Cancelar o treino")
+	row.add_child(xb)
+	box.add_child(row)
+
+func _fmt_train_time(s: int) -> String:
+	var hh := s / 3600; var mm := (s % 3600) / 60
+	if hh > 0: return "%dh %dmin" % [hh, mm]
+	if mm > 0: return "%dmin" % mm
+	return "%ds" % maxi(s, 0)
 
 # Barra de progresso FINA (10px, sem rótulo) p/ a XP de profissão nos cards compactos.
 func _thin_bar(value: int, maxv: int, fill: Color) -> ProgressBar:
@@ -202,18 +225,20 @@ func _thin_bar(value: int, maxv: int, fill: Color) -> ProgressBar:
 	return pb
 
 # ── Training Hall: ações (treino é INSTANTÂNEO; start→collect direto) ───────────────
-func _train_start(hours: int) -> void:
+func _train_start(hours: int, free := false) -> void:
 	if busy: return
 	busy = true
-	var r = await Api.training_start(hours)
+	var r = await Api.training_start(hours, free)
+	busy = false
 	if r.get("ok") and r.get("json") is Dictionary:
-		busy = false
-		await _train_collect(int(r["json"].get("id", 0)))
-		return
+		if free:
+			await _refresh()   # [TREINO_IDLE] timer rodando → mostra o estado (NÃO coleta na hora)
+			UiKit.flash(status, Lang.t("Treino idle iniciado — o guerreiro está ocupado por %dh.") % hours, 0)
+		else:
+			await _train_collect(int(r["json"].get("id", 0)))   # pago: coleta instantânea
 	else:
 		UiKit.show_error(status, r)
-	busy = false
-	await _refresh()
+		await _refresh()
 
 func _train_collect(session_id: int) -> void:
 	if busy: return

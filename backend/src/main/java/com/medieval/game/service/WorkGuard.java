@@ -1,7 +1,9 @@
 package com.medieval.game.service;
 
+import com.medieval.game.enums.TrainingStatus;
 import com.medieval.game.enums.WorkStatus;
 import com.medieval.game.model.Player;
+import com.medieval.game.repository.TrainingSessionRepository;
 import com.medieval.game.repository.WorkSessionRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -21,6 +23,7 @@ import org.springframework.stereotype.Service;
 public class WorkGuard {
 
     private final WorkSessionRepository workSessionRepository;
+    private final TrainingSessionRepository trainingSessionRepository; // [TREINO_IDLE]
 
     /** true se o jogador está trabalhando AGORA (sessão em andamento que ainda não terminou). */
     public boolean isWorking(Player player) {
@@ -29,14 +32,25 @@ public class WorkGuard {
                 .isPresent();
     }
 
+    /** [TREINO_IDLE] true se o jogador está num treino IDLE GRÁTIS com o timer ainda rodando. */
+    public boolean isTrainingIdle(Player player) {
+        return trainingSessionRepository.findByPlayerAndStatus(player, TrainingStatus.IN_PROGRESS)
+                .filter(s -> !s.isReadyToCollect())   // pago = instantâneo (já pronto) → não bloqueia; só o idle (timer real)
+                .isPresent();
+    }
+
     /**
-     * Trava cruzada: enquanto o timer do trabalho roda, o jogador não pode aventurar
-     * (zona/arena/torre/missão/guerra/trial). Lança {@code error.busy_working} se estiver trabalhando.
+     * Trava cruzada: enquanto o timer do trabalho OU do treino idle roda, o jogador não pode aventurar
+     * (zona/arena/torre/missão/guerra/trial). [WORK_IDLE][TREINO_IDLE]
      */
     public void assertNotBusy(Player player) {
         if (isWorking(player)) {
             throw new com.medieval.game.config.LocalizedException(
                     "error.busy_working", "You are working — finish or cancel your job first.");
+        }
+        if (isTrainingIdle(player)) {
+            throw new com.medieval.game.config.LocalizedException(
+                    "error.busy_training", "You are training — finish or cancel it first.");
         }
     }
 }

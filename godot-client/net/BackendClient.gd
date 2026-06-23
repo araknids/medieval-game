@@ -131,8 +131,8 @@ func quest_abandon(kingdom: String, id: int) -> Dictionary:
 	return await _request(HTTPClient.METHOD_POST, "/api/world/%s/quests/%d/abandon" % [kingdom, id], {}, true)
 func training_current() -> Dictionary:
 	return await _request(HTTPClient.METHOD_GET, "/api/world/COMBAT/training", null, true)
-func training_start(hours: int) -> Dictionary:
-	return await _request(HTTPClient.METHOD_POST, "/api/world/COMBAT/training/start", {"hours": hours}, true)
+func training_start(hours: int, free := false) -> Dictionary:   # [TREINO_IDLE] free=true → treino idle grátis (timer real)
+	return await _request(HTTPClient.METHOD_POST, "/api/world/COMBAT/training/start", {"hours": hours, "free": free}, true)
 func training_collect(id: int) -> Dictionary:
 	return await _request(HTTPClient.METHOD_POST, "/api/world/COMBAT/training/%d/collect" % id, {}, true)
 func training_cancel(id: int) -> Dictionary:

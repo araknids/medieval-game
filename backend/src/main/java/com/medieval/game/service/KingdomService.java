@@ -29,6 +29,10 @@ public class KingdomService {
     private static final int TRAINING_BRONZE_PER_HOUR_PER_LEVEL = 10;
     // XP per training hour = warrior level × this multiplier
     private static final int TRAINING_XP_PER_HOUR_PER_LEVEL = 25;
+    // [TREINO_IDLE] Treino IDLE GRÁTIS: timer REAL (bloqueia aventura via WorkGuard), sem custo, XP
+    // modesto (~level×10/h vs 25 do pago instantâneo) e cap de 8h — o gate é tempo + oportunidade.
+    private static final int FREE_TRAINING_XP_PER_HOUR_PER_LEVEL = 10;
+    private static final int FREE_TRAINING_MAX_HOURS = 8;
 
     private final KingdomActiveQuestRepository questRepo;
     private final TrainingSessionRepository    trainingRepo;
@@ -541,12 +545,19 @@ public class KingdomService {
 
     // ── Training (Combat Kingdom only) ────────────────────────────────────────
 
+    /** Compat: treino PAGO instantâneo (1-12h, paga bronze → XP na hora). */
     @Transactional
     public TrainingSession startTraining(Player player, int hours) {
-        log.info("[KingdomService] player={} action=startTraining hours={}", player.getId(), hours);
-        if (hours < 1 || hours > 12) {
-            log.warn("[KingdomService] player={} REJECTED: training duration invalid hours={}", player.getId(), hours);
-            throw new IllegalArgumentException("Training duration must be 1-12 hours.");
+        return startTraining(player, hours, false);
+    }
+
+    @Transactional
+    public TrainingSession startTraining(Player player, int hours, boolean free) {
+        log.info("[KingdomService] player={} action=startTraining hours={} free={}", player.getId(), hours, free);
+        int maxHours = free ? FREE_TRAINING_MAX_HOURS : 12;
+        if (hours < 1 || hours > maxHours) {
+            log.warn("[KingdomService] player={} REJECTED: training duration invalid hours={} free={}", player.getId(), hours, free);
+            throw new IllegalArgumentException("Training duration must be 1-" + maxHours + " hours.");
         }
 
         if (trainingRepo.existsByPlayerAndStatus(player, TrainingStatus.IN_PROGRESS)) {
@@ -557,20 +568,32 @@ public class KingdomService {
         Warrior warrior = warriorRepo.findByPlayer(player)
                 .orElseThrow(() -> new IllegalStateException("Warrior not found."));
 
-        long bronzeCost = (long) warrior.getLevel() * TRAINING_BRONZE_PER_HOUR_PER_LEVEL * hours;
-        long xpReward   = (long) warrior.getLevel() * TRAINING_XP_PER_HOUR_PER_LEVEL    * hours;
-
-        playerService.spendBronze(player, bronzeCost);
+        long bronzeCost;
+        long xpReward;
+        LocalDateTime finishes;
+        if (free) {
+            // [TREINO_IDLE] grátis: timer REAL (bloqueia aventura via WorkGuard), sem custo, XP modesto.
+            bronzeCost = 0L;
+            xpReward   = (long) warrior.getLevel() * FREE_TRAINING_XP_PER_HOUR_PER_LEVEL * hours;
+            finishes   = LocalDateTime.now().plusHours(hours);
+        } else {
+            // pago: instantâneo (paga bronze, pega XP na hora). [SEM_TIMER]
+            bronzeCost = (long) warrior.getLevel() * TRAINING_BRONZE_PER_HOUR_PER_LEVEL * hours;
+            xpReward   = (long) warrior.getLevel() * TRAINING_XP_PER_HOUR_PER_LEVEL    * hours;
+            playerService.spendBronze(player, bronzeCost);
+            finishes   = LocalDateTime.now().minusSeconds(1); // -1s evita corrida de sub-segundo [FLAKE_FIX]
+        }
 
         TrainingSession session = new TrainingSession();
         session.setPlayer(player);
         session.setHours(hours);
         session.setBronzeCost(bronzeCost);
         session.setXpReward(xpReward);
+        session.setFree(free);
         session.setStartedAt(LocalDateTime.now());
-        session.setFinishesAt(LocalDateTime.now().minusSeconds(1)); // [SEM_TIMER] treino instantâneo; -1s evita corrida de sub-segundo [FLAKE_FIX]
+        session.setFinishesAt(finishes);
         TrainingSession saved = trainingRepo.save(session);
-        log.info("[KingdomService] player={} action=startTraining OK id={} xpReward={}", player.getId(), saved.getId(), xpReward);
+        log.info("[KingdomService] player={} action=startTraining OK id={} xpReward={} free={}", player.getId(), saved.getId(), xpReward, free);
         return saved;
     }
 

@@ -224,7 +224,7 @@ public class KingdomController {
     public ResponseEntity<?> startTraining(
             @RequestBody TrainingRequest req, Authentication auth) {
         Player player = getPlayer(auth);
-        TrainingSession session = kingdomService.startTraining(player, req.hours());
+        TrainingSession session = kingdomService.startTraining(player, req.hours(), req.free());
         return ResponseEntity.ok(trainingToMap(session));
     }
 
@@ -289,6 +289,7 @@ public class KingdomController {
             "hours",           s.getHours(),
             "bronzeCost",      s.getBronzeCost(),
             "xpReward",        s.getXpReward(),
+            "free",            s.isFree(),   // [TREINO_IDLE] treino idle grátis (timer real) vs pago instantâneo
             "secondsRemaining",secs,
             "readyToCollect",  s.isReadyToCollect()
         );
@@ -296,5 +297,5 @@ public class KingdomController {
 
     record StartQuestRequest(KingdomQuestType questType) {}
     record CollectQuestRequest(String optionId) {} // [QUESTS_INTERATIVAS] escolha do diálogo (null = não-interativa)
-    record TrainingRequest(int hours) {}
+    record TrainingRequest(int hours, boolean free) {}   // [TREINO_IDLE] free=true → treino idle grátis (timer real)
 }

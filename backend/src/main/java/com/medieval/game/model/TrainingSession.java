@@ -37,6 +37,10 @@ public class TrainingSession {
     @Column(columnDefinition = "bigint default 0")
     private long xpReward;
 
+    // [TREINO_IDLE] true = treino idle GRÁTIS (timer real, bloqueia aventura); false = pago instantâneo.
+    @Column(columnDefinition = "boolean default false")
+    private boolean free = false;
+
     @Column(nullable = false)
     private LocalDateTime startedAt = LocalDateTime.now();
 

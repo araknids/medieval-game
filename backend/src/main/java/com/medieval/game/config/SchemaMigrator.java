@@ -59,6 +59,7 @@ public class SchemaMigrator implements SmartInitializingSingleton {
         patchAbilityPointsColumn();
         patchStashColumns();
         patchKingdomQuestWindowColumn();
+        patchTrainingFreeColumn();
         patchLeaderboardCounterColumns();
         patchPlayerGenderColumn();
         patchTerritoryBattleEventsColumn();
@@ -454,6 +455,16 @@ public class SchemaMigrator implements SmartInitializingSingleton {
             log.info("[SchemaMigrator] kingdom_active_quests columns ensured");
         } catch (Exception e) {
             log.warn("[SchemaMigrator] kingdom_active_quests columns patch failed: {}", e.getMessage());
+        }
+    }
+
+    // [TREINO_IDLE] coluna free no training_sessions (treino idle grátis vs pago instantâneo).
+    private void patchTrainingFreeColumn() {
+        try {
+            jdbc.execute("ALTER TABLE training_sessions ADD COLUMN IF NOT EXISTS free boolean NOT NULL DEFAULT false");
+            log.info("[SchemaMigrator] training_sessions.free column ensured");
+        } catch (Exception e) {
+            log.warn("[SchemaMigrator] training_sessions.free patch failed: {}", e.getMessage());
         }
     }
 
