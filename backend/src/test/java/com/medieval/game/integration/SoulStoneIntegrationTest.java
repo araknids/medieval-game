@@ -99,7 +99,9 @@ class SoulStoneIntegrationTest extends BaseIntegrationTest {
     @DisplayName("TC-166 | Soulstone heal with full HP → 400")
     void tc166_soulstoneHeal_fullHp_returns400() throws Exception {
         grantStones(5);
-        // New warrior starts at full HP
+        // [ONBOARDING v3] novo guerreiro nasce a 80% → cura no Templo p/ ficar full antes do teste
+        mockMvc.perform(post("/api/temple/heal").header("Authorization", bearer(token)))
+                .andExpect(status().isOk());
         mockMvc.perform(post("/api/temple/soulstone-heal")
                         .header("Authorization", bearer(token)))
                 .andExpect(status().isBadRequest())

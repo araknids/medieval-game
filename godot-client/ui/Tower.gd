@@ -341,8 +341,11 @@ func _fight() -> void:
 	if busy: return
 	await _do_fight()
 
-func _do_fight() -> void:
+func _do_fight(confirmed := false) -> void:
 	if busy: return
+	if not confirmed:   # [HP_WARN] avisa se subir ferido (HP < 50%)
+		UiKit.confirm_if_wounded(self, warrior, func() -> void: _do_fight(true))
+		return
 	busy = true
 	UiKit.show_loading(self)
 	var r = await Api.tower_fight()

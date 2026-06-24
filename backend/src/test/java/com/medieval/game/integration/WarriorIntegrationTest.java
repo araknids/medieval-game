@@ -41,7 +41,7 @@ class WarriorIntegrationTest extends BaseIntegrationTest {
         mockMvc.perform(get("/api/warrior")
                         .header("Authorization", bearer(token)))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.hpPercent").value(100))
+                .andExpect(jsonPath("$.hpPercent").value(80)) // [ONBOARDING v3] recruta nasce ferido (80%)
                 .andExpect(jsonPath("$.stamina").isNumber())
                 .andExpect(jsonPath("$.bronze").isNumber())
                 .andExpect(jsonPath("$.silver").isNumber())

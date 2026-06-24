@@ -21,7 +21,7 @@ const ELEM_ICONS := {"FIRE": "🔥", "WATER": "💧", "EARTH": "🪨", "AIR": "�
 
 # [ONBOARDING] Briefing de chegada (Coroa de Arka) — texto curado em docs/PLANO_QUESTS_LORE.md.
 # Literal PT = chave; a tradução EN está no dict do Lang.gd. Aparece 1x (só se !onboardingSeen).
-const ONBOARD_BRIEFING := "Pediram um exército à Velha Coroa. Mandaram você.\n\nPrometeram poder ao Rei, e ele subiu a torre atrás da promessa — e não desceu mais. O que desce de lá agora não é gente.\n\nArranque o que puder dos mortos, suba atrás dele, e reze pra ele ainda ser o Rei quando você chegar."
+const ONBOARD_BRIEFING := "Coroa de Arka era a joia do novo mundo — ouro, terras, promessas. Aí as feras vieram. Pedimos um exército à Velha Coroa, do outro lado do mar. Mandaram você.\n\nPrometeram poder ao Rei — e ele subiu a torre atrás da promessa, levado pela mão de quem o enganava. Nunca desceu. O que governa lá em cima agora não é mais o Rei.\n\nArranque o que puder dos mortos, suba atrás dele, e reze pra ele ainda ser o Rei quando você chegar."
 
 # Tooltips (hover) de CADA item do menu lateral — explicam o que cada tela faz. [MENUBAR_HOVER]
 const NAV_TIPS := {
@@ -153,9 +153,19 @@ func _show_welcome(api) -> void:
 	var res := UiKit.card(UiKit.GOLD)
 	var panel: PanelContainer = res[0]
 	var vb: VBoxContainer = res[1]
-	panel.custom_minimum_size = Vector2(540, 0)
-	vb.add_theme_constant_override("separation", 14)
+	panel.custom_minimum_size = Vector2(600, 0)
+	vb.add_theme_constant_override("separation", 12)
 	center.add_child(panel)
+	# [ONBOARDING] mapa de Coroa de Arka no topo — aterriza o nome + preview de onde vai aventurar
+	var map_tex := load("res://assets/ui/map/world_map.png")
+	if map_tex != null:
+		var banner := TextureRect.new()
+		banner.texture = map_tex
+		banner.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		banner.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
+		banner.custom_minimum_size = Vector2(560, 190)
+		banner.clip_contents = true
+		vb.add_child(banner)
 	var ttl := Label.new()
 	ttl.text = "Coroa de Arka"
 	ttl.add_theme_font_size_override("font_size", 24)
@@ -165,16 +175,16 @@ func _show_welcome(api) -> void:
 	var body := Label.new()
 	body.text = Lang.t(ONBOARD_BRIEFING)
 	body.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	body.custom_minimum_size = Vector2(500, 0)
+	body.custom_minimum_size = Vector2(560, 0)
 	body.add_theme_font_size_override("font_size", 15)
-	body.add_theme_constant_override("line_spacing", 5)   # respiro entre linhas (mais leve de ler)
+	body.add_theme_constant_override("line_spacing", 6)   # respiro entre linhas (mais leve de ler)
 	body.add_theme_color_override("font_color", UiKit.TEXT)
 	vb.add_child(body)
 	var cta := UiKit.action_big(Lang.t("Conquistar meu lugar"), func() -> void:
 		await api.onboarding_seen()
 		if is_instance_valid(overlay):
 			overlay.queue_free()
-		_open("World"))
+		_open("Character"))
 	cta.custom_minimum_size = Vector2(500, 48)
 	vb.add_child(cta)
 
@@ -186,8 +196,44 @@ func _refresh_starter() -> void:
 	var r = await api.starter_quests()
 	if not (r.get("ok") and r.get("json") is Dictionary):
 		return
+	var was_done := {}   # [ONBOARDING] estado anterior (id → done) p/ detectar transição → toast direcional
+	for q in _starter_status:
+		if q is Dictionary:
+			was_done[str(q.get("id", ""))] = (str(q.get("state", "")) == "done")
 	_starter_status = r["json"].get("quests", []) if r["json"].get("quests") is Array else []
+	for q in _starter_status:
+		if q is Dictionary and str(q.get("state", "")) == "done" \
+				and was_done.has(str(q.get("id", ""))) and not bool(was_done[str(q.get("id", ""))]):
+			_starter_done_toast(str(q.get("id", "")))   # acabou de concluir → próximo passo
 	_apply_starter_badges()
+
+# [ONBOARDING] ao equipar, tenta concluir o dever de equipar (backend valida arma+armadura). Silencioso se faltar.
+func _try_equip_quest() -> void:
+	var d := _starter_by_id("equip")
+	if d.is_empty() or str(d.get("state", "")) != "accepted":
+		return
+	var api = get_node_or_null("/root/Api")
+	if api == null:
+		return
+	var r = await api.starter_quest_turn_in("equip")
+	if r.get("ok"):
+		await _refresh_starter()   # detecta equip→done → toast direcional (vá ao Templo)
+
+func _starter_by_id(id: String) -> Dictionary:
+	for q in _starter_status:
+		if q is Dictionary and str(q.get("id", "")) == id:
+			return q
+	return {}
+
+# [ONBOARDING] toast "feito → próximo passo" ao concluir cada dever (o badge "!" no NPC seguinte reforça).
+func _starter_done_toast(id: String) -> void:
+	var msg: String = {
+		"equip": "Armado. Agora procure o Padre Anselmo no Templo — você chegou ferido.",
+		"heal":  "Curado. O Capitão Garrick espera no Salão de Treino.",
+		"quest": "Você provou seu valor. A guarnição é sua, recruta.",
+	}.get(id, "")
+	if msg != "":
+		UiKit.toast(self, Lang.t(msg), "", 1)
 
 func _apply_starter_badges() -> void:
 	var any_open := false
@@ -195,7 +241,7 @@ func _apply_starter_badges() -> void:
 		if q is Dictionary:
 			var st := str(q.get("state", ""))
 			_set_nav_badge(str(q.get("npcScreen", "")), st == "available")
-			if st != "done":
+			if st == "available":   # "!" no topbar = tem quest NOVA pra pegar (some ao aceitar tudo)
 				any_open = true
 	if _quest_badge != null and is_instance_valid(_quest_badge):
 		_quest_badge.visible = any_open
@@ -219,15 +265,56 @@ func _starter_available_for(scr: String) -> Dictionary:
 			return q
 	return {}
 
-# [ONBOARDING v2] Botão de oferta de quest p/ a tela do NPC (null se não há disponível agora).
-# Usado por Templo/Loja (dentro do card do NPC) e Trabalho (solto). Click → diálogo de aceitar.
+# [ONBOARDING v3] Botão de quest p/ a tela do NPC, por ESTADO: available→"Pegar missão" (diálogo de aceitar);
+# accepted→ação de concluir conforme o tipo (Concluir=equipar / Curar / Entregar). locked/done/sem-quest → null.
 func quest_button_for(scr: String) -> Button:
-	var q := _starter_available_for(scr)
+	var q := _starter_for_screen(scr)
 	if q.is_empty():
 		return null
-	var btn := UiKit.action(Lang.t("Pegar missão"), func() -> void: _show_quest_offer(q))
-	btn.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	return btn
+	var st := str(q.get("state", ""))
+	var which := str(q.get("id", ""))
+	if st == "available":
+		var b := UiKit.action(Lang.t("Pegar missão"), func() -> void: _show_quest_offer(q))
+		b.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+		return b
+	if st == "accepted":
+		var comp := str(q.get("comp", ""))
+		if comp == "QUEST":   # completa por EVENTO (fazer 1 missão) → só guia pro Mundo
+			var nav := UiKit.action(Lang.t("Ir ao Mundo"), func() -> void: _open("World"))
+			nav.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+			return nav
+		var b := UiKit.action(_accepted_label(comp), func() -> void: await _quest_turn_in(which))
+		b.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+		return b
+	return null
+
+func _accepted_label(comp: String) -> String:
+	return Lang.t("Curar") if comp == "HEAL" else Lang.t("Concluir")
+
+# duty (available OU accepted) cuja tela do NPC é `scr`
+func _starter_for_screen(scr: String) -> Dictionary:
+	for q in _starter_status:
+		if q is Dictionary and str(q.get("npcScreen", "")) == scr:
+			var st := str(q.get("state", ""))
+			if st == "available" or st == "accepted":
+				return q
+	return {}
+
+func _quest_turn_in(which: String) -> void:
+	var api = get_node_or_null("/root/Api")
+	if api == null:
+		return
+	var r = await api.starter_quest_turn_in(which)
+	if r.get("ok"):
+		await _after_quest_change()
+	else:
+		UiKit.notify(self, UiKit.err_text(r), true)
+
+# após aceitar/concluir: atualiza badges + re-renderiza a tela atual (o botão da quest some/muda)
+func _after_quest_change() -> void:
+	await _refresh_starter()
+	if active_screen != null and is_instance_valid(active_screen) and active_screen.has_method("_refresh"):
+		await active_screen._refresh()
 
 func _maybe_offer(scr: String) -> void:
 	if bool(_offered.get(scr, false)):
@@ -257,6 +344,12 @@ func _show_quest_offer(q: Dictionary) -> void:
 	panel.custom_minimum_size = Vector2(460, 0)
 	vb.add_theme_constant_override("separation", 12)
 	center.add_child(panel)
+	# [ONBOARDING] retrato do NPC que pede a quest (veterano = Guarda do Salão / padre = Templo); equip não tem NPC
+	var portrait_key: String = {"equip": "veteran", "quest": "veteran", "heal": "priest"}.get(str(q.get("id", "")), "")
+	if portrait_key != "" and Icons.tex(portrait_key) != null:
+		var pr := Icons.rect(portrait_key, 96)
+		pr.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+		vb.add_child(pr)
 	var npc := Label.new()
 	npc.text = str(q.get("npc", "?"))
 	npc.add_theme_font_size_override("font_size", 20)
@@ -270,12 +363,6 @@ func _show_quest_offer(q: Dictionary) -> void:
 	fl.add_theme_font_size_override("font_size", 14)
 	fl.add_theme_color_override("font_color", UiKit.TEXT)
 	vb.add_child(fl)
-	var need := Label.new()
-	need.text = Lang.t("Pede: %d %s") % [int(q.get("needQty", 0)), str(q.get("needName", "?"))]
-	need.add_theme_font_size_override("font_size", 13)
-	need.add_theme_color_override("font_color", UiKit.TEXT_DIM)
-	need.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	vb.add_child(need)
 	var which := str(q.get("id", ""))
 	var accept := UiKit.action_big(Lang.t("Aceitar missão"), func() -> void:
 		var api = get_node_or_null("/root/Api")
@@ -283,7 +370,7 @@ func _show_quest_offer(q: Dictionary) -> void:
 			await api.starter_quest_accept(which)
 		if is_instance_valid(overlay):
 			overlay.queue_free()
-		await _refresh_starter())
+		await _after_quest_change())
 	accept.custom_minimum_size = Vector2(420, 46)
 	vb.add_child(accept)
 
@@ -718,6 +805,7 @@ func _open(scr: String) -> void:
 		if int(_cache_ver.get(scr, -1)) != mc and cached.has_method("_refresh"):
 			_cache_ver[scr] = mc
 			await cached._refresh()
+		_maybe_offer(scr)   # [ONBOARDING v3] modal de aceitar ao chegar no NPC (1×/sessão) — guia o recruta
 		return
 	# 1ª vez: instancia, cacheia (embedded). O _ready da tela já faz o _refresh inicial.
 	var scene = load("res://ui/%s.tscn" % scr)
@@ -733,6 +821,7 @@ func _open(scr: String) -> void:
 	_show_only(node)
 	active_screen = node
 	_set_active(scr)
+	_maybe_offer(scr)   # [ONBOARDING v3] modal de aceitar ao chegar no NPC (1×/sessão)
 
 func _mutation_count() -> int:
 	var api = get_node_or_null("/root/Api")
@@ -860,6 +949,7 @@ func _on_equip_changed(inv_arr := []) -> void:
 		UiKit.set_equipped(inv_arr)
 		if _bust != null and is_instance_valid(_bust):
 			_bust.apply(inv_arr, str(warrior.get("warriorClassId", "")), str(warrior.get("gender", UiKit.current_gender)))
+		_try_equip_quest()   # [ONBOARDING] equipou → tenta concluir o dever de equipar
 		return
 	var api = get_node_or_null("/root/Api")
 	if api == null:
@@ -869,6 +959,7 @@ func _on_equip_changed(inv_arr := []) -> void:
 		UiKit.set_equipped(inv["json"])
 		if _bust != null and is_instance_valid(_bust):
 			_bust.apply(inv["json"], str(warrior.get("warriorClassId", "")), str(warrior.get("gender", UiKit.current_gender)))
+	_try_equip_quest()   # [ONBOARDING] equipou → tenta concluir o dever de equipar
 
 # Atualiza só o topbar a partir de um WarriorResponse (chamado tb pelas telas via UiKit.set_wallet).
 func update_topbar(w: Dictionary) -> void:

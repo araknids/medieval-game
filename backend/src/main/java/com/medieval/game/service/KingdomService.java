@@ -52,6 +52,7 @@ public class KingdomService {
     private final AbilityService               abilityService; // +drop do Mercador (Treasure Hunter) [MERCADOR]
     private final Messages                     messages;       // [I18N] desfechos de quest interativa por idioma
     private final TerritoryContributionService territoryContributionService; // [LEADERBOARDS] incursões por território
+    private final StarterQuestService          starterQuestService; // [ONBOARDING v3] dever "complete 1 missão"
 
     // ── Luna (pet): interrompe missões normais + chance de pity escalante. [PETS][LUNA_INTERRUPT] ──
     private static final int  LUNA_INTERRUPT_PER_MILLE = 80;      // ~8% por missão (placeholder), só sem a Luna
@@ -321,6 +322,7 @@ public class KingdomService {
         // [DAILY_QUESTS] coletar = consumir a daily (conta pro limite da janela: 1× normal, 2× VIP).
         quest.setCompletedWindowId(currentQuestWindowId());
         questRepo.save(quest);
+        starterQuestService.onQuestCompleted(player); // [ONBOARDING v3] 1ª missão completa → conclui o dever do Training Hall (se aceito)
         // [LEADERBOARDS] completar a quest = +1 incursão no território (ajuda a cidade). Futuro: run de Incursão idem.
         territoryContributionService.recordIncursion(player, quest.getKingdom());
 

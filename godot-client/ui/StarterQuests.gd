@@ -1,12 +1,14 @@
 extends Control
-# ── Tela DIÁRIO DE MISSÕES — Deveres do Recruta ([ONBOARDING v2]) ─────────────────────
-# Aberta pelo ícone de quest no topbar. Lista as quests por estado: available (Aceitar),
-# accepted (Entregar) e done. Lê GET /api/starter-quests + /api/warrior; aceita/entrega via
-# POST /api/starter-quests/{which}/{accept|turn-in}. Avisa o Shell (UiKit.starter_changed_sink)
-# p/ atualizar os badges (nav dos NPCs + topbar). Sem emoji de web [SEM_WEB_EMOJI].
+# ── Tela DIÁRIO DE MISSÕES — Deveres do Recruta ([ONBOARDING v3]) ─────────────────────
+# Aberta pelo ícone de quest no topbar. Lista os 3 deveres-tutorial por ESTADO:
+# locked (pré não cumprido) / available (Aceitar) / accepted (Concluir|Curar|Entregar, por tipo) / done.
+# Lê GET /api/starter-quests + /api/warrior; aceita/conclui via POST .../{accept|turn-in}.
+# Avisa o Shell (UiKit.starter_changed_sink) p/ atualizar badges. Sem emoji de web [SEM_WEB_EMOJI].
 # Desenho: docs/PLANO_ONBOARDING.md.
 
 signal go_back
+
+const Icons := preload("res://ui/Icons.gd")   # [ONBOARDING] retrato do NPC nos cards (não é autoload)
 
 var content: VBoxContainer
 var status: Label
@@ -48,24 +50,32 @@ func _render() -> void:
 
 func _quest_card(q: Dictionary) -> PanelContainer:
 	var st := str(q.get("state", "available"))
-	var need_qty := int(q.get("needQty", 0))
-	var have := int(q.get("have", 0))
-	var enough := have >= need_qty
+	var comp := str(q.get("comp", ""))
+	var which := str(q.get("id", ""))
+	var locked := st == "locked"
 	var border := UiKit.OK if st == "done" else (UiKit.GOLD if st == "accepted" else UiKit.BRONZE)
-	var res := UiKit.card(border, true)
+	var res := UiKit.card(border, not locked)
 	var pc: PanelContainer = res[0]
 	var box: VBoxContainer = res[1]
-	var npc := Label.new()
-	npc.text = str(q.get("npc", "?"))
-	npc.add_theme_font_size_override("font_size", 16)
-	npc.add_theme_color_override("font_color", UiKit.OK if st == "done" else UiKit.GOLD)
-	box.add_child(npc)
+	# [ONBOARDING] cabeçalho do card: retrato de quem pediu (Garrick / Padre Anselmo) + nome
+	var head := HBoxContainer.new(); head.add_theme_constant_override("separation", 10)
+	var portrait_key: String = {"equip": "veteran", "quest": "veteran", "heal": "priest"}.get(str(q.get("id", "")), "")
+	if portrait_key != "" and Icons.tex(portrait_key) != null:
+		var pr := Icons.rect(portrait_key, 48)
+		pr.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+		head.add_child(pr)
+	var title := str(q.get("npc", "")).strip_edges()
+	if title == "":
+		title = Lang.t("Arme-se, recruta")
+	var nl := Label.new()
+	nl.text = title
+	nl.add_theme_font_size_override("font_size", 16)
+	nl.add_theme_color_override("font_color", UiKit.OK if st == "done" else UiKit.GOLD)
+	nl.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	head.add_child(nl)
+	box.add_child(head)
 	box.add_child(UiKit.dim(str(q.get("flavor", ""))))
-	var need_lbl := Label.new()
-	need_lbl.text = Lang.t("Você precisa de %d %s (tem %d)") % [need_qty, str(q.get("needName", "?")), have]
-	need_lbl.add_theme_font_size_override("font_size", 13)
-	need_lbl.add_theme_color_override("font_color", UiKit.TEXT if enough else UiKit.WARN)
-	box.add_child(need_lbl)
+	# recompensa
 	var rew := HBoxContainer.new(); rew.add_theme_constant_override("separation", 10)
 	var xp := int(q.get("rewardXp", 0))
 	if xp > 0:
@@ -76,21 +86,33 @@ func _quest_card(q: Dictionary) -> PanelContainer:
 		rew.add_child(xl)
 	rew.add_child(UiKit.coin_box(int(q.get("rewardBronze", 0)), 14))
 	box.add_child(rew)
-	var which := str(q.get("id", ""))
-	if st == "done":
+	# ação por estado
+	if st == "locked":
+		box.add_child(UiKit.dim(Lang.t("Conclua o dever anterior primeiro.")))
+	elif st == "available":
+		box.add_child(_action_btn(UiKit.action(Lang.t("Aceitar"), _accept.bind(which))))
+	elif st == "accepted":
+		if comp == "QUEST":   # completa por evento (fazer 1 missão) → guia pro Mundo
+			box.add_child(UiKit.dim(Lang.t("Complete uma missão no Mundo para cumprir este dever.")))
+			box.add_child(_action_btn(UiKit.action(Lang.t("Ir ao Mundo"), func() -> void:
+				if Shell.current != null:
+					Shell.current._open("World"))))
+		else:
+			box.add_child(_action_btn(UiKit.action(_action_label(comp), _turn_in.bind(which))))
+	else:   # done
 		var d := Label.new(); d.text = Lang.t("Já cumprido")
 		d.add_theme_font_size_override("font_size", 13)
 		d.add_theme_color_override("font_color", UiKit.OK)
 		box.add_child(d)
-	elif st == "accepted":
-		var b := UiKit.action(Lang.t("Entregar"), _turn_in.bind(which))
-		if not enough:
-			b.disabled = true
-		box.add_child(b)
-	else:   # available
-		box.add_child(UiKit.dim(Lang.t("Disponível com %s") % str(q.get("npc", "?"))))
-		box.add_child(UiKit.action(Lang.t("Aceitar"), _accept.bind(which)))
 	return pc
+
+func _action_label(comp: String) -> String:
+	return Lang.t("Curar") if comp == "HEAL" else Lang.t("Concluir")
+
+# [ONBOARDING] botão de ação compacto, alinhado à direita (não estica no VBox do card)
+func _action_btn(b: Button) -> Button:
+	b.size_flags_horizontal = Control.SIZE_SHRINK_END
+	return b
 
 func _accept(which: String) -> void:
 	if busy:

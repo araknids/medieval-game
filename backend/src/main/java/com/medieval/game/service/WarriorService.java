@@ -27,6 +27,8 @@ public class WarriorService {
         warrior.setAttack(warriorClass.baseAttack);
         warrior.setDefense(warriorClass.baseDefense);
         warrior.setHealth(warriorClass.baseHealth);
+        warrior.setCurrentHpSnapshot(80);   // [ONBOARDING v3] recruta chega ferido (80%) → motiva a quest do Templo (curar)
+        warrior.setHpUpdatedAt(java.time.LocalDateTime.now());
         Warrior saved = warriorRepository.save(warrior);
         log.info("[WarriorService] player={} action=create OK warriorId={}", player.getId(), saved.getId());
         return saved;

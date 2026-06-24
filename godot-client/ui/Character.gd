@@ -432,7 +432,7 @@ func _render_bag_panel() -> void:
 	_panel_host.add_child(UiKit.rarity_filter(rarity_filter, _set_rarity))
 	_panel_host.add_child(_sort_row())   # [INV_COMPACTO] chips de ordenação
 	if bag.is_empty():
-		_panel_host.add_child(UiKit.empty("Mochila vazia", "Vença missões no 🌍 Mundo para conseguir itens"))
+		_panel_host.add_child(UiKit.empty("Mochila vazia", "Vença missões no Mundo para conseguir itens"))
 	else:
 		var shown: Array = bag
 		if rarity_filter > 0:

@@ -304,8 +304,11 @@ func _rank_row(pos: int, r: Dictionary, is_me: bool) -> PanelContainer:
 	return panel
 
 # ── Ação: duelo contra o oponente escolhido → guarda o resultado e lança o replay. ──
-func _fight(opponent_id: int) -> void:
+func _fight(opponent_id: int, confirmed := false) -> void:
 	if busy or _blocked(): return
+	if not confirmed:   # [HP_WARN] avisa se entrar ferido (HP < 50%)
+		UiKit.confirm_if_wounded(self, w, func() -> void: _fight(opponent_id, true))
+		return
 	_close_picker()
 	busy = true
 	UiKit.show_loading(self)

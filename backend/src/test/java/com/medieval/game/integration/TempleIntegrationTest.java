@@ -52,6 +52,9 @@ class TempleIntegrationTest extends BaseIntegrationTest {
     @Test
     @DisplayName("TC-099 | POST /api/temple/heal com HP cheio - 400")
     void tc099_healAtFullHp_returns400() throws Exception {
+        // [ONBOARDING v3] novo guerreiro nasce a 80% → cura 1× (fica full); a 2ª cura cheia → 400
+        mockMvc.perform(post("/api/temple/heal").header("Authorization", bearer(token)))
+                .andExpect(status().isOk());
         mockMvc.perform(post("/api/temple/heal")
                         .header("Authorization", bearer(token)))
                 .andExpect(status().isBadRequest())

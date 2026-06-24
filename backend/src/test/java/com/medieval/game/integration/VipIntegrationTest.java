@@ -154,7 +154,9 @@ class VipIntegrationTest extends BaseIntegrationTest {
     @DisplayName("TC-183 | VIP heal with full HP → 400")
     void tc183_vipHeal_fullHp_returns400() throws Exception {
         buyVip();
-        // New warrior starts at full HP
+        // [ONBOARDING v3] novo guerreiro nasce a 80% → cura no Templo p/ ficar full antes do teste
+        mockMvc.perform(post("/api/temple/heal").header("Authorization", bearer(token)))
+                .andExpect(status().isOk());
         mockMvc.perform(post("/api/temple/vip-heal").header("Authorization", bearer(token)))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.error").value(containsString("full HP")));

@@ -11,6 +11,8 @@ static var topbar_sink := Callable()
 # Inventory chama após equipar/desequipar → Shell re-busca inventário (índice de comparação + busto 3D),
 # SÓ quando o equip muda (não a cada navegação). Evita request à toa. [PLANO_UI_SHELL_GODOT]
 static var equip_changed_sink := Callable()
+# [ONBOARDING v2] O diário StarterQuests avisa o Shell (aceitar/entregar) → re-render dos badges de quest.
+static var starter_changed_sink := Callable()
 
 # [LOADING] overlay central de carregamento (1 por vez) — substitui a mensagem "Carregando…" do topo
 static var _loading_overlay: Control = null
@@ -447,6 +449,16 @@ static func toast(host, text: String, icon_key := "", kind := 1) -> void:
 			layer.queue_free()
 		if _toast_overlay == layer:
 			_toast_overlay = null)
+
+# [HP_WARN] Confirma antes de entrar em combate FERIDO (HP < WOUNDED_PCT = "pode morrer"). HP >= limiar
+# (ou sem host) → segue direto, sem atrito. on_proceed = a lógica de combate original (re-chamar c/ confirmed).
+const WOUNDED_PCT := 50
+static func confirm_if_wounded(host: Control, warrior: Dictionary, on_proceed: Callable) -> void:
+	var hp := int(warrior.get("hpPercent", warrior.get("currentHp", 100)))
+	if host == null or hp >= WOUNDED_PCT:
+		on_proceed.call()
+		return
+	confirm(host, Lang.t("Você está ferido (%d%% de vida) — pode morrer neste combate. Lutar mesmo assim?") % hp, Lang.t("Lutar mesmo assim"), on_proceed, true)
 
 # ── Modal de confirmação (procedural) ──────────────────────────────────────────────
 static func confirm(host: Control, text: String, confirm_label: String, on_yes: Callable, danger := true) -> void:
