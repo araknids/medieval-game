@@ -32,6 +32,7 @@ var warrior: Dictionary = {}
 var run: Dictionary = {}          # run ativa (/api/expedition/current) ou {} (launcher)
 var busy := false
 var _pending_after := {}          # resultado guardado durante o replay 3D [BATTLE_REPORT]
+var _from_kingdom := ""            # [INCURSAO_FIM] reino de onde a run saiu → volta pra lá quando ela acaba
 
 func _ready() -> void:
 	var ui := UiKit.scaffold(self, "📜 Incursão", func() -> void: go_back.emit(), func() -> void: await _refresh(), UiKit.TINT_ADVENTURE)
@@ -56,9 +57,18 @@ func _render() -> void:
 	UiKit.hide_loading()
 	UiKit.set_wallet(wallet, warrior)
 	if bool(run.get("active", false)):
+		_from_kingdom = str(run.get("kingdom", _from_kingdom))   # [INCURSAO_FIM] guarda o reino enquanto a run vive
 		_render_map()
 	else:
 		_render_launcher()
+
+# [INCURSAO_FIM] Fim de run (vitória/extract/abandono/derrota) → volta pra tela do território de origem,
+# em vez de cair no launcher "Ir ao Mundo" (que vira só fallback se não soubermos o reino).
+func _return_to_world() -> void:
+	if _from_kingdom != "":
+		open_world_at.emit(_from_kingdom)
+	else:
+		open_screen.emit("World")
 
 # ── Sem run ativa: a aba saiu da nav; oriente a entrar por uma ZONA do reino no Mundo ──────────────
 func _render_launcher() -> void:
@@ -373,25 +383,15 @@ func _on_battle_over() -> void:
 
 func _extract() -> void:
 	if busy: return
-	# [INCURSAO] captura ANTES do extract (que encerra a run): vitória + reino de onde saiu
-	var was_win := _is_won()
-	var from_kingdom := str(run.get("kingdom", ""))
 	busy = true
 	var r = await Api.expedition_extract(_run_id())
 	busy = false
 	if not (r.get("ok") and r.get("json") is Dictionary):
 		_show_error(r); await _refresh(); return
 	var j: Dictionary = r["json"]
-	await _refresh()   # run encerrada → volta pro launcher
-	# vitória → ao fechar o relatório de loot, volta pra tela do reino/território de onde saiu
-	var on_close := Callable()
-	if was_win:
-		on_close = func() -> void:
-			if from_kingdom != "":
-				open_world_at.emit(from_kingdom)
-			else:
-				open_screen.emit("World")
-	_show_extract_report(j, on_close)
+	await _refresh()   # run encerrada
+	# [INCURSAO_FIM] ao fechar o relatório de loot, volta pra tela do território de onde saiu (não pro launcher)
+	_show_extract_report(j, _return_to_world)
 
 func _confirm_abandon() -> void:
 	_choice_dialog("Abandonar a incursão? Você foge salvando 25–50% do loot carregado (sorteado) — o resto é perdido. O que já foi garantido você mantém.",
@@ -408,12 +408,10 @@ func _confirm_abandon() -> void:
 				return
 			var j: Dictionary = r["json"] if r.get("json") is Dictionary else {}
 			await _refresh()
-			# [INCURSAO_ABANDONO] mostra o que foi SALVO na fuga (mesmo relatório do extract, título próprio)
+			# [INCURSAO_ABANDONO][INCURSAO_FIM] relatório do que foi salvo; ao fechar, volta pro território
 			var got := int(j.get("bronzeBanked", 0)) > 0 or int(j.get("xpBanked", 0)) > 0 or int(j.get("keptItems", 0)) > 0 or int(j.get("mailedItems", 0)) > 0 or (j.get("bankedResources") is Array and not (j["bankedResources"] as Array).is_empty())
-			if got:
-				_show_extract_report(j, Callable(), Lang.t("🏳 Você salvou parte do loot"))
-			else:
-				UiKit.flash(status, Lang.t("Incursão abandonada — nada foi salvo."), 0))
+			var title := (Lang.t("🏳 Você salvou parte do loot") if got else Lang.t("🏳 Abandonou — nada foi salvo"))
+			_show_extract_report(j, _return_to_world, title))
 
 func _reload_warrior() -> void:
 	var r = await Api.get_warrior()
@@ -428,7 +426,8 @@ func _show_step_report(j: Dictionary) -> void:
 		var won := not ko
 		var mob := str(j.get("monsterName", "inimigo"))
 		var title := (Lang.t("⚔ %s derrotado!") % mob) if won else (Lang.t("💀 Derrotado por %s!") % mob)
-		UiKit.show_battle_report(self, won, title, _reward_rows(j, ko), log)
+		var on_close := _return_to_world if ko else Callable()   # [INCURSAO_FIM] derrota encerra a run → volta ao território
+		UiKit.show_battle_report(self, won, title, _reward_rows(j, ko), log, on_close)
 	elif str(j.get("resolvedType", "")) == "TREASURE" and not ko:
 		_show_treasure_chest(j)   # [INCURSAO_BAU] baú animado em vez da dialog de texto
 	else:
