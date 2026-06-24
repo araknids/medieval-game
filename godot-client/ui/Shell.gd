@@ -46,7 +46,7 @@ const NAV_TIPS := {
 	"Leaderboards": "Classificação — ranking de jogadores e guildas + perfil e social",
 	"Mail": "Correio — mensagens, itens e recompensas",
 	"Daily": "Diário — recompensa de login (ciclo de 7 dias)",
-	"StarterQuests": "Deveres do Recruta — tarefas de chegada (entregue recursos por XP e gold)",
+	"StarterQuests": "Diário de Missões — pra pegar, em progresso e completadas",
 }
 
 # [MENUBAR_REORG2] A nav agora é uma LISTA FLAT (sem seções com título) montada direto em _build_nav,
@@ -499,7 +499,7 @@ func _topbar_actions() -> Control:
 	# [MAIL_BADGE] carta com frame-anim PADRÃO: anima no HOVER (igual aos outros ícones do topo); o
 	# não-lido vira uma exclamação vermelha no canto, por cima do ícone.
 	# [ONBOARDING v2] Diário de Missões (Deveres do Recruta) — ao lado do Correio.
-	_quest_btn = _topbar_icon_btn("quest_log", "Missões — deveres do recruta", func() -> void: _open("StarterQuests"))
+	_quest_btn = _topbar_icon_btn("quest_log", "Diário de Missões", func() -> void: _open("StarterQuests"))
 	_quest_badge = _make_quest_badge()
 	_quest_btn.add_child(_quest_badge)
 	h.add_child(_quest_btn)

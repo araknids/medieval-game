@@ -58,23 +58,31 @@ class WarriorExclusivityTest extends BaseIntegrationTest {
                 .andExpect(jsonPath("$.status").value("IN_PROGRESS"));
     }
 
-    // ── Guard próprio da quest: uma quest em progresso por vez ────────────────
-    // (substitui o antigo onMission; também fecha o bypass do daily-lock)
+    // ── [DIARIO_QUEST] Guard por QUESTTYPE: o to-do permite várias quests aceitas ao mesmo tempo,
+    // mas barra startar a MESMA quest 2x antes de resolver (fecha o bypass do daily-lock). ──
 
     @Test
-    @DisplayName("Não pode iniciar 2 quests com uma já em progresso (guard da quest)")
-    void cannotStart2KingdomQuestSimultaneously() throws Exception {
+    @DisplayName("[DIARIO_QUEST] Aceita várias quests (to-do), mas não a MESMA 2x")
+    void canStartMultipleQuests_butNotSameTwice() throws Exception {
         mockMvc.perform(post("/api/world/FISHING/quests/start")
                 .header("Authorization", bearer(token))
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("{\"questType\":\"PATROL_COAST\"}"))
                 .andExpect(status().isOk());
 
-        // Segunda quest (até de outro reino) é rejeitada enquanto a 1ª está IN_PROGRESS
+        // Segunda quest DIFERENTE (até de outro reino) agora é PERMITIDA (to-do de várias aceitas)
         mockMvc.perform(post("/api/world/MINING/quests/start")
                         .header("Authorization", bearer(token))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"questType\":\"ESCORT_MINERS\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value("IN_PROGRESS"));
+
+        // Mas startar a MESMA quest 2x (já IN_PROGRESS) continua barrado
+        mockMvc.perform(post("/api/world/FISHING/quests/start")
+                        .header("Authorization", bearer(token))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"questType\":\"PATROL_COAST\"}"))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.error").isNotEmpty());
     }

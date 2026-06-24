@@ -35,4 +35,12 @@ public interface KingdomActiveQuestRepository extends JpaRepository<KingdomActiv
 
     // [SEM_TIMER] Player tem alguma quest IN_PROGRESS? (substitui o antigo guard onMission p/ quest)
     boolean existsByPlayerAndStatus(Player player, QuestStatus status);
+
+    // [DIARIO_QUEST] Player já tem ESTA quest IN_PROGRESS? (guard por questType — libera o to-do de várias
+    // quests aceitas ao mesmo tempo, mas ainda barra startar a mesma 2x antes de resolver).
+    boolean existsByPlayerAndQuestTypeAndStatus(Player player, KingdomQuestType questType, QuestStatus status);
+
+    // [DIARIO_QUEST] Quests num status (ex.: IN_PROGRESS p/ a aba "Em progresso" = to-do).
+    @EntityGraph(attributePaths = {"warrior"})
+    List<KingdomActiveQuest> findByPlayerAndStatusOrderByStartedAtDesc(Player player, QuestStatus status);
 }

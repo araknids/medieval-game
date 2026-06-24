@@ -147,6 +147,9 @@ func quest_active(kingdom: String) -> Dictionary:
 	return await _request(HTTPClient.METHOD_GET, "/api/world/%s/quests/active" % kingdom, null, true)
 func quest_abandon(kingdom: String, id: int) -> Dictionary:
 	return await _request(HTTPClient.METHOD_POST, "/api/world/%s/quests/%d/abandon" % [kingdom, id], {}, true)
+## GET /api/quests/journal — diário unificado: {toPickUp, inProgress, completed}. [DIARIO_QUEST]
+func quest_journal() -> Dictionary:
+	return await _request(HTTPClient.METHOD_GET, "/api/quests/journal", null, true)
 func training_current() -> Dictionary:
 	return await _request(HTTPClient.METHOD_GET, "/api/world/COMBAT/training", null, true)
 func training_start(hours: int, free := false) -> Dictionary:   # [TREINO_IDLE] free=true → treino idle grátis (timer real)

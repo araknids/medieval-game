@@ -182,11 +182,12 @@ public class KingdomService {
         Warrior warrior = warriorRepo.findByPlayer(player)
                 .orElseThrow(() -> new IllegalStateException("Warrior not found."));
 
-        // [SEM_TIMER] uma quest ativa por vez (substitui o antigo guard onMission e fecha o bypass
-        // do daily-lock: sem isto dava pra startar a mesma quest 2x antes de coletar). [DAILY_QUESTS]
-        if (questRepo.existsByPlayerAndStatus(player, QuestStatus.IN_PROGRESS)) {
-            log.warn("[KingdomService] player={} REJECTED: já tem quest em progresso", player.getId());
-            throw new IllegalStateException("You already have a quest in progress. Collect it first.");
+        // [DIARIO_QUEST] guard por QUESTTYPE (era 1-por-vez global): libera o to-do de várias quests aceitas
+        // ao mesmo tempo, mas ainda barra startar a MESMA quest 2x antes de resolver (fecha o bypass do
+        // daily-lock — a trava por janela continua no isQuestDoneThisPeriod abaixo). [DAILY_QUESTS]
+        if (questRepo.existsByPlayerAndQuestTypeAndStatus(player, questType, QuestStatus.IN_PROGRESS)) {
+            log.warn("[KingdomService] player={} REJECTED: quest {} já em progresso", player.getId(), questType);
+            throw new IllegalStateException("You already have this quest in progress. Resolve it first.");
         }
 
         // [DAILY_QUESTS] daily 1x por janela de 12h — cobre normal E VIP instant (que chama este start)
@@ -548,6 +549,88 @@ public class KingdomService {
     public List<KingdomActiveQuest> getAllActiveQuests(Player player) {
         return questRepo.findByPlayerAndStatusNotOrderByStartedAtDesc(player, QuestStatus.COLLECTED)
                 .stream().filter(q -> q.getStatus() != QuestStatus.ABANDONED).toList();
+    }
+
+    // [DIARIO_QUEST] Diário unificado em 3 grupos: "Pra pegar" (disponíveis) / "Em progresso" (aceitas-não-
+    // resolvidas = to-do) / "Completadas" (só ÚNICAS). Agrega quests de reino (dailies) + deveres do recruta
+    // (únicos). Read-only — aceitar/resolver continuam nos endpoints de start/collect.
+    @Transactional(readOnly = true)
+    public java.util.Map<String, Object> questJournal(Player playerArg) {
+        final Player player = playerRepository.findById(playerArg.getId()).orElse(playerArg);
+        List<java.util.Map<String, Object>> toPickUp = new java.util.ArrayList<>();
+        List<java.util.Map<String, Object>> inProgress = new java.util.ArrayList<>();
+        List<java.util.Map<String, Object>> completed = new java.util.ArrayList<>();
+
+        // Quests de reino IN_PROGRESS → "Em progresso"
+        java.util.Set<KingdomQuestType> activeTypes = new java.util.HashSet<>();
+        for (KingdomActiveQuest q : questRepo.findByPlayerAndStatusOrderByStartedAtDesc(player, QuestStatus.IN_PROGRESS)) {
+            activeTypes.add(q.getQuestType());
+            inProgress.add(kingdomActiveEntry(q));
+        }
+        // Quests de reino DISPONÍVEIS (todos os reinos, menos as in-progress e as já feitas nesta janela) → "Pra pegar"
+        for (Kingdom k : Kingdom.values()) {
+            for (KingdomQuestType qt : getQuestsForKingdom(k)) {
+                if (activeTypes.contains(qt) || isQuestDoneThisPeriod(player, qt)) continue;
+                toPickUp.add(kingdomTypeEntry(qt));
+            }
+        }
+        // Deveres do recruta (ÚNICOS) por estado: available→Pra pegar, accepted→Em progresso, done→Completadas
+        Object dutiesObj = starterQuestService.status(player).get("quests");
+        if (dutiesObj instanceof List<?> duties) {
+            for (Object o : duties) {
+                if (!(o instanceof java.util.Map<?, ?> dm)) continue;
+                java.util.Map<String, Object> entry = starterEntry(dm);
+                switch (String.valueOf(dm.get("state"))) {
+                    case "available" -> toPickUp.add(entry);
+                    case "accepted"  -> inProgress.add(entry);
+                    case "done"      -> completed.add(entry);
+                    default -> { /* locked → fora do diário */ }
+                }
+            }
+        }
+        java.util.Map<String, Object> out = new java.util.HashMap<>();
+        out.put("toPickUp", toPickUp);
+        out.put("inProgress", inProgress);
+        out.put("completed", completed);
+        return out;
+    }
+
+    // Card de quest de reino ATIVA (tem id → front resolve via /collect). [DIARIO_QUEST]
+    private java.util.Map<String, Object> kingdomActiveEntry(KingdomActiveQuest q) {
+        KingdomQuestType qt = q.getQuestType();
+        java.util.Map<String, Object> m = new java.util.HashMap<>();
+        m.put("source", "kingdom");
+        m.put("id", q.getId());
+        m.put("kingdom", q.getKingdom().name());
+        m.put("questType", qt.name());
+        m.put("title", messages.getOr("quest." + qt.name() + ".name", qt.displayName));
+        m.put("flavor", qt.flavor);
+        m.put("bronzeReward", q.getBronzeReward());
+        m.put("expReward", q.getExpReward());
+        m.put("readyToCollect", q.isReadyToCollect());
+        return m;
+    }
+
+    // Card de quest de reino DISPONÍVEL (sem id → front aceita via /{kingdom}/quests/start). [DIARIO_QUEST]
+    private java.util.Map<String, Object> kingdomTypeEntry(KingdomQuestType qt) {
+        java.util.Map<String, Object> m = new java.util.HashMap<>();
+        m.put("source", "kingdom");
+        m.put("kingdom", qt.kingdom.name());
+        m.put("questType", qt.name());
+        m.put("title", messages.getOr("quest." + qt.name() + ".name", qt.displayName));
+        m.put("flavor", qt.flavor);
+        m.put("bronzeReward", qt.bronzeReward);
+        m.put("expReward", qt.expReward);
+        m.put("staminaCost", qt.staminaCost);
+        return m;
+    }
+
+    // Card de dever do recruta (ÚNICO): reusa os campos do StarterQuestService.status + marca source. [DIARIO_QUEST]
+    private java.util.Map<String, Object> starterEntry(java.util.Map<?, ?> dm) {
+        java.util.Map<String, Object> m = new java.util.HashMap<>();
+        m.put("source", "starter");
+        for (var e : dm.entrySet()) m.put(String.valueOf(e.getKey()), e.getValue());
+        return m;
     }
 
     // ── Training (Combat Kingdom only) ────────────────────────────────────────
