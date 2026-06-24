@@ -233,7 +233,11 @@ static func _hover_to(node: Control, on: bool) -> void:
 	node.set_meta("hover_mw", mw)
 
 static func _kill_meta_tween(node: Control, key: String) -> void:
-	var t: Tween = node.get_meta(key, null)
+	# ⚠️ get_meta(k, null) NÃO suprime o erro: o default `null` == Variant() (o sentinela "sem default")
+	# → cai no ERR_FAIL ("does not have meta key") e SPAMMA o log em todo hover. Guardar com has_meta.
+	if not node.has_meta(key):
+		return
+	var t: Tween = node.get_meta(key)
 	if t != null and t.is_valid():
 		t.kill()
 
@@ -274,9 +278,10 @@ static func _anim_start(b: Button) -> void:
 	if frames.size() < 2:
 		return
 	# [UIUX] LOOP enquanto o mouse está em cima (o dono quer ficar animado parado); reseta ao sair (_anim_stop).
-	var prev: Tween = b.get_meta("anim_tw", null)
-	if prev != null and prev.is_valid():
-		return                              # já animando neste hover → não reinicia
+	if b.has_meta("anim_tw"):
+		var prev: Tween = b.get_meta("anim_tw")
+		if prev != null and prev.is_valid():
+			return                          # já animando neste hover → não reinicia
 	var tw := b.create_tween().set_loops()  # loop contínuo até mouse_exited
 	for fr in frames:
 		tw.tween_callback(_anim_set.bind(b, fr)).set_delay(ANIM_FPS)
@@ -289,10 +294,11 @@ static func _anim_set(b: Button, fr: Texture2D) -> void:
 static func _anim_stop(b: Button) -> void:
 	if not is_instance_valid(b):
 		return
-	var tw: Tween = b.get_meta("anim_tw", null)
-	if tw != null and tw.is_valid():
-		tw.kill()
-	var rest = b.get_meta("anim_rest", null)   # [HOVER_ICON] ícone de descanso dinâmico (ex.: Correio lido/não-lido)
+	if b.has_meta("anim_tw"):
+		var tw: Tween = b.get_meta("anim_tw")
+		if tw != null and tw.is_valid():
+			tw.kill()
+	var rest = b.get_meta("anim_rest") if b.has_meta("anim_rest") else null   # [HOVER_ICON] descanso dinâmico (Correio lido/não-lido)
 	if rest != null:
 		b.icon = rest
 		return
@@ -317,9 +323,10 @@ static func anim_rect(host: Control, tr: TextureRect, key: String) -> void:
 static func _anim_rect_start(host: Control, tr: TextureRect, frames: Array) -> void:
 	if not is_instance_valid(tr):
 		return
-	var prev: Tween = host.get_meta("anim_rect_tw", null)
-	if prev != null and prev.is_valid():
-		return                              # já animando neste hover → não reinicia
+	if host.has_meta("anim_rect_tw"):
+		var prev: Tween = host.get_meta("anim_rect_tw")
+		if prev != null and prev.is_valid():
+			return                          # já animando neste hover → não reinicia
 	var tw := tr.create_tween().set_loops()
 	for fr in frames:
 		tw.tween_callback(_anim_rect_set.bind(tr, fr)).set_delay(ANIM_FPS)
@@ -359,9 +366,10 @@ static func play_once(tr: TextureRect, key: String, fps := ANIM_FPS) -> Tween:
 	return tw
 
 static func _anim_rect_stop(host: Control, tr: TextureRect, frames: Array) -> void:
-	var tw: Tween = host.get_meta("anim_rect_tw", null)
-	if tw != null and tw.is_valid():
-		tw.kill()
+	if host.has_meta("anim_rect_tw"):
+		var tw: Tween = host.get_meta("anim_rect_tw")
+		if tw != null and tw.is_valid():
+			tw.kill()
 	if is_instance_valid(tr) and frames.size() > 0:
 		tr.texture = frames[0]
 
