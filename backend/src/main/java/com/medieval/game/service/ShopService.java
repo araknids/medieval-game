@@ -30,7 +30,7 @@ public class ShopService {
     private final WarriorRepository       warriorRepository;
 
     private static final long ROTATION_SECONDS = 6 * 60 * 60; // 6 horas
-    private static final int SHOP_SIZE = 10;
+    private static final int SHOP_SIZE = 20;   // [LOJA] itens por rotação
 
     // [CLASSES_ARMAS] Nomes de arco — o slot de arma da loja troca p/ um destes quando o
     // jogador é Arqueiro (mesmos stats/preço do tier, só o nome muda → make() infere RANGED).

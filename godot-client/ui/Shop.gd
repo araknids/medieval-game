@@ -59,7 +59,7 @@ func _update_timer_label() -> void:
 	var h := secs / 3600
 	var mm := (secs % 3600) / 60
 	var ss := secs % 60
-	_timer_label.text = Lang.t("🛒 Próxima rotação em %dh %02dm %02ds") % [h, mm, ss]
+	_timer_label.text = Lang.t("Próxima rotação\n%dh %02dm %02ds") % [h, mm, ss]   # [SEM_WEB_EMOJI] sem 🛒
 	# P2: faltando menos de 10 min → cor de alerta.
 	_timer_label.add_theme_color_override("font_color", UiKit.WARN if secs < 600 else UiKit.TEXT_DIM)
 
@@ -68,27 +68,35 @@ func _render() -> void:
 		c.queue_free()
 	UiKit.hide_loading()
 	UiKit.set_wallet(wallet, warrior)
-	# ── Cabeçalho do mercador ── [LOJA_MERCADOR] retrato varia por mercador (consistente por nome);
-	# fallback no ícone 'character' até a arte merchant_N chegar (sem emoji).
+	# ── Card do mercador ── [LOJA_MERCADOR] retrato num CARD (mais visível) + timer da rotação À DIREITA
+	# (antes era retrato/nome/quote/timer empilhados → comprido). Fallback no ícone 'character'.
 	var mname := str(data.get("merchantName", "Mercador"))
-	var head := HBoxContainer.new(); head.add_theme_constant_override("separation", 10)
 	var mkey := "merchant_%d" % (abs(mname.hash()) % MERCHANT_ICONS + 1)
 	var icon_key := mkey if Icons.tex(mkey) != null else ("character" if Icons.tex("character") != null else "")
+	var mres := UiKit.card(UiKit.GOLD_SOFT)
+	var mrow := HBoxContainer.new(); mrow.add_theme_constant_override("separation", 12)
+	(mres[1] as VBoxContainer).add_child(mrow)
 	if icon_key != "":
-		head.add_child(Icons.rect(icon_key, 48))
+		var mic := Icons.rect(icon_key, 56); mic.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+		mrow.add_child(mic)
+	var info := VBoxContainer.new(); info.add_theme_constant_override("separation", 2)
+	info.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	info.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	var name_lbl := Label.new()
 	name_lbl.text = mname
-	name_lbl.add_theme_font_size_override("font_size", 22)
+	name_lbl.add_theme_font_size_override("font_size", 20)
 	name_lbl.add_theme_color_override("font_color", UiKit.GOLD)
-	name_lbl.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	head.add_child(name_lbl)
-	content.add_child(head)
+	info.add_child(name_lbl)
 	var quote := str(data.get("merchantQuote", ""))
 	if quote != "":
-		content.add_child(UiKit.dim("\"%s\"" % quote))
+		info.add_child(UiKit.dim("\"%s\"" % quote))
+	mrow.add_child(info)
 	_timer_label = Label.new()
 	_timer_label.add_theme_font_size_override("font_size", 13)
-	content.add_child(_timer_label)
+	_timer_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	_timer_label.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	mrow.add_child(_timer_label)
+	content.add_child(mres[0])
 	_update_timer_label()
 	# ── Itens ──  (P1: comprados afundam pro fim)
 	var items: Array = data.get("items", []) if data.get("items") is Array else []
@@ -114,7 +122,7 @@ func _render() -> void:
 		if shown.is_empty():
 			content.add_child(UiKit.dim("— nada com esse filtro —"))
 		else:
-			content.add_child(UiKit.grid(self, shown, _item_row))
+			content.add_child(UiKit.grid(self, shown, _shop_card, true, 188.0, 3))   # [LOJA] mesmo padrão do inventário
 
 # [LOJA_FILTRO] mapeia o ItemType (vindo do backend em `type`) p/ a categoria do filtro
 func _item_category(t: String) -> String:
@@ -144,53 +152,98 @@ func _set_rarity(r: int) -> void:
 	rarity_filter = r
 	_render()
 
-func _item_row(it: Dictionary) -> PanelContainer:
+# [LOJA] Slot ENXUTO no padrão do inventário (ItemTooltipCard): ícone + nome + Nv + preço; detalhe
+# completo no HOVER (tooltip rico) e no CLIQUE (dialog com painel + Comprar). Espelha Character._bag_card.
+func _shop_card(it) -> Control:
+	if not (it is Dictionary):
+		return null
 	var purchased := bool(it.get("purchased", false))
 	var rar := int(it.get("rarity", 1))
-	var res := UiKit.card(UiKit.rarity_color(rar), not purchased)
+	var card := ItemTooltipCard.new()        # [ITEM_TOOLTIP] card com tooltip rico no hover
+	card.item = it
+	card.player_level = int(warrior.get("level", 0))
+	card.tooltip_text = " "                  # != "" senão o tooltip custom nem dispara
+	card.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
+	var res := UiKit.card_styled(card, UiKit.rarity_color(rar), not purchased)
 	var pc: PanelContainer = res[0]
 	var box: VBoxContainer = res[1]
-	if rar >= 4 and not purchased:
-		var sbpc: StyleBoxFlat = pc.get_theme_stylebox("panel")
-		sbpc.set_border_width_all(2)
-	var hb := HBoxContainer.new(); hb.add_theme_constant_override("separation", 12)
-	box.add_child(hb)
-	var ic := UiKit.item_icon_for(it)   # ícone do item (arma → render do modelo) [SLOT_WEAPON_IMG]
+	(pc.get_theme_stylebox("panel") as StyleBoxFlat).set_content_margin_all(7)
+	box.add_theme_constant_override("separation", 0)
+	var row := HBoxContainer.new(); row.add_theme_constant_override("separation", 8)
+	box.add_child(row)
+	var ic := UiKit.item_icon_for(it, 28)
 	if ic:
-		hb.add_child(ic)
-	# esquerda: nome + sub + stats + preço
-	var left := VBoxContainer.new(); left.add_theme_constant_override("separation", 2)
-	left.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	var nm := Label.new(); nm.text = str(it.get("name", "?"))
-	nm.add_theme_font_size_override("font_size", 16)
+		row.add_child(ic)
+	var nm := Label.new()
+	nm.text = str(it.get("name", "?"))
+	nm.add_theme_font_size_override("font_size", 13)
 	nm.add_theme_color_override("font_color", UiKit.rarity_color(rar))
-	left.add_child(nm)
-	left.add_child(UiKit.item_subline(it, int(warrior.get("level", 0))))   # [REQ_LEVEL] Nv vermelho se exige nível acima
-	# [STATS_CMP] stats únicos coloridos vs equipado (1 linha só: ▲verde melhor / ▼vermelho pior)
-	var sline := UiKit.item_stats_line(it)
-	if sline != null:
-		left.add_child(sline)
-	# preço — P0: vermelho se não dá pra pagar. [MOEDA] preço é em BRONZE (base);
-	# affordability compara o TOTAL (ouro*10000 + prata*100 + bronze), não o resto 0-99.
+	nm.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	nm.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	nm.clip_text = true
+	nm.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+	row.add_child(nm)
+	# preço (ou ✔ se já comprado) à direita do slot
+	var tail: Control
+	if purchased:
+		var done := Label.new(); done.text = "✔"
+		done.add_theme_color_override("font_color", UiKit.OK)
+		done.add_theme_font_size_override("font_size", 14)
+		tail = done
+	else:
+		var price := int(it.get("price", 0))
+		var total_bronze := int(warrior.get("gold", 0)) * 10000 + int(warrior.get("silver", 0)) * 100 + int(warrior.get("bronze", 0))
+		var afford := warrior.is_empty() or total_bronze >= price
+		tail = UiKit.coin_box(price, 15, UiKit.TEXT if afford else UiKit.ERR)
+	tail.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	row.add_child(tail)
+	# [ITEM_TOOLTIP] PASS nos filhos → hover E clique sobem pro card (que mostra o tooltip e trata o clique)
+	for n in [box, row, nm, ic, tail]:
+		if n != null and n is Control:
+			(n as Control).mouse_filter = Control.MOUSE_FILTER_PASS
+	card.gui_input.connect(func(e: InputEvent) -> void:
+		if e is InputEventMouseButton and e.pressed and e.button_index == MOUSE_BUTTON_LEFT:
+			_open_shop_item(it))
+	return pc
+
+# [LOJA] Clique no slot → dialog com o card RICO do item (stats/lore/comparação) + preço + Comprar.
+# Espelha Character._open_item_actions (dim + clique-fora fecha).
+func _open_shop_item(it: Dictionary) -> void:
+	var id := int(it.get("id", 0))
+	var purchased := bool(it.get("purchased", false))
+	var dim_rect := ColorRect.new()
+	dim_rect.color = Color(0, 0, 0, 0.62)
+	dim_rect.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	dim_rect.mouse_filter = Control.MOUSE_FILTER_STOP
+	add_child(dim_rect)
+	dim_rect.gui_input.connect(func(e: InputEvent) -> void:   # clique fora do card fecha
+		if e is InputEventMouseButton and e.pressed:
+			dim_rect.queue_free())
+	var center := CenterContainer.new()
+	center.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	center.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	dim_rect.add_child(center)
+	var col := VBoxContainer.new(); col.add_theme_constant_override("separation", 8)
+	center.add_child(col)
+	col.add_child(UiKit.item_tooltip_panel(it, {"equipped": false, "player_level": int(warrior.get("level", 0))}))
+	# preço + Comprar (ou "Comprado")
 	var price := int(it.get("price", 0))
 	var total_bronze := int(warrior.get("gold", 0)) * 10000 + int(warrior.get("silver", 0)) * 100 + int(warrior.get("bronze", 0))
 	var afford := warrior.is_empty() or total_bronze >= price
-	# [MOEDA] ícones pixel-art (não emoji); o número fica vermelho quando não dá pra pagar
-	var price_box := UiKit.coin_box(price, 18, UiKit.TEXT if (afford or purchased) else UiKit.ERR)
-	left.add_child(price_box)
-	hb.add_child(left)
-	# direita: ação comprar / comprado
-	var right := VBoxContainer.new(); right.add_theme_constant_override("separation", 4)
-	right.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	var id := int(it.get("id", 0))
+	var row := HBoxContainer.new(); row.add_theme_constant_override("separation", 10); row.alignment = BoxContainer.ALIGNMENT_CENTER
+	col.add_child(row)
+	row.add_child(UiKit.coin_box(price, 18, UiKit.TEXT if (afford or purchased) else UiKit.ERR))
 	if purchased:
-		var done := Label.new(); done.text = "✔ Comprado"
+		var done := Label.new(); done.text = Lang.t("✔ Comprado")
 		done.add_theme_color_override("font_color", UiKit.OK)
-		right.add_child(done)
+		done.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+		row.add_child(done)
 	else:
-		right.add_child(UiKit.small_btn("Comprar", _buy.bind(id)))
-	hb.add_child(right)
-	return pc
+		var buy := UiKit.small_btn(Lang.t("Comprar"), func() -> void:
+			dim_rect.queue_free()
+			await _buy(id))
+		buy.disabled = not afford
+		row.add_child(buy)
 
 # Compra: 1 chamada. Em sucesso marco o item como comprado em memória + re-render;
 # em falha não mexo no estado local e mostro o erro.
@@ -214,11 +267,3 @@ func _buy(id: int) -> void:
 	else:
 		UiKit.show_error(status, r)
 	busy = false
-
-func _stats_line(it: Dictionary) -> String:
-	var parts: Array = []
-	for pair in [["attackBonus", "ATK"], ["defenseBonus", "DEF"], ["healthBonus", "HP"], ["strBonus", "STR"], ["dexBonus", "DEX"], ["lukBonus", "LUK"]]:
-		var v := int(it.get(pair[0], 0))
-		if v != 0:
-			parts.append("%s %+d" % [pair[1], v])
-	return "   ".join(parts)
