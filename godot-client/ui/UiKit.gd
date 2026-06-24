@@ -26,22 +26,25 @@ static var duel_refresh_sink := Callable()
 # Doc: docs/PLANO_PADRAO_UI_GODOT.md
 
 # ── Paleta (fonte única — substitui os RARITY_COL espalhados) ──────────────────────
-const GOLD       := Color(0.96, 0.66, 0.26)   # títulos
-const GOLD_SOFT  := Color(0.78, 0.65, 0.36)   # seções/réguas
-const BRONZE     := Color(0.40, 0.32, 0.20)   # bordas padrão
-const TEXT       := Color(0.87, 0.83, 0.74)   # corpo (pergaminho, nunca branco puro)
+# [TOM_SOMBRIO] Pass "Betrayal at Krondor": ouro ENVELHECIDO (gilt de manuscrito, não dourado vivo),
+# darks mais fundos/frios (gloom pintado), WARN→ember, ERR→carmim-sangue. TEXT e RARITY MANTIDOS
+# (legibilidade do corpo + sinal de raridade). Doc: docs/PLANO_TOM_SOMBRIO.md
+const GOLD       := Color(0.82, 0.64, 0.33)   # títulos — gilt antigo
+const GOLD_SOFT  := Color(0.70, 0.59, 0.34)   # seções/réguas — gilt fosco
+const BRONZE     := Color(0.40, 0.32, 0.20)   # bordas padrão (moldura de tomo)
+const TEXT       := Color(0.87, 0.83, 0.74)   # corpo (pergaminho, nunca branco puro) — MANTIDO p/ legibilidade
 const TEXT_DIM   := Color(0.62, 0.58, 0.52)   # meta/sub
-const OK         := Color(0.55, 0.80, 0.50)
-const ERR        := Color(0.94, 0.42, 0.38)
-const WARN       := Color(1.0, 0.76, 0.0)
+const OK         := Color(0.52, 0.72, 0.47)   # verde menos alegre
+const ERR        := Color(0.86, 0.30, 0.27)   # carmim-sangue (acento "vivo"/perigo)
+const WARN       := Color(0.86, 0.61, 0.18)   # ember (era amarelo puro)
 const RARITY     := [Color(0.72,0.72,0.75), Color(0.45,0.85,0.45), Color(0.4,0.6,1.0), Color(0.78,0.45,0.95), Color(1.0,0.8,0.35)]
 
-# Tints de fundo por categoria (cada tela passa o seu).
-const TINT_DEFAULT   := Color(0.095, 0.09, 0.115)
-const TINT_ADVENTURE := Color(0.085, 0.10, 0.09)
-const TINT_BATTLE    := Color(0.115, 0.08, 0.075)
-const TINT_COMMERCE  := Color(0.115, 0.095, 0.07)
-const TINT_SOCIAL    := Color(0.08, 0.09, 0.11)
+# Tints de fundo por categoria (cada tela passa o seu) — mais fundos/frios (gloom pintado). [TOM_SOMBRIO]
+const TINT_DEFAULT   := Color(0.072, 0.07, 0.09)
+const TINT_ADVENTURE := Color(0.066, 0.08, 0.07)
+const TINT_BATTLE    := Color(0.098, 0.06, 0.056)
+const TINT_COMMERCE  := Color(0.09, 0.076, 0.056)
+const TINT_SOCIAL    := Color(0.062, 0.07, 0.09)
 
 static func rarity_color(r: int) -> Color:
 	return RARITY[clampi(r - 1, 0, 4)]
@@ -89,7 +92,7 @@ static func coin_box(bronze: int, px := 18, num_color := TEXT) -> HBoxContainer:
 # ── Fundo (ColorRect + shader cacheado, sem 3D) ────────────────────────────────────
 const _BG_SHADER := """
 shader_type canvas_item;
-uniform vec3 tint = vec3(0.10, 0.085, 0.105);
+uniform vec3 tint = vec3(0.078, 0.068, 0.086);   // [TOM_SOMBRIO] fallback de gloom mais fundo/frio
 float hash(vec2 p){ return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
 void fragment() {
 	vec2 uv = UV;
@@ -97,8 +100,8 @@ void fragment() {
 	vec3 col = tint * clamp(g, 0.45, 1.0);
 	col += (hash(floor(uv * vec2(900.0, 500.0))) - 0.5) * 0.025;
 	float d = length(uv - vec2(0.5, 0.46)) * 1.5;
-	float vig = smoothstep(0.40, 1.05, d);          // 0 centro → 1 borda
-	col *= 1.0 - vig * 0.55;                          // escurece a cor nas bordas
+	float vig = smoothstep(0.36, 1.05, d);          // 0 centro → 1 borda
+	col *= 1.0 - vig * 0.65;                          // [TOM_SOMBRIO] vinheta mais opressiva nas bordas
 	float a = mix(0.50, 0.88, vig);                  // SCRIM: centro translúcido (o castelo 3D do App aparece atrás), borda opaca
 	COLOR = vec4(col, a);
 }
