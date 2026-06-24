@@ -172,6 +172,5 @@ public class MaintenanceService {
         p.setActiveTitle(null);     // [TITULOS] título zera (conquistas foram apagadas)
         p.setLastDailyClaimDate(null); // [DAILY] zera o streak de login diário
         p.setDailyStreak(0);
-        p.setBottlesDrunk(0);          // [TAVERNA] zera as garrafas (o buff do warrior some no clearBuff)
     }
 }

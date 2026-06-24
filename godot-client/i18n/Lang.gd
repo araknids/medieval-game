@@ -37,7 +37,7 @@ const EN := {
 	"Vender": "Sell", "Listar": "List", "Coletar": "Collect", "Coletar loot": "Collect loot",
 	"Fechar": "Close", "Abrir": "Open", "Enviar": "Send", "Remover": "Remove", "Resetar": "Reset",
 	"Proteger": "Protect", "Refinar": "Refine", "Reforjar": "Reforge", "♻ Reforjar": "♻ Reforge",
-	"Craftar": "Craft", "Beber": "Drink", "Escolher": "Choose", "Transferir": "Transfer", "Expulsar": "Kick",
+	"Craftar": "Craft", "Escolher": "Choose", "Transferir": "Transfer", "Expulsar": "Kick",
 	"Guardar": "Store",   # [INV_COMPACTO] popup de ações do slot
 	# [GUILD_TABS] rótulos da tela de Guilda reformulada
 	"Visão Geral": "Overview", "Membros": "Members", "Guerra": "War", "Doar": "Donate",
@@ -76,8 +76,6 @@ const EN := {
 	"Doado! Tesouro: %s": "Donated! Treasury: %s",
 	"Regenerando HP… o templo cura instantaneamente.": "Regenerating HP… the temple heals instantly.",
 	"Seu guerreiro está nocauteado. Cure para voltar ao combate.": "Your warrior is knocked out. Heal to return to combat.",
-	"Errou o gole… só o bronze foi.": "Missed the sip… only the bronze is gone.",
-	"🍺 Acertou! +1 stack": "🍺 Nailed it! +1 stack",
 	# — Estados vazios / dicas —
 	"Mochila vazia": "Empty bag", "Baú vazio": "Empty stash", "Caixa vazia": "Empty box", "Sem itens": "No items",
 	"Sem minério": "No ore", "Sem estamina": "No stamina", "⚡ Sem estamina": "⚡ No stamina",
@@ -88,7 +86,7 @@ const EN := {
 	"Nenhuma bênção disponível agora.": "No blessing available right now.",
 	"Nenhuma guilda criada ainda.": "No guild created yet.", "Nenhuma guilda elegível.": "No eligible guild.",
 	"Sem itens nesta rotação": "No items this rotation", "Sem descrição.": "No description.",
-	"Sem bênção ativa": "No active blessing", "Sem buff de bebida ativo.": "No drink buff active.",
+	"Sem bênção ativa": "No active blessing",
 	"— nada equipado —": "— nothing equipped —", "— nada nessa raridade —": "— nothing in this rarity —",
 	"— nada à venda nessa raridade —": "— nothing for sale in this rarity —",
 	"— nada na mochila nessa raridade —": "— nothing in the bag in this rarity —",
@@ -135,7 +133,7 @@ const EN := {
 	"Experiência — enche e sobe de nível": "Experience — fills up and levels you up",
 	"Vida (HP) — atual/máximo; regenera com o tempo; cure na hora no Templo": "Health (HP) — current/max; regenerates over time; heal instantly at the Temple",
 	"Estamina — gasta nas ações; enche 100% em 1h (15min com buff de novato)": "Stamina — spent on actions; refills 100% in 1h (15min with newbie buff)",
-	"Ataque efetivo de combate (base + gear + buffs + skills + postura + pet + taverna)": "Effective combat attack (base + gear + buffs + skills + stance + pet + tavern)",
+	"Ataque efetivo de combate (base + gear + buffs + skills + postura + pet)": "Effective combat attack (base + gear + buffs + skills + stance + pet)",
 	"Defesa efetiva — mitiga o dano recebido": "Effective defense — mitigates incoming damage",
 	"Vida máxima efetiva de combate (com buffs/pet)": "Effective max combat HP (with buffs/pet)",
 	"Esquiva — chance de evitar o golpe (DEX/AGI + buffs)": "Dodge — chance to avoid the hit (DEX/AGI + buffs)",
@@ -195,8 +193,7 @@ const EN := {
 	"❤ Vida · ⚡ Estamina · 🥇 Ouro · 🥈 Prata · 🥉 Bronze": "❤ Health · ⚡ Stamina · 🥇 Gold · 🥈 Silver · 🥉 Bronze",
 	"? Os stats serão re-rolados — isso é irreversível.": "? Stats will be re-rolled — this is irreversible.",
 	# — Taverna —
-	"Acerte o tempo no gole para ganhar +1 stack de buff. Cobra 1🥉 sempre.": "Time the sip to gain +1 buff stack. Always costs 1🥉.",
-	"🍺 Beber AGORA!": "🍺 Drink NOW!", "💬 Chat": "💬 Chat", "Diga algo…": "Say something…",
+	"💬 Chat": "💬 Chat", "Diga algo…": "Say something…",
 	# — Templo / bênçãos —
 	"Padre Anselmo": "Father Anselm",
 	# — [INCURSAO_PVP] escolha PvP na Incursão + Replays no Correio —
@@ -286,7 +283,6 @@ const EN := {
 	"%d × %d (você × inimigo)": "%d × %d (you × enemy)",
 	"%s contra %s%s · placar %d×%d": "%s vs %s%s · score %d×%d",
 	"Buff de Novato: estamina e HP regeneram 4× mais rápido — %dh restantes": "Newbie Buff: stamina and HP regenerate 4× faster — %dh left",
-	"Buff da Taverna: +%.2f%% em TODOS os stats — %s": "Tavern Buff: +%.2f%% to ALL stats — %s",
 	"Arma encantada — %s\n%s": "Enchanted weapon — %s\n%s",
 	"Armadura encantada — %s\n%s": "Enchanted armor — %s\n%s",
 	"Bem Alimentado: %s — %s": "Well Fed: %s — %s",
@@ -299,7 +295,7 @@ const EN := {
 	"De: %s   ·   %s": "From: %s   ·   %s",
 	# — palavras soltas p/ montar plural/fontes nos call sites —
 	"livre": "free", "livres": "free",
-	"🛡 equip": "🛡 gear", "🍺 taverna": "🍺 tavern", "🥋 postura": "🥋 stance",
+	"🛡 equip": "🛡 gear", "🥋 postura": "🥋 stance",
 	"⭐ skill/afins": "⭐ skill/etc", "base": "base",
 	# — Tipos de item (display PT do backend) + venda —
 	"Arma": "Weapon", "Elmo": "Helmet", "Armadura": "Armor", "Calça": "Pants", "Botas": "Boots",
@@ -318,8 +314,6 @@ const EN := {
 	"item roubado: %s": "item stolen: %s",
 	"💀 %s (Lv %d) escapou da Torre e bloqueou sua expedição!\n\n⚔ Encarar = combate.   🏃 Fugir = %d%% (se falhar, cai na luta).": "💀 %s (Lv %d) escaped the Tower and blocked your expedition!\n\n⚔ Face it = combat.   🏃 Flee = %d%% (fail and you fall into the fight).",
 	# — Temple —
-	# — Tavern —
-	"🍺 +%.2f%% em todos os stats · %d stacks · %d:%02d": "🍺 +%.2f%% to all stats · %d stacks · %d:%02d",
 	# — Daily —
 	"🔥 Sequência: %d": "🔥 Streak: %d",
 	"📬 %d por correio (mochila cheia)": "📬 %d by mail (bag full)",
@@ -404,7 +398,7 @@ const EN := {
 	"Forja — refino, craft, joias e encantamento": "Forge — refining, crafting, gems and enchanting",
 	"Leilão — mercado entre jogadores (preço fixo)": "Auction — player-to-player market (fixed price)",
 	"Baú — guarda itens e recursos fora da mochila": "Stash — store items and resources outside your bag",
-	"Taverna — beba por buff + chat global": "Tavern — drink for a buff + global chat",
+	"Taverna — chat global + avisos": "Tavern — global chat + notices",
 	"VIP — vantagens premium (SoulStone)": "VIP — premium perks (SoulStone)",
 	"Personagem — stats, atributos e ficha": "Character — stats, attributes and sheet",
 	"Inventário — equipar, vender, sockets": "Inventory — equip, sell, sockets",
@@ -430,7 +424,6 @@ const EN := {
 	"✔ Seguro": "✔ Safe",
 	"👑 Slot de bênção VIP disponível": "👑 VIP blessing slot available",
 	"/ item": "/ item",
-	"🍺 Beber (1 🥉)": "🍺 Drink (1 🥉)",
 	"Entrar em batalha": "Enter battle",
 	"Recompensa:": "Reward:",
 	"👑 O Rei Cai": "👑 The King Falls",

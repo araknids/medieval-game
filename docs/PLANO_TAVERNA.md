@@ -1,6 +1,12 @@
 # PLANO — Taverna (aba do Comércio): beber + buff stackável + chat + avisos [TAVERNA]
 
-> **Status:** ✅ IMPLEMENTADO (2026-06-08). Teste em `TavernServiceTest` (beber/buff/garrafas/marco + chat/cooldown).
+> **⚠️ BEBER/BUFF REMOVIDO (2026-06-23):** o **beber cerveja** + **buff stackável** foram retirados — a Taverna
+> ficou **só social** (chat + avisos globais). Removidos: `POST /drink` & `GET /status`, `Warrior.tavernBuffStacks/tavernBuffExpiresAt`,
+> `TAVERN_BUFF_CAP`/`tavernBuffMultiplier`, `Player.bottlesDrunk`, `WarriorResponse.tavernBuffPct/SecondsLeft`, o multiplicador no
+> `WarriorStatsService.combatStats`, o badge 🍺 do topbar/sidebar e as animações `drink_tremble/drink_empty/drink_spill`. As seções
+> abaixo de **Beber/Buff** ficam só como **registro histórico**. O que segue valendo é **Chat** + **Avisos globais**.
+>
+> **Status:** ✅ IMPLEMENTADO (2026-06-08), beber/buff removido (2026-06-23). Teste em `TavernServiceTest` (chat/cooldown + aviso global).
 > **Objetivo:** Uma aba **Taverna** no Comércio onde o jogador **bebe** (1 bronze + minigame de habilidade)
 > pra **stacar um buff** em todos os stats, conversa num **chat** com outros players, e vê **avisos globais**
 > (o 1º: "fulano bebeu +10 garrafas"; depois level-up, drop lendário, etc.).

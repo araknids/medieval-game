@@ -12,7 +12,7 @@ import org.springframework.web.bind.annotation.*;
 import java.util.List;
 import java.util.Map;
 
-/** [TAVERNA] Beber + buff + chat + avisos. Tempo real por polling. Desenho: docs/PLANO_TAVERNA.md. */
+/** [TAVERNA] Chat + avisos globais. Tempo real por polling. Desenho: docs/PLANO_TAVERNA.md. */
 @RestController
 @RequestMapping("/api/tavern")
 @RequiredArgsConstructor
@@ -23,17 +23,6 @@ public class TavernController {
 
     private Player getPlayer(Authentication auth) {
         return playerService.findById((Long) auth.getPrincipal());
-    }
-
-    @GetMapping("/status")
-    public ResponseEntity<?> status(Authentication auth) {
-        return ResponseEntity.ok(tavernService.status(getPlayer(auth)));
-    }
-
-    @PostMapping("/drink")
-    public ResponseEntity<?> drink(@RequestBody(required = false) DrinkRequest req, Authentication auth) {
-        boolean success = req != null && req.success();
-        return ResponseEntity.ok(tavernService.drink(getPlayer(auth), success));
     }
 
     @GetMapping("/feed")
@@ -58,6 +47,5 @@ public class TavernController {
         );
     }
 
-    record DrinkRequest(boolean success) {}
     record ChatRequest(String text) {}
 }

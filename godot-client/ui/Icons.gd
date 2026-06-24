@@ -161,7 +161,7 @@ const ICON_TIP := {
 	"work": ["Trabalho — renda passiva", "Work — passive income"],
 	"auction": ["Leilão — mercado entre jogadores", "Auction — player market"],
 	"stash": ["Baú — guardar itens", "Stash — store items"],
-	"tavern": ["Taverna — beber, chat e buff", "Tavern — drink, chat and buff"],
+	"tavern": ["Taverna — chat e avisos globais", "Tavern — chat and global notices"],
 	"vip": ["VIP / Pedra da Alma", "VIP / SoulStone"],
 	"abilities": ["Habilidades de classe", "Class abilities"],
 	"achievements": ["Conquistas e títulos", "Achievements and titles"],

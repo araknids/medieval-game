@@ -9,7 +9,8 @@ extends Node
 # Plano: docs/PLANO_GODOT_3D.md (Fase 2)
 
 ## URL do servidor. Produção (Railway) por padrão; troque p/ "http://localhost:8080" no dev local.
-var base_url := "https://medieval-game-production.up.railway.app"
+## [LOCAL-TEST] apontado pro backend local — NÃO COMMITAR assim; reverter pro Railway antes de pushar.
+var base_url := "http://localhost:8080"
 
 ## JWT obtido no login. Enviado como `Authorization: Bearer <token>` nas chamadas autenticadas.
 var token := ""
@@ -221,10 +222,6 @@ func temple_protect(id: int) -> Dictionary:
 	return await _request(HTTPClient.METHOD_POST, "/api/temple/protect/%d" % id, {}, true)
 func temple_unprotect(id: int) -> Dictionary:
 	return await _request(HTTPClient.METHOD_POST, "/api/temple/unprotect/%d" % id, {}, true)
-func tavern_status() -> Dictionary:
-	return await _request(HTTPClient.METHOD_GET, "/api/tavern/status", null, true)
-func tavern_drink(success: bool) -> Dictionary:
-	return await _request(HTTPClient.METHOD_POST, "/api/tavern/drink", {"success": success}, true)
 func tavern_feed(since: int) -> Dictionary:
 	return await _request(HTTPClient.METHOD_GET, "/api/tavern/feed?since=%d" % since, null, true)
 func tavern_chat(text: String) -> Dictionary:
