@@ -1106,10 +1106,15 @@ func _show_quest_outcome(j: Dictionary) -> void:
 		rows.append(UiKit.dim(Lang.t("🐶 Nova companheira: %s!") % pet0))
 	UiKit.show_battle_report(self, true, Lang.t("📜 Desfecho"), rows, [])
 
+# [AVISO_QUEST] Host do toast = o Shell PERSISTENTE, não a tela: ao concluir a quest o estado muda
+# (XP/bronze/level) e a tela re-renderiza/é trocada — se o toast fosse filho dela, sumia antes de aparecer.
+func _toast_host():
+	return Shell.current if Shell.current != null else self
+
 func _quest_reward_toast(r: Dictionary) -> void:
 	var pet := str(r.get("acquiredPet", ""))
 	if pet != "" and pet != "false":
-		UiKit.reward_toast(self, Lang.t("🎁 Novo companheiro: %s!") % pet, [])
+		UiKit.reward_toast(_toast_host(), Lang.t("🎁 Novo companheiro: %s!") % pet, [])
 		return
 	var chips: Array = []
 	var bronze := int(r.get("bronzeEarned", 0))
@@ -1118,7 +1123,7 @@ func _quest_reward_toast(r: Dictionary) -> void:
 	if xp > 0: chips.append(["star", "+%d XP" % xp])
 	if r.get("droppedItem") is Dictionary:
 		chips.append(["gift", str(r["droppedItem"].get("name", "item"))])
-	UiKit.reward_toast(self, Lang.t("✅ Quest concluída!"), chips)
+	UiKit.reward_toast(_toast_host(), Lang.t("✅ Quest concluída!"), chips)
 
 func _zone_reward_toast(r: Dictionary) -> void:
 	var chips: Array = []
@@ -1132,13 +1137,19 @@ func _zone_reward_toast(r: Dictionary) -> void:
 	if bronze > 0: chips.append(UiKit.coin_box(bronze, 16))
 	var xp := int(r.get("xpGained", 0))
 	if xp > 0: chips.append(["star", "+%d XP" % xp])
-	UiKit.reward_toast(self, Lang.t("✅ Expedição concluída!"), chips)
+	UiKit.reward_toast(_toast_host(), Lang.t("✅ Expedição concluída!"), chips)
 
 # ── Relatório de batalha (estilo da Torre): card win/loss + recompensas + log colapsável. [BATTLE_REPORT]
 # Combate → relatório completo; sem combate (coleta pura/pet) → modal de texto simples.
 func _show_quest_report(j: Dictionary) -> void:
-	if not bool(j.get("monsterEncountered", false)):
-		_show_quest_outcome(j)   # [DESFECHO] opção sem combate → modal com a HISTÓRIA + recompensa
+	var monster := bool(j.get("monsterEncountered", false))
+	# [AVISO_QUEST] banner no topo a CADA quest CONCLUÍDA (persistente no Shell) — exceto derrota em combate
+	if not monster or bool(j.get("monsterDefeated", false)):
+		_quest_reward_toast(j)
+	if not monster:
+		var narr := str(j.get("narrative", "")).strip_edges()
+		if narr != "":
+			_show_quest_outcome(j)   # narrativa → ALÉM do toast, modal com a HISTÓRIA + recompensa
 		return
 	var won := bool(j.get("monsterDefeated", false))
 	var mob := str(j.get("monsterName", "inimigo"))
