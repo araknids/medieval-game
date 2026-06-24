@@ -463,17 +463,19 @@ const DANGER_PHRASES := [
 	"A morte já rascunhou seu nome aqui. Avance, e talvez ela só precise da pena.",
 ]
 static func _power_of(d: Dictionary) -> int:
-	return int(d.get("attack", d.get("totalAttack", 0))) \
-		+ int(d.get("defense", d.get("totalDefense", 0))) \
-		+ int(d.get("totalHealth", d.get("maxHealth", d.get("health", 0)))) / 10
+	return int(d.get("attack", d.get("totalAttack", d.get("combatAttack", 0)))) \
+		+ int(d.get("defense", d.get("totalDefense", d.get("combatDefense", 0)))) \
+		+ int(d.get("totalHealth", d.get("maxHealth", d.get("health", d.get("combatHealth", 0))))) / 10
 
-static func confirm_danger(host: Control, warrior: Dictionary, enemy_power: int, on_proceed: Callable, on_flee := Callable()) -> void:
+# my_power >= 0 sobrepõe o cálculo por _power_of (telas que já têm o poder pronto — ex.: Arena yourPower).
+# Gatilho de odds só dispara com enemy_power>0 E my_power conhecido (>0) — senão fica só no HP<50%.
+static func confirm_danger(host: Control, warrior: Dictionary, enemy_power: int, on_proceed: Callable, on_flee := Callable(), my_power := -1) -> void:
 	var hp := int(warrior.get("hpPercent", warrior.get("currentHp", 100)))
 	var wounded := hp < WOUNDED_PCT
 	var outmatched := false
 	if enemy_power > 0:
-		var mine := _power_of(warrior)
-		if mine + enemy_power > 0:
+		var mine := my_power if my_power >= 0 else _power_of(warrior)
+		if mine > 0:
 			outmatched = (100 * enemy_power / (mine + enemy_power)) >= OUTMATCHED_PCT
 	if host == null or (not wounded and not outmatched):
 		on_proceed.call()

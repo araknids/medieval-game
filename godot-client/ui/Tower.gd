@@ -343,8 +343,9 @@ func _fight() -> void:
 
 func _do_fight(confirmed := false) -> void:
 	if busy: return
-	if not confirmed:   # [HP_WARN] avisa se subir ferido (HP < 50%)
-		UiKit.confirm_danger(self, warrior, 0, func() -> void: _do_fight(true))
+	if not confirmed:   # [PERIGO] avisa se ferido (HP<50%) OU em forte desvantagem vs o chefe do andar
+		var ep := int(state.get("bossAtk", 0)) + int(state.get("bossDef", 0)) + int(state.get("bossHp", 0)) / 10
+		UiKit.confirm_danger(self, warrior, ep, func() -> void: _do_fight(true))
 		return
 	busy = true
 	UiKit.show_loading(self)
