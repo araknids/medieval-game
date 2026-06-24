@@ -75,12 +75,14 @@ public class MailService {
     // ── Inbox ─────────────────────────────────────────────────────────────────
     @Transactional
     public List<Mail> inbox(Player player) {
-        return mailRepository.findByRecipientPlayerIdOrderBySentAtDesc(player.getId());
+        // [LAUNCH_HARDENING] Top 200 mais recentes — não carrega uma inbox ilimitada na heap. (O claim-all
+        // continua varrendo tudo, então nada fica inacessível; a poda de retenção controla o total.)
+        return mailRepository.findTop200ByRecipientPlayerIdOrderBySentAtDesc(player.getId());
     }
 
     // ── Sent ──────────────────────────────────────────────────────────────────
     public List<Mail> sent(Player player) {
-        return mailRepository.findBySenderPlayerIdOrderBySentAtDesc(player.getId());
+        return mailRepository.findTop100BySenderPlayerIdOrderBySentAtDesc(player.getId());
     }
 
     // ── Mark as read ──────────────────────────────────────────────────────────

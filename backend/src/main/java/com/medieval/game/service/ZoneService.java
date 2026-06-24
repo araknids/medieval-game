@@ -574,7 +574,8 @@ public class ZoneService {
     // ── Histórico ──
 
     public List<ZoneActivity> getHistory(Player player) {
-        return activityRepository.findAllByPlayerAndStatusInOrderByStartedAtDesc(
+        // [LAUNCH_HARDENING] Top 20 no banco (a tela mostra ~10) — não materializa o histórico inteiro.
+        return activityRepository.findTop20ByPlayerAndStatusInOrderByStartedAtDesc(
                 player, List.of(ZoneActivityStatus.COMPLETED,
                                 ZoneActivityStatus.DEFEATED,
                                 ZoneActivityStatus.CANCELLED));

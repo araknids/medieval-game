@@ -23,13 +23,25 @@ import java.util.List;
 @RequiredArgsConstructor
 public class SecurityConfig {
 
-    private final JwtAuthFilter jwtAuthFilter;
+    private final JwtAuthFilter    jwtAuthFilter;
+    private final LoginRateLimiter loginRateLimiter; // [LAUNCH_HARDENING] reusado pelo throttle global da API
 
     @Value("${app.cors.allowed-origins}")
     private String allowedOrigins;
 
     @Value("${spring.profiles.active:dev}")
     private String activeProfile; // [AUDITORIA_2 A8] proíbe CORS '*' em prod
+
+    // [LAUNCH_HARDENING] Teto volumétrico da API (/api/**) — folgado p/ jogo normal, instantâneo p/ flood.
+    // Ligado em prod (default true); desligado em dev/teste via application-{dev,pgtest}.properties.
+    @Value("${app.ratelimit.enabled:true}")
+    private boolean rlEnabled;
+    @Value("${app.ratelimit.window-ms:10000}")
+    private long rlWindowMs;
+    @Value("${app.ratelimit.max-requests:60}")
+    private int rlMaxRequests;
+    @Value("${app.ratelimit.max-body-bytes:65536}")
+    private long rlMaxBodyBytes;
 
     @Bean
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
@@ -59,6 +71,10 @@ public class SecurityConfig {
                                 .includeSubDomains(true)
                                 .maxAgeInSeconds(31536000)))
                 .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class)
+                // [LAUNCH_HARDENING] roda DEPOIS do JwtAuthFilter → o principal (playerId) já está no contexto,
+                // então o throttle é por-jogador quando autenticado (e por-IP no resto).
+                .addFilterAfter(new ApiRateLimitFilter(rlEnabled, loginRateLimiter, rlWindowMs, rlMaxRequests, rlMaxBodyBytes),
+                        JwtAuthFilter.class)
                 .build();
     }
 

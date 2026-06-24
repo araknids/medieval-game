@@ -20,6 +20,7 @@ import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.web.bind.annotation.*;
@@ -44,17 +45,24 @@ public class AuthController {
     private final PasswordEncoder             passwordEncoder;
     private final LoginRateLimiter            rateLimiter;
 
+    // [LAUNCH_HARDENING] mesmo flag do throttle global — desligado em dev/teste p/ não barrar o setup que
+    // cria muitas contas; ligado em prod (default true).
+    @Value("${app.ratelimit.enabled:true}")
+    private boolean rateLimitEnabled;
+
     // Limites anti-brute-force / anti-spam. [AUDITORIA A10]
     private static final long RL_WINDOW_MS      = 15 * 60 * 1000L; // 15 min
     private static final int  LOGIN_MAX_FAILS   = 10;              // por IP+usuário / 15 min
     private static final int  FORGOT_MAX_REQS   = 5;               // por IP / 15 min
-    private static final int  REGISTER_MAX_REQS = 10;              // por IP / 15 min — trava enumeração de usuário/email [AUDITORIA]
+    private static final int  REGISTER_MAX_REQS = 15;              // por IP / 15 min — falhas (enumeração) + SUCESSOS (criação em massa) [AUDITORIA][LAUNCH_HARDENING]
 
     @PostMapping("/register")
     public ResponseEntity<?> register(@Valid @RequestBody RegisterRequest req, HttpServletRequest http) {
-        // Rate limit por IP: impede varredura de quais usernames/emails existem via /register.
-        // Conta só tentativas FALHAS (username/email já existe) — igual o login só conta falha —
-        // então registro legítimo não acumula, mas o probe de enumeração trava após N. [AUDITORIA]
+        // Rate limit por IP: trava (a) varredura de username/email via /register E (b) criação em MASSA de
+        // contas (cada conta = linhas no banco + 1 email de boas-vindas no Brevo = custo/reputação). Conta
+        // tanto FALHAS (enumeração) quanto SUCESSOS (criação). [AUDITORIA][LAUNCH_HARDENING]
+        // Cap folgado (15/15min/IP) p/ não barrar uma comunidade legítima atrás de um NAT no lançamento;
+        // o teto volumétrico de verdade contra IPs rotativos é a borda (Cloudflare).
         String rlKey = "register:" + clientIp(http);
         if (rateLimiter.isBlocked(rlKey, REGISTER_MAX_REQS, RL_WINDOW_MS)) {
             return ResponseEntity.status(429).body(Map.of("error",
@@ -74,6 +82,7 @@ public class AuthController {
         Warrior warrior = warriorService.create(player, req.warriorName(), WarriorClass.RECRUIT); // nasce neutro; especializa na Trial do Lv10 [CLASSES]
         inventoryService.giveStarterItems(player);
         emailService.sendWelcomeEmail(player.getEmail(), player.getUsername(), warrior.getName());
+        if (rateLimitEnabled) rateLimiter.recordAttempt(rlKey, RL_WINDOW_MS); // [LAUNCH_HARDENING] conta o SUCESSO → trava criação em massa por IP
         String token = jwtUtil.generateToken(player.getId(), player.getUsername());
         return ResponseEntity.ok(Map.of(
                 "token",    token,

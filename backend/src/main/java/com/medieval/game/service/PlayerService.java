@@ -23,21 +23,33 @@ public class PlayerService {
     @Transactional
     public Player register(String username, String email, String rawPassword) {
         log.info("[PlayerService] action=register username={}", username);
+        // [LAUNCH_HARDENING] normaliza o email (trim + lowercase) — senão "A@x.com" e "a@x.com" viram contas
+        // distintas (a unique key não pega) e o forgot-password (que faz lowercase) não acharia a conta.
+        String normEmail = email == null ? null : email.trim().toLowerCase();
+        // [LAUNCH_HARDENING] anti-enumeração: o cliente recebe SEMPRE a MESMA mensagem genérica, seja a
+        // colisão de username ou de email — senão um probe com username novo + email-alvo revelaria que o
+        // email existe. O motivo real continua nos logs do servidor (não vai pro cliente).
         if (playerRepository.existsByUsername(username)) {
             log.warn("[PlayerService] action=register REJECTED: username already exists: {}", username);
-            throw new com.medieval.game.config.LocalizedException("error.username_exists", "Username already exists: {0}", username);
+            throw accountTaken();
         }
-        if (playerRepository.existsByEmail(email)) {
-            log.warn("[PlayerService] action=register REJECTED: email already registered: {}", email);
-            throw new com.medieval.game.config.LocalizedException("error.email_registered", "Email already registered: {0}", email);
+        if (playerRepository.existsByEmail(normEmail)) {
+            log.warn("[PlayerService] action=register REJECTED: email already registered: {}", normEmail);
+            throw accountTaken();
         }
         Player player = new Player();
         player.setUsername(username);
-        player.setEmail(email);
+        player.setEmail(normEmail);
         player.setPasswordHash(passwordEncoder.encode(rawPassword));
         Player saved = playerRepository.save(player);
         log.info("[PlayerService] action=register OK playerId={} username={}", saved.getId(), username);
         return saved;
+    }
+
+    /** Mensagem genérica de colisão (não revela QUAL campo) — anti-enumeração. [LAUNCH_HARDENING] */
+    private static com.medieval.game.config.LocalizedException accountTaken() {
+        return new com.medieval.game.config.LocalizedException(
+                "error.account_taken", "That username or email is already in use.");
     }
 
     public Player findByUsername(String username) {
