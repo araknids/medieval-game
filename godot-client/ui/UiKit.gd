@@ -450,15 +450,80 @@ static func toast(host, text: String, icon_key := "", kind := 1) -> void:
 		if _toast_overlay == layer:
 			_toast_overlay = null)
 
-# [HP_WARN] Confirma antes de entrar em combate FERIDO (HP < WOUNDED_PCT = "pode morrer"). HP >= limiar
-# (ou sem host) → segue direto, sem atrito. on_proceed = a lógica de combate original (re-chamar c/ confirmed).
+# [HP_WARN] Popup de PERIGO antes do combate: ferido (HP < WOUNDED_PCT) OU em desvantagem (poder do
+# inimigo ≥ OUTMATCHED_PCT das chances — estimativa GROSSEIRA de poder, sem sim, custo zero de servidor).
+# Sem perigo (ou host null) → segue direto. on_flee válido → mostra "Fugir" (expedição: abandona c/ 25-50%).
 const WOUNDED_PCT := 50
-static func confirm_if_wounded(host: Control, warrior: Dictionary, on_proceed: Callable) -> void:
+const OUTMATCHED_PCT := 70
+const DANGER_PHRASES := [
+	"Você sente o ar pesar antes de sacar a arma. Este não é um inimigo para hoje.",
+	"Algo na postura dele diz que poucos voltaram deste encontro — e você pode não ser exceção.",
+	"Um arrepio sobe pela espinha. A aura dessa criatura cheira a recrutas mortos.",
+	"Seus instintos gritam para recuar. O que está à frente é mais forte que você — e sabe disso.",
+	"A morte já rascunhou seu nome aqui. Avance, e talvez ela só precise da pena.",
+]
+static func _power_of(d: Dictionary) -> int:
+	return int(d.get("attack", d.get("totalAttack", 0))) \
+		+ int(d.get("defense", d.get("totalDefense", 0))) \
+		+ int(d.get("totalHealth", d.get("maxHealth", d.get("health", 0)))) / 10
+
+static func confirm_danger(host: Control, warrior: Dictionary, enemy_power: int, on_proceed: Callable, on_flee := Callable()) -> void:
 	var hp := int(warrior.get("hpPercent", warrior.get("currentHp", 100)))
-	if host == null or hp >= WOUNDED_PCT:
+	var wounded := hp < WOUNDED_PCT
+	var outmatched := false
+	if enemy_power > 0:
+		var mine := _power_of(warrior)
+		if mine + enemy_power > 0:
+			outmatched = (100 * enemy_power / (mine + enemy_power)) >= OUTMATCHED_PCT
+	if host == null or (not wounded and not outmatched):
 		on_proceed.call()
 		return
-	confirm(host, Lang.t("Você está ferido (%d%% de vida) — pode morrer neste combate. Lutar mesmo assim?") % hp, Lang.t("Lutar mesmo assim"), on_proceed, true)
+	var phrase: String = DANGER_PHRASES[randi() % DANGER_PHRASES.size()]
+	if on_flee.is_valid():
+		_danger_dialog(host, Lang.t(phrase), on_proceed, on_flee)
+	else:
+		confirm(host, Lang.t(phrase), Lang.t("Lutar mesmo assim"), on_proceed, true)
+
+# [HP_WARN] Diálogo de perigo com 3 opções (Voltar / Fugir / Encarar) — Fugir = abandona a expedição (25-50%).
+static func _danger_dialog(host: Control, text: String, on_proceed: Callable, on_flee: Callable) -> void:
+	var dim_rect := ColorRect.new()
+	dim_rect.color = Color(0, 0, 0, 0.62)
+	dim_rect.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	dim_rect.mouse_filter = Control.MOUSE_FILTER_STOP
+	host.add_child(dim_rect)
+	var center := CenterContainer.new()
+	center.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	center.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	dim_rect.add_child(center)
+	var res := card(ERR)
+	var panel: PanelContainer = res[0]
+	var v: VBoxContainer = res[1]
+	panel.custom_minimum_size = Vector2(460, 0)
+	v.add_theme_constant_override("separation", 14)
+	center.add_child(panel)
+	var lbl := body(text)
+	lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	lbl.custom_minimum_size = Vector2(420, 0)
+	v.add_child(lbl)
+	var row := HBoxContainer.new(); row.add_theme_constant_override("separation", 10); row.alignment = BoxContainer.ALIGNMENT_CENTER
+	v.add_child(row)
+	var close := func() -> void: dim_rect.queue_free()
+	var do_flee := func() -> void:
+		close.call()
+		on_flee.call()
+	var do_face := func() -> void:
+		close.call()
+		on_proceed.call()
+	row.add_child(_btn(Lang.t("Voltar"), close, Vector2(100, 40), 14))
+	var flee_btn := _btn(Lang.t("Fugir"), do_flee, Vector2(150, 40), 14)
+	flee_btn.add_theme_color_override("font_color", WARN)
+	row.add_child(flee_btn)
+	var face := _btn(Lang.t("Encarar"), do_face, Vector2(120, 40), 14)
+	face.add_theme_color_override("font_color", Color(0.92, 0.55, 0.48))
+	row.add_child(face)
+	dim_rect.gui_input.connect(func(e: InputEvent) -> void:
+		if e is InputEventMouseButton and e.pressed:
+			close.call())
 
 # ── Modal de confirmação (procedural) ──────────────────────────────────────────────
 static func confirm(host: Control, text: String, confirm_label: String, on_yes: Callable, danger := true) -> void:

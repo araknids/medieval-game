@@ -307,7 +307,7 @@ func _rank_row(pos: int, r: Dictionary, is_me: bool) -> PanelContainer:
 func _fight(opponent_id: int, confirmed := false) -> void:
 	if busy or _blocked(): return
 	if not confirmed:   # [HP_WARN] avisa se entrar ferido (HP < 50%)
-		UiKit.confirm_if_wounded(self, w, func() -> void: _fight(opponent_id, true))
+		UiKit.confirm_danger(self, w, 0, func() -> void: _fight(opponent_id, true))
 		return
 	_close_picker()
 	busy = true

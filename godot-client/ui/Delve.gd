@@ -207,7 +207,7 @@ func _node_chip(n: Dictionary) -> Control:
 			_:         icon_key = "act_mine"; emoji = "⛏"; label = "Minerar"
 	var reachable := bool(n.get("reachable", false))
 	if reachable:
-		var b := UiKit.icon_choice_btn(icon_key, emoji, label, _choose_node.bind(str(n.get("id", ""))), meta[2], false, true)
+		var b := UiKit.icon_choice_btn(icon_key, emoji, label, _choose_node.bind(str(n.get("id", "")), type), meta[2], false, true)
 		b.custom_minimum_size = Vector2(96, 72)
 		b.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 		return b
@@ -308,12 +308,34 @@ func _run_id() -> int:
 func _is_won() -> bool:
 	return bool(run.get("active", false)) and int(run.get("currentLayer", 0)) >= int(run.get("depth", 0))
 
-func _choose_node(node_id: String) -> void:
+func _choose_node(node_id: String, node_type := "") -> void:
+	if busy: return
+	# [HP_WARN] nó de combate → oferta de perigo (ferido/desvantagem): Encarar / Fugir (abandona, 25-50%) / Voltar
+	if node_type == "COMBAT" or node_type == "ELITE" or node_type == "BOSS":
+		UiKit.confirm_danger(self, warrior, 0, func() -> void: _do_choose(node_id), func() -> void: _flee_now())
+		return
+	_do_choose(node_id)
+
+func _do_choose(node_id: String) -> void:
 	if busy: return
 	busy = true
 	var r = await Api.expedition_choose(_run_id(), node_id)
 	busy = false
 	await _handle_step(r)
+
+# [HP_WARN] Fugir do nó perigoso = abandonar a run (salva 25-50% do carregado, sem KO). Reusa o abandon.
+func _flee_now() -> void:
+	if busy: return
+	busy = true
+	var r = await Api.expedition_abandon(_run_id())
+	busy = false
+	if not r.get("ok"):
+		_show_error(r)
+		return
+	var j: Dictionary = r["json"] if r.get("json") is Dictionary else {}
+	var got := int(j.get("bronzeBanked", 0)) > 0 or int(j.get("xpBanked", 0)) > 0 or int(j.get("keptItems", 0)) > 0 or int(j.get("mailedItems", 0)) > 0 or (j.get("bankedResources") is Array and not (j["bankedResources"] as Array).is_empty())
+	var title := (Lang.t("🏳 Você salvou parte do loot") if got else Lang.t("🏳 Abandonou — nada foi salvo"))
+	_finish_to_world({"kind": "loot", "j": j, "title": title})
 
 func _resolve_event(option_id: String) -> void:
 	if busy: return

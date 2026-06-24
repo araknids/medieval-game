@@ -732,7 +732,7 @@ func _zone_card(kingdom: String, z: Array) -> PanelContainer:
 func _start_zone_delve(kingdom: String, tier: String, skill: String, confirmed := false) -> void:
 	if busy: return
 	if kingdom == "COMBAT" and not confirmed:   # [HP_WARN] caça PvE → avisa se entrar ferido (HP < 50%)
-		UiKit.confirm_if_wounded(self, warrior, func() -> void: _start_zone_delve(kingdom, tier, skill, true))
+		UiKit.confirm_danger(self, warrior, 0, func() -> void: _start_zone_delve(kingdom, tier, skill, true))
 		return
 	busy = true
 	var tier_num := 3 if tier == "HIGH_RISK" else (2 if tier == "PVP" else 1)
