@@ -329,11 +329,8 @@ func _show_quest_offer(q: Dictionary) -> void:
 	var overlay := ColorRect.new()
 	overlay.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	overlay.color = Color(0, 0, 0, 0.72)
-	overlay.mouse_filter = Control.MOUSE_FILTER_STOP
-	add_child(overlay)
-	overlay.gui_input.connect(func(ev: InputEvent) -> void:
-		if ev is InputEventMouseButton and ev.pressed and is_instance_valid(overlay):
-			overlay.queue_free())
+	overlay.mouse_filter = Control.MOUSE_FILTER_STOP   # [ONBOARDING] BLOQUEANTE: clicar fora NÃO fecha — o
+	add_child(overlay)                                  # recruta tem que clicar "Aceitar missão" (sem fuga acidental).
 	var center := CenterContainer.new()
 	center.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	center.mouse_filter = Control.MOUSE_FILTER_IGNORE
