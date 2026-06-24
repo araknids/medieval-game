@@ -13,9 +13,11 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.time.temporal.ChronoUnit;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ThreadLocalRandom;
 
 /**
  * [TAVERNA] Beber (1 bronze + minigame) → buff stackável; chat entre players; avisos globais.
@@ -36,6 +38,11 @@ public class TavernService {
     private static final int  COOLDOWN_PRUNE_AT = 256;    // [VARREDURA] poda o map de cooldown qd passar disto
     private static final long COOLDOWN_STALE_MS = 60_000; // entrada > 1min é lixo (cooldown é 2.5s)
     private static final int[] BOTTLE_MILESTONES = {10, 25, 50, 100, 250, 500, 1000};
+    // [TAVERNA_CHANCE] O SERVIDOR sorteia o acerto (anti-hack: o cliente não decide). A chance CAI conforme
+    // os stacks → fica "mais difícil aos poucos"; reseta quando o buff expira. Números são placeholders.
+    private static final double DRINK_BASE_CHANCE = 0.90;   // 90% sem stacks
+    private static final double DRINK_CHANCE_STEP = 0.01;   // −1% por stack (encolhe devagar)
+    private static final double DRINK_MIN_CHANCE  = 0.15;   // piso 15% (chegar perto do cap fica quase impossível)
 
     private final PlayerService           playerService;
     private final PlayerRepository        playerRepository;
@@ -52,19 +59,36 @@ public class TavernService {
         playerService.spendBronze(player, DRINK_COST_BRONZE); // 1 bronze SEMPRE (comprou a bebida)
         Warrior w = warriorRepository.findByPlayer(player)
                 .orElseThrow(() -> new IllegalStateException("Warrior not found"));
-        // [SEGURANCA] O servidor SEMPRE concede o stack — NÃO confia no `success` do cliente (que
-        // poderia ser forjado p/ buff grátis). O minigame de timing do front vira só "juice"; o gate
-        // real continua o bronze. (param `success` mantido p/ compat. do controller, mas ignorado.)
-        int stacks = w.tavernBuffActive() ? Math.min(Warrior.TAVERN_BUFF_CAP, w.getTavernBuffStacks() + 1) : 1;
-        w.setTavernBuffStacks(stacks);
-        w.setTavernBuffExpiresAt(LocalDateTime.now().plusMinutes(BUFF_MINUTES)); // renova tudo
+        // [TAVERNA_CHANCE] O SERVIDOR sorteia o acerto (anti-hack: o `success` do cliente é IGNORADO, senão
+        // daria p/ forjar buff de 100%). A chance cai conforme os stacks; errar = só o bronze.
+        boolean active = w.tavernBuffActive();
+        if (!active) {                          // [TAVERNA_RESET] buff expirou/inexistia → sessão nova: zera stacks E garrafas
+            w.setTavernBuffStacks(0);
+            player.setBottlesDrunk(0);
+        }
+        int curStacks = active ? w.getTavernBuffStacks() : 0;
+        boolean ok = ThreadLocalRandom.current().nextDouble() < drinkSuccessChance(curStacks);
+        int stacks = curStacks;
+        int bottles = player.getBottlesDrunk();
+        if (ok) {                               // acertou → +1 stack, renova os 5 min, conta a garrafa
+            stacks = Math.min(Warrior.TAVERN_BUFF_CAP, curStacks + 1);
+            w.setTavernBuffStacks(stacks);
+            w.setTavernBuffExpiresAt(LocalDateTime.now().plusMinutes(BUFF_MINUTES));
+            bottles = player.getBottlesDrunk() + 1;
+            player.setBottlesDrunk(bottles);
+        }                                       // errou → não mexe em stacks/expiry (o buff segue decaindo)
         warriorRepository.save(w);
-        int bottles = player.getBottlesDrunk() + 1;
-        player.setBottlesDrunk(bottles);
         playerRepository.save(player);
-        announceBottleMilestone(w, bottles);
-        log.info("[TavernService] player={} drink OK stacks={} bottles={}", player.getId(), stacks, bottles);
-        return status(player);
+        if (ok) announceBottleMilestone(w, bottles);
+        log.info("[TavernService] player={} drink ok={} stacks={} bottles={}", player.getId(), ok, stacks, bottles);
+        Map<String, Object> res = new HashMap<>(status(player));
+        res.put("success", ok);                 // o front mostra copo VAZIO (acerto) ou DERRAMADO (erro)
+        return res;
+    }
+
+    /** [TAVERNA_CHANCE] Chance de acertar o gole; cai conforme os stacks (dificuldade que sobe), com piso. */
+    private double drinkSuccessChance(int stacks) {
+        return Math.max(DRINK_MIN_CHANCE, DRINK_BASE_CHANCE - stacks * DRINK_CHANCE_STEP);
     }
 
     // ── Status (buff + garrafas + custo) ─────────────────────────────────────────
@@ -82,7 +106,8 @@ public class TavernService {
             "stacks",          stacks,
             "buffPct",         stacks * 0.01,
             "buffSecondsLeft", secs,
-            "bottlesDrunk",    player.getBottlesDrunk()
+            "bottlesDrunk",    player.getBottlesDrunk(),
+            "drinkChance",     drinkSuccessChance(stacks)   // [TAVERNA_CHANCE] barra verde = chance do próximo gole
         );
     }
 

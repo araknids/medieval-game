@@ -723,15 +723,21 @@ func _render_no_guild() -> void:
 	cost_row.add_child(UiKit.coin_box(1000, 20))   # 1000 bronze = 10 prata (espelha GuildService.CREATE_COST_BRONZE)
 	box.add_child(cost_row)
 	box.add_child(UiKit.spacer(4))
+	# [GUILD_CRIAR] campos à ESQUERDA, botão "Criar Guilda" à DIREITA deles → card mais curto (era tudo empilhado).
+	var form := HBoxContainer.new(); form.add_theme_constant_override("separation", 10)
+	box.add_child(form)
+	var fields := VBoxContainer.new(); fields.add_theme_constant_override("separation", 6)
+	fields.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	form.add_child(fields)
 	name_edit = UiKit.input("Nome (3-30 chars)"); name_edit.max_length = 30
 	name_edit.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	box.add_child(name_edit)
+	fields.add_child(name_edit)
 	desc_edit = UiKit.input("Descrição (opcional)"); desc_edit.max_length = 120
 	desc_edit.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	box.add_child(desc_edit)
-	var cr := HBoxContainer.new(); cr.alignment = BoxContainer.ALIGNMENT_CENTER
-	cr.add_child(UiKit.icon_choice_btn("guild", "🛡", Lang.t("Criar Guilda"), _create, UiKit.GOLD_SOFT, true))
-	box.add_child(cr)
+	fields.add_child(desc_edit)
+	var create_btn := UiKit.icon_choice_btn("guild", "🛡", Lang.t("Criar Guilda"), _create, UiKit.GOLD_SOFT, true)
+	create_btn.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	form.add_child(create_btn)
 	_panel_host.add_child(res[0])
 	_panel_host.add_child(UiKit.section("Guildas existentes"))
 	if guild_list.is_empty():
