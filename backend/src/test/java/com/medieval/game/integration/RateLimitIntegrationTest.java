@@ -16,7 +16,10 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @TestPropertySource(properties = {
         "app.ratelimit.enabled=true",
         "app.ratelimit.max-requests=5",
-        "app.ratelimit.window-ms=10000",
+        // Janela GRANDE de propósito: o teste afere o TETO (a 6ª chamada), não o relógio. Numa janela
+        // curta (ex.: 10s) um runner lento de CI (Testcontainers/JVM fria) gastaria >10s nas 6 chamadas,
+        // a janela reiniciaria e a 6ª passaria — flaky. 10 min garante que as 6 caem na mesma janela.
+        "app.ratelimit.window-ms=600000",
         "app.ratelimit.max-body-bytes=1000"
 })
 class RateLimitIntegrationTest extends BaseIntegrationTest {
