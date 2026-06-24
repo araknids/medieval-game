@@ -23,6 +23,12 @@ public class StarterQuestController {
         return ResponseEntity.ok(starterQuestService.status(player));
     }
 
+    @PostMapping("/{which}/accept")
+    public ResponseEntity<?> accept(@PathVariable String which, Authentication auth) {
+        Player player = playerService.findById((Long) auth.getPrincipal());
+        return ResponseEntity.ok(starterQuestService.accept(player, which));
+    }
+
     @PostMapping("/{which}/turn-in")
     public ResponseEntity<?> turnIn(@PathVariable String which, Authentication auth) {
         Player player = playerService.findById((Long) auth.getPrincipal());

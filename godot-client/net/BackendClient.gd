@@ -73,7 +73,10 @@ func onboarding_seen() -> Dictionary:
 ## GET /api/starter-quests → {quests:[{id,npc,flavor,need:{type,qty,have},reward:{xp,bronze,item},done}]}.
 func starter_quests() -> Dictionary:
 	return await _request(HTTPClient.METHOD_GET, "/api/starter-quests", null, true)
-## POST /api/starter-quests/{guard|priest|shop}/turn-in → entrega o item pedido, recebe a recompensa.
+## POST /api/starter-quests/{which}/accept → aceita a quest (NPC → diário). [ONBOARDING v2]
+func starter_quest_accept(which: String) -> Dictionary:
+	return await _request(HTTPClient.METHOD_POST, "/api/starter-quests/%s/accept" % which, {}, true)
+## POST /api/starter-quests/{guard|priest|shop}/turn-in → entrega o recurso pedido, recebe XP+gold.
 func starter_quest_turn_in(which: String) -> Dictionary:
 	return await _request(HTTPClient.METHOD_POST, "/api/starter-quests/%s/turn-in" % which, {}, true)
 

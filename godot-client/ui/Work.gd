@@ -69,6 +69,10 @@ func _render_jobs() -> void:
 	UiKit.hide_loading()
 	UiKit.set_wallet(wallet, warrior)
 	_build_training_section()   # [TRAINING] Training Hall EM CIMA do trabalho (movido do Mundo)
+	if Shell.current != null:   # [ONBOARDING v2] Training Hall não tem NPC → só o botão de quest (se disponível)
+		var qb = Shell.current.quest_button_for("Work")
+		if qb != null:
+			content.add_child(qb)
 	content.add_child(UiKit.section(Lang.t("Empregos (%d)") % jobs.size()))
 	if jobs.is_empty():
 		content.add_child(UiKit.empty("Nenhum emprego disponível", "Suba de nível para destravar novos trabalhos."))

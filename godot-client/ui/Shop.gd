@@ -96,6 +96,10 @@ func _render() -> void:
 	_timer_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 	_timer_label.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	mrow.add_child(_timer_label)
+	if Shell.current != null:   # [ONBOARDING v2] botão de quest do Lojista (se disponível)
+		var qb = Shell.current.quest_button_for("Shop")
+		if qb != null:
+			mrow.add_child(qb)
 	content.add_child(mres[0])
 	_update_timer_label()
 	# ── Itens ──  (P1: comprados afundam pro fim)

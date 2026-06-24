@@ -176,5 +176,8 @@ public class MaintenanceService {
         p.setStarterGuardDone(false);  // [ONBOARDING] re-arma os Deveres do Recruta
         p.setStarterPriestDone(false);
         p.setStarterShopDone(false);
+        p.setStarterGuardAccepted(false);   // [ONBOARDING v2] volta pro estado "available"
+        p.setStarterPriestAccepted(false);
+        p.setStarterShopAccepted(false);
     }
 }

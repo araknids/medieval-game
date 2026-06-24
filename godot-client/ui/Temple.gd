@@ -55,6 +55,10 @@ func _render() -> void:
 
 # [TEMPLO_PADRE] Cabeçalho do padre: retrato (PixelLab) + nome + texto de sabor (como o mercador na Loja).
 func _render_priest_header() -> void:
+	# [ONBOARDING v2] Padre num CARD: retrato + nome + fala (+ botão de quest à direita, se disponível).
+	var res := UiKit.card(UiKit.GOLD_SOFT)
+	var card_pc: PanelContainer = res[0]
+	var card_box: VBoxContainer = res[1]
 	var head := HBoxContainer.new()
 	head.add_theme_constant_override("separation", 12)
 	var icon_key := "priest" if Icons.tex("priest") != null else ("temple" if Icons.tex("temple") != null else "")
@@ -75,7 +79,12 @@ func _render_priest_header() -> void:
 	quote.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	col.add_child(quote)
 	head.add_child(col)
-	content.add_child(head)
+	if Shell.current != null:
+		var qb = Shell.current.quest_button_for("Temple")
+		if qb != null:
+			head.add_child(qb)
+	card_box.add_child(head)
+	content.add_child(card_pc)
 
 # ── Bênçãos disponíveis ────────────────────────────────────────────────────────
 func _render_buff_options() -> void:

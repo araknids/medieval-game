@@ -93,6 +93,13 @@ public class Player {
     private boolean starterPriestDone = false;
     @Column(columnDefinition = "boolean default false")
     private boolean starterShopDone = false;
+    // [ONBOARDING v2] estado "aceita": NPC oferece (available) -> aceita (entra no diário) -> entrega (done).
+    @Column(columnDefinition = "boolean default false")
+    private boolean starterGuardAccepted = false;
+    @Column(columnDefinition = "boolean default false")
+    private boolean starterPriestAccepted = false;
+    @Column(columnDefinition = "boolean default false")
+    private boolean starterShopAccepted = false;
 
     // [I18N] Idioma preferido do jogador (ex.: "en", "pt"). O cliente lê isto e manda no header
     // Accept-Language; o backend serve o conteúdo (quests/lore/torre/erros) já no idioma. Default "en".

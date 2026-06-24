@@ -21,7 +21,7 @@ const ELEM_ICONS := {"FIRE": "🔥", "WATER": "💧", "EARTH": "🪨", "AIR": "�
 
 # [ONBOARDING] Briefing de chegada (Coroa de Arka) — texto curado em docs/PLANO_QUESTS_LORE.md.
 # Literal PT = chave; a tradução EN está no dict do Lang.gd. Aparece 1x (só se !onboardingSeen).
-const ONBOARD_BRIEFING := "Coroa de Arka era a joia do novo mundo — ouro nas colinas, peixe nas marés, mais do que a Velha Coroa jamais sonhou. Então as feras vieram, e o Rei se trancou em sua torre e não desceu mais. Os mercadores ainda contam suas moedas atrás de portas trancadas. Imploramos soldados à Velha Coroa. Mandaram-nos recrutas. Mandaram-nos você. Conquiste seu lugar, escale a torre do Rei, e traga-o de volta."
+const ONBOARD_BRIEFING := "Pediram um exército à Velha Coroa. Mandaram você. Prometeram poder ao Rei, e ele subiu a torre atrás da promessa — e não desceu mais. O que desce de lá agora não é gente. Arranque o que puder dos mortos, suba atrás dele, e reze pra ele ainda ser o Rei quando você chegar."
 
 # Tooltips (hover) de CADA item do menu lateral — explicam o que cada tela faz. [MENUBAR_HOVER]
 const NAV_TIPS := {
@@ -84,11 +84,18 @@ var _nav_buttons: Dictionary = {}   # nome da tela -> Button (destaque do ativo)
 var _cache := {}        # nome da tela → node (MANTIDA em memória; alterna visibilidade, não recria)
 var _cache_ver := {}    # nome → mutation_count na última atualização (revisita só refaz request se algo mudou)
 var _dash: Control = null   # dashboard/home (também cacheado)
+# [ONBOARDING v2] Deveres do Recruta: status cacheado + badges (nav dos NPCs + topbar) + oferta 1x/sessão.
+var _quest_btn: Button
+var _quest_badge: Control
+var _starter_status: Array = []
+var _nav_badges := {}     # screen -> badge Control no item de nav do NPC
+var _offered := {}        # screen -> já ofereci a quest nesta sessão (não repopa a cada visita)
 
 func _ready() -> void:
 	current = self
 	UiKit.topbar_sink = update_topbar          # telas embedded mandam o warrior pro topbar via set_wallet
 	UiKit.equip_changed_sink = _on_equip_changed   # Inventory avisa quando equipa → re-veste o busto (sem fetch à toa)
+	UiKit.starter_changed_sink = _refresh_starter  # [ONBOARDING v2] diário avisa → re-render dos badges de quest
 	set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	UiKit.bg(self, UiKit.TINT_DEFAULT)
 	var root := VBoxContainer.new()
@@ -108,6 +115,7 @@ func _ready() -> void:
 	await _initial_load()   # 1x no boot: warrior (topbar) + inventário (índice de comparação + busto)
 	_show_dashboard()
 	await _maybe_onboarding()   # [ONBOARDING] briefing de chegada no 1º login (só se !onboardingSeen)
+	await _refresh_starter()    # [ONBOARDING v2] badges de quest (nav dos NPCs + topbar)
 
 func _exit_tree() -> void:
 	if current == self:
@@ -116,6 +124,8 @@ func _exit_tree() -> void:
 		UiKit.topbar_sink = Callable()
 	if UiKit.equip_changed_sink.is_valid() and UiKit.equip_changed_sink.get_object() == self:
 		UiKit.equip_changed_sink = Callable()
+	if UiKit.starter_changed_sink.is_valid() and UiKit.starter_changed_sink.get_object() == self:
+		UiKit.starter_changed_sink = Callable()
 
 # ── [ONBOARDING] Briefing de chegada (Camada A) ─────────────────────────────────────
 # Só no 1º login (backend: !onboardingSeen). Dim + card dourado + briefing da Coroa de Arka +
@@ -166,6 +176,115 @@ func _show_welcome(api) -> void:
 		_open("World"))
 	cta.custom_minimum_size = Vector2(500, 48)
 	vb.add_child(cta)
+
+# ── [ONBOARDING v2] Deveres do Recruta: badges (nav + topbar) + oferta no NPC ────────
+func _refresh_starter() -> void:
+	var api = get_node_or_null("/root/Api")
+	if api == null:
+		return
+	var r = await api.starter_quests()
+	if not (r.get("ok") and r.get("json") is Dictionary):
+		return
+	_starter_status = r["json"].get("quests", []) if r["json"].get("quests") is Array else []
+	_apply_starter_badges()
+
+func _apply_starter_badges() -> void:
+	var any_open := false
+	for q in _starter_status:
+		if q is Dictionary:
+			var st := str(q.get("state", ""))
+			_set_nav_badge(str(q.get("npcScreen", "")), st == "available")
+			if st != "done":
+				any_open = true
+	if _quest_badge != null and is_instance_valid(_quest_badge):
+		_quest_badge.visible = any_open
+
+func _set_nav_badge(scr: String, on: bool) -> void:
+	if scr == "":
+		return
+	var btn = _nav_buttons.get(scr)
+	if btn == null or not is_instance_valid(btn):
+		return
+	var badge = _nav_badges.get(scr)
+	if badge == null or not is_instance_valid(badge):
+		badge = _make_quest_badge(true)   # nav: centralizado verticalmente com o texto
+		btn.add_child(badge)
+		_nav_badges[scr] = badge
+	badge.visible = on
+
+func _starter_available_for(scr: String) -> Dictionary:
+	for q in _starter_status:
+		if q is Dictionary and str(q.get("npcScreen", "")) == scr and str(q.get("state", "")) == "available":
+			return q
+	return {}
+
+# [ONBOARDING v2] Botão de oferta de quest p/ a tela do NPC (null se não há disponível agora).
+# Usado por Templo/Loja (dentro do card do NPC) e Trabalho (solto). Click → diálogo de aceitar.
+func quest_button_for(scr: String) -> Button:
+	var q := _starter_available_for(scr)
+	if q.is_empty():
+		return null
+	var btn := UiKit.action(Lang.t("Pegar missão"), func() -> void: _show_quest_offer(q))
+	btn.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	return btn
+
+func _maybe_offer(scr: String) -> void:
+	if bool(_offered.get(scr, false)):
+		return   # já ofereci nesta sessão (o badge no nav + o diário seguem como caminho)
+	var q := _starter_available_for(scr)
+	if q.is_empty():
+		return
+	_offered[scr] = true
+	_show_quest_offer(q)
+
+func _show_quest_offer(q: Dictionary) -> void:
+	var overlay := ColorRect.new()
+	overlay.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	overlay.color = Color(0, 0, 0, 0.72)
+	overlay.mouse_filter = Control.MOUSE_FILTER_STOP
+	add_child(overlay)
+	overlay.gui_input.connect(func(ev: InputEvent) -> void:
+		if ev is InputEventMouseButton and ev.pressed and is_instance_valid(overlay):
+			overlay.queue_free())
+	var center := CenterContainer.new()
+	center.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	center.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	overlay.add_child(center)
+	var res := UiKit.card(UiKit.GOLD)
+	var panel: PanelContainer = res[0]
+	var vb: VBoxContainer = res[1]
+	panel.custom_minimum_size = Vector2(460, 0)
+	vb.add_theme_constant_override("separation", 12)
+	center.add_child(panel)
+	var npc := Label.new()
+	npc.text = str(q.get("npc", "?"))
+	npc.add_theme_font_size_override("font_size", 20)
+	npc.add_theme_color_override("font_color", UiKit.GOLD)
+	npc.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	vb.add_child(npc)
+	var fl := Label.new()
+	fl.text = str(q.get("flavor", ""))
+	fl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	fl.custom_minimum_size = Vector2(420, 0)
+	fl.add_theme_font_size_override("font_size", 14)
+	fl.add_theme_color_override("font_color", UiKit.TEXT)
+	vb.add_child(fl)
+	var need := Label.new()
+	need.text = Lang.t("Pede: %d %s") % [int(q.get("needQty", 0)), str(q.get("needName", "?"))]
+	need.add_theme_font_size_override("font_size", 13)
+	need.add_theme_color_override("font_color", UiKit.TEXT_DIM)
+	need.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	vb.add_child(need)
+	var which := str(q.get("id", ""))
+	var accept := UiKit.action_big(Lang.t("Aceitar missão"), func() -> void:
+		var api = get_node_or_null("/root/Api")
+		if api != null:
+			await api.starter_quest_accept(which)
+		if is_instance_valid(overlay):
+			overlay.queue_free()
+		await _refresh_starter())
+	accept.custom_minimum_size = Vector2(420, 46)
+	vb.add_child(accept)
 
 # ── TopBar ─────────────────────────────────────────────────────────────────────────
 func _build_topbar() -> Control:
@@ -291,6 +410,11 @@ func _topbar_actions() -> Control:
 	h.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	# [MAIL_BADGE] carta com frame-anim PADRÃO: anima no HOVER (igual aos outros ícones do topo); o
 	# não-lido vira uma exclamação vermelha no canto, por cima do ícone.
+	# [ONBOARDING v2] Diário de Missões (Deveres do Recruta) — ao lado do Correio.
+	_quest_btn = _topbar_icon_btn("quest_log", "Missões — deveres do recruta", func() -> void: _open("StarterQuests"))
+	_quest_badge = _make_quest_badge()
+	_quest_btn.add_child(_quest_badge)
+	h.add_child(_quest_btn)
 	_mail_btn = _topbar_icon_btn("mail", "Correio — mensagens e recompensas", func() -> void: _open("Mail"))
 	_mail_badge = _make_alert_badge()
 	_mail_btn.add_child(_mail_badge)
@@ -339,6 +463,29 @@ func _icon_static_hover(b: Button, key: String) -> bool:
 	return true
 
 # [MAIL_BADGE] Selo de alerta: exclamação vermelha no canto superior direito do ícone. Começa oculto.
+# [ONBOARDING v2] Badge AMARELO de quest (mesma exclamação `quest_alert` do mapa do mundo).
+# centered=true → alinhado VERTICALMENTE com o texto (item de nav lateral); false → canto sup. direito (topbar).
+func _make_quest_badge(centered := false) -> Control:
+	var t := Icons.tex("quest_alert")
+	if t == null:
+		return _make_alert_badge()   # fallback se o PNG não importou
+	var tr := TextureRect.new()
+	tr.texture = t
+	tr.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	tr.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	tr.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	tr.custom_minimum_size = Vector2(16, 16)
+	tr.anchor_left = 1.0; tr.anchor_right = 1.0
+	if centered:   # nav lateral: centro vertical (alinha com o texto do item)
+		tr.anchor_top = 0.5; tr.anchor_bottom = 0.5
+		tr.offset_left = -24; tr.offset_top = -8
+		tr.offset_right = -8; tr.offset_bottom = 8
+	else:          # topbar 36×36: canto superior direito (igual aos outros badges)
+		tr.anchor_top = 0.0; tr.anchor_bottom = 0.0
+		tr.offset_left = -17; tr.offset_top = -1
+		tr.offset_right = 1;  tr.offset_bottom = 17
+	return tr
+
 func _make_alert_badge() -> Control:
 	var badge := PanelContainer.new()
 	badge.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -491,7 +638,6 @@ func _build_nav() -> Control:
 	# (parecer do UX sênior): herói no topo → aventura → combate → cidade/serviços. Separadores finos
 	# (_nav_divider) marcam os grupos no lugar dos antigos headers de texto.
 	nav.add_child(_nav_item("Character", "Personagem"))   # logo abaixo do Início
-	nav.add_child(_nav_item("StarterQuests", "Deveres"))  # [ONBOARDING] deveres do recruta (Camada B)
 	nav.add_child(_nav_divider())
 	nav.add_child(_nav_item("World", "Mundo"))            # coração do loop: aventurar
 	nav.add_child(_nav_item("Work", "Trabalho"))          # idle (planta o timer)

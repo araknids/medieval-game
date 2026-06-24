@@ -99,6 +99,26 @@ dono validar em prod, coerente com a postura de teste solo). Branch = `main` (co
 ## Ordem
 A (Godot, sem backend) → B backend (testável) → B Godot UI → soft-wipe → `mvn clean test` → commit/push → relatório.
 
+## v2 — Descoberta no NPC + diário no topbar (2026-06-24, pós-grilling)
+A aba "Deveres" no nav **saiu** (renderizava como cabeçalho morto: sem ícone `starterquests` o `_nav_item`
+virava texto solto). Novo modelo (fundação do sistema de quest geral, não só onboarding):
+
+- **Estado por quest:** `available` (NPC oferece) → `accepted` (entra no diário) → `done`. Backend: 3 flags
+  `accepted` novas no `Player` (além das `done`); `state(player,duty)` deriva. Endpoint novo
+  `POST /api/starter-quests/{which}/accept`; `turn-in` passa a **exigir `accepted`**. `status` retorna
+  `state` + `npcScreen` (Work/Temple/Shop) por quest.
+- **Descoberta no NPC:** cada quest tem um `npcScreen` (Guarda→Work/Training, Padre Anselmo→Temple,
+  Lojista→Shop). A tela do NPC, se tiver quest `available`, mostra uma **oferta** (NPC + flavor + botão
+  **Aceitar** — só aceitar, sem recusar [grilling R2]) → diálogo → `accept` → vai pro diário.
+- **Badge no nav:** "!" amarelo (reusa `quest_alert`/`warning`) no item de nav do NPC enquanto a quest dele
+  está `available`. Some ao aceitar.
+- **Diário no topbar:** botão novo ao lado do Mail (ícone `quest_alert`, padrão dos botões do topbar) abre o
+  painel `StarterQuests` (reaproveitado como **diário**: lista as quests `accepted`/`done`, com have/need +
+  **Entregar**). Badge no botão quando há quest pronta p/ entregar.
+
+> Por que vale o estado "aceita" (grilling R3): quests futuras (não-onboarding) serão **trackeadas igual** —
+> isto é a fundação. Decisão consciente do dono mesmo a 5 dias do itch (grilling R5: prioridade dele agora).
+
 ## Em aberto p/ o dono (de manhã)
 - Magnitudes (XP/gold/qty pedida) = placeholders.
 - Recursos pedidos por cada NPC (têm que ser early-game).

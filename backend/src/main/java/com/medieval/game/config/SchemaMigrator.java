@@ -307,6 +307,9 @@ public class SchemaMigrator implements SmartInitializingSingleton {
             jdbc.execute("ALTER TABLE players ADD COLUMN IF NOT EXISTS starter_guard_done  boolean NOT NULL DEFAULT false");
             jdbc.execute("ALTER TABLE players ADD COLUMN IF NOT EXISTS starter_priest_done boolean NOT NULL DEFAULT false");
             jdbc.execute("ALTER TABLE players ADD COLUMN IF NOT EXISTS starter_shop_done   boolean NOT NULL DEFAULT false");
+            jdbc.execute("ALTER TABLE players ADD COLUMN IF NOT EXISTS starter_guard_accepted  boolean NOT NULL DEFAULT false");
+            jdbc.execute("ALTER TABLE players ADD COLUMN IF NOT EXISTS starter_priest_accepted boolean NOT NULL DEFAULT false");
+            jdbc.execute("ALTER TABLE players ADD COLUMN IF NOT EXISTS starter_shop_accepted   boolean NOT NULL DEFAULT false");
             log.info("[SchemaMigrator] players starter-quest columns ensured");
         } catch (Exception e) {
             log.warn("[SchemaMigrator] players starter-quest patch failed: {}", e.getMessage());
