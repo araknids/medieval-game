@@ -20,6 +20,16 @@ const EN := {
 	"Leilão": "Auction", "Baú": "Stash", "Taverna": "Tavern", "Inventário": "Inventory",
 	"Habilidades": "Abilities", "Conquistas": "Achievements", "Guilda": "Guild", "Correio": "Mail",
 	"Diário": "Daily", "Configurações": "Settings", "Recompensa Diária": "Daily Reward",
+	# — [ONBOARDING] Briefing de chegada + Deveres do Recruta —
+	"Coroa de Arka era a joia do novo mundo — ouro nas colinas, peixe nas marés, mais do que a Velha Coroa jamais sonhou. Então as feras vieram, e o Rei se trancou em sua torre e não desceu mais. Os mercadores ainda contam suas moedas atrás de portas trancadas. Imploramos soldados à Velha Coroa. Mandaram-nos recrutas. Mandaram-nos você. Conquiste seu lugar, escale a torre do Rei, e traga-o de volta.": "Coroa de Arka was the jewel of the new world — gold in the hills, fish in the tides, more than the Old Crown ever dreamed. Then the beasts came, and the King shut himself in his tower and did not come down. The merchants still count their coin behind barred doors. We begged the Old Crown for soldiers. They sent us recruits. They sent us you. Earn your place, climb the King's tower, and bring him home.",
+	"Conquistar meu lugar": "Earn my place",
+	"Deveres do Recruta": "Recruit's Duties",
+	"Deveres": "Duties",
+	"Entregar": "Turn in",
+	"Já cumprido": "Done",
+	"Você precisa de %d %s (tem %d)": "You need %d %s (have %d)",
+	"Recompensa entregue!": "Reward delivered!",
+	"A guarnição precisa de provas do seu valor. Traga o que pedem e eles te recompensam.": "The garrison needs proof of your worth. Bring what they ask and they'll reward you.",
 	# — Dashboard / topbar —
 	"Atalhos": "Shortcuts", "Início": "Home", "🏠  Início": "🏠  Home",
 	"Escolha uma atividade no menu à esquerda, ou use os atalhos abaixo.": "Pick an activity from the menu on the left, or use the shortcuts below.",

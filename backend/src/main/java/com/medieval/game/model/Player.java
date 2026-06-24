@@ -85,6 +85,15 @@ public class Player {
     @Column(columnDefinition = "boolean default false")
     private boolean onboardingSeen = false;
 
+    // [ONBOARDING] Deveres do Recruta — 3 quests de ENTREGA únicas (NPC pede recurso → XP+gold). Uma flag
+    // por NPC; soft-wipe reseta junto com onboardingSeen. Doc: docs/PLANO_ONBOARDING.md
+    @Column(columnDefinition = "boolean default false")
+    private boolean starterGuardDone = false;
+    @Column(columnDefinition = "boolean default false")
+    private boolean starterPriestDone = false;
+    @Column(columnDefinition = "boolean default false")
+    private boolean starterShopDone = false;
+
     // [I18N] Idioma preferido do jogador (ex.: "en", "pt"). O cliente lê isto e manda no header
     // Accept-Language; o backend serve o conteúdo (quests/lore/torre/erros) já no idioma. Default "en".
     @Column(columnDefinition = "varchar(5) default 'en'")

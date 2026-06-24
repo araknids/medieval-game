@@ -50,6 +50,7 @@ public class SchemaMigrator implements SmartInitializingSingleton {
         patchWarriorCombatPostureColumn();
         patchPlayerPetPityColumn();
         patchPlayerDailyRewardColumns();
+        patchStarterQuestColumns();
         patchGuildEverControlledColumn();
         patchInventoryListedColumn();
         patchInventoryItemRunPendingColumn();
@@ -297,6 +298,18 @@ public class SchemaMigrator implements SmartInitializingSingleton {
             log.info("[SchemaMigrator] warriors.ability_points + players war formation + active_title columns ensured");
         } catch (Exception e) {
             log.warn("[SchemaMigrator] warriors.ability_points patch failed: {}", e.getMessage());
+        }
+    }
+
+    // [ONBOARDING] Deveres do Recruta — 3 flags one-time (NPC pede recurso → XP+gold). Soft-wipe reseta.
+    private void patchStarterQuestColumns() {
+        try {
+            jdbc.execute("ALTER TABLE players ADD COLUMN IF NOT EXISTS starter_guard_done  boolean NOT NULL DEFAULT false");
+            jdbc.execute("ALTER TABLE players ADD COLUMN IF NOT EXISTS starter_priest_done boolean NOT NULL DEFAULT false");
+            jdbc.execute("ALTER TABLE players ADD COLUMN IF NOT EXISTS starter_shop_done   boolean NOT NULL DEFAULT false");
+            log.info("[SchemaMigrator] players starter-quest columns ensured");
+        } catch (Exception e) {
+            log.warn("[SchemaMigrator] players starter-quest patch failed: {}", e.getMessage());
         }
     }
 

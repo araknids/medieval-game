@@ -63,6 +63,20 @@ func server_info() -> Dictionary:
 func get_warrior() -> Dictionary:
 	return await _request(HTTPClient.METHOD_GET, "/api/warrior", null, true)
 
+# ── [ONBOARDING] Chegada guiada + Deveres do Recruta ───────────────────────────────
+## GET /api/warrior/onboarding → {seen: bool}. Se !seen, o Shell abre o briefing de boas-vindas.
+func onboarding_status() -> Dictionary:
+	return await _request(HTTPClient.METHOD_GET, "/api/warrior/onboarding", null, true)
+## POST /api/warrior/onboarding/seen → marca o briefing como visto (idempotente).
+func onboarding_seen() -> Dictionary:
+	return await _request(HTTPClient.METHOD_POST, "/api/warrior/onboarding/seen", {}, true)
+## GET /api/starter-quests → {quests:[{id,npc,flavor,need:{type,qty,have},reward:{xp,bronze,item},done}]}.
+func starter_quests() -> Dictionary:
+	return await _request(HTTPClient.METHOD_GET, "/api/starter-quests", null, true)
+## POST /api/starter-quests/{guard|priest|shop}/turn-in → entrega o item pedido, recebe a recompensa.
+func starter_quest_turn_in(which: String) -> Dictionary:
+	return await _request(HTTPClient.METHOD_POST, "/api/starter-quests/%s/turn-in" % which, {}, true)
+
 ## POST /api/vip/change-gender/{MALE|FEMALE} — [GENDER] troca de sexo paga em SoulStone (só pela tela VIP).
 func vip_change_gender(gender: String) -> Dictionary:
 	return await _request(HTTPClient.METHOD_POST, "/api/vip/change-gender/%s" % gender.to_upper(), {}, true)

@@ -19,6 +19,10 @@ const COIN_TIPS := {
 }
 const ELEM_ICONS := {"FIRE": "🔥", "WATER": "💧", "EARTH": "🪨", "AIR": "💨"}
 
+# [ONBOARDING] Briefing de chegada (Coroa de Arka) — texto curado em docs/PLANO_QUESTS_LORE.md.
+# Literal PT = chave; a tradução EN está no dict do Lang.gd. Aparece 1x (só se !onboardingSeen).
+const ONBOARD_BRIEFING := "Coroa de Arka era a joia do novo mundo — ouro nas colinas, peixe nas marés, mais do que a Velha Coroa jamais sonhou. Então as feras vieram, e o Rei se trancou em sua torre e não desceu mais. Os mercadores ainda contam suas moedas atrás de portas trancadas. Imploramos soldados à Velha Coroa. Mandaram-nos recrutas. Mandaram-nos você. Conquiste seu lugar, escale a torre do Rei, e traga-o de volta."
+
 # Tooltips (hover) de CADA item do menu lateral — explicam o que cada tela faz. [MENUBAR_HOVER]
 const NAV_TIPS := {
 	"World": "Mundo — missões, coleta, caça e zonas dos reinos",
@@ -42,6 +46,7 @@ const NAV_TIPS := {
 	"Leaderboards": "Classificação — ranking de jogadores e guildas + perfil e social",
 	"Mail": "Correio — mensagens, itens e recompensas",
 	"Daily": "Diário — recompensa de login (ciclo de 7 dias)",
+	"StarterQuests": "Deveres do Recruta — tarefas de chegada (entregue recursos por XP e gold)",
 }
 
 # [MENUBAR_REORG2] A nav agora é uma LISTA FLAT (sem seções com título) montada direto em _build_nav,
@@ -102,6 +107,7 @@ func _ready() -> void:
 	body.add_child(content_host)
 	await _initial_load()   # 1x no boot: warrior (topbar) + inventário (índice de comparação + busto)
 	_show_dashboard()
+	await _maybe_onboarding()   # [ONBOARDING] briefing de chegada no 1º login (só se !onboardingSeen)
 
 func _exit_tree() -> void:
 	if current == self:
@@ -110,6 +116,56 @@ func _exit_tree() -> void:
 		UiKit.topbar_sink = Callable()
 	if UiKit.equip_changed_sink.is_valid() and UiKit.equip_changed_sink.get_object() == self:
 		UiKit.equip_changed_sink = Callable()
+
+# ── [ONBOARDING] Briefing de chegada (Camada A) ─────────────────────────────────────
+# Só no 1º login (backend: !onboardingSeen). Dim + card dourado + briefing da Coroa de Arka +
+# CTA que marca visto e leva o recruta ao Mundo (1ª ação clara). Doc: docs/PLANO_ONBOARDING.md
+func _maybe_onboarding() -> void:
+	var api = get_node_or_null("/root/Api")
+	if api == null:
+		return
+	var r = await api.onboarding_status()
+	if not (r.get("ok") and r.get("json") is Dictionary):
+		return
+	if bool(r["json"].get("seen", true)):
+		return   # já viu (ou erro de leitura → não incomoda)
+	_show_welcome(api)
+
+func _show_welcome(api) -> void:
+	var overlay := ColorRect.new()
+	overlay.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	overlay.color = Color(0, 0, 0, 0.78)
+	overlay.mouse_filter = Control.MOUSE_FILTER_STOP
+	add_child(overlay)
+	var center := CenterContainer.new()
+	center.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	overlay.add_child(center)
+	var res := UiKit.card(UiKit.GOLD)
+	var panel: PanelContainer = res[0]
+	var vb: VBoxContainer = res[1]
+	panel.custom_minimum_size = Vector2(540, 0)
+	vb.add_theme_constant_override("separation", 14)
+	center.add_child(panel)
+	var ttl := Label.new()
+	ttl.text = "Coroa de Arka"
+	ttl.add_theme_font_size_override("font_size", 24)
+	ttl.add_theme_color_override("font_color", UiKit.GOLD)
+	ttl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	vb.add_child(ttl)
+	var body := Label.new()
+	body.text = Lang.t(ONBOARD_BRIEFING)
+	body.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	body.custom_minimum_size = Vector2(500, 0)
+	body.add_theme_font_size_override("font_size", 15)
+	body.add_theme_color_override("font_color", UiKit.TEXT)
+	vb.add_child(body)
+	var cta := UiKit.action_big(Lang.t("Conquistar meu lugar"), func() -> void:
+		await api.onboarding_seen()
+		if is_instance_valid(overlay):
+			overlay.queue_free()
+		_open("World"))
+	cta.custom_minimum_size = Vector2(500, 48)
+	vb.add_child(cta)
 
 # ── TopBar ─────────────────────────────────────────────────────────────────────────
 func _build_topbar() -> Control:
@@ -435,6 +491,7 @@ func _build_nav() -> Control:
 	# (parecer do UX sênior): herói no topo → aventura → combate → cidade/serviços. Separadores finos
 	# (_nav_divider) marcam os grupos no lugar dos antigos headers de texto.
 	nav.add_child(_nav_item("Character", "Personagem"))   # logo abaixo do Início
+	nav.add_child(_nav_item("StarterQuests", "Deveres"))  # [ONBOARDING] deveres do recruta (Camada B)
 	nav.add_child(_nav_divider())
 	nav.add_child(_nav_item("World", "Mundo"))            # coração do loop: aventurar
 	nav.add_child(_nav_item("Work", "Trabalho"))          # idle (planta o timer)

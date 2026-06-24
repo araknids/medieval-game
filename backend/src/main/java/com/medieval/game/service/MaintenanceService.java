@@ -172,5 +172,9 @@ public class MaintenanceService {
         p.setActiveTitle(null);     // [TITULOS] título zera (conquistas foram apagadas)
         p.setLastDailyClaimDate(null); // [DAILY] zera o streak de login diário
         p.setDailyStreak(0);
+        p.setOnboardingSeen(false);    // [ONBOARDING] re-arma o briefing de chegada
+        p.setStarterGuardDone(false);  // [ONBOARDING] re-arma os Deveres do Recruta
+        p.setStarterPriestDone(false);
+        p.setStarterShopDone(false);
     }
 }
