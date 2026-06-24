@@ -70,11 +70,11 @@ static func split_emoji(text: String) -> Array:
 		return [EMOJI_ICON[head], t.substr(sp + 1).strip_edges()]
 	return ["", text]
 
-# ItemType (backend) → arquivo de ícone do slot. ARMOR=peito, PANTS=perna, SHOULDER reusa o peito.
+# ItemType (backend) → arquivo de ícone do slot. ARMOR=peito, PANTS=perna, SHOULDER=ombreira própria.
 const ITEM_TYPE_ICON := {
 	"WEAPON": "slot_weapon", "SHIELD": "slot_shield", "HELMET": "slot_helmet",
 	"ARMOR": "slot_chest", "PANTS": "slot_legs", "BOOTS": "slot_boots",
-	"GLOVES": "slot_gloves", "SHOULDER": "slot_chest", "RING": "slot_ring",
+	"GLOVES": "slot_gloves", "SHOULDER": "slot_shoulder", "RING": "slot_ring",
 	"NECKLACE": "slot_necklace",
 }
 

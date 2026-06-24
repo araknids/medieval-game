@@ -108,12 +108,16 @@ const SLOT_PIECE_FEMALE := {
 const BAND_FOR_RARITY := [0, 0, 1, 2, 2]   # rarity 1..5 → banda 0/1/2
 # Cada tema escolhe QUAL variante de cor (1=base, 2="_2", 3="_3") vai em cada banda [Comum, Raro, Lendário].
 # Curadoria do dono: o visual "melhor" (ex.: dourado) fica no Lendário. [SKIN_RARIDADE]
+# [ICON_SYNC] Banda 0 (Comum/Incomum) = SEMPRE variante 1 (base): é a cor em que os ícones 2D
+# (assets/outfits/icons/*.png) foram renderizados. Se o comum recolorisse (ex.: cor3 marrom), o boneco 3D
+# saía de uma cor e o ícone do slot/bag de outra (ex.: capuz verde no ícone, marrom no boneco). Comum=base
+# casa os dois. Raro+ ainda recolore (a cor especial É a recompensa; raridade já tem borda/aura).
 const BAND_VARIANT := {
-	"knight":  [3, 1, 2],   # Comum=cor3, Raro=cor1, Lendário=cor2 (dourado)
-	"noble":   [3, 2, 1],
-	"ranger":  [3, 1, 2],
+	"knight":  [1, 1, 2],   # Comum=base(=ícone), Raro=cor1, Lendário=cor2 (dourado)
+	"noble":   [1, 2, 1],
+	"ranger":  [1, 1, 2],
 	"peasant": [1, 3, 2],
-	"wizard":  [1, 2, 3],   # não especificado → ordem natural
+	"wizard":  [1, 2, 3],
 }
 # emissão por raridade (mesmas cores do Weapons.RARITY_TINT): branco/verde/azul/roxo/dourado.
 const RARITY_TINT := [Color(0.82, 0.84, 0.88), Color(0.45, 0.85, 0.45), Color(0.35, 0.60, 1.0), Color(0.72, 0.40, 0.95), Color(1.0, 0.78, 0.28)]

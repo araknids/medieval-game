@@ -312,13 +312,21 @@ public class InventoryService {
     public void giveStarterItems(Player player) {
         String origin = loreGenerator.originStarter();
         java.util.Random rng = new java.util.Random();
-        make(player, "Elmo de Ferro",     ItemType.HELMET, 0, 2, 10, 1, 20, loreGenerator.generateLore(1, ItemType.HELMET, rng), origin);
-        make(player, "Armadura de Couro", ItemType.ARMOR,  0, 3, 15, 1, 20, loreGenerator.generateLore(1, ItemType.ARMOR,  rng), origin);
+        InventoryItem helm   = make(player, "Elmo de Ferro",     ItemType.HELMET, 0, 2, 10, 1, 20, loreGenerator.generateLore(1, ItemType.HELMET, rng), origin);
+        InventoryItem armor  = make(player, "Armadura de Couro", ItemType.ARMOR,  0, 3, 15, 1, 20, loreGenerator.generateLore(1, ItemType.ARMOR,  rng), origin);
         make(player, "Espada de Ferro",   ItemType.WEAPON, 4, 0,  0, 1, 20, loreGenerator.generateLore(1, ItemType.WEAPON, rng), origin);
         make(player, "Escudo de Madeira", ItemType.SHIELD, 0, 3,  0, 1, 20, loreGenerator.generateLore(1, ItemType.SHIELD, rng), origin);
-        make(player, "Botas de Couro",    ItemType.BOOTS,  0, 1,  5, 1, 20, loreGenerator.generateLore(1, ItemType.BOOTS,  rng), origin);
-        make(player, "Luvas de Couro",    ItemType.GLOVES, 1, 1,  0, 1, 20, loreGenerator.generateLore(1, ItemType.GLOVES, rng), origin);
-        make(player, "Calça de Couro",    ItemType.PANTS,  0, 2,  8, 1, 20, loreGenerator.generateLore(1, ItemType.PANTS,  rng), origin);
+        InventoryItem boots  = make(player, "Botas de Couro",    ItemType.BOOTS,  0, 1,  5, 1, 20, loreGenerator.generateLore(1, ItemType.BOOTS,  rng), origin);
+        InventoryItem gloves = make(player, "Luvas de Couro",    ItemType.GLOVES, 1, 1,  0, 1, 20, loreGenerator.generateLore(1, ItemType.GLOVES, rng), origin);
+        InventoryItem pants  = make(player, "Calça de Couro",    ItemType.PANTS,  0, 2,  8, 1, 20, loreGenerator.generateLore(1, ItemType.PANTS,  rng), origin);
+        // [STARTER_OUTFIT] Set inicial usa UM tema visual coeso ("recruta de couro" = RANGER): sem isto cada
+        // peça sorteia o tema pelo hash do nome (outfitThemeFor) e o boneco vira colcha de retalhos — bota de
+        // placa (KNIGHT) + capuz (RANGER) etc. O tema é SÓ visual (não muda combate). RANGER = leve/couro,
+        // tem peça p/ todos os slots (corpo/braços/pernas/bota de couro/capuz). [OUTFITS_CLASSE]
+        for (InventoryItem piece : java.util.List.of(helm, armor, boots, gloves, pants)) {
+            piece.setOutfitTheme("RANGER");
+        }
+        inventoryRepository.saveAll(java.util.List.of(helm, armor, boots, gloves, pants));
     }
 
     @Transactional
