@@ -75,6 +75,7 @@ var _daily_btn: Button           # ganha tom dourado quando dá pra resgatar
 var _daily_badge: Control        # [DAILY] exclamação quando a recompensa diária está disponível
 var _heal_btn: Control           # botão de cura — só aparece com HP < 100
 var _buffs_box: GridContainer     # badges dos buffs ativos — GRID compacta ao lado da cura [TOPBAR_BUFFS]
+var _tav_secs := 0.0              # [Q3a] segundos restantes do buff da Taverna (countdown local p/ sumir o badge)
 var _nav_buttons: Dictionary = {}   # nome da tela -> Button (destaque do ativo)
 var _cache := {}        # nome da tela → node (MANTIDA em memória; alterna visibilidade, não recria)
 var _cache_ver := {}    # nome → mutation_count na última atualização (revisita só refaz request se algo mudou)
@@ -745,9 +746,31 @@ func _refresh_buffs(w: Dictionary) -> void:
 		_buffs_box.add_child(_buff_badge("🐣", Lang.t("Buff de Novato: estamina e HP regeneram 4× mais rápido — %dh restantes") % int(w.get("newbieBuffHoursLeft", 0))))
 	var tav := float(w.get("tavernBuffPct", 0.0))
 	if tav > 0.0:
+		_tav_secs = float(w.get("tavernBuffSecondsLeft", 0))   # [Q3a] countdown local → some o badge ao expirar
 		_buffs_box.add_child(_buff_badge_icon("tavern", "+%.2f%%" % tav, Lang.t("Buff da Taverna: +%.2f%% em TODOS os stats — %s") % [tav, _fmt_left(int(w.get("tavernBuffSecondsLeft", 0)))]))
+	else:
+		_tav_secs = 0.0
 	# [TOPBAR_BUFFS] grid de badges ao lado da cura; some quando não há nenhum buff (sem prefixo de texto)
 	_buffs_box.visible = _buffs_box.get_child_count() > 0
+
+# [Q3a] Countdown LOCAL do buff da Taverna no topbar: o status só chega em ações, então o badge ficava
+# preso após expirar. Aqui desconto 1s por vez e, ao zerar, limpo o buff no warrior e re-renderizo os
+# badges (o selo 🍺 some sem precisar de outra ação).
+var _tav_acc := 0.0
+func _process(delta: float) -> void:
+	if _tav_secs <= 0.0:
+		return
+	_tav_acc += delta
+	if _tav_acc < 1.0:
+		return
+	_tav_acc -= 1.0
+	_tav_secs -= 1.0
+	if _tav_secs <= 0.0:
+		_tav_secs = 0.0
+		if warrior is Dictionary:
+			warrior["tavernBuffPct"] = 0.0
+			warrior["tavernBuffSecondsLeft"] = 0
+			_refresh_buffs(warrior)
 
 func _buff_badge(text: String, tip: String) -> Control:
 	var pc := PanelContainer.new()

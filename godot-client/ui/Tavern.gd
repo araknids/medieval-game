@@ -37,18 +37,16 @@ var _buff_stacks := 0
 var _buff_acc := 0.0
 var _buff_synced := false
 
-# minigame de timing (mesma ideia do app.js: marker viaja, acerta a zona = success)
-var mini_active := false
-var mini_zone_start := 0.0             # % (0–100)
-var mini_zone_width := 22.0
-var mini_pos := 0.0
-var mini_dir := 1.0
+# [TAVERNA_CHANCE] o SERVIDOR sorteia o acerto; o front só mostra a CHANCE (barra verde, encolhe com os
+# stacks) + a caneca animada (treme no clique → copo VAZIO se acerta / DERRAMADO se erra).
 var drink_btn: Button
-var mini_marker: ColorRect
-var mini_zone_rect: ColorRect
+var _mug: TextureRect                  # caneca animada (drink_tremble/drink_empty/drink_spill)
+var _mug_tw: Tween                     # tween atual da caneca (mata antes de tocar outro)
+var _chance_fill: ColorRect            # preenchimento verde da barra de chance
+var _chance_lbl: Label
 
-const MINI_W := 320.0                  # largura visual da pista (px)
-const MINI_H := 22.0
+const CHANCE_W := 200.0                 # largura da barra de chance (px)
+const CHANCE_H := 16.0
 
 func _ready() -> void:
 	var ui := UiKit.scaffold(self, "🍺 Taverna", func() -> void: go_back.emit(), func() -> void: await _refresh(), UiKit.TINT_COMMERCE)
@@ -79,17 +77,7 @@ func _on_tavern_visibility() -> void:
 		poll_timer.stop()
 
 func _process(delta: float) -> void:
-	_tick_buff(delta)   # [TAVERNA_BUFF_LIVE] countdown do buff (independe do minigame)
-	if not mini_active:
-		return
-	# marker vai e volta de 0 a 100 (igual ao setInterval do app.js, mas em px)
-	mini_pos += mini_dir * 130.0 * delta
-	if mini_pos >= 100.0:
-		mini_pos = 100.0; mini_dir = -1.0
-	elif mini_pos <= 0.0:
-		mini_pos = 0.0; mini_dir = 1.0
-	if mini_marker:
-		mini_marker.position.x = (mini_pos / 100.0) * (MINI_W - 6.0)
+	_tick_buff(delta)   # [TAVERNA_BUFF_LIVE] countdown do buff ao vivo (zera ao expirar)
 
 func _refresh() -> void:
 	UiKit.show_loading(self)
@@ -108,8 +96,7 @@ func _refresh() -> void:
 func _render() -> void:
 	for c in content.get_children():
 		c.queue_free()
-	mini_marker = null
-	mini_zone_rect = null
+	_mug = null; _chance_fill = null; _chance_lbl = null
 	UiKit.hide_loading()
 	UiKit.set_wallet(wallet, warrior)
 	# ── Buff atual (card leve, no espírito do banner do Templo) ──
@@ -117,12 +104,10 @@ func _render() -> void:
 	buff_box = bres[1]
 	_fill_buff(buff_box)
 	content.add_child(bres[0])
-	# ── Beber (minigame + botão) ──
+	# ── Beber (caneca + barra de chance + botão ao lado) ──
 	content.add_child(UiKit.section("Beber"))
-	content.add_child(UiKit.dim("Acerte o tempo no gole para ganhar +1 stack de buff. Cobra 1🥉 sempre."))
-	mini_panel_holder()
-	drink_btn = UiKit.action("🍺 Beber (1 🥉)", func() -> void: await _drink_pressed())   # [SEM_SCROLL] botão menor
-	content.add_child(drink_btn)
+	content.add_child(UiKit.dim("Beba pra ganhar +1 stack de buff (cobra 1 🥉). Quanto mais stacks, mais difícil o gole."))
+	_build_drink_row()
 	msg_label = Label.new()
 	msg_label.custom_minimum_size = Vector2(0, 20)
 	msg_label.add_theme_font_size_override("font_size", 13)
@@ -192,83 +177,87 @@ func _tick_buff(delta: float) -> void:
 	else:
 		_buff_lbl.text = Lang.t("🍺 +%.2f%% em todos os stats · %d stacks · %d:%02d") % [_buff_pct, _buff_stacks, _buff_secs / 60, _buff_secs % 60]
 
-# ── Minigame (pista visual; clicar Beber para no marker e decide success) ─────────
-func mini_panel_holder() -> void:
+# ── Beber: caneca + barra de chance + botão (linha compacta, botão ao LADO) ───────
+func _build_drink_row() -> void:
 	var res := UiKit.card()
 	var holder: VBoxContainer = res[1]
-	holder.alignment = BoxContainer.ALIGNMENT_CENTER
-	holder.add_theme_constant_override("separation", 8)
-	res[0].custom_minimum_size = Vector2(MINI_W + 24.0, MINI_H + 88.0)
 	res[0].size_flags_horizontal = Control.SIZE_SHRINK_CENTER
-	# [TAVERNA_CANECA] caneca animada (espuma borbulhando) dá vida ao minigame de beber.
-	# Fallback p/ o PNG estático enquanto os frames não importam.
-	var mug := TextureRect.new()
-	mug.custom_minimum_size = Vector2(64, 64)
-	mug.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-	mug.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-	mug.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
-	mug.texture = Icons.tex("drink_mug")
-	holder.add_child(mug)
-	Icons.play_loop(mug, "drink_mug", 0.12)
-	var track := Control.new()
-	track.custom_minimum_size = Vector2(MINI_W, MINI_H)
-	holder.add_child(track)
-	# zona-alvo (verde)
-	mini_zone_rect = ColorRect.new()
-	mini_zone_rect.color = Color(0.3, 0.7, 0.4, 0.55)
-	mini_zone_rect.size = Vector2((mini_zone_width / 100.0) * MINI_W, MINI_H)
-	mini_zone_rect.position = Vector2((mini_zone_start / 100.0) * MINI_W, 0)
-	mini_zone_rect.visible = mini_active
-	track.add_child(mini_zone_rect)
-	# marker (laranja)
-	mini_marker = ColorRect.new()
-	mini_marker.color = Color(1.0, 0.7, 0.2)
-	mini_marker.size = Vector2(6, MINI_H)
-	mini_marker.position = Vector2((mini_pos / 100.0) * (MINI_W - 6.0), 0)
-	mini_marker.visible = mini_active
-	track.add_child(mini_marker)
+	var row := HBoxContainer.new(); row.add_theme_constant_override("separation", 16); row.alignment = BoxContainer.ALIGNMENT_CENTER
+	holder.add_child(row)
+	# caneca animada (estática até clicar; treme no gole → vazio/derramado no resultado)
+	_mug = TextureRect.new()
+	_mug.custom_minimum_size = Vector2(72, 72)
+	_mug.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	_mug.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	_mug.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+	_mug.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	_mug.texture = Icons.tex("drink_mug")
+	row.add_child(_mug)
+	# barra de CHANCE (verde; encolhe conforme os stacks sobem — vem do servidor)
+	var cbox := VBoxContainer.new(); cbox.add_theme_constant_override("separation", 3); cbox.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	_chance_lbl = Label.new(); _chance_lbl.add_theme_font_size_override("font_size", 12); _chance_lbl.add_theme_color_override("font_color", UiKit.TEXT_DIM)
+	cbox.add_child(_chance_lbl)
+	var bar_bg := PanelContainer.new()
+	var sb := StyleBoxFlat.new(); sb.bg_color = Color(0.07, 0.06, 0.09); sb.set_border_width_all(1); sb.border_color = Color(0.40, 0.32, 0.20, 0.6); sb.set_corner_radius_all(3)
+	bar_bg.add_theme_stylebox_override("panel", sb)
+	bar_bg.custom_minimum_size = Vector2(CHANCE_W, CHANCE_H)
+	var track := Control.new(); track.custom_minimum_size = Vector2(CHANCE_W, CHANCE_H)
+	bar_bg.add_child(track)
+	_chance_fill = ColorRect.new(); _chance_fill.color = Color(0.30, 0.70, 0.40); _chance_fill.position = Vector2(0, 0); _chance_fill.size = Vector2(CHANCE_W, CHANCE_H)
+	track.add_child(_chance_fill)
+	cbox.add_child(bar_bg)
+	row.add_child(cbox)
+	# botão MENOR ao lado (não expande)
+	drink_btn = UiKit.action("🍺 Beber (1 🥉)", func() -> void: await _drink_pressed())
+	drink_btn.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	drink_btn.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	row.add_child(drink_btn)
 	content.add_child(res[0])
+	_update_chance_bar()
 
-func _start_minigame() -> void:
-	mini_zone_width = 22.0
-	mini_zone_start = randf() * (100.0 - mini_zone_width)
-	mini_pos = 0.0
-	mini_dir = 1.0
-	mini_active = true
-	if mini_zone_rect:
-		mini_zone_rect.size = Vector2((mini_zone_width / 100.0) * MINI_W, MINI_H)
-		mini_zone_rect.position = Vector2((mini_zone_start / 100.0) * MINI_W, 0)
-		mini_zone_rect.visible = true
-	if mini_marker:
-		mini_marker.visible = true
-	drink_btn.text = "🍺 Beber AGORA!"
+# Atualiza a barra verde (largura = chance do próximo gole, do status do servidor).
+func _update_chance_bar() -> void:
+	var ch := clampf(float(st.get("drinkChance", 0.9)), 0.0, 1.0)
+	if _chance_fill != null and is_instance_valid(_chance_fill):
+		_chance_fill.size = Vector2(CHANCE_W * ch, CHANCE_H)
+	if _chance_lbl != null and is_instance_valid(_chance_lbl):
+		_chance_lbl.text = Lang.t("Chance do gole: %d%%") % int(round(ch * 100.0))
 
+# Toca uma animação da caneca (mata o tween anterior). loop=true cicla; false roda 1x e segura no fim.
+func _mug_play(key: String, loop: bool) -> void:
+	if _mug == null or not is_instance_valid(_mug):
+		return
+	if _mug_tw != null and _mug_tw.is_valid():
+		_mug_tw.kill()
+	if Icons.frames(key).is_empty():
+		_mug.texture = Icons.tex("drink_mug")   # fallback estático (frames não importados)
+		return
+	_mug_tw = Icons.play_loop(_mug, key, 0.12) if loop else Icons.play_once(_mug, key, 0.13)
+
+# Beber: clica → caneca TREME enquanto o servidor SORTEIA → copo VAZIO (acerto) / DERRAMADO (erro).
 func _drink_pressed() -> void:
 	if busy:
 		return
-	# 1º clique: começa o minigame; 2º clique: para o marker e bebe
-	if not mini_active:
-		_start_minigame()
-		return
-	mini_active = false
-	var success := mini_pos >= mini_zone_start and mini_pos <= (mini_zone_start + mini_zone_width)
-	if mini_zone_rect: mini_zone_rect.visible = false
-	if mini_marker: mini_marker.visible = false
-	drink_btn.text = "🍺 Beber (1 🥉)"
 	busy = true
-	var r = await Api.tavern_drink(success)
+	if is_instance_valid(drink_btn): drink_btn.disabled = true
+	_mug_play("drink_tremble", true)        # treme (anticipação)
+	var r = await Api.tavern_drink(true)    # success é IGNORADO pelo backend (ele sorteia)
+	await get_tree().create_timer(0.45).timeout   # deixa o tremor aparecer antes do resultado
 	if not is_instance_valid(self): return   # [TAVERN_FREED] logout liberou a Taverna durante o request
 	busy = false
+	if is_instance_valid(drink_btn): drink_btn.disabled = false
 	if not (r.get("ok") and r.get("json") is Dictionary):
+		_mug_play("drink_mug", false)
 		_flash(UiKit.err_text(r), true)
 		return
 	st = r["json"]
-	_flash("🍺 Acertou! +1 stack" if success else "Errou o gole… só o bronze foi.", not success)
-	# atualiza só o card do buff (sem re-render do chat p/ não rolar/limpar)
+	var success := bool(st.get("success", false))
+	_mug_play("drink_empty" if success else "drink_spill", false)   # copo vazio / derramado
+	_flash("🍺 Acertou! +1 stack" if success else "Entornou a cerveja… só o bronze foi.", not success)
 	if buff_box != null:
 		_fill_buff(buff_box)
-	# [TOPBAR_BUFFS] empurra o warrior FRESCO pro topbar → o badge do buff da taverna aparece na hora
-	# (antes o topbar ficava com o warrior velho, sem o buff). set_wallet(null→topbar) re-roda _refresh_buffs.
+	_update_chance_bar()
+	# [TOPBAR_BUFFS] empurra o warrior FRESCO pro topbar → o badge do buff aparece/atualiza na hora
 	var wr = await Api.get_warrior()
 	if not is_instance_valid(self): return   # [TAVERN_FREED]
 	if wr.get("ok") and wr.get("json") is Dictionary:
