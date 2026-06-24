@@ -70,6 +70,7 @@ var _map_btn: Button = null       # [SEM_SCROLL] "voltar ao mapa" no header (ao 
 var kingdoms: Array = []          # GET /api/world
 var open_kingdom := ""            # reino expandido (só um por vez)
 var _pending_open_kingdom := ""   # [INCURSAO] reino a abrir na próxima exibição (vitória da Incursão)
+var _pending_delve_report: Dictionary = {}   # [INCURSAO_FIM] relatório da run encerrada p/ exibir SOBRE o território
 var _pending_after := {}          # resultado guardado durante o replay 3D (kingdom, kind, result) p/ o relatório
 var warrior: Dictionary = {}      # /api/warrior (carteira + gate de nível)
 var warrior_level := 1
@@ -103,8 +104,9 @@ func _ready() -> void:
 # reino aberto. Quando o nó reaparece, reseto pro mapa. A navegação INTERNA (reino ↔ mapa, quests)
 # NÃO esconde/mostra o nó, então não dispara isto.
 # [INCURSAO] Outra tela pede pra reabrir um reino específico (ex.: vitória da Incursão volta pro território).
-func request_open_kingdom(k: String) -> void:
+func request_open_kingdom(k: String, delve_report := {}) -> void:
 	_pending_open_kingdom = k
+	_pending_delve_report = delve_report   # [INCURSAO_FIM] {} = sem relatório; senão {kind, j, title?}
 
 func _on_world_shown() -> void:
 	if not is_visible_in_tree():
@@ -115,10 +117,61 @@ func _on_world_shown() -> void:
 		_pending_open_kingdom = ""
 		open_kingdom = k
 		await _open(k)
+		# [INCURSAO_FIM] run encerrada → mostra o relatório SOBRE o território já aberto
+		if not _pending_delve_report.is_empty():
+			var rep := _pending_delve_report
+			_pending_delve_report = {}
+			_show_delve_report(rep)
 		return
 	if open_kingdom != "":
 		open_kingdom = ""
 		_render()
+
+# [INCURSAO_FIM] Relatório de uma Incursão ENCERRADA (vitória/extract/abandono/derrota), exibido sobre a
+# tela do território (a tela da Incursão já saiu). report = {kind:"loot"|"defeat", j:{...}, title?}.
+func _show_delve_report(report: Dictionary) -> void:
+	var j: Dictionary = report["j"] if report.get("j") is Dictionary else {}
+	if str(report.get("kind", "loot")) == "defeat":
+		var mob := str(j.get("monsterName", "inimigo"))
+		var log: Array = j.get("battleLog", []) if j.get("battleLog") is Array else []
+		UiKit.show_battle_report(self, false, Lang.t("💀 Derrotado por %s!") % mob, _delve_step_rows(j, true), log)
+	else:
+		var title := str(report.get("title", ""))
+		UiKit.show_battle_report(self, true, (title if title != "" else Lang.t("🔒 Loot garantido!")), _delve_loot_rows(j), [])
+
+# Linhas do relatório de LOOT (extract/abandono): bronze/xp/recursos/itens sacados. [INCURSAO_FIM]
+func _delve_loot_rows(j: Dictionary) -> Array:
+	var rows: Array = []
+	if int(j.get("bronzeBanked", 0)) > 0:
+		rows.append(UiKit.kv_node("Bronze", UiKit.coin_box(int(j.get("bronzeBanked", 0)), 18)))
+	if int(j.get("xpBanked", 0)) > 0:
+		rows.append(UiKit.kv(Lang.t("Experiência"), "+%d XP" % int(j.get("xpBanked", 0))))
+	if j.get("bankedResources") is Array:
+		for d in j["bankedResources"]:
+			if d is Dictionary:
+				rows.append(UiKit.icon_text("📦 %s x%d" % [str(d.get("displayName", "?")), int(d.get("quantity", 0))], 12, UiKit.TEXT_DIM, 16))
+	if int(j.get("keptItems", 0)) > 0:
+		rows.append(UiKit.icon_text(Lang.t("🛡 %d item(ns) na mochila") % int(j.get("keptItems", 0)), 12, UiKit.TEXT_DIM, 16))
+	if int(j.get("mailedItems", 0)) > 0:
+		rows.append(UiKit.icon_text(Lang.t("📬 %d item(ns) no correio (mochila cheia)") % int(j.get("mailedItems", 0)), 12, UiKit.TEXT_DIM, 16))
+	return rows
+
+# Linhas do relatório de DERROTA (KO na run): ganhos do passo + aviso de loot perdido. [INCURSAO_FIM]
+func _delve_step_rows(j: Dictionary, ko: bool) -> Array:
+	var rows: Array = []
+	if int(j.get("bronzeGained", 0)) > 0:
+		rows.append(UiKit.kv_node("Bronze", UiKit.coin_box(int(j.get("bronzeGained", 0)), 18)))
+	if int(j.get("xpGained", 0)) > 0:
+		rows.append(UiKit.kv(Lang.t("Experiência"), "+%d XP" % int(j.get("xpGained", 0))))
+	if j.get("drops") is Array:
+		for d in j["drops"]:
+			if d is Dictionary:
+				rows.append(UiKit.icon_text("📦 %s x%d" % [str(d.get("displayName", "?")), int(d.get("quantity", 0))], 12, UiKit.TEXT_DIM, 16))
+	if str(j.get("lootItemName", "")) != "":
+		rows.append(UiKit.icon_text("🎁 " + str(j.get("lootItemName")), 12, UiKit.TEXT_DIM, 16))
+	if ko:
+		rows.append(UiKit.icon_text(Lang.t("☠ Você caiu — o loot não-sacado foi perdido. Cure-se no Templo."), 12, UiKit.ERR, 16))
+	return rows
 
 func _refresh() -> void:
 	UiKit.show_loading(self)

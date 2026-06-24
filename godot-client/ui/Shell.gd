@@ -542,10 +542,10 @@ func _open_mail_compose(recipient: String) -> void:
 		m.request_compose(recipient)
 
 # [INCURSAO] Abre o Mundo já expandido no reino dado (vitória da Incursão volta pro território de origem).
-func _open_world_at(kingdom: String) -> void:
+func _open_world_at(kingdom: String, delve_report := {}) -> void:
 	var w = _cache.get("World")
 	if w != null and is_instance_valid(w) and w.has_method("request_open_kingdom"):
-		w.request_open_kingdom(kingdom)
+		w.request_open_kingdom(kingdom, delve_report)   # [INCURSAO_FIM] relatório da run encerrada (se houver)
 	_open("World")
 
 # Mostra só `node` no content_host; os escondidos são CONGELADOS (process disabled) → 0 polling/CPU.

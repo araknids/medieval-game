@@ -8,7 +8,7 @@ extends Control
 signal go_back
 signal request_battle(data)   # pede ao App o replay 3D (overlay), como World/Tower [MIGRACAO_GODOT]
 signal open_screen(name)      # [INCURSAO] sem run → botão "Ir ao Mundo" (a aba saiu)
-signal open_world_at(kingdom) # [INCURSAO] vitória → volta pra tela do reino/território de onde saiu
+signal open_world_at(kingdom, report) # [INCURSAO_FIM] fim de run → abre o território e mostra o relatório LÁ
 
 const Icons := preload("res://ui/Icons.gd")
 
@@ -62,21 +62,22 @@ func _render() -> void:
 	else:
 		_render_launcher()
 
-# [INCURSAO_FIM] Fim de run (vitória/extract/abandono/derrota) → volta pra tela do território de origem,
-# em vez de cair no launcher "Ir ao Mundo" (que vira só fallback se não soubermos o reino).
-func _return_to_world() -> void:
+# [INCURSAO_FIM] Fim de run (vitória/extract/abandono/derrota) → abre o território de origem e mostra o
+# relatório SOBRE ele (não na Incursão). report = {} (sem relatório) ou {kind:"loot"|"defeat", j, title?}.
+func _finish_to_world(report := {}) -> void:
 	if _from_kingdom != "":
-		open_world_at.emit(_from_kingdom)
+		open_world_at.emit(_from_kingdom, report)
 	else:
 		open_screen.emit("World")
 
 # ── Sem run ativa: a aba saiu da nav; oriente a entrar por uma ZONA do reino no Mundo ──────────────
 func _render_launcher() -> void:
-	content.add_child(UiKit.dim("Você não está em nenhuma Incursão."))
-	content.add_child(UiKit.dim("Entre numa zona de um reino no Mundo para começar — a cor (verde, amarela ou vermelha) define a dificuldade e o loot."))
-	var b := UiKit.action("🌍 Ir ao Mundo", func() -> void: open_screen.emit("World"))
-	b.custom_minimum_size = Vector2(200, 40)
-	content.add_child(b)
+	# [INCURSAO_FIM] sem run ativa. Se uma run ACABOU de terminar (_from_kingdom setado) → volta direto pro
+	# território (sem a página morta "Ir ao Mundo"). Senão (boot/edge — a Delve nem tem aba na nav), só um aviso.
+	if _from_kingdom != "":
+		_finish_to_world()
+		return
+	content.add_child(UiKit.dim("Inicie uma Incursão entrando numa zona de um reino no Mundo."))
 
 # ── Mapa da run ─────────────────────────────────────────────────────────────────────
 # [INCURSAO] Fundo da área dos nós: textura do mapa (MAP_BG_PATH) se existir; senão painel escuro suave.
@@ -389,9 +390,8 @@ func _extract() -> void:
 	if not (r.get("ok") and r.get("json") is Dictionary):
 		_show_error(r); await _refresh(); return
 	var j: Dictionary = r["json"]
-	await _refresh()   # run encerrada
-	# [INCURSAO_FIM] ao fechar o relatório de loot, volta pra tela do território de onde saiu (não pro launcher)
-	_show_extract_report(j, _return_to_world)
+	# [INCURSAO_FIM] sem passar pelo launcher: vai pro território e mostra o loot LÁ (atrás do diálogo)
+	_finish_to_world({"kind": "loot", "j": j})
 
 func _confirm_abandon() -> void:
 	_choice_dialog("Abandonar a incursão? Você foge salvando 25–50% do loot carregado (sorteado) — o resto é perdido. O que já foi garantido você mantém.",
@@ -407,11 +407,10 @@ func _confirm_abandon() -> void:
 				_show_error(r)   # [AUDIT] não mostra "abandonada" se o request falhou
 				return
 			var j: Dictionary = r["json"] if r.get("json") is Dictionary else {}
-			await _refresh()
-			# [INCURSAO_ABANDONO][INCURSAO_FIM] relatório do que foi salvo; ao fechar, volta pro território
+			# [INCURSAO_ABANDONO][INCURSAO_FIM] vai pro território e mostra o que foi salvo LÁ (atrás do diálogo)
 			var got := int(j.get("bronzeBanked", 0)) > 0 or int(j.get("xpBanked", 0)) > 0 or int(j.get("keptItems", 0)) > 0 or int(j.get("mailedItems", 0)) > 0 or (j.get("bankedResources") is Array and not (j["bankedResources"] as Array).is_empty())
 			var title := (Lang.t("🏳 Você salvou parte do loot") if got else Lang.t("🏳 Abandonou — nada foi salvo"))
-			_show_extract_report(j, _return_to_world, title))
+			_finish_to_world({"kind": "loot", "j": j, "title": title}))
 
 func _reload_warrior() -> void:
 	var r = await Api.get_warrior()
@@ -421,14 +420,15 @@ func _reload_warrior() -> void:
 # ── Relatórios / diálogos (espelham World.gd) ───────────────────────────────────────
 func _show_step_report(j: Dictionary) -> void:
 	var ko := bool(j.get("ko", false))
+	if ko:
+		# [INCURSAO_FIM] derrota ENCERRA a run → relatório sobre o território (a Incursão já saiu)
+		_finish_to_world({"kind": "defeat", "j": j})
+		return
 	var log: Array = j.get("battleLog", []) if j.get("battleLog") is Array else []
 	if not log.is_empty():
-		var won := not ko
 		var mob := str(j.get("monsterName", "inimigo"))
-		var title := (Lang.t("⚔ %s derrotado!") % mob) if won else (Lang.t("💀 Derrotado por %s!") % mob)
-		var on_close := _return_to_world if ko else Callable()   # [INCURSAO_FIM] derrota encerra a run → volta ao território
-		UiKit.show_battle_report(self, won, title, _reward_rows(j, ko), log, on_close)
-	elif str(j.get("resolvedType", "")) == "TREASURE" and not ko:
+		UiKit.show_battle_report(self, true, Lang.t("⚔ %s derrotado!") % mob, _reward_rows(j, false), log)
+	elif str(j.get("resolvedType", "")) == "TREASURE":
 		_show_treasure_chest(j)   # [INCURSAO_BAU] baú animado em vez da dialog de texto
 	else:
 		_show_step_rows(j)   # [SEM_WEB_EMOJI] relatório de passo com ÍCONES (não texto com emoji)
@@ -504,21 +504,8 @@ func _show_step_rows(j: Dictionary) -> void:
 	var title := Lang.t("Descanso") if str(j.get("resolvedType", "")) == "CAMP" else Lang.t("Você avança")
 	UiKit.show_battle_report(self, not ko, title, rows, [])
 
-func _show_extract_report(j: Dictionary, on_close := Callable(), title := "") -> void:
-	var rows: Array = []
-	if int(j.get("bronzeBanked", 0)) > 0:
-		rows.append(UiKit.kv_node("Bronze", UiKit.coin_box(int(j.get("bronzeBanked", 0)), 18)))
-	if int(j.get("xpBanked", 0)) > 0:
-		rows.append(UiKit.kv(Lang.t("Experiência"), "+%d XP" % int(j.get("xpBanked", 0))))
-	if j.get("bankedResources") is Array:
-		for d in j["bankedResources"]:
-			if d is Dictionary:
-				rows.append(UiKit.icon_text("📦 %s x%d" % [str(d.get("displayName", "?")), int(d.get("quantity", 0))], 12, UiKit.TEXT_DIM, 16))
-	if int(j.get("keptItems", 0)) > 0:
-		rows.append(UiKit.icon_text(Lang.t("🛡 %d item(ns) na mochila") % int(j.get("keptItems", 0)), 12, UiKit.TEXT_DIM, 16))
-	if int(j.get("mailedItems", 0)) > 0:
-		rows.append(UiKit.icon_text(Lang.t("📬 %d item(ns) no correio (mochila cheia)") % int(j.get("mailedItems", 0)), 12, UiKit.TEXT_DIM, 16))
-	UiKit.show_battle_report(self, true, (title if title != "" else Lang.t("🔒 Loot garantido!")), rows, [], on_close)
+# [INCURSAO_FIM] O relatório de fim de run (loot/derrota) agora é mostrado pela tela do MUNDO
+# (World._show_delve_report), SOBRE o território — não mais aqui na Incursão. Ver _finish_to_world.
 
 # Diálogo do nó EVENTO: intro + um botão por opção (resolve com o optionId). Espelha World._show_quest_dialog.
 # [QUESTS_ICONE] cada opção mostra o SELO do tipo (combate/roll/pacífico). Eventos inline da Incursão
