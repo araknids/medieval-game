@@ -220,7 +220,12 @@ public class KingdomService {
     }
 
     @Transactional
-    public CollectResult collectQuest(Player player, Long questId, String optionId) {
+    public CollectResult collectQuest(Player playerArg, Long questId, String optionId) {
+        // [LOCK_FIX] Recarrega o Player NESTA transação. Com open-in-view=false o `player` do controller chega
+        // DESTACADO; se a recompensa mexe nele mas o level-up usa warrior.getPlayer() (instância fresca
+        // gerenciada), viram DOIS Player#id no mesmo flush → OptimisticLock ("Row was updated by another
+        // transaction"). Uma única instância gerenciada resolve — espelha resolveLunaIgnore/resolveLunaHelp.
+        final Player player = playerRepository.findById(playerArg.getId()).orElse(playerArg);
         log.info("[KingdomService] player={} action=collectQuest questId={} option={}", player.getId(), questId, optionId);
         KingdomActiveQuest quest = questRepo.findById(questId)
                 .orElseThrow(() -> new IllegalArgumentException("Quest not found."));
