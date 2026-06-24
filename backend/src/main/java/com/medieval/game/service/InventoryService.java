@@ -200,11 +200,17 @@ public class InventoryService {
                     });
         }
 
-        // Desequipa o item atual do mesmo slot, se houver
+        // Desequipa o item atual do mesmo slot, se houver.
+        // [PG_EQUIP_SWAP_FIX] saveAndFlush (não save): o índice parcial único uk_inventory_one_equipped_per_slot
+        // (player_id, type) WHERE equipped=true (Postgres, via SchemaMigrator) é checado POR STATEMENT. Se o
+        // UPDATE equipped=true do novo item fosse pro banco ANTES do equipped=false do antigo (a ordem de flush
+        // do Hibernate não segue a ordem das chamadas), haveria 2 equipados do mesmo tipo por um instante →
+        // duplicate key. Forçar o flush do desequipar AQUI garante a ordem. (H2 não tem o índice, por isso só
+        // o Postgres pegava — MerchantClassTest.merchant_equipGuards.)
         inventoryRepository.findByPlayerAndTypeAndEquippedTrue(player, item.getType())
                 .ifPresent(current -> {
                     current.setEquipped(false);
-                    inventoryRepository.save(current);
+                    inventoryRepository.saveAndFlush(current);
                 });
 
         item.setEquipped(true);
