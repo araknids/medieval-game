@@ -21,7 +21,7 @@ const EN := {
 	"Habilidades": "Abilities", "Conquistas": "Achievements", "Guilda": "Guild", "Correio": "Mail",
 	"Diário": "Daily", "Configurações": "Settings", "Recompensa Diária": "Daily Reward",
 	# — [ONBOARDING] Briefing de chegada + Deveres do Recruta —
-	"Pediram um exército à Velha Coroa. Mandaram você. Prometeram poder ao Rei, e ele subiu a torre atrás da promessa — e não desceu mais. O que desce de lá agora não é gente. Arranque o que puder dos mortos, suba atrás dele, e reze pra ele ainda ser o Rei quando você chegar.": "They asked the Old Crown for an army. They sent you. They promised the King power, and he climbed the tower chasing it — and never came down. What comes down from there now is no longer a man. Take what you can from the dead, climb after him, and pray he is still the King when you reach the top.",
+	"Pediram um exército à Velha Coroa. Mandaram você.\n\nPrometeram poder ao Rei, e ele subiu a torre atrás da promessa — e não desceu mais. O que desce de lá agora não é gente.\n\nArranque o que puder dos mortos, suba atrás dele, e reze pra ele ainda ser o Rei quando você chegar.": "They asked the Old Crown for an army. They sent you.\n\nThey promised the King power, and he climbed the tower chasing it — and never came down. What comes down from there now is no longer a man.\n\nTake what you can from the dead, climb after him, and pray he is still the King when you reach the top.",
 	"Conquistar meu lugar": "Earn my place",
 	"Deveres do Recruta": "Recruit's Duties",
 	"Deveres": "Duties",

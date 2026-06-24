@@ -21,7 +21,7 @@ const ELEM_ICONS := {"FIRE": "🔥", "WATER": "💧", "EARTH": "🪨", "AIR": "�
 
 # [ONBOARDING] Briefing de chegada (Coroa de Arka) — texto curado em docs/PLANO_QUESTS_LORE.md.
 # Literal PT = chave; a tradução EN está no dict do Lang.gd. Aparece 1x (só se !onboardingSeen).
-const ONBOARD_BRIEFING := "Pediram um exército à Velha Coroa. Mandaram você. Prometeram poder ao Rei, e ele subiu a torre atrás da promessa — e não desceu mais. O que desce de lá agora não é gente. Arranque o que puder dos mortos, suba atrás dele, e reze pra ele ainda ser o Rei quando você chegar."
+const ONBOARD_BRIEFING := "Pediram um exército à Velha Coroa. Mandaram você.\n\nPrometeram poder ao Rei, e ele subiu a torre atrás da promessa — e não desceu mais. O que desce de lá agora não é gente.\n\nArranque o que puder dos mortos, suba atrás dele, e reze pra ele ainda ser o Rei quando você chegar."
 
 # Tooltips (hover) de CADA item do menu lateral — explicam o que cada tela faz. [MENUBAR_HOVER]
 const NAV_TIPS := {
@@ -167,6 +167,7 @@ func _show_welcome(api) -> void:
 	body.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	body.custom_minimum_size = Vector2(500, 0)
 	body.add_theme_font_size_override("font_size", 15)
+	body.add_theme_constant_override("line_spacing", 5)   # respiro entre linhas (mais leve de ler)
 	body.add_theme_color_override("font_color", UiKit.TEXT)
 	vb.add_child(body)
 	var cta := UiKit.action_big(Lang.t("Conquistar meu lugar"), func() -> void:
