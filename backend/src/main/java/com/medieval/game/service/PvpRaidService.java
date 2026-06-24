@@ -44,7 +44,8 @@ public class PvpRaidService {
 
     /** Sorteia um player FLAGGED (exposto, sem escudo) na zona, dentro de ±PVP_LEVEL_BAND níveis. null se ninguém. */
     public Player findFlaggedOpponent(Zone zone, Player exclude, int attackerLevel) {
-        List<Player> pool = playerRepository.findFlaggedInZone(zone, LocalDateTime.now(), exclude.getId())
+        List<Player> pool = playerRepository.findFlaggedInZone(zone, LocalDateTime.now(), exclude.getId(),
+                        org.springframework.data.domain.PageRequest.of(0, 50)) // [LAUNCH_HARDENING] capa o pool + N+1
                 .stream()
                 .filter(p -> !p.isPvpShielded())
                 .filter(p -> Math.abs(attackerLevel

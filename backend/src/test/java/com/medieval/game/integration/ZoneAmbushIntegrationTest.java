@@ -126,8 +126,8 @@ class ZoneAmbushIntegrationTest extends BaseIntegrationTest {
         Player b = playerOf("amb");
         flagPlayer(b, Zone.PVP);
 
-        var poolForA = playerRepository.findFlaggedInZone(Zone.PVP, java.time.LocalDateTime.now(), a.getId());
-        var poolForB = playerRepository.findFlaggedInZone(Zone.PVP, java.time.LocalDateTime.now(), b.getId());
+        var poolForA = playerRepository.findFlaggedInZone(Zone.PVP, java.time.LocalDateTime.now(), a.getId(), org.springframework.data.domain.Pageable.unpaged());
+        var poolForB = playerRepository.findFlaggedInZone(Zone.PVP, java.time.LocalDateTime.now(), b.getId(), org.springframework.data.domain.Pageable.unpaged());
 
         assertThat(poolForA).anyMatch(p -> p.getId().equals(b.getId()));
         assertThat(poolForB).anyMatch(p -> p.getId().equals(a.getId()));
@@ -143,7 +143,7 @@ class ZoneAmbushIntegrationTest extends BaseIntegrationTest {
 
         // flag em HIGH_RISK → não aparece ao consultar PVP
         flagPlayer(a, Zone.HIGH_RISK);
-        assertThat(playerRepository.findFlaggedInZone(Zone.PVP, java.time.LocalDateTime.now(), -1L))
+        assertThat(playerRepository.findFlaggedInZone(Zone.PVP, java.time.LocalDateTime.now(), -1L, org.springframework.data.domain.Pageable.unpaged()))
                 .noneMatch(p -> p.getId().equals(a.getId()));
 
         // flag expirado em PVP → não aparece (re-busca fresco p/ evitar version stale)
@@ -151,7 +151,7 @@ class ZoneAmbushIntegrationTest extends BaseIntegrationTest {
         a2.setPvpFlaggedZone(Zone.PVP);
         a2.setPvpFlaggedUntil(java.time.LocalDateTime.now().minusMinutes(1));
         playerRepository.save(a2);
-        assertThat(playerRepository.findFlaggedInZone(Zone.PVP, java.time.LocalDateTime.now(), -1L))
+        assertThat(playerRepository.findFlaggedInZone(Zone.PVP, java.time.LocalDateTime.now(), -1L, org.springframework.data.domain.Pageable.unpaged()))
                 .noneMatch(p -> p.getId().equals(a.getId()));
     }
 

@@ -33,7 +33,7 @@ public class MailController {
     @GetMapping("/inbox")
     public ResponseEntity<?> inbox(Authentication auth) {
         Player player = getPlayer(auth);
-        List<?> letters = mailService.inbox(player).stream().map(m -> toMap(m, false)).toList();
+        List<?> letters = mailService.inbox(player).stream().map(m -> toMap(m, false, false)).toList();
         long unread = mailService.unreadCount(player);
         return ResponseEntity.ok(Map.of("letters", letters, "unread", unread));
     }
@@ -42,7 +42,7 @@ public class MailController {
     @GetMapping("/sent")
     public ResponseEntity<?> sent(Authentication auth) {
         List<?> letters = mailService.sent(getPlayer(auth)).stream()
-                .map(m -> toMap(m, true)).toList();
+                .map(m -> toMap(m, true, false)).toList();
         return ResponseEntity.ok(letters);
     }
 
@@ -62,7 +62,7 @@ public class MailController {
     @PostMapping("/{id}/read")
     public ResponseEntity<?> read(@PathVariable Long id, Authentication auth) {
         Mail mail = mailService.markRead(getPlayer(auth), id);
-        return ResponseEntity.ok(toMap(mail, false));
+        return ResponseEntity.ok(toMap(mail, false, true)); // full=true: o /read entrega o replay (log/eventos/cena)
     }
 
     // ── Collect gold ──────────────────────────────────────────────────────────
@@ -135,7 +135,10 @@ public class MailController {
         return playerService.findById((Long) auth.getPrincipal());
     }
 
-    private Map<String, Object> toMap(Mail m, boolean isSent) {
+    // full=false (listas inbox/sent): omite os blobs pesados de replay (battleLog/eventsJson/scene) — a lista
+    // só precisa do flag hasReplay; o cliente busca o replay no /read. Evita serializar JSON de batalha de N
+    // cartas de raid de uma vez (risco de heap). full=true: entrega tudo (usado no /read). [LAUNCH_HARDENING]
+    private Map<String, Object> toMap(Mail m, boolean isSent, boolean full) {
         return Map.ofEntries(
             Map.entry("id",              m.getId()),
             Map.entry("from",            m.getSenderWarriorName()),
@@ -164,9 +167,9 @@ public class MailController {
             Map.entry("expiresAt",       m.getExpiresAt() != null ? m.getExpiresAt().toString() : ""),
             // [INCURSAO_PVP] replay anexado (mail de raid): log + eventos (JSON) + cena → o cliente toca o replay
             Map.entry("hasReplay",       m.hasReplay()),
-            Map.entry("battleLog",       m.getBattleLog()        != null ? m.getBattleLog()        : ""),
-            Map.entry("battleEventsJson",m.getBattleEventsJson() != null ? m.getBattleEventsJson() : ""),
-            Map.entry("battleScene",     m.getBattleScene()      != null ? m.getBattleScene()      : "")
+            Map.entry("battleLog",       full && m.getBattleLog()        != null ? m.getBattleLog()        : ""),
+            Map.entry("battleEventsJson",full && m.getBattleEventsJson() != null ? m.getBattleEventsJson() : ""),
+            Map.entry("battleScene",     full && m.getBattleScene()      != null ? m.getBattleScene()      : "")
         );
     }
 

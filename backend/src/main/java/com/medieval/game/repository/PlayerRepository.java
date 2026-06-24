@@ -60,8 +60,12 @@ public interface PlayerRepository extends JpaRepository<Player, Long> {
     List<Player> findTopByWealth(Pageable pageable);
 
     // PvP por flag: players atualmente expostos numa zona (vítimas potenciais de raid). [PVP_FLAG]
+    // [LAUNCH_HARDENING] Pageable p/ CAPAR o pool (a chamada passa Top 50): numa zona vermelha lotada no pico,
+    // a lista podia crescer e cada candidato ainda faz um lookup de warrior (N+1) no PvpRaidService — capar
+    // limita os dois. O sorteio do alvo continua aleatório dentro do pool limitado.
     @Query("SELECT p FROM Player p WHERE p.pvpFlaggedZone = :zone AND p.pvpFlaggedUntil > :now AND p.id <> :excludeId")
     List<Player> findFlaggedInZone(@Param("zone") com.medieval.game.enums.Zone zone,
                                    @Param("now") java.time.LocalDateTime now,
-                                   @Param("excludeId") Long excludeId);
+                                   @Param("excludeId") Long excludeId,
+                                   org.springframework.data.domain.Pageable pageable);
 }

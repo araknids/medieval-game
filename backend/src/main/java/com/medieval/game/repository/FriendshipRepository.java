@@ -23,4 +23,10 @@ public interface FriendshipRepository extends JpaRepository<Friendship, Long> {
     List<Friendship> findByAddresseeIdAndStatus(Long addresseeId, String status); // pedidos recebidos
     List<Friendship> findByRequesterIdAndStatus(Long requesterId, String status); // pedidos enviados
     int countByAddresseeIdAndStatus(Long addresseeId, String status);             // [LEADERBOARDS] badge social
+
+    // [LAUNCH_HARDENING] Caps anti-spam/crescimento de linhas (pedidos de amizade ilimitados eram um vetor).
+    int countByRequesterIdAndStatus(Long requesterId, String status);             // pedidos pendentes que EU enviei
+    @Query("SELECT COUNT(f) FROM Friendship f WHERE f.status = 'ACCEPTED' " +
+           "AND (f.requesterId = :me OR f.addresseeId = :me)")
+    int countAccepted(@Param("me") Long me);                                      // total de amigos confirmados
 }

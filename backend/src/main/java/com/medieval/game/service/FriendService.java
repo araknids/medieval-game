@@ -30,6 +30,10 @@ public class FriendService {
 
     static final String PENDING = "PENDING", ACCEPTED = "ACCEPTED";
 
+    // [LAUNCH_HARDENING] Caps anti-abuso (placeholders generosos): impedem flood de pedidos / lista infinita.
+    static final int MAX_OUTGOING_PENDING = 50;  // quantos pedidos sem-resposta UMA conta pode ter em aberto
+    static final int MAX_FRIENDS          = 200; // teto de amigos confirmados
+
     /** Linha de jogador na lista de amigos (playerId p/ inspecionar; requestId p/ aceitar/recusar). */
     public record FriendRow(long playerId, String name, String title, int level, String classId, long requestId) {}
     public record FriendList(List<FriendRow> friends, List<FriendRow> incoming, List<FriendRow> outgoing) {}
@@ -42,6 +46,11 @@ public class FriendService {
                 .orElseThrow(() -> new IllegalArgumentException("Player not found."));
         if (repo.findBetween(me.getId(), targetId).isPresent())
             throw new IllegalStateException("Already friends or a request is pending.");
+        // [LAUNCH_HARDENING] caps anti-abuso (crescimento ilimitado de linhas / flood de pedidos)
+        if (repo.countByRequesterIdAndStatus(me.getId(), PENDING) >= MAX_OUTGOING_PENDING)
+            throw new IllegalStateException("Too many pending friend requests. Wait for some to be answered.");
+        if (repo.countAccepted(me.getId()) >= MAX_FRIENDS)
+            throw new IllegalStateException("Your friend list is full.");
         repo.save(new Friendship(me.getId(), targetId, PENDING));
     }
 
