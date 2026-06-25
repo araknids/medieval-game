@@ -798,26 +798,30 @@ func _collect_quest(kingdom: String, quest_id: int, option_id := "", confirmed :
 	if not (r.get("ok") and r.get("json") is Dictionary):
 		_show_error(r); await _open(kingdom); return
 	var j: Dictionary = r["json"]
-	if Shell.current != null:   # [DIARIO_QUEST] a coleta pode ter concluído o dever QUEST (onQuestCompleted) → re-checa badges/toast
-		Shell.current._refresh_starter()
 	if bool(j.get("lunaPending", false)):   # a Luna interrompeu → ajudar ou terminar
 		_show_luna_dialog(kingdom, quest_id)
 		return
-	if j.get("roll") is Dictionary:   # [DADO] teste de atributo (d20) → anima o resultado antes de prosseguir
-		var rbe = j.get("battleEvents")
-		await _show_dice_dialog(j["roll"], rbe is Array and (rbe as Array).size() >= 2)
 	var be = j.get("battleEvents")
-	if be is Array and be.size() >= 2:
-		# encontrou monstro → replay 3D por cima; guarda o RESULTADO p/ o relatório pós-replay [BATTLE_REPORT]
+	var has_battle: bool = be is Array and (be as Array).size() >= 2
+	# [DADO] teste de atributo (d20): UMA modal só — dado + desfecho (narrativa + recompensa) juntos.
+	if j.get("roll") is Dictionary:
+		await _show_dice_dialog(j, has_battle)
+	if has_battle:
+		# encontrou monstro → replay 3D; o relatório + refresh do dever vêm no _on_battle_over [BATTLE_REPORT]
 		_pending_after = {"kingdom": kingdom, "kind": "quest", "result": j}
 		request_battle.emit({"events": be, "scene": str(j.get("scene", "")), "won": bool(j.get("monsterDefeated", false)), "enemy": str(j.get("monsterName", ""))})
-	else:
-		await _open(kingdom)   # refresca a lista; status some aqui → desfecho vai no relatório
-		_show_quest_report(j)
+		return
+	await _open(kingdom)   # refresca a lista
+	if not (j.get("roll") is Dictionary):
+		_show_quest_report(j)   # não-roll → relatório normal (a modal do dado já mostrou o desfecho do roll)
+	# [DIARIO_QUEST] dever pode ter concluído (onQuestCompleted) → badges/aviso/toast DEPOIS das modais (sem sobrepor)
+	if Shell.current != null:
+		Shell.current._refresh_starter()
 
 # [DADO] Dialog do teste de atributo (d20): o número ROLA (cicla) e trava no valor REAL, mostra a conta
 # (rolado + mod vs CD), SUCESSO/FALHA e uma explicação. Bloqueante — await até clicar Continuar.
-func _show_dice_dialog(roll: Dictionary, battle_follows: bool) -> void:
+func _show_dice_dialog(j: Dictionary, battle_follows: bool) -> void:
+	var roll: Dictionary = j.get("roll", {})
 	var rolled := int(roll.get("rolled", 1))
 	var mod := int(roll.get("mod", 0))
 	var dc := int(roll.get("dc", 0))
@@ -878,17 +882,46 @@ func _show_dice_dialog(roll: Dictionary, battle_follows: bool) -> void:
 	result.text = Lang.t("SUCESSO") if passed else Lang.t("FALHA")
 	result.add_theme_color_override("font_color", UiKit.OK if passed else UiKit.ERR)
 	result.visible = true
-	if passed:
+	# desfecho NA MESMA modal: a narrativa REAL da quest (se houver), senão um texto por resultado
+	var narr := str(j.get("narrative", "")).strip_edges()
+	if narr != "":
+		expl.text = narr
+	elif passed:
 		expl.text = Lang.t("Você superou o teste.")
 	elif battle_follows:
 		expl.text = Lang.t("Falhou — o inimigo te alcançou. Prepare-se para lutar!")
 	else:
 		expl.text = Lang.t("Falhou — o desfecho não foi o esperado.")
 	expl.visible = true
+	# recompensa na mesma modal — só quando NÃO segue pra combate (aí ela vem no relatório pós-batalha)
+	if not battle_follows:
+		var rrow := _quest_reward_row(j)
+		if rrow != null:
+			box.add_child(rrow)
+			box.move_child(rrow, cont.get_index())   # logo antes do botão Continuar
 	cont.visible = true
 	await cont.pressed
 	if is_instance_valid(overlay):
 		overlay.queue_free()
+
+# [DADO] Linha de recompensa (bronze + XP + drop) p/ a modal do dado. null se não houver recompensa.
+func _quest_reward_row(j: Dictionary) -> Control:
+	var row := HBoxContainer.new()
+	row.add_theme_constant_override("separation", 12)
+	row.alignment = BoxContainer.ALIGNMENT_CENTER
+	var any := false
+	var bronze := int(j.get("bronzeEarned", 0))
+	if bronze > 0:
+		row.add_child(UiKit.coin_box(bronze, 16)); any = true
+	var xp := int(j.get("xpEarned", 0))
+	if xp > 0:
+		var xl := Label.new(); xl.text = "+%d XP" % xp
+		xl.add_theme_font_size_override("font_size", 14); xl.add_theme_color_override("font_color", UiKit.GOLD_SOFT)
+		xl.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+		row.add_child(xl); any = true
+	if j.get("droppedItem") is Dictionary:
+		row.add_child(UiKit.dim("🎁 " + str(j["droppedItem"].get("name", "item")))); any = true
+	return row if any else null
 
 # o App chama isto quando o replay 3D termina (volta pro Mundo + mostra o desfecho da quest)
 func _on_battle_over() -> void:
@@ -901,6 +934,9 @@ func _on_battle_over() -> void:
 		_show_quest_report(result)
 	elif kind == "zone":
 		_show_zone_report(result)
+	# [DIARIO_QUEST] a quest pós-batalha pode ter concluído o dever QUEST → re-checa badges/aviso/toast
+	if kind == "quest" and Shell.current != null:
+		Shell.current._refresh_starter()
 
 # Diálogo de quest interativa: intro + um botão por opção (coleta com o optionId escolhido).
 func _show_quest_dialog(kingdom: String, quest_id: int, dialog: Dictionary) -> void:
