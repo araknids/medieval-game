@@ -60,9 +60,14 @@ func _set_tab(key: String) -> void:
 func _tab_bar() -> Control:
 	var hb := HBoxContainer.new()
 	hb.add_theme_constant_override("separation", 6)
+	# [QUEST_BADGE] "(N)" = o que precisa de AÇÃO (disponíveis + em andamento/ativa); CONCLUÍDAS não contam.
+	var daily_pending := 0
+	for q in _group("daily"):
+		if q is Dictionary and str(q.get("dailyState", "")) != "done":
+			daily_pending += 1
 	var counts := {
-		"daily": _group("daily").size(),
-		"missions": _group("missionsAvailable").size() + _group("missionsInProgress").size() + _group("missionsCompleted").size(),
+		"daily": daily_pending,
+		"missions": _group("missionsAvailable").size() + _group("missionsInProgress").size(),
 	}
 	for t in TABS:
 		var key: String = t[0]
