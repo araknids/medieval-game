@@ -13,6 +13,34 @@ const VIL := "res://assets/world/village/"   # kit Medieval Village (grade de 2m
 # [GODOT_GRIMDARK] pós-processo de clima sombrio (ligado por padrão). Design: docs/PLANO_GODOT_GRIMDARK.md
 var grimdark := true
 var _is_day := false   # [DIA] cenas de dia (day_lighting) → braseiros SEM luz (o sol já ilumina; tocha lavava o chão)
+var _stone_mat_cache: ShaderMaterial = null   # [MAPA_TORRE] material de ALVENARIA (tijolos) compartilhado pela fortaleza
+
+# [MAPA_TORRE] Shader de ALVENARIA: desenha tijolos (juntas escuras em grade) + variação por tijolo, em
+# espaço-mundo (alinha entre peças vizinhas). Dá "mini quadrados" na pedra sem geometria extra.
+const STONE_BRICK_SHADER := """
+shader_type spatial;
+uniform vec4 base_color : source_color = vec4(0.085, 0.08, 0.092, 1.0);
+uniform float brick_h = 0.5;
+uniform float brick_w = 0.78;
+uniform float mortar = 0.085;
+varying vec3 wpos;
+void vertex() { wpos = (MODEL_MATRIX * vec4(VERTEX, 1.0)).xyz; }
+float h21(vec2 p) { return fract(sin(dot(p, vec2(41.31, 289.17))) * 43758.5453); }
+void fragment() {
+	float row = floor(wpos.y / brick_h);
+	float off = mod(row, 2.0) * 0.5 * brick_w;
+	float hc = wpos.x + wpos.z;
+	float fy = fract(wpos.y / brick_h);
+	float fx = fract((hc + off) / brick_w);
+	float brickface = step(mortar, fy) * step(mortar, fx) * step(fy, 1.0 - mortar) * step(fx, 1.0 - mortar);
+	float v = h21(vec2(floor((hc + off) / brick_w), row)) * 0.16 - 0.08;
+	vec3 col = base_color.rgb * (0.86 + v);
+	col = mix(base_color.rgb * 0.42, col, brickface);
+	ALBEDO = col;
+	ROUGHNESS = 1.0;
+	METALLIC = 0.0;
+}
+"""
 
 # Shader de tela (overlay full-screen): vinheta + dessaturação + contraste + tint + grão.
 # Lê o frame já renderizado (3D) via hint_screen_texture e devolve a versão "grimdark".
@@ -1070,15 +1098,20 @@ func cursed_tower(host: Node3D, rng: RandomNumberGenerator, combat_r: float) -> 
 	# MANCHAS escuras de queimado/sangue no chão (fora do combate)
 	for i in 7:
 		_flat(host, Color(0.06, 0.05, 0.05), _scatter(rng, combat_r + 1.0, 22.0) + Vector3(0, 0.06, 0), Vector2(rng.randf_range(2.0, 4.0), rng.randf_range(2.0, 4.0)))
-	# MATA MORTA nos FLANCOS (lados +Z e -Z), deixando LIVRE o corredor da estrada (câmera -X → fortaleza +X)
-	var dead := ["DeadTree_1", "DeadTree_2", "DeadTree_3"]
+	# MATA MORTA só como BACKDROP DISTANTE no hemisfério atrás/esquerda (-X) — NUNCA na frente da câmera
+	# nem do lado da fortaleza (+X), pra não tapar a visão. O resto vira PEDRA + vegetação baixa.
 	var mix := ["DeadTree_1", "DeadTree_2", "DeadTree_3", "Pine_1", "Pine_2", "Pine_3"]
-	_tree_arc(host, rng, dead, 12.0, 17.0, 9, deg_to_rad(40), deg_to_rad(140), 0.9, 1.5)    # flanco +Z
-	_tree_arc(host, rng, dead, 12.0, 17.0, 9, deg_to_rad(220), deg_to_rad(320), 0.9, 1.5)   # flanco -Z
-	_tree_arc(host, rng, mix, 19.0, 27.0, 16, deg_to_rad(28), deg_to_rad(152), 1.1, 1.9)
-	_tree_arc(host, rng, mix, 19.0, 27.0, 16, deg_to_rad(208), deg_to_rad(332), 1.1, 1.9)
-	_tree_arc(host, rng, mix, 29.0, 37.0, 24, deg_to_rad(18), deg_to_rad(162), 1.3, 2.2)
-	_tree_arc(host, rng, mix, 29.0, 37.0, 24, deg_to_rad(198), deg_to_rad(342), 1.3, 2.2)
+	_tree_arc(host, rng, mix, 26.0, 33.0, 18, deg_to_rad(118), deg_to_rad(300), 1.3, 2.2)
+	_tree_arc(host, rng, mix, 34.0, 40.0, 22, deg_to_rad(108), deg_to_rad(310), 1.4, 2.3)
+	# PEDRAS + VEGETAÇÃO BAIXA nos flancos (inclusive o lado direito, onde antes tinha árvore tapando) —
+	# enche a cena sem bloquear a câmera nem a fortaleza
+	for i in 44:
+		var vp := _scatter(rng, combat_r + 1.5, 25.0)
+		if rng.randf() < 0.45:
+			_place(host, rng, NAT + "Rock_Medium_%d.gltf" % (1 + i % 3), vp, rng.randf_range(0, 360), rng.randf_range(0.7, 2.0))
+		else:
+			var b: String = ["Bush_Common", "Grass_Wispy_Tall", "Fern_1", "Grass_Common_Tall"][i % 4]
+			_place(host, rng, NAT + b + ".gltf", vp, rng.randf_range(0, 360), rng.randf_range(0.8, 1.6))
 	# A TORRE amaldiçoada em chamas (à direita)
 	_dark_tower(host, rng, TOWER)
 	# ESCOMBROS de batalha — viés p/ a direita (lado +X, "dos inimigos")
@@ -1194,24 +1227,28 @@ func _dark_tower(host: Node3D, rng: RandomNumberGenerator, base: Vector3) -> voi
 		var a := TAU * k / float(sides)
 		_wall_seg(host, Vector3(2.0 * topr * sin(PI / float(sides)) * 0.7, 1.3, 0.7), base + Vector3(cos(a) * topr, topy + 0.65, sin(a) * topr), base, STONE.lightened(0.08))
 	# ESPIGÃO central quebrado (pináculo principal) + pináculos menores
-	_box3(host, Vector3(1.1, 6.5, 1.1), base + Vector3(rng.randf_range(-0.3, 0.3), topy + 2.8, rng.randf_range(-0.3, 0.3)), STONE.lightened(0.04), Vector3(rng.randf_range(-6, 6), rng.randf_range(0, 360), rng.randf_range(-6, 6)), 1.0)
+	_stone_box(host, Vector3(1.1, 6.5, 1.1), base + Vector3(rng.randf_range(-0.3, 0.3), topy + 2.8, rng.randf_range(-0.3, 0.3)), Vector3(rng.randf_range(-6, 6), rng.randf_range(0, 360), rng.randf_range(-6, 6)))
 	for sp in 5:
 		var sa := TAU * sp / 5.0 + rng.randf_range(-0.2, 0.2)
 		var sr := topr * rng.randf_range(0.3, 0.85)
-		_box3(host, Vector3(0.45, rng.randf_range(2.2, 4.0), 0.45), base + Vector3(cos(sa) * sr, topy + 1.4, sin(sa) * sr), STONE.lightened(0.06), Vector3(rng.randf_range(-12, 12), rng.randf_range(0, 360), rng.randf_range(-12, 12)), 1.0)
+		_stone_box(host, Vector3(0.45, rng.randf_range(2.2, 4.0), 0.45), base + Vector3(cos(sa) * sr, topy + 1.4, sin(sa) * sr), Vector3(rng.randf_range(-12, 12), rng.randf_range(0, 360), rng.randf_range(-12, 12)))
 	# CONTRAFORTES grandes inclinados na base — peso gótico
 	for b in 5:
 		var ba := TAU * b / 5.0 + 0.39
-		_box3(host, Vector3(0.95, seg_h * 2.8, 1.9), base + Vector3(cos(ba) * (r0 * 0.96), seg_h * 1.2, sin(ba) * (r0 * 0.96)), STONE, Vector3(14, rad_to_deg(ba), 0), 1.0)
-	# ENTULHO na base (a torre desmoronando): rochas + lascas de pedra
+		_stone_box(host, Vector3(0.95, seg_h * 2.8, 1.9), base + Vector3(cos(ba) * (r0 * 0.96), seg_h * 1.2, sin(ba) * (r0 * 0.96)), Vector3(14, rad_to_deg(ba), 0))
+	# ENTULHO na base (a torre desmoronando): rochas + lascas — NUNCA na frente do portão (-X, lado da estrada)
 	for i in 16:
 		var ra := rng.randf_range(0, TAU)
+		if cos(ra) < -0.2:   # aponta pro portão/estrada → pula (entrada limpa)
+			continue
 		var rr := r0 + rng.randf_range(0.3, 3.2)
 		_place(host, rng, NAT + "Rock_Medium_%d.gltf" % (1 + i % 3), base + Vector3(cos(ra) * rr, 0, sin(ra) * rr), rng.randf_range(0, 360), rng.randf_range(0.6, 1.5))
 	for i in 8:
 		var ca := rng.randf_range(0, TAU)
+		if cos(ca) < -0.2:
+			continue
 		var cr := r0 + rng.randf_range(0.0, 2.4)
-		_box3(host, Vector3(rng.randf_range(0.5, 1.2), rng.randf_range(0.4, 1.0), rng.randf_range(0.5, 1.2)), base + Vector3(cos(ca) * cr, 0.2, sin(ca) * cr), STONE.lightened(0.04), Vector3(rng.randf_range(-20, 20), rng.randf_range(0, 360), rng.randf_range(-20, 20)), 1.0)
+		_stone_box(host, Vector3(rng.randf_range(0.5, 1.2), rng.randf_range(0.4, 1.0), rng.randf_range(0.5, 1.2)), base + Vector3(cos(ca) * cr, 0.2, sin(ca) * cr), Vector3(rng.randf_range(-20, 20), rng.randf_range(0, 360), rng.randf_range(-20, 20)))
 	# FOGO no topo (a torre queima) + colunas de fumaça
 	_tower_fire(host, base + Vector3(0, topy + 0.4, 0))
 	_smoke(host, base + Vector3(rng.randf_range(-0.6, 0.6), topy + 2.2, 0))
@@ -1222,50 +1259,75 @@ func _dark_tower(host: Node3D, rng: RandomNumberGenerator, base: Vector3) -> voi
 # Muralha de CASTELO preta de frente pra estrada (com ameias + PORTÃO aceso) — dá imponência de
 # fortaleza à torre. base = centro da torre; faces viradas pro -X (a estrada/câmera). [MAPA_TORRE]
 func _castle_front(host: Node3D, base: Vector3, r0: float) -> void:
-	var STONE := Color(0.075, 0.07, 0.085)
 	var wall_x := base.x - r0 - 0.4       # face frontal (lado da estrada)
 	var wall_h := 10.0
-	var span := 11.0                       # meia-largura da muralha (em Z) — LARGA
-	var gate := 2.1                        # meio-vão do portão
-	# painéis esquerdo/direito (caixões de pedra) + seteiras acesas; vão do portão fica no meio
+	var span := 42.0                       # muralha MUITO longa → some na névoa dos 2 lados ("infinita")
+	var gate := 2.2                        # meio-vão do portão
+	# PAINÉIS esquerdo/direito até as pontas (alvenaria) + seteiras acesas; vão do portão no meio
 	for sidez in [-1.0, 1.0]:
 		var z0: float = base.z + sidez * gate
 		var z1: float = base.z + sidez * span
-		_box3(host, Vector3(1.8, wall_h, absf(z1 - z0)), Vector3(wall_x, wall_h * 0.5, (z0 + z1) * 0.5), STONE, Vector3.ZERO, 1.0)
-		for s in 3:                        # seteiras (frestas) acesas no painel
-			var sz := lerpf(z0, z1, (float(s) + 0.5) / 3.0)
+		_stone_box(host, Vector3(1.8, wall_h, absf(z1 - z0)), Vector3(wall_x, wall_h * 0.5, (z0 + z1) * 0.5))
+		for s in 9:                        # seteiras (frestas) acesas espalhadas no painel longo
+			var sz := lerpf(z0, z1, (float(s) + 0.5) / 9.0)
 			_box3(host, Vector3(0.35, 1.5, 0.25), Vector3(wall_x + 0.25, wall_h * 0.58, sz), Color(1.0, 0.42, 0.12), Vector3.ZERO, 0.6, 0.0, Color(1.0, 0.38, 0.06), 2.5)
-	# torres-pilar do portão (enquadram o vão)
+	# torres-pilar do PORTÃO (enquadram o vão)
 	for sidez in [-1.0, 1.0]:
-		_box3(host, Vector3(2.1, wall_h + 2.4, 1.2), Vector3(wall_x, (wall_h + 2.4) * 0.5, base.z + sidez * gate), STONE.lightened(0.03), Vector3.ZERO, 1.0)
-	# TORRES DE CANTO nas pontas da muralha (silhueta de castelo) + ameias no topo delas
-	for sidez in [-1.0, 1.0]:
-		var tz: float = base.z + sidez * span
-		_box3(host, Vector3(2.6, wall_h + 4.0, 2.6), Vector3(wall_x + 0.3, (wall_h + 4.0) * 0.5, tz), STONE.lightened(0.02), Vector3.ZERO, 1.0)
+		_stone_box(host, Vector3(2.2, wall_h + 2.6, 1.3), Vector3(wall_x, (wall_h + 2.6) * 0.5, base.z + sidez * gate))
+	# TORRES intermediárias ao longo da muralha (ritmo de castelo que some na névoa) + ameias no topo
+	for n in range(-3, 4):
+		if n == 0:
+			continue
+		var tz: float = base.z + float(n) * 13.0
+		_stone_box(host, Vector3(2.6, wall_h + 3.5, 2.6), Vector3(wall_x + 0.3, (wall_h + 3.5) * 0.5, tz))
 		for mk in 4:
 			var ma := TAU * mk / 4.0
-			_box3(host, Vector3(0.7, 1.0, 0.7), Vector3(wall_x + 0.3 + cos(ma) * 0.95, wall_h + 4.0 + 0.45, tz + sin(ma) * 0.95), STONE.lightened(0.06), Vector3.ZERO, 1.0)
-	# verga (arco) do portão + BRASA no vão (a fortaleza arde por dentro)
-	_box3(host, Vector3(1.9, wall_h * 0.3, gate * 2.0), Vector3(wall_x, wall_h * 0.82, base.z), STONE, Vector3.ZERO, 1.0)
+			_stone_box(host, Vector3(0.7, 1.0, 0.7), Vector3(wall_x + 0.3 + cos(ma) * 0.95, wall_h + 3.5 + 0.45, tz + sin(ma) * 0.95))
+	# verga (arco) do portão + BRASA no vão (a fortaleza arde por dentro) + luz quente
+	_stone_box(host, Vector3(2.0, wall_h * 0.3, gate * 2.0), Vector3(wall_x, wall_h * 0.82, base.z))
 	_box3(host, Vector3(0.4, wall_h * 0.55, gate * 1.5), Vector3(wall_x + 0.25, wall_h * 0.34, base.z), Color(1.0, 0.42, 0.12), Vector3.ZERO, 0.6, 0.0, Color(1.0, 0.38, 0.06), 3.0)
-	var gl := OmniLight3D.new()           # luz quente saindo do portão
+	var gl := OmniLight3D.new()
 	gl.light_color = Color(1.0, 0.5, 0.2); gl.light_energy = 3.4; gl.omni_range = 12.0
 	host.add_child(gl); gl.position = Vector3(wall_x + 1.2, 3.2, base.z)
-	# AMEIAS (merlons) no topo da muralha — silhueta de castelo
+	# AMEIAS (merlons) no topo da muralha ao longo de tudo (pula o portão e onde tem torre)
 	var z := base.z - span
 	while z <= base.z + span + 0.01:
-		if absf(z - base.z) > gate * 0.8 and absf(absf(z - base.z) - span) > 1.6:   # pula o portão e as torres de canto
-			_box3(host, Vector3(0.9, 1.1, 0.85), Vector3(wall_x, wall_h + 0.55, z), STONE.lightened(0.05), Vector3.ZERO, 1.0)
+		var dz := z - base.z
+		var near_tower := false
+		for n in range(-3, 4):
+			if absf(dz - float(n) * 13.0) < 1.7:
+				near_tower = true
+				break
+		if absf(dz) > gate * 0.9 and not near_tower:
+			_stone_box(host, Vector3(0.9, 1.1, 0.85), Vector3(wall_x, wall_h + 0.55, z))
 		z += 1.4
 
-# Segmento de muralha (caixa) com a FACE plana virada pra FORA do centro (look_at) — monta o
-# anel octogonal da torre. [MAPA_TORRE]
-func _wall_seg(host: Node3D, size: Vector3, pos: Vector3, center: Vector3, color: Color) -> void:
+# Material de ALVENARIA (tijolos) compartilhado — 1 instância p/ toda a fortaleza (barato).
+func _stone_mat() -> ShaderMaterial:
+	if _stone_mat_cache == null:
+		var sh := Shader.new()
+		sh.code = STONE_BRICK_SHADER
+		_stone_mat_cache = ShaderMaterial.new()
+		_stone_mat_cache.shader = sh
+	return _stone_mat_cache
+
+# Caixa de PEDRA com alvenaria (tijolos) — p/ os blocões da muralha/torre. rot = euler.
+func _stone_box(host: Node3D, size: Vector3, pos: Vector3, rot := Vector3.ZERO) -> void:
 	var mi := MeshInstance3D.new()
 	var bm := BoxMesh.new(); bm.size = size
 	mi.mesh = bm
-	var m := StandardMaterial3D.new(); m.albedo_color = color; m.roughness = 1.0
-	mi.material_override = m
+	mi.material_override = _stone_mat()
+	host.add_child(mi)
+	mi.position = pos
+	mi.rotation_degrees = rot
+
+# Segmento de muralha (caixa) com a FACE plana virada pra FORA do centro (look_at) — monta o
+# anel octogonal da torre, com material de ALVENARIA. (color ignorado: a textura de tijolo manda.) [MAPA_TORRE]
+func _wall_seg(host: Node3D, size: Vector3, pos: Vector3, center: Vector3, _color: Color) -> void:
+	var mi := MeshInstance3D.new()
+	var bm := BoxMesh.new(); bm.size = size
+	mi.mesh = bm
+	mi.material_override = _stone_mat()
 	host.add_child(mi)
 	mi.position = pos
 	mi.look_at(Vector3(center.x, pos.y, center.z), Vector3.UP)   # -Z (profundidade) aponta pro centro
