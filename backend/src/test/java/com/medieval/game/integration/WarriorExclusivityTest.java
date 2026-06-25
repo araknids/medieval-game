@@ -58,31 +58,23 @@ class WarriorExclusivityTest extends BaseIntegrationTest {
                 .andExpect(jsonPath("$.status").value("IN_PROGRESS"));
     }
 
-    // ── [DIARIO_QUEST] Guard por QUESTTYPE: o to-do permite várias quests aceitas ao mesmo tempo,
-    // mas barra startar a MESMA quest 2x antes de resolver (fecha o bypass do daily-lock). ──
+    // ── [DIARIO_QUEST] 1 DIÁRIA em progresso por vez — aceitar uma trava as outras até resolver.
+    // (Toda quest de reino é daily hoje; quest normal/história, quando existir, não conta neste limite.) ──
 
     @Test
-    @DisplayName("[DIARIO_QUEST] Aceita várias quests (to-do), mas não a MESMA 2x")
-    void canStartMultipleQuests_butNotSameTwice() throws Exception {
+    @DisplayName("[DIARIO_QUEST] 1 diária em progresso por vez")
+    void onlyOneDailyQuestInProgressAtATime() throws Exception {
         mockMvc.perform(post("/api/world/FISHING/quests/start")
                 .header("Authorization", bearer(token))
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("{\"questType\":\"PATROL_COAST\"}"))
                 .andExpect(status().isOk());
 
-        // Segunda quest DIFERENTE (até de outro reino) agora é PERMITIDA (to-do de várias aceitas)
+        // Segunda DIÁRIA (mesmo de outro reino) é rejeitada enquanto a 1ª está em progresso
         mockMvc.perform(post("/api/world/MINING/quests/start")
                         .header("Authorization", bearer(token))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"questType\":\"ESCORT_MINERS\"}"))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.status").value("IN_PROGRESS"));
-
-        // Mas startar a MESMA quest 2x (já IN_PROGRESS) continua barrado
-        mockMvc.perform(post("/api/world/FISHING/quests/start")
-                        .header("Authorization", bearer(token))
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"questType\":\"PATROL_COAST\"}"))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.error").isNotEmpty());
     }

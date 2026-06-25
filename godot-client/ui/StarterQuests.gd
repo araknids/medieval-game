@@ -1,12 +1,10 @@
 extends Control
-# ── DIÁRIO DE MISSÕES — 3 abas [DIARIO_QUEST] ─────────────────────────────────────────
-# Aberto pelo ícone quest_log do topbar. Agrega quests de reino (dailies) + deveres do recruta (únicos)
-# em 3 abas: "Pra pegar" (disponíveis) / "Em progresso" (aceitas-não-resolvidas = to-do) / "Completadas"
-# (só ÚNICAS). Lê GET /api/quests/journal.
-#  • Deveres do recruta: agem INLINE (aceitar/entregar) — fluxo simples (sem combate/diálogo).
-#  • Quests de reino: aceitar inline em "Pra pegar"; resolver = "Resolver no Mundo" (o fluxo de diálogo/
-#    combate/recompensa mora no World — não é duplicado aqui).
-# Avisa o Shell (UiKit.starter_changed_sink) p/ os badges. Desenho: docs/PLANO_DIARIO_QUEST.md.
+# ── DIÁRIO DE MISSÕES — 2 abas [DIARIO_QUEST] ─────────────────────────────────────────
+# "Diárias": quests de reino (repetitivas, sem histórico). UMA ativa por vez — aceitar trava as outras
+#   até resolver; as já feitas na janela aparecem APAGADAS ("volta no ciclo"); resolver = no Mundo.
+# "Missões": únicas/história (hoje só deveres do recruta), em seções Disponíveis / Em andamento /
+#   Concluídas. Deveres agem inline (aceitar/entregar); quest de reino normal (futuro) resolve no Mundo.
+# GET /api/quests/journal. Avisa o Shell (starter_changed_sink). Desenho: docs/PLANO_DIARIO_QUEST.md.
 
 signal go_back
 
@@ -18,9 +16,9 @@ var wallet: Label
 var journal: Dictionary = {}
 var warrior: Dictionary = {}
 var busy := false
-var tab := "toPickUp"   # aba ativa
+var tab := "daily"   # "daily" | "missions"
 
-const TABS := [["toPickUp", "Pra pegar"], ["inProgress", "Em progresso"], ["completed", "Completadas"]]
+const TABS := [["daily", "Diárias"], ["missions", "Missões"]]
 
 func _ready() -> void:
 	var ui := UiKit.scaffold(self, "Diário de Missões", func() -> void: go_back.emit(), func() -> void: await _refresh(), UiKit.TINT_ADVENTURE)
@@ -50,19 +48,10 @@ func _render() -> void:
 	UiKit.hide_loading()
 	UiKit.set_wallet(wallet, warrior)
 	content.add_child(_tab_bar())
-	var list := _group(tab)
-	if list.is_empty():
-		content.add_child(UiKit.dim(_empty_text()))
-	for q in list:
-		if q is Dictionary:
-			content.add_child(_card(q))
-
-func _empty_text() -> String:
-	match tab:
-		"toPickUp": return Lang.t("Nenhuma missão disponível agora. Volte após o próximo ciclo.")
-		"inProgress": return Lang.t("Nada em progresso. Aceite uma missão na aba 'Pra pegar'.")
-		"completed": return Lang.t("Nenhum feito registrado ainda.")
-	return ""
+	if tab == "daily":
+		_render_daily()
+	else:
+		_render_missions()
 
 func _set_tab(key: String) -> void:
 	tab = key
@@ -71,9 +60,13 @@ func _set_tab(key: String) -> void:
 func _tab_bar() -> Control:
 	var hb := HBoxContainer.new()
 	hb.add_theme_constant_override("separation", 6)
+	var counts := {
+		"daily": _group("daily").size(),
+		"missions": _group("missionsAvailable").size() + _group("missionsInProgress").size() + _group("missionsCompleted").size(),
+	}
 	for t in TABS:
 		var key: String = t[0]
-		var b := UiKit.action("%s (%d)" % [Lang.t(t[1]), _group(key).size()], _set_tab.bind(key))
+		var b := UiKit.action("%s (%d)" % [Lang.t(t[1]), int(counts.get(key, 0))], _set_tab.bind(key))
 		b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		if key == tab:
 			b.add_theme_color_override("font_color", UiKit.GOLD)
@@ -82,40 +75,74 @@ func _tab_bar() -> Control:
 		hb.add_child(b)
 	return hb
 
-func _card(q: Dictionary) -> PanelContainer:
-	return _starter_card(q) if str(q.get("source", "")) == "starter" else _kingdom_card(q)
+# ── Aba DIÁRIAS ───────────────────────────────────────────────────────────────────────
+func _render_daily() -> void:
+	content.add_child(UiKit.dim(Lang.t("Tarefas que renovam a cada ciclo. Só uma ativa por vez — resolva antes de pegar outra.")))
+	var list := _group("daily")
+	if list.is_empty():
+		content.add_child(UiKit.dim(Lang.t("Nenhuma diária disponível agora.")))
+		return
+	for q in list:
+		if q is Dictionary:
+			content.add_child(_daily_card(q))
 
-# ── Card de quest de reino ────────────────────────────────────────────────────────────
-func _kingdom_card(q: Dictionary) -> PanelContainer:
-	var border := UiKit.GOLD if tab == "inProgress" else UiKit.BRONZE
+func _daily_card(q: Dictionary) -> PanelContainer:
+	var st := str(q.get("dailyState", "available"))
+	var done := st == "done"
+	var border := UiKit.GOLD if st == "active" else (Color(1, 1, 1, 0.10) if done else UiKit.BRONZE)
 	var res := UiKit.card(border)
 	var box: VBoxContainer = res[1]
-	var nl := Label.new()
-	nl.text = str(q.get("title", "?"))
-	nl.add_theme_font_size_override("font_size", 16)
-	nl.add_theme_color_override("font_color", UiKit.GOLD)
+	if done:
+		res[0].modulate = Color(1, 1, 1, 0.45)   # feita nesta janela → card apagado
+	var nl := Label.new(); nl.text = str(q.get("title", "?"))
+	nl.add_theme_font_size_override("font_size", 16); nl.add_theme_color_override("font_color", UiKit.GOLD)
 	box.add_child(nl)
 	box.add_child(UiKit.dim(str(q.get("flavor", ""))))
-	# recompensa
-	var rew := HBoxContainer.new(); rew.add_theme_constant_override("separation", 10)
-	var xp := int(q.get("expReward", 0))
-	if xp > 0:
-		var xl := Label.new(); xl.text = "+%d XP" % xp
-		xl.add_theme_font_size_override("font_size", 13); xl.add_theme_color_override("font_color", UiKit.GOLD_SOFT)
-		xl.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-		rew.add_child(xl)
-	rew.add_child(UiKit.coin_box(int(q.get("bronzeReward", 0)), 14))
-	box.add_child(rew)
-	# ação por aba
-	if tab == "toPickUp":
-		var k := str(q.get("kingdom", ""))
-		var qt := str(q.get("questType", ""))
-		box.add_child(_btn_right(UiKit.action(Lang.t("Aceitar"), _accept_kingdom.bind(k, qt))))
-	elif tab == "inProgress":
+	box.add_child(_reward_row(int(q.get("expReward", 0)), int(q.get("bronzeReward", 0))))
+	if st == "active":
+		box.add_child(_btn_right(UiKit.action(Lang.t("Resolver no Mundo"), _go_world)))
+	elif done:
+		box.add_child(_hint(Lang.t("Feita — volta no próximo ciclo")))
+	else:   # available
+		if bool(journal.get("dailyLocked", false)):
+			box.add_child(_hint(Lang.t("Resolva a diária ativa primeiro")))
+		else:
+			box.add_child(_btn_right(UiKit.action(Lang.t("Aceitar"), _accept_kingdom.bind(str(q.get("kingdom", "")), str(q.get("questType", ""))))))
+	return res[0]
+
+# ── Aba MISSÕES (seções) ──────────────────────────────────────────────────────────────
+func _render_missions() -> void:
+	var a := _mission_section("Disponíveis", "missionsAvailable", "available")
+	var b := _mission_section("Em andamento", "missionsInProgress", "inProgress")
+	var c := _mission_section("Concluídas", "missionsCompleted", "completed")
+	if not (a or b or c):
+		content.add_child(UiKit.dim(Lang.t("Nenhuma missão ainda. As histórias do reino chegam aqui.")))
+
+func _mission_section(title: String, key: String, section: String) -> bool:
+	var list := _group(key)
+	if list.is_empty():
+		return false
+	content.add_child(UiKit.section(title))
+	for q in list:
+		if q is Dictionary:
+			content.add_child(_starter_card(q) if str(q.get("source", "")) == "starter" else _kingdom_mission_card(q, section))
+	return true
+
+func _kingdom_mission_card(q: Dictionary, section: String) -> PanelContainer:
+	var res := UiKit.card(UiKit.GOLD if section == "inProgress" else UiKit.BRONZE)
+	var box: VBoxContainer = res[1]
+	var nl := Label.new(); nl.text = str(q.get("title", "?"))
+	nl.add_theme_font_size_override("font_size", 16); nl.add_theme_color_override("font_color", UiKit.GOLD)
+	box.add_child(nl)
+	box.add_child(UiKit.dim(str(q.get("flavor", ""))))
+	box.add_child(_reward_row(int(q.get("expReward", 0)), int(q.get("bronzeReward", 0))))
+	if section == "available":
+		box.add_child(_btn_right(UiKit.action(Lang.t("Aceitar"), _accept_kingdom.bind(str(q.get("kingdom", "")), str(q.get("questType", ""))))))
+	elif section == "inProgress":
 		box.add_child(_btn_right(UiKit.action(Lang.t("Resolver no Mundo"), _go_world)))
 	return res[0]
 
-# ── Card de dever do recruta (único) — age inline ─────────────────────────────────────
+# ── Card de dever do recruta (único) — ação pelo state (alinha com a seção) ────────────
 func _starter_card(q: Dictionary) -> PanelContainer:
 	var st := str(q.get("state", "available"))
 	var comp := str(q.get("comp", ""))
@@ -137,28 +164,34 @@ func _starter_card(q: Dictionary) -> PanelContainer:
 	head.add_child(nl)
 	box.add_child(head)
 	box.add_child(UiKit.dim(str(q.get("flavor", ""))))
+	box.add_child(_reward_row(int(q.get("rewardXp", 0)), int(q.get("rewardBronze", 0))))
+	if st == "available":
+		box.add_child(_btn_right(UiKit.action(Lang.t("Aceitar"), _accept_starter.bind(which))))
+	elif st == "accepted":
+		if comp == "QUEST":
+			box.add_child(_hint(Lang.t("Complete uma missão no Mundo para cumprir este dever.")))
+			box.add_child(_btn_right(UiKit.action(Lang.t("Ir ao Mundo"), _go_world)))
+		else:
+			box.add_child(_btn_right(UiKit.action(Lang.t("Curar") if comp == "HEAL" else Lang.t("Concluir"), _turn_in_starter.bind(which))))
+	else:
+		box.add_child(_hint(Lang.t("Já cumprido")))
+	return res[0]
+
+# ── Helpers ───────────────────────────────────────────────────────────────────────────
+func _reward_row(xp: int, bronze: int) -> Control:
 	var rew := HBoxContainer.new(); rew.add_theme_constant_override("separation", 10)
-	var xp := int(q.get("rewardXp", 0))
 	if xp > 0:
 		var xl := Label.new(); xl.text = "+%d XP" % xp
 		xl.add_theme_font_size_override("font_size", 13); xl.add_theme_color_override("font_color", UiKit.GOLD_SOFT)
 		xl.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 		rew.add_child(xl)
-	rew.add_child(UiKit.coin_box(int(q.get("rewardBronze", 0)), 14))
-	box.add_child(rew)
-	if st == "available":
-		box.add_child(_btn_right(UiKit.action(Lang.t("Aceitar"), _accept_starter.bind(which))))
-	elif st == "accepted":
-		if comp == "QUEST":
-			box.add_child(UiKit.dim(Lang.t("Complete uma missão no Mundo para cumprir este dever.")))
-			box.add_child(_btn_right(UiKit.action(Lang.t("Ir ao Mundo"), _go_world)))
-		else:
-			box.add_child(_btn_right(UiKit.action(Lang.t("Curar") if comp == "HEAL" else Lang.t("Concluir"), _turn_in_starter.bind(which))))
-	else:
-		var d := Label.new(); d.text = Lang.t("Já cumprido")
-		d.add_theme_font_size_override("font_size", 13); d.add_theme_color_override("font_color", UiKit.OK)
-		box.add_child(d)
-	return res[0]
+	rew.add_child(UiKit.coin_box(bronze, 14))
+	return rew
+
+func _hint(text: String) -> Label:
+	var d := Label.new(); d.text = text
+	d.add_theme_font_size_override("font_size", 13); d.add_theme_color_override("font_color", UiKit.TEXT_DIM)
+	return d
 
 func _btn_right(b: Button) -> Button:
 	b.size_flags_horizontal = Control.SIZE_SHRINK_END
@@ -176,6 +209,7 @@ func _accept_kingdom(kingdom: String, quest_type: String) -> void:
 	busy = false
 	if r.get("ok") and r.get("json") is Dictionary:
 		UiKit.flash(status, Lang.t("Missão aceita!"), 1)
+		if UiKit.starter_changed_sink.is_valid(): UiKit.starter_changed_sink.call()
 		await _refresh()
 	else:
 		UiKit.show_error(status, r)

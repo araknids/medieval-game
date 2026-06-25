@@ -182,10 +182,17 @@ public class KingdomService {
         Warrior warrior = warriorRepo.findByPlayer(player)
                 .orElseThrow(() -> new IllegalStateException("Warrior not found."));
 
-        // [DIARIO_QUEST] guard por QUESTTYPE (era 1-por-vez global): libera o to-do de várias quests aceitas
-        // ao mesmo tempo, mas ainda barra startar a MESMA quest 2x antes de resolver (fecha o bypass do
-        // daily-lock — a trava por janela continua no isQuestDoneThisPeriod abaixo). [DAILY_QUESTS]
-        if (questRepo.existsByPlayerAndQuestTypeAndStatus(player, questType, QuestStatus.IN_PROGRESS)) {
+        // [DIARIO_QUEST] DIÁRIA: 1 em progresso por vez — aceitar trava as outras até resolver (NORMAL/história
+        // não conta neste limite). NORMAL: pode acumular (to-do), só não a MESMA 2x. A trava por janela
+        // (1×/dia) continua no isQuestDoneThisPeriod abaixo. [DAILY_QUESTS]
+        if (questType.daily) {
+            boolean dailyInProgress = questRepo.findByPlayerAndStatusOrderByStartedAtDesc(player, QuestStatus.IN_PROGRESS)
+                    .stream().anyMatch(q -> q.getQuestType().daily);
+            if (dailyInProgress) {
+                log.warn("[KingdomService] player={} REJECTED: já tem diária em progresso", player.getId());
+                throw new IllegalStateException("You already have a daily quest in progress. Resolve it first.");
+            }
+        } else if (questRepo.existsByPlayerAndQuestTypeAndStatus(player, questType, QuestStatus.IN_PROGRESS)) {
             log.warn("[KingdomService] player={} REJECTED: quest {} já em progresso", player.getId(), questType);
             throw new IllegalStateException("You already have this quest in progress. Resolve it first.");
         }
@@ -557,41 +564,59 @@ public class KingdomService {
     @Transactional(readOnly = true)
     public java.util.Map<String, Object> questJournal(Player playerArg) {
         final Player player = playerRepository.findById(playerArg.getId()).orElse(playerArg);
-        List<java.util.Map<String, Object>> toPickUp = new java.util.ArrayList<>();
-        List<java.util.Map<String, Object>> inProgress = new java.util.ArrayList<>();
-        List<java.util.Map<String, Object>> completed = new java.util.ArrayList<>();
 
-        // Quests de reino IN_PROGRESS → "Em progresso"
-        java.util.Set<KingdomQuestType> activeTypes = new java.util.HashSet<>();
-        for (KingdomActiveQuest q : questRepo.findByPlayerAndStatusOrderByStartedAtDesc(player, QuestStatus.IN_PROGRESS)) {
-            activeTypes.add(q.getQuestType());
-            inProgress.add(kingdomActiveEntry(q));
-        }
-        // Quests de reino DISPONÍVEIS (todos os reinos, menos as in-progress e as já feitas nesta janela) → "Pra pegar"
+        // IN_PROGRESS por questType (acha a diária ativa + seu id p/ resolver)
+        java.util.Map<KingdomQuestType, KingdomActiveQuest> activeByType = new java.util.HashMap<>();
+        for (KingdomActiveQuest q : questRepo.findByPlayerAndStatusOrderByStartedAtDesc(player, QuestStatus.IN_PROGRESS))
+            activeByType.putIfAbsent(q.getQuestType(), q);
+        boolean dailyLocked = activeByType.keySet().stream().anyMatch(qt -> qt.daily);
+
+        List<java.util.Map<String, Object>> daily = new java.util.ArrayList<>();              // aba "Diárias"
+        List<java.util.Map<String, Object>> missionsAvailable = new java.util.ArrayList<>();   // aba "Missões"
+        List<java.util.Map<String, Object>> missionsInProgress = new java.util.ArrayList<>();
+        List<java.util.Map<String, Object>> missionsCompleted = new java.util.ArrayList<>();
+
         for (Kingdom k : Kingdom.values()) {
             for (KingdomQuestType qt : getQuestsForKingdom(k)) {
-                if (activeTypes.contains(qt) || isQuestDoneThisPeriod(player, qt)) continue;
-                toPickUp.add(kingdomTypeEntry(qt));
+                KingdomActiveQuest active = activeByType.get(qt);
+                if (qt.daily) {
+                    // DIÁRIAS: active (a 1 em progresso) / done (feita nesta janela, apagada) / available
+                    java.util.Map<String, Object> entry = active != null ? kingdomActiveEntry(active) : kingdomTypeEntry(qt);
+                    entry.put("dailyState", active != null ? "active" : (isQuestDoneThisPeriod(player, qt) ? "done" : "available"));
+                    daily.add(entry);
+                } else {
+                    // NORMAL/história de reino (futuro): disponível / em andamento
+                    if (active != null) missionsInProgress.add(kingdomActiveEntry(active));
+                    else if (!isQuestDoneThisPeriod(player, qt)) missionsAvailable.add(kingdomTypeEntry(qt));
+                }
             }
         }
-        // Deveres do recruta (ÚNICOS) por estado: available→Pra pegar, accepted→Em progresso, done→Completadas
+
+        // Deveres do recruta (ÚNICOS) → seções de Missões: available / accepted / done
         Object dutiesObj = starterQuestService.status(player).get("quests");
         if (dutiesObj instanceof List<?> duties) {
             for (Object o : duties) {
                 if (!(o instanceof java.util.Map<?, ?> dm)) continue;
                 java.util.Map<String, Object> entry = starterEntry(dm);
                 switch (String.valueOf(dm.get("state"))) {
-                    case "available" -> toPickUp.add(entry);
-                    case "accepted"  -> inProgress.add(entry);
-                    case "done"      -> completed.add(entry);
+                    case "available" -> missionsAvailable.add(entry);
+                    case "accepted"  -> missionsInProgress.add(entry);
+                    case "done"      -> missionsCompleted.add(entry);
                     default -> { /* locked → fora do diário */ }
                 }
             }
         }
+
+        // [QUEST_BADGE] "!" no topbar: alguma diária NÃO-feita nesta janela (active/available) OU missão disponível
+        boolean badge = daily.stream().anyMatch(e -> !"done".equals(e.get("dailyState"))) || !missionsAvailable.isEmpty();
+
         java.util.Map<String, Object> out = new java.util.HashMap<>();
-        out.put("toPickUp", toPickUp);
-        out.put("inProgress", inProgress);
-        out.put("completed", completed);
+        out.put("daily", daily);
+        out.put("dailyLocked", dailyLocked);
+        out.put("missionsAvailable", missionsAvailable);
+        out.put("missionsInProgress", missionsInProgress);
+        out.put("missionsCompleted", missionsCompleted);
+        out.put("badge", badge);
         return out;
     }
 

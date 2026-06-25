@@ -1,35 +1,45 @@
-# Diário de Quest com abas — [DIARIO_QUEST]
+# Diário de Missões — 2 abas [DIARIO_QUEST]
 
-Plano da tela de diário (aberta pelo ícone `quest_log` do topbar → hoje a cena "StarterQuests").
-Decidido em grilling 2026-06-24.
+Tela do diário (ícone `quest_log` do topbar → cena "StarterQuests"). Decidido em grilling 2026-06-24.
 
 ## Decisões
 
-- **3 abas:** **Pra pegar** (disponíveis) · **Em progresso** (aceitas-não-resolvidas = to-do) · **Completadas**.
-- **Em progresso = to-do:** o jogador pode **aceitar várias** quests e resolver depois. Hoje havia guard de
-  **1 `IN_PROGRESS` por vez** ([SEM_TIMER], `existsByPlayerAndStatus`) — virou **1 por `questType`**
-  (`existsByPlayerAndQuestTypeAndStatus`): mantém a trava de não startar a MESMA quest 2x, mas libera o to-do.
-- **Completadas = só quests ÚNICAS**, não dailies. Hoje as quests de reino são **todas dailies** (travam por
-  `completedWindowId`) → as únicas de verdade são os **deveres do recruta** (StarterQuestService). Então
-  Completadas hoje = deveres concluídos; **cresce** quando criarmos quests de história. Dailies de reino NÃO
-  entram em Completadas (elas repetem; ficam em Pra pegar quando disponíveis).
-- **Estamina:** dailies continuam cobrando (no aceitar/`startQuest`); **não-dailies (únicas/história) NÃO
-  gastam estamina** — regra do dono. Já vale hoje (deveres do recruta são grátis). Quando criarmos quest única
-  de reino, ela nasce não-daily → grátis (hook futuro; sem mudança de estamina agora).
-- **??? (curiosidade):** adiado — entra junto com as quests de história.
+- **2 abas: "Diárias" e "Missões".** Separar os 2 tipos (a confusão era misturá-los).
+  - **Diárias** = quests de reino (repetitivas, resetam por janela de 12h, **sem histórico**). **UMA em
+    progresso por vez**: aceitar trava as outras **até resolver**; as **já feitas na janela** aparecem
+    **apagadas** ("volta no ciclo"); resolver acontece **no Mundo** (lá mora o fluxo de diálogo/combate).
+  - **Missões** = quests ÚNICAS/história (hoje só os **deveres do recruta**), em seções
+    **Disponíveis / Em andamento / Concluídas**. Pode acumular várias aceitas (to-do, p/ história futura).
+    Deveres do recruta agem inline (aceitar/entregar). Só as ÚNICAS vão pra "Concluídas".
+- **`KingdomQuestType.daily`** (boolean, default `true`): hoje toda quest de reino é daily. Quest de
+  história futura nasce `daily=false` → entra em "Missões" (não em "Diárias"), acumula no to-do, e
+  **não gasta estamina** (regra do dono). Construtor com `daily` p/ isso.
+- **Guard:** DIÁRIA → 1 em progresso por vez (`startQuest` rejeita se já há alguma daily IN_PROGRESS).
+  NORMAL → pode acumular, só não a MESMA 2x (`existsByPlayerAndQuestTypeAndStatus`).
+- **"!" no topbar:** aceso enquanto houver **diária não-feita na janela** (active/available) OU **missão
+  disponível**. O `questJournal` devolve `badge`; o Shell (`_refresh_starter`) lê e OR com o badge de starter.
+- **??? de curiosidade:** adiado (entra com as quests de história).
 
 ## Backend
 
-- `KingdomActiveQuestRepository`: `existsByPlayerAndQuestTypeAndStatus`, `findByPlayerAndStatus`.
-- `startQuest`: guard de 1-por-vez → 1-por-questType.
-- `KingdomService.questJournal(player)` (read-only) agrega 3 grupos a partir de: quests de reino IN_PROGRESS +
-  disponíveis por reino (menos as done-this-window e as in-progress) + deveres do recruta por `state`
-  (available→Pra pegar, accepted→Em progresso, done→Completadas).
-- `QuestJournalController` `GET /api/quests/journal` → `{toPickUp, inProgress, completed}`.
-- Ações continuam nos endpoints existentes: aceitar = `POST /{kingdom}/quests/start`; resolver =
-  `POST /{kingdom}/quests/{id}/collect`; deveres = `/api/starter-quests/*`.
+- `KingdomQuestType`: campo `daily` (default true via construtor).
+- `KingdomActiveQuestRepository`: `existsByPlayerAndQuestTypeAndStatus`, `findByPlayerAndStatusOrderByStartedAtDesc`.
+- `startQuest`: guard daily (1 por vez) vs normal (per-questType).
+- `KingdomService.questJournal(player)` (read-only) → `{daily:[{...,dailyState:active|available|done}],
+  dailyLocked, missionsAvailable, missionsInProgress, missionsCompleted, badge}`. Diárias = `getQuestsForKingdom`
+  por reino (janela rotativa de 2, igual ao World) com daily=true; missions = kingdom daily=false (futuro) +
+  deveres do recruta por estado.
+- `QuestJournalController` `GET /api/quests/journal`. Ações continuam em
+  `/api/world/{kingdom}/quests/start|collect` e `/api/starter-quests/*`.
 
 ## Frontend (Godot)
 
-- A cena do diário (topbar `quest_log`) ganha **3 abas** (sub-tab bar do UiKit). Cada aba lista os cards do
-  grupo (reino: card com aceitar/resolver; recruta: card com retrato do NPC). Chama `GET /api/quests/journal`.
+- `ui/StarterQuests.gd`: 2 abas. **Diárias** = lista plana com estados (active/available-com-lock/done-apagada).
+  **Missões** = 3 seções (Disponíveis/Em andamento/Concluídas). i18n PT→EN.
+- `Shell.gd`: `_refresh_starter` busca também `/api/quests/journal` (flag `badge`); o "!" do topbar acende
+  com starter OU diária/missão disponível.
+
+## Histórico
+
+- v1 (descartado): 3 abas planas (Pra pegar / Em progresso / Completadas) misturando daily + único — ficou
+  confuso e o "Em progresso to-do" não fazia sentido com daily (todas as quests de reino são daily).

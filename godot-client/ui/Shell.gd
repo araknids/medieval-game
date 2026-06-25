@@ -88,6 +88,7 @@ var _dash: Control = null   # dashboard/home (também cacheado)
 var _quest_btn: Button
 var _quest_badge: Control
 var _starter_status: Array = []
+var _journal_badge := false   # [QUEST_BADGE] diária/missão de reino disponível (vem do /api/quests/journal)
 var _nav_badges := {}     # screen -> badge Control no item de nav do NPC
 var _offered := {}        # screen -> já ofereci a quest nesta sessão (não repopa a cada visita)
 
@@ -193,9 +194,12 @@ func _refresh_starter() -> void:
 	var api = get_node_or_null("/root/Api")
 	if api == null:
 		return
-	var r = await api.starter_quests()
+	var rs = await api.batch_get(["/api/starter-quests", "/api/quests/journal"])
+	var r = rs[0]
 	if not (r.get("ok") and r.get("json") is Dictionary):
 		return
+	var jr = rs[1]   # [QUEST_BADGE] "!" do topbar também acende p/ diária/missão de reino disponível
+	_journal_badge = bool(jr["json"].get("badge", false)) if (jr.get("ok") and jr.get("json") is Dictionary) else false
 	var was_done := {}   # [ONBOARDING] estado anterior (id → done) p/ detectar transição → toast direcional
 	for q in _starter_status:
 		if q is Dictionary:
@@ -244,7 +248,7 @@ func _apply_starter_badges() -> void:
 			if st == "available":   # "!" no topbar = tem quest NOVA pra pegar (some ao aceitar tudo)
 				any_open = true
 	if _quest_badge != null and is_instance_valid(_quest_badge):
-		_quest_badge.visible = any_open
+		_quest_badge.visible = any_open or _journal_badge   # [QUEST_BADGE] starter OU diária/missão disponível
 
 func _set_nav_badge(scr: String, on: bool) -> void:
 	if scr == "":

@@ -59,10 +59,20 @@ public enum KingdomQuestType {
     public final int      dropChance;    // %
     public final int      monsterChance; // % chance de encontro de monstro na coleta (escala com a dificuldade)
     public final String   flavor;        // [QUESTS_LORE] linha narrativa exibida no card (semeia a lore)
+    // [DIARIO_QUEST] true = DIÁRIA (repetitiva, reseta por janela, 1 em progresso por vez, aba "Diárias",
+    // não vai pro histórico). false = ÚNICA/história (acumula no to-do, vai pra "Concluídas", não gasta
+    // estamina). HOJE todas são daily; quests de história futuras usarão o construtor com daily=false.
+    public final boolean  daily;
 
     KingdomQuestType(Kingdom kingdom, String displayName, int durationMinutes,
                      long bronzeReward, long expReward, int staminaCost, int dropChance, int monsterChance,
                      String flavor) {
+        this(kingdom, displayName, durationMinutes, bronzeReward, expReward, staminaCost, dropChance, monsterChance, flavor, true);
+    }
+
+    KingdomQuestType(Kingdom kingdom, String displayName, int durationMinutes,
+                     long bronzeReward, long expReward, int staminaCost, int dropChance, int monsterChance,
+                     String flavor, boolean daily) {
         this.kingdom         = kingdom;
         this.displayName     = displayName;
         this.durationMinutes = durationMinutes;
@@ -72,5 +82,6 @@ public enum KingdomQuestType {
         this.dropChance      = dropChance;
         this.monsterChance   = monsterChance;
         this.flavor          = flavor;
+        this.daily           = daily;
     }
 }
