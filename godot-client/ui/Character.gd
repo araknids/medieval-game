@@ -26,8 +26,7 @@ const ATTRS := [
 	["strength", "STR"], ["constitution", "CON"], ["dexterity", "DEX"],
 	["agility", "AGI"], ["luck", "LUK"],
 ]   # INT removido do front (Mago não implementado)
-const BAG_ROWS_MAX_H := 156.0    # altura de ~3 linhas de card compacto (≈42px) → trava o inner scroll da Mochila
-const RES_ROWS_MAX_H := 104.0    # altura de ~3 linhas de chip de recurso → trava o inner scroll dos Recursos
+# [SEM_SCROLL] BAG_ROWS_MAX_H/RES_ROWS_MAX_H removidos: Mochila e Recursos esticam (sem teto), igual ao Atributos.
 # Ganho EXATO por ponto (números do backend committado = prod). CON tem soft-cap (8→4→2) por faixa,
 # então é calculado em _attr_gain a partir da CON atual. [REBALANCE v2]
 
@@ -486,9 +485,10 @@ func _render_bag_panel() -> void:
 			_panel_host.add_child(UiKit.dim("— nada nessa raridade —"))
 		else:
 			# [INV_COMPACTO] slots enxutos (1 linha) → cabem 3 por linha; detalhe vai pro hover/popup
-			# Trava em ~3 linhas: passou disso, rola SÓ a grid (inner scroll), sem alongar a aba.
+			# [SEM_SCROLL] SEM teto: a grid cresce com os itens e usa o scroll GERAL da tela só quando passa
+			# da janela (igual ao Atributos). Bag pequena fica justa; bag cheia rola a tela (paginação = backlog).
 			var grid := UiKit.grid(self, shown, _bag_card, true, 188.0, 3)
-			_panel_host.add_child(UiKit.capped_scroll(grid, BAG_ROWS_MAX_H))
+			_panel_host.add_child(grid)
 
 # [INV_COMPACTO] Linha de chips de ordenação da mochila (reusa filter_row).
 func _sort_row() -> Control:
@@ -692,8 +692,8 @@ func _render_resources() -> void:
 	flow.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	for r in res:
 		flow.add_child(_res_chip(r))
-	# Muitos recursos → rola SÓ os chips (inner scroll), sem empurrar a aba pra baixo.
-	_resources_host.add_child(UiKit.capped_scroll(flow, RES_ROWS_MAX_H))
+	# [SEM_SCROLL] SEM teto: os chips de recurso esticam junto e rolam pelo scroll GERAL da tela.
+	_resources_host.add_child(flow)
 
 func _res_chip(r: Dictionary) -> Control:
 	var rtype := str(r.get("type", ""))
