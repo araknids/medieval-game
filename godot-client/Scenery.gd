@@ -23,7 +23,7 @@ uniform float vradius = 0.55;      // onde a vinheta começa (0=centro, 1=canto)
 uniform float saturation = 0.85;   // <1 dessatura (grimdark = cor contida)
 uniform float contrast = 1.08;     // sombras mais fundas
 uniform vec3  tint = vec3(1.03, 0.99, 0.92);  // leve sépia/quente
-uniform float grain = 0.035;       // grão de filme animado
+uniform float grain = 0.012;       // [NITIDEZ] grão de filme bem mais sutil (era 0.035 → "sujo")
 void fragment() {
 	vec3 col = texture(screen_tex, SCREEN_UV).rgb;
 	col = (col - 0.5) * contrast + 0.5;
@@ -71,12 +71,13 @@ func build(host: Node3D, scenario: String, rng: RandomNumberGenerator, combat_r:
 # Chamado no fim dos 4 perfis de luz — sobrescreve o glow de cada um por um valor unificado.
 func grimdark_grade(env: Environment) -> void:
 	if not grimdark: return
-	# GLOW: só emissivos FORTES florescem (tochas, sangue, minério) — não lava a cena toda
+	# GLOW: só emissivos FORTES florescem (tochas, sangue, minério) — não lava a cena toda. [NITIDEZ]
+	# bloom=0 + threshold>1 → o chão claro (lum ~1.0) PARA de brilhar; só HDR (tochas) floresce.
 	env.glow_enabled = true
-	env.glow_intensity = 0.55
+	env.glow_intensity = 0.30
 	env.glow_strength = 1.0
-	env.glow_bloom = 0.12
-	env.glow_hdr_threshold = 0.95
+	env.glow_bloom = 0.0
+	env.glow_hdr_threshold = 1.05
 	env.glow_blend_mode = Environment.GLOW_BLEND_MODE_SCREEN
 	# SSAO: oclusão de contato → cantos/junções encardidos (Forward+; ignorado de boa em Compatibility)
 	env.ssao_enabled = true
@@ -441,12 +442,13 @@ func day_lighting(host: Node3D) -> void:
 	env.background_mode = Environment.BG_SKY
 	env.sky = sky
 	env.ambient_light_source = Environment.AMBIENT_SOURCE_SKY
-	env.ambient_light_energy = 0.6
+	env.ambient_light_energy = 0.42                  # [NITIDEZ] era 0.6 → menos clarão/lavado no chão
 	env.tonemap_mode = Environment.TONE_MAPPER_FILMIC
 	env.fog_enabled = true
-	env.fog_light_color = Color(0.75, 0.82, 0.86)
-	env.fog_density = 0.004
+	env.fog_light_color = Color(0.62, 0.66, 0.70)    # [NITIDEZ] névoa menos clara
+	env.fog_density = 0.0015                          # [NITIDEZ] era 0.004 → menos haze
 	grimdark_grade(env)
+	env.tonemap_exposure = 0.85                       # [NITIDEZ] cenas-dia (arena/cidade/castelo) sem estourar
 	var we := WorldEnvironment.new()
 	we.environment = env
 	host.add_child(we)
