@@ -574,6 +574,45 @@ static func confirm(host: Control, text: String, confirm_label: String, on_yes: 
 			close.call())
 	yes.call_deferred("grab_focus")
 
+# ── Aviso (modal informativo) — UM botão, NÃO fecha clicando fora. [LEITURA] ──
+# Pra GUIAS/avisos (sem escolha): o jogador tem que clicar pra fechar (não some sem querer). Pra escolha
+# sim/não use confirm() (2 botões + fechar-fora = cancelar). on_close opcional (roda ao fechar).
+static func notice(host: Control, text: String, button_label := "Entendi", on_close := Callable()) -> void:
+	var dim_rect := ColorRect.new()
+	dim_rect.color = Color(0, 0, 0, 0.62)
+	dim_rect.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	dim_rect.mouse_filter = Control.MOUSE_FILTER_STOP   # absorve o clique de fora SEM fechar (modal de verdade)
+	host.add_child(dim_rect)
+	var center := CenterContainer.new()
+	center.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	center.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	dim_rect.add_child(center)
+	var panel := PanelContainer.new()
+	panel.custom_minimum_size = Vector2(420, 0)
+	var sb := StyleBoxFlat.new()
+	sb.bg_color = Color(0.10, 0.09, 0.10, 0.97)
+	sb.set_border_width_all(2)
+	sb.border_color = Color(0.40, 0.32, 0.20)
+	sb.set_corner_radius_all(3)
+	sb.set_content_margin_all(18)
+	panel.add_theme_stylebox_override("panel", sb)
+	center.add_child(panel)
+	var v := VBoxContainer.new()
+	v.add_theme_constant_override("separation", 14)
+	panel.add_child(v)
+	var lbl := body(text)
+	lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	v.add_child(lbl)
+	var ok_cb := func() -> void:
+		dim_rect.queue_free()
+		if on_close.is_valid():
+			on_close.call()
+	var ok := _btn(Lang.t(button_label), ok_cb, Vector2(150, 40), 15)
+	ok.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	v.add_child(ok)
+	ok.call_deferred("grab_focus")
+	# SEM dim_rect.gui_input → clicar fora NÃO fecha (a única saída é o botão).
+
 # Relatório de batalha (modal) — estilo da Torre: borda win/loss + título + recompensas + log
 # colapsável + OK. Reusado p/ TODAS as batalhas (quest/zona) terem o mesmo desfecho. [BATTLE_REPORT]
 # reward_rows = Array de Control (kv/kv_node/dim já montados pelo chamador). log = Array de String.

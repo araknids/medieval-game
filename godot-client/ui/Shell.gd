@@ -243,8 +243,9 @@ func _starter_done_toast(id: String) -> void:
 		"quest": "Você provou seu valor. A guarnição é sua, recruta.",
 	}.get(id, "")
 	if msg != "":
-		# [LEITURA] guia do onboarding = popup que FECHA NO CLIQUE (lê no ritmo do novato), não toast rápido
-		UiKit.confirm(self, Lang.t(msg), Lang.t("Entendi"), func() -> void: pass, false)
+		# [LEITURA] guia do onboarding = AVISO (UiKit.notice): 1 botão "Entendi", NÃO fecha clicando fora
+		# (não some sem querer; lê no ritmo do novato).
+		UiKit.notice(self, Lang.t(msg))
 
 func _apply_starter_badges() -> void:
 	var nav_on := {}   # screen -> mostra "!" amarelo de dever no menu lateral
