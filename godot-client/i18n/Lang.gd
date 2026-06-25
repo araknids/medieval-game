@@ -232,6 +232,10 @@ const EN := {
 	"🏅 Rank": "🏅 Rank", "🏆 Ranking": "🏆 Ranking", "Lutas hoje": "Fights today",
 	"Escolha seu oponente": "Choose your opponent", "Nenhum oponente": "No opponents",
 	"Custo ⚡%d por luta · Vitória: +25 rank, ~200 bronze.": "Cost ⚡%d per fight · Win: +25 rank, ~200 bronze.",
+	# — [ARENA_JANELA] sem estamina; 10 lutas a cada 6h —
+	"10 lutas a cada 6h · Vitória: +25 rank, ~200 bronze.": "10 fights every 6h · Win: +25 rank, ~200 bronze.",
+	"Limite atingido (%d/%d)": "Limit reached (%d/%d)",
+	"Reseta a cada 6h. VIP tem o dobro de lutas.": "Resets every 6h. VIP gets double the fights.",
 	"⚡ %d por luta  ·  Estamina %d/100": "⚡ %d per fight  ·  Stamina %d/100",
 	"Lutas hoje %d/%d": "Fights today %d/%d", "↻ Trocar": "↻ Reroll",
 	"Sem mais trocas nesta visita": "No more rerolls this visit",

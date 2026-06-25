@@ -8,7 +8,6 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Duration;
-import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.Map;
 
@@ -101,34 +100,45 @@ public class VipService {
 
     // ── Arena fights counter ─────────────────────────────────────────────────
 
+    // [ARENA_JANELA] Arena: 10 lutas por janela de 6h (VIP 20). Sem estamina (o gate é a contagem).
+    private static final long ARENA_WINDOW_SECONDS = 6L * 3600L;
+
     /** Verifica e incrementa o counter de arena. Lança exceção se limite atingido. */
     @Transactional
     public void consumeArenaFight(Player player) {
         resetDailyCountersIfNeeded(player);
         int limit = player.getArenaFightLimit();
         if (player.getArenaFightsToday() >= limit) {
-            log.warn("[VipService] player={} REJECTED: arena daily limit ({}/{})",
+            long mins = secondsUntilArenaReset() / 60;
+            log.warn("[VipService] player={} REJECTED: arena window limit ({}/{})",
                     player.getId(), player.getArenaFightsToday(), limit);
-            throw new IllegalStateException(
-                "Daily fight limit reached (" + player.getArenaFightsToday() + "/" + limit
-                + "). Resets at midnight UTC.");
+            throw new com.medieval.game.config.LocalizedException("error.arena_limit",
+                "Fight limit reached ({0}/{1}). Resets in {2}m.",
+                player.getArenaFightsToday(), limit, mins);
         }
         player.setArenaFightsToday(player.getArenaFightsToday() + 1);
-        player.setLastArenaFightDate(LocalDate.now(java.time.ZoneOffset.UTC)); // [VARREDURA] UTC (msg promete "midnight UTC")
+        player.setLastArenaWindowId(currentArenaWindowId());
         playerRepository.save(player);
     }
 
-    // ── Reset diário ─────────────────────────────────────────────────────────
-    // [QUESTS_INTERATIVAS] o counter de missão instantânea foi removido (instant-start aposentado);
-    // sobra só o reset do limite de arena.
-
-    /** Zera counters se a data mudou (meia-noite UTC). Chamado antes de qualquer validação diária. */
+    // ── Reset por janela de 6h [ARENA_JANELA] ──────────────────────────────────
+    /** Zera o counter de arena quando a janela de 6h vira. Chamado antes de validar/consumir. */
     public void resetDailyCountersIfNeeded(Player player) {
-        LocalDate today = LocalDate.now(java.time.ZoneOffset.UTC); // [VARREDURA] reset em meia-noite UTC (consistente com a msg)
-        if (!today.equals(player.getLastArenaFightDate())) {
+        long win = currentArenaWindowId();
+        if (player.getLastArenaWindowId() != win) {
             player.setArenaFightsToday(0);
-            player.setLastArenaFightDate(today);
+            player.setLastArenaWindowId(win);
             playerRepository.save(player);
         }
+    }
+
+    /** Id da janela de 6h atual (blocos fixos do epoch). */
+    public static long currentArenaWindowId() {
+        return java.time.Instant.now().getEpochSecond() / ARENA_WINDOW_SECONDS;
+    }
+
+    /** Segundos até a próxima janela de 6h (reset do limite de arena). */
+    public static long secondsUntilArenaReset() {
+        return ARENA_WINDOW_SECONDS - (java.time.Instant.now().getEpochSecond() % ARENA_WINDOW_SECONDS);
     }
 }

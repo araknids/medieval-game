@@ -80,11 +80,8 @@ public class ArenaService {
 
         workGuard.assertNotBusy(challenger); // [WORK_IDLE] não duela enquanto trabalha
 
-        // Daily fight limit (5 free / 10 VIP) + estamina (gate, pulado no modo de teste)
+        // [ARENA_JANELA] Gate = 10 lutas por janela de 6h (VIP 20). A arena NÃO gasta estamina.
         vipService.consumeArenaFight(challenger);
-        if (!instantComplete) {
-            playerService.consumeStamina(challenger, 25);
-        }
 
         int[] cStats = totalStats(challenger, cWarrior);
         // [ELEMENTOS/HABILIDADES] Encantamentos + ativas do desafiante; oponente preenche abaixo (NPC = neutro/sem kit).
@@ -143,12 +140,8 @@ public class ArenaService {
         }
         playerRepository.save(challenger);
 
-        // [MONSTER_CORE_BATALHA] toda batalha de arena vencida rende Monster Core (cap pela bag).
-        if (challengerWon) {
-            long got = gatheringService.addResource(challenger,
-                    com.medieval.game.enums.ResourceType.MONSTER_CORE, 2 + cWarrior.getLevel() / 20);
-            if (got > 0) battleLog.add("🧩 +" + got + " Monster Core");
-        }
+        // [ARENA_JANELA] A arena NÃO dropa recurso (nem Monster Core) — é só ranking + bronze. O core
+        // vem da caçada/zona (protege o sink da Path Trial: 10/6h grátis dropando core viraria fazenda).
 
         if (opponent != null) {
             int oppChange = challengerWon ? -15 : 25;

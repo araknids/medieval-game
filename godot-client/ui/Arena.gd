@@ -8,7 +8,6 @@ signal go_back
 signal request_battle(data)   # pede ao App o replay 3D (overlay) [MIGRACAO_GODOT]
 
 const Icons := preload("res://ui/Icons.gd")
-const STAMINA_COST := 25
 const PAGE_SIZE := 20         # [PAGINACAO] ranking paginado (offset no backend)
 const MAX_REROLLS := 3        # [ARENA_ESCOLHA] trocas de oponente por abertura do popup
 
@@ -64,29 +63,23 @@ func _render() -> void:
 		c.queue_free()
 	UiKit.hide_loading()
 	UiKit.set_wallet(wallet, w)
-	# ── Painel de luta: status + botão que abre o popup ──
-	var stamina := int(w.get("stamina", 100))
+	# ── Painel de luta: status + botão que abre o popup ── [ARENA_JANELA] sem estamina; gate = 10/6h (VIP 20)
 	var ko := bool(w.get("isKnockedOut", false))
-	var no_stamina := stamina < STAMINA_COST
 	var fights := int(w.get("arenaFightsToday", 0))
-	var limit := int(w.get("arenaFightLimit", 5))
+	var limit := int(w.get("arenaFightLimit", 10))
 	var at_limit := fights >= limit
 	content.add_child(UiKit.section("Entrar em batalha"))
-	content.add_child(UiKit.kv("Estamina", "%d/100" % stamina, UiKit.WARN if no_stamina else UiKit.TEXT))
-	content.add_child(UiKit.kv("Lutas hoje", "%d/%d" % [fights, limit], UiKit.WARN if at_limit else UiKit.TEXT))
-	content.add_child(UiKit.dim(Lang.t("Custo ⚡%d por luta · Vitória: +25 rank, ~200 bronze.") % STAMINA_COST))
+	content.add_child(UiKit.kv("Lutas", "%d/%d" % [fights, limit], UiKit.WARN if at_limit else UiKit.TEXT))
+	content.add_child(UiKit.dim(Lang.t("10 lutas a cada 6h · Vitória: +25 rank, ~200 bronze.")))
 	if ko:
 		var b := UiKit.action_big("💀 Nocauteado", Callable()); b.disabled = true
 		content.add_child(b)
 	elif at_limit:
-		var b := UiKit.action_big(Lang.t("Limite diário (%d/%d)") % [fights, limit], Callable()); b.disabled = true
+		var b := UiKit.action_big(Lang.t("Limite atingido (%d/%d)") % [fights, limit], Callable()); b.disabled = true
 		content.add_child(b)
-		content.add_child(UiKit.dim("Reseta à meia-noite UTC. VIP tem mais lutas por dia."))
-	elif no_stamina:
-		var b := UiKit.action_big("⚡ Sem estamina", Callable()); b.disabled = true
-		content.add_child(b)
+		content.add_child(UiKit.dim(Lang.t("Reseta a cada 6h. VIP tem o dobro de lutas.")))
 	else:
-		content.add_child(UiKit.action_big(Lang.t("⚔ Lutar · ⚡%d") % STAMINA_COST, _open_picker))
+		content.add_child(UiKit.action_big(Lang.t("⚔ Lutar"), _open_picker))
 	# ── resultado do último duelo (texto, fallback sem replay) ──
 	if not last_result.is_empty():
 		content.add_child(UiKit.spacer(8))

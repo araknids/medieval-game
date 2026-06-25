@@ -187,12 +187,16 @@ public class Player {
     /** Cura grátis VIP — CD de 10 minutos */
     private java.time.LocalDateTime lastVipHealAt;
 
-    /** Lutas de arena feitas hoje (reset meia-noite UTC) */
+    /** [ARENA_JANELA] Lutas de arena na janela de 6h atual (reset por janela, ver lastArenaWindowId) */
     @Column(columnDefinition = "integer default 0")
     private int arenaFightsToday = 0;
 
-    /** Data do último reset do counter de arena */
+    /** Data do último reset do counter de arena (LEGADO — virou janela de 6h; mantido p/ não dropar coluna) */
     private java.time.LocalDate lastArenaFightDate;
+
+    /** [ARENA_JANELA] id da janela de 6h (epoch/21600) do último reset do counter de arena */
+    @Column(columnDefinition = "bigint default 0")
+    private long lastArenaWindowId = 0;
 
     // [QUESTS_INTERATIVAS] vipInstantQuestsToday/lastVipQuestDate removidos com o instant-start.
     // As colunas órfãs em prod (integer default 0 / date) são inofensivas (não dropadas).
@@ -201,7 +205,7 @@ public class Player {
         return vipExpiresAt != null && java.time.LocalDateTime.now().isBefore(vipExpiresAt);
     }
 
-    public int getArenaFightLimit() { return isVip() ? 10 : 5; }
+    public int getArenaFightLimit() { return isVip() ? 20 : 10; } // [ARENA_JANELA] 10/6h (VIP 20/6h)
 
     // ── PvP por flag (jogo sem timer): farmar zona PvP te deixa exposto por 1h. [PVP_FLAG] ──
     @Enumerated(EnumType.STRING)

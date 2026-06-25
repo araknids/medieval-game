@@ -118,9 +118,9 @@ class VipIntegrationTest extends BaseIntegrationTest {
     void tc180_vipStatus_hasCounters() throws Exception {
         buyVip();
         mockMvc.perform(get("/api/vip/status").header("Authorization", bearer(token)))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.arenaFightsRemaining").value(10))
-                .andExpect(jsonPath("$.arenaFightLimit").value(10));
+                .andExpect(status().isOk())   // [ARENA_JANELA] VIP = 20/6h
+                .andExpect(jsonPath("$.arenaFightsRemaining").value(20))
+                .andExpect(jsonPath("$.arenaFightLimit").value(20));
     }
 
     // ── VIP Heal ─────────────────────────────────────────────────────────────
@@ -179,24 +179,24 @@ class VipIntegrationTest extends BaseIntegrationTest {
 
     // ── Arena Daily Limit ─────────────────────────────────────────────────────
 
-    // TC-189: GET /api/vip/status free player → arenaFightLimit=5
+    // TC-189: GET /api/vip/status free player → arenaFightLimit=10 [ARENA_JANELA] (10/6h)
     @Test
-    @DisplayName("TC-189 | Free player → arenaFightLimit = 5")
-    void tc189_freePlayer_arenaLimit5() throws Exception {
+    @DisplayName("TC-189 | Free player → arenaFightLimit = 10")
+    void tc189_freePlayer_arenaLimit10() throws Exception {
         mockMvc.perform(get("/api/vip/status").header("Authorization", bearer(token)))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.arenaFightLimit").value(5));
+                .andExpect(jsonPath("$.arenaFightLimit").value(10));
     }
 
-    // TC-190: VIP player → arenaFightLimit = 10
+    // TC-190: VIP player → arenaFightLimit = 20 [ARENA_JANELA] (20/6h)
     @Test
-    @DisplayName("TC-190 | VIP player → arenaFightLimit = 10")
-    void tc190_vipPlayer_arenaLimit10() throws Exception {
+    @DisplayName("TC-190 | VIP player → arenaFightLimit = 20")
+    void tc190_vipPlayer_arenaLimit20() throws Exception {
         buyVip();
         mockMvc.perform(get("/api/vip/status").header("Authorization", bearer(token)))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.arenaFightLimit").value(10))
-                .andExpect(jsonPath("$.arenaFightsRemaining").value(10));
+                .andExpect(jsonPath("$.arenaFightLimit").value(20))
+                .andExpect(jsonPath("$.arenaFightsRemaining").value(20));
     }
 
     // ── Segundo Buff (VIP) ────────────────────────────────────────────────────
@@ -227,6 +227,6 @@ class VipIntegrationTest extends BaseIntegrationTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.isVip").value(true))
                 .andExpect(jsonPath("$.arenaFightsToday").isNumber())
-                .andExpect(jsonPath("$.arenaFightLimit").value(10));
+                .andExpect(jsonPath("$.arenaFightLimit").value(20));   // [ARENA_JANELA] VIP = 20/6h
     }
 }
