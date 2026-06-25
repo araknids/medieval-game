@@ -23,6 +23,7 @@ const BLEND := 0.12
 # Arma aleatória dos lutadores — só MELEE (as anims do duelo são de espada). [MENU_DUEL]
 const MELEE_KINDS := ["sword", "greatsword", "axe", "spear", "mace"]
 const WALK := LIB + "Walk"      # andar (reverso = recuar) no kiting do arqueiro [MENU_DUEL]
+const RUN := LIB + "Jog_Fwd"    # [MAPA_TORRE] corrida — o inimigo do cerco vem CORRENDO do portão
 # Kiting (arco × melee): o arqueiro recua atirando; quando o melee COLA, ele rola ATRAVÉS pro outro lado.
 const KITE_EDGE := 3.6          # |x| máx no pátio (encosta na "parede" e clampa)
 const KITE_RANGE := 1.45        # distância que o melee tenta fechar do arqueiro
@@ -51,7 +52,7 @@ const SCALE := 1.2
 # [MAPA_TORRE] CERCO INFINITO (só no cursed_tower): inimigos sombrios saem do PORTÃO, caminham até o
 # herói, morrem em 5-10 golpes e AFUNDAM no chão (sem acumular). O herói nunca morre.
 const GATE_SPAWN := Vector3(11.6, 0.0, 2.0)   # boca do portão da fortaleza
-const SIEGE_WALK_SPEED := 2.7
+const SIEGE_RUN_SPEED := 5.4                   # corre (não anda) até o herói
 var siege_mode := false                        # ligado pelo MenuFx
 var _siege_timer := 0.0
 var _siege_respawn := 0.0
@@ -151,11 +152,14 @@ func _siege_step(dt: float) -> void:
 		return
 	var st: String = str(e.get("sstate", "walk"))
 	if st == "walk":
-		en.position = en.position.move_toward(POS_R, SIEGE_WALK_SPEED * dt)
+		en.position = en.position.move_toward(POS_R, SIEGE_RUN_SPEED * dt)
 		var ap_e: AnimationPlayer = e["anim"]
-		if ap_e and ap_e.current_animation != WALK:
-			ap_e.play(WALK, BLEND)
-		if en.position.distance_to(POS_R) < 0.15:
+		if ap_e and ap_e.current_animation != RUN:
+			var ra := ap_e.get_animation(RUN)
+			if ra:
+				ra.loop_mode = Animation.LOOP_LINEAR   # corrida em loop (senão "trava" a cada ciclo)
+			ap_e.play(RUN, BLEND)
+		if en.position.distance_to(POS_R) < 0.2:
 			en.position = POS_R
 			e["sstate"] = "fight"
 			_siege_timer = 0.5

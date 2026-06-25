@@ -1114,6 +1114,19 @@ func cursed_tower(host: Node3D, rng: RandomNumberGenerator, combat_r: float) -> 
 		else:
 			var b: String = ["Bush_Common", "Grass_Wispy_Tall", "Fern_1", "Grass_Common_Tall"][i % 4]
 			_place(host, rng, NAT + b + ".gltf", vp, rng.randf_range(0, 360), rng.randf_range(0.8, 1.6))
+	# VEGETAÇÃO + props FLANQUEANDO o portão (na vista da câmera, FORA do caminho |z-2|>5) — vida na entrada
+	for i in 18:
+		var side := 1.0 if i % 2 == 0 else -1.0
+		var gx := rng.randf_range(5.0, 13.0)
+		var gz := 2.0 + side * rng.randf_range(5.5, 9.5)
+		match rng.randi() % 6:
+			0: _place(host, rng, VIL + "Prop_Crate.gltf", Vector3(gx, 0, gz), rng.randf_range(0, 360), rng.randf_range(0.8, 1.1))
+			1: _place(host, rng, NAT + "Rock_Medium_%d.gltf" % (1 + i % 3), Vector3(gx, 0, gz), rng.randf_range(0, 360), rng.randf_range(0.8, 1.6))
+			_:
+				var bp: String = ["Bush_Common", "Fern_1", "Grass_Wispy_Tall", "Bush_Common_Flowers"][i % 4]
+				_place(host, rng, NAT + bp + ".gltf", Vector3(gx, 0, gz), rng.randf_range(0, 360), rng.randf_range(0.9, 1.7))
+	_place(host, rng, VIL + "Prop_Wagon.gltf", Vector3(8.0, 0, 8.8), 205, 1.0)   # carroça quebrada do cerco
+	_crates(host, rng, Vector3(10.5, 0, -6.2))                                    # pilha de caixas
 	# A TORRE amaldiçoada em chamas (à direita)
 	_dark_tower(host, rng, TOWER)
 	# ESCOMBROS de batalha — viés p/ a direita (lado +X, "dos inimigos")
@@ -1275,9 +1288,9 @@ func _castle_front(host: Node3D, base: Vector3, r0: float) -> void:
 		var z0: float = base.z + sidez * gate
 		var z1: float = base.z + sidez * span
 		_stone_box(host, Vector3(1.8, wall_h, absf(z1 - z0)), Vector3(wall_x, wall_h * 0.5, (z0 + z1) * 0.5))
-		for s in 9:                        # seteiras (frestas) acesas espalhadas no painel longo
+		for s in 9:                        # seteiras (frestas) acesas espalhadas no painel longo (brilho SUTIL)
 			var sz := lerpf(z0, z1, (float(s) + 0.5) / 9.0)
-			_box3(host, Vector3(0.35, 1.5, 0.25), Vector3(wall_x + 0.25, wall_h * 0.58, sz), Color(1.0, 0.42, 0.12), Vector3.ZERO, 0.6, 0.0, Color(1.0, 0.38, 0.06), 2.5)
+			_box3(host, Vector3(0.3, 1.2, 0.22), Vector3(wall_x + 0.2, wall_h * 0.58, sz), Color(1.0, 0.42, 0.12), Vector3.ZERO, 0.6, 0.0, Color(1.0, 0.38, 0.06), 1.3)
 	# torres-pilar do PORTÃO (enquadram o vão)
 	for sidez in [-1.0, 1.0]:
 		_stone_box(host, Vector3(2.2, wall_h + 2.6, 1.3), Vector3(wall_x, (wall_h + 2.6) * 0.5, base.z + sidez * gate))
@@ -1290,12 +1303,14 @@ func _castle_front(host: Node3D, base: Vector3, r0: float) -> void:
 		for mk in 4:
 			var ma := TAU * mk / 4.0
 			_stone_box(host, Vector3(0.7, 1.0, 0.7), Vector3(wall_x + 0.3 + cos(ma) * 0.95, wall_h + 3.5 + 0.45, tz + sin(ma) * 0.95))
-	# verga (arco) do portão + BRASA no vão (a fortaleza arde por dentro) + luz quente
-	_stone_box(host, Vector3(2.0, wall_h * 0.3, gate * 2.0), Vector3(wall_x, wall_h * 0.82, base.z))
-	_box3(host, Vector3(0.4, wall_h * 0.55, gate * 1.5), Vector3(wall_x + 0.25, wall_h * 0.34, base.z), Color(1.0, 0.42, 0.12), Vector3.ZERO, 0.6, 0.0, Color(1.0, 0.38, 0.06), 3.0)
+	# PORTÃO: verga (arco) + vão ESCURO recuado (doorway sombrio, não vaza luz/torre atrás) + BRASAS
+	# BAIXAS no piso da entrada + luz quente. (Antes tinha uma laje emissiva ALTA = "parede acesa".)
+	_stone_box(host, Vector3(2.0, wall_h * 0.3, gate * 2.0), Vector3(wall_x, wall_h * 0.82, base.z))   # verga/arco
+	_box3(host, Vector3(0.6, wall_h * 0.78, gate * 1.9), Vector3(wall_x + 0.7, wall_h * 0.39, base.z), Color(0.02, 0.02, 0.03), Vector3.ZERO, 1.0)   # interior ESCURO
+	_box3(host, Vector3(0.7, 0.55, gate * 1.2), Vector3(wall_x + 0.2, 0.4, base.z), Color(1.0, 0.45, 0.14), Vector3.ZERO, 0.6, 0.0, Color(1.0, 0.4, 0.08), 2.0)   # brasas baixas no chão
 	var gl := OmniLight3D.new()
-	gl.light_color = Color(1.0, 0.5, 0.2); gl.light_energy = 3.4; gl.omni_range = 12.0
-	host.add_child(gl); gl.position = Vector3(wall_x + 1.2, 3.2, base.z)
+	gl.light_color = Color(1.0, 0.52, 0.22); gl.light_energy = 2.6; gl.omni_range = 10.0
+	host.add_child(gl); gl.position = Vector3(wall_x + 0.8, 1.8, base.z)
 	# AMEIAS (merlons) no topo da muralha ao longo de tudo (pula o portão e onde tem torre)
 	var z := base.z - span
 	while z <= base.z + span + 0.01:
