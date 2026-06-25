@@ -1206,8 +1206,8 @@ func _castle_front(host: Node3D, base: Vector3, r0: float) -> void:
 	var gate := 1.9                        # meio-vão do portão
 	# painéis esquerdo/direito (caixões de pedra), deixando o vão do portão no meio
 	for sidez in [-1.0, 1.0]:
-		var z0 := base.z + sidez * gate
-		var z1 := base.z + sidez * span
+		var z0: float = base.z + sidez * gate
+		var z1: float = base.z + sidez * span
 		_box3(host, Vector3(1.7, wall_h, absf(z1 - z0)), Vector3(wall_x, wall_h * 0.5, (z0 + z1) * 0.5), STONE, Vector3.ZERO, 1.0)
 	# torres-pilar do portão (mais altas, enquadram o vão)
 	for sidez in [-1.0, 1.0]:
