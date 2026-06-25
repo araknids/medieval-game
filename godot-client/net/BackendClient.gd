@@ -232,6 +232,9 @@ func smithing_repair(id: int) -> Dictionary:
 	return await _request(HTTPClient.METHOD_POST, "/api/smithing/repair/%d" % id, {}, true)
 func smithing_reforge(id: int) -> Dictionary:
 	return await _request(HTTPClient.METHOD_POST, "/api/smithing/reforge/%d" % id, {}, true)
+## POST /api/smithing/dismantle/{id} — desmonta o item em Peças (joias perdidas). [DESMONTAGEM]
+func smithing_dismantle(id: int) -> Dictionary:
+	return await _request(HTTPClient.METHOD_POST, "/api/smithing/dismantle/%d" % id, {}, true)
 func temple_info() -> Dictionary:
 	return await _request(HTTPClient.METHOD_GET, "/api/temple", null, true)
 func temple_heal() -> Dictionary:

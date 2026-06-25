@@ -1,6 +1,6 @@
 # PLANO — Desgaste de Reparo + Desmontagem (Peças) [DESGASTE][DESMONTAGEM]
 
-> Status: **plano aprovado em design** (grill 2026-06-25). Falta implementar.
+> Status: **IMPLEMENTADO** (2026-06-25, commits backend `2e6fd3ee` + Godot). 667 testes verdes.
 > Decisões travadas com o dono via /grill-me; números são **placeholders pra tuning**.
 
 ## Objetivo

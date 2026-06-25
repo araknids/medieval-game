@@ -1131,6 +1131,13 @@ static func item_tooltip_panel(it: Dictionary, opts := {}) -> PanelContainer:
 		dl.add_theme_font_size_override("font_size", 11)
 		dl.add_theme_color_override("font_color", ERR if dur < 25 else TEXT_DIM)
 		v.add_child(dl)
+	# [DESGASTE] Poder do item (cai a cada reparo; multiplica os stats no combate). < 50% = não repara mais.
+	var pwr := int(it.get("powerPct", 100))
+	if pwr < 100:
+		var pl := Label.new(); pl.text = Lang.t("Poder: %d%%") % pwr
+		pl.add_theme_font_size_override("font_size", 11)
+		pl.add_theme_color_override("font_color", ERR if pwr < 50 else (WARN if pwr < 70 else TEXT_DIM))
+		v.add_child(pl)
 	# resumo de comparação (só p/ item não-equipado e comparável; self-suprime)
 	if not is_eq:
 		var cmp := compare_line(it)

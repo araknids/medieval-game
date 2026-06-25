@@ -26,6 +26,7 @@ var craft_page := 0               # [PAGINACAO] página da seção Craftar Equip
 
 const RARITY_NAMES := ["Comum", "Incomum", "Raro", "Épico", "Lendário"]
 const CRAFT_PER_PAGE := 6         # [PAGINACAO] receitas de craft por página (grid 2-col → ~3 linhas)
+const REPAIR_FLOOR := 50          # [DESGASTE] abaixo disso o item não repara mais (só desmontar) — casa com o backend
 # [FORJA_FILTRO] chips de categoria (armas vinham primeiro por nível → armadura "sumia" nas páginas)
 const CRAFT_CATEGORIES := [["all", "Todas"], ["weapon", "⚔ Armas"], ["armor", "🛡 Armadura"], ["accessory", "💍 Acessórios"]]
 
@@ -501,6 +502,12 @@ func _maint_card(it: Dictionary) -> Control:
 	dl.add_theme_color_override("font_color", UiKit.WARN if dur < 100 else UiKit.TEXT_DIM)
 	dl.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	row.add_child(dl)
+	# [DESGASTE] item gasto demais (Poder < piso) não repara mais → flag vermelho "gasto" (detalhe no hover)
+	if int(it.get("powerPct", 100)) < REPAIR_FLOOR:
+		var pwl := Label.new(); pwl.text = Lang.t("gasto")
+		pwl.add_theme_font_size_override("font_size", 11); pwl.add_theme_color_override("font_color", UiKit.ERR)
+		pwl.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+		row.add_child(pwl)
 	vb.add_child(row)
 	for n in [vb, row, nm, ic]:
 		if n != null and n is Control:
@@ -544,10 +551,22 @@ func _maint_dialog(it: Dictionary) -> void:
 	var arow := HBoxContainer.new(); arow.add_theme_constant_override("separation", 24)
 	arow.alignment = BoxContainer.ALIGNMENT_CENTER
 	arow.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
-	if dur < 100:
+	var pwr := int(it.get("powerPct", 100))
+	# [DESGASTE] gasto demais (Poder < piso) → backend bloqueia o reparo; some o botão.
+	if dur < 100 and pwr >= REPAIR_FLOOR:
 		arow.add_child(_maint_action("forge", Lang.t("Reparar"), rep_cost, _do_repair.bind(id, dim)))
 	arow.add_child(_maint_action("temple", Lang.t("Reforjar"), ref_cost, _do_reforge.bind(id, str(it.get("name", "este item")), dim)))
+	arow.add_child(_dismantle_action(id, str(it.get("name", "este item")), dim))   # [DESMONTAGEM]
 	dvb.add_child(arow)
+	if pwr < REPAIR_FLOOR:
+		var note := UiKit.dim(Lang.t("Gasto demais pra reparar (Poder %d%%). Desmonte-o por Peças.") % pwr)
+		note.add_theme_color_override("font_color", UiKit.ERR)
+		note.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		dvb.add_child(note)
+	elif dur < 100:
+		var rnote := UiKit.dim(Lang.t("Reparar consome Peças + bronze e gasta um pouco do Poder do item."))
+		rnote.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		dvb.add_child(rnote)
 
 # Coluna de ação no dialog: GIF que anima no hover (sem botão de texto) + custo + legenda curta.
 func _maint_action(icon_key: String, tip: String, cost: int, on_click: Callable) -> VBoxContainer:
@@ -564,6 +583,42 @@ func _maint_action(icon_key: String, tip: String, cost: int, on_click: Callable)
 	lb.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	box.add_child(lb)
 	return box
+
+# [DESMONTAGEM] Coluna de ação Desmontar: gif + "→ Peças" (ganho) + legenda. Sem custo em bronze.
+func _dismantle_action(id: int, item_name: String, dim: Control) -> VBoxContainer:
+	var box := VBoxContainer.new(); box.add_theme_constant_override("separation", 3)
+	box.alignment = BoxContainer.ALIGNMENT_CENTER
+	var b := _gif_btn("package", Lang.t("Desmontar"), func() -> void: _do_dismantle(id, item_name, dim), 44)
+	b.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	box.add_child(b)
+	var gain := HBoxContainer.new(); gain.add_theme_constant_override("separation", 4); gain.alignment = BoxContainer.ALIGNMENT_CENTER
+	if Icons.tex("res_scrap") != null:
+		gain.add_child(Icons.rect("res_scrap", 13))
+	var gl := Label.new(); gl.text = Lang.t("→ Peças")
+	gl.add_theme_font_size_override("font_size", 11); gl.add_theme_color_override("font_color", UiKit.OK)
+	gain.add_child(gl)
+	box.add_child(gain)
+	var lb := Label.new(); lb.text = Lang.t("Desmontar")
+	lb.add_theme_font_size_override("font_size", 11); lb.add_theme_color_override("font_color", UiKit.TEXT_DIM)
+	lb.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	box.add_child(lb)
+	return box
+
+func _do_dismantle(id: int, item_name: String, dim: Control) -> void:
+	dim.queue_free()
+	UiKit.confirm(self,
+		Lang.t("Desmontar \"%s\"? Vira Peças. Joias encaixadas são PERDIDAS. Não tem volta.") % item_name,
+		Lang.t("Desmontar"), func() -> void: await _dismantle(id), true)
+
+func _dismantle(id: int) -> void:
+	if busy: return
+	busy = true
+	var r = await Api.smithing_dismantle(id)
+	busy = false
+	if not (r.get("ok") and r.get("json") is Dictionary):
+		UiKit.show_error(status, r); return
+	UiKit.flash(status, str(r["json"].get("message", Lang.t("Desmontado!"))), 1)
+	await _refresh_after_action()
 
 # ── Ações async ───────────────────────────────────────────────────────────────────
 func _refine(ore: String) -> void:

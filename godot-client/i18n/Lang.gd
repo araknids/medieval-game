@@ -276,6 +276,16 @@ const EN := {
 	"Pontos disponíveis": "Available points",
 	"atributo: %d": "attribute: %d",
 	"habilidade: %d": "ability: %d",
+	# — [DESGASTE][DESMONTAGEM] reparo desgasta o poder + desmontar vira Peças —
+	"Poder: %d%%": "Power: %d%%",
+	"gasto": "worn",
+	"Peças": "Salvage",
+	"Desmontar": "Dismantle",
+	"→ Peças": "→ Salvage",
+	"Desmontado!": "Dismantled!",
+	"Gasto demais pra reparar (Poder %d%%). Desmonte-o por Peças.": "Too worn to repair (Power %d%%). Dismantle it for Salvage.",
+	"Reparar consome Peças + bronze e gasta um pouco do Poder do item.": "Repairing costs Salvage + bronze and wears down the item's Power a bit.",
+	"Desmontar \"%s\"? Vira Peças. Joias encaixadas são PERDIDAS. Não tem volta.": "Dismantle \"%s\"? It becomes Salvage. Socketed gems are LOST. No undo.",
 	# — [INCURSAO_PVP] escolha PvP na Incursão + Replays no Correio —
 	"Atacar %s (PvP)": "Attack %s (PvP)",
 	"Lutar o monstro (PvE)": "Fight the monster (PvE)",
