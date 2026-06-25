@@ -64,6 +64,9 @@ func build(host: Node3D, scenario: String, rng: RandomNumberGenerator, combat_r:
 		"castle":
 			day_lighting(host)
 			castle(host, rng, combat_r)
+		"cursed_tower":
+			cursed_tower_lighting(host)
+			cursed_tower(host, rng, combat_r)
 		_:  # "mining" (default)
 			night_lighting(host)
 			mining(host, rng, combat_r)
@@ -1004,3 +1007,303 @@ func _crowd(host: Node3D, rng: RandomNumberGenerator, r: float, y: float, n: int
 		m.roughness = 1.0
 		mi.material_override = m
 		host.add_child(mi); mi.position = Vector3(cos(a) * r, y, sin(a) * r)
+
+# ════════════════════════════════════════════════════════════════════════════════
+# [MAPA_TORRE] Cenário "TORRE AMALDIÇOADA" — evoca a capa (Crown of Aravok) no gráfico
+# do jogo. Clareira sombria estilo o bosque (mining), com uma torre gótica em chamas à
+# DIREITA (+X = lado do inimigo) e o chão coberto de escombros de batalha. Tudo procedural
+# + assets que já existem. Desenho: docs/PLANO_MAPA_TORRE.md
+# ════════════════════════════════════════════════════════════════════════════════
+
+# ── iluminação TORRE AMALDIÇOADA — tempestade sombria + brasa da torre em chamas ──
+# Céu de tempestade quase preto, uma fresta de luz FRIA rompendo as nuvens (key light),
+# névoa de fumaça quente. O calor laranja vem do FOGO da torre (OmniLight em _tower_fire),
+# não do sol — exatamente como na capa.
+func cursed_tower_lighting(host: Node3D) -> void:
+	var sky_mat := ProceduralSkyMaterial.new()
+	sky_mat.sky_top_color = Color(0.03, 0.03, 0.05)        # tempestade quase preta no alto
+	sky_mat.sky_horizon_color = Color(0.26, 0.18, 0.14)    # horizonte com brasa/fumaça quente
+	sky_mat.ground_horizon_color = Color(0.13, 0.10, 0.10)
+	sky_mat.ground_bottom_color = Color(0.03, 0.03, 0.04)
+	var sky := Sky.new()
+	sky.sky_material = sky_mat
+	var env := Environment.new()
+	env.background_mode = Environment.BG_SKY
+	env.sky = sky
+	env.ambient_light_source = Environment.AMBIENT_SOURCE_SKY
+	env.ambient_light_energy = 0.35
+	env.tonemap_mode = Environment.TONE_MAPPER_FILMIC
+	env.fog_enabled = true
+	env.fog_light_color = Color(0.22, 0.17, 0.16)          # névoa de fumaça quente-cinza
+	env.fog_density = 0.011
+	env.glow_enabled = true
+	env.glow_intensity = 0.4
+	env.glow_bloom = 0.1
+	grimdark_grade(env)
+	var we := WorldEnvironment.new()
+	we.environment = env
+	host.add_child(we)
+	# "fresta de luz" fria rompendo as nuvens (key light, como na capa) — vem de cima/trás
+	var key := DirectionalLight3D.new()
+	key.rotation_degrees = Vector3(-50, -125, 0)
+	key.light_color = Color(0.68, 0.74, 0.92)
+	key.light_energy = 0.75
+	key.shadow_enabled = true
+	host.add_child(key)
+
+# ── cenário: TORRE AMALDIÇOADA ──────────────────────────────────────────────────
+# Centro LIVRE p/ os lutadores; o INIMIGO entra pelo +X (onde fica a torre). Escombros
+# adensam perto da torre. Mata MORTA só no arco do fundo/esquerda (deixa +X p/ a torre e
+# +Z aberto p/ a câmera).
+func cursed_tower(host: Node3D, rng: RandomNumberGenerator, combat_r: float) -> void:
+	var TOWER := Vector3(16.0, 0, -3.0)             # torre à DIREITA (+X), levemente recuada (-Z)
+	_ground(host, Color(0.15, 0.13, 0.11), 44.0)    # solo de terra queimada/cinza
+	# colisão do chão (ragdoll da batalha não atravessa o piso)
+	var fb := StaticBody3D.new()
+	var fc := CollisionShape3D.new()
+	fc.shape = WorldBoundaryShape3D.new()
+	fb.add_child(fc)
+	host.add_child(fb)
+	# CAMINHO de pedra quebrada no eixo X (os lutadores entram pelas pontas)
+	_cobble_path(host, rng, 28.0, 1.8)
+	# MANCHAS escuras de queimado/sangue no chão (fora do combate)
+	for i in 7:
+		_flat(host, Color(0.06, 0.05, 0.05), _scatter(rng, combat_r + 1.0, 22.0) + Vector3(0, 0.03, 0), Vector2(rng.randf_range(2.0, 4.0), rng.randf_range(2.0, 4.0)))
+	# MATA MORTA em 3 camadas, só no arco do fundo/esquerda (pula +X=torre e +Z=câmera)
+	var dead := ["DeadTree_1", "DeadTree_2", "DeadTree_3"]
+	var mix := ["DeadTree_1", "DeadTree_2", "DeadTree_3", "Pine_1", "Pine_2", "Pine_3"]
+	_tree_arc(host, rng, dead, 13.0, 17.0, 16, deg_to_rad(115), deg_to_rad(325), 0.9, 1.5)
+	_tree_arc(host, rng, mix, 20.0, 27.0, 30, deg_to_rad(100), deg_to_rad(340), 1.1, 1.9)
+	_tree_arc(host, rng, mix, 29.0, 37.0, 42, deg_to_rad(88), deg_to_rad(352), 1.3, 2.2)
+	# A TORRE amaldiçoada em chamas (à direita)
+	_dark_tower(host, rng, TOWER)
+	# ESCOMBROS de batalha — viés p/ a direita (lado +X, "dos inimigos")
+	for i in 18:
+		var pos := Vector3(rng.randf_range(-6.0, 18.0), 0, rng.randf_range(-13.0, 13.0))
+		if Vector2(pos.x, pos.z).length() < combat_r + 1.0:
+			continue
+		match rng.randi() % 5:
+			0, 1: _planted_sword(host, pos, rng)
+			2:    _planted_spear(host, pos, rng)
+			3:    _war_shield(host, pos, rng)
+			_:    _fallen_soldier(host, pos, rng)
+	# FERA MORTA (como o bicho no canto da capa) — perto da torre
+	_dead_beast(host, Vector3(9.5, 0, 4.8), rng, 1.0)
+	_dead_beast(host, Vector3(13.5, 0, -7.5), rng, 0.7)
+	# BRASEIROS esparsos (fogo de acampamento/batalha) iluminam os lutadores
+	for i in 3:
+		var a := lerpf(deg_to_rad(120), deg_to_rad(300), float(i) / 2.0)
+		_brazier(host, Vector3(cos(a) * (combat_r + 1.4), 0, sin(a) * (combat_r + 1.4)))
+	# grama RALA/morta + arbustos secos (campo arrasado, não mata viva)
+	for i in 60:
+		var g: String = ["Grass_Wispy_Short", "Grass_Wispy_Tall", "Fern_1", "Bush_Common"][i % 4]
+		_place(host, rng, NAT + g + ".gltf", _scatter(rng, combat_r + 0.8, 36.0), rng.randf_range(0, 360), rng.randf_range(0.5, 1.0))
+	# pedras/escombro de pedra espalhado
+	for i in 30:
+		_place(host, rng, NAT + "Rock_Medium_%d.gltf" % (1 + i % 3), _scatter(rng, combat_r + 2.0, 34.0), rng.randf_range(0, 360), rng.randf_range(0.5, 1.1))
+	# BRASAS/cinzas subindo da torre em chamas (vende o incêndio)
+	_embers(host, TOWER + Vector3(0, 6.0, 0), 44)
+
+# Anel de árvores num ARCO (a0..a1 em rad) — como _tree_ring mas só num setor, p/ deixar
+# lados abertos (a torre em +X e a câmera em +Z).
+func _tree_arc(host: Node3D, rng: RandomNumberGenerator, pool: Array, r0: float, r1: float, n: int, a0: float, a1: float, s0: float, s1: float) -> void:
+	for i in n:
+		var a := lerpf(a0, a1, rng.randf())
+		var r := rng.randf_range(r0, r1)
+		var tree: String = pool[rng.randi() % pool.size()]
+		_place(host, rng, NAT + tree + ".gltf", Vector3(cos(a) * r, 0, sin(a) * r), rng.randf_range(0, 360), rng.randf_range(s0, s1))
+
+# Caixa com rotação 3D completa (euler) + emissão opcional — base dos escombros/torre.
+func _box3(host: Node3D, size: Vector3, pos: Vector3, color: Color, rot: Vector3, rough := 0.9, metal := 0.0, emit = null, emit_e := 0.0) -> void:
+	var mi := MeshInstance3D.new()
+	var bm := BoxMesh.new(); bm.size = size
+	mi.mesh = bm
+	var m := StandardMaterial3D.new()
+	m.albedo_color = color; m.roughness = rough; m.metallic = metal
+	if emit != null:
+		m.emission_enabled = true; m.emission = emit; m.emission_energy_multiplier = emit_e
+	mi.material_override = m
+	host.add_child(mi)
+	mi.position = pos
+	mi.rotation_degrees = rot
+
+# Pivô (Node3D) p/ agrupar peças que precisam girar JUNTAS (arma fincada, corpo tombado).
+func _pivot(host: Node3D, pos: Vector3, rot: Vector3) -> Node3D:
+	var n := Node3D.new()
+	host.add_child(n)
+	n.position = pos
+	n.rotation_degrees = rot
+	return n
+
+# Torre gótica AMALDIÇOADA em ruína, queimando no topo (a silhueta da capa). Pedra quase
+# preta afinando pra cima, topo quebrado, pináculos tortos, contrafortes na base, frestas
+# de brasa e fogo + fumaça no topo. Sem colisão (decorativa, longe do combate).
+func _dark_tower(host: Node3D, rng: RandomNumberGenerator, base: Vector3) -> void:
+	var STONE := Color(0.08, 0.075, 0.085)   # pedra quase preta (silhueta)
+	var seg_h := 3.4
+	var levels := 7
+	var w0 := 6.2
+	for i in levels:
+		var t := float(i) / float(levels)
+		var ww := w0 * (1.0 - t * 0.45)               # afina pra cima (gótico)
+		var y := i * seg_h + seg_h * 0.5
+		var jx := rng.randf_range(-0.12, 0.12)        # tremor leve = pedra irregular
+		var jz := rng.randf_range(-0.12, 0.12)
+		_box3(host, Vector3(ww, seg_h + 0.05, ww), base + Vector3(jx, y, jz), STONE.lightened(t * 0.06), Vector3(0, rng.randf_range(-3, 3), 0), 1.0)
+		# FRESTAS de brasa (janelas acesas) em níveis ímpares — fogo por dentro da torre
+		if i >= 1 and i <= levels - 2 and i % 2 == 1:
+			for sx in [-1.0, 1.0]:
+				_box3(host, Vector3(0.5, 1.1, 0.14), base + Vector3(jx + sx * (ww * 0.5 + 0.05), y, jz), Color(1.0, 0.45, 0.12), Vector3.ZERO, 0.6, 0.0, Color(1.0, 0.4, 0.08), 4.0)
+	var topy := levels * seg_h
+	var topw := w0 * (1.0 - 0.45) * 0.5
+	# TOPO QUEBRADO: anel de blocos (merlons) em alturas variadas, alguns FALTANDO (ruína)
+	for k in 8:
+		if rng.randf() < 0.3:
+			continue
+		var a := TAU * k / 8.0
+		var bh := rng.randf_range(0.6, 1.8)
+		_box3(host, Vector3(0.9, bh, 0.9), base + Vector3(cos(a) * topw, topy + bh * 0.5, sin(a) * topw), STONE.lightened(0.08), Vector3(0, rad_to_deg(a), 0), 1.0)
+	# PINÁCULOS/lascas tortas saindo do topo (silhueta quebrada)
+	for s in 3:
+		var sa := deg_to_rad(40 + s * 120 + rng.randf_range(-20, 20))
+		var sr := topw * rng.randf_range(0.3, 0.8)
+		_box3(host, Vector3(0.5, rng.randf_range(2.5, 4.5), 0.5), base + Vector3(cos(sa) * sr, topy + 1.6, sin(sa) * sr), STONE, Vector3(rng.randf_range(-14, 14), rng.randf_range(0, 360), rng.randf_range(-14, 14)), 1.0)
+	# CONTRAFORTES (buttresses) inclinados na base — peso gótico
+	for b in 4:
+		var ba := TAU * b / 4.0 + 0.78
+		_box3(host, Vector3(0.8, seg_h * 2.2, 1.6), base + Vector3(cos(ba) * (w0 * 0.5), seg_h * 0.9, sin(ba) * (w0 * 0.5)), STONE, Vector3(12, rad_to_deg(ba), 0), 1.0)
+	# FOGO no topo (a torre queima) + colunas de fumaça
+	_tower_fire(host, base + Vector3(0, topy + 0.4, 0))
+	_smoke(host, base + Vector3(rng.randf_range(-0.6, 0.6), topy + 2.5, 0))
+	_smoke(host, base + Vector3(rng.randf_range(-0.6, 0.6), topy + 3.2, 0.4))
+
+# Coroa de FOGO no topo da torre: brasa emissiva grande + LUZ quente forte (o "glow" da
+# capa que banha a cena de laranja) + chama de partícula + flicker.
+func _tower_fire(host: Node3D, pos: Vector3) -> void:
+	var coal := MeshInstance3D.new()
+	var sm := SphereMesh.new(); sm.radius = 1.4; sm.height = 2.2
+	coal.mesh = sm
+	var cmat := StandardMaterial3D.new()
+	cmat.albedo_color = Color(1.0, 0.5, 0.15)
+	cmat.emission_enabled = true
+	cmat.emission = Color(1.0, 0.45, 0.1)
+	cmat.emission_energy_multiplier = 4.0
+	coal.material_override = cmat
+	host.add_child(coal); coal.position = pos
+	# LUZ quente forte (banha os lutadores + o chão de laranja, como o incêndio da capa)
+	var light := OmniLight3D.new()
+	light.light_color = Color(1.0, 0.55, 0.22)
+	light.light_energy = 6.0
+	light.omni_range = 34.0
+	host.add_child(light); light.position = pos + Vector3(0, 1.0, 0)
+	# CHAMA de partícula (grande)
+	var p := GPUParticles3D.new()
+	p.amount = 40
+	p.lifetime = 1.4
+	var m := ParticleProcessMaterial.new()
+	m.direction = Vector3.UP
+	m.spread = 22.0
+	m.initial_velocity_min = 1.4
+	m.initial_velocity_max = 3.2
+	m.gravity = Vector3(0, 2.2, 0)
+	m.scale_min = 1.6
+	m.scale_max = 3.4
+	var g := Gradient.new()
+	g.set_color(0, Color(1.0, 0.8, 0.25, 0.9))
+	g.add_point(0.5, Color(1.0, 0.35, 0.05, 0.6))
+	g.set_color(2, Color(0.25, 0.04, 0.02, 0.0))
+	var gt := GradientTexture1D.new(); gt.gradient = g
+	m.color_ramp = gt
+	p.process_material = m
+	var q := QuadMesh.new(); q.size = Vector2(1.2, 1.2)
+	q.material = _billboard_mat(Color(1.0, 0.5, 0.1), 2.2)
+	p.draw_pass_1 = q
+	host.add_child(p); p.position = pos + Vector3(0, 0.6, 0)
+	var tw := host.create_tween().set_loops()
+	tw.tween_property(light, "light_energy", 5.0, 0.15)
+	tw.tween_property(light, "light_energy", 6.8, 0.19)
+	tw.tween_property(light, "light_energy", 5.6, 0.12)
+
+# BRASAS/cinzas alaranjadas subindo (da torre em chamas) — vende o incêndio.
+func _embers(host: Node3D, pos: Vector3, count: int) -> void:
+	var p := GPUParticles3D.new()
+	p.amount = count; p.lifetime = 5.0; p.preprocess = 3.0
+	var m := ParticleProcessMaterial.new()
+	m.emission_shape = ParticleProcessMaterial.EMISSION_SHAPE_BOX
+	m.emission_box_extents = Vector3(4.0, 3.0, 4.0)
+	m.direction = Vector3.UP; m.spread = 30.0
+	m.initial_velocity_min = 0.6; m.initial_velocity_max = 1.6
+	m.gravity = Vector3(0, 0.5, 0)
+	m.scale_min = 0.4; m.scale_max = 1.0
+	var col := Color(1.0, 0.55, 0.18)
+	var g := Gradient.new()
+	g.set_color(0, Color(col, 0.0)); g.add_point(0.3, col); g.set_color(2, Color(col, 0.0))
+	var gt := GradientTexture1D.new(); gt.gradient = g; m.color_ramp = gt
+	p.process_material = m
+	var q := QuadMesh.new(); q.size = Vector2(0.08, 0.08); q.material = _billboard_mat(col, 2.5)
+	p.draw_pass_1 = q
+	host.add_child(p); p.position = pos; p.emitting = true
+
+# Espada FINCADA no chão (lâmina pra cima, inclinada) — escombro de batalha.
+func _planted_sword(host: Node3D, pos: Vector3, rng: RandomNumberGenerator) -> void:
+	var piv := _pivot(host, pos, Vector3(rng.randf_range(-22, 22), rng.randf_range(0, 360), rng.randf_range(-12, 12)))
+	var steel := Color(0.30, 0.31, 0.34)
+	_box3(piv, Vector3(0.10, 1.5, 0.03), Vector3(0, 0.5, 0), steel, Vector3.ZERO, 0.4, 0.6)          # lâmina
+	_box3(piv, Vector3(0.42, 0.08, 0.08), Vector3(0, 1.12, 0), Color(0.20, 0.18, 0.14), Vector3.ZERO, 0.7)  # guarda
+	_box3(piv, Vector3(0.08, 0.30, 0.08), Vector3(0, 1.32, 0), Color(0.16, 0.11, 0.07), Vector3.ZERO, 0.9)  # punho
+
+# Lança/estaca FINCADA bem inclinada.
+func _planted_spear(host: Node3D, pos: Vector3, rng: RandomNumberGenerator) -> void:
+	var piv := _pivot(host, pos, Vector3(rng.randf_range(28, 58), rng.randf_range(0, 360), 0))
+	var L := rng.randf_range(2.0, 2.8)
+	_box3(piv, Vector3(0.07, L, 0.07), Vector3(0, L * 0.4, 0), Color(0.22, 0.15, 0.09), Vector3.ZERO, 0.95)        # haste
+	_box3(piv, Vector3(0.12, 0.4, 0.04), Vector3(0, L * 0.85, 0), Color(0.30, 0.31, 0.34), Vector3.ZERO, 0.4, 0.6) # ponta
+
+# Escudo de guerra caído (disco com tinta esmaecida), quase deitado.
+func _war_shield(host: Node3D, pos: Vector3, rng: RandomNumberGenerator) -> void:
+	var piv := _pivot(host, pos, Vector3(rng.randf_range(62, 90), rng.randf_range(0, 360), rng.randf_range(-15, 15)))
+	var faded: Color = [Color(0.42, 0.13, 0.11), Color(0.13, 0.19, 0.36), Color(0.46, 0.37, 0.13)][rng.randi() % 3]
+	faded = faded.darkened(0.25)
+	var mi := MeshInstance3D.new()
+	var cm := CylinderMesh.new(); cm.top_radius = 0.55; cm.bottom_radius = 0.55; cm.height = 0.08
+	mi.mesh = cm
+	var m := StandardMaterial3D.new(); m.albedo_color = faded; m.roughness = 0.85
+	mi.material_override = m
+	piv.add_child(mi); mi.position = Vector3(0, 0.2, 0)
+	_box3(piv, Vector3(0.18, 0.18, 0.18), Vector3(0, 0.26, 0), Color(0.28, 0.29, 0.32), Vector3.ZERO, 0.4, 0.6)   # umbo
+
+# Soldado TOMBADO (impressão, não boneco rigado): torso + capacete + pernas/braço, deitado
+# e desbotado. Evoca os caídos da capa sem custo de rig.
+func _fallen_soldier(host: Node3D, pos: Vector3, rng: RandomNumberGenerator) -> void:
+	var piv := _pivot(host, pos, Vector3(0, rng.randf_range(0, 360), 0))
+	var cloth := Color(0.16, 0.15, 0.16)
+	var armor := Color(0.22, 0.23, 0.26)
+	_box3(piv, Vector3(0.55, 0.30, 0.95), Vector3(0, 0.18, 0), armor, Vector3.ZERO, 0.6, 0.3)                  # torso
+	_box3(piv, Vector3(0.22, 0.22, 0.8), Vector3(-0.16, 0.13, 0.85), cloth, Vector3(0, rng.randf_range(-15, 15), 0), 0.9)  # perna
+	_box3(piv, Vector3(0.22, 0.22, 0.7), Vector3(0.18, 0.13, 0.82), cloth, Vector3(0, rng.randf_range(-15, 15), 0), 0.9)   # perna
+	_box3(piv, Vector3(0.18, 0.18, 0.6), Vector3(0.45, 0.13, -0.1), armor, Vector3(0, rng.randf_range(-30, 30), 0), 0.7)   # braço jogado
+	var head := MeshInstance3D.new()
+	var hs := SphereMesh.new(); hs.radius = 0.20; hs.height = 0.40
+	head.mesh = hs
+	var hm := StandardMaterial3D.new(); hm.albedo_color = armor; hm.roughness = 0.5; hm.metallic = 0.5
+	head.material_override = hm
+	piv.add_child(head); head.position = Vector3(rng.randf_range(-0.1, 0.1), 0.20, -0.72)                      # capacete
+
+# FERA MORTA — massa escura alongada + espigões nas costas + cabeça/cauda caídas + poça de
+# sangue. Evoca o monstro abatido no canto da capa. `s` = escala.
+func _dead_beast(host: Node3D, pos: Vector3, rng: RandomNumberGenerator, s: float) -> void:
+	var piv := _pivot(host, pos, Vector3(0, rng.randf_range(0, 360), 0))
+	piv.scale = Vector3(s, s, s)
+	var hide := Color(0.10, 0.09, 0.10)
+	var body := MeshInstance3D.new()
+	var bs := SphereMesh.new(); bs.radius = 1.0; bs.height = 1.4
+	body.mesh = bs
+	var bm := StandardMaterial3D.new(); bm.albedo_color = hide; bm.roughness = 0.95
+	body.material_override = bm
+	piv.add_child(body); body.position = Vector3(0, 0.45, 0); body.scale = Vector3(1.0, 0.55, 2.0)   # corpo achatado/alongado
+	for i in 6:                                                                                        # espigões nas costas
+		var z := lerpf(-1.6, 1.4, float(i) / 5.0)
+		_box3(piv, Vector3(0.14, rng.randf_range(0.5, 1.0), 0.14), Vector3(rng.randf_range(-0.1, 0.1), 0.7, z), hide.lightened(0.05), Vector3(rng.randf_range(-25, 25), 0, rng.randf_range(-15, 15)), 0.95)
+	_box3(piv, Vector3(0.5, 0.4, 0.8), Vector3(0, 0.25, 2.0), hide, Vector3(20, 0, 0), 0.95)           # cabeça caída
+	_box3(piv, Vector3(0.25, 0.25, 1.4), Vector3(0, 0.3, -2.0), hide, Vector3(-10, rng.randf_range(-20, 20), 0), 0.95)  # cauda
+	_flat(piv, Color(0.05, 0.02, 0.02), Vector3(0, 0.03, 0.5), Vector2(2.6, 4.0))                      # poça de sangue

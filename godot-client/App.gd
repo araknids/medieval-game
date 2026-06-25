@@ -7,7 +7,7 @@ extends Control
 const LOGIN := preload("res://ui/Login.tscn")
 const MenuFx := preload("res://ui/MenuFx.gd")   # fundo 3D do menu (persistente, atrás de tudo)
 # Mapas de fundo do menu: só os FECHADOS (câmera olha pra dentro → enquadra bem o duelo). [MENU_FUNDO]
-const MENU_MAPS := ["castle", "arena", "city", "dungeon"]
+const MENU_MAPS := ["cursed_tower"]   # [MAPA_TORRE] fundo do menu/login = a "capa viva" (torre em chamas). Re-adicione castle/arena/city/dungeon p/ voltar o sorteio.
 # BattleReplay é carregado SOB DEMANDA (load) em _play_battle — NUNCA preload: um erro de parse no
 # replay (arquivo grande) não pode derrubar o app/login. Mesmo princípio do _open() das telas.
 

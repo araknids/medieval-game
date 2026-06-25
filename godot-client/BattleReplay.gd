@@ -117,7 +117,7 @@ const SKILL_INFO := {
 const HIT_TYPES := ["attack", "crit", "volley", "extra"]       # carregam dano/HP
 const SWING_TYPES := ["attack", "crit", "volley", "extra", "miss", "dodge"]  # atacante balança a arma
 const RANGED_MARKERS := ["volley", "pinned", "pointblank", "backpedal"]  # delatam um lutador ranged
-const SCENARIOS := ["mining", "beach", "garimpa", "dungeon", "arena", "city", "castle"]  # mapas p/ sorteio
+const SCENARIOS := ["mining", "cursed_tower", "beach", "garimpa", "dungeon", "arena", "city", "castle"]  # mapas p/ sorteio
 # [INIMIGO] cara própria do inimigo HUMANO, derivada do NOME (determinístico): cor de roupa + arma + porte.
 const ENEMY_TINTS := [Color(0.55, 0.18, 0.18), Color(0.20, 0.28, 0.55), Color(0.22, 0.42, 0.24),
 	Color(0.36, 0.30, 0.20), Color(0.25, 0.25, 0.28), Color(0.48, 0.40, 0.16), Color(0.40, 0.22, 0.42)]
@@ -2342,7 +2342,7 @@ func _skill_popup(f: Dictionary, ability_id: String) -> void:
 # "scene" do backend → mapa do BattleReplay (casa o cenário com o reino da luta).
 const SCENE_TO_MAP := {
 	"arena": "arena", "tower": "dungeon", "coast": "beach",
-	"sea": "beach", "cave": "mining", "fortress": "castle",
+	"sea": "beach", "cave": "mining", "fortress": "cursed_tower",   # [MAPA_TORRE] Fortaleza Maldita = a torre em chamas
 }
 
 # Câmera só (cedo, antes do fetch). O MAPA é montado depois (_setup_map), já sabendo a scene.

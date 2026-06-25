@@ -8,7 +8,7 @@ const CHAR := preload("res://addons/quaternius_ik_rigged/Models_with_rigging/Mal
 const Scenery := preload("res://Scenery.gd")
 
 # TODOS os cenários, na ordem do ciclo (← anterior / → próximo).
-const SCENARIOS := ["mining", "garimpa", "beach", "dungeon", "arena", "city", "castle"]
+const SCENARIOS := ["mining", "cursed_tower", "garimpa", "beach", "dungeon", "arena", "city", "castle"]
 
 ## Cenário INICIAL (o ciclo começa nele). Troque ao vivo com as setas.
 @export var scenario := "mining"
@@ -73,6 +73,7 @@ func _update_cam() -> void:
 	elif scenario == "arena": radius = 18.0; height = 15.0; look_y = 0.5   # alto → olha pra dentro do pit
 	elif scenario == "city": radius = 20.0; height = 13.0; look_y = 1.0    # alto → praça + telhados
 	elif scenario == "castle": radius = 26.0; height = 18.0; look_y = 1.0  # alto → pátio + torres
+	elif scenario == "cursed_tower": radius = 24.0; height = 11.0; look_y = 1.5  # vê a torre alta à direita
 	cam.position = Vector3(sin(a) * radius, height, cos(a) * radius)
 	cam.look_at(Vector3(0, look_y, 0), Vector3.UP)
 
