@@ -233,8 +233,12 @@ func _subtab_btn(value: String, icon_key: String, label: String, emoji: String) 
 		b.add_theme_stylebox_override("focus", sb)
 	else:
 		b.modulate = Color(1, 1, 1, 0.6)
-	if _subtab_alert(value):   # [PONTOS] "!" vermelho quando há ponto não gasto na sub-aba
+	if _subtab_alert(value):   # [PONTOS] "!" vermelho + tooltip (hover em qualquer ponto do botão) quando há ponto livre
 		b.add_child(_make_subtab_alert())
+		if value == "attr":
+			b.tooltip_text = Lang.t("Pontos de atributo disponíveis: %d") % int(w.get("availablePoints", 0))
+		elif value == "abil":
+			b.tooltip_text = Lang.t("Pontos de habilidade disponíveis: %d") % int(w.get("abilityPoints", 0))
 	return b
 
 # [PONTOS] A sub-aba tem ponto não gasto? attr = ponto de atributo (sempre); abil = ponto de habilidade,

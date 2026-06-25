@@ -270,6 +270,12 @@ const EN := {
 	"Postura de Combate": "Combat Posture",
 	"Ofensiva": "Offensive", "Defensiva": "Defensive", "Equilibrada": "Balanced",
 	"Postura atualizada": "Posture updated",
+	# — [PONTOS] tooltip de pontos não gastos (nav Personagem + sub-abas) —
+	"Pontos de atributo disponíveis: %d": "Attribute points available: %d",
+	"Pontos de habilidade disponíveis: %d": "Ability points available: %d",
+	"Pontos disponíveis": "Available points",
+	"atributo: %d": "attribute: %d",
+	"habilidade: %d": "ability: %d",
 	# — [INCURSAO_PVP] escolha PvP na Incursão + Replays no Correio —
 	"Atacar %s (PvP)": "Attack %s (PvP)",
 	"Lutar o monstro (PvE)": "Fight the monster (PvE)",

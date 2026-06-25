@@ -280,8 +280,11 @@ func _refresh_nav_badges() -> void:
 		var yellow: bool = bool(_starter_nav.get(scr, false))
 		if scr == "Character" and not yellow and (_unspent_attr > 0 or _unspent_abil > 0):
 			_set_nav_badge("Character", true, "quest_alert_red")
+			_set_nav_points_tip(true)
 		else:
 			_set_nav_badge(scr, yellow, "quest_alert")
+			if scr == "Character":
+				_set_nav_points_tip(false)
 	# [QUEST_BADGE] topbar: AMARELO (dir) = missão disponível (starter já entra no missionBadge); AZUL (esq) = diária.
 	if _quest_badge != null and is_instance_valid(_quest_badge):
 		_quest_badge.visible = _quest_mission_avail
@@ -304,6 +307,23 @@ func _set_nav_badge(scr: String, on: bool, key := "quest_alert") -> void:
 		btn.add_child(badge)
 		_nav_badges[scr] = badge
 	badge.visible = on
+
+# [PONTOS] Tooltip do item Personagem: anexa "pontos disponíveis" à dica de nav quando o "!" vermelho está
+# ativo (hover em QUALQUER ponto do botão mostra — o badge é mouse-IGNORE, então o hover cai no botão).
+func _set_nav_points_tip(on: bool) -> void:
+	var b = _nav_buttons.get("Character")
+	if b == null or not is_instance_valid(b):
+		return
+	var base := str(NAV_TIPS.get("Character", "Personagem"))
+	if not on:
+		b.tooltip_text = base
+		return
+	var parts: Array = []
+	if _unspent_attr > 0:
+		parts.append(Lang.t("atributo: %d") % _unspent_attr)
+	if _unspent_abil > 0:
+		parts.append(Lang.t("habilidade: %d") % _unspent_abil)
+	b.tooltip_text = "%s  •  %s — %s" % [base, Lang.t("Pontos disponíveis"), ", ".join(parts)]
 
 func _starter_available_for(scr: String) -> Dictionary:
 	for q in _starter_status:
