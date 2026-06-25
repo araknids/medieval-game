@@ -45,8 +45,8 @@ func bg_3d(control: Control, scenario := "dungeon") -> SubViewportContainer:
 			cpos = Vector3(0, 7.0, 17.0); clook = Vector3(0, 1.8, 0.0)
 		"city":
 			cpos = Vector3(0, 5.5, 16.0); clook = Vector3(0, 2.5, -2.0)
-		"cursed_tower":   # [MAPA_TORRE] olha do front-esquerda pra direita+cima → a torre em chamas fica à DIREITA do quadro
-			cpos = Vector3(-6.0, 7.5, 16.0); clook = Vector3(5.5, 4.5, -3.0)
+		"cursed_tower":   # [MAPA_TORRE] atrás-esquerda do duelo (z=4) olhando pra DIREITA → a estrada leva à torre em chamas (como a capa)
+			cpos = Vector3(-10.0, 7.5, 10.0); clook = Vector3(10.0, 4.5, 1.0)
 	cam.position = cpos
 	cam.look_at(clook, Vector3.UP)
 	var rng := RandomNumberGenerator.new()

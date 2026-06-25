@@ -1056,7 +1056,7 @@ func cursed_tower_lighting(host: Node3D) -> void:
 # adensam perto da torre. Mata MORTA só no arco do fundo/esquerda (deixa +X p/ a torre e
 # +Z aberto p/ a câmera).
 func cursed_tower(host: Node3D, rng: RandomNumberGenerator, combat_r: float) -> void:
-	var TOWER := Vector3(16.0, 0, -3.0)             # torre à DIREITA (+X), levemente recuada (-Z)
+	var TOWER := Vector3(18.0, 0, 0.0)              # torre à DIREITA (+X), ALINHADA à estrada (z=0) → a trilha leva até ela
 	_ground(host, Color(0.15, 0.13, 0.11), 44.0)    # solo de terra queimada/cinza
 	# colisão do chão (ragdoll da batalha não atravessa o piso)
 	var fb := StaticBody3D.new()
@@ -1064,11 +1064,12 @@ func cursed_tower(host: Node3D, rng: RandomNumberGenerator, combat_r: float) -> 
 	fc.shape = WorldBoundaryShape3D.new()
 	fb.add_child(fc)
 	host.add_child(fb)
-	# CAMINHO de pedra quebrada no eixo X (os lutadores entram pelas pontas)
-	_cobble_path(host, rng, 28.0, 1.8)
+	# ESTRADA de pedra LARGA no eixo X → cobre tanto o centro da batalha (z=0) quanto o duelo do
+	# menu (z=4), pra a briga acontecer SOBRE a pedra, e segue reto até a torre. [MAPA_TORRE]
+	_cobble_path(host, rng, 28.0, 4.5)
 	# MANCHAS escuras de queimado/sangue no chão (fora do combate)
 	for i in 7:
-		_flat(host, Color(0.06, 0.05, 0.05), _scatter(rng, combat_r + 1.0, 22.0) + Vector3(0, 0.03, 0), Vector2(rng.randf_range(2.0, 4.0), rng.randf_range(2.0, 4.0)))
+		_flat(host, Color(0.06, 0.05, 0.05), _scatter(rng, combat_r + 1.0, 22.0) + Vector3(0, 0.06, 0), Vector2(rng.randf_range(2.0, 4.0), rng.randf_range(2.0, 4.0)))
 	# MATA MORTA em 3 camadas, só no arco do fundo/esquerda (pula +X=torre e +Z=câmera)
 	var dead := ["DeadTree_1", "DeadTree_2", "DeadTree_3"]
 	var mix := ["DeadTree_1", "DeadTree_2", "DeadTree_3", "Pine_1", "Pine_2", "Pine_3"]
@@ -1087,9 +1088,14 @@ func cursed_tower(host: Node3D, rng: RandomNumberGenerator, combat_r: float) -> 
 			2:    _planted_spear(host, pos, rng)
 			3:    _war_shield(host, pos, rng)
 			_:    _fallen_soldier(host, pos, rng)
+	# SOLDADOS TOMBADOS em volta do campo (players mortos com armadura) — anel em torno da briga
+	for i in 10:
+		var sa := lerpf(deg_to_rad(15), deg_to_rad(345), float(i) / 9.0) + rng.randf_range(-0.12, 0.12)
+		var sr := rng.randf_range(combat_r + 0.6, combat_r + 5.0)
+		_fallen_soldier(host, Vector3(cos(sa) * sr, 0, sin(sa) * sr), rng)
 	# FERA MORTA (como o bicho no canto da capa) — perto da torre
-	_dead_beast(host, Vector3(9.5, 0, 4.8), rng, 1.0)
-	_dead_beast(host, Vector3(13.5, 0, -7.5), rng, 0.7)
+	_dead_beast(host, Vector3(11.0, 0, 4.8), rng, 1.0)
+	_dead_beast(host, Vector3(15.0, 0, -6.5), rng, 0.7)
 	# BRASEIROS esparsos (fogo de acampamento/batalha) iluminam os lutadores
 	for i in 3:
 		var a := lerpf(deg_to_rad(120), deg_to_rad(300), float(i) / 2.0)
@@ -1102,7 +1108,7 @@ func cursed_tower(host: Node3D, rng: RandomNumberGenerator, combat_r: float) -> 
 	for i in 30:
 		_place(host, rng, NAT + "Rock_Medium_%d.gltf" % (1 + i % 3), _scatter(rng, combat_r + 2.0, 34.0), rng.randf_range(0, 360), rng.randf_range(0.5, 1.1))
 	# BRASAS/cinzas subindo da torre em chamas (vende o incêndio)
-	_embers(host, TOWER + Vector3(0, 6.0, 0), 44)
+	_embers(host, TOWER + Vector3(0, 12.0, 0), 50)
 
 # Anel de árvores num ARCO (a0..a1 em rad) — como _tree_ring mas só num setor, p/ deixar
 # lados abertos (a torre em +X e a câmera em +Z).
@@ -1135,47 +1141,85 @@ func _pivot(host: Node3D, pos: Vector3, rot: Vector3) -> Node3D:
 	n.rotation_degrees = rot
 	return n
 
-# Torre gótica AMALDIÇOADA em ruína, queimando no topo (a silhueta da capa). Pedra quase
-# preta afinando pra cima, topo quebrado, pináculos tortos, contrafortes na base, frestas
-# de brasa e fogo + fumaça no topo. Sem colisão (decorativa, longe do combate).
+# Torre gótica AMALDIÇOADA em ruína, queimando no topo (a silhueta da capa). Anel OCTOGONAL
+# de segmentos de pedra (mais "redondo" que um cubo) afinando pra cima, janelas em arco com
+# brasa, topo quebrado, pináculos tortos, contrafortes + entulho na base, fogo + fumaça no
+# topo. Sem colisão (decorativa, longe do combate). [MAPA_TORRE]
 func _dark_tower(host: Node3D, rng: RandomNumberGenerator, base: Vector3) -> void:
-	var STONE := Color(0.08, 0.075, 0.085)   # pedra quase preta (silhueta)
-	var seg_h := 3.4
-	var levels := 7
-	var w0 := 6.2
-	for i in levels:
-		var t := float(i) / float(levels)
-		var ww := w0 * (1.0 - t * 0.45)               # afina pra cima (gótico)
-		var y := i * seg_h + seg_h * 0.5
-		var jx := rng.randf_range(-0.12, 0.12)        # tremor leve = pedra irregular
-		var jz := rng.randf_range(-0.12, 0.12)
-		_box3(host, Vector3(ww, seg_h + 0.05, ww), base + Vector3(jx, y, jz), STONE.lightened(t * 0.06), Vector3(0, rng.randf_range(-3, 3), 0), 1.0)
-		# FRESTAS de brasa (janelas acesas) em níveis ímpares — fogo por dentro da torre
-		if i >= 1 and i <= levels - 2 and i % 2 == 1:
-			for sx in [-1.0, 1.0]:
-				_box3(host, Vector3(0.5, 1.1, 0.14), base + Vector3(jx + sx * (ww * 0.5 + 0.05), y, jz), Color(1.0, 0.45, 0.12), Vector3.ZERO, 0.6, 0.0, Color(1.0, 0.4, 0.08), 4.0)
+	var STONE := Color(0.085, 0.08, 0.092)              # pedra quase preta (silhueta)
+	var sides := 8                                       # octógono → silhueta arredondada (não cubo)
+	var levels := 9
+	var seg_h := 2.5
+	var r0 := 3.8
+	for lv in levels:
+		var t := float(lv) / float(levels)
+		var r := r0 * (1.0 - t * 0.5)                    # afina pra cima (gótico)
+		var y := lv * seg_h + seg_h * 0.5
+		var bw := 2.0 * r * sin(PI / float(sides)) * 1.14   # largura do bloco p/ fechar o anel
+		var miss := (0.42 if lv >= levels - 2 else 0.0)  # topo QUEBRADO (blocos faltando = ruína)
+		for k in sides:
+			if rng.randf() < miss:
+				continue
+			var a := TAU * k / float(sides) + t * 0.15    # giro leve por nível (juntas desencontradas)
+			var pos := base + Vector3(cos(a) * r, y + rng.randf_range(-0.05, 0.05), sin(a) * r)
+			if (lv == 2 or lv == 5) and k % 2 == 0:       # JANELAS em arco (brasa por dentro)
+				_arch_window(host, pos, base, bw, seg_h)
+			else:
+				_wall_seg(host, Vector3(bw, seg_h + 0.05, 0.7), pos, base, STONE.lightened(t * 0.05))
 	var topy := levels * seg_h
-	var topw := w0 * (1.0 - 0.45) * 0.5
-	# TOPO QUEBRADO: anel de blocos (merlons) em alturas variadas, alguns FALTANDO (ruína)
-	for k in 8:
-		if rng.randf() < 0.3:
-			continue
-		var a := TAU * k / 8.0
-		var bh := rng.randf_range(0.6, 1.8)
-		_box3(host, Vector3(0.9, bh, 0.9), base + Vector3(cos(a) * topw, topy + bh * 0.5, sin(a) * topw), STONE.lightened(0.08), Vector3(0, rad_to_deg(a), 0), 1.0)
-	# PINÁCULOS/lascas tortas saindo do topo (silhueta quebrada)
-	for s in 3:
-		var sa := deg_to_rad(40 + s * 120 + rng.randf_range(-20, 20))
-		var sr := topw * rng.randf_range(0.3, 0.8)
-		_box3(host, Vector3(0.5, rng.randf_range(2.5, 4.5), 0.5), base + Vector3(cos(sa) * sr, topy + 1.6, sin(sa) * sr), STONE, Vector3(rng.randf_range(-14, 14), rng.randf_range(0, 360), rng.randf_range(-14, 14)), 1.0)
+	var topr := r0 * 0.5
+	# PINÁCULOS quebrados saindo do topo (silhueta gótica irregular)
+	for sp in 5:
+		var sa := TAU * sp / 5.0 + rng.randf_range(-0.2, 0.2)
+		var sr := topr * rng.randf_range(0.2, 0.9)
+		_box3(host, Vector3(0.4, rng.randf_range(2.0, 4.0), 0.4), base + Vector3(cos(sa) * sr, topy + 1.0, sin(sa) * sr), STONE.lightened(0.06), Vector3(rng.randf_range(-12, 12), rng.randf_range(0, 360), rng.randf_range(-12, 12)), 1.0)
 	# CONTRAFORTES (buttresses) inclinados na base — peso gótico
 	for b in 4:
-		var ba := TAU * b / 4.0 + 0.78
-		_box3(host, Vector3(0.8, seg_h * 2.2, 1.6), base + Vector3(cos(ba) * (w0 * 0.5), seg_h * 0.9, sin(ba) * (w0 * 0.5)), STONE, Vector3(12, rad_to_deg(ba), 0), 1.0)
+		var ba := TAU * b / 4.0 + 0.39
+		_box3(host, Vector3(0.7, seg_h * 2.4, 1.5), base + Vector3(cos(ba) * (r0 * 0.95), seg_h * 1.0, sin(ba) * (r0 * 0.95)), STONE, Vector3(14, rad_to_deg(ba), 0), 1.0)
+	# ENTULHO na base (a torre desmoronando): rochas + lascas de pedra
+	for i in 14:
+		var ra := rng.randf_range(0, TAU)
+		var rr := r0 + rng.randf_range(0.2, 2.8)
+		_place(host, rng, NAT + "Rock_Medium_%d.gltf" % (1 + i % 3), base + Vector3(cos(ra) * rr, 0, sin(ra) * rr), rng.randf_range(0, 360), rng.randf_range(0.6, 1.4))
+	for i in 8:
+		var ca := rng.randf_range(0, TAU)
+		var cr := r0 + rng.randf_range(0.0, 2.0)
+		_box3(host, Vector3(rng.randf_range(0.5, 1.1), rng.randf_range(0.4, 0.9), rng.randf_range(0.5, 1.1)), base + Vector3(cos(ca) * cr, 0.2, sin(ca) * cr), STONE.lightened(0.04), Vector3(rng.randf_range(-20, 20), rng.randf_range(0, 360), rng.randf_range(-20, 20)), 1.0)
 	# FOGO no topo (a torre queima) + colunas de fumaça
-	_tower_fire(host, base + Vector3(0, topy + 0.4, 0))
-	_smoke(host, base + Vector3(rng.randf_range(-0.6, 0.6), topy + 2.5, 0))
-	_smoke(host, base + Vector3(rng.randf_range(-0.6, 0.6), topy + 3.2, 0.4))
+	_tower_fire(host, base + Vector3(0, topy + 0.2, 0))
+	_smoke(host, base + Vector3(rng.randf_range(-0.6, 0.6), topy + 2.0, 0))
+	_smoke(host, base + Vector3(rng.randf_range(-0.6, 0.6), topy + 2.8, 0.4))
+
+# Segmento de muralha (caixa) com a FACE plana virada pra FORA do centro (look_at) — monta o
+# anel octogonal da torre. [MAPA_TORRE]
+func _wall_seg(host: Node3D, size: Vector3, pos: Vector3, center: Vector3, color: Color) -> void:
+	var mi := MeshInstance3D.new()
+	var bm := BoxMesh.new(); bm.size = size
+	mi.mesh = bm
+	var m := StandardMaterial3D.new(); m.albedo_color = color; m.roughness = 1.0
+	mi.material_override = m
+	host.add_child(mi)
+	mi.position = pos
+	mi.look_at(Vector3(center.x, pos.y, center.z), Vector3.UP)   # -Z (profundidade) aponta pro centro
+
+# Janela em arco com BRASA por dentro (a torre queima) — vão flanqueado pelos segmentos vizinhos.
+func _arch_window(host: Node3D, pos: Vector3, center: Vector3, bw: float, seg_h: float) -> void:
+	var STONE := Color(0.085, 0.08, 0.092)
+	var pane := MeshInstance3D.new()                    # brasa por dentro (pane menor que o vão)
+	var bm := BoxMesh.new(); bm.size = Vector3(bw * 0.5, seg_h * 0.6, 0.25)
+	pane.mesh = bm
+	var em := StandardMaterial3D.new()
+	em.albedo_color = Color(1.0, 0.42, 0.12)
+	em.emission_enabled = true
+	em.emission = Color(1.0, 0.38, 0.06)
+	em.emission_energy_multiplier = 3.5
+	pane.material_override = em
+	host.add_child(pane)
+	pane.position = pos + Vector3(0, -seg_h * 0.1, 0)
+	pane.look_at(Vector3(center.x, pane.position.y, center.z), Vector3.UP)
+	_wall_seg(host, Vector3(bw, seg_h * 0.34, 0.72), pos + Vector3(0, seg_h * 0.33, 0), center, STONE)    # verga (arco)
+	_wall_seg(host, Vector3(bw, seg_h * 0.24, 0.72), pos + Vector3(0, -seg_h * 0.42, 0), center, STONE)   # peitoril
 
 # Coroa de FOGO no topo da torre: brasa emissiva grande + LUZ quente forte (o "glow" da
 # capa que banha a cena de laranja) + chama de partícula + flicker.
@@ -1276,18 +1320,22 @@ func _war_shield(host: Node3D, pos: Vector3, rng: RandomNumberGenerator) -> void
 # e desbotado. Evoca os caídos da capa sem custo de rig.
 func _fallen_soldier(host: Node3D, pos: Vector3, rng: RandomNumberGenerator) -> void:
 	var piv := _pivot(host, pos, Vector3(0, rng.randf_range(0, 360), 0))
-	var cloth := Color(0.16, 0.15, 0.16)
-	var armor := Color(0.22, 0.23, 0.26)
-	_box3(piv, Vector3(0.55, 0.30, 0.95), Vector3(0, 0.18, 0), armor, Vector3.ZERO, 0.6, 0.3)                  # torso
-	_box3(piv, Vector3(0.22, 0.22, 0.8), Vector3(-0.16, 0.13, 0.85), cloth, Vector3(0, rng.randf_range(-15, 15), 0), 0.9)  # perna
-	_box3(piv, Vector3(0.22, 0.22, 0.7), Vector3(0.18, 0.13, 0.82), cloth, Vector3(0, rng.randf_range(-15, 15), 0), 0.9)   # perna
-	_box3(piv, Vector3(0.18, 0.18, 0.6), Vector3(0.45, 0.13, -0.1), armor, Vector3(0, rng.randf_range(-30, 30), 0), 0.7)   # braço jogado
+	var cloth := Color(0.15, 0.14, 0.15)
+	var armor := Color(0.26, 0.27, 0.31)
+	_box3(piv, Vector3(0.58, 0.32, 0.98), Vector3(0, 0.19, 0), armor, Vector3.ZERO, 0.5, 0.55)                 # torso (armadura)
+	_box3(piv, Vector3(0.50, 0.16, 0.70), Vector3(0, 0.36, 0.05), armor.lightened(0.06), Vector3.ZERO, 0.4, 0.6)  # placa do peito (brilho metálico)
+	_box3(piv, Vector3(0.26, 0.20, 0.30), Vector3(0, 0.30, 0.50), armor, Vector3.ZERO, 0.45, 0.6)              # ombreira
+	_box3(piv, Vector3(0.24, 0.24, 0.82), Vector3(-0.17, 0.13, 0.90), cloth, Vector3(0, rng.randf_range(-15, 15), 0), 0.9)  # perna
+	_box3(piv, Vector3(0.24, 0.24, 0.72), Vector3(0.19, 0.13, 0.86), cloth, Vector3(0, rng.randf_range(-15, 15), 0), 0.9)   # perna
+	_box3(piv, Vector3(0.20, 0.20, 0.62), Vector3(0.50, 0.13, -0.12), armor, Vector3(0, rng.randf_range(-30, 30), 0), 0.5, 0.55)  # braço jogado
 	var head := MeshInstance3D.new()
-	var hs := SphereMesh.new(); hs.radius = 0.20; hs.height = 0.40
+	var hs := SphereMesh.new(); hs.radius = 0.21; hs.height = 0.42
 	head.mesh = hs
-	var hm := StandardMaterial3D.new(); hm.albedo_color = armor; hm.roughness = 0.5; hm.metallic = 0.5
+	var hm := StandardMaterial3D.new(); hm.albedo_color = armor.lightened(0.04); hm.roughness = 0.4; hm.metallic = 0.6
 	head.material_override = hm
-	piv.add_child(head); head.position = Vector3(rng.randf_range(-0.1, 0.1), 0.20, -0.72)                      # capacete
+	piv.add_child(head); head.position = Vector3(rng.randf_range(-0.1, 0.1), 0.21, -0.78)                      # elmo metálico
+	if rng.randf() < 0.6:                                                                                       # arma largada ao lado
+		_box3(piv, Vector3(0.07, 0.03, 1.0), Vector3(rng.randf_range(0.45, 0.7), 0.04, rng.randf_range(-0.2, 0.4)), Color(0.30, 0.31, 0.34), Vector3(0, rng.randf_range(-50, 50), 0), 0.4, 0.6)
 
 # FERA MORTA — massa escura alongada + espigões nas costas + cabeça/cauda caídas + poça de
 # sangue. Evoca o monstro abatido no canto da capa. `s` = escala.
