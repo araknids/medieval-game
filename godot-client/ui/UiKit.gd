@@ -822,8 +822,8 @@ static func reward_toast(host: Control, title: String, chips: Array) -> void:
 	root.modulate = Color(1, 1, 1, 0)
 	var tw := root.create_tween()
 	tw.tween_property(root, "modulate:a", 1.0, 0.18)
-	tw.tween_interval(2.2)
-	tw.tween_property(root, "modulate:a", 0.0, 0.4)
+	tw.tween_interval(4.5)   # [LEITURA] segura mais tempo — dava pra ler rápido demais, ruim pro novato
+	tw.tween_property(root, "modulate:a", 0.0, 0.5)
 	tw.tween_callback(root.queue_free)
 
 # ── Botões (tudo pedra) ────────────────────────────────────────────────────────────

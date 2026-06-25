@@ -458,6 +458,9 @@ func _render_detail(kingdom: String) -> void:
 	var k := _kingdom_data(kingdom)
 	# [SEM_SCROLL] "voltar ao mapa" virou um botão pequeno no HEADER (ver _ready) — não ocupa mais o corpo.
 	# [SEM_WEB_EMOJI] título = ícone pixel-art do território (KINGDOM_ICON) + nome — nunca o emoji do backend.
+	# [LEITURA] cabeçalho do reino num CARD (fundo sólido) — antes nome+lore ficavam soltos sobre o mapa, ilegíveis
+	var hcard := UiKit.card(UiKit.GOLD_SOFT)
+	var hbox: VBoxContainer = hcard[1]
 	var head_row := HBoxContainer.new(); head_row.add_theme_constant_override("separation", 9)
 	var ikey: String = KINGDOM_ICON.get(kingdom, "")
 	if ikey != "" and Icons.tex(ikey) != null:
@@ -469,14 +472,17 @@ func _render_detail(kingdom: String) -> void:
 	head.add_theme_color_override("font_color", UiKit.GOLD)
 	head.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	head_row.add_child(head)
-	content.add_child(head_row)
+	hbox.add_child(head_row)
 	var cg := str(k.get("controllingGuild", ""))
-	content.add_child(UiKit.dim(("🛡 " + cg) if cg != "" else "Neutro"))
+	hbox.add_child(UiKit.dim(("🛡 " + cg) if cg != "" else "Neutro"))
 	if bool(k.get("isMine", false)):
-		content.add_child(UiKit.dim(Lang.t("Sua guilda: +%d%% XP · +%d%% bronze · +%d%% bônus") % [int(k.get("xpBonus", 0)), int(k.get("bronzeBonus", 0)), int(k.get("exclusiveBonus", 0))]))
+		hbox.add_child(UiKit.dim(Lang.t("Sua guilda: +%d%% XP · +%d%% bronze · +%d%% bônus") % [int(k.get("xpBonus", 0)), int(k.get("bronzeBonus", 0)), int(k.get("exclusiveBonus", 0))]))
 	var lore_text := str(k.get("lore", ""))
 	if lore_text != "":
-		content.add_child(UiKit.dim(lore_text))
+		var lore_lbl := UiKit.dim(lore_text)
+		lore_lbl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		hbox.add_child(lore_lbl)
+	content.add_child(hcard[0])
 	_build_detail(content, kingdom)
 
 func _kingdom_data(kid: String) -> Dictionary:
@@ -795,6 +801,9 @@ func _collect_quest(kingdom: String, quest_id: int, option_id := "", confirmed :
 	if bool(j.get("lunaPending", false)):   # a Luna interrompeu → ajudar ou terminar
 		_show_luna_dialog(kingdom, quest_id)
 		return
+	if j.get("roll") is Dictionary:   # [DADO] teste de atributo (d20) → anima o resultado antes de prosseguir
+		var rbe = j.get("battleEvents")
+		await _show_dice_dialog(j["roll"], rbe is Array and (rbe as Array).size() >= 2)
 	var be = j.get("battleEvents")
 	if be is Array and be.size() >= 2:
 		# encontrou monstro → replay 3D por cima; guarda o RESULTADO p/ o relatório pós-replay [BATTLE_REPORT]
@@ -803,6 +812,81 @@ func _collect_quest(kingdom: String, quest_id: int, option_id := "", confirmed :
 	else:
 		await _open(kingdom)   # refresca a lista; status some aqui → desfecho vai no relatório
 		_show_quest_report(j)
+
+# [DADO] Dialog do teste de atributo (d20): o número ROLA (cicla) e trava no valor REAL, mostra a conta
+# (rolado + mod vs CD), SUCESSO/FALHA e uma explicação. Bloqueante — await até clicar Continuar.
+func _show_dice_dialog(roll: Dictionary, battle_follows: bool) -> void:
+	var rolled := int(roll.get("rolled", 1))
+	var mod := int(roll.get("mod", 0))
+	var dc := int(roll.get("dc", 0))
+	var passed := bool(roll.get("passed", false))
+	var attr := str(roll.get("attr", ""))
+	var overlay := ColorRect.new()
+	overlay.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	overlay.color = Color(0, 0, 0, 0.74)
+	overlay.mouse_filter = Control.MOUSE_FILTER_STOP
+	add_child(overlay)
+	var center := CenterContainer.new()
+	center.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	center.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	overlay.add_child(center)
+	var res := UiKit.card(UiKit.GOLD)
+	var panel: PanelContainer = res[0]
+	var box: VBoxContainer = res[1]
+	panel.custom_minimum_size = Vector2(360, 0)
+	box.add_theme_constant_override("separation", 10)
+	center.add_child(panel)
+	var title := Label.new()
+	title.text = Lang.t("Teste de %s") % attr
+	title.add_theme_font_size_override("font_size", 17); title.add_theme_color_override("font_color", UiKit.GOLD)
+	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	box.add_child(title)
+	var die := Label.new()
+	die.text = "?"
+	die.add_theme_font_size_override("font_size", 56)
+	die.add_theme_color_override("font_color", UiKit.TEXT)
+	die.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	die.custom_minimum_size = Vector2(0, 78)
+	box.add_child(die)
+	var breakdown := Label.new()
+	breakdown.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	breakdown.add_theme_font_size_override("font_size", 14); breakdown.add_theme_color_override("font_color", UiKit.TEXT_DIM)
+	breakdown.visible = false
+	box.add_child(breakdown)
+	var result := Label.new()
+	result.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	result.add_theme_font_size_override("font_size", 22); result.visible = false
+	box.add_child(result)
+	var expl := UiKit.dim("")
+	expl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	expl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	expl.custom_minimum_size = Vector2(320, 0); expl.visible = false
+	box.add_child(expl)
+	var cont := UiKit.action(Lang.t("Continuar"), func() -> void: pass)
+	cont.visible = false
+	box.add_child(cont)
+	# ── rola: cicla números aleatórios, depois trava no valor real ──
+	for i in 16:
+		die.text = str((randi() % 20) + 1)
+		await get_tree().create_timer(0.045).timeout
+	die.text = str(rolled)
+	die.add_theme_color_override("font_color", UiKit.OK if passed else UiKit.ERR)
+	breakdown.text = "%d %+d %s = %d   vs   CD %d" % [rolled, mod, attr, rolled + mod, dc]
+	breakdown.visible = true
+	result.text = Lang.t("SUCESSO") if passed else Lang.t("FALHA")
+	result.add_theme_color_override("font_color", UiKit.OK if passed else UiKit.ERR)
+	result.visible = true
+	if passed:
+		expl.text = Lang.t("Você superou o teste.")
+	elif battle_follows:
+		expl.text = Lang.t("Falhou — o inimigo te alcançou. Prepare-se para lutar!")
+	else:
+		expl.text = Lang.t("Falhou — o desfecho não foi o esperado.")
+	expl.visible = true
+	cont.visible = true
+	await cont.pressed
+	if is_instance_valid(overlay):
+		overlay.queue_free()
 
 # o App chama isto quando o replay 3D termina (volta pro Mundo + mostra o desfecho da quest)
 func _on_battle_over() -> void:

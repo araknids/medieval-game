@@ -243,20 +243,28 @@ func _starter_done_toast(id: String) -> void:
 		"quest": "Você provou seu valor. A guarnição é sua, recruta.",
 	}.get(id, "")
 	if msg != "":
-		UiKit.toast(self, Lang.t(msg), "", 1)
+		# [LEITURA] guia do onboarding = popup que FECHA NO CLIQUE (lê no ritmo do novato), não toast rápido
+		UiKit.confirm(self, Lang.t(msg), Lang.t("Entendi"), func() -> void: pass, false)
 
 func _apply_starter_badges() -> void:
-	var any_open := false
+	var nav_on := {}   # screen -> mostra "!" amarelo de dever no menu lateral
 	for q in _starter_status:
-		if q is Dictionary:
-			var st := str(q.get("state", ""))
-			_set_nav_badge(str(q.get("npcScreen", "")), st == "available")
-			if st == "available":   # "!" no topbar = tem quest NOVA pra pegar (some ao aceitar tudo)
-				any_open = true
-	# [QUEST_BADGE] topbar: AMARELO (dir) = missão normal disponível (starter já entra no missionBadge);
-	# AZUL (esq) = diária disponível.
+		if not (q is Dictionary):
+			continue
+		var st := str(q.get("state", ""))
+		var comp := str(q.get("comp", ""))
+		var scr := str(q.get("npcScreen", ""))
+		if comp == "QUEST":
+			# [DIARIO_QUEST] disponível → "!" no Trabalho (pegar c/ Garrick); aceito → "!" no MUNDO (fazer 1 quest)
+			if st == "available": nav_on["Work"] = true
+			elif st == "accepted": nav_on["World"] = true
+		elif st == "available":
+			nav_on[scr] = true
+	for scr in ["Character", "Temple", "Work", "World"]:
+		_set_nav_badge(scr, bool(nav_on.get(scr, false)))
+	# [QUEST_BADGE] topbar: AMARELO (dir) = missão disponível (starter já entra no missionBadge); AZUL (esq) = diária.
 	if _quest_badge != null and is_instance_valid(_quest_badge):
-		_quest_badge.visible = any_open or _quest_mission_avail
+		_quest_badge.visible = _quest_mission_avail
 	if _quest_badge_daily != null and is_instance_valid(_quest_badge_daily):
 		_quest_badge_daily.visible = _quest_daily_avail
 
@@ -293,10 +301,8 @@ func quest_button_for(scr: String) -> Button:
 		return b
 	if st == "accepted":
 		var comp := str(q.get("comp", ""))
-		if comp == "QUEST":   # completa por EVENTO (fazer 1 missão) → só guia pro Mundo
-			var nav := UiKit.action(Lang.t("Ir ao Mundo"), func() -> void: _open("World"))
-			nav.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-			return nav
+		if comp == "QUEST":   # [DIARIO_QUEST] sem botão no Trabalho — a guia vai pelo "!" amarelo no Mundo + o diário
+			return null
 		if comp == "HEAL":   # [DIARIO_QUEST] completa ao se CURAR no Templo (botão de cura normal) → sem turn-in aqui
 			return null
 		var b := UiKit.action(_accepted_label(comp), func() -> void: await _quest_turn_in(which))   # EQUIP
