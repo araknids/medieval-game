@@ -1274,11 +1274,11 @@ func _dark_tower(host: Node3D, rng: RandomNumberGenerator, base: Vector3) -> voi
 	_smoke(host, base + Vector3(rng.randf_range(-0.6, 0.6), topy + 2.2, 0))
 	_smoke(host, base + Vector3(rng.randf_range(-0.6, 0.6), topy + 3.0, 0.4))
 	# MURALHA de castelo PRETA de frente pra estrada (com portão aceso + ameias) — imponência de fortaleza
-	_castle_front(host, base, r0)
+	_castle_front(host, rng, base, r0)
 
 # Muralha de CASTELO preta de frente pra estrada (com ameias + PORTÃO aceso) — dá imponência de
 # fortaleza à torre. base = centro da torre; faces viradas pro -X (a estrada/câmera). [MAPA_TORRE]
-func _castle_front(host: Node3D, base: Vector3, r0: float) -> void:
+func _castle_front(host: Node3D, rng: RandomNumberGenerator, base: Vector3, r0: float) -> void:
 	var wall_x := base.x - r0 - 0.4       # face frontal (lado da estrada)
 	var wall_h := 10.0
 	var span := 42.0                       # muralha MUITO longa → some na névoa dos 2 lados ("infinita")
