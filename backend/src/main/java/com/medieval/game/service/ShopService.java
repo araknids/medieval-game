@@ -13,6 +13,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Random;
 import java.util.Set;
@@ -184,35 +185,47 @@ public class ShopService {
         int level = w != null ? w.getLevel() : 1;
         Set<Integer> bought = purchaseRepository.purchasedSlots(player, rotationId);
         List<ShopItem> items = new ArrayList<>();
+        Set<String> used = new HashSet<>();   // [LOJA_SEM_DUP] nomes já ofertados nesta rotação (sem repetir item)
         for (int slot = 0; slot < SHOP_SIZE; slot++) {
-            items.add(buildSlot(rng, rotationId, slot, level, bought.contains(slot)));
+            items.add(buildSlot(rng, rotationId, slot, level, bought.contains(slot), used));
         }
         return items;
     }
 
     /**
      * Constrói o item de um slot de forma DETERMINÍSTICA (mesma sequência de rng em preview e compra).
-     * Itens V3: loja vende só Comum/Incomum, nível ≈ nível do jogador ±5, stats escalam com o nível. [ITENS_V3]
+     * Comum/Incomum/Raro/Épico (ver rollRarity), nível ≈ nível do jogador ±5, stats escalam com o nível.
+     * Sem nomes repetidos na rotação (`used`). [ITENS_V3][LOJA_RARIDADE][LOJA_SEM_DUP]
      */
-    private ShopItem buildSlot(Random rng, long rotationId, int slot, int playerLevel, boolean purchased) {
-        int rarity = rollRarity(rng);                 // só 1 (Comum) ou 2 (Incomum)
+    private ShopItem buildSlot(Random rng, long rotationId, int slot, int playerLevel, boolean purchased, Set<String> used) {
+        int rarity = rollRarity(rng);                 // 1 Comum · 2 Incomum · 3 Raro · 4 Épico
         Object[][] pool = poolFor(rarity);
-        Object[] template = pool[rng.nextInt(pool.length)];
+        // [LOJA_SEM_DUP] Escolhe um template cujo NOME ainda não saiu nesta rotação. Determinístico (a re-rolagem
+        // consome rng e é replicada igual no buyItem) → preview == compra. Arma: nome é por SLOT (7 tipos), com bump.
+        Object[] template;
+        ItemType type;
+        String name;
+        int attempts = 0;
+        do {
+            template = pool[rng.nextInt(pool.length)];
+            type = (ItemType) template[1];
+            if (type == ItemType.WEAPON) {
+                // [CLASSES_ARMAS] Oferece todos os 7 tipos de arma; nome por slot, bump determinístico até um inédito.
+                int idx = (int)(((rotationId + slot) % ALL_WEAPON_NAMES.length + ALL_WEAPON_NAMES.length) % ALL_WEAPON_NAMES.length);
+                for (int t = 0; t < ALL_WEAPON_NAMES.length && used.contains(ALL_WEAPON_NAMES[idx]); t++)
+                    idx = (idx + 1) % ALL_WEAPON_NAMES.length;
+                name = ALL_WEAPON_NAMES[idx];
+            } else {
+                name = (String) template[0];
+            }
+            attempts++;
+        } while (used.contains(name) && attempts < pool.length);
+        used.add(name);
         int offset = rng.nextInt(11) - 5;             // -5..+5
         int itemLevel = Math.max(1, playerLevel + offset);
         int[] s = inventoryService.rollItemStats(itemLevel, rarity, rng); // semeado → preview == compra (mantém a sequência do rng)
         int price = (int) template[5];                // mantém o preço curado do template
         long itemId = rotationId * SHOP_SIZE + slot;
-        ItemType type = (ItemType) template[1];
-        // [CLASSES_ARMAS/MERCADOR] A arma do slot vira o que a classe usa (Archer→arco, Mercador→machado/marreta).
-        // Nome determinístico (sem consumir rng) → preview == compra.
-        String name = (String) template[0];
-        if (type == ItemType.WEAPON) {
-            // [CLASSES_ARMAS] Oferece TODOS os tipos de arma (de todas as classes), não só a da classe.
-            // Determinístico (sem consumir rng) → preview == compra.
-            int idx = (int)(((rotationId + slot) % ALL_WEAPON_NAMES.length + ALL_WEAPON_NAMES.length) % ALL_WEAPON_NAMES.length);
-            name = ALL_WEAPON_NAMES[idx];
-        }
         // Arma: stats vêm do PERFIL do tipo (igual ao make()); resto usa o roll. [CLASSES_ARMAS]
         int[] st = (type == ItemType.WEAPON)
                 ? com.medieval.game.enums.WeaponType.fromName(name).stats(itemLevel, rarity)
@@ -239,8 +252,9 @@ public class ShopService {
         Warrior w = warriorRepository.findByPlayer(player).orElse(null);
         int level = w != null ? w.getLevel() : 1;
         ShopItem item = null;
+        Set<String> used = new HashSet<>();   // [LOJA_SEM_DUP] mesma acumulação do getItems → replay idêntico (preview==compra)
         for (int i = 0; i <= slot; i++) {
-            ShopItem si = buildSlot(rng, rotationId, i, level, false);
+            ShopItem si = buildSlot(rng, rotationId, i, level, false, used);
             if (i == slot) item = si;
         }
 
@@ -285,9 +299,14 @@ public class ShopService {
     }
 
     // ── Helpers ──
-    // Itens V3: a loja vende SÓ Comum/Incomum (gear básico de nível). Raro+ só dropa.
+    // [LOJA_RARIDADE] A loja agora oferece Raro 15% e Épico 5% (além de Comum/Incomum). Consome 1 draw
+    // (igual antes) → não desloca a sequência do rng. Faixas: 0–.05 Épico · .05–.20 Raro · .20–.55 Incomum · resto Comum.
     private int rollRarity(Random rng) {
-        return rng.nextDouble() < 0.35 ? 2 : 1; // 35% Incomum, 65% Comum
+        double r = rng.nextDouble();
+        if (r < 0.05) return 4;   // 5% Épico
+        if (r < 0.20) return 3;   // 15% Raro
+        if (r < 0.55) return 2;   // 35% Incomum
+        return 1;                 // 45% Comum
     }
 
     private Object[][] poolFor(int rarity) {
