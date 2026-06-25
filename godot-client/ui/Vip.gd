@@ -108,7 +108,7 @@ func _vip_product_card(is_vip: bool, ss: int) -> PanelContainer:
 	# benefícios (com ícone PixelLab pelo emoji-líder)
 	box.add_child(UiKit.icon_text("🎒 Mochila: 50 slots (em vez de 30)", 13, UiKit.TEXT, 18))
 	box.add_child(UiKit.icon_text("❤ Cura grátis no Templo (CD 10 min)", 13, UiKit.TEXT, 18))
-	box.add_child(UiKit.icon_text("⚔ Arena: 10 lutas/dia (em vez de 5)", 13, UiKit.TEXT, 18))
+	box.add_child(UiKit.icon_text("⚔ Arena: 20 lutas a cada 6h (em vez de 10)", 13, UiKit.TEXT, 18))
 	box.add_child(UiKit.icon_text("🙏 2 bênçãos simultâneas", 13, UiKit.TEXT, 18))
 	box.add_child(UiKit.spacer(4))
 	var can_buy := ss >= VIP_COST and not busy

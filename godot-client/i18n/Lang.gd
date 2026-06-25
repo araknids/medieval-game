@@ -44,7 +44,7 @@ const EN := {
 	"Você superou o teste.": "You passed the check.",
 	"Falhou — o inimigo te alcançou. Prepare-se para lutar!": "Failed — the enemy caught you. Get ready to fight!",
 	"Falhou — o desfecho não foi o esperado.": "Failed — the outcome wasn't what you hoped.",
-	"Padre Anselmo espera: use a cura (botão no topo) para cumprir seu dever — ou se já estiver são, ele já está cumprido.": "Father Anselmo waits: use the heal (button up top) to fulfill your duty — or if you're already whole, it's done.",
+	"Padre Anselmo: cure-se no altar — toque a cura (botão no topo). Curo os recrutas de graça até o nível 10. É assim que cumpre seu dever.": "Father Anselmo: heal at the altar — tap the heal (button up top). I tend recruits for free until level 10. That's how you fulfill your duty.",
 	"Tarefas que renovam a cada ciclo. Só uma ativa por vez — resolva antes de pegar outra.": "Tasks that renew each cycle. Only one active at a time — resolve it before taking another.",
 	"Nenhuma diária disponível agora.": "No daily quests available right now.",
 	"Feita — volta no próximo ciclo": "Done — returns next cycle",

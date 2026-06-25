@@ -181,6 +181,15 @@ public class StarterQuestService {
         }
     }
 
+    /** [DIARIO_QUEST] O dever HEAL está aceito e ainda não concluído (pré cumprido)? Usado pelo Templo p/
+     *  liberar o clique de cura mesmo com HP cheio (a bênção do Padre completa o dever). */
+    public boolean isHealDutyPending(Player player) {
+        for (Duty d : Duty.values())
+            if (d.comp == Comp.HEAL && isAccepted(player, d) && !isDone(player, d) && prereqDone(player, d))
+                return true;
+        return false;
+    }
+
     /** Concede XP + gold e marca o dever como cumprido. (addExperience salva o warrior, incl. a cura do HEAL.) */
     private void grant(Player player, Warrior warrior, Duty d) {
         warriorService.addExperience(warrior, d.xp);

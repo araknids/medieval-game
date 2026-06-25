@@ -1016,7 +1016,9 @@ func update_topbar(w: Dictionary) -> void:
 	var hp := int(w.get("hpPercent", w.get("currentHp", 100)))
 	_hp_bar.value = clampi(hp, 0, 100)
 	if _heal_btn != null:
-		_heal_btn.visible = hp < 100   # [HEAL] botão de cura só aparece quando ferido
+		# [HEAL] aparece quando ferido; E quando o dever HEAL está pendente (mesmo são) → o recruta acha
+		# a cura e clica ele mesmo (o backend conclui o dever mesmo com HP cheio). [DIARIO_QUEST]
+		_heal_btn.visible = hp < 100 or heal_duty_pending()
 	if _hp_lbl != null:
 		var maxhp := int(w.get("totalHealth", 0))   # HP máximo (base+bônus); atual = max × %/100
 		if maxhp > 0:

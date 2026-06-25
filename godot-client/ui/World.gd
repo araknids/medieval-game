@@ -216,7 +216,9 @@ func _open(kingdom: String) -> void:
 	# dispara tudo em PARALELO (independentes); inclui /api/warrior p/ o header refletir o gasto/XP na hora
 	# (sem isso o topbar só atualizava no próximo _refresh → parecia "demorar" após quest/zona).
 	# inclui /active-quests p/ manter o estado global fresco após coletar/iniciar (gating + banner)
-	var paths := ["/api/warrior", "/api/world/%s/quests" % kingdom, "/api/world/%s/quests/active" % kingdom, "/api/zones/current", "/api/world/active-quests"]
+	# [QUEST_BADGE] inclui /api/world p/ refrescar a LISTA de reinos (questAvailable) → markers de daily do
+	# mapa ficam frescos (o "!" azul some quando você faz as 2 quests do reino).
+	var paths := ["/api/warrior", "/api/world/%s/quests" % kingdom, "/api/world/%s/quests/active" % kingdom, "/api/zones/current", "/api/world/active-quests", "/api/world"]
 	var rs = await Api.batch_get(paths)
 	var rw = rs[0]
 	if rw.get("ok") and rw.get("json") is Dictionary:
@@ -230,6 +232,9 @@ func _open(kingdom: String) -> void:
 	zone_session = rz["json"] if (rz.get("ok") and rz.get("json") is Dictionary) else {}
 	var rga = rs[4]
 	global_active = rga["json"] if (rga.get("ok") and rga.get("json") is Array) else []
+	var rk = rs[5]
+	if rk.get("ok") and rk.get("json") is Array:
+		kingdoms = rk["json"]
 	_render()
 
 # "tem tarefa ativa pra coletar" → bloqueia começar outra (espelha o guard GLOBAL do backend).

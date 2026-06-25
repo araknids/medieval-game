@@ -90,7 +90,7 @@ func _render_priest_header() -> void:
 	card_box.add_child(head)
 	# [DIARIO_QUEST] dever HEAL pendente → aviso pra usar a cura (botão no topo) e cumprir o dever
 	if Shell.current != null and Shell.current.heal_duty_pending():
-		var note := UiKit.dim(Lang.t("Padre Anselmo espera: use a cura (botão no topo) para cumprir seu dever — ou se já estiver são, ele já está cumprido."))
+		var note := UiKit.dim(Lang.t("Padre Anselmo: cure-se no altar — toque a cura (botão no topo). Curo os recrutas de graça até o nível 10. É assim que cumpre seu dever."))
 		note.add_theme_color_override("font_color", UiKit.GOLD)
 		note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		card_box.add_child(note)
