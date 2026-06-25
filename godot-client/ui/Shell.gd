@@ -89,8 +89,8 @@ var _quest_btn: Button
 var _quest_badge: Control          # [QUEST_BADGE] AMARELO (direita) = missão normal disponível
 var _quest_badge_daily: Control    # [QUEST_BADGE] AZUL (esquerda) = diária disponível
 var _starter_status: Array = []
-var _daily_badge := false          # [QUEST_BADGE] vêm do /api/quests/journal
-var _mission_badge := false
+var _quest_daily_avail := false    # [QUEST_BADGE] vêm do /api/quests/journal (diária / missão disponível)
+var _quest_mission_avail := false
 var _nav_badges := {}     # screen -> badge Control no item de nav do NPC
 var _offered := {}        # screen -> já ofereci a quest nesta sessão (não repopa a cada visita)
 
@@ -202,10 +202,10 @@ func _refresh_starter() -> void:
 		return
 	var jr = rs[1]   # [QUEST_BADGE] badges separados: azul (diária) / amarelo (missão)
 	if jr.get("ok") and jr.get("json") is Dictionary:
-		_daily_badge = bool(jr["json"].get("dailyBadge", false))
-		_mission_badge = bool(jr["json"].get("missionBadge", false))
+		_quest_daily_avail = bool(jr["json"].get("dailyBadge", false))
+		_quest_mission_avail = bool(jr["json"].get("missionBadge", false))
 	else:
-		_daily_badge = false; _mission_badge = false
+		_quest_daily_avail = false; _quest_mission_avail = false
 	var was_done := {}   # [ONBOARDING] estado anterior (id → done) p/ detectar transição → toast direcional
 	for q in _starter_status:
 		if q is Dictionary:
@@ -256,9 +256,9 @@ func _apply_starter_badges() -> void:
 	# [QUEST_BADGE] topbar: AMARELO (dir) = missão normal disponível (starter já entra no missionBadge);
 	# AZUL (esq) = diária disponível.
 	if _quest_badge != null and is_instance_valid(_quest_badge):
-		_quest_badge.visible = any_open or _mission_badge
+		_quest_badge.visible = any_open or _quest_mission_avail
 	if _quest_badge_daily != null and is_instance_valid(_quest_badge_daily):
-		_quest_badge_daily.visible = _daily_badge
+		_quest_badge_daily.visible = _quest_daily_avail
 
 func _set_nav_badge(scr: String, on: bool) -> void:
 	if scr == "":
