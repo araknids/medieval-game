@@ -100,11 +100,10 @@ func _render() -> void:
 				i += 1
 				content.add_child(_rank_row(base + i, r, str(r.get("warriorName", "")) == my_name))
 
-# bloqueado de lutar? (KO / sem estamina / limite diário)
+# bloqueado de lutar? (KO / limite da janela de 6h) — [ARENA_JANELA] arena não usa mais estamina
 func _blocked() -> bool:
-	var stamina := int(w.get("stamina", 100))
-	return bool(w.get("isKnockedOut", false)) or stamina < STAMINA_COST \
-		or int(w.get("arenaFightsToday", 0)) >= int(w.get("arenaFightLimit", 5))
+	return bool(w.get("isKnockedOut", false)) \
+		or int(w.get("arenaFightsToday", 0)) >= int(w.get("arenaFightLimit", 10))
 
 # ── [ARENA_ESCOLHA] Abre o POPUP de escolha (re-sorteia se ainda não tem oponentes) ──
 func _open_picker() -> void:
