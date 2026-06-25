@@ -284,7 +284,7 @@ func _water(host: Node3D, center: Vector3, size: Vector2) -> void:
 
 # CAMINHO de ladrilho reto no eixo X: faixa de largura 2*half_w, comprimento 2*half_len.
 # Vai de uma ponta à outra (some na distância) — os lutadores entram pelas pontas.
-func _cobble_path(host: Node3D, rng: RandomNumberGenerator, half_len: float, half_w: float) -> void:
+func _cobble_path(host: Node3D, rng: RandomNumberGenerator, half_len: float, half_w: float, z_center := 0.0) -> void:
 	var tiles := ["RockPath_Square_Wide", "RockPath_Square_Thin", "RockPath_Round_Wide"]
 	var step := 1.6
 	var x := -half_len
@@ -292,7 +292,7 @@ func _cobble_path(host: Node3D, rng: RandomNumberGenerator, half_len: float, hal
 		var z := -half_w
 		while z <= half_w:
 			var t: String = tiles[rng.randi() % tiles.size()]
-			var pos := Vector3(x + rng.randf_range(-0.25, 0.25), 0.03, z + rng.randf_range(-0.25, 0.25))
+			var pos := Vector3(x + rng.randf_range(-0.25, 0.25), 0.03, z_center + z + rng.randf_range(-0.25, 0.25))
 			_place(host, rng, NAT + t + ".gltf", pos, rng.randf_range(0, 360), rng.randf_range(1.0, 1.4))
 			z += step
 		x += step
@@ -1056,7 +1056,7 @@ func cursed_tower_lighting(host: Node3D) -> void:
 # adensam perto da torre. Mata MORTA só no arco do fundo/esquerda (deixa +X p/ a torre e
 # +Z aberto p/ a câmera).
 func cursed_tower(host: Node3D, rng: RandomNumberGenerator, combat_r: float) -> void:
-	var TOWER := Vector3(18.0, 0, 0.0)              # torre à DIREITA (+X), ALINHADA à estrada (z=0) → a trilha leva até ela
+	var TOWER := Vector3(18.0, 0, 2.0)              # fortaleza à DIREITA (+X), na linha da estrada (z≈2) → a estrada leva até o portão
 	_ground(host, Color(0.15, 0.13, 0.11), 44.0)    # solo de terra queimada/cinza
 	# colisão do chão (ragdoll da batalha não atravessa o piso)
 	var fb := StaticBody3D.new()
@@ -1064,18 +1064,21 @@ func cursed_tower(host: Node3D, rng: RandomNumberGenerator, combat_r: float) -> 
 	fc.shape = WorldBoundaryShape3D.new()
 	fb.add_child(fc)
 	host.add_child(fb)
-	# ESTRADA de pedra LARGA no eixo X → cobre tanto o centro da batalha (z=0) quanto o duelo do
-	# menu (z=4), pra a briga acontecer SOBRE a pedra, e segue reto até a torre. [MAPA_TORRE]
-	_cobble_path(host, rng, 28.0, 4.5)
+	# ESTRADA de pedra LARGA no eixo X, CENTRADA em z≈2 → cobre o centro da batalha (z=0) E o duelo
+	# do menu (z=4), pra a briga ficar NO MEIO da estrada, e segue reto até o portão. [MAPA_TORRE]
+	_cobble_path(host, rng, 28.0, 5.5, 2.0)
 	# MANCHAS escuras de queimado/sangue no chão (fora do combate)
 	for i in 7:
 		_flat(host, Color(0.06, 0.05, 0.05), _scatter(rng, combat_r + 1.0, 22.0) + Vector3(0, 0.06, 0), Vector2(rng.randf_range(2.0, 4.0), rng.randf_range(2.0, 4.0)))
-	# MATA MORTA em 3 camadas, só no arco do fundo/esquerda (pula +X=torre e +Z=câmera)
+	# MATA MORTA nos FLANCOS (lados +Z e -Z), deixando LIVRE o corredor da estrada (câmera -X → fortaleza +X)
 	var dead := ["DeadTree_1", "DeadTree_2", "DeadTree_3"]
 	var mix := ["DeadTree_1", "DeadTree_2", "DeadTree_3", "Pine_1", "Pine_2", "Pine_3"]
-	_tree_arc(host, rng, dead, 13.0, 17.0, 16, deg_to_rad(115), deg_to_rad(325), 0.9, 1.5)
-	_tree_arc(host, rng, mix, 20.0, 27.0, 30, deg_to_rad(100), deg_to_rad(340), 1.1, 1.9)
-	_tree_arc(host, rng, mix, 29.0, 37.0, 42, deg_to_rad(88), deg_to_rad(352), 1.3, 2.2)
+	_tree_arc(host, rng, dead, 12.0, 17.0, 9, deg_to_rad(40), deg_to_rad(140), 0.9, 1.5)    # flanco +Z
+	_tree_arc(host, rng, dead, 12.0, 17.0, 9, deg_to_rad(220), deg_to_rad(320), 0.9, 1.5)   # flanco -Z
+	_tree_arc(host, rng, mix, 19.0, 27.0, 16, deg_to_rad(28), deg_to_rad(152), 1.1, 1.9)
+	_tree_arc(host, rng, mix, 19.0, 27.0, 16, deg_to_rad(208), deg_to_rad(332), 1.1, 1.9)
+	_tree_arc(host, rng, mix, 29.0, 37.0, 24, deg_to_rad(18), deg_to_rad(162), 1.3, 2.2)
+	_tree_arc(host, rng, mix, 29.0, 37.0, 24, deg_to_rad(198), deg_to_rad(342), 1.3, 2.2)
 	# A TORRE amaldiçoada em chamas (à direita)
 	_dark_tower(host, rng, TOWER)
 	# ESCOMBROS de batalha — viés p/ a direita (lado +X, "dos inimigos")
@@ -1093,9 +1096,9 @@ func cursed_tower(host: Node3D, rng: RandomNumberGenerator, combat_r: float) -> 
 		var sa := lerpf(deg_to_rad(15), deg_to_rad(345), float(i) / 9.0) + rng.randf_range(-0.12, 0.12)
 		var sr := rng.randf_range(combat_r + 0.6, combat_r + 5.0)
 		_fallen_soldier(host, Vector3(cos(sa) * sr, 0, sin(sa) * sr), rng)
-	# FERA MORTA (como o bicho no canto da capa) — perto da torre
-	_dead_beast(host, Vector3(11.0, 0, 4.8), rng, 1.0)
-	_dead_beast(host, Vector3(15.0, 0, -6.5), rng, 0.7)
+	# FERA MORTA (como o bicho no canto da capa) — perto da fortaleza
+	_dead_beast(host, Vector3(11.0, 0, 5.5), rng, 1.0)
+	_dead_beast(host, Vector3(14.5, 0, -3.5), rng, 0.7)
 	# BRASEIROS esparsos (fogo de acampamento/batalha) iluminam os lutadores
 	for i in 3:
 		var a := lerpf(deg_to_rad(120), deg_to_rad(300), float(i) / 2.0)
@@ -1108,7 +1111,7 @@ func cursed_tower(host: Node3D, rng: RandomNumberGenerator, combat_r: float) -> 
 	for i in 30:
 		_place(host, rng, NAT + "Rock_Medium_%d.gltf" % (1 + i % 3), _scatter(rng, combat_r + 2.0, 34.0), rng.randf_range(0, 360), rng.randf_range(0.5, 1.1))
 	# BRASAS/cinzas subindo da torre em chamas (vende o incêndio)
-	_embers(host, TOWER + Vector3(0, 12.0, 0), 50)
+	_embers(host, TOWER + Vector3(0, 18.0, 0), 56)
 
 # Anel de árvores num ARCO (a0..a1 em rad) — como _tree_ring mas só num setor, p/ deixar
 # lados abertos (a torre em +X e a câmera em +Z).
@@ -1148,9 +1151,9 @@ func _pivot(host: Node3D, pos: Vector3, rot: Vector3) -> Node3D:
 func _dark_tower(host: Node3D, rng: RandomNumberGenerator, base: Vector3) -> void:
 	var STONE := Color(0.085, 0.08, 0.092)              # pedra quase preta (silhueta)
 	var sides := 8                                       # octógono → silhueta arredondada (não cubo)
-	var levels := 9
-	var seg_h := 2.5
-	var r0 := 3.8
+	var levels := 10                                     # TORRE ALTA/imponente
+	var seg_h := 2.6
+	var r0 := 4.3
 	for lv in levels:
 		var t := float(lv) / float(levels)
 		var r := r0 * (1.0 - t * 0.5)                    # afina pra cima (gótico)
@@ -1190,6 +1193,37 @@ func _dark_tower(host: Node3D, rng: RandomNumberGenerator, base: Vector3) -> voi
 	_tower_fire(host, base + Vector3(0, topy + 0.2, 0))
 	_smoke(host, base + Vector3(rng.randf_range(-0.6, 0.6), topy + 2.0, 0))
 	_smoke(host, base + Vector3(rng.randf_range(-0.6, 0.6), topy + 2.8, 0.4))
+	# MURALHA de castelo PRETA de frente pra estrada (com portão aceso + ameias) — imponência de fortaleza
+	_castle_front(host, base, r0)
+
+# Muralha de CASTELO preta de frente pra estrada (com ameias + PORTÃO aceso) — dá imponência de
+# fortaleza à torre. base = centro da torre; faces viradas pro -X (a estrada/câmera). [MAPA_TORRE]
+func _castle_front(host: Node3D, base: Vector3, r0: float) -> void:
+	var STONE := Color(0.075, 0.07, 0.085)
+	var wall_x := base.x - r0 - 0.4       # face frontal (lado da estrada)
+	var wall_h := 9.5
+	var span := 8.5                        # meia-largura da muralha (em Z)
+	var gate := 1.9                        # meio-vão do portão
+	# painéis esquerdo/direito (caixões de pedra), deixando o vão do portão no meio
+	for sidez in [-1.0, 1.0]:
+		var z0 := base.z + sidez * gate
+		var z1 := base.z + sidez * span
+		_box3(host, Vector3(1.7, wall_h, absf(z1 - z0)), Vector3(wall_x, wall_h * 0.5, (z0 + z1) * 0.5), STONE, Vector3.ZERO, 1.0)
+	# torres-pilar do portão (mais altas, enquadram o vão)
+	for sidez in [-1.0, 1.0]:
+		_box3(host, Vector3(2.0, wall_h + 2.2, 1.1), Vector3(wall_x, (wall_h + 2.2) * 0.5, base.z + sidez * gate), STONE.lightened(0.03), Vector3.ZERO, 1.0)
+	# verga (arco) do portão + BRASA no vão (a fortaleza arde por dentro)
+	_box3(host, Vector3(1.8, wall_h * 0.3, gate * 2.0), Vector3(wall_x, wall_h * 0.82, base.z), STONE, Vector3.ZERO, 1.0)
+	_box3(host, Vector3(0.4, wall_h * 0.55, gate * 1.5), Vector3(wall_x + 0.25, wall_h * 0.34, base.z), Color(1.0, 0.42, 0.12), Vector3.ZERO, 0.6, 0.0, Color(1.0, 0.38, 0.06), 3.0)
+	var gl := OmniLight3D.new()           # luz quente saindo do portão
+	gl.light_color = Color(1.0, 0.5, 0.2); gl.light_energy = 3.2; gl.omni_range = 11.0
+	host.add_child(gl); gl.position = Vector3(wall_x + 1.2, 3.2, base.z)
+	# AMEIAS (merlons) no topo da muralha — silhueta de castelo
+	var z := base.z - span
+	while z <= base.z + span + 0.01:
+		if absf(z - base.z) > gate * 0.8:    # pula o vão do portão
+			_box3(host, Vector3(0.9, 1.1, 0.8), Vector3(wall_x, wall_h + 0.55, z), STONE.lightened(0.05), Vector3.ZERO, 1.0)
+		z += 1.5
 
 # Segmento de muralha (caixa) com a FACE plana virada pra FORA do centro (look_at) — monta o
 # anel octogonal da torre. [MAPA_TORRE]
