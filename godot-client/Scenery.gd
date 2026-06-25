@@ -18,8 +18,8 @@ var grimdark := true
 const GRIMDARK_SHADER := """
 shader_type canvas_item;
 uniform sampler2D screen_tex : hint_screen_texture, filter_linear_mipmap;
-uniform float vignette = 0.5;      // quão escuros ficam os cantos
-uniform float vradius = 0.55;      // onde a vinheta começa (0=centro, 1=canto)
+uniform float vignette = 0.28;     // [NITIDEZ] cantos bem mais sutis (era 0.5 → escuro estranho em volta)
+uniform float vradius = 0.72;      // [NITIDEZ] começa mais pra fora → só as PONTAS escurecem (era 0.55)
 uniform float saturation = 0.85;   // <1 dessatura (grimdark = cor contida)
 uniform float contrast = 1.08;     // sombras mais fundas
 uniform vec3  tint = vec3(1.03, 0.99, 0.92);  // leve sépia/quente
@@ -596,8 +596,8 @@ func dungeon(host: Node3D, rng: RandomNumberGenerator, _combat_r: float) -> void
 # ── cenário: ARENA de duelo — coliseu de pedra (kit Village), de dia ─────────────
 func arena(host: Node3D, rng: RandomNumberGenerator, _combat_r: float) -> void:
 	_ground(host, Color(0.32, 0.35, 0.23), 52.0)        # campo gramado em volta (largo p/ a mata pousar)
-	_disc(host, Color(0.58, 0.49, 0.33), 14.5, 0.0)     # terra batida sob as muralhas (plataforma do coliseu)
-	_disc(host, Color(0.72, 0.61, 0.41), 10.0, 0.02)    # pit de AREIA (clareira de combate)
+	_disc(host, Color(0.40, 0.34, 0.24), 14.5, 0.0)     # [NITIDEZ] terra batida (era 0.58 → estourava no dia)
+	_disc(host, Color(0.50, 0.43, 0.30), 10.0, 0.02)    # [NITIDEZ] pit de AREIA (era 0.72 → chão branco)
 	# colisão do chão
 	var fb := StaticBody3D.new()
 	var fc := CollisionShape3D.new()
