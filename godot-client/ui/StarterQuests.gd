@@ -16,7 +16,7 @@ var wallet: Label
 var journal: Dictionary = {}
 var warrior: Dictionary = {}
 var busy := false
-var tab := "daily"   # "daily" | "missions"
+var tab := "missions"   # "daily" | "missions" — abre nas Missões (principais) primeiro
 
 const TABS := [["daily", "Diárias"], ["missions", "Missões"]]
 
