@@ -48,6 +48,14 @@ const POS_L := Vector3(-1.2, 0.0, 4.0)
 const POS_R := Vector3(1.2, 0.0, 4.0)
 const SCALE := 1.2
 
+# [MAPA_TORRE] CERCO INFINITO (só no cursed_tower): inimigos sombrios saem do PORTÃO, caminham até o
+# herói, morrem em 5-10 golpes e AFUNDAM no chão (sem acumular). O herói nunca morre.
+const GATE_SPAWN := Vector3(11.6, 0.0, 2.0)   # boca do portão da fortaleza
+const SIEGE_WALK_SPEED := 2.7
+var siege_mode := false                        # ligado pelo MenuFx
+var _siege_timer := 0.0
+var _siege_respawn := 0.0
+
 var _fighters: Array = []   # [{node, anim}]
 var _atk := 0
 var _timer := 1.0
@@ -80,7 +88,11 @@ func setup() -> void:
 		_spawn(POS_L, 90.0, str(left["kind"]), int(left["rarity"]), left)
 	else:                                # deslogado / falha → aleatório
 		_spawn(POS_L, 90.0, _rand_kind(), _rng.randi_range(1, 5))
-	_spawn(POS_R, -90.0, _rand_kind(), _rng.randi_range(1, 5))       # oponente sempre aleatório
+	if siege_mode:                       # [MAPA_TORRE] cerco: 1º inimigo sai do portão (loop infinito)
+		_siege_respawn = 0.0
+		_spawn_siege_enemy()
+	else:
+		_spawn(POS_R, -90.0, _rand_kind(), _rng.randi_range(1, 5))   # oponente sempre aleatório
 
 # Lê /api/warrior (gênero) + /api/inventory (equip REAL) → o herói do fundo usa EXATAMENTE o seu gear.
 # Devolve {kind, rarity, inv, gender} (inv = lista do inventário p/ vestir por item) ou {} se falhar.
@@ -104,6 +116,159 @@ func _player_loadout() -> Dictionary:
 
 func _rand_kind() -> String:
 	return MELEE_KINDS[_rng.randi() % MELEE_KINDS.size()]
+
+# ── [MAPA_TORRE] CERCO INFINITO ──────────────────────────────────────────────────
+# Inimigo SOMBRIO (tema knight escurecido) sai do PORTÃO e caminha até o herói. (look_override
+# força o tema; _tint_dark escurece pra "sombra da fortaleza".)
+func _spawn_siege_enemy() -> void:
+	var gender := "female" if _rng.randi() % 5 == 0 else "male"
+	var rar := _rng.randi_range(1, 2)
+	var look := {"theme": "knight", "gender": gender, "rarity": rar, "seed": "siege_%d" % _rng.randi()}
+	var before := _fighters.size()
+	_spawn(GATE_SPAWN, -90.0, _rand_kind(), rar, {}, look)   # sai do portão, encara -X (o herói)
+	if _fighters.size() <= before:                           # rig não carregou → não corrompe o herói
+		return
+	var e: Dictionary = _fighters[_fighters.size() - 1]
+	e["sstate"] = "walk"
+	e["shits"] = 0
+	e["skill_at"] = _rng.randi_range(5, 10)
+	_tint_dark(e["node"])
+
+# Máquina de estados do cerco: walk (caminha do portão) → fight (apanha do herói) → dying (morre + afunda).
+func _siege_step(dt: float) -> void:
+	if _fighters.is_empty() or not is_instance_valid(_fighters[0].get("node")):
+		return
+	if _fighters.size() < 2:                 # entre inimigos: espera o próximo sair do portão
+		_siege_respawn -= dt
+		if _siege_respawn <= 0.0:
+			_siege_respawn = 1.0             # piso (evita spam por frame se o spawn falhar)
+			_spawn_siege_enemy()
+		return
+	var hero: Dictionary = _fighters[0]
+	var e: Dictionary = _fighters[1]
+	var en: Node3D = e["node"]
+	if not is_instance_valid(en):
+		return
+	var st: String = str(e.get("sstate", "walk"))
+	if st == "walk":
+		en.position = en.position.move_toward(POS_R, SIEGE_WALK_SPEED * dt)
+		var ap_e: AnimationPlayer = e["anim"]
+		if ap_e and ap_e.current_animation != WALK:
+			ap_e.play(WALK, BLEND)
+		if en.position.distance_to(POS_R) < 0.15:
+			en.position = POS_R
+			e["sstate"] = "fight"
+			_siege_timer = 0.5
+			if ap_e:
+				ap_e.play(IDLE, BLEND)
+	elif st == "fight":
+		_siege_timer -= dt
+		if _siege_timer <= 0.0:
+			_siege_timer = _rng.randf_range(0.55, 0.9)
+			_siege_hero_strike(hero, e)
+			e["shits"] = int(e.get("shits", 0)) + 1
+			if int(e["shits"]) >= int(e.get("skill_at", 7)):
+				e["sstate"] = "dying"
+				_siege_kill(e)
+			elif _rng.randf() < 0.3:
+				_siege_enemy_jab(e, hero)
+
+# Herói golpeia o inimigo (sempre): investe + ataque (ou tiro se arco) → inimigo reage + sangra.
+func _siege_hero_strike(hero: Dictionary, e: Dictionary) -> void:
+	var ap_h: AnimationPlayer = hero["anim"]
+	var hn: Node3D = hero["node"]
+	var en: Node3D = e["node"]
+	if not (is_instance_valid(hn) and is_instance_valid(en)):
+		return
+	var ranged: bool = hero.get("ranged", false)
+	if ap_h:
+		var clip: String = SHOOT if ranged else ATTACKS[_rng.randi() % ATTACKS.size()]
+		var an := ap_h.get_animation(clip)
+		if an:
+			an.loop_mode = Animation.LOOP_NONE
+		ap_h.play(clip, BLEND)
+	var dirx := signf(en.position.x - hn.position.x)
+	if ranged:
+		_arrow(hn, en)
+	else:
+		var home := hn.position
+		var tw := hn.create_tween()
+		tw.tween_property(hn, "position", home + Vector3(dirx * 0.38, 0, 0), 0.16).set_trans(Tween.TRANS_SINE)
+		tw.tween_interval(0.10)
+		tw.tween_property(hn, "position", home, 0.30).set_trans(Tween.TRANS_SINE)
+	var ap_e: AnimationPlayer = e["anim"]
+	get_tree().create_timer(0.26).timeout.connect(func() -> void:
+		if not is_instance_valid(en) or str(e.get("sstate", "")) == "dying":
+			return   # se já morreu nesse golpe, deixa a animação de morte tocar (não reage)
+		if ap_e:
+			var react: String = HURTS[_rng.randi() % HURTS.size()]
+			var h := ap_e.get_animation(react)
+			if h:
+				h.loop_mode = Animation.LOOP_NONE
+			ap_e.play(react, BLEND)
+		_blood(en.global_position + Vector3(0, 1.15, 0), Vector3(dirx, 0, 0)))
+
+# Inimigo dá um bote no herói de vez em quando — herói reage, mas NUNCA morre (sem sangue forte).
+func _siege_enemy_jab(e: Dictionary, hero: Dictionary) -> void:
+	var ap_e: AnimationPlayer = e["anim"]
+	var ap_h: AnimationPlayer = hero["anim"]
+	var en: Node3D = e["node"]
+	var hn: Node3D = hero["node"]
+	if not (is_instance_valid(en) and is_instance_valid(hn)):
+		return
+	if ap_e:
+		var clip: String = ATTACKS[_rng.randi() % ATTACKS.size()]
+		var an := ap_e.get_animation(clip)
+		if an:
+			an.loop_mode = Animation.LOOP_NONE
+		ap_e.play(clip, BLEND)
+	get_tree().create_timer(0.26).timeout.connect(func() -> void:
+		if not is_instance_valid(hn):
+			return
+		if ap_h:
+			var react: String = HURTS[_rng.randi() % HURTS.size()]
+			var h := ap_h.get_animation(react)
+			if h:
+				h.loop_mode = Animation.LOOP_NONE
+			ap_h.play(react, BLEND))
+
+# Inimigo MORRE: sai do alvo, toca Death (congela deitado), sangra e AFUNDA no chão (desvanece). Marca
+# `dodging=true` p/ o animation_finished do _spawn NÃO levantar o corpo de volta pro idle.
+func _siege_kill(e: Dictionary) -> void:
+	var en: Node3D = e["node"]
+	var ap: AnimationPlayer = e["anim"]
+	e["dodging"] = true
+	_fighters.erase(e)
+	_siege_respawn = 3.0
+	if not is_instance_valid(en):
+		return
+	if ap:
+		var d := ap.get_animation(DEATH)
+		if d:
+			d.loop_mode = Animation.LOOP_NONE
+		ap.play(DEATH, BLEND)
+	_blood(en.global_position + Vector3(0, 1.1, 0), Vector3(-1, 0, 0))
+	var node := en
+	get_tree().create_timer(2.6).timeout.connect(func() -> void:
+		if is_instance_valid(node):
+			var tw := node.create_tween()
+			tw.tween_property(node, "position:y", node.position.y - 1.5, 1.4)   # afunda no chão amaldiçoado
+			tw.tween_callback(node.queue_free))
+
+# Escurece todas as malhas visíveis de um boneco (soldado SOMBRIO da fortaleza). Duplica o material
+# por instância (sem vazar pros outros).
+func _tint_dark(node: Node3D) -> void:
+	var meshes: Array = []
+	_collect_meshes(node, meshes)
+	for mi: MeshInstance3D in meshes:
+		if not mi.visible or mi.mesh == null:
+			continue
+		for s in mi.mesh.get_surface_count():
+			var mat = mi.get_active_material(s)
+			if mat is BaseMaterial3D:
+				var m: BaseMaterial3D = mat.duplicate()
+				m.albedo_color = Color(0.42, 0.42, 0.5)   # sombra da fortaleza
+				mi.set_surface_override_material(s, m)
 
 # [MAPA_TORRE] Corpos TOMBADOS em FULL-PLATE (Quaternius, tema knight) — decoração SÓ do fundo do menu
 # (não entra na batalha real). Chamado pelo MenuFx no cenário cursed_tower. Pose de morte (Death01)
@@ -149,9 +314,9 @@ func _rand_look() -> Dictionary:
 		"seed":   "menu_%d" % _rng.randi(),   # varia a peça-variante (elmo/ombreira/peitoral)
 	}
 
-func _spawn(pos: Vector3, yaw_deg: float, weapon_kind: String, weapon_rarity: int, player := {}) -> void:
+func _spawn(pos: Vector3, yaw_deg: float, weapon_kind: String, weapon_rarity: int, player := {}, look_override := {}) -> void:
 	var is_player: bool = player.has("inv")            # ESQUERDA logada = você (gear real); senão aleatório
-	var look := player if is_player else _rand_look()
+	var look: Dictionary = player if is_player else (look_override if not look_override.is_empty() else _rand_look())
 	var gender := str(look.get("gender", "male"))
 	var node := (CHAR_FEMALE if gender == "female" else CHAR).instantiate()
 	if node == null:
@@ -274,6 +439,9 @@ func _collect_meshes(n: Node, out: Array) -> void:
 		_collect_meshes(c, out)
 
 func _process(dt: float) -> void:
+	if siege_mode:                      # [MAPA_TORRE] cerco infinito tem sua própria máquina de estados
+		_siege_step(dt)
+		return
 	if _fighters.size() < 2:
 		return
 	var r := _ranged_idx()              # >=0 → arco×melee (kiting); -1 → duelo melee normal
