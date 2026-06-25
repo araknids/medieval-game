@@ -2630,12 +2630,12 @@ async function fightTower(skipHp) {
   if (data.error) { showMessage(data.error, true); return; }
   await loadWarrior();
   await loadTower();             // atualiza a tela atrás do modal (próximo andar OU lobby se perdeu)
-  if (data.arkaChoicePending) { showArkaChoiceModal(data); return; } // [TORRE_NARRATIVA] o topo
+  if (data.aravokChoicePending) { showAravokChoiceModal(data); return; } // [TORRE_NARRATIVA] o topo
   showTowerFightModal(data);     // resultado no modal padrão (igual zonas)
 }
 
 // [TORRE_NARRATIVA] Andar 50: o Rei Aravok caído implora. O jogador ESCOLHE — e a escolha é definitiva.
-function showArkaChoiceModal(data) {
+function showAravokChoiceModal(data) {
   closeCollectModal();
   const el = document.createElement('div');
   el.id = 'collect-modal-overlay';
@@ -2651,11 +2651,11 @@ function showArkaChoiceModal(data) {
         founded a kingdom looks up at you — and he is afraid. <b>"Mercy,"</b> he breathes. <b>"Please."</b>
       </div>
       <div style="display:flex;flex-direction:column;gap:10px">
-        <button onclick="arkaChoice(true)" style="background:#2a3a2a;border:1px solid #4c7c4c;color:#cfe;
+        <button onclick="aravokChoice(true)" style="background:#2a3a2a;border:1px solid #4c7c4c;color:#cfe;
           padding:12px;border-radius:8px;cursor:pointer;font-size:14px;text-align:left">
           🕊 <b>Spare him</b> <span style="color:#9a9;font-size:12px">— lower your blade.</span>
         </button>
-        <button onclick="arkaChoice(false)" style="background:#3a2222;border:1px solid #8b3a3a;color:#fcc;
+        <button onclick="aravokChoice(false)" style="background:#3a2222;border:1px solid #8b3a3a;color:#fcc;
           padding:12px;border-radius:8px;cursor:pointer;font-size:14px;text-align:left">
           🗡 <b>Strike him down</b> <span style="color:#c99;font-size:12px">— end the King.</span>
         </button>
@@ -2665,8 +2665,8 @@ function showArkaChoiceModal(data) {
   document.body.appendChild(el);
 }
 
-async function arkaChoice(spare) {
-  const r = await api('POST', '/api/tower/arka', { spare });
+async function aravokChoice(spare) {
+  const r = await api('POST', '/api/tower/aravok', { spare });
   closeCollectModal();
   if (r.error) { showMessage(r.error, true); return; }
   await loadWarrior();

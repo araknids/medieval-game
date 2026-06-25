@@ -31,7 +31,7 @@ aparece **só ao vencer**, no card de resultado.
 
 ### Casos especiais
 - **Andar 50 (Rei Aravok):** ao vencer dispara a **escolha do Aravok** (poupar/matar), que já tem
-  narrativa própria (`tower.arka.*`). O desfecho do 50 é o **golpe caindo / a luz se apagando**, que
+  narrativa própria (`tower.aravok.*`). O desfecho do 50 é o **golpe caindo / a luz se apagando**, que
   emenda direto na tela de escolha. (O resultado e a escolha aparecem empilhados — ver `_render`.)
 - **Derrota:** mantém a nota atual ("☠ Derrotado — cure-se no Templo"). Desfecho é só de vitória.
   (Opcional futuro: texto de derrota por zona.)

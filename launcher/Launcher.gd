@@ -1,5 +1,5 @@
 extends Control
-# ── Launcher / auto-updater do MedievalBattle [DISTRIB_UPDATE] ──────────────────────────
+# ── Launcher / auto-updater do Crown of Aravok [DISTRIB_UPDATE] ──────────────────────────
 # Fluxo: lê o MANIFESTO (versão + URL do build) → compara com o que está instalado → se mudou,
 # BAIXA o zip, EXTRAI e salva a versão → abre o JOGO. Offline mas com jogo instalado → abre o que tem.
 # Distribuição FORA da Steam: o jogador baixa ESTE launcher (1 .exe) e ele mantém o jogo atualizado.
@@ -91,7 +91,7 @@ func _fetch_manifest() -> void:
 	if not (plat is Dictionary) or str(plat.get("url", "")) == "":
 		_offline_fallback("Manifesto sem build p/ esta plataforma.")
 		return
-	_exe_rel = str(plat.get("exe", "MedievalBattle.exe"))
+	_exe_rel = str(plat.get("exe", "CrownOfAravok.exe"))
 	var installed := _installed_version()
 	if latest != "" and latest != installed:
 		_set_status("Baixando versão %s…" % latest)
@@ -152,7 +152,7 @@ func _extract(zip_path: String, dest_dir: String) -> bool:
 
 # ── Abrir o jogo ────────────────────────────────────────────────────────────────────
 func _launch_game() -> void:
-	var exe := ProjectSettings.globalize_path(GAME_DIR).path_join(_exe_rel if _exe_rel != "" else "MedievalBattle.exe")
+	var exe := ProjectSettings.globalize_path(GAME_DIR).path_join(_exe_rel if _exe_rel != "" else "CrownOfAravok.exe")
 	if not FileAccess.file_exists(exe):
 		_offline_fallback("Jogo não encontrado — preciso baixar a primeira vez (com internet).")
 		return
@@ -184,5 +184,5 @@ func _write_version(v: String) -> void:
 		fa.close()
 
 func _installed_exe_path() -> String:
-	var rel := _exe_rel if _exe_rel != "" else "MedievalBattle.exe"
+	var rel := _exe_rel if _exe_rel != "" else "CrownOfAravok.exe"
 	return ProjectSettings.globalize_path(GAME_DIR).path_join(rel)

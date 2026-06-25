@@ -107,7 +107,7 @@ O portal leva **para baixo**, ao **Deus que Dorme**, agora despertando. Contrast
 - **Torre narrativa** — 50 andares (`TowerFloors`: atmosfera + monstros por andar, 5 zonas), gauntlet
   sequencial (HP carrega), 5 MVPs (10 Fallen Captain / 20 Coin-Eaten / 30 Crowned Echo / 40 Xamã / 50 Aravok),
   escala ~1/level (tunada com `TowerBalanceProbeTest`: normais passáveis at-level, MVPs viram paredes a
-  cada 10). A escolha no andar 50 (poupar/matar) → `POST /api/tower/arka` → `grant(The Merciful/Regicide)`.
+  cada 10). A escolha no andar 50 (poupar/matar) → `POST /api/tower/aravok` → `grant(The Merciful/Regicide)`.
 - **Achievements ocultos** (flag `hidden`) + os 2 títulos da escolha. UI: atmosfera do andar + modal da escolha.
 
 ## Em aberto (a decidir / construir)

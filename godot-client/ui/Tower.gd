@@ -19,7 +19,7 @@ var busy := false
 var warrior: Dictionary = {}     # estamina + comparação Você×Inimigo
 var state: Dictionary = {}       # GET /api/tower/current
 var last_result: Dictionary = {} # resultado da última luta (texto), se houver
-var arka_pending := false        # escolha do Rei Aravok no topo
+var aravok_pending := false        # escolha do Rei Aravok no topo
 var log_open := false            # log da batalha colapsável
 
 func _ready() -> void:
@@ -48,9 +48,9 @@ func _render() -> void:
 		c.queue_free()
 	UiKit.hide_loading()
 	UiKit.set_wallet(wallet, warrior)
-	# estado da torre (andar/lobby/arka) primeiro — o resultado da luta vem como POPUP por cima
-	if arka_pending:
-		_render_arka()
+	# estado da torre (andar/lobby/aravok) primeiro — o resultado da luta vem como POPUP por cima
+	if aravok_pending:
+		_render_aravok()
 	elif bool(state.get("active", false)):
 		_render_floor()
 	else:
@@ -283,7 +283,7 @@ func _group_names(arr: Array) -> Array:
 	return out
 
 # ── Escolha do Rei Aravok (andar 50) ───────────────────────────────────────────────
-func _render_arka() -> void:
+func _render_aravok() -> void:
 	var res := UiKit.card(UiKit.GOLD)
 	var vb: VBoxContainer = res[1]
 	var h := Label.new(); h.text = "👑 O Rei Cai"; h.add_theme_font_size_override("font_size", 19)
@@ -291,8 +291,8 @@ func _render_arka() -> void:
 	vb.add_child(h)
 	var txt := UiKit.body("O Rei Aravok cai de joelhos, a luz emprestada se apagando. Por um instante, o homem que fundou um reino olha para você — e tem medo. \"Misericórdia\", ele sussurra. \"Por favor.\"")
 	vb.add_child(txt)
-	vb.add_child(UiKit.action("🕊 Poupá-lo", _arka.bind(true)))
-	vb.add_child(UiKit.action_danger("🗡 Executá-lo", _arka.bind(false)))
+	vb.add_child(UiKit.action("🕊 Poupá-lo", _aravok.bind(true)))
+	vb.add_child(UiKit.action_danger("🗡 Executá-lo", _aravok.bind(false)))
 	vb.add_child(UiKit.dim("Esta escolha é definitiva."))
 	content.add_child(res[0])
 
@@ -356,7 +356,7 @@ func _do_fight(confirmed := false) -> void:
 	var data: Dictionary = r["json"]
 	last_result = data
 	log_open = false
-	arka_pending = bool(data.get("arkaChoicePending", false))
+	aravok_pending = bool(data.get("aravokChoicePending", false))
 	var be = data.get("battleEvents")
 	if be is Array and be.size() >= 2:
 		# Torre = misto (humano/monstro pelo nome do andar) → replay 3D por cima
@@ -380,15 +380,15 @@ func _resync() -> void:
 		state = rc["json"]
 	_render()
 
-func _arka(spare: bool) -> void:
+func _aravok(spare: bool) -> void:
 	if busy: return
 	busy = true
 	UiKit.show_loading(self)
-	var r = await Api.tower_arka(spare)
+	var r = await Api.tower_aravok(spare)
 	busy = false
 	if not (r.get("ok") and r.get("json") is Dictionary):
 		UiKit.show_error(status, r); return
-	arka_pending = false
+	aravok_pending = false
 	# substitui o resultado pelo desfecho narrativo da escolha
 	last_result = {
 		"won": true,

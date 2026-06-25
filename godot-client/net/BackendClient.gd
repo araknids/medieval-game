@@ -203,8 +203,8 @@ func tower_current() -> Dictionary:
 	return await _request(HTTPClient.METHOD_GET, "/api/tower/current", null, true)
 func tower_ranking() -> Dictionary:
 	return await _request(HTTPClient.METHOD_GET, "/api/tower/ranking", null, true)
-func tower_arka(spare: bool) -> Dictionary:
-	return await _request(HTTPClient.METHOD_POST, "/api/tower/arka", {"spare": spare}, true)
+func tower_aravok(spare: bool) -> Dictionary:
+	return await _request(HTTPClient.METHOD_POST, "/api/tower/aravok", {"spare": spare}, true)
 func arena_rank() -> Dictionary:
 	return await _request(HTTPClient.METHOD_GET, "/api/arena/rank", null, true)
 func smithing_recipes() -> Dictionary:

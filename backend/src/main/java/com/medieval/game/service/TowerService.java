@@ -133,7 +133,7 @@ public class TowerService {
     // [TORRE_DESFECHO] aftermath = narrativa ao vencer; defeat = narrativa ao perder (só um vem preenchido).
     public record FightResult(boolean won, int floor, long bronzeEarned, long expEarned,
                               List<String> log, String bossName, boolean runOver,
-                              String aftermath, String defeat, boolean arkaChoicePending,
+                              String aftermath, String defeat, boolean aravokChoicePending,
                               List<BattleSimulator.BattleEvent> events) {} // [BATALHA_ANIMADA]
 
     public Optional<TowerRun> getCurrentRun(Player player) {
@@ -269,7 +269,7 @@ public class TowerService {
         inventoryService.wearEquippedItems(player); // desgaste de equipamento
 
         long bronzeEarned = 0, expEarned = 0;
-        boolean arkaChoicePending = false;
+        boolean aravokChoicePending = false;
 
         if (won) {
             bronzeEarned = (long) floor * 40;
@@ -299,7 +299,7 @@ public class TowerService {
             // [TORRE_NARRATIVA] Topo: derrotou o Rei Aravok (andar 50) → a escolha (poupar/matar) + fim da S1.
             if (fdef.isMvp() && floor >= TowerFloors.maxFloor()) {
                 run.setStatus(TowerStatus.EXITED); // a Torre acaba aqui
-                arkaChoicePending = !achievementService.has(player, com.medieval.game.enums.Achievement.REGICIDE)
+                aravokChoicePending = !achievementService.has(player, com.medieval.game.enums.Achievement.REGICIDE)
                                  && !achievementService.has(player, com.medieval.game.enums.Achievement.THE_MERCIFUL);
             }
         } else {
@@ -316,7 +316,7 @@ public class TowerService {
         // [TORRE_DESFECHO] vitória → desfecho do andar; derrota → texto de derrota do andar.
         return new FightResult(won, floor, bronzeEarned, expEarned, battleLog, headline,
                 runOver, won ? floorAftermath(floor) : "", won ? "" : floorDefeat(floor),
-                arkaChoicePending, allEvents); // [I18N][BATALHA_ANIMADA]
+                aravokChoicePending, allEvents); // [I18N][BATALHA_ANIMADA]
     }
 
     /**
@@ -324,7 +324,7 @@ public class TowerService {
      * poupar (→ The Merciful) ou matar (→ Regicide). Uma só vez. Os dois "abrem o portal" (fim da S1).
      */
     @Transactional
-    public String resolveArkaChoice(Player player, boolean spare) {
+    public String resolveAravokChoice(Player player, boolean spare) {
         if (player.getTowerBestFloor() < TowerFloors.maxFloor())
             throw new IllegalStateException("You have not yet faced the King.");
         if (achievementService.has(player, com.medieval.game.enums.Achievement.REGICIDE)
@@ -333,10 +333,10 @@ public class TowerService {
         boolean granted = achievementService.grant(player,
                 spare ? com.medieval.game.enums.Achievement.THE_MERCIFUL
                       : com.medieval.game.enums.Achievement.REGICIDE);
-        log.info("[TowerService] player={} arkaChoice spare={} granted={}", player.getId(), spare, granted);
+        log.info("[TowerService] player={} aravokChoice spare={} granted={}", player.getId(), spare, granted);
         return spare
-            ? messages.getOr("tower.arka.spare", "You lower your blade. King Aravok thanks you — and buries the ritual dagger in his own heart, over the mark on the floor. \"Worse things are coming,\" he breathes. The floor opens beneath you.")
-            : messages.getOr("tower.arka.kill",  "You strike. The King's blood spills across the mark, and the floor gives way beneath you. Far below, something begins to wake.");
+            ? messages.getOr("tower.aravok.spare", "You lower your blade. King Aravok thanks you — and buries the ritual dagger in his own heart, over the mark on the floor. \"Worse things are coming,\" he breathes. The floor opens beneath you.")
+            : messages.getOr("tower.aravok.kill",  "You strike. The King's blood spills across the mark, and the floor gives way beneath you. Far below, something begins to wake.");
     }
 
 }

@@ -16,7 +16,7 @@ Hospedado num lugar **estável** (o default aponta pro raw deste arquivo no GitH
 ```json
 {
   "version": "1.0.0",
-  "windows": { "url": "https://.../MedievalBattle-windows-1.0.0.zip", "exe": "MedievalBattle.exe" }
+  "windows": { "url": "https://.../CrownOfAravok-windows-1.0.0.zip", "exe": "CrownOfAravok.exe" }
 }
 ```
 - `version`: bump a cada release (o launcher compara string exata).
@@ -25,8 +25,8 @@ Hospedado num lugar **estável** (o default aponta pro raw deste arquivo no GitH
 
 ## Publicar uma versão nova (release)
 1. **Exportar o jogo:** em `godot-client`, Project → Export → Windows Desktop (Embed PCK) → gera
-   `dist/MedievalBattle.exe` (1 arquivo portável).
-2. **Zipar:** `MedievalBattle-windows-<versão>.zip` com o `.exe` (+ qualquer arquivo solto, se houver).
+   `dist/CrownOfAravok.exe` (1 arquivo portável).
+2. **Zipar:** `CrownOfAravok-windows-<versão>.zip` com o `.exe` (+ qualquer arquivo solto, se houver).
 3. **Subir o zip** num **GitHub Release** (tag `v<versão>`) como asset → copiar o link direto.
 4. **Atualizar `launcher/manifest.json`:** `version` + `windows.url` (o link do passo 3) → commit/push.
 5. **(Importante) bater a versão do JOGO:** subir `config/version` no `godot-client/project.godot` p/ a

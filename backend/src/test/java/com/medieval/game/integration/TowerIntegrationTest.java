@@ -86,13 +86,13 @@ class TowerIntegrationTest extends BaseIntegrationTest {
 
     @Test
     @DisplayName("Aravok: só depois do andar 50; matar concede Regicide (oculto); só uma vez")
-    void arkaChoice_grantsHiddenTitleOnce() throws Exception {
+    void aravokChoice_grantsHiddenTitleOnce() throws Exception {
         var p = playerRepository.findAll().stream()
                 .filter(x -> x.getUsername().startsWith("tower"))
                 .reduce((a, b) -> b.getId() > a.getId() ? b : a).orElseThrow();
 
         // ainda não enfrentou o Rei (towerBestFloor < 50) → rejeita
-        mockMvc.perform(post("/api/tower/arka").header("Authorization", bearer(token))
+        mockMvc.perform(post("/api/tower/aravok").header("Authorization", bearer(token))
                         .contentType(org.springframework.http.MediaType.APPLICATION_JSON).content("{\"spare\":false}"))
                 .andExpect(status().isBadRequest());
 
@@ -101,7 +101,7 @@ class TowerIntegrationTest extends BaseIntegrationTest {
         playerRepository.save(p);
 
         // matar → Regicide
-        mockMvc.perform(post("/api/tower/arka").header("Authorization", bearer(token))
+        mockMvc.perform(post("/api/tower/aravok").header("Authorization", bearer(token))
                         .contentType(org.springframework.http.MediaType.APPLICATION_JSON).content("{\"spare\":false}"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.spared").value(false));
@@ -110,7 +110,7 @@ class TowerIntegrationTest extends BaseIntegrationTest {
                         com.medieval.game.enums.Achievement.REGICIDE)).isTrue();
 
         // a escolha é definitiva → segunda vez rejeita
-        mockMvc.perform(post("/api/tower/arka").header("Authorization", bearer(token))
+        mockMvc.perform(post("/api/tower/aravok").header("Authorization", bearer(token))
                         .contentType(org.springframework.http.MediaType.APPLICATION_JSON).content("{\"spare\":true}"))
                 .andExpect(status().isBadRequest());
     }

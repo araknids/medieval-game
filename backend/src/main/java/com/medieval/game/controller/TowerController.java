@@ -121,20 +121,20 @@ public class TowerController {
         m.put("expEarned", result.expEarned());
         m.put("log", result.log());
         m.put("runOver", result.runOver());
-        m.put("arkaChoicePending", result.arkaChoicePending()); // topo: a escolha (poupar/matar)
+        m.put("aravokChoicePending", result.aravokChoicePending()); // topo: a escolha (poupar/matar)
         m.put("battleEvents", result.events()); // [BATALHA_ANIMADA] replay do andar (gauntlet)
         m.put("scene", "tower");                 // [BATALHA_ANIMADA]
         return ResponseEntity.ok(m);
     }
 
     /** [TORRE_NARRATIVA] A escolha no topo: poupar (spare=true) ou matar o Rei Aravok → título oculto. */
-    @PostMapping("/arka")
-    public ResponseEntity<?> arkaChoice(@RequestBody ArkaRequest req, Authentication auth) {
-        String narrative = towerService.resolveArkaChoice(getPlayer(auth), req.spare());
+    @PostMapping("/aravok")
+    public ResponseEntity<?> aravokChoice(@RequestBody AravokRequest req, Authentication auth) {
+        String narrative = towerService.resolveAravokChoice(getPlayer(auth), req.spare());
         return ResponseEntity.ok(Map.of("message", narrative, "spared", req.spare()));
     }
 
-    public record ArkaRequest(boolean spare) {}
+    public record AravokRequest(boolean spare) {}
 
     private Player getPlayer(Authentication auth) {
         return playerService.findById((Long) auth.getPrincipal());
