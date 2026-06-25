@@ -287,6 +287,15 @@ const EN := {
 	"Reparar consome Peças + bronze e gasta um pouco do Poder do item.": "Repairing costs Salvage + bronze and wears down the item's Power a bit.",
 	"Reparar: %d Peças (você tem %d) + bronze · gasta um pouco do Poder.": "Repair: %d Salvage (you have %d) + bronze · wears the item's Power a bit.",
 	" + %d Peças": " + %d Salvage",
+	# — [CLASSES] quest de classe (Path Trial no Lv10) —
+	"Escolher classe": "Choose class",
+	"Escolher classe (Path Trial)": "Choose class (Path Trial)",
+	"Você provou seu valor, recruta. Está na hora de escolher seu caminho — e enfrentar o Guardião que o testa.": "You've proven yourself, recruit. Time to choose your path — and face the Guardian that tests it.",
+	"Escolha seu Caminho": "Choose Your Path",
+	"Vença o Guardião = vira a classe (permanente, respec grátis). Custo: %d Monster Core (você tem %d) — só consome ao vencer.": "Beat the Guardian = become the class (permanent, free respec). Cost: %d Monster Core (you have %d) — only spent on a win.",
+	"Enfrentar o Guardião": "Face the Guardian",
+	"Faltam Monster Core": "Need more Monster Core",
+	"Trial falhou": "Trial failed",
 	"Desmontar \"%s\"? Vira Peças. Joias encaixadas são PERDIDAS. Não tem volta.": "Dismantle \"%s\"? It becomes Salvage. Socketed gems are LOST. No undo.",
 	# — [INCURSAO_PVP] escolha PvP na Incursão + Replays no Correio —
 	"Atacar %s (PvP)": "Attack %s (PvP)",

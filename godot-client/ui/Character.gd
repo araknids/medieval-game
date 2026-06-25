@@ -1157,6 +1157,11 @@ func _render_abil_panel() -> void:
 		_panel_host.add_child(UiKit.empty(
 			Lang.t("Você tem %s de habilidade guardado.") % pts_txt,
 			"Escolha uma classe (Path Trial no Nv.10) para destravar as habilidades dela."))
+		# [CLASSES] RECRUIT Lv10 → botão que abre o seletor de classe (Path Trial) no Shell
+		if str(w.get("warriorClassId", "")) == "RECRUIT" and int(w.get("level", 1)) >= 10 and Shell.current != null:
+			var cb := UiKit.action_big(Lang.t("Escolher classe (Path Trial)"), func() -> void: await Shell.current._open_class_picker())
+			cb.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+			_panel_host.add_child(cb)
 		return
 	_panel_host.add_child(UiKit.section(Lang.t("Habilidades — %s") % Lang.t(str(abilities_data.get("class", "?")))))
 	if pts > 0:

@@ -97,6 +97,10 @@ var _nav_badges := {}     # screen -> badge Control no item de nav do NPC
 var _starter_nav := {}    # screen -> dever de onboarding disponível (badge amarelo)
 var _unspent_attr := 0    # pontos de atributo livres (sempre gastáveis)
 var _unspent_abil := 0    # pontos de habilidade livres (já zerado p/ Recruta, que não pode gastar)
+# [CLASSES] Quest de classe no Lv10 (Path Trial): RECRUIT && level>=10 → badge no Personagem + offer 1×/sessão.
+var _class_trial_available := false
+var _class_offered := false
+var _pending_trial: Dictionary = {}   # resultado da Trial p/ mostrar DEPOIS da batalha 3D do Guardião
 var _offered := {}        # screen -> já ofereci a quest nesta sessão (não repopa a cada visita)
 
 func _ready() -> void:
@@ -281,7 +285,10 @@ func _apply_starter_badges() -> void:
 func _refresh_nav_badges() -> void:
 	for scr in ["Character", "Temple", "Work", "World"]:
 		var yellow: bool = bool(_starter_nav.get(scr, false))
-		if scr == "Character" and not yellow and (_unspent_attr > 0 or _unspent_abil > 0):
+		if scr == "Character" and not yellow and _class_trial_available:
+			_set_nav_badge("Character", true, "quest_alert")   # [CLASSES] escolher classe (Lv10) — prioridade
+			_set_nav_points_tip(false)
+		elif scr == "Character" and not yellow and (_unspent_attr > 0 or _unspent_abil > 0):
 			_set_nav_badge("Character", true, "quest_alert_red")
 			_set_nav_points_tip(true)
 		else:
@@ -959,6 +966,14 @@ func _wire_screen(c: Control) -> void:
 # Chamado pelo App quando o replay de batalha termina → atualiza topbar/busto + a tela ativa.
 func _on_battle_over() -> void:
 	await _initial_load()   # batalha pode ter dado XP/loot/HP → topbar + busto + índice frescos
+	if not _pending_trial.is_empty():   # [CLASSES] desfecho da Path Trial (após a batalha 3D do Guardião)
+		var t := _pending_trial
+		_pending_trial = {}
+		await _refresh_starter()   # badge de classe some quando vira a classe
+		var won := bool(t.get("won", false))
+		var title := ("🎖 " + str(t.get("className", ""))) if won else Lang.t("Trial falhou")
+		UiKit.show_battle_report(self, won, title, [UiKit.body(str(t.get("narrative", "")))], t.get("log", []))
+		return
 	if active_screen != null and is_instance_valid(active_screen):
 		if active_screen.has_method("_on_battle_over"):
 			active_screen._on_battle_over()
@@ -1057,6 +1072,81 @@ func refresh_topbar() -> void:
 		warrior = r["json"]
 		update_topbar(warrior)
 
+# ── [CLASSES] Quest de classe (Lv10): offer do Garrick → seletor de 3 caminhos → Guardião (batalha 3D) ──
+func _maybe_offer_class() -> void:
+	if not _class_trial_available or _class_offered:
+		return
+	_class_offered = true
+	UiKit.npc_notice(self, "veteran", Lang.t("Capitão Garrick"),
+		Lang.t("Você provou seu valor, recruta. Está na hora de escolher seu caminho — e enfrentar o Guardião que o testa."),
+		Lang.t("Escolher classe"), func() -> void: await _open_class_picker())
+
+# Abre o seletor de classe (3 caminhos). Chamado pelo offer, pela ficha (Personagem) e pelo Diário. [CLASSES]
+func _open_class_picker() -> void:
+	var r = await Api.class_info()
+	if not (r.get("ok") and r.get("json") is Dictionary):
+		UiKit.toast(get_window(), UiKit.err_text(r), "", 2); return
+	var info: Dictionary = r["json"]
+	if str(info.get("currentClass", "")) != "RECRUIT":
+		return   # já escolheu — nada a fazer
+	var dim := ColorRect.new()
+	dim.color = Color(0, 0, 0, 0.72)
+	dim.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	dim.mouse_filter = Control.MOUSE_FILTER_STOP
+	add_child(dim)
+	dim.gui_input.connect(func(e: InputEvent) -> void:
+		if e is InputEventMouseButton and e.pressed: dim.queue_free())
+	var center := CenterContainer.new()
+	center.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	center.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	dim.add_child(center)
+	var res := UiKit.card(UiKit.GOLD)
+	var panel: PanelContainer = res[0]; panel.mouse_filter = Control.MOUSE_FILTER_STOP
+	var vb: VBoxContainer = res[1]; vb.add_theme_constant_override("separation", 10)
+	center.add_child(panel)
+	var ttl := Label.new(); ttl.text = Lang.t("Escolha seu Caminho")
+	ttl.add_theme_font_size_override("font_size", 20); ttl.add_theme_color_override("font_color", UiKit.GOLD)
+	ttl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	vb.add_child(ttl)
+	var have := int(info.get("monsterCoreHave", 0))
+	var need := int(info.get("monsterCoreCost", 0))
+	vb.add_child(UiKit.dim(Lang.t("Vença o Guardião = vira a classe (permanente, respec grátis). Custo: %d Monster Core (você tem %d) — só consome ao vencer.") % [need, have]))
+	var row := HBoxContainer.new(); row.add_theme_constant_override("separation", 10)
+	row.alignment = BoxContainer.ALIGNMENT_CENTER
+	for p in info.get("paths", []):
+		if p is Dictionary:
+			row.add_child(_class_card(p, have >= need, dim))
+	vb.add_child(row)
+
+func _class_card(p: Dictionary, can_afford: bool, dim: Control) -> PanelContainer:
+	var res := UiKit.card(UiKit.GOLD_SOFT)
+	var pc: PanelContainer = res[0]; pc.custom_minimum_size = Vector2(196, 0)
+	var box: VBoxContainer = res[1]; box.add_theme_constant_override("separation", 4)
+	var nm := Label.new(); nm.text = str(p.get("displayName", "?"))
+	nm.add_theme_font_size_override("font_size", 16); nm.add_theme_color_override("font_color", UiKit.GOLD)
+	nm.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	box.add_child(nm)
+	box.add_child(UiKit.dim("ATK %d · DEF %d · HP %d" % [int(p.get("baseAttack", 0)), int(p.get("baseDefense", 0)), int(p.get("baseHealth", 0))]))
+	var d := UiKit.dim(str(p.get("description", "")))
+	d.custom_minimum_size = Vector2(176, 0)
+	box.add_child(d)
+	var btn := UiKit.action(Lang.t("Enfrentar o Guardião"), func() -> void: await _do_trial(str(p.get("id", "")), dim))
+	btn.disabled = not can_afford
+	box.add_child(btn)
+	if not can_afford:
+		box.add_child(UiKit.dim(Lang.t("Faltam Monster Core")))
+	return pc
+
+func _do_trial(path: String, dim: Control) -> void:
+	if is_instance_valid(dim): dim.queue_free()
+	var r = await Api.class_trial(path)
+	if not (r.get("ok") and r.get("json") is Dictionary):
+		UiKit.toast(get_window(), UiKit.err_text(r), "", 2); return
+	var j: Dictionary = r["json"]
+	_pending_trial = j   # [CLASSES] mostra o resultado DEPOIS da batalha 3D (em _on_battle_over)
+	request_battle.emit({"events": j.get("battleEvents", []), "scene": str(j.get("scene", "fortress")),
+		"won": bool(j.get("won", false)), "enemy": str(j.get("className", "Guardião"))})
+
 func update_topbar(w: Dictionary) -> void:
 	if w.is_empty() or _name_lbl == null:
 		return
@@ -1066,7 +1156,9 @@ func update_topbar(w: Dictionary) -> void:
 	_unspent_attr = int(w.get("availablePoints", 0))
 	var cls := str(w.get("warriorClassId", ""))
 	_unspent_abil = int(w.get("abilityPoints", 0)) if (cls != "" and cls != "RECRUIT") else 0
+	_class_trial_available = (cls == "RECRUIT" and int(w.get("level", 1)) >= 10)   # [CLASSES] Lv10 → escolher classe
 	_refresh_nav_badges()
+	_maybe_offer_class()   # [CLASSES] offer do Garrick 1×/sessão ao virar RECRUIT Lv10
 	_name_lbl.text = str(w.get("name", "?"))
 	var t := str(w.get("title", ""))
 	_title_lbl.text = ("⟨%s⟩" % t) if t != "" else ""

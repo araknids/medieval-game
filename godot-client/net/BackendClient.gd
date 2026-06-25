@@ -96,6 +96,13 @@ func warrior_postures() -> Dictionary:
 func warrior_set_posture(posture: String) -> Dictionary:
 	return await _request(HTTPClient.METHOD_POST, "/api/warrior/posture/%s" % posture, {}, true)
 
+## GET /api/class — info de classe: atual, trial disponível (Lv10), 3 caminhos (stats/custo). [CLASSES]
+func class_info() -> Dictionary:
+	return await _request(HTTPClient.METHOD_GET, "/api/class", null, true)
+## POST /api/class/trial/{path} — enfrenta o Guardião do caminho; devolve TrialResult (won/battleEvents). [CLASSES]
+func class_trial(path: String) -> Dictionary:
+	return await _request(HTTPClient.METHOD_POST, "/api/class/trial/%s" % path, {}, true)
+
 ## GET /api/inventory (autenticado). json = Array de itens (cada um com type, equipped, name, rarity...). [GODOT_PAPERDOLL]
 func get_inventory() -> Dictionary:
 	return await _request(HTTPClient.METHOD_GET, "/api/inventory", null, true)
