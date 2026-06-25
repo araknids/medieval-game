@@ -1138,15 +1138,9 @@ func cursed_tower(host: Node3D, rng: RandomNumberGenerator, combat_r: float) -> 
 		match rng.randi() % 5:
 			0, 1: _planted_sword(host, pos, rng)
 			2:    _planted_spear(host, pos, rng)
-			3:    _war_shield(host, pos, rng)
-			_:    _fallen_soldier(host, pos, rng)
-	# SOLDADOS TOMBADOS em volta do campo (anel atrás/lados) — caixas simples; na BATALHA são os únicos
-	# corpos. No MENU, a FRENTE recebe corpos full-plate de verdade (MenuDuel.spawn_fallen), então aqui o
-	# anel evita a frente (+Z, lado da câmera) pra não misturar caixa com boneco real. [MAPA_TORRE]
-	for i in 10:
-		var sa := lerpf(deg_to_rad(95), deg_to_rad(345), float(i) / 9.0) + rng.randf_range(-0.1, 0.1)   # evita o +Z (frente)
-		var sr := rng.randf_range(combat_r + 0.8, combat_r + 6.0)
-		_fallen_soldier(host, Vector3(cos(sa) * sr, 0, sin(sa) * sr), rng)
+			_:    _war_shield(host, pos, rng)
+	# [MAPA_TORRE] SEM "soldados-caixa" pretos: os ÚNICOS corpos são os full-plate RIGADOS (de armadura
+	# real) do menu — MenuDuel.spawn_fallen. (Os escombros acima são só armas/escudos, não humanoides.)
 	# FERA MORTA (como o bicho no canto da capa) — ao LADO do caminho do portão (não em cima dele)
 	_dead_beast(host, Vector3(9.0, 0, 9.5), rng, 1.0)
 	_dead_beast(host, Vector3(15.5, 0, -8.0), rng, 0.7)
