@@ -187,6 +187,22 @@ func _shop_card(it) -> Control:
 	nm.clip_text = true
 	nm.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 	row.add_child(nm)
+	# [LOJA] mesmo padrão da Mochila: "Nv X" exigido (vermelho se acima do nível) + seta de comparação
+	# (▲/▼/= vs o equipado — UiKit.equipped é mantido fresco pelo Shell a cada nav). Só p/ item à venda.
+	if not purchased:
+		var ilvl := int(it.get("itemLevel", 1))
+		var plvl := int(warrior.get("level", 0))
+		var lv := Label.new()
+		lv.text = Lang.t("Nv %d") % ilvl
+		lv.add_theme_font_size_override("font_size", 11)
+		lv.add_theme_color_override("font_color", UiKit.ERR if (plvl > 0 and ilvl > plvl) else UiKit.TEXT_DIM)
+		lv.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+		lv.mouse_filter = Control.MOUSE_FILTER_PASS
+		row.add_child(lv)
+		var arrow := UiKit.compare_arrow(it)   # ▲ verde melhor / ▼ vermelho pior / = igual (null se nada p/ comparar)
+		if arrow != null:
+			arrow.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+			row.add_child(arrow)
 	# preço (ou ✔ se já comprado) à direita do slot
 	var tail: Control
 	if purchased:
