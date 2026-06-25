@@ -19,9 +19,9 @@ const COIN_TIPS := {
 }
 const ELEM_ICONS := {"FIRE": "🔥", "WATER": "💧", "EARTH": "🪨", "AIR": "💨"}
 
-# [ONBOARDING] Briefing de chegada (Coroa de Arka) — texto curado em docs/PLANO_QUESTS_LORE.md.
+# [ONBOARDING] Briefing de chegada (Coroa de Aravok) — texto curado em docs/PLANO_QUESTS_LORE.md.
 # Literal PT = chave; a tradução EN está no dict do Lang.gd. Aparece 1x (só se !onboardingSeen).
-const ONBOARD_BRIEFING := "Coroa de Arka era a joia do novo mundo — ouro, terras, promessas. Aí as feras vieram. Pedimos um exército à Velha Coroa, do outro lado do mar. Mandaram você.\n\nPrometeram poder ao Rei — e ele subiu a torre atrás da promessa, levado pela mão de quem o enganava. Nunca desceu. O que governa lá em cima agora não é mais o Rei.\n\nArranque o que puder dos mortos, suba atrás dele, e reze pra ele ainda ser o Rei quando você chegar."
+const ONBOARD_BRIEFING := "Coroa de Aravok era a joia do novo mundo — ouro, terras, promessas. Aí as feras vieram. Pedimos um exército à Velha Coroa, do outro lado do mar. Mandaram você.\n\nPrometeram poder ao Rei — e ele subiu a torre atrás da promessa, levado pela mão de quem o enganava. Nunca desceu. O que governa lá em cima agora não é mais o Rei.\n\nArranque o que puder dos mortos, suba atrás dele, e reze pra ele ainda ser o Rei quando você chegar."
 
 # Tooltips (hover) de CADA item do menu lateral — explicam o que cada tela faz. [MENUBAR_HOVER]
 const NAV_TIPS := {
@@ -131,7 +131,7 @@ func _exit_tree() -> void:
 		UiKit.starter_changed_sink = Callable()
 
 # ── [ONBOARDING] Briefing de chegada (Camada A) ─────────────────────────────────────
-# Só no 1º login (backend: !onboardingSeen). Dim + card dourado + briefing da Coroa de Arka +
+# Só no 1º login (backend: !onboardingSeen). Dim + card dourado + briefing da Coroa de Aravok +
 # CTA que marca visto e leva o recruta ao Mundo (1ª ação clara). Doc: docs/PLANO_ONBOARDING.md
 func _maybe_onboarding() -> void:
 	var api = get_node_or_null("/root/Api")
@@ -159,7 +159,7 @@ func _show_welcome(api) -> void:
 	panel.custom_minimum_size = Vector2(600, 0)
 	vb.add_theme_constant_override("separation", 12)
 	center.add_child(panel)
-	# [ONBOARDING] mapa de Coroa de Arka no topo — aterriza o nome + preview de onde vai aventurar
+	# [ONBOARDING] mapa de Coroa de Aravok no topo — aterriza o nome + preview de onde vai aventurar
 	var map_tex := load("res://assets/ui/map/world_map.png")
 	if map_tex != null:
 		var banner := TextureRect.new()
@@ -170,7 +170,7 @@ func _show_welcome(api) -> void:
 		banner.clip_contents = true
 		vb.add_child(banner)
 	var ttl := Label.new()
-	ttl.text = "Coroa de Arka"
+	ttl.text = "Coroa de Aravok"
 	ttl.add_theme_font_size_override("font_size", 24)
 	ttl.add_theme_color_override("font_color", UiKit.GOLD)
 	ttl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER

@@ -47,7 +47,7 @@ func _ready() -> void:
 	box.add_theme_constant_override("separation", 10)
 	box.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	margin.add_child(box)
-	box.add_child(_fx.title("MEDIEVAL", 56))
+	box.add_child(_fx.title("CROWN OF ARAVOK", 40))
 	# ── ações primárias: LUTAR grande + Personagem/Inventário ──
 	var fight := _fx.button("⚔   LUTAR")
 	if Icons.set_icon(fight, "arena"):   # espadas cruzadas no lugar do emoji

@@ -59,7 +59,7 @@ combat.<slug>                                         (templates de battle log)
   → fazer a Trial → lore em PT).
 - **P2 — Quests:** `KingdomQuestType` (nomes/flavor, 57) + `InteractiveQuests` (diálogos/opções/desfechos,
   ~235). O grosso da narrativa.
-- **P3 — Torre:** `TowerFloors` (atmosfera/MVP/monstros, ~99) + textos da escolha do Arka.
+- **P3 — Torre:** `TowerFloors` (atmosfera/MVP/monstros, ~99) + textos da escolha do Aravok.
 - **P4 — Achievements:** `Achievement` (title/display/desc, 30). ⚠ `titleString` é estático/puro e o título
   aparece pra OUTROS players — resolver no DTO no locale do VISITANTE (quem lê o ranking), não do dono.
 - **P5 — Resto do conteúdo:** lore de reino (`Kingdom`), descrições de classe/habilidade
@@ -87,7 +87,7 @@ via `Messages`, roda os testes. Números/escopo podem ajustar no caminho.
   migração, `SettingsController` (`/api/settings`), web `api()` manda `Accept-Language` +
   `toggleLanguage` persiste. `LocalizedException` (config) + `GlobalExceptionHandler` traduz.
 - **P1** Path Trial (lore). **P2** Quests (nome/flavor/diálogo/opções/desfechos). **P3** Torre
-  (50 atmosferas + Arka). **P4** Achievements (título/nome/desc). **P5a** Atributos + Reinos
+  (50 atmosferas + Aravok). **P4** Achievements (título/nome/desc). **P5a** Atributos + Reinos
   (nome/lore). **P5b** Habilidades + nome/desc de classe. **P5c** Narrador de quest (templates +
   nomes de monstro do narrador). **P6** TODOS os 217 erros (141 estáticos via EN-como-key
   escapada no handler; 47 interpolados via `LocalizedException(key, EN, args)`).

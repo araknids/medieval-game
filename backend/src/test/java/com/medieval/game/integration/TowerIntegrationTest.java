@@ -59,7 +59,7 @@ class TowerIntegrationTest extends BaseIntegrationTest {
                 .andExpect(jsonPath("$.error").isNotEmpty());
     }
 
-    // ── [TORRE_NARRATIVA] A escolha no topo (andar 50): matar/poupar o Rei Arka → título oculto ──
+    // ── [TORRE_NARRATIVA] A escolha no topo (andar 50): matar/poupar o Rei Aravok → título oculto ──
     @org.springframework.beans.factory.annotation.Autowired
     com.medieval.game.repository.PlayerRepository playerRepository;
     @org.springframework.beans.factory.annotation.Autowired
@@ -85,7 +85,7 @@ class TowerIntegrationTest extends BaseIntegrationTest {
     }
 
     @Test
-    @DisplayName("Arka: só depois do andar 50; matar concede Regicide (oculto); só uma vez")
+    @DisplayName("Aravok: só depois do andar 50; matar concede Regicide (oculto); só uma vez")
     void arkaChoice_grantsHiddenTitleOnce() throws Exception {
         var p = playerRepository.findAll().stream()
                 .filter(x -> x.getUsername().startsWith("tower"))

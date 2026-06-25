@@ -1,4 +1,4 @@
-# LORE — Coroa de Arka (mundo & história)
+# LORE — Coroa de Aravok (mundo & história)
 
 > **Status: canônico v1.** Fonte da verdade da narrativa. Construído com o dono do jogo.
 > Marcações `[mecânica]` ligam a lore aos sistemas que já existem no código.
@@ -11,7 +11,7 @@ Você é mandado pelo **Velho Mundo** para **salvar** o Rei do novo continente �
 
 ## O mundo
 
-- **O Velho Mundo** — continente de origem, civilizado, de onde partem conquistadores e heróis. A casa real é a **Velha Coroa** (a linhagem/ordem de onde vem Arka e, depois, os recrutas que socorrem a colônia).
+- **O Velho Mundo** — continente de origem, civilizado, de onde partem conquistadores e heróis. A casa real é a **Velha Coroa** (a linhagem/ordem de onde vem Aravok e, depois, os recrutas que socorrem a colônia).
 - **O continente novo** — terras vastas e **ricas demais**. A riqueza não é sorte: é **sintoma**.
 - **O Deus que Dorme** — uma entidade primordial que jaz **sob** o continente novo. Não foi selada por ninguém; ela simplesmente **dorme**. Mas é tão imensa que, mesmo adormecida, **vaza**:
   - o **sangue** dela vaza pela terra e vira as **riquezas** (veios de minério, o Mar Abençoado, as feras);
@@ -31,11 +31,11 @@ Era um **pescador comum** do Velho Mundo. **Naufragou** e foi **dado como morto*
 - A "clarividência e sabedoria da ilha" dele é o **Deus sussurrando** (não há povo nativo; o conhecimento vem do Deus).
 - Ele é um **paliativo**: um vaso fraco. Sua missão é **recrutar um vaso melhor** — um rei.
 
-### Rei Arka — a nova mão do Deus (chefe final, S1)
-**Príncipe de sangue real** da Velha Coroa. Cruzou o mar para **conquistar o novo continente em nome do Velho Mundo** — mas as terras eram tão vastas que ele se fez **Rei** e fundou **Coroa de Arka** (a cidade-centro do continente).
-- A **coroação casa o rei com a terra** — e a terra é o **corpo do Deus**. O sangue de Arka vira a **chave**.
-- O Xamã o recebe, ajuda no início, ganha confiança — e **atiça a ganância de Arka por sabedoria e imortalidade**. Promete fazê-lo **médium**, capaz de ouvir "o espírito da terra". **Rituais secretos** na Torre, alimentados por **sangue real**.
-- Arka pensa que **ascende**; na verdade está virando a **nova mão do Deus** — o vaso perfeito. Trágico: é fantoche **pela própria ganância** — enganado sobre o que realmente faz.
+### Rei Aravok — a nova mão do Deus (chefe final, S1)
+**Príncipe de sangue real** da Velha Coroa. Cruzou o mar para **conquistar o novo continente em nome do Velho Mundo** — mas as terras eram tão vastas que ele se fez **Rei** e fundou **Coroa de Aravok** (a cidade-centro do continente).
+- A **coroação casa o rei com a terra** — e a terra é o **corpo do Deus**. O sangue de Aravok vira a **chave**.
+- O Xamã o recebe, ajuda no início, ganha confiança — e **atiça a ganância de Aravok por sabedoria e imortalidade**. Promete fazê-lo **médium**, capaz de ouvir "o espírito da terra". **Rituais secretos** na Torre, alimentados por **sangue real**.
+- Aravok pensa que **ascende**; na verdade está virando a **nova mão do Deus** — o vaso perfeito. Trágico: é fantoche **pela própria ganância** — enganado sobre o que realmente faz.
 
 ### O Player — recruta da Velha Coroa
 Um entre **muitos** aventureiros que o Velho Mundo despeja para socorrer a colônia (explica o multiplayer: outros players, guildas, arena, guerra). Começa **Recruta** e cresce até campeão. `[CLASSES]`
@@ -46,25 +46,25 @@ Um entre **muitos** aventureiros que o Velho Mundo despeja para socorrer a colô
 1. O **Deus dorme** sob o continente. Mesmo no sono, **vaza** (riquezas, magia, alcance sobre o mar).
 2. Um **pescador** naufraga; o Deus o **puxa** até a praia e o corrompe → o **Xamã**, a primeira mão.
 3. O Deus **semeia riquezas** — isca grande o bastante para fisgar um conquistador.
-4. **Arka**, príncipe da Velha Coroa, vem **conquistar**, se faz **Rei** e funda **Coroa de Arka**.
+4. **Aravok**, príncipe da Velha Coroa, vem **conquistar**, se faz **Rei** e funda **Coroa de Aravok**.
 5. O Xamã ganha sua confiança e **atiça sua ganância** (sabedoria/imortalidade) → **rituais secretos** com **sangue real**.
-6. Arka vira a **nova mão**. Tranca-se na Torre para continuar os ritos. A corrupção **vaza** → monstros nos territórios.
+6. Aravok vira a **nova mão**. Tranca-se na Torre para continuar os ritos. A corrupção **vaza** → monstros nos territórios.
 7. A cidade agonizante implora à **Velha Coroa**, que manda **recrutas** (os players). *(A segunda isca: os heróis são a peça que faltava.)*
 
 ### A Torre — 50 andares `[Torre]`
-A subida da S1. (A "Torre do Rei" / "Espinha de Arka" virou **Torre Infernal** com a corrupção — bom motivo pro nome atual.) **50 andares, ~1 por nível**; andares comuns = chefes normais (a torre que já existe), e a cada **10 andares um MVP de história** (5 MVPs). A subida é **a queda do Rei contada de baixo pra cima** — a corrupção subindo por cada camada da sociedade até o trono:
+A subida da S1. (A "Torre do Rei" / "Espinha de Aravok" virou **Torre Infernal** com a corrupção — bom motivo pro nome atual.) **50 andares, ~1 por nível**; andares comuns = chefes normais (a torre que já existe), e a cada **10 andares um MVP de história** (5 MVPs). A subida é **a queda do Rei contada de baixo pra cima** — a corrupção subindo por cada camada da sociedade até o trono:
 - **Andar 10 — The Fallen Captain:** o capitão da guarda que segurou a linha e perdeu — o "último herói honesto", agora caído. *(o soldado)*
-- **Andar 20 — The Coin-Eaten:** um mercador-lorde tão ganancioso que a corrupção se fartou dele — martela o tema da cobiça (espelho do Arka). *(o cortesão ganancioso)*
-- **Andar 30 — The Crowned Echo:** um **reflexo falso do Rei Arka**, vestindo a forma dele — um vislumbre do que espera no topo. *(o eco do Rei)*
+- **Andar 20 — The Coin-Eaten:** um mercador-lorde tão ganancioso que a corrupção se fartou dele — martela o tema da cobiça (espelho do Aravok). *(o cortesão ganancioso)*
+- **Andar 30 — The Crowned Echo:** um **reflexo falso do Rei Aravok**, vestindo a forma dele — um vislumbre do que espera no topo. *(o eco do Rei)*
 - **Andar 40 — O Xamã:** "o homem que o mar cuspiu" (paga a semente do Mar). A primeira mão, agora **descartável**. Não resiste de verdade; morrendo, **ri e insiste que sigam** ("dêem paz ao pobre rei") + planta a S2 (*"vocês mataram a mão... o coração ainda bate, lá embaixo"*). *(o profeta forasteiro)*
-- **Andar 50 — Rei Arka (chefe final):** a nova mão, envolto no poder do Deus, com **lampejos do homem que foi**. Gate ~nível 50 (*balanceamento depois*) → a escolha. *(o Rei)*
+- **Andar 50 — Rei Aravok (chefe final):** a nova mão, envolto no poder do Deus, com **lampejos do homem que foi**. Gate ~nível 50 (*balanceamento depois*) → a escolha. *(o Rei)*
 
 ### A escolha final — poupar ou matar `[TITULOS]`
-Ao ser derrotado, **Arka implora para ser poupado**. O player **escolhe**:
-- **Poupar:** Arka **se mata sobre o ritual** e avisa que **"vêm coisas piores por aí"**. O portal **abre mesmo assim**. → título **oculto** *"The Merciful / O Clemente"*.
+Ao ser derrotado, **Aravok implora para ser poupado**. O player **escolhe**:
+- **Poupar:** Aravok **se mata sobre o ritual** e avisa que **"vêm coisas piores por aí"**. O portal **abre mesmo assim**. → título **oculto** *"The Merciful / O Clemente"*.
 - **Matar:** o portal **abre** do mesmo jeito. → título **oculto** *"Regicida"*.
 
-> ⚠️ **Os dois títulos são OCULTOS (secret achievements)** — não aparecem na lista até serem desbloqueados, **pra não dar spoiler** de que o Rei "que você veio salvar" é o chefe que você julga. Implementação: precisa de uma flag `hidden` no `Achievement` + os 2 achievements novos + o ponto de escolha no combate do Arka. *(O outcome é o mesmo — o portal abre; a escolha é moral: suas mãos limpas ou não. Possível pagamento na S2.)*
+> ⚠️ **Os dois títulos são OCULTOS (secret achievements)** — não aparecem na lista até serem desbloqueados, **pra não dar spoiler** de que o Rei "que você veio salvar" é o chefe que você julga. Implementação: precisa de uma flag `hidden` no `Achievement` + os 2 achievements novos + o ponto de escolha no combate do Aravok. *(O outcome é o mesmo — o portal abre; a escolha é moral: suas mãos limpas ou não. Possível pagamento na S2.)*
 
 ### A virada
 De volta à base da Torre, o **portal pra baixo** acordou. A **isca** plantada na descrição do 1º andar agora faz sentido. Vocês não salvaram ninguém: **completaram o que vieram impedir.**
@@ -72,7 +72,7 @@ De volta à base da Torre, o **portal pra baixo** acordou. A **isca** plantada n
 ---
 
 ## Temporada 2 — a descida
-O portal leva **para baixo**, ao **Deus que Dorme**, agora despertando. Contraste com a S1: a Torre **sobe**; a S2 **desce**. (Conteúdo, chefes e a sorte de Arka/Xamã = design futuro.)
+O portal leva **para baixo**, ao **Deus que Dorme**, agora despertando. Contraste com a S1: a Torre **sobe**; a S2 **desce**. (Conteúdo, chefes e a sorte de Aravok/Xamã = design futuro.)
 
 ---
 
@@ -96,16 +96,16 @@ O portal leva **para baixo**, ao **Deus que Dorme**, agora despertando. Contrast
 ---
 
 ## Nomes (estado atual)
-- Cidade-centro do continente novo: **Coroa de Arka** ✅
+- Cidade-centro do continente novo: **Coroa de Aravok** ✅
 - Velho continente / a ordem que manda recrutas: **a Velha Coroa**
-- A Torre: *Torre do Rei / Espinha de Arka* → **Torre Infernal** (após a corrupção)
+- A Torre: *Torre do Rei / Espinha de Aravok* → **Torre Infernal** (após a corrupção)
 - O Deus: **Mordûn** (revelado só na S2; na S1 só epítetos)
 - Títulos da escolha final: **Regicide** (matar) / **The Merciful** (poupar) — ambos **ocultos**
 - Magia / o poder do Deus: *o Dom* / *a Febre* (a definir)
 
 ## Construído ✅
 - **Torre narrativa** — 50 andares (`TowerFloors`: atmosfera + monstros por andar, 5 zonas), gauntlet
-  sequencial (HP carrega), 5 MVPs (10 Fallen Captain / 20 Coin-Eaten / 30 Crowned Echo / 40 Xamã / 50 Arka),
+  sequencial (HP carrega), 5 MVPs (10 Fallen Captain / 20 Coin-Eaten / 30 Crowned Echo / 40 Xamã / 50 Aravok),
   escala ~1/level (tunada com `TowerBalanceProbeTest`: normais passáveis at-level, MVPs viram paredes a
   cada 10). A escolha no andar 50 (poupar/matar) → `POST /api/tower/arka` → `grant(The Merciful/Regicide)`.
 - **Achievements ocultos** (flag `hidden`) + os 2 títulos da escolha. UI: atmosfera do andar + modal da escolha.
@@ -113,4 +113,4 @@ O portal leva **para baixo**, ao **Deus que Dorme**, agora despertando. Contrast
 ## Em aberto (a decidir / construir)
 - **Balanceamento fino** dos andares no playtest (números são placeholders; a sonda dá a base).
 - Reskin das **quests dos reinos** → ver `docs/PLANO_QUESTS_LORE.md` (design pronto, falta codar).
-- **S2** (pós-lançamento): descida ao Mordûn, sorte do Arka/Xamã, forma do Deus.
+- **S2** (pós-lançamento): descida ao Mordûn, sorte do Aravok/Xamã, forma do Deus.

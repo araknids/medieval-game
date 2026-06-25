@@ -191,7 +191,7 @@ class AchievementTest extends BaseIntegrationTest {
         var before = achievementService.list(reload(p)).achievements();
         assertThat(before).noneMatch(v -> v.id().equals("REGICIDE") || v.id().equals("THE_MERCIFUL"));
 
-        // grant dirigido por evento (matar o Rei Arka)
+        // grant dirigido por evento (matar o Rei Aravok)
         assertThat(achievementService.grant(reload(p), Achievement.REGICIDE)).isTrue();
         assertThat(achievementService.grant(reload(p), Achievement.REGICIDE)).isFalse(); // idempotente
 

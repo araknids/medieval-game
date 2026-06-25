@@ -74,7 +74,7 @@ Margens 16 (header T12) · coluna máx 920 · separações: content 10, dentro d
 ## 5. Usabilidade RPG — princípios
 1. **Carteira sempre no header** (❤⚡🥇🥈🥉) — jogo é gateado por estamina/bronze.
 2. **Custo no botão, motivo no disabled** (`"⚔ Entrar (25⚡)"`, disabled `"Requer Nv 10"`/`"Sem estamina"`).
-3. **Confirmar o irreversível** (`confirm`): vender rarity≥3/equipado, reforjar, Arka, cancelar leilão.
+3. **Confirmar o irreversível** (`confirm`): vender rarity≥3/equipado, reforjar, Aravok, cancelar leilão.
 4. **Feedback consistente** via `flash()` (✅/❌); nunca limpar status em silêncio.
 5. **Empty states que ensinam** (`empty()` com onde conseguir).
 6. **Controller**: `follow_focus` + `grab_focus` no 1º botão de ação após render.

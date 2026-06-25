@@ -98,7 +98,7 @@ placeholders p/ playtest — todos os knobs são constantes nomeadas no topo do 
 ## Roupas dos inimigos da Torre [TORRE_VESTE]
 Escopo: só quando `fight_scene == "tower"` (arena/PvP/guerra intactos). Em `BattleReplay.gd`:
 - **MVPs** (`TOWER_MVP_LOOK`, casa o nome por substring): **set completo** + tema + recolor alto —
-  Fallen Captain=knight, Coin-Eaten/Crowned Echo/Rei Arka=noble (**HELMET=Crown** → coroa; Arka/Coin
+  Fallen Captain=knight, Coin-Eaten/Crowned Echo/Rei Aravok=noble (**HELMET=Crown** → coroa; Aravok/Coin
   raridade 5 = dourado), Xamã=wizard (manto). Um tiquinho maiores (scale 1.10).
 - **Comuns**: sempre **bem vestidos** (nunca pelado/sem peito; raras sem elmo), tema pela "cara" do
   nome (`_tower_theme_for`: culto→wizard, corte→noble, guarda→knight), wizard empunha "cajado" (mace).

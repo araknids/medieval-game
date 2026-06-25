@@ -50,6 +50,6 @@ const BUSTS = [
   {floor:47, name:"The Listening Dark",   mvp:false, desc:"a silent listening shadow-figure leaning in, an attentive void where a face should be, utter quiet"},
   {floor:48, name:"The One Step Behind",  mvp:false, desc:"a smiling pale reflection of a hero standing one step behind, mirror-bright eyes, a knowing grin"},
   {floor:49, name:"The Weeping Threshold",mvp:false, desc:"a weeping figure at a last great door, wound-colored light leaking around it, hands over a sorrowful face"},
-  {floor:50, name:"King Arka",            mvp:true,  desc:"King Arka kneeling in defeat, wreathed in eerie pale unholy light, an ornate crown slipping, a tattered red royal cape, a begging tragic face"},
+  {floor:50, name:"King Aravok",            mvp:true,  desc:"King Aravok kneeling in defeat, wreathed in eerie pale unholy light, an ornate crown slipping, a tattered red royal cape, a begging tragic face"},
 ];
 if (typeof module !== "undefined") module.exports = BUSTS;

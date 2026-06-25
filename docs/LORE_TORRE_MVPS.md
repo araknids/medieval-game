@@ -1,6 +1,6 @@
 # LORE — Os 5 MVPs da Torre (chefes de história) [LORE_TORRE]
 
-> Rascunho pra você refinar. A Torre é a **queda do Rei Arka contada de baixo pra cima**: um ritual
+> Rascunho pra você refinar. A Torre é a **queda do Rei Aravok contada de baixo pra cima**: um ritual
 > abriu uma fenda no piso do salão (a *marca redonda* que o Rei mandou cobrir — sua primeira ordem),
 > sangue real sobe as escadas *contra a gravidade* rumo ao topo, e o Rei se ergue numa luz que não é
 > dele — sem entender que é só uma **chave** pra coisa que dorme lá embaixo. Cada MVP é um degrau dessa
@@ -14,7 +14,7 @@
 ## Andar 10 — **The Fallen Captain** · *Sor Bramm Holt*, Capitão do Portão
 **Zona 1 — Salões Baixos (a guarda caída).**
 
-Capitão da guarda do portão de Arka. Quando a fenda se abriu e a podridão subiu do fundo, foi ele quem
+Capitão da guarda do portão de Aravok. Quando a fenda se abriu e a podridão subiu do fundo, foi ele quem
 **segurou o salão de baixo** pra que a corte fugisse escada acima. Lutou até o último homem — e o ritual
 do Rei **não o deixou morrer**. Está preso de pé no posto, espada ainda erguida, o corpo lutando sozinho
 enquanto os olhos imploram. Vencê-lo é a **primeira misericórdia** da Torre: você não derrota o Capitão,
@@ -40,7 +40,7 @@ não está à venda. Morreu rico; apodreceu rico; ataca como quem confere uma co
 **Zona 3 — As Profundezas do Ritual.**
 
 Não é gente: é um **ensaio**. O ritual fabricou esta coisa pra *praticar ser o Rei* — veste a forma de
-Arka, o andar, a voz, uma rehearsal oca do que aguarda no topo. Te cumprimenta **pelo seu nome**, na voz
+Aravok, o andar, a voz, uma rehearsal oca do que aguarda no topo. Te cumprimenta **pelo seu nome**, na voz
 do Rei, e pergunta por que você veio de tão longe pra **matar um homem que foi mandado salvar**. Cada
 golpe seu nele soa como bater num espelho: racha, e atrás não há nada — só mais escada subindo.
 
@@ -52,7 +52,7 @@ golpe seu nele soa como bater num espelho: racha, e atrás não há nada — só
 **Zona 4 — A Sombra do Rei.**
 
 O homem que **o mar cuspiu de volta** anos atrás: dado como morto no naufrágio, voltou *errado*. Foi ele
-quem trouxe a luz ao Rei — quem **acendeu o ritual**, sussurrando que havia uma forma de Arka nunca cair.
+quem trouxe a luz ao Rei — quem **acendeu o ritual**, sussurrando que havia uma forma de Aravok nunca cair.
 Não levanta a mão contra você (mas se defende quando forçado); só **ri e te manda subir**. Diz que só
 quer dar paz ao pobre rei — e talvez acredite nisso. É o arquiteto da tragédia, sereno no meio dela.
 
@@ -60,7 +60,7 @@ quer dar paz ao pobre rei — e talvez acredite nisso. É o arquiteto da tragéd
 
 ---
 
-## Andar 50 — **Rei Arka** · *Arka, o Fundador* (chefe final, fim da S1)
+## Andar 50 — **Rei Aravok** · *Aravok, o Fundador* (chefe final, fim da S1)
 **Zona 5 — O Limiar.**
 
 O Rei que **fundou o reino**, envolto numa luz que não é dele — e, sob ela, por um piscar, o homem que um
@@ -76,7 +76,7 @@ marca e o chão se abre → *Regicide*). Os dois "abrem o portal": a queda do Re
 ## Fios que amarram (pra consistência, se quiser puxar depois)
 - **A marca redonda** no piso do Andar 1 = onde tudo acaba (Andar 50). Começo e fim no mesmo selo.
 - **Sangue real sobe** as escadas (visto nas atmosferas das zonas 3–5) → o ritual *alimenta* o topo.
-- **Oren (Xamã)** é a causa; **Arka** é a chave; o **Eco Coroado** é o ensaio; o **Capitão** e o
+- **Oren (Xamã)** é a causa; **Aravok** é a chave; o **Eco Coroado** é o ensaio; o **Capitão** e o
   **Tesoureiro** são as duas faces do reino que caiu (o que **defendeu** vs o que **só contou ouro**).
 - O **"algo pior" lá embaixo** fica em aberto → gancho pra Season 2.
 
@@ -94,7 +94,7 @@ uns ficaram no posto, outros desertaram e subiram. Todos amaldiçoados, nenhum d
 - **Hall Sentinel** (2) — A lança ainda **morna** na mão é a dele: largou o posto pra subir, voltou pra buscá-la, e nunca mais desceu.
 - **Pale Watchman** (3) — A tocha não esquenta e a sombra cai pro lado errado — porque a luz dele vem de **baixo**, da mesma fenda. Faz a ronda eterna de um turno que nunca acaba.
 - **Deserter's Husk** (4, ×2) — Largou o dado na mesa e **subiu** quando o chão chamou. O que sobrou é a casca — o homem foi pro topo faz tempo.
-- **Watchman's Husk** (5, ×2) — Apodreceu sob a bandeira da Coroa de Arka, a coroa bordada já preta. Defende um reino que não existe com um corpo que mal existe.
+- **Watchman's Husk** (5, ×2) — Apodreceu sob a bandeira da Coroa de Aravok, a coroa bordada já preta. Defende um reino que não existe com um corpo que mal existe.
 - **Crawling Dead** (6) — Não anda: **escala**. As marcas de mão na parede (dedos demais em cada) são dele subindo — a maldição puxa até quem já caiu.
 - **Wax-Eaten Priest** (7) — Rezava numa capela sem deus. A cera escorre **pra cima**, rumo às escadas, e o levou junto: meio homem, meio vela viva.
 - **Loyal Unto Death** (8, ×2) — Bate continência com as cores da guarnição… e então saca a lâmina. Ainda obedece a uma ordem que ninguém vivo pra dar.
@@ -123,7 +123,7 @@ sem fim, e os fiéis **ensaiam um rei**. O rito não é antigo — a última amp
 - **Circle-Warden** (23) — O guardião do **círculo** gravado no chão, que ele reabre cem vezes. Os sulcos são fundos o bastante pra **afogar** — e é o que ele faz com quem entra.
 - **The Chanting** (24, ×3) — Três fiéis ajoelhados **de cara pro chão**, presos no cântico que move o rito. A palavra que repetem **não tem forma de boca humana**.
 - **Crystal-Hearted** (25) — O coração dela virou um **cristal vermelho** — e os cristais do altar pulsam no ritmo do **seu**. É um aviso: você já está sendo **medido** pelo rito.
-- **Vintner of Blood** (26) — O **adega-mestre do sangue real**: ampolas de Arka enfileiradas, cada uma com uma data. A última é a de **hoje**. O rito é **agora**.
+- **Vintner of Blood** (26) — O **adega-mestre do sangue real**: ampolas de Aravok enfileiradas, cada uma com uma data. A última é a de **hoje**. O rito é **agora**.
 - **The Unborn Rite** (27) — Algo **nasceu aqui e não sobreviveu ao parto** — e ainda **tenta**. Um produto falho da liturgia, meio-feito, recusando-se a deixar de existir.
 - **Altar-Thing** (28, ×2) — O altar mais fundo ganhou malícia (ou os sacerdotes fundiram-se nele). O sangue **trepa as paredes pra cima**, desafiando a gravidade, levando o rito aos andares de cima.
 - **The Pretender** (29) — Sentou no **trono de ensaio** (osso e ouro) e praticou ser rei — e **quebrou** na tentativa. O rascunho falho que veio antes do Eco Coroado aperfeiçoar o papel.
@@ -154,4 +154,4 @@ que ser**, e lá no fundo **algo vasto se revira no sono**. É o limiar do Rei �
 - **Ash-Crowned** (46) — Um trono das velhas bandeiras do Rei, **queimadas e refeitas, queimadas e refeitas**. Coroado de cinzas: o ciclo de tentar coroar o Rei, falhar, recomeçar.
 - **The Listening Dark** (47) — Os sussurros **param**. O silêncio é pior: ele **escuta de volta**. A coisa lá embaixo agora repara em **você**, diretamente.
 - **The One Step Behind** (48) — Um **reflexo seu** sobe ao seu lado, **um passo atrás, sorrindo**. A Torre ensaiou reis (o Eco) — agora ensaia **você**: o herói que, talvez, dará meia-volta.
-- **The Weeping Threshold** (49) — A **última porta**. Uma luz cor de **ferida** vaza por baixo, e do outro lado **um homem chora**. O guardião encharcado do luto do Rei — atrás dele, Arka.
+- **The Weeping Threshold** (49) — A **última porta**. Uma luz cor de **ferida** vaza por baixo, e do outro lado **um homem chora**. O guardião encharcado do luto do Rei — atrás dele, Aravok.

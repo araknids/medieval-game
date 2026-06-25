@@ -22,12 +22,12 @@
 | **Terra** | Black Iron Mines | *a riqueza vem de algo VIVO — quente, que sangra, que pulsa* |
 | **Terra funda** | Crystal Grottoes | *não é coisa, é uma MENTE — ela sonha, fala, e tem fiéis* |
 | **Fronte** | Cursed Fortress | *a corrupção FLUI da Torre; o Rei serve algo* |
-| **Topo** | A Torre | a verdade (Xamã no andar 9 = "o homem que o mar cuspiu"; Arka no 10) |
+| **Topo** | A Torre | a verdade (Xamã no andar 9 = "o homem que o mar cuspiu"; Aravok no 10) |
 
 ---
 
-## Onboarding — briefing da guarnição (Coroa de Arka)
-> *"Coroa de Arka was the jewel of the new world — gold in the hills, fish in the tides, more than the
+## Onboarding — briefing da guarnição (Coroa de Aravok)
+> *"Coroa de Aravok was the jewel of the new world — gold in the hills, fish in the tides, more than the
 > Old Crown ever dreamed. Then the beasts came, and the King shut himself in his tower and did not come
 > down. The merchants still count their coin behind barred doors. We begged the Old Crown for soldiers.
 > They sent us recruits. They sent us you. Earn your place, climb the King's tower, and bring him home."*
@@ -118,7 +118,7 @@ sent to hold the line came back — but they came back wrong."*
 ## Pagamentos (onde as sementes fecham)
 - **Andar 1 da Torre** → a isca já escrita (o ar que sobe da fenda, a marca redonda que o Rei cobriu).
 - **Andar 9 (Xamã)** → "The Man the Sea Spat Back": o pescador que o mar devolveu é ele.
-- **Andar 10 (Arka)** → tudo aponta pra Torre/o Rei nos atos 2–3; a verdade (ganância, a nova mão) fecha aqui.
+- **Andar 10 (Aravok)** → tudo aponta pra Torre/o Rei nos atos 2–3; a verdade (ganância, a nova mão) fecha aqui.
 - **S2** → o que o Mar/Terra/Cristal sussurravam (vivo, fundo, com mente) = o Deus que Dorme, lá embaixo.
 
 ## Notas de implementação

@@ -10,7 +10,7 @@ config_version=5
 
 [application]
 
-config/name="MedievalBattle"
+config/name="Crown of Aravok"
 config/version="1.0.0"
 run/main_scene="res://App.tscn"
 config/features=PackedStringArray("4.7", "Forward Plus")

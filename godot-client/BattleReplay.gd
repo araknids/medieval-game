@@ -946,7 +946,7 @@ const TOWER_MVP_LOOK := {
 	"Coin-Eaten":     {"theme": "noble",  "rarity": 5},   # nobre apodrecido em ouro — coroa dourada
 	"Crowned Echo":   {"theme": "noble",  "rarity": 4},   # eco oco do Rei — coroa
 	"Xam":            {"theme": "wizard", "rarity": 4},   # o Xamã — manto (casa "Xamã" por prefixo)
-	"Rei Arka":       {"theme": "noble",  "rarity": 5},   # o Rei — coroa + dourado
+	"Rei Aravok":       {"theme": "noble",  "rarity": 5},   # o Rei — coroa + dourado
 }
 const TOWER_FULL_SET := ["ARMOR", "GLOVES", "BOOTS", "PANTS", "HELMET", "SHOULDER"]
 

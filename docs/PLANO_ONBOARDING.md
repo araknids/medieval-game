@@ -3,7 +3,7 @@
 > **Status:** 🚧 EM IMPLEMENTAÇÃO (2026-06-24, build noturno) — dono valida de manhã.
 > **Objetivo:** matar o "começo largado" (novato cai no jogo sem contexto nem direção) — o assassino do
 > minuto 1–10. Itch lança **domingo (2026-06-29)**. Consolida design espalhado em 3 docs:
-> `PLANO_QUESTS_LORE.md` (briefing da Coroa de Arka, **texto já escrito**), `AUDITORIA_USABILIDADE_UI.md`
+> `PLANO_QUESTS_LORE.md` (briefing da Coroa de Aravok, **texto já escrito**), `AUDITORIA_USABILIDADE_UI.md`
 > §8.1 (fluxo de 60s) e os endpoints `onboardingSeen` que já existem no backend.
 
 ## Diagnóstico (confirmado pelo dono jogando)
@@ -20,7 +20,7 @@ dourado → leva ao **World com a 1ª quest destacada** (coachmark "Comece aqui"
 inteiro** (lutar → loot → equipar → subir nível) guiado uma vez.
 
 **Briefing (já escrito em `PLANO_QUESTS_LORE.md`, EN é a língua de UI):**
-> *"Coroa de Arka was the jewel of the new world — gold in the hills, fish in the tides… Then the beasts came,
+> *"Coroa de Aravok was the jewel of the new world — gold in the hills, fish in the tides… Then the beasts came,
 > and the King shut himself in his tower and did not come down… We begged the Old Crown for soldiers. They sent
 > us recruits. They sent us **you**. Earn your place, climb the King's tower, and bring him home."*
 

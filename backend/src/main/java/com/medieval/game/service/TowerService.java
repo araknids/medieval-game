@@ -26,7 +26,7 @@ public class TowerService {
     private final PlayerService           playerService;
     private final AchievementService      achievementService; // [TITULOS]
     private final GatheringService        gatheringService;   // [MONSTER_CORE_BATALHA]
-    private final Messages                messages;           // [I18N] atmosfera dos andares + escolha do Arka
+    private final Messages                messages;           // [I18N] atmosfera dos andares + escolha do Aravok
     private final WorkGuard               workGuard; // [WORK_IDLE][VARREDURA] trava enquanto trabalha
 
     @Value("${app.dev.instant-complete:false}")
@@ -296,7 +296,7 @@ public class TowerService {
                 achievementService.checkAndUnlock(player, true); // [TITULOS] Tower Climber/Conqueror
             }
 
-            // [TORRE_NARRATIVA] Topo: derrotou o Rei Arka (andar 50) → a escolha (poupar/matar) + fim da S1.
+            // [TORRE_NARRATIVA] Topo: derrotou o Rei Aravok (andar 50) → a escolha (poupar/matar) + fim da S1.
             if (fdef.isMvp() && floor >= TowerFloors.maxFloor()) {
                 run.setStatus(TowerStatus.EXITED); // a Torre acaba aqui
                 arkaChoicePending = !achievementService.has(player, com.medieval.game.enums.Achievement.REGICIDE)
@@ -320,7 +320,7 @@ public class TowerService {
     }
 
     /**
-     * [TORRE_NARRATIVA][TITULOS] Resolve a escolha no topo da Torre, depois de derrotar o Rei Arka:
+     * [TORRE_NARRATIVA][TITULOS] Resolve a escolha no topo da Torre, depois de derrotar o Rei Aravok:
      * poupar (→ The Merciful) ou matar (→ Regicide). Uma só vez. Os dois "abrem o portal" (fim da S1).
      */
     @Transactional
@@ -335,7 +335,7 @@ public class TowerService {
                       : com.medieval.game.enums.Achievement.REGICIDE);
         log.info("[TowerService] player={} arkaChoice spare={} granted={}", player.getId(), spare, granted);
         return spare
-            ? messages.getOr("tower.arka.spare", "You lower your blade. King Arka thanks you — and buries the ritual dagger in his own heart, over the mark on the floor. \"Worse things are coming,\" he breathes. The floor opens beneath you.")
+            ? messages.getOr("tower.arka.spare", "You lower your blade. King Aravok thanks you — and buries the ritual dagger in his own heart, over the mark on the floor. \"Worse things are coming,\" he breathes. The floor opens beneath you.")
             : messages.getOr("tower.arka.kill",  "You strike. The King's blood spills across the mark, and the floor gives way beneath you. Far below, something begins to wake.");
     }
 

@@ -31,7 +31,7 @@ func _ready() -> void:
 	var outer := VBoxContainer.new()
 	outer.add_theme_constant_override("separation", 14)
 	center.add_child(outer)
-	outer.add_child(fx.title("⚔ MEDIEVAL", 64))
+	outer.add_child(fx.title("⚔ CROWN OF ARAVOK", 44))
 	var panel := PanelContainer.new()
 	panel.add_theme_stylebox_override("panel", fx.panel())
 	outer.add_child(panel)

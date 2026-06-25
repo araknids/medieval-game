@@ -8,7 +8,7 @@ andar** (50 inimigos distintos).
 
 ## Escopo da arte — 50 bustos (1 por andar)
 Cada um dos 50 andares (ver `TowerFloors.java`) tem o **seu** busto, com uma pose que combina com o
-inimigo (o tesoureiro joga moeda, o xamã ergue o cajado, o cultista levanta a adaga, o Rei Arka
+inimigo (o tesoureiro joga moeda, o xamã ergue o cajado, o cultista levanta a adaga, o Rei Aravok
 ajoelhado com a coroa…). MVP a cada 10 (10/20/30/40/50) = chefes de história, com moldura dourada +
 selo BOSS. As 50 descrições estão em `docs/previews/_busts.js` (floor, name, mvp, desc).
 

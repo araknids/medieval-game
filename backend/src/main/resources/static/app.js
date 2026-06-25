@@ -323,12 +323,12 @@ function showOnboardingModal() {
   el.innerHTML = `
     <div onclick="event.stopPropagation()" style="background:#14121c;border:2px solid #c9a84c;border-radius:14px;
       padding:26px;max-width:520px;width:100%;max-height:90vh;overflow-y:auto;box-shadow:0 8px 40px rgba(0,0,0,0.7)">
-      <h2 style="margin:0 0 4px;color:#c9a84c;font-size:20px">⚜ Coroa de Arka</h2>
+      <h2 style="margin:0 0 4px;color:#c9a84c;font-size:20px">⚜ Coroa de Aravok</h2>
       <div style="color:#888;font-size:12px;margin-bottom:16px;letter-spacing:.04em;text-transform:uppercase">A Recruit's Orders</div>
       <div style="color:#cdd;font-size:13.5px;line-height:1.7">
         <p style="margin:0 0 12px">A new continent, rich beyond the Old World's dreams — gold in the hills,
-        fish in the tides. The explorers who found it built a city at its heart and crowned a king: <b>Arka</b>.</p>
-        <p style="margin:0 0 12px">Then the beasts came, and King Arka shut himself in his tower and never came
+        fish in the tides. The explorers who found it built a city at its heart and crowned a king: <b>Aravok</b>.</p>
+        <p style="margin:0 0 12px">Then the beasts came, and King Aravok shut himself in his tower and never came
         down. The corruption spread through the territories. The city begged the Old Crown for soldiers —
         and the Old Crown sent <b>recruits</b>. It sent <b>you</b>.</p>
         <p style="margin:0 0 12px;color:#e6d29a"><b>Your first orders:</b> report to the <b>territories</b>,
@@ -2634,7 +2634,7 @@ async function fightTower(skipHp) {
   showTowerFightModal(data);     // resultado no modal padrão (igual zonas)
 }
 
-// [TORRE_NARRATIVA] Andar 50: o Rei Arka caído implora. O jogador ESCOLHE — e a escolha é definitiva.
+// [TORRE_NARRATIVA] Andar 50: o Rei Aravok caído implora. O jogador ESCOLHE — e a escolha é definitiva.
 function showArkaChoiceModal(data) {
   closeCollectModal();
   const el = document.createElement('div');
@@ -2647,7 +2647,7 @@ function showArkaChoiceModal(data) {
       padding:24px;max-width:480px;width:100%;max-height:88vh;overflow-y:auto;box-shadow:0 8px 32px rgba(0,0,0,0.7)">
       <h3 style="margin:0 0 12px;color:#c9a84c;font-size:18px">👑 The King Falls</h3>
       <div style="font-style:italic;color:#cdd;font-size:13px;line-height:1.6;margin-bottom:18px">
-        King Arka sinks to his knees, the borrowed light guttering out of him. For a heartbeat, the man who
+        King Aravok sinks to his knees, the borrowed light guttering out of him. For a heartbeat, the man who
         founded a kingdom looks up at you — and he is afraid. <b>"Mercy,"</b> he breathes. <b>"Please."</b>
       </div>
       <div style="display:flex;flex-direction:column;gap:10px">

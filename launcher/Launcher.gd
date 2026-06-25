@@ -41,7 +41,7 @@ func _build_ui() -> void:
 	v.offset_left = 40; v.offset_right = -40
 	add_child(v)
 	var title := Label.new()
-	title.text = "MedievalBattle"
+	title.text = "Crown of Aravok"
 	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	title.add_theme_font_size_override("font_size", 30)
 	title.add_theme_color_override("font_color", Color(0.86, 0.72, 0.36))

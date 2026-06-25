@@ -3,7 +3,7 @@ extends Control
 # Lê GET /api/tower/current: se houver run ativa mostra o andar (boss/atmosfera/stats) +
 # botão ⚔ Lutar; senão mostra o lobby (custo 25⚡ + ⚔ Entrar e lutar). Lutar resolve no backend
 # (POST /api/tower/fight) e mostra o RESULTADO em texto (recompensas + log) — sem 3D.
-# Andar 50: a escolha do Rei Arka (poupar/matar). Ranking de melhores andares em baixo.
+# Andar 50: a escolha do Rei Aravok (poupar/matar). Ranking de melhores andares em baixo.
 # Padrão visual: UiKit [PADRAO_UI_GODOT]. Espelha loadTower/showTowerLobby/showTowerFloor. [MIGRACAO_GODOT]
 
 signal go_back
@@ -19,7 +19,7 @@ var busy := false
 var warrior: Dictionary = {}     # estamina + comparação Você×Inimigo
 var state: Dictionary = {}       # GET /api/tower/current
 var last_result: Dictionary = {} # resultado da última luta (texto), se houver
-var arka_pending := false        # escolha do Rei Arka no topo
+var arka_pending := false        # escolha do Rei Aravok no topo
 var log_open := false            # log da batalha colapsável
 
 func _ready() -> void:
@@ -282,14 +282,14 @@ func _group_names(arr: Array) -> Array:
 		out.append(("%s ×%d" % [s, c]) if c > 1 else s)
 	return out
 
-# ── Escolha do Rei Arka (andar 50) ───────────────────────────────────────────────
+# ── Escolha do Rei Aravok (andar 50) ───────────────────────────────────────────────
 func _render_arka() -> void:
 	var res := UiKit.card(UiKit.GOLD)
 	var vb: VBoxContainer = res[1]
 	var h := Label.new(); h.text = "👑 O Rei Cai"; h.add_theme_font_size_override("font_size", 19)
 	h.add_theme_color_override("font_color", UiKit.GOLD)
 	vb.add_child(h)
-	var txt := UiKit.body("O Rei Arka cai de joelhos, a luz emprestada se apagando. Por um instante, o homem que fundou um reino olha para você — e tem medo. \"Misericórdia\", ele sussurra. \"Por favor.\"")
+	var txt := UiKit.body("O Rei Aravok cai de joelhos, a luz emprestada se apagando. Por um instante, o homem que fundou um reino olha para você — e tem medo. \"Misericórdia\", ele sussurra. \"Por favor.\"")
 	vb.add_child(txt)
 	vb.add_child(UiKit.action("🕊 Poupá-lo", _arka.bind(true)))
 	vb.add_child(UiKit.action_danger("🗡 Executá-lo", _arka.bind(false)))

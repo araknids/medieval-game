@@ -21,7 +21,7 @@ const EN := {
 	"Habilidades": "Abilities", "Conquistas": "Achievements", "Guilda": "Guild", "Correio": "Mail",
 	"Diário": "Daily", "Configurações": "Settings", "Recompensa Diária": "Daily Reward",
 	# — [ONBOARDING] Briefing de chegada + Deveres do Recruta —
-	"Coroa de Arka era a joia do novo mundo — ouro, terras, promessas. Aí as feras vieram. Pedimos um exército à Velha Coroa, do outro lado do mar. Mandaram você.\n\nPrometeram poder ao Rei — e ele subiu a torre atrás da promessa, levado pela mão de quem o enganava. Nunca desceu. O que governa lá em cima agora não é mais o Rei.\n\nArranque o que puder dos mortos, suba atrás dele, e reze pra ele ainda ser o Rei quando você chegar.": "Coroa de Arka was the jewel of the new world — gold, land, promises. Then the beasts came. We begged the Old Crown, across the sea, for an army. They sent you.\n\nThey promised the King power — and he climbed the tower chasing it, led by the hand of the one deceiving him. He never came down. What rules up there now is no longer the King.\n\nTake what you can from the dead, climb after him, and pray he is still the King when you reach the top.",
+	"Coroa de Aravok era a joia do novo mundo — ouro, terras, promessas. Aí as feras vieram. Pedimos um exército à Velha Coroa, do outro lado do mar. Mandaram você.\n\nPrometeram poder ao Rei — e ele subiu a torre atrás da promessa, levado pela mão de quem o enganava. Nunca desceu. O que governa lá em cima agora não é mais o Rei.\n\nArranque o que puder dos mortos, suba atrás dele, e reze pra ele ainda ser o Rei quando você chegar.": "Coroa de Aravok was the jewel of the new world — gold, land, promises. Then the beasts came. We begged the Old Crown, across the sea, for an army. They sent you.\n\nThey promised the King power — and he climbed the tower chasing it, led by the hand of the one deceiving him. He never came down. What rules up there now is no longer the King.\n\nTake what you can from the dead, climb after him, and pray he is still the King when you reach the top.",
 	"Conquistar meu lugar": "Earn my place",
 	"Deveres do Recruta": "Recruit's Duties",
 	"Deveres": "Duties",
@@ -495,7 +495,7 @@ const EN := {
 	"Entrar em batalha": "Enter battle",
 	"Recompensa:": "Reward:",
 	"👑 O Rei Cai": "👑 The King Falls",
-	"O Rei Arka cai de joelhos, a luz emprestada se apagando. Por um instante, o homem que fundou um reino olha para você — e tem medo. \"Misericórdia\", ele sussurra. \"Por favor.\"": "King Arka drops to his knees, the borrowed light fading. For a moment, the man who founded a kingdom looks at you — and is afraid. \"Mercy,\" he whispers. \"Please.\"",
+	"O Rei Aravok cai de joelhos, a luz emprestada se apagando. Por um instante, o homem que fundou um reino olha para você — e tem medo. \"Misericórdia\", ele sussurra. \"Por favor.\"": "King Aravok drops to his knees, the borrowed light fading. For a moment, the man who founded a kingdom looks at you — and is afraid. \"Mercy,\" he whispers. \"Please.\"",
 	"🕊 Poupá-lo": "🕊 Spare him",
 	"🗡 Executá-lo": "🗡 Execute him",
 	"O Misericordioso": "The Merciful",

@@ -127,7 +127,7 @@ public class TowerController {
         return ResponseEntity.ok(m);
     }
 
-    /** [TORRE_NARRATIVA] A escolha no topo: poupar (spare=true) ou matar o Rei Arka → título oculto. */
+    /** [TORRE_NARRATIVA] A escolha no topo: poupar (spare=true) ou matar o Rei Aravok → título oculto. */
     @PostMapping("/arka")
     public ResponseEntity<?> arkaChoice(@RequestBody ArkaRequest req, Authentication auth) {
         String narrative = towerService.resolveArkaChoice(getPlayer(auth), req.spare());

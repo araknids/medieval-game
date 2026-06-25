@@ -30,7 +30,7 @@ aparece **só ao vencer**, no card de resultado.
    (EN, opcional — o default já vem do `TowerFloors`).
 
 ### Casos especiais
-- **Andar 50 (Rei Arka):** ao vencer dispara a **escolha do Arka** (poupar/matar), que já tem
+- **Andar 50 (Rei Aravok):** ao vencer dispara a **escolha do Aravok** (poupar/matar), que já tem
   narrativa própria (`tower.arka.*`). O desfecho do 50 é o **golpe caindo / a luz se apagando**, que
   emenda direto na tela de escolha. (O resultado e a escolha aparecem empilhados — ver `_render`.)
 - **Derrota:** mantém a nota atual ("☠ Derrotado — cure-se no Templo"). Desfecho é só de vitória.
@@ -99,7 +99,7 @@ aparece **só ao vencer**, no card de resultado.
 39. **O Selo Falho** — O selo se rompe de vez. O que ele tentou manter trancado já se foi há muito — para cima, à sua frente, em direção ao Rei. A porta chamuscada se abre para uma escada que cheira a maré.
 40. **[MVP] O Xamã** — Oren não tomba: se solta, sorrindo, escorregando de volta para o mar que o cuspiu. "Paz", repete, encantado, enquanto se desfaz. "Você vai dá-la a ele por mim." Acima do corpo que não fica, a torre deixa de ser torre — as escadas continuam, as paredes desistem.
 
-### Zona 5 (41–49): O Limiar · MVP 50: Rei Arka
+### Zona 5 (41–49): O Limiar · MVP 50: Rei Aravok
 
 41. **Caminhante da Borda** — Ele dá um passo para fora de uma borda que não existe e some. As escadas continuam; você continua com elas, porque já não há mais nada além de subir. Para trás também deixou de existir.
 42. **Coisa-Vertigem** — Quando morre, você cai — para cima, para baixo, impossível dizer — e aterrissa subindo, como se a escada o tivesse aparado e seguido em frente. A vibração nos seus dentes agora tem ritmo. É um coração.
@@ -110,7 +110,7 @@ aparece **só ao vencer**, no card de resultado.
 47. **A Escuridão que Escuta** — Você golpeia a escuridão e ela escuta isso também — e guarda. O silêncio que vem depois está mais cheio do que antes, por exatamente uma morte. Algo lá em cima ouviu você chegar.
 48. **O Um Degrau Atrás** — Você derruba a coisa que vestia o seu rosto, e ela cai um degrau atrás de você, ainda sorrindo — como se não se importasse, como se fosse apenas tentar de novo mais acima. Você não olha para trás pelo resto da subida.
 49. **O Limiar Choroso** — A porta se abre. O choro não cessa: está mais alto agora, logo além dela, e reconhece os seus passos. "Você demorou", diz a voz do Rei. "Que bom. Que bom."
-50. **[MVP] Rei Arka** — A luz emprestada o abandona, e Arka volta a ser apenas um homem — de joelhos, a chave gasta, o reino que fundou todo contido num corpo que treme. Lá embaixo, o que a luz mantinha à espera se cala, atento. Tudo nesta torre esperou por este instante. Agora ele te olha, e abre a boca para implorar.
+50. **[MVP] Rei Aravok** — A luz emprestada o abandona, e Aravok volta a ser apenas um homem — de joelhos, a chave gasta, o reino que fundou todo contido num corpo que treme. Lá embaixo, o que a luz mantinha à espera se cala, atento. Tudo nesta torre esperou por este instante. Agora ele te olha, e abre a boca para implorar.
 
 ---
 
@@ -119,4 +119,4 @@ aparece **só ao vencer**, no card de resultado.
 2. Adicionar campo `aftermath` em `FloorDef` + `floor()/mvp()` + `floorAftermath()`.
 3. `FightResult.aftermath` + controller + `Tower.gd _render_result`.
 4. i18n `tower.floor.<n>.aftermath` (PT + EN).
-5. Teste: `/fight` ao vencer retorna `aftermath` não-vazio; andar 50 emenda na escolha do Arka.
+5. Teste: `/fight` ao vencer retorna `aftermath` não-vazio; andar 50 emenda na escolha do Aravok.

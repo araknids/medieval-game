@@ -37,10 +37,10 @@ public enum Achievement {
     GUILD_LEADER(AchievementCategory.GUILD, "Guildmaster", "Guildmaster", "Lead a guild.",       AchievementMetric.GUILD_LEADER, 1),
 
     // ── História (OCULTOS — anti-spoiler; dirigidos por evento via grant()) ──────
-    // A escolha no topo da Torre [LORE.md]: matar ou poupar o Rei Arka. Ficam invisíveis na lista até
+    // A escolha no topo da Torre [LORE.md]: matar ou poupar o Rei Aravok. Ficam invisíveis na lista até
     // serem desbloqueados, pra não revelar que o Rei "que você veio salvar" é o chefe final.
-    REGICIDE    (AchievementCategory.STORY, "Regicide",     "Regicide",     "You struck down King Arka with your own hand.",            AchievementMetric.MANUAL, 1, true),
-    THE_MERCIFUL(AchievementCategory.STORY, "The Merciful", "The Merciful", "You spared King Arka — and watched him fall all the same.", AchievementMetric.MANUAL, 1, true);
+    REGICIDE    (AchievementCategory.STORY, "Regicide",     "Regicide",     "You struck down King Aravok with your own hand.",            AchievementMetric.MANUAL, 1, true),
+    THE_MERCIFUL(AchievementCategory.STORY, "The Merciful", "The Merciful", "You spared King Aravok — and watched him fall all the same.", AchievementMetric.MANUAL, 1, true);
 
     public final AchievementCategory category;
     public final String              title;       // prefixo exibido antes do nome

@@ -4,7 +4,7 @@ package com.medieval.game.service;
  * [TORRE_NARRATIVA] Catálogo dos 50 andares da Torre (S1). Cada andar tem uma ATMOSFERA (chegada),
  * um DESFECHO ({@code aftermath}, mostrado ao VENCER) e uma DERROTA ({@code defeat}, mostrada ao PERDER),
  * além do(s) MONSTRO(S) que o guardam (gauntlet sequencial); a cada 10 andares, um MVP de história. A
- * subida é a queda do Rei Arka contada de baixo pra cima. Texto exibido ao player = inglês (regra de UI;
+ * subida é a queda do Rei Aravok contada de baixo pra cima. Texto exibido ao player = inglês (regra de UI;
  * PT vem do i18n tower.floor.<n>.{atmosphere|aftermath|defeat}). Ver docs/PLANO_TORRE_DESFECHO.md +
  * docs/LORE.md. Stats/balance ficam no TowerService (tunados pela sonda).
  */
@@ -43,9 +43,9 @@ public final class TowerFloors {
               "When the Husk collapses, the dice on the table finish rolling on their own. Every one comes up the same number.",
               "You drop beside the pushed-back chairs. The dice roll once more — and this time it is your number that doesn't come up.",
               "Deserter's Husk", "Deserter's Husk"),
-        floor("Banners of Coroa de Arka rot on the walls, the stitched crown gone black.",
+        floor("Banners of Coroa de Aravok rot on the walls, the stitched crown gone black.",
               "The stitched crown on the banner finally crumbles to black dust. What's left is only cloth — as if it had never belonged to any king.",
-              "The Husk wraps you in a rotting banner of the Crown of Arka, and the hall takes you in as one more of its dead.",
+              "The Husk wraps you in a rotting banner of the Crown of Aravok, and the hall takes you in as one more of its dead.",
               "Watchman's Husk", "Watchman's Husk"),
         floor("The stair narrows. Handprints climb the wall beside you — too many fingers on each.",
               "The handprints stop climbing the wall. The last one is still fresh, wide enough for yours to fit inside it.",
@@ -227,9 +227,9 @@ public final class TowerFloors {
               "The door swings open. The weeping does not stop: it is louder now, just beyond it, and it knows your footsteps. \"You took your time,\" says the King's voice. \"Good. Good.\"",
               "The weeping stops when you fall, just for an instant. \"Ah,\" says the King's voice, disappointed. \"So close. Come back. I'll wait.\"",
               "The Weeping Threshold"),
-        mvp("Rei Arka", "King Arka, wreathed in a light that is not his own — and beneath it, for a flicker, the man who founded a kingdom. He fights to ascend; he does not understand he is only a key. When he falls, he will beg. Arka, the Founder — the man beneath the key.",
-            "The borrowed light abandons him, and Arka is only a man again — on his knees, the key spent, the whole kingdom he founded contained in a trembling body. Far below, what the light held waiting goes quiet, attentive. Everything in this tower has waited for this moment. Now he looks at you, and opens his mouth to beg.",
-            "The borrowed light strikes you down — and Arka, beneath it, looks almost relieved. \"Stronger,\" he begs, as you descend. \"Come back stronger. End this.\""),
+        mvp("Rei Aravok", "King Aravok, wreathed in a light that is not his own — and beneath it, for a flicker, the man who founded a kingdom. He fights to ascend; he does not understand he is only a key. When he falls, he will beg. Aravok, the Founder — the man beneath the key.",
+            "The borrowed light abandons him, and Aravok is only a man again — on his knees, the key spent, the whole kingdom he founded contained in a trembling body. Far below, what the light held waiting goes quiet, attentive. Everything in this tower has waited for this moment. Now he looks at you, and opens his mouth to beg.",
+            "The borrowed light strikes you down — and Aravok, beneath it, looks almost relieved. \"Stronger,\" he begs, as you descend. \"Come back stronger. End this.\""),
     };
 
     /** Definição do andar (1..50). Acima de 50 reaproveita o 50 (não deveria acontecer na S1). */
