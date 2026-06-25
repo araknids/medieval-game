@@ -73,7 +73,7 @@ func _update_cam() -> void:
 	elif scenario == "arena": radius = 18.0; height = 15.0; look_y = 0.5   # alto → olha pra dentro do pit
 	elif scenario == "city": radius = 20.0; height = 13.0; look_y = 1.0    # alto → praça + telhados
 	elif scenario == "castle": radius = 26.0; height = 18.0; look_y = 1.0  # alto → pátio + torres
-	elif scenario == "cursed_tower": radius = 30.0; height = 14.0; look_y = 4.0  # fortaleza alta à direita
+	elif scenario == "cursed_tower": radius = 34.0; height = 16.0; look_y = 5.0  # fortaleza larga/alta à direita
 	cam.position = Vector3(sin(a) * radius, height, cos(a) * radius)
 	cam.look_at(Vector3(0, look_y, 0), Vector3.UP)
 

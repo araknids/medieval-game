@@ -45,8 +45,10 @@ func bg_3d(control: Control, scenario := "dungeon") -> SubViewportContainer:
 			cpos = Vector3(0, 7.0, 17.0); clook = Vector3(0, 1.8, 0.0)
 		"city":
 			cpos = Vector3(0, 5.5, 16.0); clook = Vector3(0, 2.5, -2.0)
-		"cursed_tower":   # [MAPA_TORRE] reto no eixo da estrada (atrás do duelo z≈3) → a fortaleza negra domina o fundo, briga centrada na pedra
-			cpos = Vector3(-16.0, 8.0, 3.0); clook = Vector3(14.0, 9.5, 3.0)
+		"cursed_tower":   # [MAPA_TORRE] LATERAL (estilo combate): câmera no lado +Z vê o duelo de PERFIL na estrada, fortaleza negra à DIREITA (+X)
+			cpos = Vector3(-5.0, 4.5, 14.5); clook = Vector3(7.0, 5.2, 2.5)
+	if scenario == "cursed_tower":
+		cam.fov = 80.0   # lente mais aberta p/ pegar a altura da fortaleza sem perder o duelo/corpos no chão
 	cam.position = cpos
 	cam.look_at(clook, Vector3.UP)
 	var rng := RandomNumberGenerator.new()

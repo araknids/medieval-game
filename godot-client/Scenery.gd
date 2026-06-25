@@ -1092,10 +1092,13 @@ func cursed_tower(host: Node3D, rng: RandomNumberGenerator, combat_r: float) -> 
 			3:    _war_shield(host, pos, rng)
 			_:    _fallen_soldier(host, pos, rng)
 	# SOLDADOS TOMBADOS em volta do campo (players mortos com armadura) — anel em torno da briga
-	for i in 10:
-		var sa := lerpf(deg_to_rad(15), deg_to_rad(345), float(i) / 9.0) + rng.randf_range(-0.12, 0.12)
-		var sr := rng.randf_range(combat_r + 0.6, combat_r + 5.0)
+	for i in 12:
+		var sa := lerpf(deg_to_rad(15), deg_to_rad(345), float(i) / 11.0) + rng.randf_range(-0.12, 0.12)
+		var sr := rng.randf_range(combat_r + 0.5, combat_r + 6.0)
 		_fallen_soldier(host, Vector3(cos(sa) * sr, 0, sin(sa) * sr), rng)
+	# + alguns BEM na frente (lado da câmera, +Z) na estrada → garantidos no quadro do menu
+	for fp in [Vector3(3.5, 0, 7.5), Vector3(-3.0, 0, 8.5), Vector3(7.0, 0, 6.5), Vector3(-6.0, 0, 6.0), Vector3(1.0, 0, 9.5)]:
+		_fallen_soldier(host, fp, rng)
 	# FERA MORTA (como o bicho no canto da capa) — perto da fortaleza
 	_dead_beast(host, Vector3(11.0, 0, 5.5), rng, 1.0)
 	_dead_beast(host, Vector3(14.5, 0, -3.5), rng, 0.7)
@@ -1150,49 +1153,69 @@ func _pivot(host: Node3D, pos: Vector3, rot: Vector3) -> Node3D:
 # topo. Sem colisão (decorativa, longe do combate). [MAPA_TORRE]
 func _dark_tower(host: Node3D, rng: RandomNumberGenerator, base: Vector3) -> void:
 	var STONE := Color(0.085, 0.08, 0.092)              # pedra quase preta (silhueta)
-	var sides := 8                                       # octógono → silhueta arredondada (não cubo)
+	var sides := 10                                      # decágono → silhueta bem arredondada (não cubo)
 	var levels := 10                                     # TORRE ALTA/imponente
 	var seg_h := 2.6
-	var r0 := 4.3
+	var r0 := 6.0                                        # MAIS LARGA (torre gorda/fortaleza)
 	for lv in levels:
 		var t := float(lv) / float(levels)
-		var r := r0 * (1.0 - t * 0.5)                    # afina pra cima (gótico)
+		var r := r0 * (1.0 - t * 0.4)                    # afina pouco → fica robusta
 		var y := lv * seg_h + seg_h * 0.5
 		var bw := 2.0 * r * sin(PI / float(sides)) * 1.14   # largura do bloco p/ fechar o anel
-		var miss := (0.42 if lv >= levels - 2 else 0.0)  # topo QUEBRADO (blocos faltando = ruína)
+		var miss := (0.4 if lv >= levels - 2 else 0.0)   # topo QUEBRADO (blocos faltando = ruína)
 		for k in sides:
 			if rng.randf() < miss:
 				continue
-			var a := TAU * k / float(sides) + t * 0.15    # giro leve por nível (juntas desencontradas)
+			var a := TAU * k / float(sides) + t * 0.1     # giro leve por nível (juntas desencontradas)
 			var pos := base + Vector3(cos(a) * r, y + rng.randf_range(-0.05, 0.05), sin(a) * r)
-			if (lv == 2 or lv == 5) and k % 2 == 0:       # JANELAS em arco (brasa por dentro)
+			if (lv == 2 or lv == 4 or lv == 6) and k % 3 == 0:   # 3 FILEIRAS de janelas em arco (brasa)
 				_arch_window(host, pos, base, bw, seg_h)
 			else:
 				_wall_seg(host, Vector3(bw, seg_h + 0.05, 0.7), pos, base, STONE.lightened(t * 0.05))
+		# PILASTRAS (nervuras verticais góticas) nas quinas — detalhe nos níveis baixos/médios
+		if lv <= levels - 4:
+			for k in sides:
+				var pa := TAU * k / float(sides) + t * 0.1 + (PI / float(sides))   # na quina, entre 2 segmentos
+				_wall_seg(host, Vector3(0.5, seg_h + 0.12, 0.55), base + Vector3(cos(pa) * (r + 0.3), y, sin(pa) * (r + 0.3)), base, STONE.lightened(0.03))
 	var topy := levels * seg_h
-	var topr := r0 * 0.5
-	# PINÁCULOS quebrados saindo do topo (silhueta gótica irregular)
+	var topr := r0 * (1.0 - 0.4)
+	# STRINGCOURSE (faixa horizontal protuberante) em 2 alturas — banding gótico que "engorda" a silhueta
+	for band_lv in [3, 6]:
+		var by := float(band_lv) * seg_h
+		var br := r0 * (1.0 - (float(band_lv) / float(levels)) * 0.4) + 0.25
+		var bbw := 2.0 * br * sin(PI / float(sides)) * 1.2
+		for k in sides:
+			var a := TAU * k / float(sides)
+			_wall_seg(host, Vector3(bbw, 0.55, 0.95), base + Vector3(cos(a) * br, by, sin(a) * br), base, STONE.lightened(0.1))
+	# COROA de AMEIAS (merlons) no topo do anel da torre
+	for k in sides:
+		if rng.randf() < 0.25:
+			continue
+		var a := TAU * k / float(sides)
+		_wall_seg(host, Vector3(2.0 * topr * sin(PI / float(sides)) * 0.7, 1.3, 0.7), base + Vector3(cos(a) * topr, topy + 0.65, sin(a) * topr), base, STONE.lightened(0.08))
+	# ESPIGÃO central quebrado (pináculo principal) + pináculos menores
+	_box3(host, Vector3(1.1, 6.5, 1.1), base + Vector3(rng.randf_range(-0.3, 0.3), topy + 2.8, rng.randf_range(-0.3, 0.3)), STONE.lightened(0.04), Vector3(rng.randf_range(-6, 6), rng.randf_range(0, 360), rng.randf_range(-6, 6)), 1.0)
 	for sp in 5:
 		var sa := TAU * sp / 5.0 + rng.randf_range(-0.2, 0.2)
-		var sr := topr * rng.randf_range(0.2, 0.9)
-		_box3(host, Vector3(0.4, rng.randf_range(2.0, 4.0), 0.4), base + Vector3(cos(sa) * sr, topy + 1.0, sin(sa) * sr), STONE.lightened(0.06), Vector3(rng.randf_range(-12, 12), rng.randf_range(0, 360), rng.randf_range(-12, 12)), 1.0)
-	# CONTRAFORTES (buttresses) inclinados na base — peso gótico
-	for b in 4:
-		var ba := TAU * b / 4.0 + 0.39
-		_box3(host, Vector3(0.7, seg_h * 2.4, 1.5), base + Vector3(cos(ba) * (r0 * 0.95), seg_h * 1.0, sin(ba) * (r0 * 0.95)), STONE, Vector3(14, rad_to_deg(ba), 0), 1.0)
+		var sr := topr * rng.randf_range(0.3, 0.85)
+		_box3(host, Vector3(0.45, rng.randf_range(2.2, 4.0), 0.45), base + Vector3(cos(sa) * sr, topy + 1.4, sin(sa) * sr), STONE.lightened(0.06), Vector3(rng.randf_range(-12, 12), rng.randf_range(0, 360), rng.randf_range(-12, 12)), 1.0)
+	# CONTRAFORTES grandes inclinados na base — peso gótico
+	for b in 5:
+		var ba := TAU * b / 5.0 + 0.39
+		_box3(host, Vector3(0.95, seg_h * 2.8, 1.9), base + Vector3(cos(ba) * (r0 * 0.96), seg_h * 1.2, sin(ba) * (r0 * 0.96)), STONE, Vector3(14, rad_to_deg(ba), 0), 1.0)
 	# ENTULHO na base (a torre desmoronando): rochas + lascas de pedra
-	for i in 14:
+	for i in 16:
 		var ra := rng.randf_range(0, TAU)
-		var rr := r0 + rng.randf_range(0.2, 2.8)
-		_place(host, rng, NAT + "Rock_Medium_%d.gltf" % (1 + i % 3), base + Vector3(cos(ra) * rr, 0, sin(ra) * rr), rng.randf_range(0, 360), rng.randf_range(0.6, 1.4))
+		var rr := r0 + rng.randf_range(0.3, 3.2)
+		_place(host, rng, NAT + "Rock_Medium_%d.gltf" % (1 + i % 3), base + Vector3(cos(ra) * rr, 0, sin(ra) * rr), rng.randf_range(0, 360), rng.randf_range(0.6, 1.5))
 	for i in 8:
 		var ca := rng.randf_range(0, TAU)
-		var cr := r0 + rng.randf_range(0.0, 2.0)
-		_box3(host, Vector3(rng.randf_range(0.5, 1.1), rng.randf_range(0.4, 0.9), rng.randf_range(0.5, 1.1)), base + Vector3(cos(ca) * cr, 0.2, sin(ca) * cr), STONE.lightened(0.04), Vector3(rng.randf_range(-20, 20), rng.randf_range(0, 360), rng.randf_range(-20, 20)), 1.0)
+		var cr := r0 + rng.randf_range(0.0, 2.4)
+		_box3(host, Vector3(rng.randf_range(0.5, 1.2), rng.randf_range(0.4, 1.0), rng.randf_range(0.5, 1.2)), base + Vector3(cos(ca) * cr, 0.2, sin(ca) * cr), STONE.lightened(0.04), Vector3(rng.randf_range(-20, 20), rng.randf_range(0, 360), rng.randf_range(-20, 20)), 1.0)
 	# FOGO no topo (a torre queima) + colunas de fumaça
-	_tower_fire(host, base + Vector3(0, topy + 0.2, 0))
-	_smoke(host, base + Vector3(rng.randf_range(-0.6, 0.6), topy + 2.0, 0))
-	_smoke(host, base + Vector3(rng.randf_range(-0.6, 0.6), topy + 2.8, 0.4))
+	_tower_fire(host, base + Vector3(0, topy + 0.4, 0))
+	_smoke(host, base + Vector3(rng.randf_range(-0.6, 0.6), topy + 2.2, 0))
+	_smoke(host, base + Vector3(rng.randf_range(-0.6, 0.6), topy + 3.0, 0.4))
 	# MURALHA de castelo PRETA de frente pra estrada (com portão aceso + ameias) — imponência de fortaleza
 	_castle_front(host, base, r0)
 
@@ -1201,29 +1224,39 @@ func _dark_tower(host: Node3D, rng: RandomNumberGenerator, base: Vector3) -> voi
 func _castle_front(host: Node3D, base: Vector3, r0: float) -> void:
 	var STONE := Color(0.075, 0.07, 0.085)
 	var wall_x := base.x - r0 - 0.4       # face frontal (lado da estrada)
-	var wall_h := 9.5
-	var span := 8.5                        # meia-largura da muralha (em Z)
-	var gate := 1.9                        # meio-vão do portão
-	# painéis esquerdo/direito (caixões de pedra), deixando o vão do portão no meio
+	var wall_h := 10.0
+	var span := 11.0                       # meia-largura da muralha (em Z) — LARGA
+	var gate := 2.1                        # meio-vão do portão
+	# painéis esquerdo/direito (caixões de pedra) + seteiras acesas; vão do portão fica no meio
 	for sidez in [-1.0, 1.0]:
 		var z0: float = base.z + sidez * gate
 		var z1: float = base.z + sidez * span
-		_box3(host, Vector3(1.7, wall_h, absf(z1 - z0)), Vector3(wall_x, wall_h * 0.5, (z0 + z1) * 0.5), STONE, Vector3.ZERO, 1.0)
-	# torres-pilar do portão (mais altas, enquadram o vão)
+		_box3(host, Vector3(1.8, wall_h, absf(z1 - z0)), Vector3(wall_x, wall_h * 0.5, (z0 + z1) * 0.5), STONE, Vector3.ZERO, 1.0)
+		for s in 3:                        # seteiras (frestas) acesas no painel
+			var sz := lerpf(z0, z1, (float(s) + 0.5) / 3.0)
+			_box3(host, Vector3(0.35, 1.5, 0.25), Vector3(wall_x + 0.25, wall_h * 0.58, sz), Color(1.0, 0.42, 0.12), Vector3.ZERO, 0.6, 0.0, Color(1.0, 0.38, 0.06), 2.5)
+	# torres-pilar do portão (enquadram o vão)
 	for sidez in [-1.0, 1.0]:
-		_box3(host, Vector3(2.0, wall_h + 2.2, 1.1), Vector3(wall_x, (wall_h + 2.2) * 0.5, base.z + sidez * gate), STONE.lightened(0.03), Vector3.ZERO, 1.0)
+		_box3(host, Vector3(2.1, wall_h + 2.4, 1.2), Vector3(wall_x, (wall_h + 2.4) * 0.5, base.z + sidez * gate), STONE.lightened(0.03), Vector3.ZERO, 1.0)
+	# TORRES DE CANTO nas pontas da muralha (silhueta de castelo) + ameias no topo delas
+	for sidez in [-1.0, 1.0]:
+		var tz: float = base.z + sidez * span
+		_box3(host, Vector3(2.6, wall_h + 4.0, 2.6), Vector3(wall_x + 0.3, (wall_h + 4.0) * 0.5, tz), STONE.lightened(0.02), Vector3.ZERO, 1.0)
+		for mk in 4:
+			var ma := TAU * mk / 4.0
+			_box3(host, Vector3(0.7, 1.0, 0.7), Vector3(wall_x + 0.3 + cos(ma) * 0.95, wall_h + 4.0 + 0.45, tz + sin(ma) * 0.95), STONE.lightened(0.06), Vector3.ZERO, 1.0)
 	# verga (arco) do portão + BRASA no vão (a fortaleza arde por dentro)
-	_box3(host, Vector3(1.8, wall_h * 0.3, gate * 2.0), Vector3(wall_x, wall_h * 0.82, base.z), STONE, Vector3.ZERO, 1.0)
+	_box3(host, Vector3(1.9, wall_h * 0.3, gate * 2.0), Vector3(wall_x, wall_h * 0.82, base.z), STONE, Vector3.ZERO, 1.0)
 	_box3(host, Vector3(0.4, wall_h * 0.55, gate * 1.5), Vector3(wall_x + 0.25, wall_h * 0.34, base.z), Color(1.0, 0.42, 0.12), Vector3.ZERO, 0.6, 0.0, Color(1.0, 0.38, 0.06), 3.0)
 	var gl := OmniLight3D.new()           # luz quente saindo do portão
-	gl.light_color = Color(1.0, 0.5, 0.2); gl.light_energy = 3.2; gl.omni_range = 11.0
+	gl.light_color = Color(1.0, 0.5, 0.2); gl.light_energy = 3.4; gl.omni_range = 12.0
 	host.add_child(gl); gl.position = Vector3(wall_x + 1.2, 3.2, base.z)
 	# AMEIAS (merlons) no topo da muralha — silhueta de castelo
 	var z := base.z - span
 	while z <= base.z + span + 0.01:
-		if absf(z - base.z) > gate * 0.8:    # pula o vão do portão
-			_box3(host, Vector3(0.9, 1.1, 0.8), Vector3(wall_x, wall_h + 0.55, z), STONE.lightened(0.05), Vector3.ZERO, 1.0)
-		z += 1.5
+		if absf(z - base.z) > gate * 0.8 and absf(absf(z - base.z) - span) > 1.6:   # pula o portão e as torres de canto
+			_box3(host, Vector3(0.9, 1.1, 0.85), Vector3(wall_x, wall_h + 0.55, z), STONE.lightened(0.05), Vector3.ZERO, 1.0)
+		z += 1.4
 
 # Segmento de muralha (caixa) com a FACE plana virada pra FORA do centro (look_at) — monta o
 # anel octogonal da torre. [MAPA_TORRE]
