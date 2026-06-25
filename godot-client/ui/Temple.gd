@@ -38,6 +38,10 @@ func _refresh() -> void:
 				equipped.append(it)
 	var wr = rs[2]
 	warrior = wr["json"] if (wr.get("ok") and wr.get("json") is Dictionary) else {}
+	# [DIARIO_QUEST] o GET /api/temple acima pode ter CONCLUÍDO o dever HEAL (cheguei são, HP cheio) → re-checa
+	# os badges/aviso/toast do Shell ANTES de renderizar; senão o "!" de missão não aparece (só no diário).
+	if Shell.current != null:
+		await Shell.current._refresh_starter()
 	_render()
 
 func _render() -> void:

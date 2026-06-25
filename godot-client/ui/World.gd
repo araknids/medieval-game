@@ -798,6 +798,8 @@ func _collect_quest(kingdom: String, quest_id: int, option_id := "", confirmed :
 	if not (r.get("ok") and r.get("json") is Dictionary):
 		_show_error(r); await _open(kingdom); return
 	var j: Dictionary = r["json"]
+	if Shell.current != null:   # [DIARIO_QUEST] a coleta pode ter concluído o dever QUEST (onQuestCompleted) → re-checa badges/toast
+		Shell.current._refresh_starter()
 	if bool(j.get("lunaPending", false)):   # a Luna interrompeu → ajudar ou terminar
 		_show_luna_dialog(kingdom, quest_id)
 		return
