@@ -403,12 +403,12 @@ func _make_pin(k: Dictionary) -> Control:
 			_toggle(kid))
 	return pin
 
-# [QUEST_BADGE] Marcador "!" amarelo de daily disponível. Usa o ícone PixelLab quest_alert se existir,
-# senão um "!" estilizado. MOUSE_FILTER_PASS p/ mostrar o tooltip sem bloquear o clique do pin.
+# [QUEST_BADGE] Marcador "!" AZUL de daily disponível (daily=azul). Usa o ícone PixelLab quest_alert_blue se
+# existir, senão um "!" azul estilizado. MOUSE_FILTER_PASS p/ mostrar o tooltip sem bloquear o clique do pin.
 func _quest_badge() -> Control:
 	var tip := Lang.t("Quest disponível")
-	if Icons.tex("quest_alert") != null:
-		var r := Icons.rect("quest_alert", 16)
+	if Icons.tex("quest_alert_blue") != null:   # [QUEST_BADGE] daily = "!" AZUL (consistente com o topbar)
+		var r := Icons.rect("quest_alert_blue", 16)
 		r.mouse_filter = Control.MOUSE_FILTER_PASS
 		r.tooltip_text = tip
 		r.size_flags_vertical = Control.SIZE_SHRINK_CENTER
@@ -418,7 +418,7 @@ func _quest_badge() -> Control:
 	l.tooltip_text = tip
 	l.mouse_filter = Control.MOUSE_FILTER_PASS
 	l.add_theme_font_size_override("font_size", 14)
-	l.add_theme_color_override("font_color", UiKit.GOLD)
+	l.add_theme_color_override("font_color", Color(0.40, 0.62, 1.0))
 	l.add_theme_color_override("font_outline_color", Color(0, 0, 0))
 	l.add_theme_constant_override("outline_size", 4)
 	l.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
@@ -527,7 +527,7 @@ func _build_detail(box: VBoxContainer, kingdom: String) -> void:
 	# [UI_TRABALHO] Training Hall MOVIDO p/ a tela de Trabalho (Work.gd) — não fica mais no Mundo.
 	# DAILY QUESTS
 	if not quests.is_empty():
-		box.add_child(UiKit.section("🗓 Daily Quests"))
+		box.add_child(UiKit.section_with_icon("quest_alert_blue", "Daily Quests"))   # [QUEST_BADGE] "!" azul (daily), não a caixa do daily-reward
 		# [SEM_SCROLL] quests em GRID 2-col (era 1 card por linha → encurta bastante)
 		box.add_child(UiKit.grid(self, quests, func(q): return _quest_card(kingdom, q) if q is Dictionary else null, false, 280, 2))
 	# Zonas de coleta / caça

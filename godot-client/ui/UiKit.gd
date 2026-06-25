@@ -1163,6 +1163,16 @@ static func section(text: String) -> Control:
 	v.add_child(row)
 	return v
 
+# [QUEST_BADGE] section() com ícone EXPLÍCITO (não derivado de emoji do título) — ex.: "!" azul de daily.
+static func section_with_icon(icon_key: String, text: String) -> Control:
+	var sec := section(text)                     # text sem emoji → row = [label, rule]
+	var row: HBoxContainer = sec.get_child(1)    # VBox = [spacer(0), row(1)]
+	var ic := Icons.rect(icon_key, 20)
+	ic.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	row.add_child(ic)
+	row.move_child(ic, 0)                        # ícone ANTES do título
+	return sec
+
 # [PAGINACAO] Cabeçalho de seção com PAGINADOR no canto direito (mesma linha do título):
 # [ícone] TÍTULO ──────── ◀ N ▶. page = índice 0-based; has_next = há próxima página.
 # on_prev/on_next = callbacks. Reusa `section` (mesmo visual) e encaixa o pager depois da régua.
