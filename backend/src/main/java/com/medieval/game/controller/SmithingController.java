@@ -79,6 +79,7 @@ public class SmithingController {
                 )).toList()),
                 Map.entry("levelRequired", r.smithingLevel()),
                 Map.entry("bronzeCost",  r.bronzeCost()),                              // [PROFISSAO_SUCCESS] taxa por tentativa
+                Map.entry("scrapCost",   smithingService.craftWeaponScrap(r)),         // [DESMONTAGEM] Peças p/ forjar arma (0 = não-arma)
                 Map.entry("successPct",  smithingService.craftSuccessPct(smithingLevel, r)), // chance no nível atual
                 Map.entry("atk",         st[0]),
                 Map.entry("def",         st[1]),

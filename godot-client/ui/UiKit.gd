@@ -8,6 +8,9 @@ static var _weapons_helper = null              # instância p/ weapon_kind (lazy
 # Quando uma tela embedded chama set_wallet com wallet=null, manda o warrior pro topbar do Shell.
 # O Shell registra (UiKit.topbar_sink = update_topbar) sem criar ciclo de class_name. [PLANO_UI_SHELL_GODOT]
 static var topbar_sink := Callable()
+# [TOPBAR_EVENTO] Telas pedem ao Shell pra RE-BUSCAR o warrior e atualizar o topbar (badge de correio,
+# moedas, HP) sem trocar de tela — ex.: ler correio zera unreadMail mas não re-renderiza o topbar.
+static var topbar_refresh := Callable()
 # Inventory chama após equipar/desequipar → Shell re-busca inventário (índice de comparação + busto 3D),
 # SÓ quando o equip muda (não a cada navegação). Evita request à toa. [PLANO_UI_SHELL_GODOT]
 static var equip_changed_sink := Callable()

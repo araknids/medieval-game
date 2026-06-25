@@ -430,8 +430,8 @@ public class SmithingService {
         return Math.max(1, item.getRarity());
     }
 
-    /** [DESMONTAGEM] Peças (SCRAP) pra forjar uma ARMA (0 p/ não-arma). Placeholder. */
-    private long craftWeaponScrap(CraftRecipe r) {
+    /** [DESMONTAGEM] Peças (SCRAP) pra forjar uma ARMA (0 p/ não-arma). Placeholder. Público p/ a DTO de receita. */
+    public long craftWeaponScrap(CraftRecipe r) {
         return r.type() == com.medieval.game.enums.ItemType.WEAPON ? Math.max(2, r.rarity() * 2L) : 0;
     }
 

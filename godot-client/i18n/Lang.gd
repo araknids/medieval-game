@@ -285,6 +285,8 @@ const EN := {
 	"Desmontado!": "Dismantled!",
 	"Gasto demais pra reparar (Poder %d%%). Desmonte-o por Peças.": "Too worn to repair (Power %d%%). Dismantle it for Salvage.",
 	"Reparar consome Peças + bronze e gasta um pouco do Poder do item.": "Repairing costs Salvage + bronze and wears down the item's Power a bit.",
+	"Reparar: %d Peças (você tem %d) + bronze · gasta um pouco do Poder.": "Repair: %d Salvage (you have %d) + bronze · wears the item's Power a bit.",
+	" + %d Peças": " + %d Salvage",
 	"Desmontar \"%s\"? Vira Peças. Joias encaixadas são PERDIDAS. Não tem volta.": "Dismantle \"%s\"? It becomes Salvage. Socketed gems are LOST. No undo.",
 	# — [INCURSAO_PVP] escolha PvP na Incursão + Replays no Correio —
 	"Atacar %s (PvP)": "Attack %s (PvP)",

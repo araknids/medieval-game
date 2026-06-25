@@ -217,6 +217,8 @@ func _open_mail(id: int) -> void:
 		if letter is Dictionary and int(letter.get("id", -1)) == id:
 			letter["isRead"] = true
 	unread = maxi(0, unread - 1)
+	if UiKit.topbar_refresh.is_valid():    # [TOPBAR_EVENTO] zera o "!" do correio no topbar na hora (sem _refresh full)
+		UiKit.topbar_refresh.call()
 	_render()                              # lista atualiza (carta vira lida + badge)
 	_show_modal()
 

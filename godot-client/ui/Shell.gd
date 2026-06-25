@@ -102,6 +102,7 @@ var _offered := {}        # screen -> já ofereci a quest nesta sessão (não re
 func _ready() -> void:
 	current = self
 	UiKit.topbar_sink = update_topbar          # telas embedded mandam o warrior pro topbar via set_wallet
+	UiKit.topbar_refresh = refresh_topbar      # [TOPBAR_EVENTO] telas pedem re-busca do warrior (ex.: ler correio)
 	UiKit.equip_changed_sink = _on_equip_changed   # Inventory avisa quando equipa → re-veste o busto (sem fetch à toa)
 	UiKit.starter_changed_sink = _refresh_starter  # [ONBOARDING v2] diário avisa → re-render dos badges de quest
 	set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
@@ -134,6 +135,8 @@ func _exit_tree() -> void:
 		UiKit.equip_changed_sink = Callable()
 	if UiKit.starter_changed_sink.is_valid() and UiKit.starter_changed_sink.get_object() == self:
 		UiKit.starter_changed_sink = Callable()
+	if UiKit.topbar_refresh.is_valid() and UiKit.topbar_refresh.get_object() == self:
+		UiKit.topbar_refresh = Callable()
 
 # ── [ONBOARDING] Briefing de chegada (Camada A) ─────────────────────────────────────
 # Só no 1º login (backend: !onboardingSeen). Dim + card dourado + briefing da Coroa de Aravok +
@@ -1043,6 +1046,17 @@ func _on_equip_changed(inv_arr := []) -> void:
 	_try_equip_quest()   # [ONBOARDING] equipou → tenta concluir o dever de equipar
 
 # Atualiza só o topbar a partir de um WarriorResponse (chamado tb pelas telas via UiKit.set_wallet).
+# [TOPBAR_EVENTO] Re-busca o warrior e atualiza o topbar na hora (badge de correio/moedas/HP) — chamado
+# por telas cujas ações mudam o topbar sem trocar de tela (ex.: ler correio zera unreadMail). Sink topbar_refresh.
+func refresh_topbar() -> void:
+	var api = get_node_or_null("/root/Api")
+	if api == null:
+		return
+	var r = await api.get_warrior()
+	if r.get("ok") and r.get("json") is Dictionary:
+		warrior = r["json"]
+		update_topbar(warrior)
+
 func update_topbar(w: Dictionary) -> void:
 	if w.is_empty() or _name_lbl == null:
 		return

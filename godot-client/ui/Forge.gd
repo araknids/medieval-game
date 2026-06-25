@@ -323,6 +323,8 @@ func _craft_card(r: Dictionary) -> Control:
 			var hv := _resource_qty(str(i.get("type", "")))
 			ing.append("%s %d/%d" % [str(i.get("name", "?")), hv, need])
 	var desc := Lang.t("Receita: %s · Forja Lv.%d · Sucesso %d%% · Custo %d bronze") % ["  ".join(ing), int(r.get("levelRequired", 1)), int(r.get("successPct", 0)), int(r.get("bronzeCost", 0))]
+	if int(r.get("scrapCost", 0)) > 0:   # [DESMONTAGEM] arma também custa Peças
+		desc += Lang.t(" + %d Peças") % int(r.get("scrapCost", 0))
 	var item := {
 		"type": str(r.get("slot", "")), "name": str(r.get("name", "")), "rarity": rarity,
 		"attackBonus": int(r.get("atk", 0)), "defenseBonus": int(r.get("def", 0)), "healthBonus": int(r.get("hp", 0)),
@@ -419,6 +421,15 @@ func _craft_dialog(r: Dictionary) -> void:
 			il.add_theme_color_override("font_color", UiKit.OK if hv >= need else UiKit.ERR)
 			il.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 			dvb.add_child(il)
+	# [DESMONTAGEM] custo em Peças (arma) — vermelho se faltar
+	var scrap_need := int(r.get("scrapCost", 0))
+	if scrap_need > 0:
+		var shv := _resource_qty("SCRAP")
+		var sl := Label.new(); sl.text = "%s  %d/%d" % [Lang.t("Peças"), shv, scrap_need]
+		sl.add_theme_font_size_override("font_size", 12)
+		sl.add_theme_color_override("font_color", UiKit.OK if shv >= scrap_need else UiKit.ERR)
+		sl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		dvb.add_child(sl)
 	if not can:
 		dvb.add_child(UiKit.dim(Lang.t("Forja Lv.%d — nível insuficiente") % int(r.get("levelRequired", 1))))
 		return
@@ -564,7 +575,10 @@ func _maint_dialog(it: Dictionary) -> void:
 		note.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		dvb.add_child(note)
 	elif dur < 100:
-		var rnote := UiKit.dim(Lang.t("Reparar consome Peças + bronze e gasta um pouco do Poder do item."))
+		var rep_scrap := maxi(1, rarity)   # [DESMONTAGEM] espelha repairScrapCost = max(1, raridade)
+		var shv := _resource_qty("SCRAP")
+		var rnote := UiKit.dim(Lang.t("Reparar: %d Peças (você tem %d) + bronze · gasta um pouco do Poder.") % [rep_scrap, shv])
+		rnote.add_theme_color_override("font_color", UiKit.ERR if shv < rep_scrap else UiKit.TEXT_DIM)
 		rnote.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		dvb.add_child(rnote)
 
