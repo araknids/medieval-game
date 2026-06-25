@@ -1303,14 +1303,18 @@ func _castle_front(host: Node3D, base: Vector3, r0: float) -> void:
 		for mk in 4:
 			var ma := TAU * mk / 4.0
 			_stone_box(host, Vector3(0.7, 1.0, 0.7), Vector3(wall_x + 0.3 + cos(ma) * 0.95, wall_h + 3.5 + 0.45, tz + sin(ma) * 0.95))
-	# PORTÃO: verga (arco) + vão ESCURO recuado (doorway sombrio, não vaza luz/torre atrás) + BRASAS
-	# BAIXAS no piso da entrada + luz quente. (Antes tinha uma laje emissiva ALTA = "parede acesa".)
-	_stone_box(host, Vector3(2.0, wall_h * 0.3, gate * 2.0), Vector3(wall_x, wall_h * 0.82, base.z))   # verga/arco
-	_box3(host, Vector3(0.6, wall_h * 0.78, gate * 1.9), Vector3(wall_x + 0.7, wall_h * 0.39, base.z), Color(0.02, 0.02, 0.03), Vector3.ZERO, 1.0)   # interior ESCURO
-	_box3(host, Vector3(0.7, 0.55, gate * 1.2), Vector3(wall_x + 0.2, 0.4, base.z), Color(1.0, 0.45, 0.14), Vector3.ZERO, 0.6, 0.0, Color(1.0, 0.4, 0.08), 2.0)   # brasas baixas no chão
+	# PORTÃO de verdade: ASSET Wall_Arch (mesmo arco de entrada da arena) escurecido p/ casar com a
+	# muralha + painel fechando ACIMA do arco + vão ESCURO recuado + BRASAS baixas + luz quente.
+	# (Saiu a verga de caixas que ficava "zuada".)
+	var arch := _place(host, rng, VIL + "Wall_Arch.gltf", Vector3(wall_x, 0, base.z), 90.0, 2.3)   # rot 90 → passagem ao longo de X
+	if arch:
+		_stone_skin(arch)
+	_stone_box(host, Vector3(1.8, wall_h - 4.0, gate * 2.0), Vector3(wall_x, (4.0 + wall_h) * 0.5, base.z))   # fecha acima do arco
+	_box3(host, Vector3(0.6, wall_h * 0.6, gate * 1.7), Vector3(wall_x + 0.9, wall_h * 0.32, base.z), Color(0.02, 0.02, 0.03), Vector3.ZERO, 1.0)   # interior ESCURO (atrás do arco)
+	_box3(host, Vector3(0.7, 0.55, gate * 1.1), Vector3(wall_x + 0.1, 0.4, base.z), Color(1.0, 0.45, 0.14), Vector3.ZERO, 0.6, 0.0, Color(1.0, 0.4, 0.08), 2.0)   # brasas baixas no chão
 	var gl := OmniLight3D.new()
 	gl.light_color = Color(1.0, 0.52, 0.22); gl.light_energy = 2.6; gl.omni_range = 10.0
-	host.add_child(gl); gl.position = Vector3(wall_x + 0.8, 1.8, base.z)
+	host.add_child(gl); gl.position = Vector3(wall_x + 0.6, 1.8, base.z)
 	# AMEIAS (merlons) no topo da muralha ao longo de tudo (pula o portão e onde tem torre)
 	var z := base.z - span
 	while z <= base.z + span + 0.01:
@@ -1332,6 +1336,14 @@ func _stone_mat() -> ShaderMaterial:
 		_stone_mat_cache = ShaderMaterial.new()
 		_stone_mat_cache.shader = sh
 	return _stone_mat_cache
+
+# Pinta TODO um nó (asset) com o material de alvenaria preta — p/ casar um asset do kit (ex.: o
+# arco do portão) com a fortaleza procedural. [MAPA_TORRE]
+func _stone_skin(node: Node) -> void:
+	if node is MeshInstance3D:
+		(node as MeshInstance3D).material_override = _stone_mat()
+	for c in node.get_children():
+		_stone_skin(c)
 
 # Caixa de PEDRA com alvenaria (tijolos) — p/ os blocões da muralha/torre. rot = euler.
 func _stone_box(host: Node3D, size: Vector3, pos: Vector3, rot := Vector3.ZERO) -> void:

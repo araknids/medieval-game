@@ -60,9 +60,10 @@ func bg_3d(control: Control, scenario := "dungeon") -> SubViewportContainer:
 		duel.siege_mode = true                             # inimigos saem do portão, herói sempre vence (ligado ANTES do setup)
 		duel.spawn_fallen([Vector3(-3.0, 0, 11.0), Vector3(-6.0, 0, 8.0), Vector3(1.5, 0, 6.0), Vector3(2.0, 0, 9.0)])
 	svc.set_meta("menu_duel", duel)                         # o App pega esse ref p/ remontar os lutadores no login
-	var tw := cam.create_tween().set_loops()                # drift lento (parallax) só no X (não cruza paredes)
-	tw.tween_property(cam, "position", cpos + Vector3(2.6, 0.3, 0), 14.0).set_trans(Tween.TRANS_SINE)
-	tw.tween_property(cam, "position", cpos + Vector3(-2.6, -0.2, 0), 14.0).set_trans(Tween.TRANS_SINE)
+	if scenario != "cursed_tower":                          # [MAPA_TORRE] câmera TRAVADA (sem drift) na fortaleza
+		var tw := cam.create_tween().set_loops()            # drift lento (parallax) só no X (não cruza paredes)
+		tw.tween_property(cam, "position", cpos + Vector3(2.6, 0.3, 0), 14.0).set_trans(Tween.TRANS_SINE)
+		tw.tween_property(cam, "position", cpos + Vector3(-2.6, -0.2, 0), 14.0).set_trans(Tween.TRANS_SINE)
 	# vinheta escura por cima do 3D (abaixo da UI)
 	var vig := ColorRect.new()
 	vig.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
