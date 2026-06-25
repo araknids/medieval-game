@@ -618,8 +618,8 @@ func _make_quest_badge(centered := false, left := false, key := "quest_alert") -
 	if centered:   # nav lateral: à direita, centro vertical (alinha com o texto do item)
 		tr.anchor_left = 1.0; tr.anchor_right = 1.0
 		tr.anchor_top = 0.5; tr.anchor_bottom = 0.5
-		tr.offset_left = -24; tr.offset_top = -8
-		tr.offset_right = -8; tr.offset_bottom = 8
+		tr.offset_left = -18; tr.offset_top = -8   # [ESPACO] encostado à direita → folga do texto (label longo)
+		tr.offset_right = -2; tr.offset_bottom = 8
 	elif left:     # [QUEST_BADGE] topbar: canto superior ESQUERDO (badge AZUL de diária) — poke pra FORA
 		tr.anchor_left = 0.0; tr.anchor_right = 0.0
 		tr.anchor_top = 0.0; tr.anchor_bottom = 0.0

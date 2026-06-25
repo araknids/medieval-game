@@ -263,8 +263,8 @@ func _make_subtab_alert() -> Control:
 	node.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	node.anchor_left = 1.0; node.anchor_right = 1.0
 	node.anchor_top = 0.0; node.anchor_bottom = 0.0
-	node.offset_left = -15; node.offset_top = -1
-	node.offset_right = -2; node.offset_bottom = 13
+	node.offset_left = -21; node.offset_top = -3   # [TAMANHO] "!" ~40% maior (13→19px) e mais visível
+	node.offset_right = -2; node.offset_bottom = 16
 	return node
 
 func _set_tab(t) -> void:
