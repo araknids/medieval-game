@@ -35,6 +35,7 @@ var w: Dictionary = {}
 var items: Array = []
 var resources: Array = []     # recursos de coleta (GET /api/gathering/resources) → seção na Mochila
 var abilities_data: Dictionary = {}
+var postures: Array = []      # [POSTURE] /api/warrior/postures (lista fixa {id,displayName,atkMult,defMult})
 var sub_tab := "bag"          # "bag" | "attr" | "abil" | "ach"
 var rarity_filter := 0
 var bag_sort := "level"       # [INV_COMPACTO] ordenação da mochila: level|rarity|type|upgrade|value
@@ -232,7 +233,39 @@ func _subtab_btn(value: String, icon_key: String, label: String, emoji: String) 
 		b.add_theme_stylebox_override("focus", sb)
 	else:
 		b.modulate = Color(1, 1, 1, 0.6)
+	if _subtab_alert(value):   # [PONTOS] "!" vermelho quando há ponto não gasto na sub-aba
+		b.add_child(_make_subtab_alert())
 	return b
+
+# [PONTOS] A sub-aba tem ponto não gasto? attr = ponto de atributo (sempre); abil = ponto de habilidade,
+# mas SÓ depois de escolher a classe (Recruta acumula mas não pode gastar). [HABILIDADES][CLASSES]
+func _subtab_alert(value: String) -> bool:
+	if value == "attr":
+		return int(w.get("availablePoints", 0)) > 0
+	if value == "abil":
+		return int(w.get("abilityPoints", 0)) > 0 and str(w.get("warriorClassId", "")) != "RECRUIT"
+	return false
+
+# "!" vermelho no canto superior direito do botão de sub-aba (ícone PixelLab; fallback no Label "!").
+func _make_subtab_alert() -> Control:
+	var node: Control
+	if Icons.tex("quest_alert_red") != null:
+		var tr := TextureRect.new()
+		tr.texture = Icons.tex("quest_alert_red")
+		tr.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		tr.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+		node = tr
+	else:
+		var l := Label.new(); l.text = "!"
+		l.add_theme_color_override("font_color", UiKit.ERR)
+		l.add_theme_font_size_override("font_size", 14)
+		node = l
+	node.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	node.anchor_left = 1.0; node.anchor_right = 1.0
+	node.anchor_top = 0.0; node.anchor_bottom = 0.0
+	node.offset_left = -15; node.offset_top = -1
+	node.offset_right = -2; node.offset_bottom = 13
+	return node
 
 func _set_tab(t) -> void:
 	sub_tab = str(t)
@@ -243,12 +276,15 @@ func _set_tab(t) -> void:
 # ── Dados ────────────────────────────────────────────────────────────────────────────
 func _refresh() -> void:
 	UiKit.show_loading(self)
-	var rs = await Api.batch_get(["/api/warrior", "/api/inventory", "/api/abilities", "/api/gathering/resources", "/api/achievements"])
+	var rs = await Api.batch_get(["/api/warrior", "/api/inventory", "/api/abilities", "/api/gathering/resources", "/api/achievements", "/api/warrior/postures"])
 	var wr = rs[0]
 	if not (wr.get("ok") and wr.get("json") is Dictionary):
 		UiKit.show_error(status, wr)
 		return
 	w = wr["json"]
+	var pr2 = rs[5]   # [POSTURE] lista fixa de posturas (id/displayName/atkMult/defMult)
+	if pr2.get("ok") and pr2.get("json") is Array:
+		postures = pr2["json"]
 	var ir = rs[1]
 	items = ir["json"] if (ir.get("ok") and ir.get("json") is Array) else []
 	var ar = rs[2]
@@ -883,6 +919,10 @@ func _render_attr_panel() -> void:
 	# ── Stats de combate efetivos (atk total etc.) ──
 	_panel_host.add_child(UiKit.section("Combate"))
 	_panel_host.add_child(_combat_stats_grid())
+	# ── Postura de combate (tradeoff ATK/DEF, vale em TODO combate; troca livre) [POSTURE] ──
+	if not postures.is_empty():
+		_panel_host.add_child(UiKit.section("Postura de Combate"))
+		_panel_host.add_child(_posture_picker())
 	# ── Atributos (gastar ponto) — compacto ──
 	var pts := int(w.get("availablePoints", 0))
 	var ttl := Lang.t("Atributos")
@@ -894,6 +934,81 @@ func _render_attr_panel() -> void:
 	for a in ATTRS:
 		col.add_child(_attr_row(a, pts > 0))
 	_panel_host.add_child(col)
+
+# [POSTURE] Picker das 3 posturas — a postura ativa fica destacada; o ATK/DEF efetivo (acima) já reflete a escolha.
+const POSTURE_ICON := {"OFFENSIVE": "posture_offensive", "DEFENSIVE": "posture_defensive", "BALANCED": "posture_balanced"}
+# rótulo PT (o displayName do backend é inglês "⚔️ Offensive"…); Lang.t() resolve PT→EN. [I18N]
+const POSTURE_LABEL := {"OFFENSIVE": "Ofensiva", "DEFENSIVE": "Defensiva", "BALANCED": "Equilibrada"}
+
+func _posture_picker() -> Control:
+	var cur := str(w.get("combatPosture", "BALANCED"))
+	var row := HBoxContainer.new()
+	row.add_theme_constant_override("separation", 6)
+	for p in postures:
+		if p is Dictionary:
+			row.add_child(_posture_btn(p, cur))
+	return row
+
+func _posture_btn(p: Dictionary, cur: String) -> Button:
+	var id := str(p.get("id", ""))
+	var active := (id == cur)
+	var atk := int(round((float(p.get("atkMult", 1.0)) - 1.0) * 100.0))
+	var def := int(round((float(p.get("defMult", 1.0)) - 1.0) * 100.0))
+	var b := Button.new()
+	DarkButtonStyle.apply(b)
+	b.custom_minimum_size = Vector2(0, 62)
+	b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	b.focus_mode = Control.FOCUS_NONE
+	b.tooltip_text = "ATK %+d%%  ·  DEF %+d%%" % [atk, def]
+	if not active:
+		b.pressed.connect(func() -> void: await _set_posture(id))
+	var v := VBoxContainer.new()
+	v.alignment = BoxContainer.ALIGNMENT_CENTER
+	v.add_theme_constant_override("separation", 1)
+	v.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	v.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	b.add_child(v)
+	var icon_key := str(POSTURE_ICON.get(id, ""))
+	if Icons.tex(icon_key) != null:
+		var ir := Icons.rect(icon_key, 26)
+		ir.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+		ir.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		v.add_child(ir)
+	var nm := Label.new()
+	nm.text = Lang.t(str(POSTURE_LABEL.get(id, UiKit.strip_web_emoji(str(p.get("displayName", id))))))
+	nm.add_theme_font_size_override("font_size", 12)
+	nm.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	nm.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	v.add_child(nm)
+	var hl := Label.new()
+	hl.text = "ATK %+d%%  DEF %+d%%" % [atk, def]
+	hl.add_theme_font_size_override("font_size", 10)
+	hl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	hl.add_theme_color_override("font_color", UiKit.TEXT_DIM)
+	hl.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	v.add_child(hl)
+	if active:
+		var sb := StyleBoxFlat.new()
+		sb.bg_color = Color(UiKit.GOLD.r, UiKit.GOLD.g, UiKit.GOLD.b, 0.22)
+		sb.set_border_width_all(2); sb.border_color = UiKit.GOLD; sb.set_corner_radius_all(6)
+		for s in ["normal", "hover", "pressed", "focus"]:
+			b.add_theme_stylebox_override(s, sb)
+	else:
+		b.modulate = Color(1, 1, 1, 0.7)
+	return b
+
+func _set_posture(posture: String) -> void:
+	if busy: return
+	busy = true
+	var r = await Api.warrior_set_posture(posture)
+	busy = false
+	if r.get("ok") and r.get("json") is Dictionary:
+		w = r["json"]                 # WarriorResponse atualizado (combatPosture + ATK/DEF efetivo)
+		UiKit.set_wallet(wallet, w)   # topbar reflete o novo ATK/DEF
+		_render_panel()               # re-renderiza a aba (postura ativa + stats de combate)
+		UiKit.flash(status, Lang.t("Postura atualizada"), 1)
+	else:
+		UiKit.show_error(status, r)
 
 # Grade 2-col com os stats efetivos + derivados (fórmulas do BattleSimulator). Tooltip explica cada um.
 func _combat_stats_grid() -> GridContainer:
@@ -1220,6 +1335,7 @@ func _spend(key: String) -> void:
 		w = r["json"]
 		UiKit.set_wallet(wallet, w)   # topbar reflete o novo atributo/stat
 		_render_panel()
+		_build_subtab_bar()           # [PONTOS] atualiza o "!" da sub-aba (some quando zera o ponto)
 		UiKit.flash(status, "Ponto aplicado", 1)
 	else:
 		UiKit.show_error(status, r)
@@ -1255,6 +1371,7 @@ func _do(r, default_msg: String) -> void:
 			w = wr["json"]
 			UiKit.set_wallet(wallet, w)
 		_render_panel()
+		_build_subtab_bar()   # [PONTOS] atualiza o "!" da sub-aba Habilidades (some quando zera o ponto)
 		UiKit.flash(status, msg, 1)
 	else:
 		UiKit.show_error(status, r)

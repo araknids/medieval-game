@@ -266,6 +266,10 @@ const EN := {
 	# — Templo / bênçãos —
 	"Padre Anselmo": "Father Anselm",
 	"Capitão Garrick": "Captain Garrick",
+	# — [POSTURE] postura de combate (Personagem > Atributos) —
+	"Postura de Combate": "Combat Posture",
+	"Ofensiva": "Offensive", "Defensiva": "Defensive", "Equilibrada": "Balanced",
+	"Postura atualizada": "Posture updated",
 	# — [INCURSAO_PVP] escolha PvP na Incursão + Replays no Correio —
 	"Atacar %s (PvP)": "Attack %s (PvP)",
 	"Lutar o monstro (PvE)": "Fight the monster (PvE)",

@@ -92,6 +92,11 @@ var _starter_status: Array = []
 var _quest_daily_avail := false    # [QUEST_BADGE] vêm do /api/quests/journal (diária / missão disponível)
 var _quest_mission_avail := false
 var _nav_badges := {}     # screen -> badge Control no item de nav do NPC
+# [PONTOS] coordenador do "!" do menu lateral: AMARELO (dever de onboarding) tem prioridade no item;
+# senão, VERMELHO de pontos não gastos no Personagem (atributo sempre / habilidade só com classe).
+var _starter_nav := {}    # screen -> dever de onboarding disponível (badge amarelo)
+var _unspent_attr := 0    # pontos de atributo livres (sempre gastáveis)
+var _unspent_abil := 0    # pontos de habilidade livres (já zerado p/ Recruta, que não pode gastar)
 var _offered := {}        # screen -> já ofereci a quest nesta sessão (não repopa a cada visita)
 
 func _ready() -> void:
@@ -265,23 +270,37 @@ func _apply_starter_badges() -> void:
 			elif st == "accepted": nav_on["World"] = true
 		elif st == "available":
 			nav_on[scr] = true
+	_starter_nav = nav_on
+	_refresh_nav_badges()
+
+# [PONTOS] Decide o "!" de cada item do menu lateral: o dever de onboarding (AMARELO) tem prioridade no
+# Personagem; sem dever, mostra o VERMELHO de pontos não gastos. Os outros NPCs seguem só o onboarding.
+func _refresh_nav_badges() -> void:
 	for scr in ["Character", "Temple", "Work", "World"]:
-		_set_nav_badge(scr, bool(nav_on.get(scr, false)))
+		var yellow: bool = bool(_starter_nav.get(scr, false))
+		if scr == "Character" and not yellow and (_unspent_attr > 0 or _unspent_abil > 0):
+			_set_nav_badge("Character", true, "quest_alert_red")
+		else:
+			_set_nav_badge(scr, yellow, "quest_alert")
 	# [QUEST_BADGE] topbar: AMARELO (dir) = missão disponível (starter já entra no missionBadge); AZUL (esq) = diária.
 	if _quest_badge != null and is_instance_valid(_quest_badge):
 		_quest_badge.visible = _quest_mission_avail
 	if _quest_badge_daily != null and is_instance_valid(_quest_badge_daily):
 		_quest_badge_daily.visible = _quest_daily_avail
 
-func _set_nav_badge(scr: String, on: bool) -> void:
+func _set_nav_badge(scr: String, on: bool, key := "quest_alert") -> void:
 	if scr == "":
 		return
 	var btn = _nav_buttons.get(scr)
 	if btn == null or not is_instance_valid(btn):
 		return
 	var badge = _nav_badges.get(scr)
-	if badge == null or not is_instance_valid(badge):
-		badge = _make_quest_badge(true)   # nav: centralizado verticalmente com o texto
+	# recria o badge se ainda não existe OU se a COR mudou (amarelo de dever ↔ vermelho de pontos)
+	if badge == null or not is_instance_valid(badge) or str(badge.get_meta("key", "")) != key:
+		if badge != null and is_instance_valid(badge):
+			badge.queue_free()
+		badge = _make_quest_badge(true, false, key)   # nav: centralizado verticalmente com o texto
+		badge.set_meta("key", key)
 		btn.add_child(badge)
 		_nav_badges[scr] = badge
 	badge.visible = on
@@ -1006,6 +1025,11 @@ func update_topbar(w: Dictionary) -> void:
 		return
 	UiKit.current_class = str(w.get("warriorClassId", UiKit.current_class))   # tema das roupas no ícone de item [OUTFITS_CLASSE]
 	UiKit.current_gender = str(w.get("gender", UiKit.current_gender)).to_lower()   # base/peças Male/Female [OUTFITS_FEMALE]
+	# [PONTOS] "!" vermelho no Personagem: atributo sempre gastável; habilidade só depois de escolher classe.
+	_unspent_attr = int(w.get("availablePoints", 0))
+	var cls := str(w.get("warriorClassId", ""))
+	_unspent_abil = int(w.get("abilityPoints", 0)) if (cls != "" and cls != "RECRUIT") else 0
+	_refresh_nav_badges()
 	_name_lbl.text = str(w.get("name", "?"))
 	var t := str(w.get("title", ""))
 	_title_lbl.text = ("⟨%s⟩" % t) if t != "" else ""

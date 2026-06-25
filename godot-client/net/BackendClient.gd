@@ -88,6 +88,14 @@ func vip_change_gender(gender: String) -> Dictionary:
 func spend_attribute(attr: String) -> Dictionary:
 	return await _request(HTTPClient.METHOD_POST, "/api/warrior/attributes/%s" % attr, {}, true)
 
+## GET /api/warrior/postures — posturas de combate {id, displayName, atkMult, defMult}. [POSTURE]
+func warrior_postures() -> Dictionary:
+	return await _request(HTTPClient.METHOD_GET, "/api/warrior/postures", null, true)
+
+## POST /api/warrior/posture/{POSTURE} — troca a postura (livre). Devolve o WarriorResponse atualizado. [POSTURE]
+func warrior_set_posture(posture: String) -> Dictionary:
+	return await _request(HTTPClient.METHOD_POST, "/api/warrior/posture/%s" % posture, {}, true)
+
 ## GET /api/inventory (autenticado). json = Array de itens (cada um com type, equipped, name, rarity...). [GODOT_PAPERDOLL]
 func get_inventory() -> Dictionary:
 	return await _request(HTTPClient.METHOD_GET, "/api/inventory", null, true)
