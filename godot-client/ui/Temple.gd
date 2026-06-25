@@ -135,10 +135,13 @@ func _buff_cell(b: Dictionary) -> Control:
 	var nm := Label.new(); nm.text = nm_txt
 	nm.add_theme_font_size_override("font_size", 13); nm.add_theme_color_override("font_color", UiKit.TEXT)
 	nm.size_flags_horizontal = Control.SIZE_EXPAND_FILL; nm.clip_text = true
+	nm.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	top.add_child(nm)
+	# custo à DIREITA do card, na MESMA linha (o nome expande e empurra o valor pra direita)
+	var cost := UiKit.coin_box(int(b.get("bronzeCost", 0)), 12)
+	cost.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	top.add_child(cost)
 	box.add_child(top)
-	# custo (linha 2, compacta)
-	box.add_child(UiKit.coin_box(int(b.get("bronzeCost", 0)), 12))
 	return res[0]
 
 # ── Encantamento elemental [ELEMENTOS] ──────────────────────────────────────────
