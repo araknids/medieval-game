@@ -14,6 +14,7 @@ const VIL := "res://assets/world/village/"   # kit Medieval Village (grade de 2m
 var grimdark := true
 var _is_day := false   # [DIA] cenas de dia (day_lighting) → braseiros SEM luz (o sol já ilumina; tocha lavava o chão)
 var _stone_mat_cache: ShaderMaterial = null   # [MAPA_TORRE] material de ALVENARIA (tijolos) compartilhado pela fortaleza
+var _stone_mat_light_cache: ShaderMaterial = null   # [MAPA_TORRE] alvenaria CLARA p/ destacar a moldura do portão
 
 # [MAPA_TORRE] Shader de ALVENARIA: desenha tijolos (juntas escuras em grade) + variação por tijolo, em
 # espaço-mundo (alinha entre peças vizinhas). Dá "mini quadrados" na pedra sem geometria extra.
@@ -1291,9 +1292,9 @@ func _castle_front(host: Node3D, base: Vector3, r0: float) -> void:
 		for s in 9:                        # seteiras (frestas) acesas espalhadas no painel longo (brilho SUTIL)
 			var sz := lerpf(z0, z1, (float(s) + 0.5) / 9.0)
 			_box3(host, Vector3(0.3, 1.2, 0.22), Vector3(wall_x + 0.2, wall_h * 0.58, sz), Color(1.0, 0.42, 0.12), Vector3.ZERO, 0.6, 0.0, Color(1.0, 0.38, 0.06), 1.3)
-	# torres-pilar do PORTÃO (enquadram o vão)
+	# torres-pilar do PORTÃO (enquadram o vão) — pedra CLARA p/ DESTACAR a entrada contra a muralha preta
 	for sidez in [-1.0, 1.0]:
-		_stone_box(host, Vector3(2.2, wall_h + 2.6, 1.3), Vector3(wall_x, (wall_h + 2.6) * 0.5, base.z + sidez * gate))
+		_stone_box_light(host, Vector3(2.2, wall_h + 2.6, 1.3), Vector3(wall_x, (wall_h + 2.6) * 0.5, base.z + sidez * gate))
 	# TORRES intermediárias ao longo da muralha (ritmo de castelo que some na névoa) + ameias no topo
 	for n in range(-3, 4):
 		if n == 0:
@@ -1303,15 +1304,18 @@ func _castle_front(host: Node3D, base: Vector3, r0: float) -> void:
 		for mk in 4:
 			var ma := TAU * mk / 4.0
 			_stone_box(host, Vector3(0.7, 1.0, 0.7), Vector3(wall_x + 0.3 + cos(ma) * 0.95, wall_h + 3.5 + 0.45, tz + sin(ma) * 0.95))
-	# PORTÃO: LINTEL (verga) no topo + os 2 pilares (já postos) = MOLDURA escura; o FOGO fica RECUADO
-	# atrás do vão (a moldura na frente corta as bordas → lê como fogo POR DENTRO, não uma parede acesa).
-	_stone_box(host, Vector3(1.9, 1.5, gate * 2.5), Vector3(wall_x, wall_h * 0.74, base.z))            # verga/lintel do topo
-	_stone_box(host, Vector3(1.8, wall_h - 8.0, gate * 2.0), Vector3(wall_x, wall_h - 1.0, base.z))    # fecha acima do lintel
-	_box3(host, Vector3(0.5, wall_h * 0.5, gate * 1.5), Vector3(wall_x + 1.1, wall_h * 0.32, base.z), Color(0.95, 0.42, 0.14), Vector3.ZERO, 0.7, 0.0, Color(1.0, 0.42, 0.1), 1.7)     # GLOW recuado (fogo dentro)
-	_box3(host, Vector3(0.7, 0.7, gate * 1.2), Vector3(wall_x + 0.35, 0.5, base.z), Color(1.0, 0.5, 0.18), Vector3.ZERO, 0.6, 0.0, Color(1.0, 0.46, 0.12), 2.6)                       # brasas FORTES no chão (base do fogo)
+	# PORTÃO bem VISÍVEL: moldura em pedra CLARA (lintel + pilares) que destaca contra a muralha preta +
+	# 2 BRASEIROS flanqueando (fogo marca a entrada) + FOGO forte recuado no vão (a moldura corta as
+	# bordas → lê como fogo POR DENTRO, não uma "parede acesa").
+	_stone_box_light(host, Vector3(1.9, 1.6, gate * 2.6), Vector3(wall_x, wall_h * 0.72, base.z))          # verga/lintel CLARO
+	_stone_box(host, Vector3(1.8, wall_h - 8.0, gate * 2.0), Vector3(wall_x, wall_h - 1.0, base.z))        # fecha acima do lintel (escuro)
+	_box3(host, Vector3(0.5, wall_h * 0.5, gate * 1.6), Vector3(wall_x + 1.1, wall_h * 0.32, base.z), Color(1.0, 0.45, 0.16), Vector3.ZERO, 0.7, 0.0, Color(1.0, 0.45, 0.12), 2.6)    # GLOW forte recuado
+	_box3(host, Vector3(0.7, 0.8, gate * 1.3), Vector3(wall_x + 0.35, 0.55, base.z), Color(1.0, 0.55, 0.2), Vector3.ZERO, 0.6, 0.0, Color(1.0, 0.5, 0.14), 3.6)                       # brasas FORTES no chão
 	var gl := OmniLight3D.new()
-	gl.light_color = Color(1.0, 0.55, 0.26); gl.light_energy = 3.2; gl.omni_range = 12.0
-	host.add_child(gl); gl.position = Vector3(wall_x + 0.7, 2.0, base.z)
+	gl.light_color = Color(1.0, 0.56, 0.28); gl.light_energy = 4.0; gl.omni_range = 13.0
+	host.add_child(gl); gl.position = Vector3(wall_x + 0.6, 2.2, base.z)
+	_brazier(host, Vector3(wall_x - 0.6, 0, base.z + gate + 0.4))   # tochas flanqueando o portão (marcam a entrada)
+	_brazier(host, Vector3(wall_x - 0.6, 0, base.z - gate - 0.4))
 	# AMEIAS (merlons) no topo da muralha ao longo de tudo (pula o portão e onde tem torre)
 	var z := base.z - span
 	while z <= base.z + span + 0.01:
@@ -1348,6 +1352,25 @@ func _stone_box(host: Node3D, size: Vector3, pos: Vector3, rot := Vector3.ZERO) 
 	var bm := BoxMesh.new(); bm.size = size
 	mi.mesh = bm
 	mi.material_override = _stone_mat()
+	host.add_child(mi)
+	mi.position = pos
+	mi.rotation_degrees = rot
+
+# Alvenaria CLARA (cinza) — destaca a MOLDURA do portão contra a muralha preta (senão some no escuro).
+func _stone_mat_light() -> ShaderMaterial:
+	if _stone_mat_light_cache == null:
+		var sh := Shader.new()
+		sh.code = STONE_BRICK_SHADER
+		_stone_mat_light_cache = ShaderMaterial.new()
+		_stone_mat_light_cache.shader = sh
+		_stone_mat_light_cache.set_shader_parameter("base_color", Color(0.30, 0.28, 0.32))
+	return _stone_mat_light_cache
+
+func _stone_box_light(host: Node3D, size: Vector3, pos: Vector3, rot := Vector3.ZERO) -> void:
+	var mi := MeshInstance3D.new()
+	var bm := BoxMesh.new(); bm.size = size
+	mi.mesh = bm
+	mi.material_override = _stone_mat_light()
 	host.add_child(mi)
 	mi.position = pos
 	mi.rotation_degrees = rot

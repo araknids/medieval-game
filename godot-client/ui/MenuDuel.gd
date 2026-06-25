@@ -52,6 +52,7 @@ const SCALE := 1.2
 # [MAPA_TORRE] CERCO INFINITO (só no cursed_tower): inimigos sombrios saem do PORTÃO, caminham até o
 # herói, morrem em 5-10 golpes e AFUNDAM no chão (sem acumular). O herói nunca morre.
 const GATE_SPAWN := Vector3(11.6, 0.0, 2.0)   # boca do portão da fortaleza
+const SIEGE_ENEMY_POS := Vector3(2.0, 0.0, 4.0)   # onde o inimigo PARA p/ lutar (longe do herói → sem sobrepor)
 const SIEGE_RUN_SPEED := 5.4                   # corre (não anda) até o herói
 const SIEGE_BACK_SPEED := 2.2                  # herói ANDA de volta ao ponto inicial (sem teleporte)
 var siege_mode := false                        # ligado pelo MenuFx
@@ -154,15 +155,15 @@ func _siege_step(dt: float) -> void:
 		return
 	var st: String = str(e.get("sstate", "walk"))
 	if st == "walk":
-		en.position = en.position.move_toward(POS_R, SIEGE_RUN_SPEED * dt)
+		en.position = en.position.move_toward(SIEGE_ENEMY_POS, SIEGE_RUN_SPEED * dt)
 		var ap_e: AnimationPlayer = e["anim"]
 		if ap_e and ap_e.current_animation != RUN:
 			var ra := ap_e.get_animation(RUN)
 			if ra:
 				ra.loop_mode = Animation.LOOP_LINEAR   # corrida em loop (senão "trava" a cada ciclo)
 			ap_e.play(RUN, BLEND)
-		if en.position.distance_to(POS_R) < 0.2:
-			en.position = POS_R
+		if en.position.distance_to(SIEGE_ENEMY_POS) < 0.2:
+			en.position = SIEGE_ENEMY_POS
 			e["sstate"] = "fight"
 			_siege_timer = 0.5
 			if ap_e:
@@ -224,13 +225,13 @@ func _siege_hero_strike(hero: Dictionary, e: Dictionary) -> void:
 	else:
 		# AVANÇA um tiquinho a cada combo (empurra pra frente), capado ANTES do inimigo — sem drift
 		# acumulado: o lunge é relativo a um `adv` controlado, e mata o tween anterior (não brigam).
-		var adv: float = minf(float(hero.get("adv", POS_L.x)) + 0.22, -0.2)
+		var adv: float = minf(float(hero.get("adv", POS_L.x)) + 0.13, -0.5)   # avança POUCO, capado longe do inimigo (2.0)
 		hero["adv"] = adv
 		if hero.get("ltween") and is_instance_valid(hero["ltween"]):
 			(hero["ltween"] as Tween).kill()
 		var tw := hn.create_tween()
 		hero["ltween"] = tw
-		tw.tween_property(hn, "position", Vector3(adv + 0.55, 0, POS_L.z), 0.14).set_trans(Tween.TRANS_SINE)
+		tw.tween_property(hn, "position", Vector3(adv + 0.5, 0, POS_L.z), 0.14).set_trans(Tween.TRANS_SINE)
 		tw.tween_interval(0.08)
 		tw.tween_property(hn, "position", Vector3(adv, 0, POS_L.z), 0.30).set_trans(Tween.TRANS_SINE)
 	var ap_e: AnimationPlayer = e["anim"]
