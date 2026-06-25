@@ -189,12 +189,14 @@ func _build_right() -> Control:
 	col.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_subtab_bar_host = VBoxContainer.new()
 	col.add_child(_subtab_bar_host)
-	# Painel da sub-aba: cresce com o conteúdo até ~360 e então rola (capped_scroll). Assim a Mochila
-	# (com a grid já travada em 3 linhas) NÃO reserva 330 fixos → os Recursos sobem logo abaixo.
+	# [SEM_SCROLL] Painel da sub-aba SEM teto: cresce com o conteúdo e usa o scroll GERAL da tela só quando
+	# passa da janela. A Mochila (grid) e os Recursos têm o PRÓPRIO capped_scroll, então não dependem deste
+	# teto — o antigo cap de 360 só forçava scroll à toa no Atributos/Habilidades (que têm tela de sobra).
 	_panel_host = VBoxContainer.new()
 	_panel_host.add_theme_constant_override("separation", 8)
 	_panel_host.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	col.add_child(UiKit.capped_scroll(_panel_host, 360.0))
+	_panel_host.size_flags_vertical = Control.SIZE_SHRINK_BEGIN   # sizes ao conteúdo (não estica na coluna)
+	col.add_child(_panel_host)
 	# [RECURSOS] seção embaixo da lista → fica na altura da Montaria/Pet, sem alongar a tela
 	_resources_host = VBoxContainer.new()
 	_resources_host.add_theme_constant_override("separation", 6)
@@ -923,10 +925,6 @@ func _render_attr_panel() -> void:
 	# ── Stats de combate efetivos (atk total etc.) ──
 	_panel_host.add_child(UiKit.section("Combate"))
 	_panel_host.add_child(_combat_stats_grid())
-	# ── Postura de combate (tradeoff ATK/DEF, vale em TODO combate; troca livre) [POSTURE] ──
-	if not postures.is_empty():
-		_panel_host.add_child(UiKit.section("Postura de Combate"))
-		_panel_host.add_child(_posture_picker())
 	# ── Atributos (gastar ponto) — compacto ──
 	var pts := int(w.get("availablePoints", 0))
 	var ttl := Lang.t("Atributos")
@@ -938,6 +936,10 @@ func _render_attr_panel() -> void:
 	for a in ATTRS:
 		col.add_child(_attr_row(a, pts > 0))
 	_panel_host.add_child(col)
+	# ── Postura de combate (tradeoff ATK/DEF, vale em TODO combate; troca livre) — POR ÚLTIMO [POSTURE] ──
+	if not postures.is_empty():
+		_panel_host.add_child(UiKit.section("Postura de Combate"))
+		_panel_host.add_child(_posture_picker())
 
 # [POSTURE] Picker das 3 posturas — a postura ativa fica destacada; o ATK/DEF efetivo (acima) já reflete a escolha.
 const POSTURE_ICON := {"OFFENSIVE": "posture_offensive", "DEFENSIVE": "posture_defensive", "BALANCED": "posture_balanced"}
