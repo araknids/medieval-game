@@ -779,8 +779,13 @@ func _start_quest(kingdom: String, quest_type: String) -> void:
 	else:
 		await _collect_quest(kingdom, qid)
 
-func _collect_quest(kingdom: String, quest_id: int, option_id := "") -> void:
+func _collect_quest(kingdom: String, quest_id: int, option_id := "", confirmed := false) -> void:
 	if busy: return
+	# [PERIGO] avisa antes de resolver FERIDO (a quest pode cair em combate). confirmed=true pula o aviso
+	# (opção pacífica → sem combate; ou já confirmado). confirm_danger só mostra o popup se HP<50%.
+	if not confirmed:
+		UiKit.confirm_danger(self, warrior, 0, func() -> void: _collect_quest(kingdom, quest_id, option_id, true))
+		return
 	busy = true
 	var r = await Api.quest_collect(kingdom, quest_id, option_id)
 	busy = false
@@ -819,7 +824,13 @@ func _show_quest_dialog(kingdom: String, quest_id: int, dialog: Dictionary) -> v
 		if o is Dictionary:
 			opts.append([str(o.get("kind", "")), str(o.get("hint", "")), str(o.get("label", "?")), str(o.get("id", ""))])
 	_kind_choice_dialog(str(dialog.get("intro", "")), opts, func(opt_id) -> void:
-		await _collect_quest(kingdom, quest_id, str(opt_id)))
+		# [PERIGO] opção PACÍFICA não cai em combate → pula o aviso de HP (confirmed=true).
+		# fight/check → confirmed=false → confirm_danger avisa se ferido antes de resolver.
+		var kind := ""
+		for o in opts:
+			if str(o[3]) == str(opt_id):
+				kind = str(o[0]); break
+		await _collect_quest(kingdom, quest_id, str(opt_id), kind == "peaceful"))
 
 # [QUESTS_ICONE] Diálogo de quest com SELO DE TIPO por opção (combate/roll/pacífico). Espelha
 # _choice_dialog mas usa UiKit.quest_option_button. options = [[kind, hint, label, value], …].
