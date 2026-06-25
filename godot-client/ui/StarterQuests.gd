@@ -179,8 +179,11 @@ func _starter_card(q: Dictionary) -> PanelContainer:
 		if comp == "QUEST":
 			box.add_child(_hint(Lang.t("Complete uma missão no Mundo para cumprir este dever.")))
 			box.add_child(_btn_right(UiKit.action(Lang.t("Ir ao Mundo"), _go_world)))
-		else:
-			box.add_child(_btn_right(UiKit.action(Lang.t("Curar") if comp == "HEAL" else Lang.t("Concluir"), _turn_in_starter.bind(which))))
+		elif comp == "HEAL":   # [DIARIO_QUEST] cura no Templo (não no diário) — completa ao se curar lá
+			box.add_child(_hint(Lang.t("Cure-se no Templo com o Padre Anselmo.")))
+			box.add_child(_btn_right(UiKit.action(Lang.t("Ir ao Templo"), _go_temple)))
+		else:   # EQUIP
+			box.add_child(_btn_right(UiKit.action(Lang.t("Concluir"), _turn_in_starter.bind(which))))
 	else:
 		box.add_child(_hint(Lang.t("Já cumprido")))
 	return res[0]
@@ -208,6 +211,10 @@ func _btn_right(b: Button) -> Button:
 func _go_world() -> void:
 	if Shell.current != null:
 		Shell.current._open("World")
+
+func _go_temple() -> void:
+	if Shell.current != null:
+		Shell.current._open("Temple")
 
 # ── Ações ─────────────────────────────────────────────────────────────────────────────
 func _accept_kingdom(kingdom: String, quest_type: String) -> void:

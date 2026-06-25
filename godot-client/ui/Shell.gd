@@ -297,10 +297,17 @@ func quest_button_for(scr: String) -> Button:
 			var nav := UiKit.action(Lang.t("Ir ao Mundo"), func() -> void: _open("World"))
 			nav.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 			return nav
-		var b := UiKit.action(_accepted_label(comp), func() -> void: await _quest_turn_in(which))
+		if comp == "HEAL":   # [DIARIO_QUEST] completa ao se CURAR no Templo (botão de cura normal) → sem turn-in aqui
+			return null
+		var b := UiKit.action(_accepted_label(comp), func() -> void: await _quest_turn_in(which))   # EQUIP
 		b.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 		return b
 	return null
+
+# [DIARIO_QUEST] dever HEAL (Templo) aceito e não concluído → a tela do Templo mostra um aviso "cure-se".
+func heal_duty_pending() -> bool:
+	var q := _starter_for_screen("Temple")
+	return not q.is_empty() and str(q.get("state", "")) == "accepted" and str(q.get("comp", "")) == "HEAL"
 
 func _accepted_label(comp: String) -> String:
 	return Lang.t("Curar") if comp == "HEAL" else Lang.t("Concluir")
@@ -1129,6 +1136,7 @@ func _on_quick_heal() -> void:
 	if r.get("ok") and r.get("json") is Dictionary:
 		warrior = r["json"]
 		update_topbar(warrior)
+	await _refresh_starter()   # [DIARIO_QUEST] curar pode concluir o dever HEAL → toast + badges atualizam na hora
 
 func _stone_btn(text: String, h: int, tier := 1) -> Button:   # [BOTAO_DARK] tier 0=PRIMARY (CTA), 1=SECONDARY
 	var b := Button.new()

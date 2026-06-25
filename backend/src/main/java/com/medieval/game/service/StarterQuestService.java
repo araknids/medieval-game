@@ -165,6 +165,22 @@ public class StarterQuestService {
         }
     }
 
+    /**
+     * [DIARIO_QUEST] Gancho de EVENTO: chamado pelo TempleController quando o jogador se cura no Templo
+     * (ou já chega são — HP cheio). Conclui o dever HEAL se aceito + pré cumprido. Recarrega o Player na tx
+     * p/ evitar o OptimisticLock do grant→addExperience→checkAndUnlock vs player destacado (igual ao collectQuest).
+     */
+    @Transactional
+    public void onHealed(Player playerArg) {
+        final Player player = playerRepository.findById(playerArg.getId()).orElse(playerArg);
+        for (Duty d : Duty.values()) {
+            if (d.comp == Comp.HEAL && isAccepted(player, d) && !isDone(player, d) && prereqDone(player, d)) {
+                grant(player, warriorService.getWarrior(player), d);
+                log.info("[StarterQuestService] player={} duty={} done (HEAL via Templo)", player.getId(), d.id);
+            }
+        }
+    }
+
     /** Concede XP + gold e marca o dever como cumprido. (addExperience salva o warrior, incl. a cura do HEAL.) */
     private void grant(Player player, Warrior warrior, Duty d) {
         warriorService.addExperience(warrior, d.xp);

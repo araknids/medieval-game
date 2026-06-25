@@ -7,6 +7,7 @@ import com.medieval.game.model.Warrior;
 import com.medieval.game.repository.WarriorRepository;
 import com.medieval.game.service.GatheringService;
 import com.medieval.game.service.PlayerService;
+import com.medieval.game.service.StarterQuestService;
 import com.medieval.game.service.TempleService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
@@ -27,6 +28,7 @@ public class TempleController {
     private final PlayerService     playerService;
     private final WarriorRepository warriorRepository;
     private final GatheringService  gatheringService; // contagem de essências p/ a UI [ELEMENTOS]
+    private final StarterQuestService starterQuestService; // [DIARIO_QUEST] dever HEAL completa ao curar no Templo
 
     // Info do templo para o jogador atual
     @GetMapping
@@ -36,6 +38,7 @@ public class TempleController {
 
         int  regenMin = player.regenMinutes(); // [BUFF_NOVATO] janela de regen (buff de novato)
         int  hpPct  = warrior != null ? warrior.getCalculatedHpPercent(regenMin) : 100;
+        if (hpPct >= 100) starterQuestService.onHealed(player); // [DIARIO_QUEST] chegou são no Templo → completa o dever HEAL (fallback do regen)
         long healCost = warrior != null ? templeService.healCost(warrior) : 0;
         long protectedCount = templeService.countProtected(player);
 
@@ -121,7 +124,9 @@ public class TempleController {
     // Curar
     @PostMapping("/heal")
     public ResponseEntity<?> heal(Authentication auth) {
-        templeService.heal(getPlayer(auth));
+        Player player = getPlayer(auth);
+        templeService.heal(player);
+        starterQuestService.onHealed(player); // [DIARIO_QUEST] curar no Templo completa o dever HEAL
         return ResponseEntity.ok(Map.of("message", com.medieval.game.service.Messages.tr("msg.warrior_healed", "Warrior healed! HP restored to 100%.")));
     }
 
@@ -153,6 +158,7 @@ public class TempleController {
     public ResponseEntity<?> vipHeal(Authentication auth) {
         Player player = getPlayer(auth);
         templeService.vipHeal(player);
+        starterQuestService.onHealed(player); // [DIARIO_QUEST]
         return ResponseEntity.ok(Map.of("message", com.medieval.game.service.Messages.tr("msg.vip_healed", "VIP Heal! HP restored to 100% for free.")));
     }
 
@@ -175,6 +181,7 @@ public class TempleController {
     public ResponseEntity<?> soulstoneHeal(Authentication auth) {
         Player player = getPlayer(auth);
         templeService.soulstoneHeal(player);
+        starterQuestService.onHealed(player); // [DIARIO_QUEST]
         return ResponseEntity.ok(Map.of(
             "message",    com.medieval.game.service.Messages.tr("msg.warrior_instant_healed", "Warrior instantly healed! HP restored to 100%."),
             "soulStones", player.getSoulStones()
