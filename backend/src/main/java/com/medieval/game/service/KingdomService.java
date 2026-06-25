@@ -607,8 +607,10 @@ public class KingdomService {
             }
         }
 
-        // [QUEST_BADGE] "!" no topbar: alguma diária NÃO-feita nesta janela (active/available) OU missão disponível
-        boolean badge = daily.stream().anyMatch(e -> !"done".equals(e.get("dailyState"))) || !missionsAvailable.isEmpty();
+        // [QUEST_BADGE] badges separados: AZUL = diária não-feita nesta janela (active/available); AMARELO =
+        // missão normal disponível. (badge = OR dos dois, p/ compat.)
+        boolean dailyBadge = daily.stream().anyMatch(e -> !"done".equals(e.get("dailyState")));
+        boolean missionBadge = !missionsAvailable.isEmpty();
 
         java.util.Map<String, Object> out = new java.util.HashMap<>();
         out.put("daily", daily);
@@ -616,7 +618,9 @@ public class KingdomService {
         out.put("missionsAvailable", missionsAvailable);
         out.put("missionsInProgress", missionsInProgress);
         out.put("missionsCompleted", missionsCompleted);
-        out.put("badge", badge);
+        out.put("dailyBadge", dailyBadge);
+        out.put("missionBadge", missionBadge);
+        out.put("badge", dailyBadge || missionBadge);
         return out;
     }
 

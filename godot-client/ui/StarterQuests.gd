@@ -68,6 +68,14 @@ func _tab_bar() -> Control:
 		var key: String = t[0]
 		var b := UiKit.action("%s (%d)" % [Lang.t(t[1]), int(counts.get(key, 0))], _set_tab.bind(key))
 		b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		# [QUEST_BADGE] "!" colorido antes do rótulo quando a aba tem item disponível (azul=diária / amarelo=missão)
+		var has_avail := bool(journal.get("dailyBadge", false)) if key == "daily" else bool(journal.get("missionBadge", false))
+		if has_avail:
+			var ic := Icons.tex("quest_alert_blue" if key == "daily" else "quest_alert")
+			if ic != null:
+				b.icon = ic
+				b.expand_icon = true
+				b.add_theme_constant_override("icon_max_width", 16)
 		if key == tab:
 			b.add_theme_color_override("font_color", UiKit.GOLD)
 		else:

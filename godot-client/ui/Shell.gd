@@ -86,9 +86,11 @@ var _cache_ver := {}    # nome → mutation_count na última atualização (revi
 var _dash: Control = null   # dashboard/home (também cacheado)
 # [ONBOARDING v2] Deveres do Recruta: status cacheado + badges (nav dos NPCs + topbar) + oferta 1x/sessão.
 var _quest_btn: Button
-var _quest_badge: Control
+var _quest_badge: Control          # [QUEST_BADGE] AMARELO (direita) = missão normal disponível
+var _quest_badge_daily: Control    # [QUEST_BADGE] AZUL (esquerda) = diária disponível
 var _starter_status: Array = []
-var _journal_badge := false   # [QUEST_BADGE] diária/missão de reino disponível (vem do /api/quests/journal)
+var _daily_badge := false          # [QUEST_BADGE] vêm do /api/quests/journal
+var _mission_badge := false
 var _nav_badges := {}     # screen -> badge Control no item de nav do NPC
 var _offered := {}        # screen -> já ofereci a quest nesta sessão (não repopa a cada visita)
 
@@ -198,8 +200,12 @@ func _refresh_starter() -> void:
 	var r = rs[0]
 	if not (r.get("ok") and r.get("json") is Dictionary):
 		return
-	var jr = rs[1]   # [QUEST_BADGE] "!" do topbar também acende p/ diária/missão de reino disponível
-	_journal_badge = bool(jr["json"].get("badge", false)) if (jr.get("ok") and jr.get("json") is Dictionary) else false
+	var jr = rs[1]   # [QUEST_BADGE] badges separados: azul (diária) / amarelo (missão)
+	if jr.get("ok") and jr.get("json") is Dictionary:
+		_daily_badge = bool(jr["json"].get("dailyBadge", false))
+		_mission_badge = bool(jr["json"].get("missionBadge", false))
+	else:
+		_daily_badge = false; _mission_badge = false
 	var was_done := {}   # [ONBOARDING] estado anterior (id → done) p/ detectar transição → toast direcional
 	for q in _starter_status:
 		if q is Dictionary:
@@ -247,8 +253,12 @@ func _apply_starter_badges() -> void:
 			_set_nav_badge(str(q.get("npcScreen", "")), st == "available")
 			if st == "available":   # "!" no topbar = tem quest NOVA pra pegar (some ao aceitar tudo)
 				any_open = true
+	# [QUEST_BADGE] topbar: AMARELO (dir) = missão normal disponível (starter já entra no missionBadge);
+	# AZUL (esq) = diária disponível.
 	if _quest_badge != null and is_instance_valid(_quest_badge):
-		_quest_badge.visible = any_open or _journal_badge   # [QUEST_BADGE] starter OU diária/missão disponível
+		_quest_badge.visible = any_open or _mission_badge
+	if _quest_badge_daily != null and is_instance_valid(_quest_badge_daily):
+		_quest_badge_daily.visible = _daily_badge
 
 func _set_nav_badge(scr: String, on: bool) -> void:
 	if scr == "":
@@ -502,7 +512,11 @@ func _topbar_actions() -> Control:
 	# [ONBOARDING v2] Diário de Missões (Deveres do Recruta) — ao lado do Correio.
 	_quest_btn = _topbar_icon_btn("quest_log", "Diário de Missões", func() -> void: _open("StarterQuests"))
 	_quest_badge = _make_quest_badge()
+	_quest_badge.visible = false   # [QUEST_BADGE] começa oculto; _apply_starter_badges seta no 1º refresh
 	_quest_btn.add_child(_quest_badge)
+	_quest_badge_daily = _make_quest_badge(false, true, "quest_alert_blue")   # [QUEST_BADGE] azul à esquerda = diária
+	_quest_badge_daily.visible = false
+	_quest_btn.add_child(_quest_badge_daily)
 	h.add_child(_quest_btn)
 	_mail_btn = _topbar_icon_btn("mail", "Correio — mensagens e recompensas", func() -> void: _open("Mail"))
 	_mail_badge = _make_alert_badge()
@@ -554,8 +568,8 @@ func _icon_static_hover(b: Button, key: String) -> bool:
 # [MAIL_BADGE] Selo de alerta: exclamação vermelha no canto superior direito do ícone. Começa oculto.
 # [ONBOARDING v2] Badge AMARELO de quest (mesma exclamação `quest_alert` do mapa do mundo).
 # centered=true → alinhado VERTICALMENTE com o texto (item de nav lateral); false → canto sup. direito (topbar).
-func _make_quest_badge(centered := false) -> Control:
-	var t := Icons.tex("quest_alert")
+func _make_quest_badge(centered := false, left := false, key := "quest_alert") -> Control:
+	var t := Icons.tex(key)
 	if t == null:
 		return _make_alert_badge()   # fallback se o PNG não importou
 	var tr := TextureRect.new()
@@ -564,12 +578,18 @@ func _make_quest_badge(centered := false) -> Control:
 	tr.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	tr.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 	tr.custom_minimum_size = Vector2(16, 16)
-	tr.anchor_left = 1.0; tr.anchor_right = 1.0
-	if centered:   # nav lateral: centro vertical (alinha com o texto do item)
+	if centered:   # nav lateral: à direita, centro vertical (alinha com o texto do item)
+		tr.anchor_left = 1.0; tr.anchor_right = 1.0
 		tr.anchor_top = 0.5; tr.anchor_bottom = 0.5
 		tr.offset_left = -24; tr.offset_top = -8
 		tr.offset_right = -8; tr.offset_bottom = 8
-	else:          # topbar 36×36: canto superior direito (igual aos outros badges)
+	elif left:     # [QUEST_BADGE] topbar: canto superior ESQUERDO (badge AZUL de diária)
+		tr.anchor_left = 0.0; tr.anchor_right = 0.0
+		tr.anchor_top = 0.0; tr.anchor_bottom = 0.0
+		tr.offset_left = -1; tr.offset_top = -1
+		tr.offset_right = 17; tr.offset_bottom = 17
+	else:          # topbar 36×36: canto superior DIREITO (badge AMARELO de missão)
+		tr.anchor_left = 1.0; tr.anchor_right = 1.0
 		tr.anchor_top = 0.0; tr.anchor_bottom = 0.0
 		tr.offset_left = -17; tr.offset_top = -1
 		tr.offset_right = 1;  tr.offset_bottom = 17
