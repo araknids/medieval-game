@@ -124,18 +124,21 @@ public class TempleController {
     @PostMapping("/heal")
     public ResponseEntity<?> heal(Authentication auth) {
         Player player = getPlayer(auth);
-        // [DIARIO_QUEST] o recruta CLICA a cura (sem auto-cura na chegada). Se já está são E o dever HEAL está
-        // pendente, a bênção do Padre conta mesmo assim (sem o erro "HP cheio"); senão, cura normal.
-        Warrior warrior = warriorRepository.findByPlayer(player).orElse(null);
-        int hpPct = warrior != null ? warrior.getCalculatedHpPercent(player.regenMinutes()) : 100;
-        if (hpPct >= 100 && starterQuestService.isHealDutyPending(player)) {
-            starterQuestService.onHealed(player);
-            return ResponseEntity.ok(Map.of("message", com.medieval.game.service.Messages.tr(
-                "msg.priest_blessing", "Father Anselmo blesses you — you were already whole. Duty done.")));
+        // [HEAL_FIX] Curar SEMPRE conclui o dever HEAL — inclusive com HP já cheio (a "bênção" do Padre).
+        // Antes havia 2 cálculos de HP (controller × heal()) que discordavam na fronteira 99–100% → heal()
+        // lançava "HP cheio" e o onHealed nunca rodava (dever ficava pendente). [DIARIO_QUEST]
+        boolean dutyPending = starterQuestService.isHealDutyPending(player);
+        String msg;
+        try {
+            templeService.heal(player);
+            msg = com.medieval.game.service.Messages.tr("msg.warrior_healed", "Warrior healed! HP restored to 100%.");
+        } catch (IllegalStateException e) {   // já estava com HP cheio
+            if (!dutyPending) throw e;        // sem dever pendente → erro normal "HP cheio"
+            msg = com.medieval.game.service.Messages.tr("msg.priest_blessing",
+                "Father Anselmo blesses you — you were already whole. Duty done.");
         }
-        templeService.heal(player);
-        starterQuestService.onHealed(player); // [DIARIO_QUEST] curar no Templo completa o dever HEAL
-        return ResponseEntity.ok(Map.of("message", com.medieval.game.service.Messages.tr("msg.warrior_healed", "Warrior healed! HP restored to 100%.")));
+        if (dutyPending) starterQuestService.onHealed(player);   // conclui o dever HEAL ao curar (sempre)
+        return ResponseEntity.ok(Map.of("message", msg));
     }
 
     // Aplicar bênção

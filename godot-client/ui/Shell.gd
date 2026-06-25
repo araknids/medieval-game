@@ -265,9 +265,9 @@ func _apply_starter_badges() -> void:
 		var comp := str(q.get("comp", ""))
 		var scr := str(q.get("npcScreen", ""))
 		if comp == "QUEST":
-			# [DIARIO_QUEST] disponível → "!" no Trabalho (pegar c/ Garrick); aceito → "!" no MUNDO (fazer 1 quest)
-			if st == "available": nav_on["Work"] = true
-			elif st == "accepted": nav_on["World"] = true
+			# [DIARIO_QUEST] disponível → guia pelo DIÁRIO (badge de missão no topbar), NÃO no Trabalho (a aba de
+			# Trabalho não tem mais botão de quest); aceito → "!" no MUNDO (fazer 1 quest).
+			if st == "accepted": nav_on["World"] = true
 		elif st == "available":
 			nav_on[scr] = true
 	_starter_nav = nav_on
@@ -877,9 +877,12 @@ func _open(scr: String) -> void:
 	# já carregada → mostra na hora (0 request); revalida só se algo mudou no servidor desde a última visita
 	if _cache.has(scr) and is_instance_valid(_cache[scr]):
 		var cached: Control = _cache[scr]
+		var was_active := active_screen == cached   # [MAPA_MUNDO] re-clicar a tela JÁ ativa (não dispara visibility_changed)
 		_show_only(cached)
 		active_screen = cached
 		_set_active(scr)
+		if was_active and cached.has_method("on_reselect"):
+			cached.on_reselect()   # [MAPA_MUNDO] World: re-clicar Mundo já estando nele → volta pro mapa
 		if int(_cache_ver.get(scr, -1)) != mc and cached.has_method("_refresh"):
 			_cache_ver[scr] = mc
 			await cached._refresh()
@@ -1188,7 +1191,9 @@ func _on_quick_heal() -> void:
 	var api = get_node_or_null("/root/Api")
 	if api == null:
 		return
-	await api.temple_heal()
+	var hr = await api.temple_heal()
+	if hr is Dictionary and not hr.get("ok", false):
+		UiKit.toast(get_window(), UiKit.err_text(hr), "", 2)   # [HEAL_FIX] mostra o erro (antes falhava em silêncio)
 	var r = await api.get_warrior()
 	if r.get("ok") and r.get("json") is Dictionary:
 		warrior = r["json"]

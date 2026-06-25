@@ -81,6 +81,7 @@ var active_quests: Array = []
 var global_active: Array = []     # [QUESTS_ATIVA_GLOBAL] missão ativa em QUALQUER reino (guard é global)
 var zone_session: Dictionary = {}
 var active_delve: Dictionary = {}   # [STUCK_FIX] /api/expedition/current — Incursão em andamento
+var _delve_prompt_shown := false    # [STUCK_FIX] modal de retomar já apareceu nesta abertura do Mundo
 
 func _ready() -> void:
 	var ui := UiKit.scaffold(self, "🌍 Mundo", func() -> void: go_back.emit(), func() -> void: await _refresh(), UiKit.TINT_ADVENTURE)
@@ -111,6 +112,7 @@ func request_open_kingdom(k: String, delve_report := {}) -> void:
 func _on_world_shown() -> void:
 	if not is_visible_in_tree():
 		return
+	_delve_prompt_shown = false   # [STUCK_FIX] nova abertura → permite o modal de retomar de novo
 	# vindo da vitória de uma Incursão → abre direto o reino de origem (em vez de resetar pro mapa)
 	if _pending_open_kingdom != "":
 		var k := _pending_open_kingdom
@@ -123,9 +125,25 @@ func _on_world_shown() -> void:
 			_pending_delve_report = {}
 			_show_delve_report(rep)
 		return
-	if open_kingdom != "":
-		open_kingdom = ""
-		_render()
+	# nav normal pro Mundo → SEMPRE volta pro mapa (mesmo já estando num território)
+	open_kingdom = ""
+	_render()
+
+# [MAPA_MUNDO] Re-clicar "Mundo" já estando nele (não dispara visibility_changed) → volta pro mapa.
+# Chamado pelo Shell._open quando a tela re-selecionada já era a ativa. [STUCK_FIX] re-permite o modal.
+func on_reselect() -> void:
+	if _pending_open_kingdom != "":
+		return
+	_delve_prompt_shown = false
+	open_kingdom = ""
+	_render()
+
+# [STUCK_FIX] Modal "Incursão em andamento" (substitui o botão do mapa): Retomar abre a Delve; Cancelar fica no mapa.
+func _prompt_delve() -> void:
+	if not bool(active_delve.get("active", false)) or not is_visible_in_tree():
+		return
+	UiKit.confirm(self, Lang.t("Você tem uma Incursão em andamento. Retomar agora?"),
+		Lang.t("Retomar"), func() -> void: open_screen.emit("Delve"), false)
 
 # [INCURSAO_FIM] Relatório de uma Incursão ENCERRADA (vitória/extract/abandono/derrota), exibido sobre a
 # tela do território (a tela da Incursão já saiu). report = {kind:"loot"|"defeat", j:{...}, title?}.
@@ -292,10 +310,7 @@ func _render() -> void:
 	map_holder = null
 	UiKit.hide_loading()
 	UiKit.set_wallet(wallet, warrior)
-	# [STUCK_FIX] Incursão em andamento → botão pra retomar/abandonar (a aba Delve saiu do nav,
-	# então este é o caminho de volta pra uma run presa). Espelha o web "Continuar Incursão".
-	if bool(active_delve.get("active", false)):
-		content.add_child(UiKit.action("⚔ Continuar Incursão em andamento", func() -> void: open_screen.emit("Delve")))
+	# [STUCK_FIX] Incursão em andamento → MODAL (não mais um botão no mapa) ao abrir o Mundo, no fim do _render.
 	# [QUESTS_ATIVA_GLOBAL] aviso no topo apontando onde está a missão ativa (se for de outro reino)
 	_active_quest_banner()
 	# [SEM_SCROLL] o botão "voltar ao mapa" (no header) só aparece com um reino aberto
@@ -304,6 +319,10 @@ func _render() -> void:
 	# [MAPA_MUNDO] open_kingdom == "" → mapa-múndi com pins; senão → detalhe do reino aberto.
 	if open_kingdom == "":
 		_render_map()
+		# [STUCK_FIX] Incursão em andamento → MODAL de retomar (1× por abertura do Mundo, no mapa).
+		if bool(active_delve.get("active", false)) and not _delve_prompt_shown:
+			_delve_prompt_shown = true
+			call_deferred("_prompt_delve")
 	else:
 		_render_detail(open_kingdom)
 
