@@ -4,6 +4,7 @@ extends RefCounted
 # Registra uma Translation "en" (PT→EN) no TranslationServer. A tradução AUTOMÁTICA do Godot
 # (auto_translate dos Control) então traduz Labels/Buttons/tooltips SEM precisar editar cada tela.
 # Locale "pt" = padrão (retorna a própria chave em PT). Persiste em user://lang.cfg.
+# 1ª abertura SEM escolha salva: detecta o idioma do sistema (OS.get_locale) — EN p/ PC em inglês, senão PT.
 # Strings dinâmicas (com %d/%s) precisam de tr() no template — use Lang.t("...%d") % n. [I18N]
 #
 # Uso: App._ready() → Lang.apply_saved();  Settings → Lang.set_lang("en"/"pt").
@@ -700,7 +701,9 @@ static func _load() -> String:
 	var cf := ConfigFile.new()
 	if cf.load(CFG) == OK:
 		return str(cf.get_value("lang", "code", "pt"))
-	return "pt"
+	# [I18N] 1ª vez (sem escolha salva): detecta o idioma do SISTEMA — PC em inglês abre EN, o resto
+	# cai no PT. A escolha manual (Settings → user://lang.cfg) sempre tem prioridade quando o arquivo existe.
+	return "en" if OS.get_locale().begins_with("en") else "pt"
 
 # Tradução explícita (p/ strings dinâmicas: Lang.t("Nível %d") % n). Usa o locale atual.
 static func t(key: String) -> String:
