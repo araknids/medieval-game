@@ -448,7 +448,7 @@ func day_lighting(host: Node3D) -> void:
 	env.fog_light_color = Color(0.62, 0.66, 0.70)    # [NITIDEZ] névoa menos clara
 	env.fog_density = 0.0015                          # [NITIDEZ] era 0.004 → menos haze
 	grimdark_grade(env)
-	env.tonemap_exposure = 0.85                       # [NITIDEZ] cenas-dia (arena/cidade/castelo) sem estourar
+	env.tonemap_exposure = 0.78                       # [NITIDEZ] cenas-dia (arena/cidade/castelo) sem estourar o chão
 	var we := WorldEnvironment.new()
 	we.environment = env
 	host.add_child(we)
@@ -596,8 +596,8 @@ func dungeon(host: Node3D, rng: RandomNumberGenerator, _combat_r: float) -> void
 # ── cenário: ARENA de duelo — coliseu de pedra (kit Village), de dia ─────────────
 func arena(host: Node3D, rng: RandomNumberGenerator, _combat_r: float) -> void:
 	_ground(host, Color(0.32, 0.35, 0.23), 52.0)        # campo gramado em volta (largo p/ a mata pousar)
-	_disc(host, Color(0.24, 0.24, 0.26), 14.5, 0.0)     # [PEDRA] plataforma de PEDRA escura (era areia clara → estourava)
-	_disc(host, Color(0.32, 0.32, 0.35), 10.0, 0.02)    # [PEDRA] pit de PEDRA cinza (era areia → chão branco)
+	_disc(host, Color(0.17, 0.17, 0.19), 14.5, 0.0)     # [PEDRA] plataforma de PEDRA escura
+	_disc(host, Color(0.23, 0.23, 0.26), 10.0, 0.02)    # [PEDRA] pit de PEDRA cinza (mais escuro → não estoura)
 	# colisão do chão
 	var fb := StaticBody3D.new()
 	var fc := CollisionShape3D.new()
