@@ -1124,14 +1124,13 @@ func cursed_tower(host: Node3D, rng: RandomNumberGenerator, combat_r: float) -> 
 			2:    _planted_spear(host, pos, rng)
 			3:    _war_shield(host, pos, rng)
 			_:    _fallen_soldier(host, pos, rng)
-	# SOLDADOS TOMBADOS em volta do campo (players mortos com armadura) — anel em torno da briga
-	for i in 12:
-		var sa := lerpf(deg_to_rad(15), deg_to_rad(345), float(i) / 11.0) + rng.randf_range(-0.12, 0.12)
-		var sr := rng.randf_range(combat_r + 0.5, combat_r + 6.0)
+	# SOLDADOS TOMBADOS em volta do campo (anel atrás/lados) — caixas simples; na BATALHA são os únicos
+	# corpos. No MENU, a FRENTE recebe corpos full-plate de verdade (MenuDuel.spawn_fallen), então aqui o
+	# anel evita a frente (+Z, lado da câmera) pra não misturar caixa com boneco real. [MAPA_TORRE]
+	for i in 10:
+		var sa := lerpf(deg_to_rad(95), deg_to_rad(345), float(i) / 9.0) + rng.randf_range(-0.1, 0.1)   # evita o +Z (frente)
+		var sr := rng.randf_range(combat_r + 0.8, combat_r + 6.0)
 		_fallen_soldier(host, Vector3(cos(sa) * sr, 0, sin(sa) * sr), rng)
-	# + alguns BEM na frente (lado da câmera, +Z) na estrada → garantidos no quadro do menu
-	for fp in [Vector3(3.5, 0, 7.5), Vector3(-3.0, 0, 8.5), Vector3(7.0, 0, 6.5), Vector3(-6.0, 0, 6.0), Vector3(1.0, 0, 9.5)]:
-		_fallen_soldier(host, fp, rng)
 	# FERA MORTA (como o bicho no canto da capa) — perto da fortaleza
 	_dead_beast(host, Vector3(11.0, 0, 5.5), rng, 1.0)
 	_dead_beast(host, Vector3(14.5, 0, -3.5), rng, 0.7)

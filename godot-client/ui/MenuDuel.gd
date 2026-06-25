@@ -15,6 +15,7 @@ const LIB2 := "UAL2_Standard/"
 const IDLE := LIB + "Sword_Idle"
 const HURTS := [LIB + "Hit_Chest", LIB + "Hit_Head"]   # reação variada (peito/cabeça)
 const ROLL := LIB + "Roll"                              # esquiva ocasional (in-place, sem sangue)
+const DEATH := LIB + "Death01"                          # [MAPA_TORRE] pose de morte (corpos tombados do fundo)
 # golpes variados: 3 da UAL2 (A/B/combo) + o Sword_Attack da UAL1
 const ATTACKS := [LIB2 + "Sword_Regular_A", LIB2 + "Sword_Regular_B", LIB2 + "Sword_Regular_Combo", LIB + "Sword_Attack"]
 const SHOOT := LIB + "Spell_Simple_Shoot"   # arco/ranged: anim de TIRO (não golpe de espada) [MENU_DUEL]
@@ -103,6 +104,32 @@ func _player_loadout() -> Dictionary:
 
 func _rand_kind() -> String:
 	return MELEE_KINDS[_rng.randi() % MELEE_KINDS.size()]
+
+# [MAPA_TORRE] Corpos TOMBADOS em FULL-PLATE (Quaternius, tema knight) — decoração SÓ do fundo do menu
+# (não entra na batalha real). Chamado pelo MenuFx no cenário cursed_tower. Pose de morte (Death01)
+# congelada no último frame. Não entram em `_fighters` → o setup()/login não os remove.
+func spawn_fallen(positions: Array) -> void:
+	for i in positions.size():
+		var pos: Vector3 = positions[i]
+		var gender := "female" if _rng.randi() % 4 == 0 else "male"   # maioria homem, 1/4 mulher
+		var node := (CHAR_FEMALE if gender == "female" else CHAR).instantiate()
+		if node == null:
+			continue
+		add_child(node)
+		node.position = pos
+		node.rotation_degrees = Vector3(0, _rng.randf_range(0, 360), 0)
+		node.scale = Vector3.ONE * SCALE
+		var skel: Skeleton3D = node.find_child("GeneralSkeleton", true, false)
+		var ap: AnimationPlayer = node.find_child("AnimationPlayer", true, false)
+		if skel:
+			_dress(node, skel, {"theme": "knight", "gender": gender, "rarity": _rng.randi_range(1, 3), "seed": "corpse_%d" % i})
+		if ap:
+			var d := ap.get_animation(DEATH)
+			if d:
+				d.loop_mode = Animation.LOOP_NONE
+				ap.play(DEATH)
+				ap.seek(d.length, true)   # congela DEITADO (último frame da morte)
+				ap.pause()
 
 func _clear_fighters() -> void:
 	for f in _fighters:

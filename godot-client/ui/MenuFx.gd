@@ -56,6 +56,8 @@ func bg_3d(control: Control, scenario := "dungeon") -> SubViewportContainer:
 	Scenery.new().build(world, scenario, rng, 6.0, false)   # grimdark off (screen-shader não vale em SubViewport)
 	var duel := MenuDuel.new()                              # 2 guerreiros duelando em QUALQUER cenário (decoração)
 	world.add_child(duel)
+	if scenario == "cursed_tower":                         # [MAPA_TORRE] corpos full-plate caídos na frente (só no menu)
+		duel.spawn_fallen([Vector3(3.0, 0, 7.0), Vector3(-3.2, 0, 8.0), Vector3(6.5, 0, 6.0), Vector3(-5.5, 0, 6.4)])
 	svc.set_meta("menu_duel", duel)                         # o App pega esse ref p/ remontar os lutadores no login
 	var tw := cam.create_tween().set_loops()                # drift lento (parallax) só no X (não cruza paredes)
 	tw.tween_property(cam, "position", cpos + Vector3(2.6, 0.3, 0), 14.0).set_trans(Tween.TRANS_SINE)
