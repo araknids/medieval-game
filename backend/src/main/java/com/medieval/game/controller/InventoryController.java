@@ -130,6 +130,7 @@ public class InventoryController {
                         boolean equipped, boolean guarded,
                         String description, String origin,
                         int durability, int itemLevel, boolean pvpLocked,
+                        int powerPct, // [DESGASTE] poder do item (0-100; multiplica os stats no combate)
                         String weaponCategory, boolean selfCrafted, // [MERCADOR] forjado por você
                         String outfitTheme, // [OUTFITS_CLASSE] tema visual da armadura (do ITEM)
                         String craftedByName) { // [ITEM_PROV] nome do forjador (vazio se não-forjado / forjado por você)
@@ -154,6 +155,7 @@ public class InventoryController {
                 i.getDescription() != null ? i.getDescription() : "",
                 i.getOrigin()      != null ? i.getOrigin()      : "",
                 i.getDurability(), i.getItemLevel(), i.isPvpLocked(),
+                i.getPowerPct(), // [DESGASTE]
                 i.effectiveWeaponCategory() != null ? i.effectiveWeaponCategory().name() : null, // [CLASSES_ARMAS]
                 playerId != null && i.isSelfCraftedBy(playerId), // [MERCADOR] forjado por você
                 i.getOutfitTheme() != null ? i.getOutfitTheme() : com.medieval.game.service.InventoryService.outfitThemeFor(i.getName()), // [OUTFITS_CLASSE] fallback p/ legado

@@ -77,7 +77,7 @@ class SmithingSuccessRateTest extends BaseIntegrationTest {
         setSmithing(p, 100);
         grantBronze(p, 100_000);
         gatheringService.addResource(p, ResourceType.IRON_BAR, 3);
-
+        gatheringService.addResource(p, ResourceType.SCRAP, 100);   // [DESMONTAGEM] craft de arma consome Peças
         SmithingService.CraftResult r = smithingService.craftEquipment(player(), "iron_sword");
         assertThat(r.success()).isTrue();
         assertThat(r.successPct()).isEqualTo(100);
@@ -92,6 +92,7 @@ class SmithingSuccessRateTest extends BaseIntegrationTest {
         setSmithing(p, 12); // iron_sword Lv12 → 70% (nível exato da receita) [BALANCE]
         grantBronze(p, 1_000_000);
         gatheringService.addResource(p, ResourceType.IRON_BAR, 30);
+        gatheringService.addResource(p, ResourceType.SCRAP, 100);   // [DESMONTAGEM] craft de arma consome Peças (só no sucesso)
         long initial = gatheringService.resourceQuantity(player(), ResourceType.IRON_BAR); // o que coube na bag
 
         int successes = 0, attempts = 0;
@@ -124,6 +125,7 @@ class SmithingSuccessRateTest extends BaseIntegrationTest {
         setSmithing(p, 100);
         grantBronze(p, 100_000);
         gatheringService.addResource(p, ResourceType.IRON_BAR, 3);
+        gatheringService.addResource(p, ResourceType.SCRAP, 100);   // [DESMONTAGEM] craft de arma + encaixe consomem Peças
         SmithingService.CraftResult c = smithingService.craftEquipment(player(), "iron_sword"); // 1 socket
         assertThat(c.success()).isTrue();
         assertThat(c.item()).isNotNull();

@@ -112,6 +112,12 @@ public class InventoryItem {
     @Column(columnDefinition = "integer default 100")
     private int durability = 100;
 
+    // [DESGASTE] Poder do item (0-100). Cai 1–5% a CADA reparo (SmithingService.repairItem); abaixo do
+    // piso de reparo não dá mais pra reparar (só desmontar) → itens não são eternos. MULTIPLICA os
+    // stats-base do item no combate (effective getters abaixo). Joias/afixos não degradam.
+    @Column(name = "power_pct", columnDefinition = "integer default 100")
+    private int powerPct = 100;
+
     // [MERCADOR] Quem forjou este item (playerId). Usado pelo bônus de self-crafted do Mercador.
     @Column(name = "crafted_by")
     private Long craftedBy;
@@ -128,12 +134,15 @@ public class InventoryItem {
     /** [MERCADOR] true se este item foi forjado pelo próprio jogador {@code playerId}. */
     public boolean isSelfCraftedBy(Long playerId) { return craftedBy != null && craftedBy.equals(playerId); }
 
-    public int getEffectiveAttack()  { return isBroken() ? 0 : attackBonus; }
-    public int getEffectiveDefense() { return isBroken() ? 0 : defenseBonus; }
-    public int getEffectiveHealth()  { return isBroken() ? 0 : healthBonus; }
-    public int getEffectiveStr()     { return isBroken() ? 0 : strBonus; }
-    public int getEffectiveDex()     { return isBroken() ? 0 : dexBonus; }
-    public int getEffectiveLuk()     { return isBroken() ? 0 : lukBonus; }
+    // [DESGASTE] stat-base × poder/100 (arredondado). powerPct=100 → inalterado. Quebrado (dura 0) → 0.
+    private int wear(int v) { return powerPct >= 100 ? v : (int) Math.round(v * powerPct / 100.0); }
+
+    public int getEffectiveAttack()  { return isBroken() ? 0 : wear(attackBonus); }
+    public int getEffectiveDefense() { return isBroken() ? 0 : wear(defenseBonus); }
+    public int getEffectiveHealth()  { return isBroken() ? 0 : wear(healthBonus); }
+    public int getEffectiveStr()     { return isBroken() ? 0 : wear(strBonus); }
+    public int getEffectiveDex()     { return isBroken() ? 0 : wear(dexBonus); }
+    public int getEffectiveLuk()     { return isBroken() ? 0 : wear(lukBonus); }
 
     /** Categoria efetiva da arma: arma legada (null) conta como MELEE. Não-arma → null. [CLASSES_ARMAS] */
     public WeaponCategory effectiveWeaponCategory() {

@@ -30,6 +30,7 @@ class EconomicSinksIntegrationTest extends BaseIntegrationTest {
     @Autowired TerritoryControlRepository  controlRepo;
     @Autowired InventoryService            inventoryService;
     @Autowired SmithingService             smithingService;
+    @Autowired com.medieval.game.service.GatheringService gatheringService; // [DESMONTAGEM] reparo consome Peças
     @Autowired TempleService               templeService;
     @Autowired TerritoryService            territoryService;
 
@@ -93,6 +94,7 @@ class EconomicSinksIntegrationTest extends BaseIntegrationTest {
         p.addBronzeAmount(10_000);
         playerRepository.save(p);
         InventoryItem item = equippedItem(p, 2, 5, 0, 0, 40);
+        gatheringService.addResource(p, com.medieval.game.enums.ResourceType.SCRAP, 100); // [DESMONTAGEM] reparo custa Peças
 
         smithingService.repairItem(playerRepository.findById(p.getId()).orElseThrow(), item.getId());
 
@@ -109,6 +111,7 @@ class EconomicSinksIntegrationTest extends BaseIntegrationTest {
         playerRepository.save(p);
         // rarity 4, durabilidade 50 → 50 pontos perdidos → 50×4×5 = 1000
         InventoryItem item = equippedItem(p, 4, 10, 0, 0, 50);
+        gatheringService.addResource(p, com.medieval.game.enums.ResourceType.SCRAP, 100); // [DESMONTAGEM] reparo custa Peças
 
         assertThat(smithingService.repairCost(item)).isEqualTo(1000);
 
@@ -127,6 +130,7 @@ class EconomicSinksIntegrationTest extends BaseIntegrationTest {
         p.setBronze(0); p.setSilver(0); p.setGold(0); // zera o saldo
         playerRepository.save(p);
         InventoryItem item = equippedItem(p, 4, 10, 0, 0, 50); // custo 1000
+        gatheringService.addResource(p, com.medieval.game.enums.ResourceType.SCRAP, 100); // [DESMONTAGEM] tem Peças → falha é por bronze
 
         mockMvc.perform(post("/api/smithing/repair/" + item.getId())
                         .header("Authorization", bearer(token)))

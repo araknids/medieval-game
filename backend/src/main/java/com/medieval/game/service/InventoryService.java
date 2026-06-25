@@ -308,6 +308,39 @@ public class InventoryService {
         return item;
     }
 
+    // [DESMONTAGEM] Quantidade de Peças (SCRAP) que um item rende ao ser desmontado: base por raridade
+    // × fator de nível. Números placeholders pra tuning. Min 1.
+    public static int dismantleYield(int rarity, int itemLevel) {
+        int base = switch (rarity) { case 5 -> 12; case 4 -> 7; case 3 -> 4; case 2 -> 2; default -> 1; };
+        return Math.max(1, (int) Math.round(base * (1 + Math.max(0, itemLevel) / 50.0)));
+    }
+
+    /**
+     * [DESMONTAGEM] Destrói o item e devolve a QUANTIDADE de Peças (SCRAP) que ele rende (o chamador concede
+     * o recurso). Guards iguais ao vender (+ guarded/stashed): joias e afixos são apagados (perdidos), FKs limpas.
+     */
+    @Transactional
+    public int dismantle(Player player, Long itemId) {
+        log.info("[InventoryService] player={} action=dismantle itemId={}", player.getId(), itemId);
+        InventoryItem item = inventoryRepository.findById(itemId)
+                .orElseThrow(() -> new IllegalArgumentException("Item not found"));
+        if (!item.getPlayer().getId().equals(player.getId()))
+            throw new IllegalStateException("This item does not belong to you");
+        if (item.isEquipped() || item.isGuarded() || item.isStashed() || item.isListed()
+                || item.isConsigned() || item.isRunPending() || (item.isPvpLocked() && player.isPvpFlagged()))
+            throw new com.medieval.game.config.LocalizedException("error.dismantle_blocked",
+                    "Can't dismantle this item (equipped, protected, stashed, listed or locked).");
+        int qty = dismantleYield(item.getRarity(), item.getItemLevel());
+        gemRepository.deleteAllByItem(item);          // joias PERDIDAS na desmontagem (FK)
+        affixRepository.deleteByItem(item);
+        auctionListingRepository.deleteByItem(item);  // [LEILAO_FK_FIX] limpa listagens históricas
+        consignmentRepository.deleteByItem(item);     // [CONSIGN_FK_FIX] limpa consignações órfãs
+        inventoryRepository.delete(item);
+        log.info("[InventoryService] player={} action=dismantle OK itemId={} rarity={} lvl={} scrap={}",
+                player.getId(), itemId, item.getRarity(), item.getItemLevel(), qty);
+        return qty;
+    }
+
     @Transactional
     public void giveStarterItems(Player player) {
         String origin = loreGenerator.originStarter();

@@ -174,6 +174,19 @@ public class SmithingController {
         ));
     }
 
+    // [DESMONTAGEM] Desmontar item → Peças (Salvage). Joias são perdidas.
+    @PostMapping("/dismantle/{itemId}")
+    public ResponseEntity<?> dismantle(@PathVariable Long itemId, Authentication auth) {
+        Player player = getPlayer(auth);
+        var r = smithingService.dismantleItem(player, itemId);
+        return ResponseEntity.ok(Map.of(
+            "message", com.medieval.game.service.Messages.tr("msg.item_dismantled", "Dismantled into {0} Salvage.", r.scrap()),
+            "scrap",   r.scrap(),
+            "added",   r.added(),
+            "mailed",  r.mailed()
+        ));
+    }
+
     // Reforjar item (re-rola stats mantendo raridade)
     @PostMapping("/reforge/{itemId}")
     public ResponseEntity<?> reforge(@PathVariable Long itemId, Authentication auth) {

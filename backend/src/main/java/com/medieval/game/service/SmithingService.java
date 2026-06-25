@@ -34,6 +34,11 @@ public class SmithingService {
     private static final int  SOCKET_SLOT_PENALTY = 10;  // −%/slot já ocupado (2º/3º mais difícil)
     private static final long SOCKET_FEE_BRONZE   = 150; // taxa por tentativa de encaixe (perdida na falha)
 
+    // [DESGASTE] Cada reparo corrói 1–5% do poder; abaixo de REPAIR_FLOOR o item não repara mais (só desmontar).
+    // [DESMONTAGEM] Reparo/craft-de-arma/encaixe passam a consumir Peças (SCRAP). Números = placeholders.
+    private static final int REPAIR_WEAR_MIN = 1, REPAIR_WEAR_MAX = 5, REPAIR_FLOOR = 50;
+    private static final long SOCKET_SCRAP   = 2;   // Peças por encaixe de joia (consumidas só no sucesso)
+
     /** Chance de sucesso (%) do craft p/ o nível de Forja dado. */
     public int craftSuccessPct(int smithingLevel, CraftRecipe recipe) {
         return Math.min(100, CRAFT_BASE_PCT + (smithingLevel - recipe.smithingLevel()) * CRAFT_STEP_PCT);
@@ -225,6 +230,13 @@ public class SmithingService {
                 throw new com.medieval.game.config.LocalizedException("error.smithing_material", "Not enough {0}.", e.getKey().displayName);
             }
         }
+        // [DESMONTAGEM] Craft de ARMA também consome Peças (SCRAP) — pré-checa junto dos materiais.
+        long craftScrap = craftWeaponScrap(recipe);
+        if (craftScrap > 0 && gatheringService.resourceQuantity(player, ResourceType.SCRAP) < craftScrap) {
+            log.warn("[SmithingService] player={} REJECTED: not enough Salvage to forge weapon {} (need {})", player.getId(), recipeId, craftScrap);
+            throw new com.medieval.game.config.LocalizedException("error.craft_scrap",
+                    "Not enough Salvage to forge this weapon (need {0}). Dismantle items to get Salvage.", craftScrap);
+        }
 
         int successPct = Math.min(100, craftSuccessPct(smithing.getLevel(), recipe)
                 + abilityService.craftSuccessBonus(player)); // [MERCADOR] Master Craftsman
@@ -240,8 +252,9 @@ public class SmithingService {
                     "Forging failed (" + successPct + "% chance). Materials kept — only the bronze fee was lost.");
         }
 
-        // Sucesso: consome ingredientes + cria item + XP cheio.
+        // Sucesso: consome ingredientes (+ Peças se for arma) + cria item + XP cheio.
         recipe.ingredients().forEach((res, qty) -> gatheringService.removeResource(player, res, qty));
+        if (craftScrap > 0) gatheringService.removeResource(player, ResourceType.SCRAP, craftScrap); // [DESMONTAGEM]
 
         com.medieval.game.enums.ItemType itemType = recipe.type();
 
@@ -326,6 +339,12 @@ public class SmithingService {
             log.warn("[SmithingService] player={} REJECTED: no {} in bag", player.getId(), gemType);
             throw new IllegalStateException("You don't have that gem.");
         }
+        // [DESMONTAGEM] Encaixar joia consome Peças (SCRAP) — só no sucesso, mas pré-checa aqui.
+        if (gatheringService.resourceQuantity(player, ResourceType.SCRAP) < SOCKET_SCRAP) {
+            log.warn("[SmithingService] player={} REJECTED: not enough Salvage to socket (need {})", player.getId(), SOCKET_SCRAP);
+            throw new com.medieval.game.config.LocalizedException("error.socket_scrap",
+                    "Not enough Salvage to set a gem (need {0}). Dismantle items to get Salvage.", SOCKET_SCRAP);
+        }
 
         int slotIndex = existing.size(); // próximo slot (0-based)
         SkillLevel smithing = gatheringService.getOrCreateSkill(player, SkillType.SMITHING);
@@ -343,6 +362,7 @@ public class SmithingService {
         }
 
         gatheringService.removeResource(player, gemType, 1);
+        gatheringService.removeResource(player, ResourceType.SCRAP, SOCKET_SCRAP); // [DESMONTAGEM] Peças do encaixe
         SocketedGem gem = new SocketedGem();
         gem.setItem(item);
         gem.setGemType(gemType);
@@ -365,24 +385,69 @@ public class SmithingService {
             throw new IllegalStateException("Item does not belong to you");
         }
 
+        // [DESGASTE] Piso: abaixo de REPAIR_FLOOR o item está gasto demais — só dá pra desmontar.
+        if (item.getPowerPct() < REPAIR_FLOOR) {
+            log.warn("[SmithingService] player={} REJECTED: item {} too worn ({}% power)", player.getId(), itemId, item.getPowerPct());
+            throw new com.medieval.game.config.LocalizedException("error.repair_worn_out",
+                    "This item is too worn to repair ({0}% power). Dismantle it for Salvage.", item.getPowerPct());
+        }
+
         int lostPoints = 100 - item.getDurability();
         if (lostPoints <= 0) {
             log.warn("[SmithingService] player={} REJECTED: item {} already at full durability", player.getId(), itemId);
             throw new IllegalStateException("Item is already at full durability");
         }
 
-        long cost = (long) lostPoints * item.getRarity() * 5;
+        // [DESMONTAGEM] Reparo agora custa Peças (SCRAP) + bronze. Pré-checa as Peças antes de cobrar o bronze.
+        long scrapCost = repairScrapCost(item);
+        if (gatheringService.resourceQuantity(player, ResourceType.SCRAP) < scrapCost) {
+            log.warn("[SmithingService] player={} REJECTED: not enough Salvage to repair item {} (need {})", player.getId(), itemId, scrapCost);
+            throw new com.medieval.game.config.LocalizedException("error.repair_scrap",
+                    "Not enough Salvage to repair (need {0}). Dismantle items to get Salvage.", scrapCost);
+        }
+
+        long cost = repairCost(item);
         playerService.spendBronze(player, cost);
+        gatheringService.removeResource(player, ResourceType.SCRAP, scrapCost);
 
         item.setDurability(100);
+        // [DESGASTE] cada reparo corrói 1–5% do poder (multiplica os stats no combate; o piso trava o PRÓXIMO reparo).
+        int wear = REPAIR_WEAR_MIN + java.util.concurrent.ThreadLocalRandom.current().nextInt(REPAIR_WEAR_MAX - REPAIR_WEAR_MIN + 1);
+        item.setPowerPct(Math.max(0, item.getPowerPct() - wear));
         InventoryItem saved = inventoryRepository.save(item);
-        log.info("[SmithingService] player={} action=repairItem OK itemId={} restored={} cost={}", player.getId(), itemId, lostPoints, cost);
+        log.info("[SmithingService] player={} action=repairItem OK itemId={} restored={} bronze={} scrap={} power={}",
+                player.getId(), itemId, lostPoints, cost, scrapCost, saved.getPowerPct());
         return saved;
     }
 
-    /** Custo de reparo (pontos perdidos × raridade × 5) — para exibição/validação. */
+    /** Custo de reparo em BRONZE (pontos perdidos × raridade × 5) — para exibição/validação. */
     public long repairCost(InventoryItem item) {
         return (long) (100 - item.getDurability()) * item.getRarity() * 5;
+    }
+
+    /** [DESMONTAGEM] Peças (SCRAP) pra reparar — escala com a raridade (placeholder). */
+    public long repairScrapCost(InventoryItem item) {
+        return Math.max(1, item.getRarity());
+    }
+
+    /** [DESMONTAGEM] Peças (SCRAP) pra forjar uma ARMA (0 p/ não-arma). Placeholder. */
+    private long craftWeaponScrap(CraftRecipe r) {
+        return r.type() == com.medieval.game.enums.ItemType.WEAPON ? Math.max(2, r.rarity() * 2L) : 0;
+    }
+
+    // ── Desmontar item → Peças (SCRAP) [DESMONTAGEM] ──
+    public record DismantleResult(int scrap, int added, int mailed) {}
+
+    /** Desmonta o item (InventoryService valida/deleta e devolve a qtd) e credita as Peças; overflow vai por mail. */
+    @Transactional
+    public DismantleResult dismantleItem(Player player, Long itemId) {
+        log.info("[SmithingService] player={} action=dismantle itemId={}", player.getId(), itemId);
+        int qty = inventoryService.dismantle(player, itemId);
+        long added  = gatheringService.addResource(player, ResourceType.SCRAP, qty);
+        long mailed = qty - added;
+        if (mailed > 0)
+            mailService.sendResourceMail(player, "Desmontagem (bolsa cheia)", ResourceType.SCRAP, (int) mailed);
+        return new DismantleResult(qty, (int) added, (int) mailed);
     }
 
     // Piso de qualidade da reforja: total mínimo = 45% do máximo possível para a raridade. [AUDITORIA A4]

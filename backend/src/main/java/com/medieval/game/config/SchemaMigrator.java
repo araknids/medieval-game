@@ -688,7 +688,8 @@ public class SchemaMigrator implements SmartInitializingSingleton {
             jdbc.execute("ALTER TABLE inventory_items ADD COLUMN IF NOT EXISTS durability integer NOT NULL DEFAULT 100");
             jdbc.execute("ALTER TABLE inventory_items ADD COLUMN IF NOT EXISTS item_level integer NOT NULL DEFAULT 1");
             jdbc.execute("ALTER TABLE inventory_items ADD COLUMN IF NOT EXISTS pvp_locked boolean NOT NULL DEFAULT false"); // [PVP_FLAG]
-            log.info("[SchemaMigrator] inventory_items durability + item_level + pvp_locked columns ensured");
+            jdbc.execute("ALTER TABLE inventory_items ADD COLUMN IF NOT EXISTS power_pct integer NOT NULL DEFAULT 100"); // [DESGASTE]
+            log.info("[SchemaMigrator] inventory_items durability + item_level + pvp_locked + power_pct columns ensured");
         } catch (Exception e) {
             log.warn("[SchemaMigrator] inventory_items durability/item_level column patch failed: {}", e.getMessage());
         }

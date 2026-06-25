@@ -47,6 +47,7 @@ public enum ResourceType {
     LEATHER       ("Leather",        ResourceCategory.MATERIAL, 1),
     MONSTER_CORE  ("Monster Core",   ResourceCategory.MATERIAL, 1),   // drop from the Beast Den [REINOS_V2]
     BEAST_HIDE    ("Beast Hide",     ResourceCategory.MATERIAL, 1),   // rare drop from the Beast Den
+    SCRAP         ("Salvage",        ResourceCategory.MATERIAL, 1),   // [DESMONTAGEM] peças da desmontagem → reparo/craft/joia
 
     // ── Essências elementais (drop das áreas de elemento; material do encantamento no Templo) [ELEMENTOS] ──
     FIRE_ESSENCE  ("Fire Essence",   ResourceCategory.ESSENCE, 1),
