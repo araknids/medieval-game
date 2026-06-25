@@ -390,8 +390,8 @@ func _brazier(host: Node3D, pos: Vector3) -> void:
 	host.add_child(coal); coal.position = pos + Vector3(0, 1.75, 0)
 	var light := OmniLight3D.new()
 	light.light_color = Color(1.0, 0.62, 0.28)
-	light.light_energy = 5.0
-	light.omni_range = 11.0
+	light.light_energy = 2.6    # [PEDRA] era 5.0 → 8 braseiros lavavam o pit de branco
+	light.omni_range = 7.5      # [PEDRA] era 11.0 → alcance local (não floda o centro)
 	host.add_child(light); light.position = pos + Vector3(0, 1.9, 0)
 	# CHAMA de partículas (pega o glow dos cenários) + FLICKER da luz [Fable]
 	var p := GPUParticles3D.new()
@@ -425,9 +425,9 @@ func _brazier(host: Node3D, pos: Vector3) -> void:
 	p.draw_pass_1 = q
 	host.add_child(p); p.position = pos + Vector3(0, 1.85, 0)
 	var tw := host.create_tween().set_loops()   # flicker (loop barato)
-	tw.tween_property(light, "light_energy", 4.2, 0.13)
-	tw.tween_property(light, "light_energy", 5.6, 0.17)
-	tw.tween_property(light, "light_energy", 4.8, 0.11)
+	tw.tween_property(light, "light_energy", 2.2, 0.13)   # [PEDRA] flicker proporcional ao novo 2.6
+	tw.tween_property(light, "light_energy", 3.0, 0.17)
+	tw.tween_property(light, "light_energy", 2.5, 0.11)
 
 # ── iluminação de DIA (céu azul claro — enche o horizonte, fresco) ───────────────
 func day_lighting(host: Node3D) -> void:
@@ -455,7 +455,7 @@ func day_lighting(host: Node3D) -> void:
 	var sun := DirectionalLight3D.new()
 	sun.rotation_degrees = Vector3(-52, -45, 0)
 	sun.light_color = Color(1.0, 0.97, 0.9)
-	sun.light_energy = 1.5
+	sun.light_energy = 1.1    # [PEDRA] era 1.5 → menos estouro no chão de dia
 	sun.shadow_enabled = true
 	host.add_child(sun)
 
@@ -596,8 +596,8 @@ func dungeon(host: Node3D, rng: RandomNumberGenerator, _combat_r: float) -> void
 # ── cenário: ARENA de duelo — coliseu de pedra (kit Village), de dia ─────────────
 func arena(host: Node3D, rng: RandomNumberGenerator, _combat_r: float) -> void:
 	_ground(host, Color(0.32, 0.35, 0.23), 52.0)        # campo gramado em volta (largo p/ a mata pousar)
-	_disc(host, Color(0.40, 0.34, 0.24), 14.5, 0.0)     # [NITIDEZ] terra batida (era 0.58 → estourava no dia)
-	_disc(host, Color(0.50, 0.43, 0.30), 10.0, 0.02)    # [NITIDEZ] pit de AREIA (era 0.72 → chão branco)
+	_disc(host, Color(0.24, 0.24, 0.26), 14.5, 0.0)     # [PEDRA] plataforma de PEDRA escura (era areia clara → estourava)
+	_disc(host, Color(0.32, 0.32, 0.35), 10.0, 0.02)    # [PEDRA] pit de PEDRA cinza (era areia → chão branco)
 	# colisão do chão
 	var fb := StaticBody3D.new()
 	var fc := CollisionShape3D.new()
