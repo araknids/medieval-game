@@ -607,6 +607,18 @@ public class KingdomService {
             }
         }
 
+        // [CLASSES] Path Trial no Lv10: RECRUIT && level>=10 → entrada "Escolha sua classe" na aba Missões (track).
+        com.medieval.game.model.Warrior cw = warriorRepo.findByPlayer(player).orElse(null);
+        if (cw != null && cw.getWarriorClass() == com.medieval.game.enums.WarriorClass.RECRUIT && cw.getLevel() >= 10) {
+            java.util.Map<String, Object> ce = new java.util.LinkedHashMap<>();
+            ce.put("source", "class");
+            ce.put("id", "class_trial");
+            ce.put("npc", messages.getOr("class.trial.npc", "Captain Garrick"));
+            ce.put("title", messages.getOr("class.trial.title", "Choose Your Path"));
+            ce.put("flavor", messages.getOr("class.trial.flavor", "You're ready, recruit. Choose a class and face its Guardian."));
+            missionsAvailable.add(ce);
+        }
+
         // [QUEST_BADGE] badges separados: AZUL = diária não-feita nesta janela (active/available); AMARELO =
         // missão normal disponível. (badge = OR dos dois, p/ compat.)
         boolean dailyBadge = daily.stream().anyMatch(e -> !"done".equals(e.get("dailyState")));

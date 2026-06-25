@@ -138,8 +138,32 @@ func _mission_section(title: String, key: String, section: String) -> bool:
 	content.add_child(UiKit.section(title))
 	for q in list:
 		if q is Dictionary:
-			content.add_child(_starter_card(q) if str(q.get("source", "")) == "starter" else _kingdom_mission_card(q, section))
+			var src := str(q.get("source", ""))
+			if src == "starter":
+				content.add_child(_starter_card(q))
+			elif src == "class":   # [CLASSES] entrada da Path Trial → abre o seletor de classe do Shell
+				content.add_child(_class_mission_card(q))
+			else:
+				content.add_child(_kingdom_mission_card(q, section))
 	return true
+
+# [CLASSES] Card da quest de classe (Lv10) no Diário: NPC + fala + botão que abre o seletor de classe (Shell).
+func _class_mission_card(q: Dictionary) -> PanelContainer:
+	var res := UiKit.card(UiKit.GOLD)
+	var box: VBoxContainer = res[1]
+	var head := HBoxContainer.new(); head.add_theme_constant_override("separation", 10)
+	if Icons.tex("veteran") != null:
+		var pr := Icons.rect("veteran", 40); pr.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+		head.add_child(pr)
+	var nl := Label.new(); nl.text = str(q.get("title", "Escolha seu Caminho"))
+	nl.add_theme_font_size_override("font_size", 16); nl.add_theme_color_override("font_color", UiKit.GOLD)
+	nl.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	head.add_child(nl)
+	box.add_child(head)
+	box.add_child(UiKit.dim(str(q.get("flavor", ""))))
+	if Shell.current != null:
+		box.add_child(_btn_right(UiKit.action(Lang.t("Escolher classe"), func() -> void: await Shell.current._open_class_picker())))
+	return res[0]
 
 func _kingdom_mission_card(q: Dictionary, section: String) -> PanelContainer:
 	var res := UiKit.card(UiKit.GOLD if section == "inProgress" else UiKit.BRONZE)
