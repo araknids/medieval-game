@@ -1274,11 +1274,11 @@ func _dark_tower(host: Node3D, rng: RandomNumberGenerator, base: Vector3) -> voi
 	_smoke(host, base + Vector3(rng.randf_range(-0.6, 0.6), topy + 2.2, 0))
 	_smoke(host, base + Vector3(rng.randf_range(-0.6, 0.6), topy + 3.0, 0.4))
 	# MURALHA de castelo PRETA de frente pra estrada (com portão aceso + ameias) — imponência de fortaleza
-	_castle_front(host, rng, base, r0)
+	_castle_front(host, base, r0)
 
 # Muralha de CASTELO preta de frente pra estrada (com ameias + PORTÃO aceso) — dá imponência de
 # fortaleza à torre. base = centro da torre; faces viradas pro -X (a estrada/câmera). [MAPA_TORRE]
-func _castle_front(host: Node3D, rng: RandomNumberGenerator, base: Vector3, r0: float) -> void:
+func _castle_front(host: Node3D, base: Vector3, r0: float) -> void:
 	var wall_x := base.x - r0 - 0.4       # face frontal (lado da estrada)
 	var wall_h := 10.0
 	var span := 42.0                       # muralha MUITO longa → some na névoa dos 2 lados ("infinita")
@@ -1303,18 +1303,15 @@ func _castle_front(host: Node3D, rng: RandomNumberGenerator, base: Vector3, r0: 
 		for mk in 4:
 			var ma := TAU * mk / 4.0
 			_stone_box(host, Vector3(0.7, 1.0, 0.7), Vector3(wall_x + 0.3 + cos(ma) * 0.95, wall_h + 3.5 + 0.45, tz + sin(ma) * 0.95))
-	# PORTÃO de verdade: ASSET Wall_Arch (mesmo arco de entrada da arena) escurecido p/ casar com a
-	# muralha + painel fechando ACIMA do arco + vão ESCURO recuado + BRASAS baixas + luz quente.
-	# (Saiu a verga de caixas que ficava "zuada".)
-	var arch := _place(host, rng, VIL + "Wall_Arch.gltf", Vector3(wall_x, 0, base.z), 90.0, 2.3)   # rot 90 → passagem ao longo de X
-	if arch:
-		_stone_skin(arch)
-	_stone_box(host, Vector3(1.8, wall_h - 4.0, gate * 2.0), Vector3(wall_x, (4.0 + wall_h) * 0.5, base.z))   # fecha acima do arco
-	_box3(host, Vector3(0.6, wall_h * 0.6, gate * 1.7), Vector3(wall_x + 0.9, wall_h * 0.32, base.z), Color(0.02, 0.02, 0.03), Vector3.ZERO, 1.0)   # interior ESCURO (atrás do arco)
-	_box3(host, Vector3(0.7, 0.55, gate * 1.1), Vector3(wall_x + 0.1, 0.4, base.z), Color(1.0, 0.45, 0.14), Vector3.ZERO, 0.6, 0.0, Color(1.0, 0.4, 0.08), 2.0)   # brasas baixas no chão
+	# PORTÃO: LINTEL (verga) no topo + os 2 pilares (já postos) = MOLDURA escura; o FOGO fica RECUADO
+	# atrás do vão (a moldura na frente corta as bordas → lê como fogo POR DENTRO, não uma parede acesa).
+	_stone_box(host, Vector3(1.9, 1.5, gate * 2.5), Vector3(wall_x, wall_h * 0.74, base.z))            # verga/lintel do topo
+	_stone_box(host, Vector3(1.8, wall_h - 8.0, gate * 2.0), Vector3(wall_x, wall_h - 1.0, base.z))    # fecha acima do lintel
+	_box3(host, Vector3(0.5, wall_h * 0.5, gate * 1.5), Vector3(wall_x + 1.1, wall_h * 0.32, base.z), Color(0.95, 0.42, 0.14), Vector3.ZERO, 0.7, 0.0, Color(1.0, 0.42, 0.1), 1.7)     # GLOW recuado (fogo dentro)
+	_box3(host, Vector3(0.7, 0.7, gate * 1.2), Vector3(wall_x + 0.35, 0.5, base.z), Color(1.0, 0.5, 0.18), Vector3.ZERO, 0.6, 0.0, Color(1.0, 0.46, 0.12), 2.6)                       # brasas FORTES no chão (base do fogo)
 	var gl := OmniLight3D.new()
-	gl.light_color = Color(1.0, 0.52, 0.22); gl.light_energy = 2.6; gl.omni_range = 10.0
-	host.add_child(gl); gl.position = Vector3(wall_x + 0.6, 1.8, base.z)
+	gl.light_color = Color(1.0, 0.55, 0.26); gl.light_energy = 3.2; gl.omni_range = 12.0
+	host.add_child(gl); gl.position = Vector3(wall_x + 0.7, 2.0, base.z)
 	# AMEIAS (merlons) no topo da muralha ao longo de tudo (pula o portão e onde tem torre)
 	var z := base.z - span
 	while z <= base.z + span + 0.01:

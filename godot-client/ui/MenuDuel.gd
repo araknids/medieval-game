@@ -53,6 +53,7 @@ const SCALE := 1.2
 # herói, morrem em 5-10 golpes e AFUNDAM no chão (sem acumular). O herói nunca morre.
 const GATE_SPAWN := Vector3(11.6, 0.0, 2.0)   # boca do portão da fortaleza
 const SIEGE_RUN_SPEED := 5.4                   # corre (não anda) até o herói
+const SIEGE_BACK_SPEED := 2.2                  # herói ANDA de volta ao ponto inicial (sem teleporte)
 var siege_mode := false                        # ligado pelo MenuFx
 var _siege_timer := 0.0
 var _siege_respawn := 0.0
@@ -139,7 +140,8 @@ func _spawn_siege_enemy() -> void:
 func _siege_step(dt: float) -> void:
 	if _fighters.is_empty() or not is_instance_valid(_fighters[0].get("node")):
 		return
-	if _fighters.size() < 2:                 # entre inimigos: espera o próximo sair do portão
+	if _fighters.size() < 2:                 # entre inimigos: herói ANDA de volta ao ponto inicial + espera
+		_siege_hero_return(dt)
 		_siege_respawn -= dt
 		if _siege_respawn <= 0.0:
 			_siege_respawn = 1.0             # piso (evita spam por frame se o spawn falhar)
@@ -177,6 +179,31 @@ func _siege_step(dt: float) -> void:
 			elif _rng.randf() < 0.3:
 				_siege_enemy_jab(e, hero)
 
+# Entre inimigos: o herói ANDA (recuando, mirando o portão) de volta ao ponto inicial — sem teleporte.
+func _siege_hero_return(dt: float) -> void:
+	if _fighters.is_empty():
+		return
+	var hero: Dictionary = _fighters[0]
+	var hn: Node3D = hero["node"]
+	if not is_instance_valid(hn):
+		return
+	var ap: AnimationPlayer = hero["anim"]
+	if hn.position.distance_to(POS_L) > 0.12:
+		if hero.get("ltween") and is_instance_valid(hero["ltween"]):
+			(hero["ltween"] as Tween).kill()
+			hero["ltween"] = null
+		hn.position = hn.position.move_toward(POS_L, SIEGE_BACK_SPEED * dt)
+		hero["adv"] = POS_L.x
+		if ap and ap.current_animation != WALK:
+			var wl := ap.get_animation(WALK)
+			if wl:
+				wl.loop_mode = Animation.LOOP_LINEAR
+			ap.play(WALK, BLEND, -1.0)   # recua MIRANDO o portão (walk em reverso)
+	else:
+		hn.position = POS_L
+		if ap and ap.current_animation == WALK:
+			ap.play(IDLE, BLEND)
+
 # Herói golpeia o inimigo (sempre): investe + ataque (ou tiro se arco) → inimigo reage + sangra.
 func _siege_hero_strike(hero: Dictionary, e: Dictionary) -> void:
 	var ap_h: AnimationPlayer = hero["anim"]
@@ -195,11 +222,17 @@ func _siege_hero_strike(hero: Dictionary, e: Dictionary) -> void:
 	if ranged:
 		_arrow(hn, en)
 	else:
-		var home := hn.position
+		# AVANÇA um tiquinho a cada combo (empurra pra frente), capado ANTES do inimigo — sem drift
+		# acumulado: o lunge é relativo a um `adv` controlado, e mata o tween anterior (não brigam).
+		var adv: float = minf(float(hero.get("adv", POS_L.x)) + 0.22, -0.2)
+		hero["adv"] = adv
+		if hero.get("ltween") and is_instance_valid(hero["ltween"]):
+			(hero["ltween"] as Tween).kill()
 		var tw := hn.create_tween()
-		tw.tween_property(hn, "position", home + Vector3(dirx * 0.38, 0, 0), 0.16).set_trans(Tween.TRANS_SINE)
-		tw.tween_interval(0.10)
-		tw.tween_property(hn, "position", home, 0.30).set_trans(Tween.TRANS_SINE)
+		hero["ltween"] = tw
+		tw.tween_property(hn, "position", Vector3(adv + 0.55, 0, POS_L.z), 0.14).set_trans(Tween.TRANS_SINE)
+		tw.tween_interval(0.08)
+		tw.tween_property(hn, "position", Vector3(adv, 0, POS_L.z), 0.30).set_trans(Tween.TRANS_SINE)
 	var ap_e: AnimationPlayer = e["anim"]
 	get_tree().create_timer(0.26).timeout.connect(func() -> void:
 		if not is_instance_valid(en) or str(e.get("sstate", "")) == "dying":
