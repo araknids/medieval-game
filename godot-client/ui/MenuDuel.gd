@@ -128,8 +128,7 @@ func spawn_fallen(positions: Array) -> void:
 			if d:
 				d.loop_mode = Animation.LOOP_NONE
 				ap.play(DEATH)
-				ap.seek(d.length, true)   # congela DEITADO (último frame da morte)
-				ap.pause()
+				ap.seek(maxf(0.0, d.length - 0.05), true)   # PRÓXIMO do fim (deitado) e descansa lá (LOOP_NONE); sem pause() (que sumia o corpo)
 
 func _clear_fighters() -> void:
 	for f in _fighters:

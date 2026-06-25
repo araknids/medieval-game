@@ -1107,6 +1107,8 @@ func cursed_tower(host: Node3D, rng: RandomNumberGenerator, combat_r: float) -> 
 	# enche a cena sem bloquear a câmera nem a fortaleza
 	for i in 44:
 		var vp := _scatter(rng, combat_r + 1.5, 25.0)
+		if vp.x > 3.0 and vp.x < 14.0 and absf(vp.z - 2.0) < 5.0:
+			continue   # caminho do PORTÃO LIVRE (nada de pedra/mato na frente da entrada)
 		if rng.randf() < 0.45:
 			_place(host, rng, NAT + "Rock_Medium_%d.gltf" % (1 + i % 3), vp, rng.randf_range(0, 360), rng.randf_range(0.7, 2.0))
 		else:
@@ -1131,20 +1133,26 @@ func cursed_tower(host: Node3D, rng: RandomNumberGenerator, combat_r: float) -> 
 		var sa := lerpf(deg_to_rad(95), deg_to_rad(345), float(i) / 9.0) + rng.randf_range(-0.1, 0.1)   # evita o +Z (frente)
 		var sr := rng.randf_range(combat_r + 0.8, combat_r + 6.0)
 		_fallen_soldier(host, Vector3(cos(sa) * sr, 0, sin(sa) * sr), rng)
-	# FERA MORTA (como o bicho no canto da capa) — perto da fortaleza
-	_dead_beast(host, Vector3(11.0, 0, 5.5), rng, 1.0)
-	_dead_beast(host, Vector3(14.5, 0, -3.5), rng, 0.7)
+	# FERA MORTA (como o bicho no canto da capa) — ao LADO do caminho do portão (não em cima dele)
+	_dead_beast(host, Vector3(9.0, 0, 9.5), rng, 1.0)
+	_dead_beast(host, Vector3(15.5, 0, -8.0), rng, 0.7)
 	# BRASEIROS esparsos (fogo de acampamento/batalha) iluminam os lutadores
 	for i in 3:
 		var a := lerpf(deg_to_rad(120), deg_to_rad(300), float(i) / 2.0)
 		_brazier(host, Vector3(cos(a) * (combat_r + 1.4), 0, sin(a) * (combat_r + 1.4)))
 	# grama RALA/morta + arbustos secos (campo arrasado, não mata viva)
 	for i in 60:
+		var gp := _scatter(rng, combat_r + 0.8, 36.0)
+		if gp.x > 3.0 and gp.x < 14.0 and absf(gp.z - 2.0) < 5.0:
+			continue   # caminho do portão livre
 		var g: String = ["Grass_Wispy_Short", "Grass_Wispy_Tall", "Fern_1", "Bush_Common"][i % 4]
-		_place(host, rng, NAT + g + ".gltf", _scatter(rng, combat_r + 0.8, 36.0), rng.randf_range(0, 360), rng.randf_range(0.5, 1.0))
+		_place(host, rng, NAT + g + ".gltf", gp, rng.randf_range(0, 360), rng.randf_range(0.5, 1.0))
 	# pedras/escombro de pedra espalhado
 	for i in 30:
-		_place(host, rng, NAT + "Rock_Medium_%d.gltf" % (1 + i % 3), _scatter(rng, combat_r + 2.0, 34.0), rng.randf_range(0, 360), rng.randf_range(0.5, 1.1))
+		var rp := _scatter(rng, combat_r + 2.0, 34.0)
+		if rp.x > 3.0 and rp.x < 14.0 and absf(rp.z - 2.0) < 5.0:
+			continue   # caminho do portão livre
+		_place(host, rng, NAT + "Rock_Medium_%d.gltf" % (1 + i % 3), rp, rng.randf_range(0, 360), rng.randf_range(0.5, 1.1))
 	# BRASAS/cinzas subindo da torre em chamas (vende o incêndio)
 	_embers(host, TOWER + Vector3(0, 18.0, 0), 56)
 
