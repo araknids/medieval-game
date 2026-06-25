@@ -613,6 +613,59 @@ static func notice(host: Control, text: String, button_label := "Entendi", on_cl
 	ok.call_deferred("grab_focus")
 	# SEM dim_rect.gui_input → clicar fora NÃO fecha (a única saída é o botão).
 
+# [ONBOARDING] Aviso DITO POR UM NPC — retrato + nome em cima, a fala embaixo, 1 botão. Mesmo modal do
+# notice (não fecha clicando fora). portrait_key = ícone do retrato (ex.: "veteran"/"priest"); some se o
+# PNG ainda não existir (fallback p/ só o nome). Usado nas transições do onboarding (Garrick/Padre falam).
+static func npc_notice(host: Control, portrait_key: String, speaker: String, text: String, button_label := "Entendi", on_close := Callable()) -> void:
+	var dim_rect := ColorRect.new()
+	dim_rect.color = Color(0, 0, 0, 0.62)
+	dim_rect.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	dim_rect.mouse_filter = Control.MOUSE_FILTER_STOP
+	host.add_child(dim_rect)
+	var center := CenterContainer.new()
+	center.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	center.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	dim_rect.add_child(center)
+	var panel := PanelContainer.new()
+	panel.custom_minimum_size = Vector2(440, 0)
+	var sb := StyleBoxFlat.new()
+	sb.bg_color = Color(0.10, 0.09, 0.10, 0.97)
+	sb.set_border_width_all(2)
+	sb.border_color = GOLD_SOFT
+	sb.set_corner_radius_all(3)
+	sb.set_content_margin_all(18)
+	panel.add_theme_stylebox_override("panel", sb)
+	center.add_child(panel)
+	var v := VBoxContainer.new()
+	v.add_theme_constant_override("separation", 12)
+	panel.add_child(v)
+	# cabeçalho: retrato (se houver) + nome do NPC que está falando
+	if speaker.strip_edges() != "" or (portrait_key != "" and Icons.tex(portrait_key) != null):
+		var head := HBoxContainer.new()
+		head.add_theme_constant_override("separation", 10)
+		if portrait_key != "" and Icons.tex(portrait_key) != null:
+			var pr := Icons.rect(portrait_key, 56)
+			pr.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+			head.add_child(pr)
+		var nm := Label.new()
+		nm.text = speaker
+		nm.add_theme_font_size_override("font_size", 18)
+		nm.add_theme_color_override("font_color", GOLD)
+		nm.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+		head.add_child(nm)
+		v.add_child(head)
+	var lbl := body(text)   # a fala (alinhada à esquerda, como diálogo)
+	lbl.custom_minimum_size = Vector2(380, 0)
+	v.add_child(lbl)
+	var ok_cb := func() -> void:
+		dim_rect.queue_free()
+		if on_close.is_valid():
+			on_close.call()
+	var ok := _btn(Lang.t(button_label), ok_cb, Vector2(150, 40), 15)
+	ok.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	v.add_child(ok)
+	ok.call_deferred("grab_focus")
+
 # Relatório de batalha (modal) — estilo da Torre: borda win/loss + título + recompensas + log
 # colapsável + OK. Reusado p/ TODAS as batalhas (quest/zona) terem o mesmo desfecho. [BATTLE_REPORT]
 # reward_rows = Array de Control (kv/kv_node/dim já montados pelo chamador). log = Array de String.

@@ -169,7 +169,7 @@ func _starter_card(q: Dictionary) -> PanelContainer:
 		var pr := Icons.rect(portrait_key, 48); pr.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 		head.add_child(pr)
 	var nl := Label.new()
-	nl.text = str(q.get("npc", "")).strip_edges()
+	nl.text = Lang.t(str(q.get("npc", "")).strip_edges())   # nome do NPC traduzido (Padre Anselmo/Capitão Garrick)
 	if nl.text == "": nl.text = Lang.t("Arme-se, recruta")
 	nl.add_theme_font_size_override("font_size", 16)
 	nl.add_theme_color_override("font_color", UiKit.OK if st == "done" else UiKit.GOLD)

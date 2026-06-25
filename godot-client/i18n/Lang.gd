@@ -265,6 +265,7 @@ const EN := {
 	"💬 Chat": "💬 Chat", "Diga algo…": "Say something…",
 	# — Templo / bênçãos —
 	"Padre Anselmo": "Father Anselm",
+	"Capitão Garrick": "Captain Garrick",
 	# — [INCURSAO_PVP] escolha PvP na Incursão + Replays no Correio —
 	"Atacar %s (PvP)": "Attack %s (PvP)",
 	"Lutar o monstro (PvE)": "Fight the monster (PvE)",

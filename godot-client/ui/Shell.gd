@@ -242,10 +242,14 @@ func _starter_done_toast(id: String) -> void:
 		"heal":  "Curado. O Capitão Garrick espera no Salão de Treino.",
 		"quest": "Você provou seu valor. A guarnição é sua, recruta.",
 	}.get(id, "")
-	if msg != "":
-		# [LEITURA] guia do onboarding = AVISO (UiKit.notice): 1 botão "Entendi", NÃO fecha clicando fora
-		# (não some sem querer; lê no ritmo do novato).
-		UiKit.notice(self, Lang.t(msg))
+	if msg == "":
+		return
+	# [ONBOARDING] cada transição é DITA pelo NPC do dever recém-concluído (retrato + nome): equip/quest =
+	# Capitão Garrick (retrato "veteran"), heal = Padre Anselmo (retrato "priest"). Modal "Entendi" (UiKit.
+	# npc_notice): 1 botão, NÃO fecha clicando fora — lê no ritmo do novato.
+	var speaker := "Padre Anselmo" if id == "heal" else "Capitão Garrick"
+	var portrait := "priest" if id == "heal" else "veteran"
+	UiKit.npc_notice(self, portrait, Lang.t(speaker), Lang.t(msg))
 
 func _apply_starter_badges() -> void:
 	var nav_on := {}   # screen -> mostra "!" amarelo de dever no menu lateral
