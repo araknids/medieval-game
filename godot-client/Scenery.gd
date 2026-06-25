@@ -620,10 +620,13 @@ func arena(host: Node3D, rng: RandomNumberGenerator, _combat_r: float) -> void:
 	for i in 8:
 		var a := TAU * i / 8.0
 		_banner(host, Vector3(cos(a) * 10.4, 2.5, sin(a) * 10.4), cols[i % cols.size()])
-	# TOCHAS ao redor do pit
+	# [DIA] CAIXAS ao redor do pit no lugar das fogueiras (sem luz que lava o chão de dia); variadas + algumas empilhadas
 	for i in 8:
 		var a := TAU * i / 8.0 + 0.39
-		_brazier(host, Vector3(cos(a) * 9.6, 0, sin(a) * 9.6))
+		var base := Vector3(cos(a) * 9.6, 0, sin(a) * 9.6)
+		_place(host, rng, VIL + "Prop_Crate.gltf", base, rad_to_deg(a) + rng.randf_range(-25, 25), rng.randf_range(0.9, 1.25))
+		if rng.randf() < 0.5:   # metade ganha uma caixa empilhada por cima (variedade)
+			_place(host, rng, VIL + "Prop_Crate.gltf", base + Vector3(rng.randf_range(-0.2, 0.2), 0.9, rng.randf_range(-0.2, 0.2)), rng.randf_range(0, 360), rng.randf_range(0.7, 0.95))
 	# AMEIAS no topo do anel externo (silhueta de coliseu) [Fable]
 	for i in 44:
 		var am := TAU * i / 44.0

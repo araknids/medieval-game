@@ -1133,8 +1133,8 @@ func _make_fighter(fname: String, side: int, maxhp: int, weapon_kind: String, eq
 	# [JUICE] rim light fria atrás (separa do fundo escuro grimdark); segue o lutador no _process
 	var rim := OmniLight3D.new()
 	rim.light_color = Color(0.55, 0.7, 1.0)
-	rim.light_energy = 1.6
-	rim.omni_range = 3.4
+	rim.light_energy = 0.9     # [NITIDEZ] era 1.6 → 2 rims no centro lavavam o chão de branco
+	rim.omni_range = 2.8       # [NITIDEZ] era 3.4 → rim mais justo no lutador (não espalha no piso)
 	rim.shadow_enabled = false
 	add_child(rim)
 	f["rim"] = rim
