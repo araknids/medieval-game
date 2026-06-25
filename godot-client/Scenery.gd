@@ -12,6 +12,7 @@ const VIL := "res://assets/world/village/"   # kit Medieval Village (grade de 2m
 
 # [GODOT_GRIMDARK] pós-processo de clima sombrio (ligado por padrão). Design: docs/PLANO_GODOT_GRIMDARK.md
 var grimdark := true
+var _is_day := false   # [DIA] cenas de dia (day_lighting) → braseiros SEM luz (o sol já ilumina; tocha lavava o chão)
 
 # Shader de tela (overlay full-screen): vinheta + dessaturação + contraste + tint + grão.
 # Lê o frame já renderizado (3D) via hint_screen_texture e devolve a versão "grimdark".
@@ -43,6 +44,7 @@ void fragment() {
 # grim=false desliga o pós-processo grimdark (look cru de cada perfil) — p/ A/B.
 func build(host: Node3D, scenario: String, rng: RandomNumberGenerator, combat_r: float, grim := true) -> void:
 	grimdark = grim
+	_is_day = false   # default noite/dusk; day_lighting liga
 	match scenario:
 		"beach":
 			dusk_lighting(host)
@@ -385,14 +387,17 @@ func _brazier(host: Node3D, pos: Vector3) -> void:
 	cmat.albedo_color = Color(1.0, 0.55, 0.18)
 	cmat.emission_enabled = true
 	cmat.emission = Color(1.0, 0.5, 0.12)
-	cmat.emission_energy_multiplier = 5.0
+	cmat.emission_energy_multiplier = (1.4 if _is_day else 5.0)   # [DIA] de dia a brasa não floresce (sem halo)
 	coal.material_override = cmat
 	host.add_child(coal); coal.position = pos + Vector3(0, 1.75, 0)
-	var light := OmniLight3D.new()
-	light.light_color = Color(1.0, 0.62, 0.28)
-	light.light_energy = 2.6    # [PEDRA] era 5.0 → 8 braseiros lavavam o pit de branco
-	light.omni_range = 7.5      # [PEDRA] era 11.0 → alcance local (não floda o centro)
-	host.add_child(light); light.position = pos + Vector3(0, 1.9, 0)
+	# [DIA] de dia o sol já ilumina → SEM luz de tocha (era ela que lavava o chão/paredes de laranja).
+	var light: OmniLight3D = null
+	if not _is_day:
+		light = OmniLight3D.new()
+		light.light_color = Color(1.0, 0.62, 0.28)
+		light.light_energy = 2.6
+		light.omni_range = 7.5
+		host.add_child(light); light.position = pos + Vector3(0, 1.9, 0)
 	# CHAMA de partículas (pega o glow dos cenários) + FLICKER da luz [Fable]
 	var p := GPUParticles3D.new()
 	p.amount = 14
@@ -424,13 +429,15 @@ func _brazier(host: Node3D, pos: Vector3) -> void:
 	q.material = qm
 	p.draw_pass_1 = q
 	host.add_child(p); p.position = pos + Vector3(0, 1.85, 0)
-	var tw := host.create_tween().set_loops()   # flicker (loop barato)
-	tw.tween_property(light, "light_energy", 2.2, 0.13)   # [PEDRA] flicker proporcional ao novo 2.6
-	tw.tween_property(light, "light_energy", 3.0, 0.17)
-	tw.tween_property(light, "light_energy", 2.5, 0.11)
+	if light != null:   # [DIA] sem luz → sem flicker (a tocha só tem chama visível)
+		var tw := host.create_tween().set_loops()   # flicker (loop barato)
+		tw.tween_property(light, "light_energy", 2.2, 0.13)
+		tw.tween_property(light, "light_energy", 3.0, 0.17)
+		tw.tween_property(light, "light_energy", 2.5, 0.11)
 
 # ── iluminação de DIA (céu azul claro — enche o horizonte, fresco) ───────────────
 func day_lighting(host: Node3D) -> void:
+	_is_day = true   # [DIA] braseiros não emitem luz (o sol ilumina; a tocha só lavava o chão de dia)
 	var sky_mat := ProceduralSkyMaterial.new()
 	sky_mat.sky_top_color = Color(0.24, 0.45, 0.78)
 	sky_mat.sky_horizon_color = Color(0.72, 0.82, 0.90)
