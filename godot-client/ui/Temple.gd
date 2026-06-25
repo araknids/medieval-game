@@ -108,7 +108,7 @@ func _render_buff_options() -> void:
 	for b in buffs:
 		if b is Dictionary:
 			cells.append(b)
-	content.add_child(UiKit.grid(self, cells, _buff_cell, false, 150, 5))   # bênçãos ESTREITAS (até 5 col) → ocupam menos largura
+	content.add_child(UiKit.grid(self, cells, _buff_cell, false, 132, 5))   # bênçãos ESTREITAS (até 5 col) → cards menores, ocupam menos largura
 
 # [TEMPLO_UI] Bênção = CARD CLICÁVEL inteiro (clica = aplica), sem botão gigante. Header [ícone] nome +
 # custo; sub = efeito. Efeito completo no tooltip do card. [CARD_BOTAO]
@@ -120,13 +120,18 @@ func _buff_cell(b: Dictionary) -> Control:
 	var on_click := func() -> void: _apply_buff(str(b.get("id", "")))
 	var res := UiKit.clickable_card(UiKit.GOLD_SOFT, on_click, true, tip)
 	var pc: PanelContainer = res[0]
-	(pc.get_theme_stylebox("panel") as StyleBoxFlat).set_content_margin_all(7)
+	(pc.get_theme_stylebox("panel") as StyleBoxFlat).set_content_margin_all(6)   # [TEMPLO_UI] card enxuto (pouco conteúdo)
 	var box: VBoxContainer = res[1]
-	box.add_theme_constant_override("separation", 2)
-	# linha única: ícone + nome (estreito)
-	var top := HBoxContainer.new(); top.add_theme_constant_override("separation", 5)
-	var ic := Label.new(); ic.text = str(b.get("icon", "✨")); ic.add_theme_font_size_override("font_size", 16)
-	top.add_child(ic)
+	box.add_theme_constant_override("separation", 1)
+	# linha única: ícone da bênção (PixelLab "bless_<id>", anima no hover) + nome — fallback no emoji do backend
+	var top := HBoxContainer.new(); top.add_theme_constant_override("separation", 6)
+	var icon_key := "bless_" + str(b.get("id", "")).to_lower()
+	if Icons.tex(icon_key) != null:
+		var ir := Icons.rect(icon_key, 26); ir.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+		top.add_child(ir)
+	else:
+		var ic := Label.new(); ic.text = str(b.get("icon", "✨")); ic.add_theme_font_size_override("font_size", 16)
+		top.add_child(ic)
 	var nm := Label.new(); nm.text = nm_txt
 	nm.add_theme_font_size_override("font_size", 13); nm.add_theme_color_override("font_color", UiKit.TEXT)
 	nm.size_flags_horizontal = Control.SIZE_EXPAND_FILL; nm.clip_text = true
