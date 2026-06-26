@@ -28,14 +28,14 @@ public class EmailService {
     private final RestTemplate restTemplate = new RestTemplate();
 
     public void sendWelcomeEmail(String to, String username, String warriorName) {
-        String subject = "⚔ Welcome to Medieval Game!";
+        String subject = "⚔ Welcome to Crown of Aravok!";
         String body = String.format(
             "Hello, %s!\n\n" +
             "Your account was created successfully.\n" +
             "Your warrior %s is ready for battle!\n\n" +
             "Play the game at: %s\n\n" +
             "Good luck in battle!\n" +
-            "— The Medieval Game Team",
+            "— The Crown of Aravok Team",
             username, warriorName, baseUrl
         );
         send(to, subject, body);
@@ -43,13 +43,13 @@ public class EmailService {
 
     public void sendPasswordResetEmail(String to, String resetToken) {
         String resetUrl = baseUrl + "/?reset=" + resetToken;
-        String subject  = "🔑 Password reset — Medieval Game";
+        String subject  = "🔑 Password reset — Crown of Aravok";
         String body = String.format(
             "Hello!\n\n" +
             "We received a request to reset your password.\n\n" +
             "Click the link below (valid for 30 minutes):\n%s\n\n" +
             "If this wasn't you, ignore this email.\n\n" +
-            "— The Medieval Game Team",
+            "— The Crown of Aravok Team",
             resetUrl
         );
         send(to, subject, body);
@@ -71,7 +71,7 @@ public class EmailService {
             headers.setContentType(MediaType.APPLICATION_JSON);
 
             Map<String, Object> payload = Map.of(
-                "sender",      Map.of("name", "Medieval Game", "email", fromEmail),
+                "sender",      Map.of("name", "Crown of Aravok", "email", fromEmail),
                 "to",          List.of(Map.of("email", to)),
                 "subject",     subject,
                 "textContent", text
