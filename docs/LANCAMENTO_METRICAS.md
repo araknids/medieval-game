@@ -71,14 +71,27 @@ SELECT (SELECT count(*) FROM kingdom_active_quests WHERE status='COLLECTED') AS 
 ## 3) Survey pros testadores (manda no fim da sessão)
 Curto de propósito — gente cansa. Cola num form (Google Forms) ou pede no chat:
 
-1. **Em 1 frase, o que é esse jogo?** (testa se a 1ª impressão comunica)
-2. **Nos primeiros 2-3 min, você entendeu o que fazer?** Onde travou ou se perdeu?
-3. **O que te fez querer continuar — ou parar?**
-4. **O ritmo** (estamina/progressão): rápido demais, ok, ou lento demais?
-5. **Combate e missões**: divertido, ok, ou chato? Por quê?
-6. **Bug/crash/coisa quebrada?** O quê e onde.
-7. **Visual e UI**: claro? bonito? confuso/feio em algum ponto?
-8. **0–10:** quão provável você jogar de novo amanhã? E indicar pra um amigo?
+1. **Teve problema pra BAIXAR ou ABRIR o jogo?** (aviso "Windows protegeu seu PC", antivírus, demora) —
+   *crítico: quem trava aqui some sem jogar; precisa saber se o atrito do .exe não-assinado matou gente.*
+2. **Em 1 frase, o que é esse jogo?** (1ª impressão — pergunte ANTES de explicar o que é)
+3. **Nos primeiros 2-3 min, você entendeu o que fazer?** Onde travou ou se perdeu?
+4. **O que te fez querer continuar — ou parar?**
+5. **O ritmo** (estamina/progressão): rápido demais, ok, ou lento demais?
+6. **Combate e missões**: divertido, ok, ou chato? Por quê?
+7. **O clima/tom** te marcou? (sombrio e com personalidade, ou genérico/indiferente?) — *testa o diferencial.*
+8. **Visual e UI**: claro? bonito? confuso/feio em algum ponto?
+9. **Bug/crash/coisa quebrada?** O quê e onde.
+10. **0–10:** quão provável você jogar de novo amanhã? E indicar pra um amigo?
+
+> **Se a pessoa só responder 3-4**, as de ouro são: **#1** (conseguiu abrir?), **#3** (onde travou nos
+> primeiros minutos), **#4** (o que fez continuar/parar) e **#10** (volta amanhã?). O resto é bônus.
+
+**Como aplicar (não estrague o sinal):**
+- **Deixa a pessoa falar primeiro** ("conta o que achou") ANTES das perguntas específicas — não induz.
+- **#2 pergunta ANTES** de você explicar o jogo (senão ela repete tua descrição, não a impressão dela).
+- Manda **depois** da 1ª sessão, não no meio do jogo.
+- O survey explica o **porquê**; o sinal de verdade é comportamento: **o `pct_d2` da §2c** (voltaram amanhã?).
+  Pergunta dá a história, o número dá a verdade.
 
 ## 4) Retenção de VERDADE — `last_seen_at` ✅ IMPLEMENTADO
 Coluna `players.last_seen_at`, atualizada **1×/dia** no `GET /api/warrior` (UPDATE direto throttle, sem
