@@ -1303,8 +1303,9 @@ func _castle_front(host: Node3D, base: Vector3, r0: float) -> void:
 	# bordas → lê como fogo POR DENTRO, não uma "parede acesa").
 	_stone_box_light(host, Vector3(1.9, 1.6, gate * 2.6), Vector3(wall_x, wall_h * 0.72, base.z))          # verga/lintel CLARO
 	_stone_box(host, Vector3(1.8, wall_h - 8.0, gate * 2.0), Vector3(wall_x, wall_h - 1.0, base.z))        # fecha acima do lintel (escuro)
-	_box3(host, Vector3(0.5, wall_h * 0.5, gate * 1.6), Vector3(wall_x + 1.1, wall_h * 0.32, base.z), Color(1.0, 0.45, 0.16), Vector3.ZERO, 0.7, 0.0, Color(1.0, 0.45, 0.12), 2.6)    # GLOW forte recuado
-	_box3(host, Vector3(0.7, 0.8, gate * 1.3), Vector3(wall_x + 0.35, 0.55, base.z), Color(1.0, 0.55, 0.2), Vector3.ZERO, 0.6, 0.0, Color(1.0, 0.5, 0.14), 3.6)                       # brasas FORTES no chão
+	# FUNDO da porta INTEIRO em fogo (UM painel uniforme preenchendo todo o vão, recuado) — sem faixa
+	# escura nem brasa separada que faziam a "parte vermelha estranha".
+	_box3(host, Vector3(0.5, wall_h * 0.66, gate * 2.2), Vector3(wall_x + 1.0, wall_h * 0.33, base.z), Color(1.0, 0.42, 0.14), Vector3.ZERO, 0.7, 0.0, Color(1.0, 0.42, 0.1), 2.3)
 	var gl := OmniLight3D.new()
 	gl.light_color = Color(1.0, 0.56, 0.28); gl.light_energy = 4.0; gl.omni_range = 13.0
 	host.add_child(gl); gl.position = Vector3(wall_x + 0.6, 2.2, base.z)
