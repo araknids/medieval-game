@@ -881,7 +881,15 @@ func _show_dice_dialog(j: Dictionary, battle_follows: bool) -> void:
 	overlay.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	overlay.color = Color(0, 0, 0, 0.74)
 	overlay.mouse_filter = Control.MOUSE_FILTER_STOP
-	add_child(overlay)
+	# [QUEST_BATTLE] se cai em COMBATE, a modal do dado cobre a TELA INTEIRA (CanvasLayer sobre a sidebar)
+	# → não dá pra navegar e PULAR a batalha; Continuar dispara o replay inescapável. Sem combate = modal normal.
+	var dlayer: CanvasLayer = null
+	if battle_follows:
+		dlayer = CanvasLayer.new(); dlayer.layer = 80
+		add_child(dlayer)
+		dlayer.add_child(overlay)
+	else:
+		add_child(overlay)
 	var center := CenterContainer.new()
 	center.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	center.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -951,7 +959,9 @@ func _show_dice_dialog(j: Dictionary, battle_follows: bool) -> void:
 			box.move_child(rrow, cont.get_index())   # logo antes do botão Continuar
 	cont.visible = true
 	await cont.pressed
-	if is_instance_valid(overlay):
+	if dlayer != null and is_instance_valid(dlayer):
+		dlayer.queue_free()   # libera a navegação só agora → a batalha (request_battle) toca em seguida
+	elif is_instance_valid(overlay):
 		overlay.queue_free()
 
 # [DADO] Linha de recompensa (bronze + XP + drop) p/ a modal do dado. null se não houver recompensa.
