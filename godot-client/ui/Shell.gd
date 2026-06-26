@@ -1050,19 +1050,7 @@ func _build_dashboard() -> Control:
 	_dash_avisos.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	rightcol.add_child(_dash_avisos)
 	bodyrow.add_child(rightcol)
-	# ATALHOS (mantidos — sidebar + atalhos, decisão do dono)
-	box.add_child(UiKit.section("Atalhos"))
-	var grid := GridContainer.new(); grid.columns = 3
-	grid.add_theme_constant_override("h_separation", 10); grid.add_theme_constant_override("v_separation", 10)
-	grid.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	for sc in [["World", "Mundo"], ["Character", "Personagem"], ["Shop", "Loja"], ["Daily", "Diário"], ["Forge", "Forja"], ["Tower", "Torre"]]:
-		var b := _stone_btn(str(sc[1]), 44)
-		Icons.set_icon(b, str(sc[0]).to_lower())
-		var target: String = str(sc[0])
-		b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		b.pressed.connect(func() -> void: _open(target))
-		grid.add_child(b)
-	box.add_child(grid)
+	# (atalhos REMOVIDOS — a sidebar à esquerda já cobre toda a navegação)
 	return scroll
 
 # [HOME_REDESIGN] Busca os dados (2 batches paralelos) e (re)popula CTA + atividades + avisos.
