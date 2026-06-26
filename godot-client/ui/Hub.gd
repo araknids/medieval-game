@@ -60,7 +60,8 @@ func _ready() -> void:
 	quick.add_theme_constant_override("separation", 10)
 	box.add_child(quick)
 	quick.add_child(_screen_button(["Character", "👤 Personagem"], 50))
-	quick.add_child(_screen_button(["Inventory", "🎒 Inventário"], 50))
+	# [PLAYTEST_FIX] tela de Inventário LEGADA removida do Hub: o inventário vive na ficha (Character.gd),
+	# que re-busca após equipar (a legada não atualizava → deixava escudo+arco juntos na tela).
 	# ── seções ──
 	for section in SECTIONS:
 		box.add_child(_spacer(4))

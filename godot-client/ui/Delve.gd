@@ -99,7 +99,7 @@ func _render_map() -> void:
 	var cur := int(run.get("currentLayer", 0))
 	var depth := int(run.get("depth", 0))
 	var status_str := str(run.get("status", ""))
-	content.add_child(UiKit.section("📜 Incursão — Tier %d" % int(run.get("tier", 1))))
+	content.add_child(UiKit.section("📜 Incursão — Tier %d · Sala %d/%d" % [int(run.get("tier", 1)), mini(cur + 1, depth), depth]))
 
 	# [INCURSAO_AUTO_EXTRACT] Vencida (chefe derrotado) → saca AUTOMÁTICO, loot direto pro inventário.
 	if cur >= depth:
@@ -135,6 +135,10 @@ func _render_map() -> void:
 	right.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	right.add_child(_bag_card("🎒 Carregado (em risco)", run.get("carried", {}), UiKit.WARN))
 	right.add_child(_bag_card("🔒 Garantido", run.get("secured", {}), UiKit.OK))
+	# [PLAYTEST_FIX] "Sacar loot e sair" VISÍVEL quando dá pra extrair — antes só saía automático após
+	# vencer o chefe, então o jogador achava que só podia perder pro chefe ou abandonar perdendo loot.
+	if bool(run.get("canExtract", false)):
+		right.add_child(UiKit.action("Sacar loot e sair", _extract))
 	# [INCURSAO_ABANDONO] Abandonar abaixo do "Garantido": salva 25–50% do carregado (sorteado). Ícone = bandeira branca.
 	var ab := UiKit.action_danger("Abandonar", _confirm_abandon)
 	Icons.set_icon(ab, "flag_white")   # GIF da bandeira branca (anima no hover); no-op se o ícone faltar

@@ -178,7 +178,13 @@ func _slot_frame(type: String) -> PanelContainer:
 	icon.modulate = Color(1, 1, 1, 0.30)   # vazio = apagado
 	pc.add_child(icon)
 	pc.tooltip_text = Lang.t(str(SLOT_LABEL.get(type, type)))
-	# [SEM_UNEQUIP_CLICK] clicar no slot NÃO desequipa mais (a pedido) — troca-se equipando outro item.
+	# [PLAYTEST_FIX] clicar no slot EQUIPADO abre confirmação de Desequipar. Antes ([SEM_UNEQUIP_CLICK])
+	# só dava pra trocar equipando outro item — slot sem substituto (escudo/anel/colar) nunca esvaziava
+	# = o bug "não desequipa". A confirmação evita desequipar sem querer.
+	pc.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
+	pc.gui_input.connect(func(e: InputEvent) -> void:
+		if e is InputEventMouseButton and e.pressed and e.button_index == MOUSE_BUTTON_LEFT:
+			_slot_clicked(type))
 	_slots[type] = {"frame": pc, "icon": icon, "item_id": 0}
 	return pc
 
@@ -445,8 +451,34 @@ func _equip_icon_tex(it: Dictionary, _type: String) -> Texture2D:
 func _slot_clicked(type: String) -> void:
 	var s: Dictionary = _slots.get(type, {})
 	var id := int(s.get("item_id", 0))
-	if id > 0:
-		_unequip(id)
+	if id <= 0:
+		return
+	# [PLAYTEST_FIX] confirmação de desequipar (modal dim + clique fora fecha), padrão do _open_item_actions.
+	var dim_rect := ColorRect.new()
+	dim_rect.color = Color(0, 0, 0, 0.62)
+	dim_rect.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	dim_rect.mouse_filter = Control.MOUSE_FILTER_STOP
+	add_child(dim_rect)
+	var center := CenterContainer.new()
+	center.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	center.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	dim_rect.add_child(center)
+	var col := VBoxContainer.new()
+	col.add_theme_constant_override("separation", 8)
+	center.add_child(col)
+	col.add_child(UiKit.dim(Lang.t("Desequipar %s?") % Lang.t(str(SLOT_LABEL.get(type, type)))))
+	var row := HBoxContainer.new()
+	row.add_theme_constant_override("separation", 8)
+	row.alignment = BoxContainer.ALIGNMENT_CENTER
+	col.add_child(row)
+	row.add_child(UiKit.small_btn(Lang.t("Desequipar"), func() -> void:
+		dim_rect.queue_free()
+		await _unequip(id)))
+	row.add_child(UiKit.small_btn(Lang.t("Fechar"), func() -> void:
+		dim_rect.queue_free()))
+	dim_rect.gui_input.connect(func(e: InputEvent) -> void:
+		if e is InputEventMouseButton and e.pressed:
+			dim_rect.queue_free())
 
 # ── Painel da sub-aba ──────────────────────────────────────────────────────────────────
 func _render_panel() -> void:
