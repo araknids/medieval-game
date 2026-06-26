@@ -1073,11 +1073,18 @@ func _refresh_dashboard() -> void:
 	var tav := _dash_json(b, 3)
 	# atividades ATIVAS na ordem de prioridade do CTA (missão > incursão > diária > trabalho > zona > torre)
 	var acts: Array = []
-	var q := _dash_best_quest(journal)
-	if not q.is_empty():
-		acts.append(q)
+	# 1. MISSÃO PRINCIPAL em andamento (journal.missionsInProgress)
+	var mip = journal.get("missionsInProgress", [])
+	if mip is Array and not mip.is_empty():
+		acts.append(_dash_quest_act(_dash_pick_ready(mip), false))
+	# 2. INCURSÃO
 	if bool(exped.get("active", false)):
 		acts.append({"icon": "world", "title": Lang.t("Incursão"), "status": Lang.t("Camada %d") % int(exped.get("currentLayer", exped.get("layer", 1))), "status_col": UiKit.TEXT_DIM, "ready": false, "action": Lang.t("Continuar"), "route": "Delve"})
+	# 3. QUEST DIÁRIA em andamento (journal.daily com dailyState=="active")
+	var dq := _dash_active_daily(journal)
+	if not dq.is_empty():
+		acts.append(_dash_quest_act(dq, true))
+	# 4. RECOMPENSA diária (login reward)
 	if bool(daily.get("canClaim", false)):
 		acts.append({"icon": "daily", "title": Lang.t("Recompensa Diária"), "status": Lang.t("Disponível"), "status_col": UiKit.OK, "ready": true, "action": Lang.t("Resgatar"), "route": "Daily"})
 	if bool(work.get("active", false)):
@@ -1117,25 +1124,32 @@ func _dash_fmt_dur(secs: int) -> String:
 		return "%dmin" % (secs / 60)
 	return "%ds" % secs
 
-func _dash_best_quest(journal: Dictionary) -> Dictionary:
-	var ip = journal.get("inProgress", [])
-	if not (ip is Array) or ip.is_empty():
-		return {}
-	var best = null
-	var best_score := 1 << 30
-	for it in ip:
-		if not (it is Dictionary):
-			continue
-		var rdy := bool(it.get("readyToCollect", false)) or bool(it.get("lunaPending", false)) or int(it.get("secondsRemaining", 1)) <= 0
-		var score: int = -1 if rdy else int(it.get("secondsRemaining", 1 << 29))
-		if score < best_score:
-			best_score = score
-			best = it
-	if best == null:
-		return {}
-	var ready := bool(best.get("readyToCollect", false)) or bool(best.get("lunaPending", false)) or int(best.get("secondsRemaining", 1)) <= 0
-	var nm := str(best.get("displayName", best.get("questType", "Missão")))
-	return {"icon": "world", "title": Lang.t("Missão: %s") % nm, "status": Lang.t("pronto") if ready else (Lang.t("faltam %s") % _dash_fmt_dur(int(best.get("secondsRemaining", 0)))), "status_col": UiKit.OK if ready else UiKit.TEXT_DIM, "ready": ready, "action": Lang.t("Resolver") if ready else Lang.t("Ver missão"), "route": "World", "kingdom": str(best.get("kingdom", ""))}
+# Escolhe a quest "mais pronta" de uma lista (jogo é instantâneo → readyToCollect 1º, senão a 1ª).
+func _dash_pick_ready(list: Array) -> Dictionary:
+	var first := {}
+	for it in list:
+		if it is Dictionary:
+			if first.is_empty():
+				first = it
+			if bool(it.get("readyToCollect", false)):
+				return it
+	return first
+
+# A quest DIÁRIA de reino em andamento (journal.daily com dailyState=="active"), ou {}.
+func _dash_active_daily(journal: Dictionary) -> Dictionary:
+	var dl = journal.get("daily", [])
+	if dl is Array:
+		for it in dl:
+			if it is Dictionary and str(it.get("dailyState", "")) == "active":
+				return it
+	return {}
+
+# Card de uma quest (entry do journal): campos title/kingdom/readyToCollect. is_daily só muda o rótulo.
+func _dash_quest_act(entry: Dictionary, is_daily: bool) -> Dictionary:
+	var ready := bool(entry.get("readyToCollect", false))
+	var nm := str(entry.get("title", "Missão"))
+	var title := (Lang.t("Diária: %s") % nm) if is_daily else (Lang.t("Missão: %s") % nm)
+	return {"icon": "world", "title": title, "status": Lang.t("pronto") if ready else Lang.t("em andamento"), "status_col": UiKit.OK if ready else UiKit.TEXT_DIM, "ready": ready, "action": Lang.t("Resolver") if ready else Lang.t("Continuar"), "route": "World", "kingdom": str(entry.get("kingdom", ""))}
 
 func _dash_go(route: String, kingdom := "") -> void:
 	if route == "World" and kingdom != "":
@@ -1181,9 +1195,14 @@ func _dash_render_cta(acts: Array, journal: Dictionary) -> void:
 		icon = str(top.get("icon", "world"))
 	else:
 		var avail := 0
-		var tp = journal.get("toPickUp", [])
-		if tp is Array:
-			avail = tp.size()
+		var ma = journal.get("missionsAvailable", [])
+		if ma is Array:
+			avail += ma.size()
+		var dl = journal.get("daily", [])
+		if dl is Array:
+			for it in dl:
+				if it is Dictionary and str(it.get("dailyState", "")) == "available":
+					avail += 1
 		label = Lang.t("Ver missões disponíveis") if avail > 0 else Lang.t("Partir em aventura")
 	var cta := UiKit.action_big(label, func() -> void: _dash_go(route, kingdom))
 	cta.custom_minimum_size = Vector2(0, 60)
