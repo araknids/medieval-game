@@ -713,21 +713,28 @@ static func _add(tr_obj: Translation, key, val) -> void:
 	if ku != key:
 		tr_obj.add_message(ku, String(val).to_upper())
 
+# [I18N_API_LANG] Idioma escolhido pra API (header Accept-Language). FONTE DA VERDADE = a escolha do
+# jogador, NÃO TranslationServer.get_locale() — esse normaliza/cai no fallback "en" e fazia o backend
+# voltar TUDO em inglês (diárias, mercador, etc.) mesmo com a UI em português.
+static var _code := "pt"
+
 # Aplica o idioma salvo (chame no boot). Default "pt".
 static func apply_saved() -> void:
 	_register()
-	TranslationServer.set_locale(_load())
+	_code = _load()
+	TranslationServer.set_locale(_code)
 
 # Troca o idioma e persiste. code = "pt" | "en".
 static func set_lang(code: String) -> void:
 	_register()
+	_code = code
 	TranslationServer.set_locale(code)
 	var cf := ConfigFile.new()
 	cf.set_value("lang", "code", code)
 	cf.save(CFG)
 
 static func current() -> String:
-	return "en" if TranslationServer.get_locale().begins_with("en") else "pt"
+	return _code
 
 static func _load() -> String:
 	var cf := ConfigFile.new()

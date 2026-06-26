@@ -422,7 +422,7 @@ func _craft_card(r: Dictionary) -> Control:
 	for i in r.get("ingredients", []):
 		if i is Dictionary:
 			var need := int(i.get("qty", 1))
-			var hv := _resource_qty(str(i.get("type", "")))
+			var hv := _resource_qty(str(i.get("resource", "")))
 			ing.append("%s %d/%d" % [str(i.get("name", "?")), hv, need])
 	var desc := Lang.t("Receita: %s · Forja Lv.%d · Sucesso %d%% · Custo %d bronze") % ["  ".join(ing), int(r.get("levelRequired", 1)), int(r.get("successPct", 0)), int(r.get("bronzeCost", 0))]
 	if int(r.get("scrapCost", 0)) > 0:   # [DESMONTAGEM] arma também custa Peças
@@ -491,7 +491,7 @@ func _craft_dialog(r: Dictionary) -> void:
 	for i in r.get("ingredients", []):
 		if i is Dictionary:
 			var need := maxi(1, int(i.get("qty", 1)))
-			maxc = mini(maxc, _resource_qty(str(i.get("type", ""))) / need)
+			maxc = mini(maxc, _resource_qty(str(i.get("resource", ""))) / need)
 	maxc = clampi(maxc, 0, 50)
 	var dim := ColorRect.new()
 	dim.color = Color(0, 0, 0, 0.62)
@@ -517,7 +517,7 @@ func _craft_dialog(r: Dictionary) -> void:
 	for i in r.get("ingredients", []):   # ingredientes (verde/vermelho)
 		if i is Dictionary:
 			var need := int(i.get("qty", 1))
-			var hv := _resource_qty(str(i.get("type", "")))
+			var hv := _resource_qty(str(i.get("resource", "")))
 			var il := Label.new(); il.text = "%s  %d/%d" % [str(i.get("name", "?")), hv, need]
 			il.add_theme_font_size_override("font_size", 12)
 			il.add_theme_color_override("font_color", UiKit.OK if hv >= need else UiKit.ERR)

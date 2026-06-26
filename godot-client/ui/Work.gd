@@ -296,10 +296,15 @@ func _train_collect(session_id: int) -> void:
 func _train_cancel(session_id: int) -> void:
 	if busy: return
 	busy = true
-	await Api.training_cancel(session_id)
+	var r = await Api.training_cancel(session_id)
 	busy = false
 	await _refresh()
-	UiKit.flash(status, "Treino cancelado.", 0)
+	# [TREINO_CANCEL_FIX] antes engolia a falha e flashava "cancelado" mesmo em erro → o treino ficava
+	# IN_PROGRESS e o guard busy_training travava aventurar. Agora reflete o resultado real.
+	if r.get("ok"):
+		UiKit.flash(status, Lang.t("Treino cancelado."), 0)
+	else:
+		UiKit.show_error(status, r)
 
 # ── PAINEL: progresso do trabalho ──────────────────────────────────────────────────
 func _render_progress() -> void:
