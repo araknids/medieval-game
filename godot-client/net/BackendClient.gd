@@ -8,9 +8,10 @@ extends Node
 #   if r.ok: var w = await c.get_warrior()
 # Plano: docs/PLANO_GODOT_3D.md (Fase 2)
 
-## URL do servidor. Produção (Railway) por padrão; troque p/ "http://localhost:8080" no dev local.
-## [LOCAL-TEST] apontado pro backend local — NÃO COMMITAR assim; reverter pro Railway antes de pushar.
-var base_url := "http://localhost:8080"
+## URL do servidor. [LAUNCH_URL] Default = PRODUÇÃO → a build exportada (itch/Steam) SEMPRE nasce certa.
+## No EDITOR cai automaticamente pra localhost (dev), e a env var ARAVOK_BACKEND sobrescreve qualquer
+## um dos dois (ex.: testar o editor contra a prod). Resolvido em _init(). Assim ninguém commita localhost.
+var base_url := "https://medieval-game-production.up.railway.app"
 
 ## JWT obtido no login. Enviado como `Authorization: Bearer <token>` nas chamadas autenticadas.
 var token := ""
@@ -36,6 +37,14 @@ var _use_tls := true
 class _Conn:
 	var http := HTTPClient.new()
 	var busy := false
+
+# [LAUNCH_URL] Resolve o backend: env var ARAVOK_BACKEND > localhost no editor > prod (default).
+func _init() -> void:
+	var ov := OS.get_environment("ARAVOK_BACKEND").strip_edges()
+	if ov != "":
+		base_url = ov
+	elif OS.has_feature("editor"):
+		base_url = "http://localhost:8080"
 
 ## POST /api/auth/login → guarda o token. Retorna {ok, status, json, raw, error}.
 func login(username: String, password: String) -> Dictionary:
