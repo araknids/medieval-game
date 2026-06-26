@@ -327,19 +327,26 @@ func _dialog_head(vb: VBoxContainer, icon: Control, title: String, sub: String) 
 	s.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER; s.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	vb.add_child(s)
 
-# Linha de quantidade (SpinBox 1..max) + botão gif. on_confirm(qtd) dispara a ação e o dim fecha.
+# Quantidade (label numa linha PRÓPRIA — sem autowrap, senão colapsa 1-letra-por-linha no HBox) +
+# linha com SpinBox + botão gif. on_confirm(qtd) dispara a ação e o dim fecha. [LABEL_AUTOWRAP]
 func _dialog_qty_row(vb: VBoxContainer, max_n: int, label: String, dim: ColorRect, on_confirm: Callable) -> void:
-	var qrow := HBoxContainer.new(); qrow.add_theme_constant_override("separation", 10); qrow.alignment = BoxContainer.ALIGNMENT_CENTER
-	qrow.add_child(UiKit.dim(Lang.t("Qtd (máx %d):") % max_n))
+	var lbl := Label.new()
+	lbl.text = Lang.t("Quantidade (máx %d)") % maxi(1, max_n)
+	lbl.add_theme_font_size_override("font_size", 12)
+	lbl.add_theme_color_override("font_color", UiKit.TEXT_DIM)
+	lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	vb.add_child(lbl)
+	var qrow := HBoxContainer.new(); qrow.add_theme_constant_override("separation", 12); qrow.alignment = BoxContainer.ALIGNMENT_CENTER
 	var qty := SpinBox.new(); qty.min_value = 1; qty.max_value = maxi(1, max_n); qty.value = 1
-	qty.custom_minimum_size = Vector2(80, 0)
+	qty.custom_minimum_size = Vector2(96, 0)
+	qty.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	qrow.add_child(qty)
 	var btn := _gif_btn("forge", label, func() -> void:
 		var n := int(qty.value)
 		if is_instance_valid(dim):
 			dim.queue_free()
 		on_confirm.call(n))
-	btn.add_theme_constant_override("icon_max_width", 40); btn.custom_minimum_size = Vector2(50, 50)
+	btn.add_theme_constant_override("icon_max_width", 36); btn.custom_minimum_size = Vector2(46, 46)
 	qrow.add_child(btn)
 	vb.add_child(qrow)
 
