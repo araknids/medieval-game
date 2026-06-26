@@ -936,6 +936,19 @@ func _open_world_at(kingdom: String, delve_report := {}) -> void:
 		w.request_open_kingdom(kingdom, delve_report)   # [INCURSAO_FIM] relatório da run encerrada (se houver)
 	_open("World")
 
+# [HOME_REDESIGN] Deep-link da home: abre o Mundo no REINO e (se quest_id>0) o DIÁLOGO da quest ativa.
+# Cacheado: seta o pending ANTES do show (sem flash de mapa). 1ª vez: cria, mostra e dispara.
+func _open_world_quest(kingdom: String, quest_id: int) -> void:
+	var w = _cache.get("World")
+	if w != null and is_instance_valid(w) and w.has_method("request_open_quest"):
+		w.request_open_quest(kingdom, quest_id)   # World oculto → só guarda o pending (não auto-dispara)
+		_open("World")                            # show → _on_world_shown processa o pending
+	else:
+		_open("World")                            # 1ª vez: cria + mostra (vai pro mapa)
+		var w2 = _cache.get("World")
+		if w2 != null and is_instance_valid(w2) and w2.has_method("request_open_quest"):
+			w2.request_open_quest(kingdom, quest_id)   # agora visível → auto-dispara (abre reino + quest)
+
 # Mostra só `node` no content_host; os escondidos são CONGELADOS (process disabled) → 0 polling/CPU.
 func _show_only(node: Control) -> void:
 	if _dash != null and is_instance_valid(_dash):
@@ -1149,11 +1162,11 @@ func _dash_quest_act(entry: Dictionary, is_daily: bool) -> Dictionary:
 	var ready := bool(entry.get("readyToCollect", false))
 	var nm := str(entry.get("title", "Missão"))
 	var title := (Lang.t("Diária: %s") % nm) if is_daily else (Lang.t("Missão: %s") % nm)
-	return {"icon": "world", "title": title, "status": Lang.t("pronto") if ready else Lang.t("em andamento"), "status_col": UiKit.OK if ready else UiKit.TEXT_DIM, "ready": ready, "action": Lang.t("Resolver") if ready else Lang.t("Continuar"), "route": "World", "kingdom": str(entry.get("kingdom", ""))}
+	return {"icon": "world", "title": title, "status": Lang.t("pronto") if ready else Lang.t("em andamento"), "status_col": UiKit.OK if ready else UiKit.TEXT_DIM, "ready": ready, "action": Lang.t("Resolver") if ready else Lang.t("Continuar"), "route": "World", "kingdom": str(entry.get("kingdom", "")), "quest_id": int(entry.get("id", 0))}
 
-func _dash_go(route: String, kingdom := "") -> void:
+func _dash_go(route: String, kingdom := "", quest_id := 0) -> void:
 	if route == "World" and kingdom != "":
-		_open_world_at(kingdom)
+		_open_world_quest(kingdom, quest_id)   # abre o reino (+ diálogo da quest se quest_id>0)
 	else:
 		_open(route)
 
@@ -1161,7 +1174,8 @@ func _dash_activity_card(a: Dictionary) -> Control:
 	var border = UiKit.GOLD if bool(a.get("ready", false)) else UiKit.BRONZE
 	var route := str(a.get("route", ""))
 	var kingdom := str(a.get("kingdom", ""))
-	var res := UiKit.clickable_card(border, func() -> void: _dash_go(route, kingdom))
+	var qid := int(a.get("quest_id", 0))
+	var res := UiKit.clickable_card(border, func() -> void: _dash_go(route, kingdom, qid))
 	var v: VBoxContainer = res[1]
 	var head := HBoxContainer.new(); head.add_theme_constant_override("separation", 8)
 	var ic = Icons.rect(str(a.get("icon", "world")), 22)
@@ -1186,12 +1200,14 @@ func _dash_render_cta(acts: Array, journal: Dictionary) -> void:
 	var label := ""
 	var route := "World"
 	var kingdom := ""
+	var quest_id := 0
 	var icon := "world"
 	if not acts.is_empty():
 		var top: Dictionary = acts[0]
 		label = "%s — %s" % [str(top.get("action", "Continuar")), str(top.get("title", ""))]
 		route = str(top.get("route", "World"))
 		kingdom = str(top.get("kingdom", ""))
+		quest_id = int(top.get("quest_id", 0))
 		icon = str(top.get("icon", "world"))
 	else:
 		var avail := 0
@@ -1204,7 +1220,7 @@ func _dash_render_cta(acts: Array, journal: Dictionary) -> void:
 				if it is Dictionary and str(it.get("dailyState", "")) == "available":
 					avail += 1
 		label = Lang.t("Ver missões disponíveis") if avail > 0 else Lang.t("Partir em aventura")
-	var cta := UiKit.action_big(label, func() -> void: _dash_go(route, kingdom))
+	var cta := UiKit.action_big(label, func() -> void: _dash_go(route, kingdom, quest_id))
 	cta.custom_minimum_size = Vector2(0, 60)
 	Icons.set_icon(cta, icon)
 	_dash_cta.add_child(cta)

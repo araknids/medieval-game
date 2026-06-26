@@ -71,6 +71,7 @@ var kingdoms: Array = []          # GET /api/world
 var open_kingdom := ""            # reino expandido (só um por vez)
 var _pending_open_kingdom := ""   # [INCURSAO] reino a abrir na próxima exibição (vitória da Incursão)
 var _pending_delve_report: Dictionary = {}   # [INCURSAO_FIM] relatório da run encerrada p/ exibir SOBRE o território
+var _pending_open_quest_id := 0   # [HOME_REDESIGN] quest a auto-abrir (diálogo) ao chegar no reino — deep-link da home
 var _pending_after := {}          # resultado guardado durante o replay 3D (kingdom, kind, result) p/ o relatório
 var warrior: Dictionary = {}      # /api/warrior (carteira + gate de nível)
 var warrior_level := 1
@@ -109,6 +110,14 @@ func request_open_kingdom(k: String, delve_report := {}) -> void:
 	_pending_open_kingdom = k
 	_pending_delve_report = delve_report   # [INCURSAO_FIM] {} = sem relatório; senão {kind, j, title?}
 
+# [HOME_REDESIGN] Deep-link da home: abre o reino E auto-abre o DIÁLOGO da quest ativa (quest_id).
+# Se já visível, processa na hora; senão a próxima exibição processa. quest_id<=0 = só abre o reino.
+func request_open_quest(k: String, quest_id: int) -> void:
+	_pending_open_kingdom = k
+	_pending_open_quest_id = quest_id
+	if is_visible_in_tree():
+		_on_world_shown()
+
 func _on_world_shown() -> void:
 	if not is_visible_in_tree():
 		return
@@ -117,6 +126,8 @@ func _on_world_shown() -> void:
 	if _pending_open_kingdom != "":
 		var k := _pending_open_kingdom
 		_pending_open_kingdom = ""
+		var qid := _pending_open_quest_id
+		_pending_open_quest_id = 0
 		open_kingdom = k
 		await _open(k)
 		# [INCURSAO_FIM] run encerrada → mostra o relatório SOBRE o território já aberto
@@ -124,10 +135,25 @@ func _on_world_shown() -> void:
 			var rep := _pending_delve_report
 			_pending_delve_report = {}
 			_show_delve_report(rep)
+			return
+		# [HOME_REDESIGN] deep-link de quest da home → abre o diálogo da quest ativa direto
+		if qid > 0:
+			_auto_open_quest(qid)
 		return
 	# nav normal pro Mundo → SEMPRE volta pro mapa (mesmo já estando num território)
 	open_kingdom = ""
 	_render()
+
+# [HOME_REDESIGN] Deep-link: acha a quest ativa por id (em active_quests) e abre o DIÁLOGO dela direto
+# (interativa → escolha; Luna → help/ignore). Não auto-coleta (só abre o que tem diálogo).
+func _auto_open_quest(quest_id: int) -> void:
+	for q in active_quests:
+		if q is Dictionary and int(q.get("id", 0)) == quest_id:
+			if str(q.get("status", "")) == "LUNA_PENDING":
+				_show_luna_dialog(open_kingdom, quest_id)
+			elif bool(q.get("readyToCollect", false)) and bool(q.get("interactive", false)) and q.get("dialog") is Dictionary:
+				_show_quest_dialog(open_kingdom, quest_id, q["dialog"])
+			return
 
 # [MAPA_MUNDO] Re-clicar "Mundo" já estando nele (não dispara visibility_changed) → volta pro mapa.
 # Chamado pelo Shell._open quando a tela re-selecionada já era a ativa. [STUCK_FIX] re-permite o modal.
