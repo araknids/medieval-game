@@ -84,6 +84,10 @@ var _nav_buttons: Dictionary = {}   # nome da tela -> Button (destaque do ativo)
 var _cache := {}        # nome da tela → node (MANTIDA em memória; alterna visibilidade, não recria)
 var _cache_ver := {}    # nome → mutation_count na última atualização (revisita só refaz request se algo mudou)
 var _dash: Control = null   # dashboard/home (também cacheado)
+# [HOME_REDESIGN] containers da home preenchidos pelo _refresh_dashboard (CTA + atividades + avisos)
+var _dash_cta: VBoxContainer = null
+var _dash_acts: VBoxContainer = null
+var _dash_avisos: VBoxContainer = null
 # [ONBOARDING v2] Deveres do Recruta: status cacheado + badges (nav dos NPCs + topbar) + oferta 1x/sessão.
 var _quest_btn: Button
 var _quest_badge: Control          # [QUEST_BADGE] AMARELO (direita) = missão normal disponível
@@ -988,7 +992,11 @@ func _show_dashboard() -> void:
 	_show_only(_dash)
 	active_screen = null
 	_set_active("__home__")
+	_refresh_dashboard()   # [HOME_REDESIGN] dados frescos (atividades + avisos) a cada visita
 
+# [HOME_REDESIGN] Home = central de continuidade: CTA "continuar inteligente" + cards das atividades
+# ATIVAS + painel de Avisos. Mantém os atalhos (a sidebar cobre tudo, mas o dono quis manter). Desenho:
+# docs/PLANO_TELA_INICIO.md
 func _build_dashboard() -> Control:
 	var scroll := ScrollContainer.new()
 	scroll.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
@@ -1002,15 +1010,34 @@ func _build_dashboard() -> Control:
 	pad.add_child(box)
 	var hi := Label.new()
 	hi.text = Lang.t("Bem-vindo, %s") % str(warrior.get("name", "guerreiro"))
-	hi.add_theme_font_size_override("font_size", 26)
+	hi.add_theme_font_size_override("font_size", 24)
 	hi.add_theme_color_override("font_color", UiKit.GOLD)
 	box.add_child(hi)
-	box.add_child(UiKit.dim("Escolha uma atividade no menu à esquerda, ou use os atalhos abaixo."))
-	# LUTAR grande
-	var fight := UiKit.action_big("⚔  Lutar", func() -> void: get_tree().change_scene_to_file("res://BattleReplay.tscn"))
-	fight.custom_minimum_size = Vector2(0, 52)
-	box.add_child(fight)
-	# atalhos rápidos
+	# CTA "Continuar inteligente" (preenchido pelo _refresh_dashboard)
+	_dash_cta = VBoxContainer.new()
+	_dash_cta.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	box.add_child(_dash_cta)
+	# corpo em 2 colunas: ATIVIDADES (esq) + AVISOS (dir)
+	var bodyrow := HBoxContainer.new(); bodyrow.add_theme_constant_override("separation", 16)
+	bodyrow.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	box.add_child(bodyrow)
+	var leftcol := VBoxContainer.new(); leftcol.add_theme_constant_override("separation", 6)
+	leftcol.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	leftcol.size_flags_stretch_ratio = 1.7
+	leftcol.add_child(UiKit.section("⚒ Atividades"))
+	_dash_acts = VBoxContainer.new(); _dash_acts.add_theme_constant_override("separation", 6)
+	_dash_acts.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	leftcol.add_child(_dash_acts)
+	bodyrow.add_child(leftcol)
+	var rightcol := VBoxContainer.new(); rightcol.add_theme_constant_override("separation", 6)
+	rightcol.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	rightcol.size_flags_stretch_ratio = 1.0
+	rightcol.add_child(UiKit.section("📜 Avisos"))
+	_dash_avisos = VBoxContainer.new(); _dash_avisos.add_theme_constant_override("separation", 6)
+	_dash_avisos.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	rightcol.add_child(_dash_avisos)
+	bodyrow.add_child(rightcol)
+	# ATALHOS (mantidos — sidebar + atalhos, decisão do dono)
 	box.add_child(UiKit.section("Atalhos"))
 	var grid := GridContainer.new(); grid.columns = 3
 	grid.add_theme_constant_override("h_separation", 10); grid.add_theme_constant_override("v_separation", 10)
@@ -1024,6 +1051,210 @@ func _build_dashboard() -> Control:
 		grid.add_child(b)
 	box.add_child(grid)
 	return scroll
+
+# [HOME_REDESIGN] Busca os dados (2 batches paralelos) e (re)popula CTA + atividades + avisos.
+func _refresh_dashboard() -> void:
+	if _dash_acts == null or not is_instance_valid(_dash_acts):
+		return
+	var api = get_node_or_null("/root/Api")
+	if api == null:
+		return
+	var a = await api.batch_get(["/api/work/current", "/api/zones/current", "/api/tower/current", "/api/expedition/current"])
+	var b = await api.batch_get(["/api/daily-reward/status", "/api/quests/journal", "/api/mail/inbox", "/api/tavern/feed?since=0"])
+	if not is_instance_valid(_dash_acts):   # trocou de tela durante o fetch
+		return
+	var work := _dash_json(a, 0)
+	var zone := _dash_json(a, 1)
+	var tower := _dash_json(a, 2)
+	var exped := _dash_json(a, 3)
+	var daily := _dash_json(b, 0)
+	var journal := _dash_json(b, 1)
+	var mail := _dash_json(b, 2)
+	var tav := _dash_json(b, 3)
+	# atividades ATIVAS na ordem de prioridade do CTA (missão > incursão > diária > trabalho > zona > torre)
+	var acts: Array = []
+	var q := _dash_best_quest(journal)
+	if not q.is_empty():
+		acts.append(q)
+	if bool(exped.get("active", false)):
+		acts.append({"icon": "world", "title": Lang.t("Incursão"), "status": Lang.t("Camada %d") % int(exped.get("currentLayer", exped.get("layer", 1))), "status_col": UiKit.TEXT_DIM, "ready": false, "action": Lang.t("Continuar"), "route": "Delve"})
+	if bool(daily.get("canClaim", false)):
+		acts.append({"icon": "daily", "title": Lang.t("Recompensa Diária"), "status": Lang.t("Disponível"), "status_col": UiKit.OK, "ready": true, "action": Lang.t("Resgatar"), "route": "Daily"})
+	if bool(work.get("active", false)):
+		var wready := bool(work.get("readyToCollect", false)) or int(work.get("secondsRemaining", 1)) <= 0
+		acts.append({"icon": "work", "title": Lang.t("Trabalho"), "status": (Lang.t("%s · pronto") % str(work.get("jobName", ""))) if wready else (Lang.t("%s · faltam %s") % [str(work.get("jobName", "")), _dash_fmt_dur(int(work.get("secondsRemaining", 0)))]), "status_col": UiKit.OK if wready else UiKit.TEXT_DIM, "ready": wready, "action": Lang.t("Coletar") if wready else Lang.t("Ver"), "route": "Work"})
+	if bool(zone.get("active", false)):
+		var zboss := bool(zone.get("bossPending", false))
+		var zready := bool(zone.get("readyToCollect", false)) or int(zone.get("secondsRemaining", 1)) <= 0
+		acts.append({"icon": "world", "title": Lang.t("Expedição"), "status": Lang.t("CHEFE!") if zboss else (Lang.t("pronto") if zready else (Lang.t("faltam %s") % _dash_fmt_dur(int(zone.get("secondsRemaining", 0))))), "status_col": UiKit.WARN if zboss else (UiKit.OK if zready else UiKit.TEXT_DIM), "ready": zboss or zready, "action": Lang.t("Enfrentar chefe") if zboss else (Lang.t("Coletar") if zready else Lang.t("Ver")), "route": "World"})
+	if bool(tower.get("active", false)):
+		acts.append({"icon": "tower", "title": Lang.t("Torre"), "status": Lang.t("Andar %d") % int(tower.get("currentFloor", tower.get("nextFloor", 1))), "status_col": UiKit.TEXT_DIM, "ready": false, "action": Lang.t("Subir"), "route": "Tower"})
+	_dash_render_cta(acts, journal)
+	_dash_clear(_dash_acts)
+	if acts.is_empty():
+		_dash_acts.add_child(UiKit.empty(Lang.t("Nada em andamento"), Lang.t("Comece pelo Mundo ou pelo Trabalho")))
+	else:
+		_dash_acts.add_child(UiKit.grid(self, acts, _dash_activity_card, true))
+	_dash_render_avisos(mail, tav)
+
+func _dash_json(arr, i: int) -> Dictionary:
+	if arr is Array and i < arr.size() and arr[i] is Dictionary:
+		var r = arr[i]
+		if r.get("ok") and r.get("json") is Dictionary:
+			return r["json"]
+	return {}
+
+func _dash_clear(node: Node) -> void:
+	for c in node.get_children():
+		node.remove_child(c)   # detacha JÁ (não sobrepõe o conteúdo novo por 1 frame)
+		c.queue_free()
+
+func _dash_fmt_dur(secs: int) -> String:
+	secs = maxi(0, secs)
+	if secs >= 3600:
+		return "%dh %dmin" % [secs / 3600, (secs % 3600) / 60]
+	if secs >= 60:
+		return "%dmin" % (secs / 60)
+	return "%ds" % secs
+
+func _dash_best_quest(journal: Dictionary) -> Dictionary:
+	var ip = journal.get("inProgress", [])
+	if not (ip is Array) or ip.is_empty():
+		return {}
+	var best = null
+	var best_score := 1 << 30
+	for it in ip:
+		if not (it is Dictionary):
+			continue
+		var rdy := bool(it.get("readyToCollect", false)) or bool(it.get("lunaPending", false)) or int(it.get("secondsRemaining", 1)) <= 0
+		var score: int = -1 if rdy else int(it.get("secondsRemaining", 1 << 29))
+		if score < best_score:
+			best_score = score
+			best = it
+	if best == null:
+		return {}
+	var ready := bool(best.get("readyToCollect", false)) or bool(best.get("lunaPending", false)) or int(best.get("secondsRemaining", 1)) <= 0
+	var nm := str(best.get("displayName", best.get("questType", "Missão")))
+	return {"icon": "world", "title": Lang.t("Missão: %s") % nm, "status": Lang.t("pronto") if ready else (Lang.t("faltam %s") % _dash_fmt_dur(int(best.get("secondsRemaining", 0)))), "status_col": UiKit.OK if ready else UiKit.TEXT_DIM, "ready": ready, "action": Lang.t("Resolver") if ready else Lang.t("Ver missão"), "route": "World", "kingdom": str(best.get("kingdom", ""))}
+
+func _dash_go(route: String, kingdom := "") -> void:
+	if route == "World" and kingdom != "":
+		_open_world_at(kingdom)
+	else:
+		_open(route)
+
+func _dash_activity_card(a: Dictionary) -> Control:
+	var border = UiKit.GOLD if bool(a.get("ready", false)) else UiKit.BRONZE
+	var route := str(a.get("route", ""))
+	var kingdom := str(a.get("kingdom", ""))
+	var res := UiKit.clickable_card(border, func() -> void: _dash_go(route, kingdom))
+	var v: VBoxContainer = res[1]
+	var head := HBoxContainer.new(); head.add_theme_constant_override("separation", 8)
+	var ic = Icons.rect(str(a.get("icon", "world")), 22)
+	ic.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	head.add_child(ic)
+	var t := Label.new(); t.text = str(a.get("title", "")); t.add_theme_font_size_override("font_size", 16); t.add_theme_color_override("font_color", UiKit.GOLD)
+	head.add_child(t)
+	if bool(a.get("ready", false)):
+		var dot := Label.new(); dot.text = "●"; dot.add_theme_color_override("font_color", UiKit.GOLD)
+		head.add_child(dot)
+	v.add_child(head)
+	var st := Label.new(); st.text = str(a.get("status", "")); st.add_theme_font_size_override("font_size", 13); st.add_theme_color_override("font_color", a.get("status_col", UiKit.TEXT_DIM))
+	v.add_child(st)
+	var act := Label.new(); act.text = str(a.get("action", "")); act.add_theme_font_size_override("font_size", 13); act.add_theme_color_override("font_color", UiKit.GOLD_SOFT)
+	v.add_child(act)
+	return res[0]
+
+func _dash_render_cta(acts: Array, journal: Dictionary) -> void:
+	if _dash_cta == null or not is_instance_valid(_dash_cta):
+		return
+	_dash_clear(_dash_cta)
+	var label := ""
+	var route := "World"
+	var kingdom := ""
+	var icon := "world"
+	if not acts.is_empty():
+		var top: Dictionary = acts[0]
+		label = "%s — %s" % [str(top.get("action", "Continuar")), str(top.get("title", ""))]
+		route = str(top.get("route", "World"))
+		kingdom = str(top.get("kingdom", ""))
+		icon = str(top.get("icon", "world"))
+	else:
+		var avail := 0
+		var tp = journal.get("toPickUp", [])
+		if tp is Array:
+			avail = tp.size()
+		label = Lang.t("Ver missões disponíveis") if avail > 0 else Lang.t("Partir em aventura")
+	var cta := UiKit.action_big(label, func() -> void: _dash_go(route, kingdom))
+	cta.custom_minimum_size = Vector2(0, 60)
+	Icons.set_icon(cta, icon)
+	_dash_cta.add_child(cta)
+
+func _dash_render_avisos(mail: Dictionary, tav: Dictionary) -> void:
+	if _dash_avisos == null or not is_instance_valid(_dash_avisos):
+		return
+	_dash_clear(_dash_avisos)
+	var notices: Array = []
+	var letters = mail.get("letters", [])
+	if letters is Array:
+		for it in letters:
+			if it is Dictionary and bool(it.get("hasReplay", false)) and int(it.get("senderPlayerId", 0)) != 0:
+				notices.append({"icon": "arena", "title": Lang.t("Atacado %s") % _dash_ago(str(it.get("sentAt", ""))), "detail": Lang.t("por %s — ver replay") % str(it.get("from", it.get("senderName", "?"))), "border": UiKit.ERR, "route": "Mail"})
+				break
+	var msgs = tav.get("messages", [])
+	if msgs is Array:
+		for it in msgs:
+			if it is Dictionary and bool(it.get("system", false)):
+				var txt := str(it.get("text", ""))
+				if txt.length() > 60:
+					txt = txt.substr(0, 60) + "…"
+				notices.append({"icon": "tavern", "title": Lang.t("Anúncio do Reino"), "detail": txt, "border": UiKit.GOLD_SOFT, "route": "Tavern"})
+				break
+	var unread := int(mail.get("unread", 0))
+	if unread > 0:
+		notices.append({"icon": "mail", "title": Lang.t("%d cartas não-lidas") % unread, "detail": Lang.t("Toque para ler"), "border": UiKit.GOLD, "route": "Mail"})
+	if notices.is_empty():
+		_dash_avisos.add_child(UiKit.empty(Lang.t("Sem avisos"), Lang.t("Ataques, anúncios e cartas aparecem aqui")))
+		return
+	var col := VBoxContainer.new(); col.add_theme_constant_override("separation", 6)
+	col.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	var n := 0
+	for nt in notices:
+		if n >= 3:
+			break
+		col.add_child(_dash_notice_card(nt))
+		n += 1
+	_dash_avisos.add_child(UiKit.capped_scroll(col, 360))
+
+func _dash_notice_card(nt: Dictionary) -> Control:
+	var route := str(nt.get("route", "Mail"))
+	var res := UiKit.clickable_card(nt.get("border", UiKit.BRONZE), func() -> void: _open(route))
+	var v: VBoxContainer = res[1]
+	var head := HBoxContainer.new(); head.add_theme_constant_override("separation", 8)
+	var ic = Icons.rect(str(nt.get("icon", "mail")), 20)
+	ic.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	head.add_child(ic)
+	var t := Label.new(); t.text = str(nt.get("title", "")); t.add_theme_font_size_override("font_size", 14); t.add_theme_color_override("font_color", UiKit.TEXT)
+	head.add_child(t)
+	v.add_child(head)
+	var d := Label.new(); d.text = str(nt.get("detail", "")); d.add_theme_font_size_override("font_size", 12); d.add_theme_color_override("font_color", UiKit.TEXT_DIM); d.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	v.add_child(d)
+	return res[0]
+
+func _dash_ago(sent_at: String) -> String:
+	if sent_at == "":
+		return Lang.t("recentemente")
+	var t := Time.get_unix_time_from_datetime_string(sent_at)
+	if t <= 0:
+		return Lang.t("recentemente")
+	var delta := int(Time.get_unix_time_from_system() - t)
+	if delta < 0:
+		delta = 0
+	if delta < 3600:
+		return Lang.t("há %dmin") % maxi(1, delta / 60)
+	if delta < 86400:
+		return Lang.t("há %dh") % (delta / 3600)
+	return Lang.t("há %dd") % (delta / 86400)
 
 # ── Atualização do warrior / topbar ─────────────────────────────────────────────────
 # Carga inicial (1x no boot / após batalha): warrior (topbar) + inventário (índice + busto).
