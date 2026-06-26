@@ -223,7 +223,7 @@ func _craft_next() -> void:
 # ── Cards ─────────────────────────────────────────────────────────────────────────
 # [FORJA_COMPACTO] Card no estilo do Inventário: ícone + nome + selo numa linha, DETALHE no tooltip
 # (hover), ação compacta embaixo só quando dá. Encurta a Forja (era card alto com tudo inline).
-func _compact_card(col: Color, can: bool, icon: Control, title: String, badge: String, badge_col: Color, tip: String, action: Control) -> PanelContainer:
+func _compact_card(col: Color, can: bool, icon: Control, title: String, badge: String, badge_col: Color, tip: String, on_click := Callable()) -> PanelContainer:
 	var res := UiKit.card(col, can)
 	var pc: PanelContainer = res[0]
 	var vb: VBoxContainer = res[1]
@@ -252,8 +252,13 @@ func _compact_card(col: Color, can: bool, icon: Control, title: String, badge: S
 	for n in [vb, row, nm, icon]:
 		if n != null and n is Control:
 			(n as Control).mouse_filter = Control.MOUSE_FILTER_PASS
-	if action != null:
-		vb.add_child(action)
+	# [FORJA_COMPACTO] clique no card (quando dá p/ fabricar) → abre o DIALOG com as opções (qtd + botão),
+	# em vez de inflar o card com a SpinBox/botão inline. Mantém todos os cards na mesma altura (1 linha).
+	if can and on_click.is_valid():
+		pc.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
+		pc.gui_input.connect(func(e: InputEvent) -> void:
+			if e is InputEventMouseButton and e.pressed and e.button_index == MOUSE_BUTTON_LEFT:
+				on_click.call())
 	return pc
 
 # [FORJA_GIF] Botão de AÇÃO = ícone que ANIMA no hover (set_icon), SEM texto; tooltip diz a ação.
@@ -287,6 +292,104 @@ func _do_reforge(id: int, item_name: String, dim: Control) -> void:
 		dim.queue_free()
 	_confirm_reforge(id, item_name)
 
+# [FORJA_DIALOG] Dialog central (dim + card) reaproveitável p/ refino/joia → retorna [dim, vbox] p/ preencher.
+func _open_dialog(border := UiKit.BRONZE) -> Array:
+	var dim := ColorRect.new()
+	dim.color = Color(0, 0, 0, 0.62)
+	dim.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	dim.mouse_filter = Control.MOUSE_FILTER_STOP
+	add_child(dim)
+	dim.gui_input.connect(func(e: InputEvent) -> void:
+		if e is InputEventMouseButton and e.pressed:
+			dim.queue_free())
+	var center := CenterContainer.new()
+	center.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	center.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	dim.add_child(center)
+	var res := UiKit.card(border)
+	var pc: PanelContainer = res[0]
+	var vb: VBoxContainer = res[1]
+	pc.mouse_filter = Control.MOUSE_FILTER_STOP
+	pc.custom_minimum_size = Vector2(280, 0)
+	vb.add_theme_constant_override("separation", 8)
+	center.add_child(pc)
+	return [dim, vb]
+
+# Cabeçalho (ícone + nome + sub) dos dialogs de refino/joia.
+func _dialog_head(vb: VBoxContainer, icon: Control, title: String, sub: String) -> void:
+	var head := HBoxContainer.new(); head.add_theme_constant_override("separation", 8); head.alignment = BoxContainer.ALIGNMENT_CENTER
+	if icon != null:
+		head.add_child(icon)
+	var t := Label.new(); t.text = title; t.add_theme_font_size_override("font_size", 16); t.add_theme_color_override("font_color", UiKit.GOLD)
+	head.add_child(t)
+	vb.add_child(head)
+	var s := Label.new(); s.text = sub; s.add_theme_font_size_override("font_size", 12); s.add_theme_color_override("font_color", UiKit.TEXT_DIM)
+	s.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER; s.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	vb.add_child(s)
+
+# Linha de quantidade (SpinBox 1..max) + botão gif. on_confirm(qtd) dispara a ação e o dim fecha.
+func _dialog_qty_row(vb: VBoxContainer, max_n: int, label: String, dim: ColorRect, on_confirm: Callable) -> void:
+	var qrow := HBoxContainer.new(); qrow.add_theme_constant_override("separation", 10); qrow.alignment = BoxContainer.ALIGNMENT_CENTER
+	qrow.add_child(UiKit.dim(Lang.t("Qtd (máx %d):") % max_n))
+	var qty := SpinBox.new(); qty.min_value = 1; qty.max_value = maxi(1, max_n); qty.value = 1
+	qty.custom_minimum_size = Vector2(80, 0)
+	qrow.add_child(qty)
+	var btn := _gif_btn("forge", label, func() -> void:
+		var n := int(qty.value)
+		if is_instance_valid(dim):
+			dim.queue_free()
+		on_confirm.call(n))
+	btn.add_theme_constant_override("icon_max_width", 40); btn.custom_minimum_size = Vector2(50, 50)
+	qrow.add_child(btn)
+	vb.add_child(qrow)
+
+# [FORJA_COMPACTO] Clique no card de minério → dialog com a quantidade + Refinar.
+func _refine_dialog(r: Dictionary) -> void:
+	var ore := str(r.get("ore", ""))
+	var ore_qty := maxi(1, int(r.get("oreQty", 1)))
+	var have := _resource_qty(ore)
+	var max_ref := maxi(1, have / ore_qty)
+	var d := _open_dialog()
+	var dim: ColorRect = d[0]
+	var vb: VBoxContainer = d[1]
+	_dialog_head(vb, Icons.rect("res_" + str(r.get("bar", "")).to_lower(), 30), str(r.get("barName", "?")),
+		Lang.t("%s ×%d + %d bronze · você tem %d") % [str(r.get("oreName", ore)), ore_qty, int(r.get("bronzeCost", 0)), have])
+	_dialog_qty_row(vb, max_ref, Lang.t("Refinar"), dim, func(n: int) -> void:
+		refine_qty[ore] = n
+		_refine(ore))
+
+# [FORJA_COMPACTO] Clique no card de fragmento → dialog com a quantidade + Criar Joia.
+func _gem_dialog(r: Dictionary) -> void:
+	var frag := str(r.get("fragment", ""))
+	var have := _resource_qty(frag)
+	var max_g := maxi(1, have / 3)
+	var d := _open_dialog()
+	var dim: ColorRect = d[0]
+	var vb: VBoxContainer = d[1]
+	_dialog_head(vb, Icons.rect("res_" + frag.to_lower(), 30), str(r.get("gemName", "?")),
+		Lang.t("%s ×3 · você tem %d fragmentos") % [str(r.get("fragmentName", frag)), have])
+	_dialog_qty_row(vb, max_g, Lang.t("Criar Joia"), dim, func(n: int) -> void:
+		_craft_gem_n(frag, n))
+
+# Cria N joias (o backend é 1 por chamada) — para no 1º erro.
+func _craft_gem_n(frag: String, n: int) -> void:
+	if busy:
+		return
+	busy = true
+	var made := 0
+	for i in n:
+		var r = await Api.smithing_gem(frag)
+		if not (r.get("ok") and r.get("json") is Dictionary):
+			busy = false
+			if made > 0:
+				await _refresh_after_action()
+			UiKit.show_error(status, r)
+			return
+		made += 1
+	busy = false
+	await _refresh_after_action()
+	UiKit.flash(status, Lang.t("%d joia(s) criada(s)") % made, 1)
+
 func _refine_card(r: Dictionary) -> PanelContainer:
 	var ore := str(r.get("ore", ""))
 	var ore_qty := maxi(1, int(r.get("oreQty", 1)))
@@ -296,18 +399,10 @@ func _refine_card(r: Dictionary) -> PanelContainer:
 	var can := level_ok and enough
 	var icon := Icons.rect("res_" + str(r.get("bar", "")).to_lower(), 28)   # ícone da barra resultante
 	var tip := Lang.t("%s ×%d + %d bronze → %s\nForja Lv.%d%s · Você tem: %d") % [str(r.get("oreName", ore)), ore_qty, int(r.get("bronzeCost", 0)), str(r.get("barName", "")), int(r.get("levelRequired", 1)), "" if level_ok else Lang.t(" (trava de nível)"), have]
-	var action: Control = null
+	var on_click := Callable()
 	if can:
-		var hb := HBoxContainer.new(); hb.add_theme_constant_override("separation", 6)
-		var max_ref := maxi(1, have / ore_qty)           # não deixa pedir mais do que dá
-		var qty := SpinBox.new(); qty.min_value = 1; qty.max_value = max_ref
-		qty.value = clampi(int(refine_qty.get(ore, 1)), 1, max_ref)
-		qty.custom_minimum_size = Vector2(66, 0)
-		qty.value_changed.connect(func(v): refine_qty[ore] = int(v))
-		hb.add_child(qty)
-		hb.add_child(_gif_btn("forge", Lang.t("Refinar"), _refine.bind(ore)))   # [FORJA_GIF] gif no lugar do botão
-		action = hb
-	return _compact_card(UiKit.BRONZE, can, icon, str(r.get("barName", "?")), "%d/%d" % [have, ore_qty], UiKit.OK if enough else UiKit.ERR, tip, action)
+		on_click = func() -> void: _refine_dialog(r)
+	return _compact_card(UiKit.BRONZE, can, icon, str(r.get("barName", "?")), "%d/%d" % [have, ore_qty], UiKit.OK if enough else UiKit.ERR, tip, on_click)
 
 func _craft_card(r: Dictionary) -> Control:
 	var rarity := int(r.get("rarity", 1))
@@ -480,10 +575,10 @@ func _gem_card(r: Dictionary) -> PanelContainer:
 	var can := have >= 3
 	var icon := Icons.rect("res_" + frag.to_lower(), 28)   # ícone do fragmento
 	var tip := Lang.t("%s ×3 → %s\nVocê tem: %d fragmentos") % [str(r.get("fragmentName", frag)), str(r.get("gemName", "")), have]
-	var action: Control = null
+	var on_click := Callable()
 	if can:
-		action = _gif_btn("forge", Lang.t("Criar Joia"), _craft_gem.bind(frag))   # [FORJA_GIF]
-	return _compact_card(UiKit.BRONZE, can, icon, str(r.get("gemName", "?")), "%d/3" % have, UiKit.OK if can else UiKit.ERR, tip, action)
+		on_click = func() -> void: _gem_dialog(r)
+	return _compact_card(UiKit.BRONZE, can, icon, str(r.get("gemName", "?")), "%d/3" % have, UiKit.OK if can else UiKit.ERR, tip, on_click)
 
 func _maint_card(it: Dictionary) -> Control:
 	var col := UiKit.rarity_color(int(it.get("rarity", 1)))
