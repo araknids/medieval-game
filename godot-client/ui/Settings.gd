@@ -40,6 +40,14 @@ func _render() -> void:
 	content.add_child(grow)
 	grow.add_child(_gore_btn("🩸 Ligado", true))
 	grow.add_child(_gore_btn("Desligado", false))
+	# [PLAYTEST_FIX] Fundo animado: o cenário 3D atrás dos menus (desligar p/ máquina fraca / preferência)
+	content.add_child(UiKit.section("Gráficos"))
+	content.add_child(UiKit.dim("Fundo 3D animado atrás dos menus. Desligue para um visual mais leve / máquina fraca."))
+	var bgrow := HBoxContainer.new()
+	bgrow.add_theme_constant_override("separation", 10)
+	content.add_child(bgrow)
+	bgrow.add_child(_animbg_btn("Ligado", true))
+	bgrow.add_child(_animbg_btn("Desligado", false))
 	# [LOGOUT] Conta: sair desconecta e volta pro login (o auto-login salvo e limpo).
 	content.add_child(UiKit.section("Conta"))
 	content.add_child(UiKit.dim("Sair desconecta sua conta e volta para a tela de login."))
@@ -62,6 +70,22 @@ func _pick_gore(on: bool) -> void:
 	GameSettings.set_gore(on)
 	UiKit.flash(status, "Sangue/desmembramento: %s" % ("ligado" if on else "desligado"), 1)
 	_render()   # atualiza o ✓ (o efeito vale na próxima batalha)
+
+func _animbg_btn(label: String, on: bool) -> Button:
+	var active := GameSettings.animated_bg_enabled() == on
+	var b := UiKit.action_big(("✓ " + label) if active else label, func() -> void: _pick_animbg(on))
+	b.disabled = active
+	return b
+
+func _pick_animbg(on: bool) -> void:
+	if GameSettings.animated_bg_enabled() == on:
+		return
+	GameSettings.set_animated_bg(on)
+	var app = get_tree().current_scene   # App é a cena raiz → aplica o fundo ao vivo
+	if app != null and app.has_method("apply_animated_bg"):
+		app.apply_animated_bg()
+	UiKit.flash(status, "Fundo animado: %s" % ("ligado" if on else "desligado"), 1)
+	_render()
 
 # [LOGOUT] abre um MODAL de confirmação; confirmar emite o sinal (App/Shell limpam o token).
 func _on_logout() -> void:

@@ -372,6 +372,16 @@ static func hide_loading() -> void:
 		_loading_overlay.queue_free()
 	_loading_overlay = null
 
+# [PLAYTEST_FIX] Destaque pulsante VERDE p/ guiar o novato (botão de equipar/curar na 1ª vez).
+# Loop suave de modulate; o caller decide QUANDO chamar (ex.: sem arma equipada / HP baixo).
+static func pulse_hint(ctrl: Control) -> void:
+	if ctrl == null or not is_instance_valid(ctrl):
+		return
+	ctrl.modulate = Color(0.55, 1.0, 0.55)
+	var tw := ctrl.create_tween().set_loops()
+	tw.tween_property(ctrl, "modulate", Color(1, 1, 1), 0.6)
+	tw.tween_property(ctrl, "modulate", Color(0.55, 1.0, 0.55), 0.6)
+
 # [ERRO_VISIVEL] Modal centralizado de aviso/erro: overlay escuro + card + OK. Usar quando o `status`
 # (que mora no header) ficaria longe da ação ou seria apagado por um _refresh logo em seguida — ex.:
 # falha ao equipar no fim de uma lista longa. host = a tela (Control). Sai no OK ou clicando fora.

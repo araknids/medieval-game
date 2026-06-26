@@ -1254,8 +1254,15 @@ func _resolve_boss(activity_id: int, choice: String) -> void:
 	if choice == "flee":
 		var be = j.get("battleEvents")
 		var failed: bool = be is Array and be.size() >= 2
-		UiKit.flash(status, Lang.t("🏃 Falhou a fuga — o chefe te alcançou!") if failed else Lang.t("🏃 Fuga bem-sucedida!"), 1 if failed else 0)
-		await get_tree().create_timer(0.9).timeout   # deixa a mensagem aparecer antes do replay/relatório
+		if failed:
+			# [PLAYTEST_FIX] modal BLOQUEANTE no fracasso da fuga: antes era um flash de 0.9s que passava
+			# batido → parecia que o combate começava sem mostrar o resultado do dado. Agora o jogador
+			# confirma "Encarar" e SÓ ENTÃO cai na luta.
+			_icon_choice_dialog(Lang.t("Você tentou fugir... e FALHOU! O chefe te alcançou — não há para onde correr."),
+				[["node_combat", "⚔", Lang.t("Encarar"), "ok"]],
+				func(_c) -> void: await _handle_zone_result(activity_id, j))
+			return
+		UiKit.flash(status, Lang.t("🏃 Fuga bem-sucedida!"), 0)
 	await _handle_zone_result(activity_id, j)
 
 func _cancel_zone(activity_id: int) -> void:

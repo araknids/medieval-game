@@ -6,6 +6,7 @@ extends Control
 
 const LOGIN := preload("res://ui/Login.tscn")
 const MenuFx := preload("res://ui/MenuFx.gd")   # fundo 3D do menu (persistente, atrás de tudo)
+const GameSettings := preload("res://GameSettings.gd")   # [PLAYTEST_FIX] toggle do fundo animado
 # Mapas de fundo do menu: só os FECHADOS (câmera olha pra dentro → enquadra bem o duelo). [MENU_FUNDO]
 const MENU_MAPS := ["cursed_tower"]   # [MAPA_TORRE] fundo do menu/login = a "capa viva" (torre em chamas). Re-adicione castle/arena/city/dungeon p/ voltar o sorteio.
 # BattleReplay é carregado SOB DEMANDA (load) em _play_battle — NUNCA preload: um erro de parse no
@@ -28,6 +29,8 @@ func _ready() -> void:
 	randomize()   # mapa de fundo + lutadores diferentes a cada abertura do jogo [MENU_FUNDO]
 	var scenario: String = MENU_MAPS[randi() % MENU_MAPS.size()]
 	_menu_bg = MenuFx.new().bg_3d(self, scenario)   # 1 fundo 3D p/ TODAS as telas (montado 1x; persiste)
+	if not GameSettings.animated_bg_enabled():   # [PLAYTEST_FIX] respeita o toggle de fundo animado
+		_menu_bg.visible = false
 	UiKit.duel_refresh_sink = _refresh_duel          # trocar de equip → o duelo do fundo re-veste com seu gear novo
 	_route()
 	_check_version()   # [DISTRIB_UPDATE] confere a versão contra o servidor (bloqueia cliente velho demais)
@@ -229,13 +232,18 @@ func _play_battle(data: Dictionary, screen: Control) -> void:
 	if br.has_signal("finished"):
 		br.connect("finished", _end_battle)
 
+# [PLAYTEST_FIX] aplica o toggle de fundo animado ao vivo (chamado pelo Settings).
+func apply_animated_bg() -> void:
+	if _menu_bg and _battle == null:
+		_menu_bg.visible = GameSettings.animated_bg_enabled()
+
 # Fecha o replay, restaura a tela e deixa ela tratar o resultado (recompensa + refresh).
 func _end_battle() -> void:
 	if _battle != null and is_instance_valid(_battle):
 		_battle.queue_free()
 	_battle = null
 	if _menu_bg:
-		_menu_bg.visible = true    # restaura o fundo do menu atrás da tela
+		_menu_bg.visible = GameSettings.animated_bg_enabled()    # [PLAYTEST_FIX] restaura só se o fundo animado estiver ligado
 	if _gear_layer:
 		_gear_layer.visible = true
 	var s := _battle_screen

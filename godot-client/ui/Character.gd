@@ -909,6 +909,8 @@ func _open_item_actions(it: Dictionary) -> void:
 		dim_rect.queue_free()
 		await _equip(id))
 	row.add_child(eq_btn)
+	if int(_slots.get("WEAPON", {}).get("item_id", 0)) == 0:   # [PLAYTEST_FIX] novato sem arma → brilho verde guia "Equipar"
+		UiKit.pulse_hint(eq_btn)
 	var st_btn := UiKit.small_btn_icon(Lang.t("Guardar"), "stash", func() -> void:
 		dim_rect.queue_free()
 		await _stash_item(id))
