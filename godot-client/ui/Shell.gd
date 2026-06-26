@@ -131,8 +131,12 @@ func _ready() -> void:
 	body.add_child(content_host)
 	await _initial_load()   # 1x no boot: warrior (topbar) + inventário (índice de comparação + busto)
 	_show_dashboard()
-	await _maybe_onboarding()   # [ONBOARDING] briefing de chegada no 1º login (só se !onboardingSeen)
+	# [B2] starter PRIMEIRO: popula _starter_status + badges ANTES do briefing. Assim, quando o CTA do
+	# briefing abre o Personagem, o dever de equipar já está visível/ofertável (sem corrida de carregamento).
 	await _refresh_starter()    # [ONBOARDING v2] badges de quest (nav dos NPCs + topbar)
+	var showed_welcome: bool = await _maybe_onboarding()   # [ONBOARDING] briefing de chegada no 1º login (só se !onboardingSeen)
+	if not showed_welcome:
+		await _maybe_daily_popup()   # [F1][DAILY] nudge da recompensa diária (pula no 1º login — o briefing já é modal)
 
 func _exit_tree() -> void:
 	if current == self:
@@ -149,16 +153,17 @@ func _exit_tree() -> void:
 # ── [ONBOARDING] Briefing de chegada (Camada A) ─────────────────────────────────────
 # Só no 1º login (backend: !onboardingSeen). Dim + card dourado + briefing da Coroa de Aravok +
 # CTA que marca visto e leva o recruta ao Mundo (1ª ação clara). Doc: docs/PLANO_ONBOARDING.md
-func _maybe_onboarding() -> void:
+func _maybe_onboarding() -> bool:
 	var api = get_node_or_null("/root/Api")
 	if api == null:
-		return
+		return false
 	var r = await api.onboarding_status()
 	if not (r.get("ok") and r.get("json") is Dictionary):
-		return
+		return false
 	if bool(r["json"].get("seen", true)):
-		return   # já viu (ou erro de leitura → não incomoda)
+		return false   # já viu (ou erro de leitura → não incomoda)
 	_show_welcome(api)
+	return true   # [F1] briefing mostrado → o nudge da daily NÃO empilha nesta sessão
 
 func _show_welcome(api) -> void:
 	var overlay := ColorRect.new()
@@ -206,6 +211,82 @@ func _show_welcome(api) -> void:
 		_open("Character"))
 	cta.custom_minimum_size = Vector2(500, 48)
 	vb.add_child(cta)
+
+# ── [F1][DAILY] Nudge de login: popup leve quando a recompensa diária está pronta ───────────────────
+# Garante a descoberta do peixe de stamina (retenção D1+). Pula no 1º login (o briefing de chegada já é
+# modal). 1 clique resgata; "Depois" fecha. O card da daily na home segue como caminho secundário.
+func _maybe_daily_popup() -> void:
+	var api = get_node_or_null("/root/Api")
+	if api == null:
+		return
+	var rs = await api.batch_get(["/api/daily-reward/status"])
+	var d := _dash_json(rs, 0)
+	if d.is_empty() or not bool(d.get("canClaim", false)):
+		return
+	_show_daily_popup(api, d)
+
+func _show_daily_popup(api, d: Dictionary) -> void:
+	var claim_day := int(d.get("claimDay", 1))
+	var today := {}   # recompensa de HOJE (entry com day==claimDay) p/ a prévia
+	var days = d.get("days", [])
+	if days is Array:
+		for it in days:
+			if it is Dictionary and int(it.get("day", 0)) == claim_day:
+				today = it
+				break
+	var overlay := ColorRect.new()
+	overlay.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	overlay.color = Color(0, 0, 0, 0.7)
+	overlay.mouse_filter = Control.MOUSE_FILTER_STOP
+	add_child(overlay)
+	var center := CenterContainer.new()
+	center.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	center.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	overlay.add_child(center)
+	var res := UiKit.card(UiKit.GOLD)
+	var panel: PanelContainer = res[0]
+	var vb: VBoxContainer = res[1]
+	panel.custom_minimum_size = Vector2(440, 0)
+	vb.add_theme_constant_override("separation", 12)
+	center.add_child(panel)
+	var head := HBoxContainer.new(); head.add_theme_constant_override("separation", 10)
+	var ic = Icons.rect("daily", 32); ic.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	head.add_child(ic)
+	var ttl := Label.new()
+	ttl.text = Lang.t("Recompensa Diária")
+	ttl.add_theme_font_size_override("font_size", 20)
+	ttl.add_theme_color_override("font_color", UiKit.GOLD)
+	ttl.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	head.add_child(ttl)
+	vb.add_child(head)
+	var sub := Label.new()
+	if not today.is_empty():
+		sub.text = Lang.t("Dia %d — %s ×%d esperam por você.") % [claim_day, str(today.get("fishName", "?")), int(today.get("qty", 0))]
+	else:
+		sub.text = Lang.t("Sua recompensa de hoje está pronta.")
+	sub.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	sub.custom_minimum_size = Vector2(400, 0)
+	sub.add_theme_font_size_override("font_size", 14)
+	sub.add_theme_color_override("font_color", UiKit.TEXT)
+	vb.add_child(sub)
+	var btns := HBoxContainer.new(); btns.add_theme_constant_override("separation", 8)
+	btns.alignment = BoxContainer.ALIGNMENT_CENTER
+	var claim_btn := UiKit.action_big(Lang.t("Resgatar"), func() -> void: await _daily_popup_claim(api, overlay))
+	claim_btn.custom_minimum_size = Vector2(190, 46)
+	btns.add_child(claim_btn)
+	var later := UiKit.action(Lang.t("Depois"), func() -> void: overlay.queue_free())
+	later.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	btns.add_child(later)
+	vb.add_child(btns)
+
+func _daily_popup_claim(api, overlay) -> void:
+	var r = await api.daily_claim()
+	if is_instance_valid(overlay):
+		overlay.queue_free()
+	if r.get("ok"):
+		await refresh_topbar()   # carteira/badges
+		if _dash != null and is_instance_valid(_dash) and _dash.visible:
+			_refresh_dashboard()   # tira o card da daily da home
 
 # ── [ONBOARDING v2] Deveres do Recruta: badges (nav + topbar) + oferta no NPC ────────
 func _refresh_starter() -> void:
@@ -1061,7 +1142,7 @@ func _refresh_dashboard() -> void:
 	if api == null:
 		return
 	var a = await api.batch_get(["/api/work/current", "/api/zones/current", "/api/tower/current", "/api/expedition/current"])
-	var b = await api.batch_get(["/api/daily-reward/status", "/api/quests/journal", "/api/mail/inbox", "/api/tavern/feed?since=0"])
+	var b = await api.batch_get(["/api/daily-reward/status", "/api/quests/journal", "/api/mail/inbox", "/api/tavern/feed?since=0", "/api/starter-quests"])
 	if not is_instance_valid(_dash_acts):   # trocou de tela durante o fetch
 		return
 	var work := _dash_json(a, 0)
@@ -1072,8 +1153,14 @@ func _refresh_dashboard() -> void:
 	var journal := _dash_json(b, 1)
 	var mail := _dash_json(b, 2)
 	var tav := _dash_json(b, 3)
+	var starter := _dash_json(b, 4)
 	# atividades ATIVAS na ordem de prioridade do CTA (missão > incursão > diária > trabalho > zona > torre)
 	var acts: Array = []
+	# 0. DEVER DO RECRUTA (onboarding): enquanto houver dever pendente ele é o CTA #1 — guia o novato direto
+	# à ação (equipar/curar/missão) em vez de jogá-lo no mapa vazio. [B1]
+	var sd := _dash_starter_act(starter)
+	if not sd.is_empty():
+		acts.append(sd)
 	# 1. MISSÃO PRINCIPAL em andamento (journal.missionsInProgress)
 	var mip = journal.get("missionsInProgress", [])
 	if mip is Array and not mip.is_empty():
@@ -1143,6 +1230,29 @@ func _dash_active_daily(journal: Dictionary) -> Dictionary:
 		for it in dl:
 			if it is Dictionary and str(it.get("dailyState", "")) == "active":
 				return it
+	return {}
+
+# [B1] Primeiro dever do recruta que precisa de AÇÃO (available/accepted) → card de CTA da home. {} se
+# todos concluídos/travados. Rota = a tela onde o dever se resolve (npcScreen): chegar lá dispara o
+# offer de aceitar (available) ou o próximo passo (Templo/Mundo/equipar). QUEST→World após [F3].
+func _dash_starter_act(starter: Dictionary) -> Dictionary:
+	var quests = starter.get("quests", [])
+	if not (quests is Array):
+		return {}
+	for q in quests:
+		if not (q is Dictionary):
+			continue
+		var st := str(q.get("state", ""))
+		if st != "available" and st != "accepted":
+			continue   # locked (pré não cumprido) / done → pula
+		var id := str(q.get("id", ""))
+		var meta: Dictionary = {
+			"equip": {"icon": "character", "title": Lang.t("Recruta: Equipe-se")},
+			"heal":  {"icon": "temple",    "title": Lang.t("Recruta: Cure-se no Templo")},
+			"quest": {"icon": "world",     "title": Lang.t("Recruta: Complete uma missão")},
+		}.get(id, {"icon": "world", "title": Lang.t("Dever do Recruta")})
+		var action := Lang.t("Começar") if st == "available" else Lang.t("Continuar")
+		return {"icon": str(meta["icon"]), "title": str(meta["title"]), "status": Lang.t("Dever do Recruta"), "status_col": UiKit.GOLD_SOFT, "ready": false, "action": action, "route": str(q.get("npcScreen", "World")), "kingdom": "", "quest_id": 0}
 	return {}
 
 # Card de uma quest (entry do journal): campos title/kingdom/readyToCollect. is_daily só muda o rótulo.

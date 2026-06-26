@@ -41,7 +41,7 @@ public class StarterQuestService {
     private enum Duty {
         EQUIP("equip", "Character", "Capitão Garrick", "Um recruta desarmado é um cadáver de pé. Vista sua arma e sua armadura antes de pôr o pé lá fora.",                 Comp.EQUIP, 100, 200, null),
         HEAL ("heal",  "Temple",    "Padre Anselmo",   "Você chegou ferido da travessia. Ajoelhe no altar e deixe a Luz fechar suas feridas — vai precisar delas inteiras.", Comp.HEAL,  100, 200, "equip"),
-        QUEST("quest", "Work",      "Capitão Garrick", "Recruta não vira soldado batendo em boneco. Vá ao mundo, aceite uma missão num reino e complete-a. Volte soldado.",  Comp.QUEST, 150, 300, "heal");
+        QUEST("quest", "World",     "Capitão Garrick", "Recruta não vira soldado batendo em boneco. Vá ao mundo, aceite uma missão num reino e complete-a. Volte soldado.",  Comp.QUEST, 150, 300, "heal");
 
         final String id, npcScreen, npc, flavor;
         final Comp comp;
