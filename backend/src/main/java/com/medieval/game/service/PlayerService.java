@@ -62,6 +62,13 @@ public class PlayerService {
                 .orElseThrow(() -> new IllegalArgumentException("Player not found: " + id));
     }
 
+    // [LAUNCH_METRICS] Marca "ativo hoje" (no máx 1×/dia, via UPDATE direto throttle). Chamado no
+    // GET /api/warrior — toda abertura do app valida o token por ele → mede retenção real (D1/D2).
+    public void touchLastSeen(Long playerId) {
+        java.time.LocalDateTime now = java.time.LocalDateTime.now();
+        playerRepository.touchLastSeen(playerId, now, now.toLocalDate().atStartOfDay());
+    }
+
     public boolean checkPassword(Player player, String rawPassword) {
         return passwordEncoder.matches(rawPassword, player.getPasswordHash());
     }

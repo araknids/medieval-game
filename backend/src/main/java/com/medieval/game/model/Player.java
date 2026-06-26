@@ -111,6 +111,10 @@ public class Player {
     @Column(nullable = false)
     private LocalDateTime staminaUpdatedAt = LocalDateTime.now();
 
+    // [LAUNCH_METRICS] Última atividade autenticada (atualizada 1×/dia no GET /api/warrior — toda abertura
+    // valida o token por ele). Nullable; ddl-auto=update cria a coluna. Mede retenção real (D1/D2).
+    private LocalDateTime lastSeenAt;
+
     // [BUFF_NOVATO] Nos primeiros 3 dias da conta, estamina E HP regeneram 100% em 15 min (em vez de 60),
     // pra suavizar o "penhasco de estamina" do recém-chegado. Janela derivada de createdAt — sem coluna nova.
     // Soft-wipe reseta createdAt → re-concede o buff. O HP herda esta janela via Warrior.hpRegenMinutes().

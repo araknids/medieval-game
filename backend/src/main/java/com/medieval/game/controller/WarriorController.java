@@ -35,6 +35,7 @@ public class WarriorController {
     @GetMapping
     public ResponseEntity<WarriorResponse> getMyWarrior(Authentication auth) {
         Player  player  = playerService.findById((Long) auth.getPrincipal());
+        playerService.touchLastSeen(player.getId());   // [LAUNCH_METRICS] marca "ativo hoje" (1×/dia) → retenção real
         Warrior warrior = warriorService.getWarrior(player);
         return ResponseEntity.ok(buildResponse(warrior, player));
     }

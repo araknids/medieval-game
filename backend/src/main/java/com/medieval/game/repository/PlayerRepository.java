@@ -68,4 +68,12 @@ public interface PlayerRepository extends JpaRepository<Player, Long> {
                                    @Param("now") java.time.LocalDateTime now,
                                    @Param("excludeId") Long excludeId,
                                    org.springframework.data.domain.Pageable pageable);
+
+    // [LAUNCH_METRICS] Toca lastSeenAt no máx 1×/dia (UPDATE direto: NÃO carrega a entidade nem bate no
+    // @Version → sem conflito otimista entre GET /api/warrior concorrentes). Throttle no WHERE: se já foi
+    // visto hoje, é no-op. Mede retenção real (D1/D2) — quem ABRIU o app no dia N (toda abertura faz get_warrior).
+    @org.springframework.transaction.annotation.Transactional
+    @org.springframework.data.jpa.repository.Modifying
+    @Query("UPDATE Player p SET p.lastSeenAt = :now WHERE p.id = :id AND (p.lastSeenAt IS NULL OR p.lastSeenAt < :startOfDay)")
+    int touchLastSeen(@Param("id") Long id, @Param("now") java.time.LocalDateTime now, @Param("startOfDay") java.time.LocalDateTime startOfDay);
 }

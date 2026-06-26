@@ -38,20 +38,21 @@ SELECT count(*)                                        AS total,
 FROM players;
 ```
 
-### c) Retenção / "número D2" (proxy — ver nota)
-"Voltou" = a última ação (estamina) caiu DEPOIS do dia do cadastro.
+### c) Retenção / "número D2"
+`last_seen_at` = a última vez que o jogador ABRIU o app (todo boot faz `GET /api/warrior`, que toca
+isso 1×/dia). "Voltou" = `last_seen_at` caiu DEPOIS do dia do cadastro.
 ```sql
-SELECT count(*)                                                                          AS cadastros,
-       count(*) FILTER (WHERE p.stamina_updated_at::date > p.created_at::date)            AS voltou_d1,
-       count(*) FILTER (WHERE p.stamina_updated_at::date > (p.created_at::date + 1))      AS voltou_d2,
-       round(100.0*count(*) FILTER (WHERE p.stamina_updated_at::date > p.created_at::date)     /nullif(count(*),0),1) AS pct_d1,
-       round(100.0*count(*) FILTER (WHERE p.stamina_updated_at::date > (p.created_at::date+1)) /nullif(count(*),0),1) AS pct_d2
+SELECT count(*)                                                                       AS cadastros,
+       count(*) FILTER (WHERE p.last_seen_at::date > p.created_at::date)               AS voltou_apos_d0,
+       count(*) FILTER (WHERE p.last_seen_at::date > (p.created_at::date + 1))         AS voltou_apos_d1,
+       round(100.0*count(*) FILTER (WHERE p.last_seen_at::date > p.created_at::date)     /nullif(count(*),0),1) AS pct_d1,
+       round(100.0*count(*) FILTER (WHERE p.last_seen_at::date > (p.created_at::date+1)) /nullif(count(*),0),1) AS pct_d2
 FROM players p
 WHERE p.created_at::date <= (CURRENT_DATE - 1);   -- só quem já TEVE a chance de voltar
 ```
-> ⚠️ **Proxy, não retenção real.** `stamina_updated_at` é só o ÚLTIMO timestamp, não um histórico por dia.
-> Mede "voltou ao menos 1× depois do dia 0", não "ativo NO dia N". Pra D1/D2 de verdade precisa de um
-> **log de login/atividade** (ver §4). Pro teste com amigos, esse proxy + perguntar a eles basta.
+> Nota: `last_seen_at` é o ÚLTIMO dia ativo (1 timestamp), então mede "voltou ao menos 1× além do dia
+> 0/1", não "ativo no dia EXATO N". Pra coortes por-dia-exato (D1/D7 reais) precisaria de uma tabela de
+> dias-ativos (futuro). Pro launch, esse **`pct_d2` é o teu número D2**.
 
 ### d) Distribuição de nível (mostra se travam cedo)
 ```sql
@@ -79,7 +80,7 @@ Curto de propósito — gente cansa. Cola num form (Google Forms) ou pede no cha
 7. **Visual e UI**: claro? bonito? confuso/feio em algum ponto?
 8. **0–10:** quão provável você jogar de novo amanhã? E indicar pra um amigo?
 
-## 4) (Opcional) Retenção de VERDADE — `last_login_at`
-Se quiser medir D1/D2 direito no itch (não só o proxy), o caminho barato é **1 coluna** `last_login_at`
-no `players`, atualizada no login/refresh de token. Aí dá pra "logou no dia N", "ativo nas últimas 24h".
-É uma migração pequena — decida se vale antes do itch (pro teste com amigos, NÃO precisa).
+## 4) Retenção de VERDADE — `last_seen_at` ✅ IMPLEMENTADO
+Coluna `players.last_seen_at`, atualizada **1×/dia** no `GET /api/warrior` (UPDATE direto throttle, sem
+bater no `@Version`). É o que a §c usa — sinal real de "abriu o app no dia N". `ddl-auto=update` cria a
+coluna no boot. (Próximo nível, se um dia precisar de coortes por-dia-exato: tabela de dias-ativos.)
