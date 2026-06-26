@@ -146,8 +146,19 @@ class GuildWarRosterTest extends BaseIntegrationTest {
                 .andExpect(status().isOk());
 
         long guildId = guildRepository.findByName(name).orElseThrow().getId();
-        String memberTok = registerAndGetToken(uniqueUser("rm"));
-        mockMvc.perform(post("/api/guild/join/" + guildId).header("Authorization", bearer(memberTok)))
+        String memberName = uniqueUser("rm");
+        String memberTok = registerAndGetToken(memberName);
+        // [GUILD_INVITE_ONLY] entrar exige convite: líder convida pelo nome do guerreiro, membro aceita
+        String warriorName = "Guerreiro " + memberName;
+        if (warriorName.length() > 20) warriorName = warriorName.substring(0, 20);
+        mockMvc.perform(post("/api/guild-invites/invite-by-name").header("Authorization", bearer(leaderTok))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"name\":\"" + warriorName + "\"}"))
+                .andExpect(status().isOk());
+        String inc = mockMvc.perform(get("/api/guild-invites").header("Authorization", bearer(memberTok)))
+                .andReturn().getResponse().getContentAsString();
+        long inviteId = objectMapper.readTree(inc).get("invites").get(0).get("inviteId").asLong();
+        mockMvc.perform(post("/api/guild-invites/" + inviteId + "/accept").header("Authorization", bearer(memberTok)))
                 .andExpect(status().isOk());
 
         // descobre o playerId do membro (na lista de membros do líder)

@@ -21,6 +21,24 @@ class GuildIntegrationTest extends BaseIntegrationTest {
         token = registerAndGetToken(uniqueUser("guild"));
     }
 
+    // [GUILD_INVITE_ONLY] Entrar agora EXIGE convite: o líder convida pelo nome do guerreiro e o membro
+    // aceita. Reaproveitado pelos testes que antes usavam o join aberto.
+    private void inviteAndJoin(String leaderToken, String memberToken, String memberUsername) throws Exception {
+        String warriorName = "Guerreiro " + memberUsername;
+        if (warriorName.length() > 20) warriorName = warriorName.substring(0, 20);
+        mockMvc.perform(post("/api/guild-invites/invite-by-name")
+                        .header("Authorization", bearer(leaderToken))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(json(Map.of("name", warriorName))))
+                .andExpect(status().isOk());
+        String inc = mockMvc.perform(get("/api/guild-invites").header("Authorization", bearer(memberToken)))
+                .andReturn().getResponse().getContentAsString();
+        long inviteId = objectMapper.readTree(inc).get("invites").get(0).get("inviteId").asLong();
+        mockMvc.perform(post("/api/guild-invites/" + inviteId + "/accept")
+                        .header("Authorization", bearer(memberToken)))
+                .andExpect(status().isOk());
+    }
+
     // ── Sem guilda: GET /api/guild retorna inGuild:false ──
     @Test
     @DisplayName("GET /api/guild sem guilda → inGuild:false")
@@ -96,24 +114,41 @@ class GuildIntegrationTest extends BaseIntegrationTest {
                 .andExpect(jsonPath("$[0].level").isNumber());
     }
 
-    // ── Outro player entra na guilda ──
+    // ── Outro player entra na guilda VIA CONVITE [GUILD_INVITE_ONLY] ──
     @Test
-    @DisplayName("POST /api/guild/join/{id} → segundo player entra na guilda")
-    void joinGuild_success() throws Exception {
-        String createResp = mockMvc.perform(post("/api/guild")
+    @DisplayName("convite + accept → segundo player entra na guilda")
+    void joinGuild_viaInvite_success() throws Exception {
+        mockMvc.perform(post("/api/guild")
                         .header("Authorization", bearer(token))
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content(json(Map.of("name", "GuildJoin", "description", ""))))
-                .andReturn().getResponse().getContentAsString();
+                        .content(json(Map.of("name", "GuildJoin", "description", ""))));
 
-        long guildId = objectMapper.readTree(createResp).get("id").asLong();
-        String token2 = registerAndGetToken(uniqueUser("joinee"));
+        String u2 = uniqueUser("joinee");
+        String token2 = registerAndGetToken(u2);
+        inviteAndJoin(token, token2, u2);
 
-        mockMvc.perform(post("/api/guild/join/" + guildId)
-                        .header("Authorization", bearer(token2)))
+        mockMvc.perform(get("/api/guild").header("Authorization", bearer(token2)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.inGuild").value(true))
                 .andExpect(jsonPath("$.members", hasSize(2)));
+    }
+
+    // ── Sem convite, NÃO entra [GUILD_INVITE_ONLY] ──
+    @Test
+    @DisplayName("POST /api/guild/join sem convite → 400")
+    void joinGuild_withoutInvite_returns400() throws Exception {
+        String createResp = mockMvc.perform(post("/api/guild")
+                        .header("Authorization", bearer(token))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(json(Map.of("name", "GuildNoInvite", "description", ""))))
+                .andReturn().getResponse().getContentAsString();
+        long guildId = objectMapper.readTree(createResp).get("id").asLong();
+        String token2 = registerAndGetToken(uniqueUser("uninvited"));
+
+        mockMvc.perform(post("/api/guild/join/" + guildId)
+                        .header("Authorization", bearer(token2)))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error").isNotEmpty());
     }
 
     // ── Entrar em guilda já estando em outra → 400 ──
@@ -144,11 +179,9 @@ class GuildIntegrationTest extends BaseIntegrationTest {
                         .content(json(Map.of("name", "GuildLeave", "description", ""))))
                 .andReturn().getResponse().getContentAsString();
 
-        long guildId = objectMapper.readTree(createResp).get("id").asLong();
-        String token2 = registerAndGetToken(uniqueUser("leaver"));
-
-        mockMvc.perform(post("/api/guild/join/" + guildId)
-                .header("Authorization", bearer(token2)));
+        String u2 = uniqueUser("leaver");
+        String token2 = registerAndGetToken(u2);
+        inviteAndJoin(token, token2, u2);
 
         mockMvc.perform(post("/api/guild/leave").header("Authorization", bearer(token2)))
                 .andExpect(status().isOk())
@@ -165,11 +198,9 @@ class GuildIntegrationTest extends BaseIntegrationTest {
                         .content(json(Map.of("name", "GuildLeaveLeader", "description", ""))))
                 .andReturn().getResponse().getContentAsString();
 
-        long guildId = objectMapper.readTree(createResp).get("id").asLong();
-        String token2 = registerAndGetToken(uniqueUser("member2"));
-
-        mockMvc.perform(post("/api/guild/join/" + guildId)
-                .header("Authorization", bearer(token2)));
+        String u2 = uniqueUser("member2");
+        String token2 = registerAndGetToken(u2);
+        inviteAndJoin(token, token2, u2);
 
         mockMvc.perform(post("/api/guild/leave").header("Authorization", bearer(token)))
                 .andExpect(status().isBadRequest())
@@ -186,11 +217,9 @@ class GuildIntegrationTest extends BaseIntegrationTest {
                         .content(json(Map.of("name", "GuildKick", "description", ""))))
                 .andReturn().getResponse().getContentAsString();
 
-        long guildId = objectMapper.readTree(createResp).get("id").asLong();
-        String token2 = registerAndGetToken(uniqueUser("kicked"));
-
-        mockMvc.perform(post("/api/guild/join/" + guildId)
-                .header("Authorization", bearer(token2)));
+        String u2 = uniqueUser("kicked");
+        String token2 = registerAndGetToken(u2);
+        inviteAndJoin(token, token2, u2);
 
         String memberResp = mockMvc.perform(get("/api/guild").header("Authorization", bearer(token2)))
                 .andReturn().getResponse().getContentAsString();
@@ -249,11 +278,9 @@ class GuildIntegrationTest extends BaseIntegrationTest {
                         .content(json(Map.of("name", "GuildNotLeader", "description", ""))))
                 .andReturn().getResponse().getContentAsString();
 
-        long guildId = objectMapper.readTree(createResp).get("id").asLong();
-        String token2 = registerAndGetToken(uniqueUser("notleader"));
-
-        mockMvc.perform(post("/api/guild/join/" + guildId)
-                .header("Authorization", bearer(token2)));
+        String u2 = uniqueUser("notleader");
+        String token2 = registerAndGetToken(u2);
+        inviteAndJoin(token, token2, u2);
 
         mockMvc.perform(delete("/api/guild").header("Authorization", bearer(token2)))
                 .andExpect(status().isBadRequest())

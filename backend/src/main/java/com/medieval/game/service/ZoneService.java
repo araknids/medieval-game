@@ -218,7 +218,7 @@ public class ZoneService {
             Warrior w = warriorRepository.findByPlayer(player).orElse(null);
             Random rng = java.util.concurrent.ThreadLocalRandom.current();
             if (bossEnabled && w != null && !w.isKnockedOut() && rng.nextInt(1000) < bossChancePerMille(activity.getZone())) {
-                int bossLvl = w.getLevel() + 1 + rng.nextInt(20); // +1..20
+                int bossLvl = w.getLevel() + 1 + rng.nextInt(6); // [PLAYTEST_FIX] +1..6 (era +1..20 = chefe muito acima do player)
                 String bossName = bossNameFor(activity);
                 activity.setStatus(ZoneActivityStatus.BOSS_PENDING);
                 activity.setBossLevel(bossLvl);
@@ -485,7 +485,7 @@ public class ZoneService {
             BattleSimulator.Combatant.of(w.getName(), s,
                 w.getActiveWeaponElement(), w.getActiveArmorElement(), abilityService.activeLoadout(w), statsService.isRangedWeaponEquipped(player)).withCurrentHp(hp), // [HP_SPAWN] entra com HP atual; máximo = s[2]
             BattleSimulator.Combatant.of(activity.getBossName(),
-                new int[]{(int)(m[0] * 1.5), (int)(m[1] * 1.5), m[2] * 2, m[3], m[4], m[5]}, // chefe: ATK/DEF ×1.5, HP ×2
+                new int[]{(int)(m[0] * 1.25), (int)(m[1] * 1.2), (int)(m[2] * 1.6), m[3], m[4], m[5]}, // [PLAYTEST_FIX] chefe: ATK×1.25 DEF×1.2 HP×1.6 (era 1.5/1.5/2)
                 activity.getElement(), activity.getElement(), List.of(), false), // [KITING] chefe errante = melee
             true); // PvE: timeout = derrota
         inventoryService.wearEquippedItems(player);

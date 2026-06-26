@@ -130,6 +130,6 @@ public final class ExpeditionMapGenerator {
     }
 
     private static int bossBump(int depth, int tier) {
-        return depth + tier * 2 + 2;
+        return depth + tier + 1; // [PLAYTEST_FIX] boss = +1 sobre o elite mais fundo (segue sendo o nó mais forte) mas era depth+tier*2+2 = +9/+11/+13 (godMode); agora ~+7/+8/+9 por tier
     }
 }

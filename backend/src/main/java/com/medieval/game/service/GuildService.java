@@ -3,6 +3,7 @@ package com.medieval.game.service;
 import com.medieval.game.model.Guild;
 import com.medieval.game.model.Player;
 import com.medieval.game.model.TerritoryDeclaration.DeclarationStatus;
+import com.medieval.game.repository.GuildInviteRepository;
 import com.medieval.game.repository.GuildRepository;
 import com.medieval.game.repository.PlayerRepository;
 import com.medieval.game.repository.TerritoryControlRepository;
@@ -24,6 +25,7 @@ public class GuildService {
     private static final int  WAR_ROSTER_MAX     = 15; // espelha TerritoryService.ROSTER_MAX. [GUERRA_ROSTER]
 
     private final GuildRepository              guildRepository;
+    private final GuildInviteRepository        guildInviteRepository; // [GUILD_INVITE_ONLY] gate de entrada
     private final PlayerRepository             playerRepository;
     private final WarriorRepository            warriorRepository;
     private final PlayerService                playerService;
@@ -77,6 +79,14 @@ public class GuildService {
         if (playerRepository.findGuildByPlayerId(player.getId()).isPresent()) {
             log.warn("[GuildService] player={} REJECTED: already belongs to a guild", player.getId());
             throw new IllegalStateException("You already belong to a guild. Saia primeiro.");
+        }
+
+        // [GUILD_INVITE_ONLY] Entrar EXIGE convite PENDENTE (o líder convida; o jogador aceita). Antes o
+        // join era ABERTO (qualquer um entrava em qualquer guilda sem permissão). O accept() chama este
+        // join com o convite ainda PENDING, então o fluxo de convite continua funcionando.
+        if (guildInviteRepository.findByGuildIdAndInviteeIdAndStatus(guildId, player.getId(), "PENDING").isEmpty()) {
+            log.warn("[GuildService] player={} REJECTED: no pending invite to guild {}", player.getId(), guildId);
+            throw new com.medieval.game.config.LocalizedException("error.guild_invite_required", "You need an invite to join this guild.");
         }
 
         // [VARREDURA] Lock pessimista: serializa joins concorrentes na MESMA guild (count + entrar é

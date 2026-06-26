@@ -432,7 +432,7 @@ public class ExpeditionService {
         // [INCURSAO_PVP] O raid PvP agora é por ESCOLHA do atacante no nó de combate (ver choose +
         // resolveCombatChoice), não mais por chance aleatória aqui. Este caminho é só PvE.
         int[] mob = npcStats(monsterLevel, rng);
-        if (boss) { mob[0] = (int) (mob[0] * 1.35); mob[1] = (int) (mob[1] * 1.3); mob[2] = (int) (mob[2] * 1.7); }
+        if (boss) { mob[0] = (int) (mob[0] * 1.25); mob[1] = (int) (mob[1] * 1.2); mob[2] = (int) (mob[2] * 1.5); } // [PLAYTEST_FIX] era 1.35/1.3/1.7 (HP era o pior)
 
         String monsterName = monsterName(run, node, rng);
         var me = BattleSimulator.Combatant.of(warrior.getName(), mine,

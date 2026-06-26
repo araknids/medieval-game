@@ -28,8 +28,8 @@ import java.util.Random;
 public class BattleSimulator {
 
     /** [REBALANCE v2] Acerto-base com DEX=AGI=0 (cada ponto de DEX/AGI ajusta a partir daqui). Clamp 20–95%. */
-    private static final int HIT_BASE = 50;
-    private static final int HIT_MIN  = 20;
+    private static final int HIT_BASE = 62; // [PLAYTEST_FIX] 50→62: acerto ~62% no Lv1 (era ~49% = muito miss)
+    private static final int HIT_MIN  = 30; // [PLAYTEST_FIX] piso 20→30: AGI alta não tranca o atacante em quase-0
     private static final int HIT_MAX  = 95;
     /** [REBALANCE] Cada ponto de AGI a mais que o inimigo = +1% de chance de um golpe extra (cap 75%). */
     private static final double EXTRA_PER_AGI = 1.0;
