@@ -19,6 +19,7 @@ var recipes: Dictionary = {}      # {refine:[], craft:[], gems:[]}
 var resources: Array = []         # GET /api/gathering/resources
 var inventory: Array = []         # GET /api/inventory
 var warrior: Dictionary = {}      # /api/warrior (carteira do header)
+var smithing: Dictionary = {}     # [PLAYTEST_FIX] skill SMITHING (nível/XP) — não aparecia na tela
 var refine_qty: Dictionary = {}   # ore name → quantidade escolhida (SpinBox)
 var craft_filter := 0             # filtro de raridade da seção Craftar (0=todas, 1-5)
 var craft_category := "all"       # [FORJA_FILTRO] categoria: all|weapon|armor|accessory (o backend manda `category`)
@@ -40,7 +41,7 @@ func _ready() -> void:
 func _refresh() -> void:
 	UiKit.show_loading(self)
 	# recipes + resources + inventory + warrior em PARALELO (independentes)
-	var rs = await Api.batch_get(["/api/smithing/recipes", "/api/gathering/resources", "/api/inventory", "/api/warrior"])
+	var rs = await Api.batch_get(["/api/smithing/recipes", "/api/gathering/resources", "/api/inventory", "/api/warrior", "/api/gathering/skills"])
 	var rr = rs[0]
 	if not (rr.get("ok") and rr.get("json") is Dictionary):
 		UiKit.show_error(status, rr)
@@ -52,6 +53,7 @@ func _refresh() -> void:
 	inventory = inv["json"] if (inv.get("ok") and inv.get("json") is Array) else []
 	var wr = rs[3]
 	warrior = wr["json"] if (wr.get("ok") and wr.get("json") is Dictionary) else {}
+	_extract_smithing(rs[4])   # [PLAYTEST_FIX] nível da forja
 	_render()
 
 # [AUDIT] Refresh PÓS-AÇÃO enxuto: refinar/craftar/joia/reparar/reforjar mudam recursos,
@@ -60,7 +62,7 @@ func _refresh() -> void:
 # Mantém o `recipes` em cache → dropa o /api/smithing/recipes (payload pesado). O _refresh inicial
 # (e o botão de recarregar do scaffold) seguem puxando recipes.
 func _refresh_after_action() -> void:
-	var rs = await Api.batch_get(["/api/gathering/resources", "/api/inventory", "/api/warrior"])
+	var rs = await Api.batch_get(["/api/gathering/resources", "/api/inventory", "/api/warrior", "/api/gathering/skills"])
 	var res = rs[0]
 	if res.get("ok") and res.get("json") is Array:
 		resources = res["json"]
@@ -70,7 +72,16 @@ func _refresh_after_action() -> void:
 	var wr = rs[2]
 	if wr.get("ok") and wr.get("json") is Dictionary:
 		warrior = wr["json"]
+	_extract_smithing(rs[3])   # [PLAYTEST_FIX] nível da forja atualiza após craftar/refinar
 	_render()
+
+func _extract_smithing(r) -> void:
+	# [PLAYTEST_FIX] acha a skill SMITHING no payload de /api/gathering/skills
+	if r is Dictionary and r.get("ok") and r.get("json") is Array:
+		for s in r["json"]:
+			if s is Dictionary and str(s.get("skillType", "")) == "SMITHING":
+				smithing = s
+				return
 
 func _render() -> void:
 	for c in content.get_children():
@@ -78,6 +89,12 @@ func _render() -> void:
 	UiKit.hide_loading()
 	UiKit.set_wallet(wallet, warrior)
 	UiKit.set_equipped(inventory)   # [FORJA_HOVER] alimenta o compare (triângulo + tooltip rico) com o equipado
+	# ── [PLAYTEST_FIX] Nível da Forja (não aparecia na tela) ──
+	if not smithing.is_empty():
+		content.add_child(UiKit.section("Forja — Nível %d" % int(smithing.get("level", 1))))
+		var fn := int(smithing.get("expNeeded", 0))
+		if fn > 0:
+			content.add_child(UiKit.dim("XP %d / %d" % [int(smithing.get("experience", 0)), fn]))
 	# ── Seus materiais ──
 	content.add_child(UiKit.section("📦 Seus materiais"))
 	var mats := _materials_text()
@@ -124,12 +141,13 @@ func _render() -> void:
 	else:
 		_grid_section(gems, _gem_card, true, 190.0, 3)   # [FORJA_COMPACTO] grid denso (3 col)
 	# ── Manutenção (ordenada pelo item mais QUEBRADO primeiro: menor durabilidade no topo) ──
-	content.add_child(UiKit.section("🔧 Manutenção (Reparar / Reforjar)"))
+	content.add_child(UiKit.section("🔧 Manutenção (Reparar / Reforjar / Desmontar)"))
 	if inventory.is_empty():
 		content.add_child(UiKit.empty("Sem itens", "Equipamentos da mochila aparecem aqui p/ reparo/reforja"))
 	else:
 		var maint := inventory.duplicate()
-		maint.sort_custom(func(a, b): return int(a.get("durability", 100)) < int(b.get("durability", 100)))
+		# [PLAYTEST_FIX] equipados primeiro, depois o mais quebrado (menor durabilidade) no topo
+		maint.sort_custom(func(a, b): return (bool(a.get("equipped", false)) and not bool(b.get("equipped", false))) or (bool(a.get("equipped", false)) == bool(b.get("equipped", false)) and int(a.get("durability", 100)) < int(b.get("durability", 100))))
 		_grid_section(maint, _maint_card, true, 190.0, 3)   # [FORJA_COMPACTO] grid denso (3 col)
 
 # Monta o grid de cards via UiKit.grid (responsivo — colunas pela largura real, não da janela).

@@ -980,7 +980,11 @@ func _open(scr: String) -> void:
 			cached.on_reselect()   # [MAPA_MUNDO] World: re-clicar Mundo já estando nele → volta pro mapa
 		if int(_cache_ver.get(scr, -1)) != mc and cached.has_method("_refresh"):
 			_cache_ver[scr] = mc
-			await cached._refresh()
+			# [PLAYTEST_FIX] cache quente: revalida em BACKGROUND, sem spinner bloqueante (antes TODA navegação
+			# piscava "Carregando" + travava a aba). A tela já está visível; o refresh roda atrás e re-renderiza.
+			UiKit._suppress_loading = true
+			cached._refresh()   # sem await: roda síncrono até o 1º await (consome o suppress), resto em background
+			UiKit._suppress_loading = false
 		_maybe_offer(scr)   # [ONBOARDING v3] modal de aceitar ao chegar no NPC (1×/sessão) — guia o recruta
 		return
 	# 1ª vez: instancia, cacheia (embedded). O _ready da tela já faz o _refresh inicial.

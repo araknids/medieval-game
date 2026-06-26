@@ -318,11 +318,19 @@ static func show_error(status: Label, r) -> void:
 	hide_loading()   # [LOADING] um erro encerra o carregamento → tira o overlay
 	flash(status, err_text(r), 2)
 
+# [PLAYTEST_FIX] Suprime UMA chamada de show_loading (cache quente do Shell): a tela já mostra o conteúdo
+# em cache e revalida em background, então o overlay não pisca a cada navegação ("loading toda hora").
+static var _suppress_loading := false
+
 # [LOADING] Overlay CENTRAL de carregamento (dark backdrop + card + engrenagem girando + texto).
 # Substitui a antiga mensagem "Carregando…" no topo (que ficava escondida atrás do header). É o MESMO
 # padrão em todas as telas: o _refresh chama show_loading(self); o _render/erro chama hide_loading().
 # Idempotente (1 overlay por vez) e bloqueia cliques enquanto carrega.
 static func show_loading(host: Control, text := "") -> void:
+	if _suppress_loading:
+		_suppress_loading = false
+		hide_loading()   # limpa overlay pendente, mas NÃO cria um novo (revalidação silenciosa do cache quente)
+		return
 	hide_loading()
 	if host == null:
 		return

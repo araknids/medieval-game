@@ -18,6 +18,7 @@ var warrior: Dictionary = {}     # /api/warrior (carteira + bronze p/ affordabil
 var secs := 0                    # segundos até a próxima rotação (decai por _process)
 var rarity_filter := 0           # filtro de raridade dos itens à venda (0=Todas, 1-5)
 var category_filter := "all"     # [LOJA_FILTRO] categoria: all|weapon|armor|accessory (mesmo da Forja)
+var sort_by_price := false       # [PLAYTEST_FIX] ordenar itens por preço (asc) em vez da ordem de rotação
 
 # [LOJA_FILTRO] chips de categoria (espelha CRAFT_CATEGORIES da Forge.gd)
 const SHOP_CATEGORIES := [["all", "Todas"], ["weapon", "⚔ Armas"], ["armor", "🛡 Armadura"], ["accessory", "💍 Acessórios"]]
@@ -114,6 +115,11 @@ func _render() -> void:
 	content.add_child(UiKit.section(Lang.t("Itens (%d)") % items.size()))
 	content.add_child(_category_filter_row())   # [LOJA_FILTRO] filtro por tipo de equipamento (igual à Forja)
 	content.add_child(UiKit.rarity_filter(rarity_filter, _set_rarity))
+	# [PLAYTEST_FIX] botão de ordenar por preço (apagado quando desligado, igual aos chips de filtro)
+	var sort_btn := UiKit.small_btn(Lang.t("Ordenar por preço"), _toggle_price_sort)
+	if not sort_by_price:
+		sort_btn.modulate = Color(1, 1, 1, 0.5)
+	content.add_child(sort_btn)
 	if items.is_empty():
 		content.add_child(UiKit.empty("Sem itens nesta rotação", "Volte após a próxima rotação do mercador"))
 	else:
@@ -123,6 +129,8 @@ func _render() -> void:
 			if category_filter != "all" and _item_category(str(it.get("type", ""))) != category_filter: continue
 			if rarity_filter > 0 and int(it.get("rarity", 1)) != rarity_filter: continue
 			shown.append(it)
+		if sort_by_price:   # [PLAYTEST_FIX] preço asc, mas comprados continuam afundando pro fim
+			shown.sort_custom(func(a, b): return (bool(a.get("purchased", false)) == bool(b.get("purchased", false)) and int(a.get("price", 0)) < int(b.get("price", 0))) or (not bool(a.get("purchased", false)) and bool(b.get("purchased", false))))
 		if shown.is_empty():
 			content.add_child(UiKit.dim("— nada com esse filtro —"))
 		else:
@@ -154,6 +162,10 @@ func _set_category(cat: String) -> void:
 
 func _set_rarity(r: int) -> void:
 	rarity_filter = r
+	_render()
+
+func _toggle_price_sort() -> void:
+	sort_by_price = not sort_by_price
 	_render()
 
 # [LOJA] Slot ENXUTO no padrão do inventário (ItemTooltipCard): ícone + nome + Nv + preço; detalhe
